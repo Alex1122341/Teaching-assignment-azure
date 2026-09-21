@@ -1,0 +1,42 @@
+name: Azure Beta Build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-beta-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test_and_build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:emulator
+      - run: node tools/build-static.js
+      - run: cp staticwebapp.config.json .deploy-static/staticwebapp.config.json
+      - run: node --test tests/beta-baseline.test.js tests/azure-deployment.test.js
+      - uses: actions/upload-artifact@v7
+        with:
+          name: azure-beta-${{ github.sha }}
+          path: .deploy-static
+          if-no-files-found: error
+          retention-days: 7
+          include-hidden-files: true

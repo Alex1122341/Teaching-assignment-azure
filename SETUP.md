@@ -36,7 +36,7 @@ This branch runs the UCVM faculty role/group/history features on the Firebase Sp
    npx firebase deploy --project tester-teaching --only firestore:rules,firestore:indexes
    ```
    If the local Firebase CLI dependency is unavailable later, any Firebase CLI installation can deploy these rules; Cloud Functions are not required.
-6. Complete the one-time GitHub Pages, Firebase Authorized Domain, and gated Azure production setup in **Web deployment** below. Use a pull request to publish the frontend to the fixed GitHub Pages test site before any production approval.
+6. Complete the one-time Firebase Authorized Domain and gated Azure beta release setup in **Web deployment** below. Azure beta is released only by running **Azure Beta Deploy** manually against a successful **Azure Beta Build** run for the exact current `main` SHA.
 7. Sign in once as Owner / ADFA General or another administrator and open **Faculty Dashboard**. If the privacy-safe faculty replacement directory does not exist yet, the dashboard creates `settings/faculty_swap_index` and the admin-only `settings/faculty_swap_map` from the current Faculty Database.
 8. Open User Management.
 9. To add one person, choose their faculty profile in **New account**. The profile supplies the name and email; choose the access role and enter a temporary password. Firebase supplies the Authentication UID after creation.
@@ -47,51 +47,52 @@ This branch runs the UCVM faculty role/group/history features on the Firebase Sp
 
 ## Web deployment
 
-The routine release path uses two different frontend hosts for two different purposes:
+This is the **Azure beta repository** `Alex1122341/Teaching-assignment-azure`. Its one browser deployment target is the **Azure beta site** `https://red-cliff-04871ca0f.5.azurestaticapps.net`.
 
-- **GitHub Pages test site:** `https://alex1122341.github.io/Teaching-assignment/`
-- **Azure production site:** `https://red-cliff-04871ca0f.5.azurestaticapps.net`
+The beta site uses the live Firebase backend, project `tester-teaching`, for Authentication and Firestore. Test data-changing actions deliberately. Firebase Hosting is not used for beta web releases.
 
-Both frontends use the same live Firebase backend, project `tester-teaching`, for Authentication and Firestore. The GitHub Pages test site is therefore **Not Production**, but it is connected to the **Live Firebase Backend**. Test data-changing actions deliberately. Firebase Hosting is not used for routine web releases.
+The application baseline is `86bd5aa`. This repository is the frozen Azure beta line. It does not automatically sync from the GitHub Pages test repository `Alex1122341/Teaching-assignment`; a test-site feature is promoted only through a separately reviewed change after its complete test cycle succeeds.
 
-### One-time GitHub Pages and Firebase setup
+Azure beta release requires successful CI for the exact current `main` SHA. No release happens without a successful **Azure Beta Build** run for that exact SHA, and no release is triggered automatically.
 
-1. In GitHub repository **Settings > Pages**, set the Pages source to **GitHub Actions**.
-2. Keep the standard `github-pages` Environment available to pull-request deployments. Do not restrict that environment to `main`, because the fixed test site is updated from same-repository pull requests.
-3. In Firebase Console, open **Authentication > Settings > Authorized domains** and add `alex1122341.github.io`. This is required so Firebase Authentication can sign users in from the GitHub Pages host.
-4. The fixed Pages URL always shows the latest successful same-repository pull request deployed by `.github/workflows/github-pages-test.yml`. A newer successful PR replaces the previous test version.
-5. The Pages build injects a visible **TEST SITE - GitHub Pages / Not Production - Live Firebase Backend** banner with the PR number and commit identifier. That banner exists only in the Pages artifact and never in the Azure production artifact.
+A normal push to `main` does not release Azure beta. Pushing `main`, or opening a pull request against `main`, runs **Azure Beta Build**: it installs dependencies, runs `npm test`, runs the Firestore/Auth emulator suite, builds `.deploy-static`, stages the canonical `staticwebapp.config.json`, and uploads the immutable artifact `azure-beta-<SHA>`. That workflow never contacts Azure and holds no Azure credential.
 
-Forked pull requests do not deploy the test site. The Pages workflow uses the normal `pull_request` event and verifies that the PR head repository is the same repository before deployment.
+### One-time Firebase authorized domain setup
 
-### One-time gated Azure production setup
+In Firebase Console, open **Authentication > Settings > Authorized domains** and confirm `red-cliff-04871ca0f.5.azurestaticapps.net` is present. This is required so Firebase Authentication can sign users in from the Azure beta host.
 
-Create a GitHub Environment named `production` under **Settings > Environments** and configure it as the production release gate:
+### One-time gated Azure beta setup
 
-1. Add a **Required reviewer** who can approve production releases.
-2. Restrict deployment branches/tags so only `main` may deploy to this environment.
-3. Keep **Prevent self-review** disabled. This allows the repository owner to approve a deployment they initiated when appropriate.
-4. Add `AZURE_STATIC_WEB_APPS_API_TOKEN` as a **production environment secret** containing the deployment token for the existing Azure Static Web App `ucvm-teaching-lab-web`.
-5. After the environment secret is confirmed working, remove the old repository-level copy of `AZURE_STATIC_WEB_APPS_API_TOKEN` so the Azure token is available only to the approval-gated production job.
+Create a GitHub Environment named `beta` under **Settings > Environments** and configure it as the beta release gate:
 
-Never commit the deployment token, an ARM token, or an Azure access token to the repository.
+1. Restrict deployment branches/tags so only `main` may deploy to this environment.
+2. Add `AZURE_STATIC_WEB_APPS_API_TOKEN` as a **beta environment secret** containing the deployment token for the existing Azure Static Web App behind `https://red-cliff-04871ca0f.5.azurestaticapps.net`.
+3. If GitHub exposes environment reviewers for this private repository, add a required reviewer and enable prevention of self-review.
 
-### Routine pull-request and release flow
+Never commit the deployment token, an ARM token, or an Azure access token to the repository. Only the manual **Azure Beta Deploy** workflow reads `AZURE_STATIC_WEB_APPS_API_TOKEN`; the build workflow never receives it.
 
-1. Create a feature branch and open a same-repository pull request targeting `main`.
-2. The independent **Test** workflow runs static/unit tests and the Firestore/Auth emulator suite.
-3. The **GitHub Pages Test Site** workflow independently runs `npm ci`, `npm test`, `npm run test:emulator`, builds `.deploy-static`, applies Pages-only staging, and publishes the verified artifact to the fixed GitHub Pages test URL.
-4. Open `https://alex1122341.github.io/Teaching-assignment/` and manually validate sign-in, Timetable, Faculty Dashboard, and the changed workflow. Confirm the TEST SITE / Not Production banner is present. Because this site uses the live `tester-teaching` backend, avoid unnecessary edits to real data.
-5. Additional commits to the same or another same-repository PR update the single fixed Pages test site after their verification passes. The latest successful PR version is the version visible at the fixed URL.
-6. Only after the browser test is accepted, merge the pull request to `main`.
-7. The `main` push starts the **Azure Static Web Apps** workflow. Its `validate_and_build` job runs the full test suite again, builds `.deploy-static`, adds the canonical `staticwebapp.config.json`, and uploads an immutable `azure-production-${{ github.sha }}` Actions artifact.
-8. The production deployment then waits at the GitHub `production` Environment gate. In GitHub Actions choose **Review deployments**, select **production**, then choose **Approve and deploy**.
-9. After approval, the deployment job downloads the exact artifact built before approval and sends those bytes to Azure Static Web Apps. It does not run the build again after approval.
-10. If a newer `main` version arrives while an older production release is still waiting for approval, the `azure-production-main` concurrency group cancels the older run so only the newest candidate remains.
+### Releasing Azure beta
 
-Azure is production-only in this flow; pull requests do not create Azure preview environments. GitHub Pages is the fixed browser-test host.
+1. Open the successful **Azure Beta Build** run for the current `main` SHA.
+2. Copy its run ID and its full commit SHA.
+3. Run **Azure Beta Deploy** manually with those two exact values.
+4. Approve the `beta` environment when GitHub environment review is available.
+5. Verify `https://red-cliff-04871ca0f.5.azurestaticapps.net` after deployment.
 
-The GitHub Pages URL is publicly reachable and is not a security boundary. Firebase Authentication and Firestore Security Rules continue to protect application data.
+The release gate fails closed. **Azure Beta Deploy** refuses to download or upload anything unless every one of these is true:
+
+- the requested SHA is the checked-out commit and is also the current remote `main` head;
+- the source run belongs to this same repository;
+- the source run came from `.github/workflows/azure-beta-build.yml`;
+- the source run was a `push` event on `main`;
+- the source run is completed and successful;
+- the source run's `head_sha` equals the requested SHA.
+
+It then downloads the already-built `azure-beta-<SHA>` artifact from that exact run and uploads those bytes to Azure. It does not rebuild, does not run tests, and does not accept a stale SHA, a failed run, or a run from another workflow.
+
+This beta repository has no pull-request preview environment and no automatic release. A normal push cannot deploy Azure beta.
+
+The Azure beta URL is publicly reachable and is not a security boundary. Firebase Authentication and Firestore Security Rules continue to protect application data.
 
 ### Firestore rule changes
 
@@ -114,7 +115,7 @@ powershell -NoProfile -Command "Unblock-File -LiteralPath '.\tools\deploy_azure_
 powershell -File .\tools\deploy_azure_static_web.ps1
 ```
 
-Routine releases should use the GitHub Pages test site, merge to `main`, GitHub production approval, and Azure deployment instead of this local fallback.
+Routine releases should use **Azure Beta Build** followed by the manual **Azure Beta Deploy** release for the exact current `main` SHA instead of this local fallback.
 
 ## Faculty replacement requests
 
@@ -140,7 +141,7 @@ If an import fails after the maintenance lock is acquired, the teaching-data loc
 
 Stale session deletion is not reached until the imported source has been verified. Completion is not reached until final session IDs match, derived indexes are rebuilt, and the provisional index verification passes. Only a terminal `COMPLETED` or `RESTORED` transition releases the lock, in the same Firestore batch as the terminal job update.
 
-Destructive failure-injection, interrupted-import, restore, takeover, and lock-enforcement testing must be run only against the Firebase emulator or another isolated disposable environment. The fixed GitHub Pages test site uses the live `tester-teaching` backend; on Pages, use only the non-destructive preflight/smoke-test steps unless a real synchronization is intentionally being performed.
+Destructive failure-injection, interrupted-import, restore, takeover, and lock-enforcement testing must be run only against the Firebase emulator or another isolated disposable environment. The Azure beta site uses the live `tester-teaching` backend; against beta, use only the non-destructive preflight/smoke-test steps unless a real synchronization is intentionally being performed.
 
 This feature depends on the reviewed maintenance rules in `firestore.rules`. Frontend banners and disabled controls are usability guards; Firestore Security Rules are the actual backend enforcement boundary. Deploy the reviewed rules before relying on production maintenance enforcement:
 

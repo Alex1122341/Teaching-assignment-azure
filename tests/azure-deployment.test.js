@@ -66,15 +66,13 @@ test('beta deployment is manual exact-main and reuses a successful build artifac
   assert.doesNotMatch(deploy,/npm ci|npm test|build-static/);
 });
 
-test('setup docs describe Pages testing followed by gated Azure production',()=>{
+test('setup docs label this repository beta and forbid automatic test promotion',()=>{
   const setup=read('SETUP.md');
-  assert.match(setup,/AZURE_STATIC_WEB_APPS_API_TOKEN/);
-  assert.match(setup,/pull request/i);
-  assert.match(setup,/GitHub Pages/i);
-  assert.match(setup,/merge.*`main`|merge.*main/i);
-  assert.match(setup,/Approve and deploy/i);
-  assert.match(setup,/firestore:rules/);
-  assert.match(setup,/manual fallback|emergency\/manual fallback/i);
-  assert.match(setup,/Firebase Hosting is not used|Firebase Hosting stays out/i);
-  assert.doesNotMatch(setup,/Azure PR preview|temporary Azure PR preview/i);
+  assert.match(setup,/Azure beta site/i);
+  assert.match(setup,/Teaching-assignment-azure/);
+  assert.match(setup,/red-cliff-04871ca0f\.5\.azurestaticapps\.net/);
+  assert.match(setup,/successful.*CI.*exact.*SHA|exact.*SHA.*successful.*CI/i);
+  assert.match(setup,/manual/i);
+  assert.match(setup,/no automatic sync|not automatically sync/i);
+  assert.doesNotMatch(setup,/GitHub Pages.*deploy|Pages test site.*this repository/i);
 });

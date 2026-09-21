@@ -1,3 +1,9 @@
+> **HISTORICAL / SUPERSEDED — DO NOT IMPLEMENT**
+>
+> This document predates the Azure beta repository split (`Alex1122341/Teaching-assignment-azure`, frozen at `86bd5aa2c8a25259f3f708e49b322220ff43a147`). It is retained for history only.
+>
+> Do not implement its deployment architecture in the beta repository. The active contract is documented in `AGENTS.md` and `SETUP.md`.
+>
 # Azure PR Preview Deployment Design
 
 Date: 2026-09-15

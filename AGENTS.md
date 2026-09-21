@@ -10,6 +10,17 @@
 - Build the static bundle with `node tools/build-static.js`.
 - A normal push never releases Azure beta; release requires the successful `Azure Beta Build` run for the exact current `main` SHA.
 
+## Frozen runtime contract
+
+- The Azure beta application is frozen at commit `86bd5aa2c8a25259f3f708e49b322220ff43a147`. That immutable commit is the content trust anchor.
+- **All** shipped static runtime assets are protected, not just a five-file subset. The authoritative shipped-file list is `tools/static-assets.json` (44 entries).
+- The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.
+- `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .deploy-static` to validate a built or downloaded artifact.
+- `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.
+- Normal CI fails if any shipped runtime asset drifts from the baseline. `Azure Beta Build` runs the freeze check for both the repository and the built artifact; `Azure Beta Deploy` revalidates the requested SHA and the downloaded artifact independently before any Azure upload.
+- Changing the baseline is explicit future release work: it requires updating the frozen baseline commit reference, the manifest-derived protection, and the documentation together, in a reviewed change. It is never an implicit side effect of a feature commit.
+- Task 6 (Azure authorization, deployment-token configuration and the first gated release) is separate and has NOT been completed.
+
 ## Application architecture
 
 - Frontend: vanilla HTML, CSS and JavaScript.

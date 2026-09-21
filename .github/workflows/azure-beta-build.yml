@@ -19,6 +19,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -32,6 +34,8 @@ jobs:
       - run: npm run test:emulator
       - run: node tools/build-static.js
       - run: cp staticwebapp.config.json .deploy-static/staticwebapp.config.json
+      - run: node tools/beta-freeze.js
+      - run: node tools/beta-freeze.js --artifact .deploy-static
       - run: node --test tests/beta-baseline.test.js tests/azure-deployment.test.js
       - uses: actions/upload-artifact@v7
         with:

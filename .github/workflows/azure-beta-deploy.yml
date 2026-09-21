@@ -1,0 +1,76 @@
+name: Azure Beta Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful Azure Beta Build run ID from main
+        required: true
+        type: string
+      commit_sha:
+        description: Exact current beta main commit SHA
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: azure-beta-manual-${{ inputs.commit_sha }}
+  cancel-in-progress: false
+
+jobs:
+  deploy_beta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: beta
+      url: https://red-cliff-04871ca0f.5.azurestaticapps.net
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 1
+      - name: Verify current beta main and successful source build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_SHA"
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}")"
+          test "$(jq -r '.repository.full_name' <<< "$run_json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.head_sha' <<< "$run_json")" = "$EXPECTED_SHA"
+          test "$(jq -r '.head_branch' <<< "$run_json")" = "main"
+          test "$(jq -r '.event' <<< "$run_json")" = "push"
+          test "$(jq -r '.status' <<< "$run_json")" = "completed"
+          test "$(jq -r '.conclusion' <<< "$run_json")" = "success"
+          test "$(jq -r '.path' <<< "$run_json")" = ".github/workflows/azure-beta-build.yml"
+      - name: Download tested beta artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: azure-beta-${{ inputs.commit_sha }}
+          path: .deploy-static
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+      - name: Verify artifact handoff
+        run: |
+          test -f .deploy-static/index.html
+          test -f .deploy-static/staticwebapp.config.json
+      - name: Deploy tested beta artifact
+        uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: .deploy-static
+          api_location: ''
+          output_location: ''
+          skip_app_build: true
+          skip_api_build: true
+          production_branch: main

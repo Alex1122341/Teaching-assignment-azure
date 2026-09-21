@@ -66,6 +66,27 @@ test('beta deployment is manual exact-main and reuses a successful build artifac
   assert.doesNotMatch(deploy,/npm ci|npm test|build-static/);
 });
 
+test('beta deploy independently revalidates the frozen runtime before Azure upload',()=>{
+  const workflow=read('.github/workflows/azure-beta-deploy.yml');
+  const uploadAt=workflow.indexOf('Deploy tested beta artifact');
+  assert.ok(uploadAt>0,'the Azure upload step must exist');
+  const before=workflow.slice(0,uploadAt);
+  const after=workflow.slice(uploadAt);
+
+  // The upload is the only place that may touch Azure, and it must come last.
+  assert.match(after,/Azure\/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1/);
+  assert.doesNotMatch(after,/node tools\/beta-freeze\.js/);
+
+  // Independent frozen-runtime revalidation happens before that upload.
+  assert.match(before,/node tools\/beta-freeze\.js/);
+  assert.match(before,/--artifact\s+\$\{\{ github\.workspace \}\}\/\.deploy-static|--artifact\s+\.deploy-static/);
+  assert.match(before,/86bd5aa2c8a25259f3f708e49b322220ff43a147/);
+  assert.match(before,/ref:\s*\$\{\{ inputs\.commit_sha \}\}/);
+  // Revalidation must not become a second build.
+  assert.doesNotMatch(before,/node tools\/build-static\.js/);
+  assert.doesNotMatch(before,/npm run test:emulator/);
+});
+
 test('setup docs label this repository beta and forbid automatic test promotion',()=>{
   const setup=read('SETUP.md');
   assert.match(setup,/Azure beta site/i);

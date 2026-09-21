@@ -2,12 +2,13 @@
 
 ## Repository and deployment source of truth
 
-- Production repository: `Alex1122341/Teaching-assignment`.
-- `main` is the only production source of truth.
+- Beta repository: `Alex1122341/Teaching-assignment-azure`.
+- This repository is the frozen Azure beta line; `main` is deployable only through the manual exact-SHA beta release workflow.
+- The application baseline is `86bd5aa`; do not merge or automatically synchronize the test repository.
+- The beta URL is `https://red-cliff-04871ca0f.5.azurestaticapps.net`.
 - Do not commit feature work directly to `main`; use a feature branch / worktree and open a PR.
-- Firebase Hosting and Microsoft Azure Static Web Apps must publish the same static asset set from `tools/static-assets.json`.
-- Build the shared static bundle with `node tools/build-static.js`.
-- Azure practice deployment uses `tools/deploy_azure_static_web.ps1` and must not maintain a separate copy of frontend files.
+- Build the static bundle with `node tools/build-static.js`.
+- A normal push never releases Azure beta; release requires the successful `Azure Beta Build` run for the exact current `main` SHA.
 
 ## Application architecture
 

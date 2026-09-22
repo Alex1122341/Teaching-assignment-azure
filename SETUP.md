@@ -49,6 +49,8 @@ This branch runs the UCVM faculty role/group/history features on the Firebase Sp
 
 This is the **Azure beta repository** `Alex1122341/Teaching-assignment-azure`. Its one browser deployment target is the **Azure beta site** `https://red-cliff-04871ca0f.5.azurestaticapps.net`.
 
+For the complete separation boundary — what stays in `Alex1122341/Teaching-assignment`, what lives only here, required variables and secrets, environment names, rollback and known blockers — see `docs/azure-separation.md`.
+
 The beta site uses the live Firebase backend, project `tester-teaching`, for Authentication and Firestore. Test data-changing actions deliberately. Firebase Hosting is not used for beta web releases.
 
 The application baseline is `86bd5aa`. This repository is the frozen Azure beta line. It does not automatically sync from the GitHub Pages test repository `Alex1122341/Teaching-assignment`; a test-site feature is promoted only through a separately reviewed change after its complete test cycle succeeds.
@@ -106,7 +108,7 @@ Azure beta is frozen at commit `86bd5aa2c8a25259f3f708e49b322220ff43a147`. That 
 6. **Azure Beta Deploy** independently revalidates the requested SHA and the downloaded artifact against the same frozen baseline before any Azure upload. It does not rebuild.
 7. Moving the baseline to a new commit is explicit, reviewed release work: the frozen commit reference, the manifest-derived protection and this documentation change together. It never happens implicitly.
 
-Task 6 — Azure authorization, deployment-token configuration and the first gated release — is separate from this contract and has NOT been completed.
+Task 6 — Azure authorization, deployment-token configuration and the first gated release — is COMPLETE. The `beta` environment holds `AZURE_STATIC_WEB_APPS_API_TOKEN`, and **Azure Beta Deploy** run `35646315010` released `e15a53240a6b6a688d95299539a5628ac2b54144` with every verification step green. Every later release repeats the same manual exact-SHA sequence in **Releasing Azure beta** above. See `docs/azure-separation.md` for the cross-repository separation boundary, rollback sequence and known blockers.
 
 ### Firestore rule changes
 

@@ -9,6 +9,7 @@
 - Do not commit feature work directly to `main`; use a feature branch / worktree and open a PR.
 - Build the static bundle with `node tools/build-static.js`.
 - A normal push never releases Azure beta; release requires the successful `Azure Beta Build` run for the exact current `main` SHA.
+- The full separation boundary, deployment flow, required variables/secrets, rollback sequence and known blockers are documented in `docs/azure-separation.md`. Prefer that document for anything cross-repository.
 
 ## Frozen runtime contract
 
@@ -19,7 +20,7 @@
 - `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.
 - Normal CI fails if any shipped runtime asset drifts from the baseline. `Azure Beta Build` runs the freeze check for both the repository and the built artifact; `Azure Beta Deploy` revalidates the requested SHA and the downloaded artifact independently before any Azure upload.
 - Changing the baseline is explicit future release work: it requires updating the frozen baseline commit reference, the manifest-derived protection, and the documentation together, in a reviewed change. It is never an implicit side effect of a feature commit.
-- Task 6 (Azure authorization, deployment-token configuration and the first gated release) is separate and has NOT been completed.
+- Task 6 (Azure authorization, deployment-token configuration and the first gated release) is COMPLETE: the `beta` environment holds `AZURE_STATIC_WEB_APPS_API_TOKEN`, and **Azure Beta Deploy** run `35646315010` released `e15a53240a6b6a688d95299539a5628ac2b54144` with every verification step green. Re-running a release follows the same manual exact-SHA sequence; see `docs/azure-separation.md`.
 
 ## Application architecture
 

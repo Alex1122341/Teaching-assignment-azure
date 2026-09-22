@@ -182,9 +182,20 @@ completed successfully; and its `head_sha` equals the requested SHA.
 
 A normal push never releases. There is no pull-request preview environment.
 
-First gated release status: **completed.** Run `35646315010`, dispatched by
-`Alex1122341` on 2026-09-21T19:40:39Z, deployed `e15a53240a6b` with every
-verification step green.
+### Post-release verification
+
+After any release, confirm the live site still serves the frozen bytes. For every
+path in `tools/static-assets.json`, GET
+`https://red-cliff-04871ca0f.5.azurestaticapps.net/<path>`, canonicalise CRLF to
+LF, hash with SHA-256, and compare against
+`git cat-file blob 86bd5aa2c8a25259f3f708e49b322220ff43a147:<path>`. All 44 must
+match. This is read-only and needs no credential.
+
+### Release history
+
+First gated release: **completed.** Run `35646315010`, dispatched by `Alex1122341`
+on 2026-09-21T19:40:39Z, deployed `e15a53240a6b` with every verification step
+green. Post-release verification passed 44/44 (0 drifted, 0 unreachable).
 
 ---
 

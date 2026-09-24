@@ -1,0 +1,39 @@
+name: Azure SQL Migration Tests
+
+on:
+  pull_request:
+    paths:
+      - "database/azure-sql/**"
+      - "tools/azure_sql_migration/**"
+      - "tools/build_azure_sql_import.py"
+      - "tools/plan_paws_azure_sql_reset.ps1"
+      - "tools/import_paws_azure_sql.ps1"
+      - "tests/python/test_azure_sql_*.py"
+      - "tools/requirements-azure-sql-migration.txt"
+      - "docs/azure-sql-migration.md"
+  push:
+    branches: [main]
+    paths:
+      - "database/azure-sql/**"
+      - "tools/azure_sql_migration/**"
+      - "tools/build_azure_sql_import.py"
+      - "tools/plan_paws_azure_sql_reset.ps1"
+      - "tools/import_paws_azure_sql.ps1"
+      - "tests/python/test_azure_sql_*.py"
+      - "tools/requirements-azure-sql-migration.txt"
+      - "docs/azure-sql-migration.md"
+
+permissions:
+  contents: read
+
+jobs:
+  migration_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r tools/requirements-azure-sql-migration.txt
+      - run: python -m unittest discover -s tests/python -p "test_azure_sql_*.py" -v

@@ -81,8 +81,11 @@ class AzureSqlEmptyDbLoaderContractTests(unittest.TestCase):
         self.assertIn("001_foundation.sql", text)
         self.assertIn("002_calendar_view.sql", text)
         self.assertRegex(text, r"(?i)validationIssueCount")
-        for expected in ["116", "4974", "1937", "162", "798", "791"]:
+        for expected in ["116", "4970", "1937", "162", "798", "791"]:
             self.assertIn(expected, text)
+        self.assertIn("TEACHING_FORMER_FACULTY_EXCLUDED", text)
+        self.assertIn("AFC_FORMER_FACULTY_EXCLUDED", text)
+        self.assertIn("validationIssueCount", text)
         commit_pos = text.find(".Commit()")
         success_pos = text.find("mode = 'applied'")
         self.assertGreater(commit_pos, 0)

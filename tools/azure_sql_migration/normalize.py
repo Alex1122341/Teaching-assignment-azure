@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .constants import BUSINESS_SHEETS, PLACEHOLDERS
+from .constants import BUSINESS_SHEETS, FORMER_FACULTY_EXCLUSIONS, PLACEHOLDERS
 from .identity import FacultyResolver, parse_preferred_name, stable_id
 
 
@@ -304,6 +304,9 @@ def normalize_package(package_dir: str | Path) -> dict[str, Any]:
             "end": _norm_time(f.get("end")) or None,
         })
         source_name = f.get("faculty_name")
+        if str(source_name or "").strip() in FORMER_FACULTY_EXCLUSIONS:
+            issues.append({"code": "TEACHING_FORMER_FACULTY_EXCLUDED", "sourceSheet": row["sourceSheet"], "sourceRow": row["sourceRow"], "sourceName": source_name})
+            continue
         resolution = resolver.resolve(source_name)
         if not resolution.resolved:
             issues.append({"code": "TEACHING_FACULTY_UNRESOLVED", "sourceSheet": row["sourceSheet"], "sourceRow": row["sourceRow"], "sourceName": source_name})
@@ -334,6 +337,9 @@ def normalize_package(package_dir: str | Path) -> dict[str, Any]:
     for row in typed["afc_record_raw.jsonl"]:
         f = row["fields"]
         source_name = f.get("faculty_member")
+        if str(source_name or "").strip() in FORMER_FACULTY_EXCLUSIONS:
+            issues.append({"code": "AFC_FORMER_FACULTY_EXCLUDED", "sourceSheet": row["sourceSheet"], "sourceRow": row["sourceRow"], "sourceName": source_name})
+            continue
         resolution = resolver.resolve(source_name)
         start = _norm_date(f.get("start"))
         end = _norm_date(f.get("end"))
@@ -364,6 +370,9 @@ def normalize_package(package_dir: str | Path) -> dict[str, Any]:
     for row in typed["role_assignment_raw.jsonl"]:
         f = row["fields"]
         source_name = f.get("faculty_name")
+        if str(source_name or "").strip() in FORMER_FACULTY_EXCLUSIONS:
+            issues.append({"code": "ROLE_FORMER_FACULTY_EXCLUDED", "sourceSheet": row["sourceSheet"], "sourceRow": row["sourceRow"], "sourceName": source_name})
+            continue
         resolution = resolver.resolve(source_name)
         if not resolution.resolved:
             issues.append({"code": "ROLE_FACULTY_UNRESOLVED", "sourceSheet": row["sourceSheet"], "sourceRow": row["sourceRow"], "sourceName": source_name})

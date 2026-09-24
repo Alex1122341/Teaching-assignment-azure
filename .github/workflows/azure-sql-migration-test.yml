@@ -42,4 +42,29 @@ jobs:
         with:
           python-version: "3.11"
       - run: python -m pip install -r tools/requirements-azure-sql-migration.txt
+      - name: Parse PowerShell migration scripts
+        shell: pwsh
+        run: |
+          $parseErrors = @()
+          foreach ($path in @(
+            'tools/azure_sql_migration/sql_access.ps1',
+            'tools/plan_paws_azure_sql_reset.ps1',
+            'tools/reset_paws_azure_sql_exact.ps1',
+            'tools/load_paws_azure_sql_empty.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path,
+              [ref]$tokens,
+              [ref]$errors
+            )
+            if ($errors.Count -gt 0) {
+              $parseErrors += $errors | ForEach-Object { ([string]$path + ': ' + $_.Message) }
+            }
+          }
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
       - run: python -m unittest discover -s tests/python -p "test_azure_sql_*.py" -v

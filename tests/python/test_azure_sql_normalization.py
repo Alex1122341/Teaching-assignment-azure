@@ -110,8 +110,12 @@ class NormalizationTests(unittest.TestCase):
             raw_row("PAWS_Faculty_Workload_Normalized.xlsx", "Teaching Assignments", 3, {
                 "faculty_name": "Z-Sessional", "academic_year": "2026-27", "curriculum_year": "Year 2", "course": "308", "course_name": "Fundamentals", "topic": "Intro", "session_type": "LEC", "date": "2026-08-24", "start": "08:30:00", "end": "09:30:00", "hours": 1, "teaching_role": "Lecture", "doe_rate_pct_per_unit": 0.3, "doe_quantity": 1, "doe_status": "Calculated from documented rule",
             }),
+            raw_row("PAWS_Faculty_Workload_Normalized.xlsx", "Teaching Assignments", 4, {
+                "faculty_name": "Zachar, Erin", "academic_year": "2026-27", "curriculum_year": "Year 2", "course": "308", "course_name": "Fundamentals", "topic": "Intro", "session_type": "LEC", "date": "2026-08-24", "start": "08:30:00", "end": "09:30:00", "hours": 1, "teaching_role": "Lecture", "doe_rate_pct_per_unit": 0.3, "doe_quantity": 1, "doe_status": "Calculated from documented rule",
+            }),
             raw_row("AFC Tracker Lookup (1).xlsx", "AFC records", 1, {"Faculty Member": "Faculty Member", "Start": "Start", "End": "End", "Purpose ": "Purpose "}),
             raw_row("AFC Tracker Lookup (1).xlsx", "AFC records", 2, {"Faculty Member": "Alfajaro, Mia", "Start": "2026-09-10", "End": "2026-09-01", "Purpose ": "Conference"}),
+            raw_row("AFC Tracker Lookup (1).xlsx", "AFC records", 3, {"Faculty Member": "Zachar, Erin", "Start": "2026-09-10", "End": "2026-09-11", "Purpose ": "Former faculty record"}),
         ]
         (self.package / "raw_rows.jsonl").write_text("\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n", encoding="utf-8")
         (self.package / "manifest.json").write_text(json.dumps({"format": "paws-azure-sql-import-v1", "sourceManifestSha256": "abc123"}), encoding="utf-8")
@@ -129,6 +133,21 @@ class NormalizationTests(unittest.TestCase):
         self.assertEqual(assignments[0]["facultyDisplayName"], "Mia, Alfajaro")
         self.assertEqual(assignments[1]["facultyDisplayName"], "Z-Sessional")
         self.assertEqual(summary["normalizedCounts"]["session"], 1)
+
+    def test_former_faculty_is_preserved_in_raw_staging_but_excluded_from_canonical_data(self):
+        normalize_package(self.package)
+        teaching_raw = read_jsonl(self.package / "teaching_assignment_raw.jsonl")
+        afc_raw = read_jsonl(self.package / "afc_record_raw.jsonl")
+        assignments = read_jsonl(self.package / "session_assignment.jsonl")
+        afc = read_jsonl(self.package / "afc_record.jsonl")
+        issues = read_jsonl(self.package / "validation_issues.jsonl")
+
+        self.assertTrue(any(row["fields"].get("faculty_name") == "Zachar, Erin" for row in teaching_raw))
+        self.assertTrue(any(row["fields"].get("faculty_member") == "Zachar, Erin" for row in afc_raw))
+        self.assertFalse(any(row.get("sourceFacultyName") == "Zachar, Erin" for row in assignments))
+        self.assertFalse(any(row.get("facultyDisplayName") == "Zachar, Erin" for row in afc))
+        self.assertTrue(any(issue["code"] == "TEACHING_FORMER_FACULTY_EXCLUDED" for issue in issues))
+        self.assertTrue(any(issue["code"] == "AFC_FORMER_FACULTY_EXCLUDED" for issue in issues))
 
     def test_session_ids_are_stable_across_repeat_normalization(self):
         normalize_package(self.package)

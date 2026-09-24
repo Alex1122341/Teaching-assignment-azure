@@ -68,7 +68,7 @@ function Get-PawsSha256Text {
     $sha = [System.Security.Cryptography.SHA256]::Create()
     try {
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
-        return [Convert]::ToHexString($sha.ComputeHash($bytes)).ToLowerInvariant()
+        return [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant()
     }
     finally { $sha.Dispose() }
 }

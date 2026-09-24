@@ -147,7 +147,7 @@ function New-PawsDataTable {
         $column.AllowDBNull = $true
         [void]$table.Columns.Add($column)
     }
-    return $table
+    return ,$table
 }
 
 function Add-PawsDataRow {

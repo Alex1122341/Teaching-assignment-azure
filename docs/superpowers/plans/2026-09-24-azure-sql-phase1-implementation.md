@@ -10,6 +10,19 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-24-azure-sql-cutover-design.md`
 
+
+## 2026-09-24 execution amendment
+
+This amendment supersedes the original Task 4 / Task 7 combined reset-and-import Apply path below:
+
+- the reviewed 18-object reset was completed separately with `tools/reset_paws_azure_sql_exact.ps1`;
+- the independent post-reset planner verified `objectCount = 0` and inventory SHA-256 `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`;
+- the broad `tools/import_paws_azure_sql.ps1` described later in this historical plan was not shipped;
+- the current Apply path is the non-destructive, empty-database-only `tools/load_paws_azure_sql_empty.ps1`, which refuses any non-empty inventory and loads schema/data in one transaction;
+- `Zachar, Erin` is confirmed former Faculty: 4 Teaching Assignment and 4 AFC source rows remain in staging/validation evidence but are excluded from canonical business rows;
+- canonical `paws.SessionAssignment` count is therefore 4,970, while typed/raw Teaching Assignment count remains 4,974.
+
+
 ## Global Constraints
 
 - The three 2026-09-24 workbooks are the sole authoritative initialization source; do not compare against or backfill from Firestore.
@@ -683,7 +696,7 @@ The report must include at least:
 - 1 AFC row without Faculty Member;
 - 1 AFC row without Purpose;
 - 2 AFC rows with End earlier than Start;
-- `Zachar, Erin` remains unresolved in 4 Teaching Assignment rows and 4 AFC rows unless a later approved Master/alias source is supplied;
+- `Zachar, Erin` is confirmed former Faculty; 4 Teaching Assignment rows and 4 AFC rows remain in staging/validation evidence but are explicitly excluded from canonical business data;
 - the five explicit alias variants map only to their explicit targets;
 - pool/vacancy placeholders are represented as non-Faculty record types;
 - AFC validation reports exactly 2 `End < Start`, 1 missing Faculty Member, and 1 missing Purpose for this source set.
@@ -759,7 +772,7 @@ The success report must prove:
 - 116 Faculty business rows are preserved in typed staging, while the `Key!A119` summary formula row is preserved in generic raw staging;
 - 4,974 Teaching Assignment source rows are preserved;
 - 1,937 canonical Sessions exist;
-- 4,974 SessionAssignments exist or each unresolved assignment exclusion is enumerated and accounted for according to the normalization contract;
+- 4,970 canonical SessionAssignments exist; the 4 former-Faculty Teaching Assignment rows for `Zachar, Erin` remain enumerated in staging/validation evidence;
 - 798 AFC raw records exist, while invalid/unresolved AFC rows are excluded from `paws.AfcRecord` and counted in validation evidence;
 - all enabled FK/check/unique constraints pass;
 - `paws.vCalendarSession` returns canonical session data;

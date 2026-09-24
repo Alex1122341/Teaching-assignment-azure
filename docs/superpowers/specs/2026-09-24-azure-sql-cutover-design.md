@@ -156,7 +156,7 @@ Teaching Assignments:
 Teaching Assignments:
 - the four non-person values (`TBD - New Clin Path Hire - AG`, `TBD - New Clin Path Hire - CW`, `Z-Sessional`, `Z-Other`) are intentionally modeled as vacancy/pool records;
 - `Haddad Pinho, Renata`, `Petersen Dias, Angelica`, `Juarez Davila, Manuel`, and `de Anhaia Camargo, Vinicius` resolve only through explicit approved aliases to their Faculty Master Preferred Names;
-- `Zachar, Erin` is absent from the approved Faculty Master and remains unresolved in 4 Teaching Assignment rows.
+- `Zachar, Erin` is confirmed former Faculty. Her 4 Teaching Assignment source rows remain in raw/typed staging evidence but are explicitly excluded from canonical `paws.SessionAssignment` data.
 
 Role Assignments:
 - 162 rows;
@@ -168,7 +168,7 @@ AFC:
 - 1 missing Faculty Member;
 - 1 missing Purpose;
 - 2 have End earlier than Start;
-- `Zachar, Erin` is absent from the approved Faculty Master and remains unresolved in 4 AFC rows;
+- `Zachar, Erin` is confirmed former Faculty; her 4 AFC source rows remain in raw/typed staging evidence but are explicitly excluded from canonical `paws.AfcRecord` data;
 - all other observed name variants resolve to Faculty Master Preferred Names through exact/HR/explicit-alias matching.
 
 All anomalous rows remain preserved in staging even when excluded from normalized `paws.*` tables.
@@ -335,7 +335,7 @@ A session is built from the observed natural grouping:
 
 The importer must prove that this grouping yields 1,937 canonical sessions for the supplied Teaching Assignment workbook before database mutation.
 
-`paws.SessionAssignment` stores the 4,974 Faculty/role assignment rows and links each to its canonical Session.
+`paws.SessionAssignment` stores 4,970 canonical Faculty/role assignment rows and links each to its canonical Session. The 4 source rows for former Faculty `Zachar, Erin` remain in staging/validation evidence and are not published as canonical assignments.
 
 Session fields include:
 - `SessionId uniqueidentifier`

@@ -130,7 +130,7 @@ Observed source counts are:
 | AFC / CODE | formula/helper sheet |
 | AFC / Data | 222 |
 | AFC / KK duplicate Lookup (2) | 100 |
-| Faculty Master / Key | 117 |
+| Faculty Master / Key | 116 business rows (+ 1 formula summary row preserved in raw staging) |
 | Faculty Master / Education & Experience | 116 |
 | Faculty Master / Joint Appointments | 14 |
 
@@ -139,18 +139,19 @@ The importer must preserve every non-empty row from every sheet, including helpe
 ### Known source anomalies
 
 Faculty Master:
-- 117 Faculty records;
-- 1 record has no UCID;
-- 1 record has no email.
+- 116 Faculty records;
+- `Key!A119` is a workbook summary formula (`=COUNTA(A2:A117)`), not a Faculty record; it remains preserved in generic raw staging;
+- 1 Faculty record has no UCID;
+- 1 Faculty record has no email.
 
 Teaching Assignments:
 - 4,974 assignment rows;
 - 1,937 canonical sessions using:
   `academic_year + curriculum_year + course + topic + session_type + date + start + end`;
 - 106 distinct assignment names;
-- 87 exact-match Preferred Names;
-- 10 additional exact HR-name matches;
-- 9 source names are not exact Master-list matches.
+- 87 exact source Preferred Names;
+- additional source names may be resolved through HR-name crosswalk or an explicit approved alias, but the resulting canonical identity always uses the Faculty Master Preferred Name;
+- source names that cannot be tied to a Preferred Name without guessing remain unresolved.
 
 The unresolved Teaching names observed are:
 - `TBD - New Clin Path Hire - AG`
@@ -248,15 +249,34 @@ Each typed row carries:
 
 The application identity must have no permission on `staging.*`.
 
-## 7. Faculty identity model
+## 7. Faculty identity and naming model
 
 `paws.Faculty` uses a PAWS-generated GUID primary key rather than UCID.
 
-Minimum fields:
+### Canonical naming contract
+
+The Faculty Master column `Preferred FULL Name (Last, First)` is the authoritative naming source for every real Faculty member.
+
+The importer parses that source into:
+- `PreferredFirstName`: the preferred given-name portion after the first comma;
+- `PreferredLastName`: the preferred family-name portion before the first comma;
+- `DisplayName`: exactly `PreferredFirstName + ", " + PreferredLastName`.
+
+Examples:
+- source `Alfajaro, Mia` → canonical `Mia, Alfajaro`;
+- source `Baker, Tessa` → canonical `Tessa, Baker`;
+- source `van der Meer, Frank` → canonical `Frank, van der Meer`.
+
+All canonical PAWS business data, API responses, timetable/calendar instructor names, workflow displays, audit displays, and Faculty-linked user profiles use this preferred-name format. Source workload/AFC/role names are never allowed to become a competing canonical display name.
+
+`HR FULL Name (Last, First)` is preserved in `staging.*` only. It may be used privately as a deterministic identity crosswalk during migration when it uniquely identifies a Faculty Master row, but after resolution the record is rewritten to that person's Preferred Name. HR name is not a canonical `paws.*` display field and is not exposed as the Faculty display name.
+
+Minimum `paws.Faculty` fields:
 - `FacultyId uniqueidentifier primary key`
 - `RecordType nvarchar(32)`
-- `PreferredName nvarchar(256)`
-- `HrName nvarchar(256) null`
+- `PreferredFirstName nvarchar(128)`
+- `PreferredLastName nvarchar(128)`
+- `DisplayName nvarchar(260)`
 - `Ucid nvarchar(64) null`
 - `Email nvarchar(256) null`
 - `Stream nvarchar(128) null`
@@ -275,23 +295,23 @@ Minimum fields:
 - `other_pool`
 - `vacancy`
 
-`Z-Sessional`, `Z-Other`, and the two `TBD - New Clin Path Hire` values must be represented intentionally, without fabricated UCIDs.
+`Z-Sessional`, `Z-Other`, and the two `TBD - New Clin Path Hire` values must be represented intentionally, without fabricated UCIDs. Their non-Faculty labels remain explicit pool/vacancy labels rather than being reformatted as human names.
 
-### Alias resolution
+### Identity crosswalk and alias resolution
 
-`paws.FacultyAlias` stores explicit approved name variants.
+`paws.FacultyAlias` stores explicit approved source-name variants keyed to a Faculty identity. Alias rows are matching evidence only; canonical display still comes from the Faculty Master Preferred Name.
 
 Resolution order:
 1. UCID;
 2. institutional email;
-3. exact normalized Preferred Name;
-4. exact normalized HR Name;
+3. exact normalized Faculty Master Preferred Name in source `Last, First` form;
+4. exact normalized HR-name crosswalk when it uniquely maps to one Faculty Master row;
 5. explicit approved alias;
 6. unresolved.
 
 No fuzzy match may create a Faculty relationship automatically.
 
-The first import may add deterministic aliases only where the target is unambiguous and explicitly encoded in the migration mapping. Examples suggested by the source, but requiring explicit mapping in code/tests rather than fuzzy logic, include accent/surname-form variants such as `Juarez Davila, Manuel` versus `Juárez Davila, Manuel`.
+The first import may add deterministic aliases only where the target is unambiguous and explicitly encoded in the migration mapping. Examples include accent/surname-form variants such as `Juarez Davila, Manuel` → Preferred `Manuel, Juárez Davila`.
 
 ## 8. Faculty professional data
 
@@ -347,7 +367,7 @@ Assignment fields include:
 - DOE source fields/evidence;
 - source row.
 
-Rows whose Faculty identity cannot be safely resolved stay in staging and are reported. They do not silently point at another Faculty.
+Rows whose Faculty identity cannot be safely resolved stay in staging and are reported. They do not silently point at another Faculty. Resolved SessionAssignments store FacultyId; all displayed instructor names are derived from `paws.Faculty.DisplayName` and therefore use the canonical `First, Last` Preferred Name format.
 
 ### Calendar projection
 

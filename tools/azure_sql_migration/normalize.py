@@ -117,6 +117,15 @@ def canonical_session_key(row: dict[str, Any]) -> str:
     return "|".join(parts)
 
 
+def _canonical_email(value: Any) -> tuple[str, bool]:
+    text = str(value or "").strip()
+    if not text:
+        return "", False
+    if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", text):
+        return text, False
+    return "", True
+
+
 def _number(value: Any) -> float | None:
     if value in (None, ""):
         return None
@@ -153,7 +162,7 @@ def normalize_package(package_dir: str | Path) -> dict[str, Any]:
             issues.append({"code": "FACULTY_PREFERRED_NAME_INVALID", "sourceSheet": row["sourceSheet"], "sourceRow": row["sourceRow"], "message": str(exc)})
             continue
         ucid = str(f.get("ucid") or "").strip()
-        email = str(f.get("email") or "").strip()
+        email, email_invalid = _canonical_email(f.get("email"))
         faculty_id = stable_id("faculty", ucid or preferred.casefold())
         master_rows.append({
             "faculty_id": faculty_id,
@@ -180,7 +189,15 @@ def normalize_package(package_dir: str | Path) -> dict[str, Any]:
         })
         if not ucid:
             issues.append({"code": "FACULTY_UCID_MISSING", "sourceSheet": row["sourceSheet"], "sourceRow": row["sourceRow"], "facultyDisplayName": display})
-        if not email:
+        if email_invalid:
+            issues.append({
+                "code": "FACULTY_EMAIL_INVALID",
+                "sourceSheet": row["sourceSheet"],
+                "sourceRow": row["sourceRow"],
+                "facultyDisplayName": display,
+                "sourceEmail": str(f.get("email") or "").strip(),
+            })
+        elif not email:
             issues.append({"code": "FACULTY_EMAIL_MISSING", "sourceSheet": row["sourceSheet"], "sourceRow": row["sourceRow"], "facultyDisplayName": display})
 
     resolver = FacultyResolver(master_rows, aliases=_load_aliases())

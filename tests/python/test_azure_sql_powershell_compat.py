@@ -15,6 +15,10 @@ class AzureSqlPowerShellCompatibilityTests(unittest.TestCase):
         self.assertIn("if (@($objects).Count -eq 0)", planner)
         self.assertIn("$canonical = '[]'", planner)
 
+    def test_empty_loader_returns_datatable_without_pipeline_enumeration(self):
+        loader = (ROOT / "tools" / "load_paws_azure_sql_empty.ps1").read_text(encoding="utf-8")
+        self.assertIn("return ,$table", loader)
+
 
 if __name__ == "__main__":
     unittest.main()

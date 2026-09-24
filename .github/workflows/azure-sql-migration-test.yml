@@ -10,10 +10,11 @@ on:
       - "tools/plan_paws_azure_sql_reset.ps1"
       - "tools/reset_paws_azure_sql_exact.ps1"
       - "tools/load_paws_azure_sql_empty.ps1"
-      - "tools/import_paws_azure_sql.ps1"
       - "tests/python/test_azure_sql_*.py"
       - "tools/requirements-azure-sql-migration.txt"
       - "docs/azure-sql-migration.md"
+      - "docs/superpowers/specs/2026-09-24-azure-sql-cutover-design.md"
+      - "docs/superpowers/plans/2026-09-24-azure-sql-phase1-implementation.md"
   push:
     branches: [main]
     paths:
@@ -24,10 +25,11 @@ on:
       - "tools/plan_paws_azure_sql_reset.ps1"
       - "tools/reset_paws_azure_sql_exact.ps1"
       - "tools/load_paws_azure_sql_empty.ps1"
-      - "tools/import_paws_azure_sql.ps1"
       - "tests/python/test_azure_sql_*.py"
       - "tools/requirements-azure-sql-migration.txt"
       - "docs/azure-sql-migration.md"
+      - "docs/superpowers/specs/2026-09-24-azure-sql-cutover-design.md"
+      - "docs/superpowers/plans/2026-09-24-azure-sql-phase1-implementation.md"
 
 permissions:
   contents: read

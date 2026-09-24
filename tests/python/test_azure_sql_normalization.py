@@ -101,6 +101,12 @@ class NormalizationTests(unittest.TestCase):
             raw_row("Partial Faculty Master List - September 21, 2026.xlsx", "Key", 2, {
                 "Preferred FULL Name (Last, First)": "Alfajaro, Mia", "HR FULL Name (Last, First)": "Alfajaro, Mia Madel", "UCID": "10200179", "Email": "mia.alfajaro@ucalgary.ca", "Stream": "Teaching & Research", "Rank": "Assistant Professor", "FTE": 1, "Reports To Manager": "Tuan Trang",
             }),
+            raw_row("Partial Faculty Master List - September 21, 2026.xlsx", "Key", 3, {
+                "Preferred FULL Name (Last, First)": "Arndt, Tara", "HR FULL Name (Last, First)": "Arndt, Tara", "UCID": "10203245", "Email": "TBC", "Stream": "Teaching & Research", "Rank": "Assistant Professor", "FTE": 1, "Reports To Manager": "Tuan Trang",
+            }),
+            raw_row("Partial Faculty Master List - September 21, 2026.xlsx", "Key", 4, {
+                "Preferred FULL Name (Last, First)": "Toy, Shannon", "HR FULL Name (Last, First)": "Toy, Shannon", "UCID": "10100748", "Email": "TBC", "Stream": "Teaching & Research", "Rank": "Assistant Professor", "FTE": 1, "Reports To Manager": "Tuan Trang",
+            }),
             raw_row("PAWS_Faculty_Workload_Normalized.xlsx", "Teaching Assignments", 1, {
                 "faculty_name": "faculty_name", "academic_year": "academic_year", "curriculum_year": "curriculum_year", "course": "course", "course_name": "course_name", "topic": "topic", "session_type": "session_type", "date": "date", "start": "start", "end": "end", "hours": "hours", "teaching_role": "teaching_role", "lab_lead": "lab_lead", "doe_rate_pct_per_unit": "doe_rate_pct_per_unit", "doe_quantity": "doe_quantity", "doe_credit_pct": "doe_credit_pct", "doe_status": "doe_status",
             }),
@@ -148,6 +154,22 @@ class NormalizationTests(unittest.TestCase):
         self.assertFalse(any(row.get("facultyDisplayName") == "Zachar, Erin" for row in afc))
         self.assertTrue(any(issue["code"] == "TEACHING_FORMER_FACULTY_EXCLUDED" for issue in issues))
         self.assertTrue(any(issue["code"] == "AFC_FORMER_FACULTY_EXCLUDED" for issue in issues))
+
+    def test_invalid_faculty_email_placeholder_stays_raw_but_is_null_in_canonical_identity(self):
+        normalize_package(self.package)
+        faculty_raw = read_jsonl(self.package / "faculty_raw.jsonl")
+        faculty = read_jsonl(self.package / "faculty.jsonl")
+        issues = read_jsonl(self.package / "validation_issues.jsonl")
+
+        raw_tbc = [row for row in faculty_raw if row["fields"].get("email") == "TBC"]
+        self.assertEqual(len(raw_tbc), 2)
+
+        canonical = {row["displayName"]: row for row in faculty}
+        self.assertIsNone(canonical["Tara, Arndt"]["email"])
+        self.assertIsNone(canonical["Shannon, Toy"]["email"])
+
+        invalid_email_issues = [issue for issue in issues if issue["code"] == "FACULTY_EMAIL_INVALID"]
+        self.assertEqual(len(invalid_email_issues), 2)
 
     def test_session_ids_are_stable_across_repeat_normalization(self):
         normalize_package(self.package)

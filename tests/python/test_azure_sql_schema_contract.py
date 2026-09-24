@@ -43,6 +43,17 @@ class AzureSqlSchemaContractTests(unittest.TestCase):
         self.assertIn("DoeOverrideValue decimal", sql)
         self.assertNotRegex(sql, r"DoeOverrideValue[^\n]+CHECK[^\n]+>=\s*0")
 
+    def test_role_assignment_raw_preserves_long_source_course_values(self):
+        sql = read_sql("001_foundation.sql")
+        match = re.search(
+            r"CREATE TABLE staging\.RoleAssignmentRaw \((?P<body>.*?)\);",
+            sql,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        body = match.group("body")
+        self.assertRegex(body, r"CourseCode\s+nvarchar\((?:1000|max)\)\s+NULL")
+
     def test_calendar_view_uses_canonical_session_and_preferred_faculty_display_only(self):
         sql = read_sql("002_calendar_view.sql")
         self.assertIn("CREATE VIEW paws.vCalendarSession", sql)

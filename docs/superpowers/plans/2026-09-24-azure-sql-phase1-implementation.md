@@ -242,7 +242,8 @@ The explicit alias map must include only source variants that are unambiguous in
   "Haddad Pinho, Renata": "Pinho, Renata",
   "Petersen Dias, Angelica": "Dias, Angelica",
   "Juarez Davila, Manuel": "Juárez Davila, Manuel",
-  "de Anhaia Camargo, Vinicius": "Camargo, Vinicius"
+  "de Anhaia Camargo, Vinicius": "Camargo, Vinicius",
+  "Rancourt, Derrick E.": "Rancourt, Derrick"
 }
 ```
 
@@ -677,15 +678,15 @@ The parser must derive counts from non-empty rows, not worksheet max-row values.
 - [ ] **Step 3: Verify known anomalies and no silent identity guessing**
 
 The report must include at least:
-- 1 Faculty Master record without UCID;
-- 1 Faculty Master record without email;
+- all 116 Faculty Master records have UCID and email;
 - all 116 Faculty canonical display names are derived from the Preferred Name and formatted `First, Last`; HR/source names may resolve identity but never replace the Preferred display name;
 - 1 AFC row without Faculty Member;
 - 1 AFC row without Purpose;
 - 2 AFC rows with End earlier than Start;
-- `Zachar, Erin` remains unresolved unless a later approved Master/alias source is supplied;
-- the four explicit alias variants map only to their explicit targets;
-- pool/vacancy placeholders are represented as non-Faculty record types.
+- `Zachar, Erin` remains unresolved in 4 Teaching Assignment rows and 4 AFC rows unless a later approved Master/alias source is supplied;
+- the five explicit alias variants map only to their explicit targets;
+- pool/vacancy placeholders are represented as non-Faculty record types;
+- AFC validation reports exactly 2 `End < Start`, 1 missing Faculty Member, and 1 missing Purpose for this source set.
 
 If any expected count or anomaly differs, stop and add a failing regression test before changing normalization logic.
 

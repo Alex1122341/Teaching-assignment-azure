@@ -48,8 +48,9 @@ $expectedValidationIssues = [ordered]@{
     AFC_END_BEFORE_START = 2
     AFC_FACULTY_MISSING = 1
     AFC_PURPOSE_MISSING = 1
+    FACULTY_EMAIL_INVALID = 2
 }
-$expectedValidationIssueCount = 12
+$expectedValidationIssueCount = 14
 $expectedRawRowCount = 6838
 
 if ($Server -ne $expectedServer) {
@@ -805,7 +806,7 @@ try {
             'staging.DoeRuleRaw' = 24
             'staging.AccountRoleRaw' = 14
             'staging.AfcRecordRaw' = 798
-            'staging.PackageEntity' = 12
+            'staging.PackageEntity' = 14
             'paws.Faculty' = 120
             'paws.FacultyAlias' = 5
             'paws.FacultyProfessionalProfile' = 116
@@ -870,7 +871,7 @@ WHERE ImportBatchId = @ImportBatchId;
             canonicalSessionAssignments = 4970
             afcRaw = 798
             canonicalAfcRecords = 791
-            validationIssueCount = 12
+            validationIssueCount = 14
             formerFacultyExcluded = @{
                 teachingAssignments = 4
                 afcRecords = 4

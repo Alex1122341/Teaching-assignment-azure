@@ -1,6 +1,8 @@
 import json
 import tempfile
 import unittest
+import subprocess
+import sys
 from datetime import date, time
 from pathlib import Path
 
@@ -60,6 +62,19 @@ class WorkbookPackageTests(unittest.TestCase):
         flattened = json.dumps(raw, sort_keys=True)
         self.assertIn("2026-09-24", flattened)
         self.assertIn("08:30:00", flattened)
+
+    def test_cli_runs_directly_from_repo_root(self):
+        out = self.root / "cli-out"
+        result = subprocess.run([
+            sys.executable, "tools/build_azure_sql_import.py",
+            "--workload", str(self.workbook),
+            "--afc", str(self.workbook),
+            "--faculty", str(self.workbook),
+            "--output-root", str(out),
+        ], cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(Path(payload["packagePath"]).exists())
 
     def test_build_is_content_addressed_and_repeatable(self):
         first = self.build()

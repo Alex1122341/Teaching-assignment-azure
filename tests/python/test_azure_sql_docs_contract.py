@@ -11,6 +11,8 @@ class AzureSqlDocsContractTests(unittest.TestCase):
         self.assertIn('tools/requirements-azure-sql-migration.txt', workflow)
         self.assertIn('test_azure_sql_*.py', workflow)
         self.assertIn('contents: read', workflow)
+        self.assertIn('Parser]::ParseFile', workflow)
+        self.assertIn('load_paws_azure_sql_empty.ps1', workflow)
         for forbidden in ['AZURE_', 'secrets.', 'azure/login', 'workflow_dispatch']:
             self.assertNotIn(forbidden, workflow)
 

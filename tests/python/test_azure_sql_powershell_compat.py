@@ -10,6 +10,11 @@ class AzureSqlPowerShellCompatibilityTests(unittest.TestCase):
         self.assertNotIn("[Convert]::ToHexString", access)
         self.assertIn("[BitConverter]::ToString", access)
 
+    def test_reset_planner_serializes_empty_inventory_as_json_array(self):
+        planner = (ROOT / "tools" / "plan_paws_azure_sql_reset.ps1").read_text(encoding="utf-8")
+        self.assertIn("if (@($objects).Count -eq 0)", planner)
+        self.assertIn("$canonical = '[]'", planner)
+
 
 if __name__ == "__main__":
     unittest.main()

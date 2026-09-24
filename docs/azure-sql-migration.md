@@ -68,13 +68,14 @@ For this approved source set:
 - Erin must not appear in canonical `paws.Faculty`, `paws.SessionAssignment`, or `paws.RoleAssignment`;
 - the 8 exclusions are reported as `TEACHING_FORMER_FACULTY_EXCLUDED` and `AFC_FORMER_FACULTY_EXCLUDED`, not as unresolved identity guesses.
 
-The complete validation report for this source set contains 12 issues:
+The complete validation report for this source set contains 14 issues:
 
 - 4 `TEACHING_FORMER_FACULTY_EXCLUDED`;
 - 4 `AFC_FORMER_FACULTY_EXCLUDED`;
 - 2 `AFC_END_BEFORE_START`;
 - 1 `AFC_FACULTY_MISSING`;
-- 1 `AFC_PURPOSE_MISSING`.
+- 1 `AFC_PURPOSE_MISSING`;
+- 2 `FACULTY_EMAIL_INVALID` for source placeholder value `TBC`; the raw value remains staging evidence while canonical Faculty email is `NULL`.
 
 ## 2. Read-only Azure inventory
 
@@ -158,7 +159,7 @@ A successful result must demonstrate:
 - 798 AFC raw rows;
 - 791 canonical AFC records;
 - Erin Zachar absent from canonical Faculty/SessionAssignment/RoleAssignment data;
-- all 12 validation issues preserved as evidence;
+- all 14 validation issues preserved as evidence;
 - enabled SQL constraints report no violations;
 - `paws.vCalendarSession` returns 1,937 canonical sessions;
 - `staging.ImportBatch` stores the exact source-manifest SHA and completed status.

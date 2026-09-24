@@ -19,3 +19,8 @@ PLACEHOLDERS = {
     "TBD - New Clin Path Hire - AG": "vacancy",
     "TBD - New Clin Path Hire - CW": "vacancy",
 }
+
+
+FORMER_FACULTY_EXCLUSIONS = {
+    "Zachar, Erin",
+}

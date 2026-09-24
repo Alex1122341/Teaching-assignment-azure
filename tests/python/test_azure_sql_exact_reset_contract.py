@@ -47,5 +47,10 @@ class AzureSqlExactResetContractTests(unittest.TestCase):
         self.assertIn("inventory mismatch", script.casefold())
 
 
+    def test_migration_ci_watches_exact_reset_script(self):
+        workflow = (ROOT / ".github" / "workflows" / "azure-sql-migration-test.yml").read_text(encoding="utf-8")
+        self.assertIn('tools/reset_paws_azure_sql_exact.ps1', workflow)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3,11 +3,13 @@ name: Azure SQL Migration Tests
 on:
   pull_request:
     paths:
+      - ".github/workflows/azure-sql-migration-test.yml"
       - "database/azure-sql/**"
       - "tools/azure_sql_migration/**"
       - "tools/build_azure_sql_import.py"
       - "tools/plan_paws_azure_sql_reset.ps1"
       - "tools/reset_paws_azure_sql_exact.ps1"
+      - "tools/load_paws_azure_sql_empty.ps1"
       - "tools/import_paws_azure_sql.ps1"
       - "tests/python/test_azure_sql_*.py"
       - "tools/requirements-azure-sql-migration.txt"
@@ -15,11 +17,13 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/azure-sql-migration-test.yml"
       - "database/azure-sql/**"
       - "tools/azure_sql_migration/**"
       - "tools/build_azure_sql_import.py"
       - "tools/plan_paws_azure_sql_reset.ps1"
       - "tools/reset_paws_azure_sql_exact.ps1"
+      - "tools/load_paws_azure_sql_empty.ps1"
       - "tools/import_paws_azure_sql.ps1"
       - "tests/python/test_azure_sql_*.py"
       - "tools/requirements-azure-sql-migration.txt"

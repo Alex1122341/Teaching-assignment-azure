@@ -121,7 +121,7 @@ CREATE TABLE staging.RoleAssignmentRaw (
     FacultySourceName nvarchar(256) NULL,
     AcademicYear nvarchar(32) NULL,
     RoleType nvarchar(256) NULL,
-    CourseCode nvarchar(32) NULL,
+    CourseCode nvarchar(1000) NULL,
     RawJson nvarchar(max) NOT NULL,
     ValidationStatus nvarchar(32) NOT NULL,
     ValidationErrorsJson nvarchar(max) NOT NULL

@@ -153,7 +153,10 @@ function New-PawsDataTable {
 function Add-PawsDataRow {
     param(
         [Parameter(Mandatory = $true)][System.Data.DataTable]$Table,
-        [Parameter(Mandatory = $true)][object[]]$Values
+        [Parameter(Mandatory = $true)]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [object[]]$Values
     )
     if ($Values.Count -ne $Table.Columns.Count) {
         throw "Data row has $($Values.Count) values for $($Table.Columns.Count) columns."

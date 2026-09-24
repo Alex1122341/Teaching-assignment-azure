@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.azure_sql_migration.package import build_package
 
@@ -20,11 +24,7 @@ def main() -> int:
         Path(args.output_root),
     )
     manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
-    print(json.dumps({
-        "packagePath": str(package),
-        "sourceManifestSha256": manifest["sourceManifestSha256"],
-        "totals": manifest["totals"],
-    }, sort_keys=True))
+    print(json.dumps({"packagePath": str(package), "sourceManifestSha256": manifest["sourceManifestSha256"], "totals": manifest["totals"]}, sort_keys=True))
     return 0
 
 

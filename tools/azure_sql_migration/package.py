@@ -18,12 +18,14 @@ def _canonical_json(value) -> str:
 def _source_manifest_core(records: list[WorkbookRecord]) -> dict:
     files = []
     for record in sorted(records, key=lambda item: item.file_name.casefold()):
-        files.append({
-            "fileName": record.file_name,
-            "fileSha256": record.file_sha256,
-            "fileByteLength": record.file_byte_length,
-            "sheets": sorted(record.sheets, key=lambda item: item["sheetIndex"]),
-        })
+        files.append(
+            {
+                "fileName": record.file_name,
+                "fileSha256": record.file_sha256,
+                "fileByteLength": record.file_byte_length,
+                "sheets": sorted(record.sheets, key=lambda item: item["sheetIndex"]),
+            }
+        )
     return {
         "format": FORMAT,
         "files": files,
@@ -58,6 +60,14 @@ def build_package(workbook_paths: Iterable[str | Path], output_root: str | Path)
         "sourceManifestSha256": manifest_sha,
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
+    (package_dir / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    from .normalize import normalize_package
+    summary = normalize_package(package_dir)
+    manifest.update(summary)
     (package_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",

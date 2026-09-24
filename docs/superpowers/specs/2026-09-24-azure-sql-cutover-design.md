@@ -141,8 +141,8 @@ The importer must preserve every non-empty row from every sheet, including helpe
 Faculty Master:
 - 116 Faculty records;
 - `Key!A119` is a workbook summary formula (`=COUNTA(A2:A117)`), not a Faculty record; it remains preserved in generic raw staging;
-- 1 Faculty record has no UCID;
-- 1 Faculty record has no email.
+- all 116 Faculty records have a UCID;
+- all 116 Faculty records have an email.
 
 Teaching Assignments:
 - 4,974 assignment rows;
@@ -153,31 +153,23 @@ Teaching Assignments:
 - additional source names may be resolved through HR-name crosswalk or an explicit approved alias, but the resulting canonical identity always uses the Faculty Master Preferred Name;
 - source names that cannot be tied to a Preferred Name without guessing remain unresolved.
 
-The unresolved Teaching names observed are:
-- `TBD - New Clin Path Hire - AG`
-- `TBD - New Clin Path Hire - CW`
-- `Z-Sessional`
-- `Z-Other`
-- `Zachar, Erin`
-- `Haddad Pinho, Renata`
-- `Petersen Dias, Angelica`
-- `Juarez Davila, Manuel`
-- `de Anhaia Camargo, Vinicius`
-
-Some are intentionally non-person placeholders/pools; others are name variants. They must not be fuzzy-matched automatically.
+Teaching Assignments:
+- the four non-person values (`TBD - New Clin Path Hire - AG`, `TBD - New Clin Path Hire - CW`, `Z-Sessional`, `Z-Other`) are intentionally modeled as vacancy/pool records;
+- `Haddad Pinho, Renata`, `Petersen Dias, Angelica`, `Juarez Davila, Manuel`, and `de Anhaia Camargo, Vinicius` resolve only through explicit approved aliases to their Faculty Master Preferred Names;
+- `Zachar, Erin` is absent from the approved Faculty Master and remains unresolved in 4 Teaching Assignment rows.
 
 Role Assignments:
 - 162 rows;
 - 75 distinct source names;
-- 3 unresolved exact names: `Z-Sessional`, `Z-Other`, and `Petersen Dias, Angelica`.
+- all rows resolve after the intentional pool records and explicit `Petersen Dias, Angelica` alias are applied.
 
 AFC:
 - 798 records;
 - 1 missing Faculty Member;
 - 1 missing Purpose;
 - 2 have End earlier than Start;
-- 82 distinct named Faculty values;
-- exact-name unresolved values include `de Anhaia Camargo, Vinicius`, `Zachar, Erin`, and `Haddad Pinho, Renata`.
+- `Zachar, Erin` is absent from the approved Faculty Master and remains unresolved in 4 AFC rows;
+- all other observed name variants resolve to Faculty Master Preferred Names through exact/HR/explicit-alias matching.
 
 All anomalous rows remain preserved in staging even when excluded from normalized `paws.*` tables.
 
@@ -311,7 +303,7 @@ Resolution order:
 
 No fuzzy match may create a Faculty relationship automatically.
 
-The first import may add deterministic aliases only where the target is unambiguous and explicitly encoded in the migration mapping. Examples include accent/surname-form variants such as `Juarez Davila, Manuel` → Preferred `Manuel, Juárez Davila`.
+The first import may add deterministic aliases only where the target is unambiguous and explicitly encoded in the migration mapping. Examples include accent/surname-form variants such as `Juarez Davila, Manuel` → Preferred `Manuel, Juárez Davila`, and `Rancourt, Derrick E.` → Preferred `Derrick, Rancourt`.
 
 ## 8. Faculty professional data
 

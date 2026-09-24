@@ -13,6 +13,7 @@
 ## Global Constraints
 
 - The three 2026-09-24 workbooks are the sole authoritative initialization source; do not compare against or backfill from Firestore.
+- Every real Faculty canonical name comes from `Preferred FULL Name (Last, First)` in the Faculty Master and is rendered everywhere in PAWS as `First, Last`; HR/source names may assist deterministic matching only and must never become the canonical display name.
 - Every non-empty row from every workbook sheet must be represented in generic raw staging evidence.
 - Invalid or unresolved rows must be preserved and reported; no fuzzy Faculty identity match may create an authoritative relationship.
 - The Azure reset is limited to the `teaching-assignment-lab` database and must never delete the logical SQL Server, subscription/resource group, Entra administrator, server firewall/network settings, system databases, system schemas, or SQL security principals.
@@ -26,7 +27,7 @@
 
 1. **Workbook sparsity/formulas:** blank trailing rows, helper sheets, duplicate-looking lookup sheets, formula cells and array formulas must not disappear from raw staging just because they are not business-source rows. Task 1 tests a sparse/formula workbook and verifies generic raw row preservation.
 2. **Date/time normalization:** Excel datetime/time objects and text values must normalize deterministically without converting unknown times to midnight. Task 1 tests date/time serialization and Task 2 tests canonical Session keys.
-3. **Identity ambiguity:** surname variants, accents and multi-surname forms may resolve only through exact Master fields or an explicit alias map; an unknown person must remain unresolved. Task 2 tests both explicit aliases and a deliberately unknown source name.
+3. **Identity ambiguity and display drift:** surname variants, accents and multi-surname forms may resolve only through exact Master fields, a unique HR crosswalk, or an explicit alias map; an unknown person must remain unresolved, and every resolved result must display the Faculty Master Preferred Name as `First, Last`. Task 2 tests crosswalks, aliases, an unknown source name, and canonical display formatting.
 4. **Session grouping/multiplicity:** multiple Faculty rows for one teaching event must produce one Session and multiple SessionAssignment rows, with no assignment loss. Task 2 pins the grouping key and multiplicity.
 5. **Destructive reset safety:** wrong database name, changed object inventory, missing typed confirmation, or a package whose hashes/counts do not match must fail before destructive SQL. Task 4 tests the PowerShell/SQL contract statically; the Azure integration run must prove each guard before Apply.
 
@@ -247,6 +248,14 @@ The explicit alias map must include only source variants that are unambiguous in
 
 Do not add an alias for `Zachar, Erin`.
 
+Add naming assertions using real-style examples:
+- `Alfajaro, Mia` → `Mia, Alfajaro`;
+- HR source `Whiteside, Douglas` → Preferred `Doug, Whiteside`;
+- alias source `Juarez Davila, Manuel` → Preferred `Manuel, Juárez Davila`;
+- source `van der Meer, Franciscus` → Preferred `Frank, van der Meer` through the unique HR crosswalk.
+
+`HR FULL Name` remains staging evidence only; normalized Faculty records do not carry it as a competing display-name field.
+
 - [ ] **Step 2: Run normalization tests and verify RED**
 
 ```bash
@@ -260,10 +269,12 @@ Expected: FAIL because resolver/normalizer entrypoints do not exist.
 Identity matching order is exactly:
 1. non-blank UCID exact match;
 2. normalized institutional email exact match;
-3. exact normalized Preferred Name;
-4. exact normalized HR Name;
+3. exact normalized Faculty Master Preferred Name in source `Last, First` form;
+4. exact normalized HR-name crosswalk when unique;
 5. explicit alias file;
 6. unresolved.
+
+After any successful match, output name fields are built only from the matched Faculty Master Preferred Name. Parse the source `Last, First` value at the first comma into `PreferredLastName` and `PreferredFirstName`, then set `DisplayName = PreferredFirstName + ", " + PreferredLastName`. Do not copy the HR/source name into normalized display fields.
 
 `normalize_name` may normalize Unicode form, case for comparison, trim whitespace, and collapse repeated whitespace. It must not remove accents or arbitrarily drop surname tokens to force a match.
 
@@ -344,7 +355,7 @@ The tests read SQL text and assert:
 - `staging.ImportBatch/ImportWorkbook/ImportSheet/ImportRow` exist;
 - all ten typed staging tables exist;
 - all normalized tables listed above exist;
-- `paws.Faculty` uses `uniqueidentifier` primary key and nullable UCID/email uniqueness is enforced through filtered unique indexes;
+- `paws.Faculty` uses `uniqueidentifier` primary key, has `PreferredFirstName`, `PreferredLastName`, and `DisplayName`, omits HR name as a canonical display field, and nullable UCID/email uniqueness is enforced through filtered unique indexes;
 - `paws.AfcRecord` has `CHECK (EndDate >= StartDate)`;
 - `paws.RoleAssignment` allows negative DOE override and checks only that ExpirationDate is later than EffectiveDate when both are present;
 - `paws.SessionAssignment` has FKs to Session and Faculty;
@@ -650,7 +661,7 @@ python tools/build_azure_sql_import.py \
 - [ ] **Step 2: Verify the authoritative source counts**
 
 The report must prove:
-- Faculty Master / Key: 117 data rows;
+- Faculty Master / Key: 116 Faculty business rows, plus the `Key!A119` formula summary row preserved in generic raw staging;
 - Faculty Professional records: 116 normalized source records;
 - Joint Appointments: 14;
 - Teaching Assignments: 4,974;
@@ -668,6 +679,7 @@ The parser must derive counts from non-empty rows, not worksheet max-row values.
 The report must include at least:
 - 1 Faculty Master record without UCID;
 - 1 Faculty Master record without email;
+- all 116 Faculty canonical display names are derived from the Preferred Name and formatted `First, Last`; HR/source names may resolve identity but never replace the Preferred display name;
 - 1 AFC row without Faculty Member;
 - 1 AFC row without Purpose;
 - 2 AFC rows with End earlier than Start;
@@ -743,7 +755,7 @@ powershell -ExecutionPolicy Bypass -File tools/import_paws_azure_sql.ps1 `
 The success report must prove:
 - no legacy mirror table remains;
 - all generic raw rows and typed staging counts match package manifest;
-- 117 Faculty source rows are preserved;
+- 116 Faculty business rows are preserved in typed staging, while the `Key!A119` summary formula row is preserved in generic raw staging;
 - 4,974 Teaching Assignment source rows are preserved;
 - 1,937 canonical Sessions exist;
 - 4,974 SessionAssignments exist or each unresolved assignment exclusion is enumerated and accounted for according to the normalization contract;

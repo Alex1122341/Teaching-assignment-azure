@@ -13,6 +13,7 @@ class AzureSqlDocsContractTests(unittest.TestCase):
         self.assertIn('contents: read', workflow)
         self.assertIn('Parser]::ParseFile', workflow)
         self.assertIn('load_paws_azure_sql_empty.ps1', workflow)
+        self.assertNotIn('tools/import_paws_azure_sql.ps1', workflow)
         for forbidden in ['AZURE_', 'secrets.', 'azure/login', 'workflow_dispatch']:
             self.assertNotIn(forbidden, workflow)
 

@@ -47,7 +47,12 @@ ORDER BY SchemaName, ObjectKind, ObjectName;
     }
     $reader.Close()
 
-    $canonical = @($objects) | ConvertTo-Json -Depth 6 -Compress
+    if (@($objects).Count -eq 0) {
+        $canonical = '[]'
+    }
+    else {
+        $canonical = @($objects) | ConvertTo-Json -Depth 6 -Compress
+    }
     $inventorySha256 = Get-PawsSha256Text -Text $canonical
     [pscustomobject][ordered]@{
         server = $Server

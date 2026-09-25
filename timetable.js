@@ -89,6 +89,15 @@
     return UCVM.admin(currentUser);
   }
 
+  function requireSessionWrites() {
+    const enabled = !window.UCVM_PAWS_DATA || window.UCVM_PAWS_DATA.sessionWritesEnabled();
+    if (enabled) return true;
+    const error = new Error('SQL session writes are not ready.');
+    error.code = 'SQL_SESSION_WRITES_NOT_READY';
+    toast(error.message, true);
+    return false;
+  }
+
   async function getRoleProfile(firebaseUser) {
     if (!db) throw new Error('Firestore is not initialized.');
     const snap = await window.UCVM_PAGE_DATA.profileSnapshot(firebaseUser.uid);
@@ -338,14 +347,17 @@
     const live = scheduleSource === 'firestore';
     const text = $('conn-text');
     if (text && currentUser) {
-      if (live) text.textContent = `Authorized: ${currentUser.role} · Live Firestore schedule`;
+      if (scheduleSource === 'azure-sql') text.textContent = `Authorized: ${currentUser.role} · Azure SQL timetable (read only)`;
+      else if (scheduleSource === 'azure-sql-empty') text.textContent = `Authorized: ${currentUser.role} · No Azure SQL timetable sessions`;
+      else if (scheduleSource === 'azure-sql-error') text.textContent = `Authorized: ${currentUser.role} · Azure SQL timetable unavailable`;
+      else if (live) text.textContent = `Authorized: ${currentUser.role} · Live Firestore schedule`;
       else if (scheduleSource === 'firestore-empty') text.textContent = `Authorized: ${currentUser.role} · No timetable sessions`;
       else if (scheduleSource === 'firestore-error') text.textContent = `Authorized: ${currentUser.role} · Timetable unavailable`;
       else text.textContent = `Authorized: ${currentUser.role} · Connecting to live timetable`;
     }
     const publish = $('publish-firestore-schedule');
     if (publish) {
-      publish.classList.toggle('hidden', !UCVM.admin(currentUser));
+      publish.classList.toggle('hidden', !UCVM.admin(currentUser) || (window.UCVM_PAWS_DATA && !window.UCVM_PAWS_DATA.sessionWritesEnabled()));
       publish.textContent = live ? 'Synced Schedule Ready' : 'Sync from Faculty Dashboard';
       publish.disabled = false;
     }
@@ -368,27 +380,29 @@
     return { start:ymd(start), end:ymd(addDays(start, 4)) };
   }
 
-  function subscribeSessions() {
+  async function subscribeSessions() {
     if (!db || !currentUser) return;
     const range=visibleSessionRange(), key=`${viewMode}:${range.start}:${range.end}`;
     if(sessionUnsubscribe&&sessionRangeKey===key)return;
     if (sessionUnsubscribe) { try { sessionUnsubscribe(); } catch (_) {} }
     sessionRangeKey=key;
+    if(window.UCVM_PAWS_DATA && window.UCVM_PAWS_DATA.sessionBackend()==='azure-sql'){
+      let cancelled=false; sessionUnsubscribe=()=>{cancelled=true};
+      try{
+        const exclusiveEnd=ymd(addDays(parseYmd(range.end),1));
+        const rows=await window.UCVM_PAWS_DATA.listSessions({start:range.start,end:exclusiveEnd});
+        if(cancelled)return;
+        sessions=rows.map(row=>({id:String(row.id),date:row.date,year:Number(row.curriculumYear)||Number(String(row.academicYear||'').match(/\d+/)?.[0])||1,course:row.courseCode||'',courseName:row.courseName||'',topic:row.topic||'',type:row.sessionType||'',start:String(row.startTime||'').slice(0,5),end:String(row.endTime||'').slice(0,5),room:row.room||'',instructor:row.instructorNames||'',assignments:[]}));
+        cacheSessionRange(range,sessions);publishPageData();window.dispatchEvent(new Event('ucvm:sessions-updated'));
+        scheduleSource = sessions.length ? 'azure-sql' : 'azure-sql-empty';populateCourseFilter();updateScheduleSourceUI();render();
+      }catch(err){if(cancelled)return;console.error('[SQL sessions]',err);sessions=[];scheduleSource='azure-sql-error';populateCourseFilter();updateScheduleSourceUI();toast('The Azure SQL timetable could not be read.',true);render();}
+      return;
+    }
     sessionUnsubscribe = sessionQueryForRange(range).onSnapshot(snapshot => {
       sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      cacheSessionRange(range,sessions);
-      publishPageData();
-      window.dispatchEvent(new Event('ucvm:sessions-updated'));
-      scheduleSource = sessions.length ? 'firestore' : 'firestore-empty';
-      populateCourseFilter();
-      updateScheduleSourceUI();
-      render();
-    }, err => {
-      console.error('[sessions subscription]', err);
-      sessions = []; scheduleSource = 'firestore-error';
-      populateCourseFilter(); updateScheduleSourceUI();
-      toast('The synchronized Firestore timetable could not be read.', true); render();
-    });
+      cacheSessionRange(range,sessions); publishPageData(); window.dispatchEvent(new Event('ucvm:sessions-updated'));
+      scheduleSource = sessions.length ? 'firestore' : 'firestore-empty'; populateCourseFilter(); updateScheduleSourceUI(); render();
+    }, err => { console.error('[sessions subscription]', err); sessions = []; scheduleSource = 'firestore-error'; populateCourseFilter(); updateScheduleSourceUI(); toast('The synchronized Firestore timetable could not be read.', true); render(); });
   }
 
   function refreshSessionScope(){if(currentUser)subscribeSessions();else render()}
@@ -546,6 +560,7 @@
   function swapPct(v,d=2){return v===null?'—':`${Number(v).toFixed(d)}%`}
 
   async function openSwapModal(sessionId,initialAssignmentIndex=0){
+    if(!requireSessionWrites())return;
     if(!UCVM.admin(currentUser)){toast('Admin permission is required to swap faculty.',true);return;}
     if(scheduleSource!=='firestore'){toast('The synchronized live timetable must be loaded first.',true);return;}
     const s=sessions.find(x=>x.id===sessionId); if(!s)return;
@@ -601,6 +616,7 @@
   }
 
   async function performFacultySwap(session,assignments,outIndex,newFacultyId,doeState){
+    if(!requireSessionWrites())return false;
     if(!UCVM.admin(currentUser))return;
     const replacement=facultyDirectory.find(f=>String(f.__id)===String(newFacultyId)); if(!replacement)return;
     const outgoing=assignments[outIndex]; if(!outgoing)return;
@@ -621,6 +637,7 @@
   }
 
   async function initializeLiveSchedule() {
+    if(!requireSessionWrites())return false;
     if (!UCVM.admin(currentUser)) { toast('Admin permission is required.', true); return; }
     if (confirm('The timetable is now sourced only from 2026-09-03 - All Faculty Summaries.xlsx. Open the Faculty Dashboard to replace and synchronize the source data?')) location.href='faculty-admin.html';
   }
@@ -981,6 +998,7 @@
   }
 
   async function startSessionSelection(){
+    if(!requireSessionWrites())return;
     if(!canEdit())return;
     await ensureFacultyDirectory();
     selectionViewFlow.begin(viewMode);
@@ -1045,6 +1063,7 @@
     });
   }
   async function saveSelectedChanges(){
+    if(!requireSessionWrites())return;
     if(!canEdit()){toast('Admin permission is required.',true);return}
     const button=$('selection-save-btn'),errorBox=$('selection-errors'),originals=window.UCVM_TIMETABLE_SELECTION.selectedRows([...selectedSessionOriginals.values()],sessionSelection.ids()),rows=readSelectionRows(),facultyById=new Map(facultyDirectory.map(f=>[String(f.__id),f])),timestamp=firebase.firestore.FieldValue.serverTimestamp();
     await ensureSessionsForDates(rows.map(row=>row.date),true);
@@ -1156,6 +1175,7 @@
     return {errors,warnings,sessions:prepared};
   }
   async function saveBulkSessions(rows){
+    if(!requireSessionWrites())return false;
     await ensureSessionsForDates(rows.map(row=>row.date),true);
     const result=validateBulkRows(rows),errorBox=$('bulk-errors');
     if(result.errors.length){errorBox.textContent=result.errors.join('\n');errorBox.classList.remove('hidden');document.querySelectorAll('[data-bulk-row]').forEach((tr,index)=>tr.classList.toggle('bulk-row-error',result.errors.some(message=>message.startsWith(`Row ${index+1}:`))));return false}
@@ -1172,6 +1192,7 @@
     await batch.commit();invalidateAllSessions();await updateDerivedIndexes(created.map(after=>({before:null,after})));closeModal();toast(`${result.sessions.length} live sessions added.`);return true;
   }
   async function openBulkSessionForm(){
+    if(!requireSessionWrites())return;
     if(!UCVM.admin(currentUser)){toast('ADFA permission is required.',true);return}
     if(scheduleSource!=='firestore'){toast('The live Firestore timetable is unavailable.',true);return}
     await ensureFacultyDirectory();bulkRows=[blankBulkRow()];
@@ -1190,6 +1211,7 @@
   }
 
   async function openSessionForm(existing = null) {
+    if(!requireSessionWrites())return;
     if (!canEdit()) { toast('Editor permission is required to change sessions.', true); return; }
     if (scheduleSource !== 'firestore') { toast('The live Firestore timetable is unavailable. Sync it from Faculty Dashboard first.', true); return; }
     if(UCVM.admin(currentUser))await ensureFacultyDirectory();
@@ -1290,6 +1312,7 @@
   }
 
   async function deleteSession(id) {
+    if(!requireSessionWrites())return;
     if (!UCVM.admin(currentUser)) { toast('ADFA permission is required.', true); return; }
     const s = sessions.find(x => x.id === id); if (!s) return;
     if (scheduleSource !== 'firestore') { toast('Live Schedule is not initialized.', true); return; }

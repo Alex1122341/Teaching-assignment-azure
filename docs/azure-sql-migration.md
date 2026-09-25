@@ -1,5 +1,7 @@
 # PAWS Azure SQL authoritative workbook migration
 
+> The Beta session-read release-candidate runtime, least-privilege contract, and preview-only activation boundary are documented in [beta-azure-sql-runtime.md](beta-azure-sql-runtime.md). Runtime activation has not been performed.
+
 This runbook covers Phase 1 of the PAWS Firestore-to-Azure SQL cutover. The three approved workbooks are the sole initialization source. The current live migration checkpoint is a verified-empty Azure SQL lab database followed by a guarded, non-destructive schema/data load.
 
 ## Safety boundary

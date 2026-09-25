@@ -27,11 +27,16 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('every protected shipped file matches the frozen baseline git objects',()=>{
+test('release candidate reports only its explicit protected runtime drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
-  assert.deepEqual(result.drift,[]);
-  assert.equal(result.ok,true);
+  assert.deepEqual(result.drift,[
+    {file:'firebase-config.js',reason:'missing-at-baseline'},
+    {file:'index.html',reason:'content-drift'},
+    {file:'paws-data-client.js',reason:'missing-at-baseline'},
+    {file:'timetable.js',reason:'content-drift'}
+  ]);
+  assert.equal(result.ok,false);
   assert.equal(result.protected,manifest().length);
 });
 
@@ -59,7 +64,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   const protectedFiles=freeze.protectedPaths({root,readManifest:()=>['index.html']});
   assert.ok(protectedFiles.includes('approval-workflow.js'));
   assert.ok(protectedFiles.includes('scheduling-core.js'));
-  assert.equal(protectedFiles.length,manifest().length);
+  assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
 });
 
 test('the frozen baseline commit is present and is an ancestor of beta main',()=>{

@@ -2,7 +2,8 @@ name: Azure Beta Build
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/azure-sql-cutover-foundation]
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -30,17 +31,23 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: npm ci
+      - run: npm ci --prefix swa-api
       - run: npm test
       - run: npm run test:emulator
-      - run: node tools/build-static.js
-      - run: cp staticwebapp.config.json .deploy-static/staticwebapp.config.json
-      - run: node tools/beta-freeze.js
-      - run: node tools/beta-freeze.js --artifact .deploy-static
+      - run: node tools/build-beta-release.js
+      - name: Verify strict frozen main runtime
+        if: github.event_name == 'push'
+        run: |
+          node tools/beta-freeze.js
+          node tools/beta-freeze.js --artifact .azure-production/app
+      - name: Verify explicit release-candidate drift
+        if: github.event_name != 'push'
+        run: node tools/verify-beta-candidate.js
       - run: node --test tests/beta-baseline.test.js tests/azure-deployment.test.js
       - uses: actions/upload-artifact@v7
         with:
           name: azure-beta-${{ github.sha }}
-          path: .deploy-static
+          path: .azure-production
           if-no-files-found: error
           retention-days: 7
           include-hidden-files: true

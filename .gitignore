@@ -7,6 +7,8 @@ output/
 .faculty-admin-inline.js
 .worktrees/
 .deploy-static/
+.azure-production/
+swa-api/node_modules/
 __pycache__/
 azure-sql-import-private/
 *.paws-import.json

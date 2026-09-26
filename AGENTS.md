@@ -14,7 +14,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 - Beta repository: `Alex1122341/Teaching-assignment-azure`.
 - This repository is the frozen Azure beta line; `main` is deployable only through the manual exact-SHA beta release workflow.
-- The application baseline is `86bd5aa`; do not merge or automatically synchronize the test repository.
+- The application baseline is `6eeb1a4` (Runtime Commit A, the BETA-R1 SQL-backed read runtime candidate); do not merge or automatically synchronize the test repository.
 - The beta URL is `https://red-cliff-04871ca0f.5.azurestaticapps.net`.
 - Do not commit feature work directly to `main`; use a feature branch / worktree and open a PR.
 - Build the static bundle with `node tools/build-static.js`.
@@ -22,10 +22,11 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 ## Frozen runtime contract
 
-- The Azure beta application is frozen at commit `86bd5aa2c8a25259f3f708e49b322220ff43a147`. That immutable commit is the content trust anchor.
-- **All** shipped static runtime assets are protected, not just a five-file subset. The authoritative shipped-file list is `tools/static-assets.json` (44 entries).
+- The Azure beta application is frozen at commit `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`. That immutable commit (Runtime Commit A) is the content trust anchor.
+- This baseline represents the **BETA-R1 SQL-backed read runtime candidate**. It is the reviewed frozen runtime, but it is **NOT YET DEPLOYED** — the deployed Azure beta site still predates BETA-R1 until the later manual deployment task succeeds.
+- **All** shipped static runtime assets are protected, not just a five-file subset. The authoritative shipped-file list is `tools/static-assets.json` (45 entries).
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.
-- `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .deploy-static` to validate a built or downloaded artifact.
+- `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .azure-production/app` to validate a built or downloaded artifact.
 - `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.
 - Normal CI fails if any shipped runtime asset drifts from the baseline. `Azure Beta Build` runs the freeze check for both the repository and the built artifact; `Azure Beta Deploy` revalidates the requested SHA and the downloaded artifact independently before any Azure upload.
 - Changing the baseline is explicit future release work: it requires updating the frozen baseline commit reference, the manifest-derived protection, and the documentation together, in a reviewed change. It is never an implicit side effect of a feature commit.

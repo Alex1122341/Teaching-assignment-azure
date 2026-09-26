@@ -21,7 +21,12 @@ Status: **IMPLEMENTATION COMPLETE / NOT DEPLOYED**
 
 PR #6:
 
-- HEAD `075852b150e8870b4e49e1076586cbbc82bc1bcb`
+- base `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) — retargeted 2026-09-26
+- **Runtime Commit A** `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` (merge of `main` into the PR
+  branch; parents `075852b…` + `ea80eecc…`; tree `543b00af…`)
+- **Commit B (BETA-R3A-3)** — governance-only: promotes the frozen baseline from
+  `86bd5aa2c8a25259f3f708e49b322220ff43a147` to `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`
+- HEAD = Commit B; the 4 BETA-R1 commits `c006c9a`, `b230718`, `4af5af8`, `075852b` preserved
 - Firebase login retained
 - API token verification
 - SQL UserProfile authorization
@@ -29,7 +34,12 @@ PR #6:
 - no Firestore session fallback
 - session writes disabled
 - no DOE changes
-- CI green in implementation report
+- protected runtime assets changed by Commit B: **0** (all 45 blobs identical to Commit A)
+- protected path set 44 → 45 (superset; `paws-data-client.js` added)
+- zero protected runtime drift required on `pull_request` and on `push` to `main`
+- **PR #6 is NOT merged and NOT deployed.** Do not merge on green CI alone: architect review
+  and owner approval are required, and the later merge must preserve Commit A ancestry
+  (no squash, no rebase-merge)
 
 ### BETA-R2 — activation preview
 

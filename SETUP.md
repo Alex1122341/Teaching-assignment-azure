@@ -51,11 +51,11 @@ This is the **Azure beta repository** `Alex1122341/Teaching-assignment-azure`. I
 
 The beta site uses the live Firebase backend, project `tester-teaching`, for Authentication and Firestore. Test data-changing actions deliberately. Firebase Hosting is not used for beta web releases.
 
-The application baseline is `86bd5aa`. This repository is the frozen Azure beta line. It does not automatically sync from the GitHub Pages test repository `Alex1122341/Teaching-assignment`; a test-site feature is promoted only through a separately reviewed change after its complete test cycle succeeds.
+The application baseline is `6eeb1a4` (Runtime Commit A, the BETA-R1 SQL-backed read runtime candidate). This repository is the frozen Azure beta line. It does not automatically sync from the GitHub Pages test repository `Alex1122341/Teaching-assignment`; a test-site feature is promoted only through a separately reviewed change after its complete test cycle succeeds.
 
 Azure beta release requires successful CI for the exact current `main` SHA. No release happens without a successful **Azure Beta Build** run for that exact SHA, and no release is triggered automatically.
 
-A normal push to `main` does not release Azure beta. Pushing `main`, or opening a pull request against `main`, runs **Azure Beta Build**: it installs dependencies, runs `npm test`, runs the Firestore/Auth emulator suite, builds `.deploy-static`, stages the canonical `staticwebapp.config.json`, and uploads the immutable artifact `azure-beta-<SHA>`. That workflow never contacts Azure and holds no Azure credential.
+A normal push to `main` does not release Azure beta. Pushing `main`, or opening a pull request against `main`, runs **Azure Beta Build**: it installs dependencies, runs `npm test`, runs the Firestore/Auth emulator suite, builds the release tree with `node tools/build-beta-release.js` into `.azure-production/app`, stages the canonical `staticwebapp.config.json`, and uploads the immutable artifact `azure-beta-<SHA>`. That workflow never contacts Azure and holds no Azure credential.
 
 ### One-time Firebase authorized domain setup
 
@@ -96,13 +96,15 @@ The Azure beta URL is publicly reachable and is not a security boundary. Firebas
 
 ### Frozen runtime contract
 
-Azure beta is frozen at commit `86bd5aa2c8a25259f3f708e49b322220ff43a147`. That immutable commit is the content trust anchor for every shipped file.
+Azure beta is frozen at commit `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`. That immutable commit (Runtime Commit A) is the content trust anchor for every shipped file.
 
-1. The authoritative list of shipped application files is `tools/static-assets.json` (44 entries). All of them are protected, not a five-file subset.
+This baseline is the **BETA-R1 SQL-backed read runtime candidate**. It is the reviewed frozen runtime but it is **NOT YET DEPLOYED**: the deployed Azure beta site still predates BETA-R1 until the later manual deployment task succeeds.
+
+1. The authoritative list of shipped application files is `tools/static-assets.json` (45 entries). All of them are protected, not a five-file subset.
 2. The protected set is the union of the paths named by the current manifest and by the manifest stored in the frozen baseline commit. Deleting a path from the mutable manifest does not remove it from the freeze.
 3. Protection is enforced by `tools/beta-freeze.js`, which compares each protected file with the blob stored in the frozen baseline commit using `git cat-file`. It never compares against a hash file in the working tree.
 4. `tools/beta-baseline.json` is documentation and live-site reporting only. Editing a runtime file and that JSON together still fails CI, because verification reads the baseline Git objects.
-5. Normal CI fails if any shipped runtime asset drifts: **Azure Beta Build** runs `node tools/beta-freeze.js` for the repository and `node tools/beta-freeze.js --artifact .deploy-static` for the built artifact.
+5. Normal CI fails if any shipped runtime asset drifts: **Azure Beta Build** runs `node tools/verify-beta-candidate.js` for the repository and `node tools/beta-freeze.js --artifact .azure-production/app` for the built artifact. Both `pull_request` and `push` to `main` allow **zero** protected runtime drift.
 6. **Azure Beta Deploy** independently revalidates the requested SHA and the downloaded artifact against the same frozen baseline before any Azure upload. It does not rebuild.
 7. Moving the baseline to a new commit is explicit, reviewed release work: the frozen commit reference, the manifest-derived protection and this documentation change together. It never happens implicitly.
 

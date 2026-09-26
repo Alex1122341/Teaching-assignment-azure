@@ -1,0 +1,13 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),source=path.join(root,'swa-api');
+const output=path.resolve(process.argv[process.argv.indexOf('--output')+1]||path.join(root,'.azure-production','api'));
+const expected=path.join(root,'.azure-production','api');
+if(output!==expected)throw Error('SWA API output must be .azure-production/api');
+for(const name of ['package.json','package-lock.json','host.json','index.js'])if(!fs.existsSync(path.join(source,name)))throw Error(`Missing SWA API source: ${name}`);
+fs.rmSync(output,{recursive:true,force:true});fs.mkdirSync(output,{recursive:true});
+for(const name of ['package.json','package-lock.json','host.json','index.js'])fs.copyFileSync(path.join(source,name),path.join(output,name));
+fs.cpSync(path.join(root,'server','src'),path.join(output,'server','src'),{recursive:true});
+const inventory=[];function walk(dir){for(const e of fs.readdirSync(dir,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))){const p=path.join(dir,e.name);if(e.isDirectory())walk(p);else inventory.push(path.relative(output,p).replaceAll('\\','/'));}}walk(output);
+fs.writeFileSync(path.join(output,'artifact-inventory.json'),JSON.stringify(inventory,null,2)+'\n');
+console.log(JSON.stringify({output,files:inventory.length}));

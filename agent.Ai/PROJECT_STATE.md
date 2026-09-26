@@ -55,11 +55,13 @@ Purpose:
 
 Current main:
 
-- `e15a53240a6b6a688d95299539a5628ac2b54144`
+- `ea80eecc9fa2ac2b693c23979bad5c5809a26863`
 
 Frozen application baseline:
 
-- `86bd5aa2c8a25259f3f708e49b322220ff43a147`
+- `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` (Runtime Commit A — BETA-R1 SQL-backed read runtime candidate)
+- previous baseline `86bd5aa2c8a25259f3f708e49b322220ff43a147` is retained only as historical evidence
+- the promoted baseline is **NOT YET DEPLOYED**; the live Azure beta site still predates BETA-R1
 
 ## 3. Current Azure SQL checkpoint
 
@@ -147,23 +149,34 @@ The Firestore/SQL session difference is a **net count difference**, not proof of
 
 - Draft/open
 - branch `task/beta-r1-connect-azure-sql`
-- base PR #3 exact HEAD `edb46dc...`
-- HEAD `075852b150e8870b4e49e1076586cbbc82bc1bcb`
+- base `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) — retargeted 2026-09-26 (BETA-R3A-2)
+- **Runtime Commit A** `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` merged current `main` INTO the
+  PR branch (merge commit; parents `075852b…` + `ea80eecc…`; tree `543b00af…`)
+- **Commit B (BETA-R3A-3)** — governance-only frozen-baseline promotion, parent = Commit A
+- HEAD = Commit B (tip of `task/beta-r1-connect-azure-sql`)
 - mergeable at last verification
-- implementation complete; not merged/deployed
+- implementation complete; **NOT merged**; **NOT deployed**
 - session read path: Firebase Auth → API → Azure SQL → existing timetable UI
 - no Firestore fallback for the Azure session-read path
 - session writes fail closed
 - no DOE files changed
+- the 4 BETA-R1 commits `c006c9a`, `b230718`, `4af5af8`, `075852b` are preserved unchanged
 
-Last reported CI for PR #6:
+Frozen Beta runtime baseline (promoted by Commit B):
 
-- Azure SQL Migration Tests #46: SUCCESS
-- Azure Beta Build #58: SUCCESS
-- main Node tests: 290 pass / 0 fail / 29 skipped
-- SQL runtime auth tests: 10/10 pass
-- Firebase emulator regression: 319/319 pass
-- deployment/baseline contract: 14/14 pass
+- `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` — BETA-R1 SQL-backed read runtime candidate
+- previous baseline `86bd5aa2c8a25259f3f708e49b322220ff43a147` is historical evidence only
+- protected path set 44 → 45 (all 44 previous paths retained, plus `paws-data-client.js`)
+- zero protected runtime drift is allowed on both `pull_request` and `push` to `main`
+- **the promoted baseline is NOT YET DEPLOYED**; the live Azure beta site still predates BETA-R1
+
+Current CI for PR #6 (fresh, `pull_request`, base `main` @ `ea80eecc…`):
+
+- Approved Commit A: Azure SQL Migration Tests `36265424485` SUCCESS;
+  Azure Beta Build `36265424535` SUCCESS (head `6eeb1a4…`)
+- Commit B CI: recorded in the BETA-R3A-3 report (new run IDs only)
+- retired evidence: runs `36249819711` / `36249819750` are pre-retarget historical
+  (checkout `Merge 075852b… into edb46dc…`) — do not reuse
 
 ## 6. BETA-R1 remaining live blockers
 

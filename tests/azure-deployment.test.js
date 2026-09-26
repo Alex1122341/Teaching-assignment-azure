@@ -29,11 +29,14 @@ test('beta CI tests and builds but cannot deploy',()=>{
   assert.match(workflow,/push:\s*\n\s+branches:\s*\[main\]/);
   assert.match(workflow,/permissions:\s*\n\s+contents:\s*read/);
   assert.match(workflow,/npm ci/);
+  assert.match(workflow,/npm ci --prefix swa-api/);
   assert.match(workflow,/npm test/);
   assert.match(workflow,/npm run test:emulator/);
-  assert.match(workflow,/node tools\/build-static\.js/);
-  assert.match(workflow,/cp staticwebapp\.config\.json \.deploy-static\/staticwebapp\.config\.json/);
+  assert.match(workflow,/node tools\/build-beta-release\.js/);
+  assert.match(workflow,/node tools\/verify-beta-candidate\.js/);
+  assert.match(workflow,/node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.match(workflow,/name:\s*azure-beta-\$\{\{ github\.sha \}\}/);
+  assert.match(workflow,/path:\s*\.azure-production/);
   assert.doesNotMatch(workflow,/AZURE_STATIC_WEB_APPS_API_TOKEN/);
   assert.doesNotMatch(workflow,/Azure\/static-web-apps-deploy/);
   assert.doesNotMatch(workflow,/deploy_production:/);
@@ -79,12 +82,67 @@ test('beta deploy independently revalidates the frozen runtime before Azure uplo
 
   // Independent frozen-runtime revalidation happens before that upload.
   assert.match(before,/node tools\/beta-freeze\.js/);
-  assert.match(before,/--artifact\s+\$\{\{ github\.workspace \}\}\/\.deploy-static|--artifact\s+\.deploy-static/);
-  assert.match(before,/86bd5aa2c8a25259f3f708e49b322220ff43a147/);
+  assert.match(before,/--artifact\s+\.azure-production\/app/);
+  assert.match(before,/6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26/);
   assert.match(before,/ref:\s*\$\{\{ inputs\.commit_sha \}\}/);
   // Revalidation must not become a second build.
-  assert.doesNotMatch(before,/node tools\/build-static\.js/);
+  assert.doesNotMatch(before,/node tools\/build-beta-release\.js/);
   assert.doesNotMatch(before,/npm run test:emulator/);
+});
+
+// G + H. Candidate and main CI contracts: ZERO allowed protected runtime drift.
+test('the build workflow enforces zero protected runtime drift on every event',()=>{
+  const workflow=read('.github/workflows/azure-beta-build.yml');
+  // No event gate may switch verification behaviour between pull_request and push.
+  assert.doesNotMatch(workflow,/github\.event_name/);
+  assert.doesNotMatch(workflow,/Verify strict frozen main runtime/);
+  assert.doesNotMatch(workflow,/Verify explicit Beta-R1 release-candidate drift/);
+  // Both the repository runtime and the built artifact are verified against Commit A.
+  assert.match(workflow,/name:\s*Verify frozen Beta runtime baseline \(repository\)/);
+  assert.match(workflow,/name:\s*Verify frozen Beta runtime baseline \(built artifact\)/);
+  assert.match(workflow,/run:\s*node tools\/verify-beta-candidate\.js/);
+  assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
+});
+
+test('the candidate verifier has no drift whitelist and no Beta-R1 exception',()=>{
+  const verifier=read('tools/verify-beta-candidate.js');
+  assert.doesNotMatch(verifier,/const\s+allowed\s*=/);
+  assert.doesNotMatch(verifier,/new\s+Set\(/);
+  // paws-data-client.js may only appear in the historical note, never as an exception
+  assert.doesNotMatch(verifier,/allowed\s*\.has\(/);
+  assert.doesNotMatch(verifier,/intentionalCandidateDrift/);
+  assert.doesNotMatch(verifier,/intentionalCandidateDrift/);
+  assert.doesNotMatch(verifier,/86bd5aa2c8a25259f3f708e49b322220ff43a147/);
+  assert.match(verifier,/verifyFreeze/);
+  // Any drift must fail the run.
+  assert.match(verifier,/process\.exit\(1\)/);
+});
+
+test('the build workflow triggers on both pull_request and push to main',()=>{
+  const workflow=read('.github/workflows/azure-beta-build.yml');
+  assert.match(workflow,/pull_request:/);
+  assert.match(workflow,/push:\s*\n\s+branches:\s*\[main\]/);
+});
+
+// I. Deploy contract.
+test('manual deploy still requires exact current main and independently verifies both copies',()=>{
+  const workflow=read('.github/workflows/azure-beta-deploy.yml');
+  const baseline='6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26';
+  // exact-main gates preserved
+  assert.match(workflow,/test "\$\(git rev-parse HEAD\)" = "\$EXPECTED_SHA"/);
+  assert.match(workflow,/test "\$\(git rev-parse origin\/main\)" = "\$EXPECTED_SHA"/);
+  assert.match(workflow,/'\.repository\.full_name'/);
+  assert.match(workflow,/'\.head_sha'/);
+  assert.match(workflow,/'\.head_branch'.*= "main"/);
+  assert.match(workflow,/'\.event'.*= "push"/);
+  assert.match(workflow,/'\.status'.*= "completed"/);
+  assert.match(workflow,/'\.conclusion'.*= "success"/);
+  assert.match(workflow,/'\.path'.*= "\.github\/workflows\/azure-beta-build\.yml"/);
+  // repository copy verified against Commit A
+  assert.match(workflow,new RegExp(`node tools/beta-freeze\\.js --baseline ${baseline}\\b`));
+  // downloaded artifact verified against the SAME Commit A
+  assert.match(workflow,new RegExp(`node tools/beta-freeze\\.js --baseline ${baseline} --artifact \\.azure-production/app`));
+  assert.doesNotMatch(workflow,/86bd5aa2c8a25259f3f708e49b322220ff43a147/);
 });
 
 test('setup docs label this repository beta and forbid automatic test promotion',()=>{

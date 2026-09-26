@@ -16,7 +16,7 @@
 
   // Firebase Web configuration is public by design. This local harness uses the
   // separate Tester Teaching project for REAL Authentication and REAL role lookup.
-  // Authentication/roles and the timetable are live. All schedule reads/writes use Firestore; no bundled timetable data is shipped with this page.
+  // Firebase Authentication remains live. Timetable session reads come from the same-origin PAWS API backed by Azure SQL; no bundled timetable data is shipped with this page.
   const FIREBASE_CONFIG = {
     apiKey: "AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY",
     authDomain: "tester-teaching.firebaseapp.com",
@@ -89,27 +89,34 @@
     return UCVM.admin(currentUser);
   }
 
-  async function getRoleProfile(firebaseUser) {
-    if (!db) throw new Error('Firestore is not initialized.');
-    const snap = await window.UCVM_PAGE_DATA.profileSnapshot(firebaseUser.uid);
-    if (!snap.exists) {
-      const err = new Error(`No Firestore user profile exists for UID ${firebaseUser.uid}.`);
-      err.code = 'ucvm/profile-not-found';
-      throw err;
+  function requireSessionWrites() {
+    const enabled = Boolean(window.UCVM_PAWS_DATA && window.UCVM_PAWS_DATA.sessionWritesEnabled());
+    if (enabled) return true;
+    const error = new Error('Azure SQL timetable writes are not enabled in Beta-R1.');
+    error.code = 'SQL_SESSION_WRITES_NOT_READY';
+    toast(error.message, true);
+    return false;
+  }
+
+  async function getRoleProfile() {
+    if (!window.UCVM_PAWS_DATA) {
+      const error = new Error('The PAWS Azure data client is unavailable.');
+      error.code = 'PAWS_DATA_CLIENT_MISSING';
+      throw error;
     }
-    const data = snap.data() || {};
-    if (data.active !== true) {
-      const err = new Error('This timetable account is not active.');
-      err.code = 'ucvm/profile-inactive';
-      throw err;
+    const profile = await window.UCVM_PAWS_DATA.currentUser();
+    const role = String(profile?.role || '').trim().toLowerCase();
+    if (!role) {
+      const error = new Error('The SQL access profile has no role.');
+      error.code = 'ROLE_DENIED';
+      throw error;
     }
-    const role = String(data.role || '').trim().toLowerCase();
-    if (!['viewer', 'editor', 'admin', 'adfa_general', 'adfa_regular', 'hicc', 'visc', 'faculty'].includes(role)) {
-      const err = new Error(`Invalid Firestore role: ${role || '(blank)'}. Use faculty, hicc, visc, adfa_regular, or adfa_general.`);
-      err.code = 'ucvm/invalid-role';
-      throw err;
-    }
-    return { ...data, role };
+    return {
+      ...profile,
+      role,
+      active: profile.active === true,
+      mustChangePassword: profile.mustChangePassword === true
+    };
   }
 
   function isAdmin() { return UCVM.admin(currentUser); }
@@ -185,36 +192,53 @@
     for(const row of rows)sessionCache.set(row.id,row);
     if(!sessionCacheRanges.some(item=>item.start===range.start&&item.end===range.end))sessionCacheRanges.push({...range});
   }
-  function sessionQueryForRange(range){
-    let query=db.collection(SESSION_COLLECTION).where('date','>=',range.start).where('date','<=',range.end);
-    const facultyId=roleIsFaculty(currentUser)?String(currentUser.profile?.facultyId||'').trim():'';
-    if(facultyId)query=query.where('facultyIds','array-contains',facultyId);
-    return query;
+  function azureSessionRow(row){
+    const academicYear=String(row?.academicYear||'');
+    const curriculumYear=Number(row?.curriculumYear)||Number((academicYear.match(/\d+/)||[])[0])||1;
+    const instructor=String(row?.instructorNames||'').trim();
+    return {
+      id:String(row?.id||''),
+      date:String(row?.date||'').slice(0,10),
+      year:curriculumYear,
+      course:String(row?.courseCode||''),
+      courseName:String(row?.courseName||''),
+      topic:String(row?.topic||''),
+      type:String(row?.sessionType||''),
+      start:String(row?.startTime||'').slice(0,5),
+      end:String(row?.endTime||'').slice(0,5),
+      room:String(row?.room||''),
+      instructor,
+      assignments:instructor ? splitInstructorNames(instructor).map(name=>({name})) : [],
+      sourceSystem:'Azure SQL'
+    };
+  }
+  async function fetchAzureSessions(range={}){
+    if(!window.UCVM_PAWS_DATA)throw new Error('The PAWS Azure data client is unavailable.');
+    const rows=await window.UCVM_PAWS_DATA.listSessions(range);
+    return rows.map(azureSessionRow).filter(row=>row.id&&row.date);
   }
   async function ensureSessionsForRange(start,end){
     const range={start:String(start||'').slice(0,10),end:String(end||'').slice(0,10)};
-    if(!db||!currentUser||!range.start||!range.end||range.start>range.end)return[];
+    if(!currentUser||!range.start||!range.end||range.start>range.end)return[];
     const covered=sessionCacheRanges.some(item=>item.start<=range.start&&item.end>=range.end);
     if(covered)return pageSessions().filter(row=>row.date>=range.start&&row.date<=range.end);
     const key=`${range.start}:${range.end}`;
-    if(!sessionRangeLoads.has(key))sessionRangeLoads.set(key,sessionQueryForRange(range).get().then(snapshot=>{
-      const rows=snapshot.docs.map(doc=>({id:doc.id,...doc.data()}));
+    if(!sessionRangeLoads.has(key))sessionRangeLoads.set(key,fetchAzureSessions({start:range.start,end:ymd(addDays(parseYmd(range.end),1))}).then(rows=>{
       cacheSessionRange(range,rows);publishPageData();return rows.slice();
     }).finally(()=>sessionRangeLoads.delete(key)));
     return sessionRangeLoads.get(key);
   }
   async function ensureSessionsForDates(values,force=false){
-    const dates=UCVM_DATA_INDEX.dateChunks(values).flat(),missing=force?dates:dates.filter(date=>!sessionCacheDates.has(date)&&!sessionCacheRanges.some(range=>range.start<=date&&date<=range.end));
-    await Promise.all(UCVM_DATA_INDEX.dateChunks(missing).map(dateChunk=>{
-      const key=(force?'fresh:':'')+dateChunk.join('|');
-      if(!sessionDateLoads.has(key))sessionDateLoads.set(key,db.collection(SESSION_COLLECTION).where('date','in',dateChunk).get(force?{source:'server'}:undefined).then(snapshot=>{
-        for(const [id,row] of sessionCache)if(dateChunk.includes(String(row.date||'').slice(0,10)))sessionCache.delete(id);
-        for(const doc of snapshot.docs)sessionCache.set(doc.id,{id:doc.id,...doc.data()});
-        dateChunk.forEach(date=>sessionCacheDates.add(date));publishPageData();
-      }).finally(()=>sessionDateLoads.delete(key)));
-      return sessionDateLoads.get(key);
-    }));
-    return pageSessions().filter(row=>dates.includes(String(row.date||'').slice(0,10)));
+    const dates=UCVM_DATA_INDEX.dateChunks(values).flat().sort();
+    if(!dates.length||!currentUser)return[];
+    if(force){
+      const wanted=new Set(dates);
+      for(const [id,row] of sessionCache)if(wanted.has(String(row.date||'').slice(0,10)))sessionCache.delete(id);
+      dates.forEach(date=>sessionCacheDates.delete(date));
+    }
+    const rows=await ensureSessionsForRange(dates[0],dates[dates.length-1]);
+    dates.forEach(date=>sessionCacheDates.add(date));
+    return rows.filter(row=>dates.includes(String(row.date||'').slice(0,10)));
   }
   window.UCVM_PAGE_DATA={
     profile:()=>pageProfile(),
@@ -230,7 +254,7 @@
       return profileSnapshots.get(uid);
     }
   };
-  let scheduleSource = 'firestore-pending';
+  let scheduleSource = 'azure-sql-pending';
   let currentUser = null;
   let selectedWeek = 1;
   let selectedYear = 'all';
@@ -335,19 +359,20 @@
   }
 
   function updateScheduleSourceUI() {
-    const live = scheduleSource === 'firestore';
+    const live = scheduleSource === 'azure-sql';
     const text = $('conn-text');
     if (text && currentUser) {
-      if (live) text.textContent = `Authorized: ${currentUser.role} · Live Firestore schedule`;
-      else if (scheduleSource === 'firestore-empty') text.textContent = `Authorized: ${currentUser.role} · No timetable sessions`;
-      else if (scheduleSource === 'firestore-error') text.textContent = `Authorized: ${currentUser.role} · Timetable unavailable`;
-      else text.textContent = `Authorized: ${currentUser.role} · Connecting to live timetable`;
+      if (live) text.textContent = `Authorized: ${currentUser.role} · Azure SQL timetable (read only)`;
+      else if (scheduleSource === 'azure-sql-empty') text.textContent = `Authorized: ${currentUser.role} · No Azure SQL timetable sessions`;
+      else if (scheduleSource === 'azure-sql-error') text.textContent = `Authorized: ${currentUser.role} · Azure SQL timetable unavailable`;
+      else text.textContent = `Authorized: ${currentUser.role} · Connecting to Azure SQL timetable`;
     }
     const publish = $('publish-firestore-schedule');
     if (publish) {
-      publish.classList.toggle('hidden', !UCVM.admin(currentUser));
-      publish.textContent = live ? 'Synced Schedule Ready' : 'Sync from Faculty Dashboard';
-      publish.disabled = false;
+      const writesEnabled=Boolean(window.UCVM_PAWS_DATA&&window.UCVM_PAWS_DATA.sessionWritesEnabled());
+      publish.classList.toggle('hidden', !UCVM.admin(currentUser) || !writesEnabled);
+      publish.textContent = writesEnabled ? 'Timetable write path ready' : 'Azure SQL timetable (read only)';
+      publish.disabled = !writesEnabled;
     }
   }
 
@@ -368,36 +393,47 @@
     return { start:ymd(start), end:ymd(addDays(start, 4)) };
   }
 
-  function subscribeSessions() {
-    if (!db || !currentUser) return;
+  async function subscribeSessions() {
+    if (!currentUser) return;
     const range=visibleSessionRange(), key=`${viewMode}:${range.start}:${range.end}`;
     if(sessionUnsubscribe&&sessionRangeKey===key)return;
     if (sessionUnsubscribe) { try { sessionUnsubscribe(); } catch (_) {} }
     sessionRangeKey=key;
-    sessionUnsubscribe = sessionQueryForRange(range).onSnapshot(snapshot => {
-      sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      cacheSessionRange(range,sessions);
+    let cancelled=false;
+    sessionUnsubscribe=()=>{cancelled=true};
+    try{
+      const requestRange=viewMode==='list'?{}:{start:range.start,end:ymd(addDays(parseYmd(range.end),1))};
+      const rows=await fetchAzureSessions(requestRange);
+      if(cancelled)return;
+      sessions=rows;
+      cacheSessionRange(range,rows);
       publishPageData();
       window.dispatchEvent(new Event('ucvm:sessions-updated'));
-      scheduleSource = sessions.length ? 'firestore' : 'firestore-empty';
+      scheduleSource = sessions.length ? 'azure-sql' : 'azure-sql-empty';
       populateCourseFilter();
       updateScheduleSourceUI();
       render();
-    }, err => {
-      console.error('[sessions subscription]', err);
-      sessions = []; scheduleSource = 'firestore-error';
-      populateCourseFilter(); updateScheduleSourceUI();
-      toast('The synchronized Firestore timetable could not be read.', true); render();
-    });
+    }catch(err){
+      if(cancelled)return;
+      console.error('[Azure SQL sessions]',err);
+      sessions=[];
+      scheduleSource='azure-sql-error';
+      populateCourseFilter();
+      updateScheduleSourceUI();
+      toast('The Azure SQL timetable could not be read.',true);
+      render();
+    }
   }
 
   function refreshSessionScope(){if(currentUser)subscribeSessions();else render()}
   async function ensureAllSessions(){
     if(allSessionsCache)return allSessionsCache.slice();
     if(allSessionsLoading)return allSessionsLoading;
-    allSessionsLoading=db.collection(SESSION_COLLECTION).get().then(snapshot=>{
-      allSessionsCache=snapshot.docs.map(doc=>({id:doc.id,...doc.data()}));
-      return allSessionsCache.slice();
+    allSessionsLoading=fetchAzureSessions().then(rows=>{
+      allSessionsCache=rows.slice();
+      for(const row of rows)sessionCache.set(row.id,row);
+      publishPageData();
+      return rows.slice();
     }).finally(()=>{allSessionsLoading=null});
     return allSessionsLoading;
   }
@@ -546,6 +582,7 @@
   function swapPct(v,d=2){return v===null?'—':`${Number(v).toFixed(d)}%`}
 
   async function openSwapModal(sessionId,initialAssignmentIndex=0){
+    if(!requireSessionWrites())return;
     if(!UCVM.admin(currentUser)){toast('Admin permission is required to swap faculty.',true);return;}
     if(scheduleSource!=='firestore'){toast('The synchronized live timetable must be loaded first.',true);return;}
     const s=sessions.find(x=>x.id===sessionId); if(!s)return;
@@ -601,6 +638,7 @@
   }
 
   async function performFacultySwap(session,assignments,outIndex,newFacultyId,doeState){
+    if(!requireSessionWrites())return false;
     if(!UCVM.admin(currentUser))return;
     const replacement=facultyDirectory.find(f=>String(f.__id)===String(newFacultyId)); if(!replacement)return;
     const outgoing=assignments[outIndex]; if(!outgoing)return;
@@ -621,6 +659,7 @@
   }
 
   async function initializeLiveSchedule() {
+    if(!requireSessionWrites())return false;
     if (!UCVM.admin(currentUser)) { toast('Admin permission is required.', true); return; }
     if (confirm('The timetable is now sourced only from 2026-09-03 - All Faculty Summaries.xlsx. Open the Faculty Dashboard to replace and synchronize the source data?')) location.href='faculty-admin.html';
   }
@@ -646,7 +685,7 @@
     updateSummary();
   }
 
-  function roleIsFaculty(profile){ return ['faculty','hicc','visc'].includes(UCVM.role(profile?.role)); }
+  function roleIsFaculty(profile){ return ['faculty','hicc','visc'].includes(String(profile?.role||'').trim().toLowerCase()); }
   function sessionBelongsToCurrentFaculty(s){
     if(!currentUser)return false;
     const facultyId=String(currentUser.profile?.facultyId||'').trim();
@@ -981,6 +1020,7 @@
   }
 
   async function startSessionSelection(){
+    if(!requireSessionWrites())return;
     if(!canEdit())return;
     await ensureFacultyDirectory();
     selectionViewFlow.begin(viewMode);
@@ -1045,6 +1085,7 @@
     });
   }
   async function saveSelectedChanges(){
+    if(!requireSessionWrites())return;
     if(!canEdit()){toast('Admin permission is required.',true);return}
     const button=$('selection-save-btn'),errorBox=$('selection-errors'),originals=window.UCVM_TIMETABLE_SELECTION.selectedRows([...selectedSessionOriginals.values()],sessionSelection.ids()),rows=readSelectionRows(),facultyById=new Map(facultyDirectory.map(f=>[String(f.__id),f])),timestamp=firebase.firestore.FieldValue.serverTimestamp();
     await ensureSessionsForDates(rows.map(row=>row.date),true);
@@ -1156,6 +1197,7 @@
     return {errors,warnings,sessions:prepared};
   }
   async function saveBulkSessions(rows){
+    if(!requireSessionWrites())return false;
     await ensureSessionsForDates(rows.map(row=>row.date),true);
     const result=validateBulkRows(rows),errorBox=$('bulk-errors');
     if(result.errors.length){errorBox.textContent=result.errors.join('\n');errorBox.classList.remove('hidden');document.querySelectorAll('[data-bulk-row]').forEach((tr,index)=>tr.classList.toggle('bulk-row-error',result.errors.some(message=>message.startsWith(`Row ${index+1}:`))));return false}
@@ -1172,6 +1214,7 @@
     await batch.commit();invalidateAllSessions();await updateDerivedIndexes(created.map(after=>({before:null,after})));closeModal();toast(`${result.sessions.length} live sessions added.`);return true;
   }
   async function openBulkSessionForm(){
+    if(!requireSessionWrites())return;
     if(!UCVM.admin(currentUser)){toast('ADFA permission is required.',true);return}
     if(scheduleSource!=='firestore'){toast('The live Firestore timetable is unavailable.',true);return}
     await ensureFacultyDirectory();bulkRows=[blankBulkRow()];
@@ -1190,6 +1233,7 @@
   }
 
   async function openSessionForm(existing = null) {
+    if(!requireSessionWrites())return;
     if (!canEdit()) { toast('Editor permission is required to change sessions.', true); return; }
     if (scheduleSource !== 'firestore') { toast('The live Firestore timetable is unavailable. Sync it from Faculty Dashboard first.', true); return; }
     if(UCVM.admin(currentUser))await ensureFacultyDirectory();
@@ -1290,6 +1334,7 @@
   }
 
   async function deleteSession(id) {
+    if(!requireSessionWrites())return;
     if (!UCVM.admin(currentUser)) { toast('ADFA permission is required.', true); return; }
     const s = sessions.find(x => x.id === id); if (!s) return;
     if (scheduleSource !== 'firestore') { toast('Live Schedule is not initialized.', true); return; }
@@ -1314,12 +1359,12 @@
       authInitialized = true;
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
       dot.classList.add('online');
-      text.textContent = 'Firebase Auth + Roles Ready';
+      text.textContent = 'Firebase Auth + SQL Access Ready';
       setAppLocked(true, 'Checking saved login...');
 
       auth.onAuthStateChanged(async user => {
         if (!user) {
-          text.textContent = 'Firebase Auth + Roles Ready';
+          text.textContent = 'Firebase Auth + SQL Access Ready';
           currentUser = null;
           viewMode = 'week'; setViewButtons();
           myTimetableOnly = false;
@@ -1364,11 +1409,12 @@
         }
 
         try {
-          text.textContent = 'Checking Firestore role...';
+          text.textContent = 'Checking SQL access profile...';
           setAppLocked(true, 'Checking your timetable access...');
           const profile = await getRoleProfile(user);
+          const sqlFacultyId=profile.facultyId||null;
           if (!await UCVM.ready(user, profile)) return;
-          UCVM.watch(user, profile);
+          profile.facultyId=sqlFacultyId;
           const name = String(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
           currentUser = {
             id: user.uid,
@@ -1398,21 +1444,11 @@
           updateScheduleSourceUI();
           toast(`Signed in as ${name} (${profile.role}).`);
         } catch (err) {
-          console.error('[Firestore role lookup]', err);
-          let msg = err && err.message ? err.message : 'Could not load this user\'s Firestore role.';
-          const code = err && err.code ? err.code : '';
-          if (code === 'permission-denied') {
-            msg = 'Firestore denied access to users/{uid}. Publish the V7 Firestore Rules from README_FIRST.txt.';
-          } else if (code === 'ucvm/profile-not-found') {
-            msg = 'Authentication succeeded, but this UID has no document under Firestore > users. Add users/{UID} with active=true and role=viewer or editor.';
-          } else if (code === 'ucvm/profile-inactive') {
-            msg = 'This account exists but active is not true in Firestore.';
-          } else if (code === 'ucvm/invalid-role') {
-            msg = 'Firestore role must be exactly viewer, editor, or admin (lowercase recommended).';
-          }
-          setAppLocked(true, 'Access denied. Sign in with an authorized account.');
+          console.error('[SQL access profile]', err);
+          const msg = err && err.message ? err.message : 'Could not load this account from paws.UserProfile.';
+          setAppLocked(true, 'Access denied. Sign in with an authorized Beta account.');
           await auth.signOut().catch(() => {});
-          text.textContent = 'Firebase Auth + Roles Ready';
+          text.textContent = 'Firebase Auth + SQL Access Ready';
           toast(msg, true);
         }
       });
@@ -1420,8 +1456,8 @@
       authInitialized = false;
       dot.classList.remove('online');
       dot.style.background = 'var(--danger)';
-      text.textContent = 'Firebase Auth / Firestore unavailable';
-      setAppLocked(true, 'Firebase is unavailable. Check your connection or setup.');
+      text.textContent = 'Firebase Auth unavailable';
+      setAppLocked(true, 'Firebase Authentication is unavailable. Check your connection or setup.');
       console.error('[Firebase init]', err);
     }
   }
@@ -1443,7 +1479,7 @@
     showModal(`
       <div class="modal-header"><div class="modal-title">Sign in to UCVM Timetable</div><div class="modal-subtitle">Sign in with your authorized account to view the live timetable.</div></div>
       <div class="modal-body">
-        <div class="login-cheatsheet"><strong>Firebase project:</strong> Tester Teaching (<code>tester-teaching</code>)<br>Enable the matching provider in Firebase Authentication. Your UID must also exist under Firestore <code>users/{uid}</code>.</div>
+        <div class="login-cheatsheet"><strong>Firebase project:</strong> Tester Teaching (<code>tester-teaching</code>)<br>Enable the matching provider in Firebase Authentication. Your Firebase UID must also have an active reviewed row in Azure SQL <code>paws.UserProfile</code>.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
           <button type="button" class="btn btn-primary" id="choose-email" style="padding:16px">Email + Password</button>
           <button type="button" class="btn btn-primary" id="choose-phone" style="padding:16px">Phone + SMS Code</button>

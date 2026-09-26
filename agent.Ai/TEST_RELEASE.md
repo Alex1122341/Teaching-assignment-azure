@@ -32,9 +32,11 @@ Verify again if PR #6 HEAD moves.
 
 Frozen application baseline:
 
-`86bd5aa2c8a25259f3f708e49b322220ff43a147`
+`6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`
 
-Protected static assets are driven by `tools/static-assets.json`.
+This is Runtime Commit A, the BETA-R1 SQL-backed read runtime candidate. It is the reviewed frozen runtime and is **NOT YET DEPLOYED**.
+
+Protected static assets are driven by `tools/static-assets.json` (45 entries; the previous 44-path set plus `paws-data-client.js`). Both `pull_request` and `push` to `main` allow zero protected runtime drift.
 
 `tools/beta-freeze.js` compares against immutable Git blobs from the frozen baseline.
 

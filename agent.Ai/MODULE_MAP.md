@@ -256,7 +256,7 @@ Builds managed API artifact.
 
 ### `tools/verify-beta-candidate.js`
 
-Verifies candidate release assumptions.
+Strict wrapper around `tools/beta-freeze.js`. Verifies the repository runtime against the frozen baseline and fails on ANY protected runtime drift. Since the BETA-R3A-3 baseline promotion it has no drift whitelist and no Beta-R1 special-case exception.
 
 ### `tools/static-assets.json`
 

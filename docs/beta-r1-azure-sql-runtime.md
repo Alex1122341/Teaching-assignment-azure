@@ -51,3 +51,27 @@ Because the exact private Firebase UIDs/emails and HICC-1 GUID are not committed
 ## Safety boundary
 
 This branch contains no database execution step for UserProfile provisioning, does not deploy, and leaves all Azure SQL session mutation paths disabled. Existing legacy Firestore session mutation code is retained only to avoid a product rewrite, but every timetable mutation entrypoint fails closed while `sessionWritesEnabled() === false`.
+
+## Frozen Beta runtime baseline
+
+Frozen Beta runtime baseline:
+
+`6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`
+
+This commit is Runtime Commit A — the merge of current `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) into the BETA-R1 branch — and it now carries the frozen trust anchor previously held by `86bd5aa2c8a25259f3f708e49b322220ff43a147`.
+
+This baseline represents:
+
+- the **BETA-R1 SQL-backed read runtime candidate**;
+- **NOT YET DEPLOYED**.
+
+The currently deployed Azure beta site still predates BETA-R1 and will continue to do so until the later manual deployment task succeeds. Promoting the baseline is release governance only; it does not publish anything.
+
+Preserved unchanged by the promotion:
+
+- Firebase Authentication remains.
+- DOE remains untouched.
+- Session writes remain disabled.
+- No Firestore session fallback for the BETA-R1 session-read path.
+
+Since the promotion, both `pull_request` and `push` to `main` verify the repository runtime and the built `.azure-production/app` artifact against this baseline with zero allowed protected runtime drift.

@@ -145,6 +145,19 @@ Not part of BETA-R1.
 - exact-SHA evidence required.
 - update continuity memory after a live activation.
 
+## Frozen Beta runtime baseline (BETA-R3A-3 Commit B)
+
+**LOCKED**
+
+- the frozen runtime trust anchor is Runtime Commit A `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`.
+- previous baseline `86bd5aa2c8a25259f3f708e49b322220ff43a147` is historical evidence only.
+- the protected path set is monotonic: the 45-path Commit A manifest contains all 44 previous protected paths plus `paws-data-client.js`.
+- Git commit objects remain the immutable trust anchor; `tools/beta-baseline.json` stays non-authoritative.
+- zero protected runtime drift is allowed on BOTH `pull_request` and `push` to `main`.
+- the candidate drift whitelist is removed: no Beta-R1 special-case exception exists.
+- promotion is governance-only; it does not deploy. The promoted baseline is NOT YET DEPLOYED.
+- Commit B does not authorize a PR #6 merge; merge remains a separate architect/owner decision.
+
 ## Superseded assumptions
 
 Do not reuse these without re-verification:
@@ -154,3 +167,5 @@ Do not reuse these without re-verification:
 - “faculty_groups is TeachingAssignmentGroup” — false.
 - “DOE short repository keys prove a second short-name physical collection generation” — false; repository aliases must be inspected.
 - “all future P3.1/DOE domains must be completed before first SQL-backed Beta read” — superseded by current owner priority.
+- “the Beta-R1 candidate may report intentional protected runtime drift for `index.html` / `paws-data-client.js` / `timetable.js`” — superseded by the BETA-R3A-3 baseline promotion; zero drift is now required on every event.
+- “strict frozen-main freeze runs on the PR candidate” — false; that step is push-only and is SKIPPED on `pull_request`.

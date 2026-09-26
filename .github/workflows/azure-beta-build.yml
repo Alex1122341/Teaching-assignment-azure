@@ -37,14 +37,13 @@ jobs:
         run: npm test --prefix server
       - run: npm run test:emulator
       - run: node tools/build-beta-release.js
-      - name: Verify strict frozen main runtime
-        if: github.event_name == 'push'
-        run: |
-          node tools/beta-freeze.js
-          node tools/beta-freeze.js --artifact .azure-production/app
-      - name: Verify explicit Beta-R1 release-candidate drift
-        if: github.event_name != 'push'
+      # BETA-R3A-3 (Commit B): the frozen baseline IS Runtime Commit A, so both
+      # pull_request and push validate the same frozen runtime with ZERO allowed
+      # protected drift. There is no candidate-drift exception any more.
+      - name: Verify frozen Beta runtime baseline (repository)
         run: node tools/verify-beta-candidate.js
+      - name: Verify frozen Beta runtime baseline (built artifact)
+        run: node tools/beta-freeze.js --artifact .azure-production/app
       - run: node --test tests/beta-baseline.test.js tests/azure-deployment.test.js
       - uses: actions/upload-artifact@v7
         with:

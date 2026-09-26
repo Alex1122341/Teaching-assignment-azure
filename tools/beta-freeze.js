@@ -11,7 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-const BASELINE_COMMIT='86bd5aa2c8a25259f3f708e49b322220ff43a147';
+// BETA-R3A-3 (Commit B): the frozen trust anchor is Runtime Commit A, the BETA-R1
+// SQL-backed read runtime candidate. Promotion is governance-only; the security
+// architecture below is unchanged.
+const BASELINE_COMMIT='6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

@@ -36,6 +36,7 @@ FTE_COUNTERS = (
     "FteAlreadyPresent",
     "FteBackfillCandidates",
     "FteWritableCandidates",
+    "FteDefaultedToOne",
     "InvalidSourceFte",
     "Unmatched",
     "ExcludedPlaceholder",
@@ -45,11 +46,17 @@ EXPECTED_FTE_BASELINE = {
     "MatchedFaculty": 114,
     "FteAlreadyPresent": 12,
     "FteBackfillCandidates": 102,
-    "FteWritableCandidates": 100,
-    "InvalidSourceFte": 2,
+    "FteWritableCandidates": 102,
+    "FteDefaultedToOne": 2,
+    "InvalidSourceFte": 0,
     "Unmatched": 2,
     "ExcludedPlaceholder": 4,
 }
+
+# Authoritative PAWS business rule: for Faculty employment FTE a blank/null
+# source value means 1.0 (100% FTE). It does NOT mean unknown or invalid.
+# Only a MALFORMED non-blank value is invalid, and that still fails closed.
+FTE_BUSINESS_DEFAULT = Decimal("1.0")
 
 # Directory targets approved for Phase A. The right-hand value is the Firestore
 # evidence key that carries the value.
@@ -125,7 +132,10 @@ def is_present(value: Any) -> bool:
 
 
 def parse_fte(value: Any) -> Decimal | None:
-    """Return a Decimal for a usable source FTE, else None (invalid/missing)."""
+    """Strictly parse an EXPLICIT source FTE. None when absent or malformed.
+
+    This does not apply the business default; use resolve_source_fte for that.
+    """
     if not is_present(value):
         return None
     try:
@@ -135,6 +145,23 @@ def parse_fte(value: Any) -> Decimal | None:
     if not parsed.is_finite() or parsed < 0:
         return None
     return parsed
+
+
+def resolve_source_fte(value: Any) -> tuple[Decimal | None, bool]:
+    """Resolve a source FTE to (effective_value, defaulted).
+
+    Authoritative PAWS business rule: a blank, null or whitespace-only source
+    FTE means 1.0 (100% FTE) — it does NOT mean unknown or invalid.
+
+    A MALFORMED non-blank value is not defaulted: it returns (None, False) so
+    the caller can report it as InvalidSourceFte and fail closed.
+    """
+    if not is_present(value):
+        return FTE_BUSINESS_DEFAULT, True
+    parsed = parse_fte(value)
+    if parsed is None:
+        return None, False
+    return parsed, False
 
 
 def _text(value: Any) -> str:
@@ -244,7 +271,11 @@ def preview_fte(
     *,
     expected: dict[str, int] | None = EXPECTED_FTE_BASELINE,
 ) -> dict:
-    """Preview the Fte backfill. Never overwrites a non-null SQL Fte."""
+    """Preview the Fte backfill. Never overwrites a non-null SQL Fte.
+
+    A blank/null/whitespace source FTE resolves to the business default 1.0 and
+    is still a writable candidate. Only a malformed non-blank value is invalid.
+    """
     sql_rows = load_sql_faculty(sql_faculty)
     fs_docs = load_firestore_faculty(firestore_faculty)
     index, duplicates = index_firestore_by_ucid(fs_docs)
@@ -262,7 +293,7 @@ def preview_fte(
             matched.append((row, doc))
 
     already_present = 0
-    backfill_candidates: list[tuple[str, Decimal]] = []
+    backfill_candidates: list[tuple[str, Decimal, bool]] = []
     invalid_source: list[str] = []
 
     for row, doc in matched:
@@ -270,11 +301,13 @@ def preview_fte(
             already_present += 1
             continue
         ucid = _text(row.get("Ucid"))
-        source_fte = parse_fte(doc.get("fte"))
-        if source_fte is None:
+        effective_fte, defaulted = resolve_source_fte(doc.get("fte"))
+        if effective_fte is None:
             invalid_source.append(ucid)
         else:
-            backfill_candidates.append((ucid, source_fte))
+            backfill_candidates.append((ucid, effective_fte, defaulted))
+
+    defaulted_to_one = sum(1 for _, _, defaulted in backfill_candidates if defaulted)
 
     counters = {
         "MatchedFaculty": len(matched),
@@ -283,6 +316,8 @@ def preview_fte(
         "FteBackfillCandidates": len(matched) - already_present,
         # Of that gap, the rows a future apply could actually write.
         "FteWritableCandidates": len(backfill_candidates),
+        # Subset of the writable rows whose blank source took the 1.0 default.
+        "FteDefaultedToOne": defaulted_to_one,
         "InvalidSourceFte": len(invalid_source),
         "Unmatched": len(unmatched),
         "ExcludedPlaceholder": len(excluded),
@@ -295,7 +330,9 @@ def preview_fte(
         "target": "paws.Faculty.Fte",
         "writes": 0,
         "counters": counters,
-        "writableUcids": sorted(ucid for ucid, _ in backfill_candidates),
+        "writableUcids": sorted(ucid for ucid, _, _ in backfill_candidates),
+        "writableFteByUcid": {ucid: str(value) for ucid, value, _ in sorted(backfill_candidates)},
+        "defaultedToUcids": sorted(ucid for ucid, _, defaulted in backfill_candidates if defaulted),
         "invalidSourceUcids": sorted(invalid_source),
         "duplicateFirestoreUcid": duplicates,
         "expected": dict(expected) if expected else None,
@@ -314,6 +351,8 @@ def _assert_invariants(counters: dict[str, int]) -> None:
         raise FailClosedError("FTE invariant violated: matched != present + backfill gap")
     if counters["FteBackfillCandidates"] != counters["FteWritableCandidates"] + counters["InvalidSourceFte"]:
         raise FailClosedError("FTE invariant violated: gap != writable + invalid source")
+    if counters["FteDefaultedToOne"] > counters["FteWritableCandidates"]:
+        raise FailClosedError("FTE invariant violated: defaulted-to-one exceeds writable candidates")
 
 
 # --------------------------------------------------------------------------- #

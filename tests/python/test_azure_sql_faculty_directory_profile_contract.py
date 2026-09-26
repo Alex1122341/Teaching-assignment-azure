@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SQL_FILE = ROOT / "database" / "azure-sql" / "004_faculty_directory_profile.sql"
+SQL_FILE = ROOT / "database" / "azure-sql" / "005_faculty_directory_profile.sql"
 
 APPROVED_COLUMNS = [
     "FacultyId",
@@ -124,7 +124,17 @@ class FacultyDirectoryProfileSchemaContractTests(unittest.TestCase):
     def test_phase_a_ddl_is_not_wired_into_the_phase_1_loader(self):
         """The loader's behaviour must be unchanged by this migration."""
         loader = (ROOT / "tools" / "load_paws_azure_sql_empty.ps1").read_text(encoding="utf-8")
-        self.assertNotIn("004_faculty_directory_profile.sql", loader)
+        self.assertNotIn("005_faculty_directory_profile.sql", loader)
+
+    def test_migration_number_avoids_the_pr4_permissions_script(self):
+        """PR #4 owns 004_swa_beta_permissions.sql; Phase A must not reuse 004."""
+        directory = SQL_FILE.parent
+        names = sorted(path.name for path in directory.glob("*.sql"))
+        self.assertIn("005_faculty_directory_profile.sql", names)
+        self.assertFalse(
+            [name for name in names if name.startswith("004_")],
+            "Phase A must not claim the 004 prefix reserved by PR #4",
+        )
 
 
 if __name__ == "__main__":

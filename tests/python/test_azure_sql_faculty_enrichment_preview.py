@@ -142,15 +142,16 @@ class FtePreviewTests(PreviewFixtureMixin, unittest.TestCase):
         self.assertEqual(counters["ExcludedPlaceholder"], 1)
         self.assertEqual(counters["MatchedFaculty"], 1)
 
-    def test_invalid_source_fte_is_reported_and_not_writable(self):
+    def test_malformed_nonblank_source_fte_is_reported_and_not_writable(self):
         rows = [sql_row("f1", "10000001"), sql_row("f2", "10000002"), sql_row("f3", "10000003")]
         docs = [fs_doc("10000001", fte="not-a-number"), fs_doc("10000002", fte=None), fs_doc("10000003", fte="0.5")]
         preview = fe.preview_fte(self.sql_file(rows), self.fs_file(docs), expected=None)
         counters = preview["counters"]
         self.assertEqual(counters["FteBackfillCandidates"], 3)
-        self.assertEqual(counters["InvalidSourceFte"], 2)
-        self.assertEqual(counters["FteWritableCandidates"], 1)
-        self.assertEqual(sorted(preview["invalidSourceUcids"]), ["10000001", "10000002"])
+        self.assertEqual(counters["InvalidSourceFte"], 1)
+        self.assertEqual(counters["FteWritableCandidates"], 2)
+        self.assertEqual(counters["FteDefaultedToOne"], 1)
+        self.assertEqual(preview["invalidSourceUcids"], ["10000001"])
 
     def test_fte_invariants_hold(self):
         rows = [sql_row("f1", "10000001", fte="0.5"), sql_row("f2", "10000002"), sql_row("f3", "10000003")]
@@ -325,6 +326,93 @@ class StreamComparisonTests(PreviewFixtureMixin, unittest.TestCase):
                 self.fs_file(docs),
                 expected=fe.EXPECTED_STREAM_COMPARISON,
             )
+
+
+class FteBusinessDefaultTests(PreviewFixtureMixin, unittest.TestCase):
+    """Authoritative PAWS rule: blank/null source FTE means 1.0 (100% FTE).
+
+    Only a MALFORMED non-blank value is invalid. A missing value is never
+    treated as unknown or invalid.
+    """
+
+    def resolve(self, value):
+        return fe.resolve_source_fte(value)
+
+    def test_null_source_defaults_to_one(self):
+        self.assertEqual(self.resolve(None), (fe.Decimal("1.0"), True))
+
+    def test_empty_string_source_defaults_to_one(self):
+        self.assertEqual(self.resolve(""), (fe.Decimal("1.0"), True))
+
+    def test_whitespace_source_defaults_to_one(self):
+        for whitespace in [" ", "\t", "   ", "\r\n"]:
+            self.assertEqual(self.resolve(whitespace), (fe.Decimal("1.0"), True), repr(whitespace))
+
+    def test_explicit_half_is_preserved(self):
+        self.assertEqual(self.resolve("0.5"), (fe.Decimal("0.5"), False))
+
+    def test_explicit_point_eight_is_preserved(self):
+        self.assertEqual(self.resolve("0.8"), (fe.Decimal("0.8"), False))
+
+    def test_explicit_one_is_preserved_as_one(self):
+        for explicit in ["1", "1.0", " 1.0 "]:
+            self.assertEqual(self.resolve(explicit), (fe.Decimal("1.0"), False), explicit)
+
+    def test_malformed_nonblank_does_not_default_to_one(self):
+        for malformed in ["not-a-number", "abc", "1.0.0", "0,5", "--", "N/A"]:
+            value, defaulted = self.resolve(malformed)
+            self.assertIsNone(value, malformed)
+            self.assertFalse(defaulted, malformed)
+
+    def test_negative_explicit_value_is_not_defaulted(self):
+        value, defaulted = self.resolve("-1")
+        self.assertIsNone(value)
+        self.assertFalse(defaulted)
+
+    def test_null_default_flows_through_the_preview_as_writable(self):
+        rows = [sql_row("f1", "10000001")]
+        docs = [fs_doc("10000001", fte=None)]
+        preview = fe.preview_fte(self.sql_file(rows), self.fs_file(docs), expected=None)
+        self.assertEqual(preview["counters"]["FteWritableCandidates"], 1)
+        self.assertEqual(preview["counters"]["FteDefaultedToOne"], 1)
+        self.assertEqual(preview["counters"]["InvalidSourceFte"], 0)
+        self.assertEqual(preview["writableFteByUcid"], {"10000001": "1.0"})
+        self.assertEqual(preview["defaultedToUcids"], ["10000001"])
+
+    def test_explicit_values_flow_through_the_preview_unchanged(self):
+        rows = [sql_row("f1", "10000001"), sql_row("f2", "10000002")]
+        docs = [fs_doc("10000001", fte="0.5"), fs_doc("10000002", fte="0.8")]
+        preview = fe.preview_fte(self.sql_file(rows), self.fs_file(docs), expected=None)
+        self.assertEqual(preview["writableFteByUcid"], {"10000001": "0.5", "10000002": "0.8"})
+        self.assertEqual(preview["counters"]["FteDefaultedToOne"], 0)
+
+    def test_existing_non_null_sql_fte_is_never_overwritten_even_when_source_is_blank(self):
+        rows = [sql_row("f1", "10000001", fte="0.6000")]
+        docs = [fs_doc("10000001", fte=None)]
+        preview = fe.preview_fte(self.sql_file(rows), self.fs_file(docs), expected=None)
+        self.assertEqual(preview["counters"]["FteAlreadyPresent"], 1)
+        self.assertEqual(preview["counters"]["FteWritableCandidates"], 0)
+        self.assertEqual(preview["counters"]["FteDefaultedToOne"], 0)
+        self.assertEqual(preview["writableUcids"], [])
+        self.assertEqual(preview["writableFteByUcid"], {})
+
+    def test_existing_non_null_sql_fte_is_never_overwritten_by_an_explicit_source(self):
+        rows = [sql_row("f1", "10000001", fte="0.8000")]
+        docs = [fs_doc("10000001", fte="0.5")]
+        preview = fe.preview_fte(self.sql_file(rows), self.fs_file(docs), expected=None)
+        self.assertEqual(preview["counters"]["FteAlreadyPresent"], 1)
+        self.assertEqual(preview["counters"]["FteWritableCandidates"], 0)
+        self.assertEqual(preview["writableFteByUcid"], {})
+
+    def test_defaulted_rows_stay_inside_the_writable_subset(self):
+        rows = [sql_row("f1", "10000001"), sql_row("f2", "10000002"), sql_row("f3", "10000003")]
+        docs = [fs_doc("10000001", fte=None), fs_doc("10000002", fte=""), fs_doc("10000003", fte="bogus")]
+        counters = fe.preview_fte(self.sql_file(rows), self.fs_file(docs), expected=None)["counters"]
+        self.assertEqual(counters["FteBackfillCandidates"], 3)
+        self.assertEqual(counters["FteWritableCandidates"], 2)
+        self.assertEqual(counters["FteDefaultedToOne"], 2)
+        self.assertEqual(counters["InvalidSourceFte"], 1)
+        self.assertLessEqual(counters["FteDefaultedToOne"], counters["FteWritableCandidates"])
 
 
 class NoWriteGuaranteeTests(unittest.TestCase):

@@ -55,7 +55,7 @@ Purpose:
 
 Current main:
 
-- `e15a53240a6b6a688d95299539a5628ac2b54144`
+- `71b7957a4df57e8c8dbd994f5f7c732e2f5706ad`
 
 Frozen application baseline:
 
@@ -165,17 +165,23 @@ Last reported CI for PR #6:
 - Firebase emulator regression: 319/319 pass
 - deployment/baseline contract: 14/14 pass
 
-## 6. BETA-R1 remaining live blockers
+## 6. BETA-R2 activation-preview result
 
-The code path exists, but real browser E2E remains blocked by live activation work.
+BETA-R2 operator preview ran and stopped correctly before mutation.
 
-At last checkpoint:
+Confirmed:
 
-1. `paws.UserProfile` has no live profiles.
-2. reviewed Beta profiles need deterministic provisioning.
-3. runtime SQL principal/permissions need live verification/application.
-4. SWA backend configuration must be reviewed/configured.
-5. deployment has not happened.
+1. PR #6 exact HEAD/base and deployment artifact are ready.
+2. six-profile + one-exclusion account structure is correct.
+3. static narrow permission contract is correct except one wording mismatch ("five" vs six UserProfile columns).
+4. no SQL/Azure/Firebase/Git/DOE mutation occurred.
+
+Current blockers:
+
+1. private reconciliation evidence does not contain the actual email/displayName values required by paws.UserProfile and the bootstrap preview tool;
+2. live SQL principal state could not be inspected without interactive Entra device-code login;
+3. SWA application-setting presence could not be inspected without Azure management authentication;
+4. the runtime authentication mode behind paws_swa_beta remains unresolved for the SWA managed API bridge.
 
 Reviewed account outcome:
 
@@ -190,12 +196,13 @@ Reviewed account outcome:
 
 ## 7. Current breakpoint
 
-The next safe work is **BETA-R2 activation preview**, not more feature development:
+The next safe work is **BETA-R2b interactive completion**, still not live activation:
 
-- generate/review the six-profile UserProfile apply plan;
-- inspect whether `paws_swa_beta` exists and its effective permissions;
-- inspect presence/absence of required SWA runtime setting names without exposing values;
-- verify PR #6 deployment candidate;
-- stop before every live mutation.
+- read the six approved Firestore user documents privately to obtain exact email/displayName values;
+- build the private six-profile manifest and run the offline bootstrap preview;
+- use the approved interactive Entra device-code path to inspect live SQL principal state;
+- authenticate to Azure management and inspect SWA setting-name presence only;
+- decide the Beta runtime SQL authentication mechanism for paws_swa_beta;
+- stop before profile insert, principal creation/grant changes, Azure setting changes or deployment.
 
-Only after an explicit owner-approved live activation step should profiles, principal/grants, settings or deployment be changed.
+Only after those items are resolved should BETA-R3 be proposed for explicit owner-approved live mutation.

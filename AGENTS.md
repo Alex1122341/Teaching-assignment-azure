@@ -35,10 +35,12 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 - Frontend: vanilla HTML, CSS and JavaScript.
 - Authentication: Firebase Authentication.
-- Database: Cloud Firestore project `tester-teaching`.
-- The current production architecture is Spark-compatible and does not depend on deployed Cloud Functions.
-- Security decisions must be enforced by Firestore rules and by minimizing what data is delivered to the browser.
-- Do not weaken Firestore rules merely to make a UI feature work.
+- **Current deployed Beta runtime:** still uses Firestore project `tester-teaching` for existing business data until an approved Azure SQL candidate is actually deployed.
+- **Current BETA-R1 candidate (PR #6):** Firebase Auth -> same-origin PAWS API -> Azure SQL for profile/session reads; session writes fail closed; not yet merged/deployed at the continuity baseline.
+- Azure hosting alone does not prove Azure SQL persistence.
+- DOE remains in the Experimental/Firebase demo track for now and must not block the immediate Beta database-connection work.
+- Do not weaken Firestore rules merely to make a UI feature work in the still-Firestore runtime.
+- Do not add Firestore fallback to a Beta read path that has been explicitly activated on Azure SQL.
 
 ## Roles
 

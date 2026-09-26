@@ -13,7 +13,11 @@ Status: **COMPLETE as a loaded checkpoint**
 - Azure SQL reset completed.
 - canonical schema/data load completed.
 - do not rerun reset/initial loader.
-- PR #3 remains Draft/open as the migration foundation.
+- **PR #3 MERGED into `main` on 2026-09-26** — merge commit
+  `ea80eecc9fa2ac2b693c23979bad5c5809a26863`; pre-merge HEAD
+  `edb46dc734613ea35bb211d1c98dd21bce851e33`. Merge gate verified (exact-head CI green,
+  protected runtime assets changed = 0, frozen baseline unchanged). Post-merge exact-main push CI
+  green including both freeze checks. Not deployed.
 
 ### BETA-R1 — connect frontend read path to Azure SQL
 

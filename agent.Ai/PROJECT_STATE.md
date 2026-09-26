@@ -55,7 +55,7 @@ Purpose:
 
 Current main:
 
-- `e15a53240a6b6a688d95299539a5628ac2b54144`
+- `ea80eecc9fa2ac2b693c23979bad5c5809a26863` (PR #3 merged 2026-09-26)
 
 Frozen application baseline:
 
@@ -120,12 +120,16 @@ The Firestore/SQL session difference is a **net count difference**, not proof of
 
 ### PR #3 — Azure SQL migration foundation
 
-- Draft/open
-- branch `feature/azure-sql-cutover-foundation`
-- HEAD `edb46dc734613ea35bb211d1c98dd21bce851e33`
-- mergeable at last verification
-- foundation for loaded SQL schema/import tooling
-- PR prose may contain historical empty-database wording; do not treat that wording as current live state
+- **MERGED** into `main` on 2026-09-26
+- merge commit `ea80eecc9fa2ac2b693c23979bad5c5809a26863`
+- pre-merge HEAD `edb46dc734613ea35bb211d1c98dd21bce851e33`
+- branch `feature/azure-sql-cutover-foundation` (now closed)
+- merge gate verified before merge: exact-head CI green on both workflows, protected runtime
+  assets changed = 0 (checked against both the current manifest and the frozen-baseline manifest),
+  frozen baseline `86bd5aa2` unchanged
+- post-merge exact-main push CI green, including both `beta-freeze.js` checks
+- **not deployed**; merging did not change any live state
+- the PR body was already current and was not modified
 
 ### PR #4 — old SQL session-read candidate
 

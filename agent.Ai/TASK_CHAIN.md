@@ -33,22 +33,26 @@ PR #6:
 
 ### BETA-R2 — activation preview
 
-Status: **NEXT**
+Status: **PARTIAL / BLOCKED BEFORE MUTATION**
 
-Read-only/operator preview only:
+Completed:
 
-1. build/review exact six-profile UserProfile plan;
-2. verify HICC-1 exact Faculty link;
-3. confirm HICC-2 exclusion;
-4. inspect live `paws_swa_beta` principal state;
-5. preview narrow 004 permission contract;
-6. inspect SWA runtime setting names as PRESENT/ABSENT, never values;
-7. verify PR #6 candidate/artifact;
-8. stop before live mutation.
+- PR #6 exact ref verified;
+- combined app/API artifact verified ready;
+- six-profile + one-exclusion structure confirmed;
+- narrow 004 permission contract statically verified;
+- no live mutation occurred.
 
-Expected output:
+Blocked on:
 
-`READY-FOR-LIVE-ACTIVATION` or a precise blocker.
+- missing exact email/displayName values in the privacy-minimised account artifact;
+- interactive Entra authentication needed for live SQL principal inspection;
+- Azure management authentication needed for SWA setting inspection;
+- runtime authentication mode for `paws_swa_beta` still to be selected.
+
+Next substep:
+
+**BETA-R2b interactive completion**. Resolve those four items and stop again before every live write/deploy.
 
 ### BETA-R3 — live activation
 

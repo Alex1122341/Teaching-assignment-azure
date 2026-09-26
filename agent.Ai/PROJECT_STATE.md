@@ -196,13 +196,32 @@ Reviewed account outcome:
 
 ## 7. Current breakpoint
 
-The next safe work is **BETA-R2b interactive completion**, still not live activation:
+BETA-R2b completed the remaining evidence collection but found an authentication blocker.
 
-- read the six approved Firestore user documents privately to obtain exact email/displayName values;
-- build the private six-profile manifest and run the offline bootstrap preview;
-- use the approved interactive Entra device-code path to inspect live SQL principal state;
-- authenticate to Azure management and inspect SWA setting-name presence only;
-- decide the Beta runtime SQL authentication mechanism for paws_swa_beta;
-- stop before profile insert, principal creation/grant changes, Azure setting changes or deployment.
+Resolved:
 
-Only after those items are resolved should BETA-R3 be proposed for explicit owner-approved live mutation.
+- six-profile private manifest completed from read-only Firestore user fields;
+- bootstrap preview PASS: 6 profiles + 1 exclusion, unresolved 0, duplicates 0;
+- plan SHA-256 recorded in the private/operator report;
+- live SQL inspection confirmed `paws_swa_beta` is absent;
+- deployed Beta still has no API: all current `/api/*` routes return platform 404;
+- Azure SQL server has Entra-only authentication enabled.
+
+Important correction from post-review web verification:
+
+- Azure Static Web Apps managed Functions do **not** support Managed Identity;
+- however SWA API application settings are supported as backend environment variables and can be configured through the Static Web App settings/CLI. The R2b inference that settings are "not applicable" until an API exists is too strong.
+
+Current recommended minimal path, pending owner approval:
+
+- keep the existing SWA managed API topology for Beta;
+- create a dedicated Microsoft Entra service principal/app registration;
+- create a contained Azure SQL user mapped to that service principal;
+- apply the existing narrow `004_swa_beta_permissions.sql` contract;
+- store the client ID/tenant ID/client secret only in SWA backend application settings/connection configuration;
+- deploy PR #6 exact candidate;
+- keep timetable writes disabled.
+
+This avoids creating a new App Service/Function App for the immediate Beta milestone. Managed Identity can be reconsidered later for production hardening.
+
+Stop before creating the Entra app/service principal, SQL user, settings, UserProfile inserts, or deployment until owner explicitly approves the live activation plan.

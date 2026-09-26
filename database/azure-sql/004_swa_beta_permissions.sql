@@ -4,12 +4,44 @@ SET XACT_ABORT ON;
 IF USER_ID(N'paws_swa_beta') IS NULL THROW 51000, 'Expected contained database user paws_swa_beta does not exist. Provisioning is a separate approved operator action.', 1;
 
 DECLARE @PrincipalId int = USER_ID(N'paws_swa_beta');
+DECLARE @PrincipalSid varbinary(85);
+DECLARE @PrincipalType char(1);
+
+SELECT
+    @PrincipalSid = principal.sid,
+    @PrincipalType = principal.type
+FROM sys.database_principals AS principal
+WHERE principal.principal_id = @PrincipalId;
+
+IF @PrincipalType = N'X'
+    THROW 51004, 'paws_swa_beta must be a dedicated user, not an EXTERNAL_GROUP principal.', 1;
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.databases
+    WHERE database_id = DB_ID()
+      AND owner_sid = @PrincipalSid
+) THROW 51005, 'paws_swa_beta must not be the database owner.', 1;
 
 IF EXISTS (
     SELECT 1
     FROM sys.database_role_members
     WHERE member_principal_id = @PrincipalId
 ) THROW 51001, 'paws_swa_beta must not inherit any database role.', 1;
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.database_permissions AS permission
+    INNER JOIN sys.database_principals AS public_principal
+        ON public_principal.principal_id = permission.grantee_principal_id
+       AND public_principal.name = N'public'
+    WHERE permission.state IN (N'G', N'W')
+      AND (
+        (permission.class = 0 AND permission.permission_name IN (N'CONTROL', N'SELECT ALL USER SECURABLES'))
+        OR (permission.class = 3 AND SCHEMA_NAME(permission.major_id) IN (N'paws', N'staging'))
+        OR (permission.class = 1 AND OBJECT_SCHEMA_NAME(permission.major_id) IN (N'paws', N'staging'))
+      )
+) THROW 51006, 'public has a grant that can broaden paws_swa_beta access to paws or staging.', 1;
 
 IF EXISTS (SELECT 1 FROM sys.schemas WHERE principal_id = @PrincipalId)
    OR EXISTS (SELECT 1 FROM sys.objects WHERE principal_id = @PrincipalId)

@@ -15,9 +15,14 @@ class BetaSqlRuntimeContractTests(unittest.TestCase):
         self.assertRegex(sql, r"DENY SELECT, INSERT, UPDATE, DELETE, EXECUTE ON SCHEMA::staging TO \[paws_swa_beta\]")
         self.assertIn("sys.database_role_members", sql)
         self.assertIn("sys.database_permissions", sql)
+        self.assertIn("sys.database_principals AS public_principal", sql)
+        self.assertIn("public_principal.name = N'public'", sql)
+        self.assertIn("sys.databases", sql)
+        self.assertIn("owner_sid = @PrincipalSid", sql)
+        self.assertIn("EXTERNAL_GROUP", sql)
         self.assertIn("sys.schemas", sql)
         self.assertIn("sys.objects", sql)
-        self.assertGreaterEqual(sql.count("THROW"), 4)
+        self.assertGreaterEqual(sql.count("THROW"), 7)
         self.assertNotRegex(sql, r"GRANT\s+(?:INSERT|UPDATE|DELETE|CONTROL|ALTER)|db_owner|CREATE USER", re.I)
         self.assertNotIn("paws.Faculty TO [paws_swa_beta]", sql)
 
@@ -36,6 +41,8 @@ class BetaSqlRuntimeContractTests(unittest.TestCase):
         self.assertIn("oauth:grant-type", docs)
         self.assertIn("verified as corrected", docs)
         self.assertIn("PR #3", docs)
+        self.assertIn("public", docs)
+        self.assertIn("permission-bearing Microsoft Entra groups", docs)
 
 if __name__ == "__main__":
     unittest.main()

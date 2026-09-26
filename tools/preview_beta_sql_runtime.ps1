@@ -23,7 +23,9 @@ $preview = [ordered]@{
         'GRANT SELECT on SessionId and FacultyId of paws.SessionAssignment',
         'DENY INSERT, UPDATE, DELETE, EXECUTE ON paws schema',
         'DENY SELECT, INSERT, UPDATE, DELETE, EXECUTE ON staging schema',
-        'REJECT database-role membership or permissions outside this list'
+        'REJECT database ownership, database-role membership, or permissions outside this list',
+        'REJECT an EXTERNAL_GROUP principal or broad public grants on paws/staging',
+        'REQUIRE operator confirmation that the identity has no permission-bearing Microsoft Entra group membership'
     )
     StaticWebAppSettingNames = @(
         'PAWS_SQL_CONNECTION_STRING',

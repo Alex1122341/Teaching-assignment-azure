@@ -10,9 +10,9 @@ The preferred contained database principal is `paws_swa_beta`. The reviewed perm
 - `paws.vCalendarSession`, for canonical calendar rows;
 - two columns of `paws.SessionAssignment` (`SessionId` and `FacultyId`), to restrict faculty, HICC, and VISC reads to the linked `FacultyId`.
 
-The runtime does not query `paws.Faculty` directly. `UserProfile INSERT is not granted`; live profile bootstrap is a separate reviewed operator action. The script rejects database-role membership and any direct permission outside the reviewed contract before applying column-level reads. Schema-level `INSERT`, `UPDATE`, `DELETE`, and `EXECUTE` are denied on `paws`; all data access and execution are denied on `staging`.
+The runtime does not query `paws.Faculty` directly. `UserProfile INSERT is not granted`; live profile bootstrap is a separate reviewed operator action. The script rejects database ownership, explicit database-role membership, an `EXTERNAL_GROUP` principal, any direct permission outside the reviewed contract, and grants to the implicit `public` role that could broaden access to `paws` or `staging`. Schema-level `INSERT`, `UPDATE`, `DELETE`, and `EXECUTE` are denied on `paws`; all data access and execution are denied on `staging`.
 
-`database/azure-sql/004_swa_beta_permissions.sql` deliberately refuses to create the principal. Creation and execution require separate authorization and are outside this phase.
+`database/azure-sql/004_swa_beta_permissions.sql` deliberately refuses to create the principal. Creation and execution require separate authorization and are outside this phase. The operator must provision a dedicated user identity and confirm it is not a member of permission-bearing Microsoft Entra groups; SQL database catalogs cannot prove token group membership for an external user.
 
 ## Preview and settings
 

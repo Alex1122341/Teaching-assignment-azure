@@ -1,6 +1,36 @@
 # PAWS Azure SQL authoritative workbook migration
 
-This runbook covers Phase 1 of the PAWS Firestore-to-Azure SQL cutover. The three approved workbooks are the sole initialization source. The current live migration checkpoint is a verified-empty Azure SQL lab database followed by a guarded, non-destructive schema/data load.
+This runbook covers Phase 1 of the PAWS Firestore-to-Azure SQL cutover. The three approved workbooks are the sole initialization source.
+
+This migration has two distinct checkpoints, and they must not be confused:
+
+- **Historical pre-load checkpoint** — a verified-empty Azure SQL lab database (`objectCount = 0`) that gated the destructive reset and the guarded schema/data load. It is preserved below as evidence that the load started from an empty database. It is **not** the current database state.
+- **Current post-load live state** — the guarded, non-destructive schema/data load has **completed**. `staging.ImportBatch` records the approved source manifest and a completed status, and the canonical `paws.*` tables hold the counts listed under [Current post-load live state](#current-post-load-live-state).
+
+## Current post-load live state
+
+The 2026-09-24 load has finished successfully. The accepted live state is:
+
+```text
+importStatus:         complete
+sourceManifestSha256: e549a5d5aed4846a3f4860284049e77d258e1a5c236f80d4ea858cec5eab1cc4
+```
+
+| Table | Live rows |
+| --- | --- |
+| `paws.Faculty` | 120 |
+| `paws.Session` | 1,937 |
+| `paws.SessionAssignment` | 4,970 |
+| `paws.AfcRecord` | 791 |
+| `paws.RoleAssignment` | 162 |
+| `paws.vCalendarSession` | 1,937 |
+| `staging.ImportRow` | 6,838 |
+
+Validation issues recorded for this source set: 14 (itemised in section 1).
+
+The canonical `paws.Faculty` count of 120 is the normalized table size. The 116 Faculty Master business rows quoted in section 1 are the typed/source accounting (`staging.FacultyRaw`, `paws.FacultyProfessionalProfile`); they are a different measure and are not in conflict with the live canonical count.
+
+Because the load is complete, the empty-database guard described in sections 2 and 3 now **fails by design**. Re-running the loader preview against the loaded database will report a non-empty inventory and refuse to continue. That refusal is the intended fail-closed behaviour, not a defect.
 
 ## Safety boundary
 
@@ -93,7 +123,9 @@ Before the 2026-09-24 reset, the reviewed inventory contained exactly 18 legacy 
 
 That reset has already been completed for the current migration. Do not re-run it against a changed inventory.
 
-The independent post-reset inventory is:
+### Historical pre-load checkpoint
+
+The independent post-reset inventory below is **historical pre-load evidence only**. It recorded the database as empty immediately before the schema/data load and is the value the loader required as its gate. It is **not** the current database state — the load has since completed, so the live inventory is no longer empty (see [Current post-load live state](#current-post-load-live-state)).
 
 ```text
 objectCount: 0
@@ -114,6 +146,8 @@ It is intentionally not a reset tool. It contains no application-object removal 
 - package line counts and validation issue counts match the approved source set;
 - the live database inventory has `objectCount = 0`;
 - the live inventory hash is exactly `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`.
+
+These were the gate conditions for the completed load. The two inventory conditions describe the **historical pre-load checkpoint**; against the current post-load database they no longer hold, and the loader is expected to refuse.
 
 Run preview first:
 
@@ -148,9 +182,9 @@ Apply:
 
 Any exception before commit rolls the transaction back. The loader does not apply the application-permissions script yet; managed-identity permissions belong to the later App Service/API phase.
 
-## 5. Required post-load evidence
+## 5. Post-load evidence
 
-A successful result must demonstrate:
+The completed load satisfied the following evidence contract. These conditions were the acceptance criteria for Apply and are the checks to re-verify if the load is ever rebuilt:
 
 - 6,838 generic raw rows;
 - 4,974 Teaching Assignment raw rows;
@@ -163,5 +197,7 @@ A successful result must demonstrate:
 - enabled SQL constraints report no violations;
 - `paws.vCalendarSession` returns 1,937 canonical sessions;
 - `staging.ImportBatch` stores the exact source-manifest SHA and completed status.
+
+The accepted live counts for the completed load are recorded under [Current post-load live state](#current-post-load-live-state).
 
 Phase 1 does not switch the PAWS frontend to Azure SQL. Firebase Authentication remains, and the later API/frontend cutover will move business-data reads and writes behind the Azure App Service API.

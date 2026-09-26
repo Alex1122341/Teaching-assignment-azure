@@ -36,6 +36,24 @@ class AzureSqlDocsContractTests(unittest.TestCase):
         self.assertIn('staging', docs)
         self.assertIn('invalid', docs.casefold())
 
+    def test_operator_docs_separate_the_historical_empty_checkpoint_from_current_live_state(self):
+        docs = (ROOT / "docs" / "azure-sql-migration.md").read_text(encoding="utf-8")
+        folded = docs.casefold()
+        # Both checkpoints must be named explicitly so they cannot be conflated.
+        self.assertIn('historical pre-load checkpoint', folded)
+        self.assertIn('current post-load live state', folded)
+        # The completed load and its approved source manifest must be stated.
+        self.assertIn('complete', folded)
+        self.assertIn('e549a5d5aed4846a3f4860284049e77d258e1a5c236f80d4ea858cec5eab1cc4', docs)
+        # The accepted live counts must be documented.
+        for count in ['120', '1,937', '4,970', '791', '162', '6,838']:
+            self.assertIn(count, docs)
+        # The empty-inventory hash stays documented as historical evidence.
+        self.assertIn('4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', docs)
+        # The retired wording that presented the empty checkpoint as the current
+        # database state must not come back.
+        self.assertNotIn('current live migration checkpoint', folded)
+
 
 if __name__ == "__main__":
     unittest.main()

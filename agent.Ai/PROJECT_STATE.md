@@ -55,7 +55,7 @@ Purpose:
 
 Current main:
 
-- `ea80eecc9fa2ac2b693c23979bad5c5809a26863`
+- `ffd870ee5faae298049df08d1bcb616832a07d87`
 
 Frozen application baseline:
 
@@ -147,20 +147,16 @@ The Firestore/SQL session difference is a **net count difference**, not proof of
 
 ### PR #6 — BETA-R1 Azure SQL timetable read
 
-- Draft/open
-- branch `task/beta-r1-connect-azure-sql`
-- base `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) — retargeted 2026-09-26 (BETA-R3A-2)
-- **Runtime Commit A** `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` merged current `main` INTO the
-  PR branch (merge commit; parents `075852b…` + `ea80eecc…`; tree `543b00af…`)
-- **Commit B (BETA-R3A-3)** — governance-only frozen-baseline promotion, parent = Commit A
-- HEAD = Commit B (tip of `task/beta-r1-connect-azure-sql`)
-- mergeable at last verification
-- implementation complete; **NOT merged**; **NOT deployed**
+- merged to `main` on 2026-09-26 through normal merge commit `ffd870ee5faae298049df08d1bcb616832a07d87`
+- prior main: `ea80eecc9fa2ac2b693c23979bad5c5809a26863`; PR head / Commit B: `c53cddb535947362b13e9cb3858e43b31330c923`
+- Runtime Commit A `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` and Commit B are ancestors of the merge commit
+- merge tree equals Commit B tree; no merge-only runtime drift
+- exact-main push CI: Azure SQL Migration Tests `36270254267` SUCCESS; Azure Beta Build `36270254345` SUCCESS
+- implementation complete; **MERGED / NOT DEPLOYED**
 - session read path: Firebase Auth → API → Azure SQL → existing timetable UI
 - no Firestore fallback for the Azure session-read path
 - session writes fail closed
 - no DOE files changed
-- the 4 BETA-R1 commits `c006c9a`, `b230718`, `4af5af8`, `075852b` are preserved unchanged
 
 Frozen Beta runtime baseline (promoted by Commit B):
 
@@ -170,13 +166,12 @@ Frozen Beta runtime baseline (promoted by Commit B):
 - zero protected runtime drift is allowed on both `pull_request` and `push` to `main`
 - **the promoted baseline is NOT YET DEPLOYED**; the live Azure beta site still predates BETA-R1
 
-Current CI for PR #6 (fresh, `pull_request`, base `main` @ `ea80eecc…`):
+Exact-main CI for BETA-R1 merge `ffd870ee5faae298049df08d1bcb616832a07d87`:
 
-- Approved Commit A: Azure SQL Migration Tests `36265424485` SUCCESS;
-  Azure Beta Build `36265424535` SUCCESS (head `6eeb1a4…`)
-- Commit B CI: recorded in the BETA-R3A-3 report (new run IDs only)
-- retired evidence: runs `36249819711` / `36249819750` are pre-retarget historical
-  (checkout `Merge 075852b… into edb46dc…`) — do not reuse
+- Azure SQL Migration Tests `36270254267`: SUCCESS (`push`, `main`)
+- Azure Beta Build `36270254345`: SUCCESS (`push`, `main`)
+- repository freeze: Commit A, protected `45`, drift `[]`
+- built artifact freeze: Commit A, protected `45`; upload succeeded
 
 ## 6. BETA-R1 remaining live blockers
 

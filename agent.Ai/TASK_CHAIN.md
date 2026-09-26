@@ -19,27 +19,18 @@ Status: **COMPLETE as a loaded checkpoint**
 
 Status: **IMPLEMENTATION COMPLETE / NOT DEPLOYED**
 
-PR #6:
+PR #6 merged to `main` on 2026-09-26:
 
-- base `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) — retargeted 2026-09-26
-- **Runtime Commit A** `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` (merge of `main` into the PR
-  branch; parents `075852b…` + `ea80eecc…`; tree `543b00af…`)
-- **Commit B (BETA-R3A-3)** — governance-only: promotes the frozen baseline from
-  `86bd5aa2c8a25259f3f708e49b322220ff43a147` to `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`
-- HEAD = Commit B; the 4 BETA-R1 commits `c006c9a`, `b230718`, `4af5af8`, `075852b` preserved
-- Firebase login retained
-- API token verification
-- SQL UserProfile authorization
+- normal merge commit `ffd870ee5faae298049df08d1bcb616832a07d87`
+- prior main `ea80eecc9fa2ac2b693c23979bad5c5809a26863`; Commit B `c53cddb535947362b13e9cb3858e43b31330c923`
+- Runtime Commit A `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` and Commit B remain ancestors
+- merge tree equals Commit B tree; no merge-only runtime drift
+- exact-main push CI: Migration Tests `36270254267` SUCCESS; Azure Beta Build `36270254345` SUCCESS
+- repository freeze: protected `45`, drift `[]`; artifact freeze passed and artifact uploaded
+- Firebase login retained; API token verification; SQL UserProfile authorization
 - `/api/v1/sessions` → `paws.vCalendarSession`
-- no Firestore session fallback
-- session writes disabled
-- no DOE changes
-- protected runtime assets changed by Commit B: **0** (all 45 blobs identical to Commit A)
-- protected path set 44 → 45 (superset; `paws-data-client.js` added)
-- zero protected runtime drift required on `pull_request` and on `push` to `main`
-- **PR #6 is NOT merged and NOT deployed.** Do not merge on green CI alone: architect review
-  and owner approval are required, and the later merge must preserve Commit A ancestry
-  (no squash, no rebase-merge)
+- no Firestore session fallback; session writes disabled; no DOE changes
+- **BUILT / NOT DEPLOYED**; live Beta remains Firebase/Firestore
 
 ### BETA-R2 — activation preview
 

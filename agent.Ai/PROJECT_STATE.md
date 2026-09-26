@@ -55,7 +55,7 @@ Purpose:
 
 Current main:
 
-- `e15a53240a6b6a688d95299539a5628ac2b54144`
+- `ea80eecc9fa2ac2b693c23979bad5c5809a26863` (PR #3 merged here 2026-09-26; see update `2026-09-26-pr3-merged-to-main.md`)
 
 Frozen application baseline:
 
@@ -120,10 +120,8 @@ The Firestore/SQL session difference is a **net count difference**, not proof of
 
 ### PR #3 — Azure SQL migration foundation
 
-- Draft/open
-- branch `feature/azure-sql-cutover-foundation`
-- HEAD `edb46dc734613ea35bb211d1c98dd21bce851e33`
-- mergeable at last verification
+- **MERGED into `main` at `ea80eecc9fa2ac2b693c23979bad5c5809a26863`** (2026-09-26)
+- branch `feature/azure-sql-cutover-foundation` (tip `edb46dc734613ea35bb211d1c98dd21bce851e33` = PR #3 HEAD, now ancestor of `main`)
 - foundation for loaded SQL schema/import tooling
 - PR prose may contain historical empty-database wording; do not treat that wording as current live state
 
@@ -147,7 +145,7 @@ The Firestore/SQL session difference is a **net count difference**, not proof of
 
 - Draft/open
 - branch `task/beta-r1-connect-azure-sql`
-- base PR #3 exact HEAD `edb46dc...`
+- base `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) — **RETARGETED 2026-09-26 (BETA-R3A-2)**; HEAD unchanged
 - HEAD `075852b150e8870b4e49e1076586cbbc82bc1bcb`
 - mergeable at last verification
 - implementation complete; not merged/deployed
@@ -156,14 +154,15 @@ The Firestore/SQL session difference is a **net count difference**, not proof of
 - session writes fail closed
 - no DOE files changed
 
-Last reported CI for PR #6:
+Last reported CI for PR #6 (verified 2026-09-26, exact head `075852b150e8870b4e49e1076586cbbc82bc1bcb`):
 
-- Azure SQL Migration Tests #46: SUCCESS
-- Azure Beta Build #58: SUCCESS
+- Azure SQL Migration Tests run `36249819711`: SUCCESS (event `pull_request`)
+- Azure Beta Build run `36249819750`: SUCCESS (event `pull_request`; includes `npm test`, server SQL runtime auth tests, Firebase emulator regression, beta-freeze checks, artifact upload)
 - main Node tests: 290 pass / 0 fail / 29 skipped
 - SQL runtime auth tests: 10/10 pass
 - Firebase emulator regression: 319/319 pass
 - deployment/baseline contract: 14/14 pass
+- frozen baseline `86bd5aa` unchanged; not promoted
 
 ## 6. BETA-R1 remaining live blockers
 

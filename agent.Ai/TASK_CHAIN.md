@@ -13,7 +13,7 @@ Status: **COMPLETE as a loaded checkpoint**
 - Azure SQL reset completed.
 - canonical schema/data load completed.
 - do not rerun reset/initial loader.
-- PR #3 remains Draft/open as the migration foundation.
+- PR #3 **MERGED into `main` at `ea80eecc9fa2ac2b693c23979bad5c5809a26863`** (2026-09-26); migration foundation now on `main`.
 
 ### BETA-R1 — connect frontend read path to Azure SQL
 
@@ -22,6 +22,7 @@ Status: **IMPLEMENTATION COMPLETE / NOT DEPLOYED**
 PR #6:
 
 - HEAD `075852b150e8870b4e49e1076586cbbc82bc1bcb`
+- base RETARGETED to `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) on 2026-09-26 (BETA-R3A-2); HEAD unchanged
 - Firebase login retained
 - API token verification
 - SQL UserProfile authorization
@@ -49,6 +50,8 @@ Read-only/operator preview only:
 Expected output:
 
 `READY-FOR-LIVE-ACTIVATION` or a precise blocker.
+
+- 2026-09-26 (PR #9, unmerged draft): BETA-R2/R2b read-only activation preview completed; BETA-R3 live activation **BLOCKED** on (1) deploy requires reviewed PR #6 merge + push to `main`, (2) Entra SP / `paws_swa_beta` app registration creation `403` (account lacks directory role). See update `2026-09-26-beta-r3a2-pr6-main-integration.md`.
 
 ### BETA-R3 — live activation
 

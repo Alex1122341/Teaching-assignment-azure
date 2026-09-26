@@ -29,11 +29,13 @@ test('beta CI tests and builds but cannot deploy',()=>{
   assert.match(workflow,/push:\s*\n\s+branches:\s*\[main\]/);
   assert.match(workflow,/permissions:\s*\n\s+contents:\s*read/);
   assert.match(workflow,/npm ci/);
+  assert.match(workflow,/npm ci --prefix swa-api/);
   assert.match(workflow,/npm test/);
   assert.match(workflow,/npm run test:emulator/);
-  assert.match(workflow,/node tools\/build-static\.js/);
-  assert.match(workflow,/cp staticwebapp\.config\.json \.deploy-static\/staticwebapp\.config\.json/);
+  assert.match(workflow,/node tools\/build-beta-release\.js/);
+  assert.match(workflow,/node tools\/verify-beta-candidate\.js/);
   assert.match(workflow,/name:\s*azure-beta-\$\{\{ github\.sha \}\}/);
+  assert.match(workflow,/path:\s*\.azure-production/);
   assert.doesNotMatch(workflow,/AZURE_STATIC_WEB_APPS_API_TOKEN/);
   assert.doesNotMatch(workflow,/Azure\/static-web-apps-deploy/);
   assert.doesNotMatch(workflow,/deploy_production:/);
@@ -79,11 +81,11 @@ test('beta deploy independently revalidates the frozen runtime before Azure uplo
 
   // Independent frozen-runtime revalidation happens before that upload.
   assert.match(before,/node tools\/beta-freeze\.js/);
-  assert.match(before,/--artifact\s+\$\{\{ github\.workspace \}\}\/\.deploy-static|--artifact\s+\.deploy-static/);
+  assert.match(before,/--artifact\s+\.azure-production\/app/);
   assert.match(before,/86bd5aa2c8a25259f3f708e49b322220ff43a147/);
   assert.match(before,/ref:\s*\$\{\{ inputs\.commit_sha \}\}/);
   // Revalidation must not become a second build.
-  assert.doesNotMatch(before,/node tools\/build-static\.js/);
+  assert.doesNotMatch(before,/node tools\/build-beta-release\.js/);
   assert.doesNotMatch(before,/npm run test:emulator/);
 });
 

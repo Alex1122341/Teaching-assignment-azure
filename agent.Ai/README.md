@@ -26,6 +26,10 @@ Every agent working on PAWS Beta should be able to answer, before changing anyth
 - `ARCHITECTURE.md` — big-picture repository/runtime/data architecture.
 - `DOMAINS.md` — domain-by-domain structure, ownership and current status.
 - `ALGORITHMS.md` — important algorithms, invariants and matching/review rules.
+- `MODULE_MAP.md` — file/module-level responsibility map for Beta and future ports.
+- `DATA_MODEL.md` — Azure SQL, Firestore and future P3.1 data structures and non-equivalences.
+- `WORKFLOWS.md` — current and future workflow/state-machine maps.
+- `TEST_RELEASE.md` — testing, CI, freeze, merge and deployment continuity rules.
 - `TASK_CHAIN.md` — ordered workstream, completed/in-progress/next/blocked tasks.
 - `DECISIONS.md` — locked decisions, superseded assumptions and do-not-reopen items.
 - `UPDATE_TEMPLATE.md` — required format for every future agent handoff update.

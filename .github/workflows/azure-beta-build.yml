@@ -33,6 +33,8 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix swa-api
       - run: npm test
+      - name: Run server SQL runtime authorization tests
+        run: npm test --prefix server
       - run: npm run test:emulator
       - run: node tools/build-beta-release.js
       - name: Verify strict frozen main runtime

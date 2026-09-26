@@ -33,26 +33,32 @@ PR #6:
 
 ### BETA-R2 — activation preview
 
-Status: **PARTIAL / BLOCKED BEFORE MUTATION**
+Status: **COMPLETE / AUTHENTICATION DECISION REQUIRED**
 
-Completed:
+BETA-R2b resolved the evidence gaps:
 
-- PR #6 exact ref verified;
-- combined app/API artifact verified ready;
-- six-profile + one-exclusion structure confirmed;
-- narrow 004 permission contract statically verified;
-- no live mutation occurred.
+- private manifest completed;
+- bootstrap preview PASS;
+- 6 intended profiles + 1 HICC-2 exclusion;
+- live SQL confirms `paws_swa_beta` absent;
+- current deployed site has no API yet;
+- SQL server is Entra-only.
 
-Blocked on:
+Blocking architecture/operator decision:
 
-- missing exact email/displayName values in the privacy-minimised account artifact;
-- interactive Entra authentication needed for live SQL principal inspection;
-- Azure management authentication needed for SWA setting inspection;
-- runtime authentication mode for `paws_swa_beta` still to be selected.
+Choose the runtime Entra identity for the existing SWA managed API.
 
-Next substep:
+Recommended minimal Beta path:
 
-**BETA-R2b interactive completion**. Resolve those four items and stop again before every live write/deploy.
+- dedicated Entra service principal/app registration;
+- contained SQL user mapped to that identity;
+- narrow 004 read permissions;
+- SWA backend application settings hold the service-principal connection configuration;
+- no new App Service/Function App for this milestone.
+
+Managed Identity is not available to SWA managed Functions and would require a separate backend resource.
+
+No live mutation is authorized yet.
 
 ### BETA-R3 — live activation
 

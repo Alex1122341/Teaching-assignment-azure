@@ -21,8 +21,12 @@ Status: **IMPLEMENTATION COMPLETE / NOT DEPLOYED**
 
 PR #6:
 
-- HEAD `075852b150e8870b4e49e1076586cbbc82bc1bcb`
-- base RETARGETED to `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) on 2026-09-26 (BETA-R3A-2); HEAD unchanged
+- HEAD `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` — **Runtime Commit A** (2026-09-26,
+  BETA-R3A-2B): current `main` merged INTO the PR branch as a merge commit with parents
+  `075852b` + `ea80eecc`. Documentation/governance content only; runtime/workflow/test/tool
+  files byte-identical; baseline NOT promoted.
+- base RETARGETED to `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) on 2026-09-26 (BETA-R3A-2)
+- the 4 BETA-R1 commits `c006c9a`, `b230718`, `4af5af8`, `075852b` preserved unchanged
 - Firebase login retained
 - API token verification
 - SQL UserProfile authorization
@@ -30,7 +34,16 @@ PR #6:
 - no Firestore session fallback
 - session writes disabled
 - no DOE changes
-- CI green in implementation report
+- **Fresh post-Commit-A CI green:** Azure SQL Migration Tests `36265424485` SUCCESS;
+  Azure Beta Build `36265424535` SUCCESS (head `6eeb1a4`, `pull_request`, base `main`).
+  Candidate step behavior: `Verify strict frozen main runtime` **SKIPPED** (push-only gate);
+  `Verify explicit Beta-R1 release-candidate drift` **SUCCESS** — this step runs
+  `node tools/verify-beta-candidate.js`.
+- **Retired evidence:** runs `36249819711` / `36249819750` are pre-retarget historical
+  (head `075852b`, checkout `Merge 075852b into edb46dc`). Corrections: `verify-beta-candidate.js`
+  IS wired into CI; strict beta-freeze did NOT run on the PR candidate.
+- **PR #6 is NOT merged and must not be merged in this state** — Commit B (freeze promotion)
+  is a separate, separately reviewed task.
 
 ### BETA-R2 — activation preview
 

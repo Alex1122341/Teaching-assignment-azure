@@ -146,23 +146,49 @@ The Firestore/SQL session difference is a **net count difference**, not proof of
 - Draft/open
 - branch `task/beta-r1-connect-azure-sql`
 - base `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) — **RETARGETED 2026-09-26 (BETA-R3A-2)**; HEAD unchanged
-- HEAD `075852b150e8870b4e49e1076586cbbc82bc1bcb`
+- **Runtime Commit A (2026-09-26, BETA-R3A-2B):** current `main` merged INTO the PR branch —
+  HEAD is now `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`, a merge commit with parents
+  `075852b150e8870b4e49e1076586cbbc82bc1bcb` and `ea80eecc9fa2ac2b693c23979bad5c5809a26863`.
+  The 4 BETA-R1 commits (`c006c9a`, `b230718`, `4af5af8`, `075852b`) are preserved unchanged.
+  Commit A content delta = documentation/governance only (`AGENTS.md` + 15 `agent.Ai/**`);
+  runtime files, workflows, tests and tools are byte-identical. Runtime semantic change 0,
+  DOE changes 0, BETA-R1 scope lost 0, PR scope vs `main` still 42 files.
 - mergeable at last verification
-- implementation complete; not merged/deployed
+- implementation complete; **not merged**; not deployed
 - session read path: Firebase Auth → API → Azure SQL → existing timetable UI
 - no Firestore fallback for the Azure session-read path
 - session writes fail closed
 - no DOE files changed
 
-Last reported CI for PR #6 (verified 2026-09-26, exact head `075852b150e8870b4e49e1076586cbbc82bc1bcb`):
+**Current CI for PR #6** (fresh, head `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`, event
+`pull_request`, base `main` @ `ea80eecc…`):
 
-- Azure SQL Migration Tests run `36249819711`: SUCCESS (event `pull_request`)
-- Azure Beta Build run `36249819750`: SUCCESS (event `pull_request`; includes `npm test`, server SQL runtime auth tests, Firebase emulator regression, beta-freeze checks, artifact upload)
-- main Node tests: 290 pass / 0 fail / 29 skipped
-- SQL runtime auth tests: 10/10 pass
-- Firebase emulator regression: 319/319 pass
-- deployment/baseline contract: 14/14 pass
-- frozen baseline `86bd5aa` unchanged; not promoted
+- Azure SQL Migration Tests run `36265424485`: SUCCESS
+- Azure Beta Build run `36265424535`: SUCCESS
+  - `npm test` SUCCESS; server SQL runtime authorization tests SUCCESS; `npm run test:emulator`
+    (Firebase emulator regression) SUCCESS; `node tools/build-beta-release.js` SUCCESS
+  - **Verify strict frozen main runtime → SKIPPED** (gated `github.event_name == 'push'`)
+  - **Verify explicit Beta-R1 release-candidate drift → SUCCESS** (runs
+    `node tools/verify-beta-candidate.js`; output `ok: true`, baseline `86bd5aa`,
+    intentional drift only in `index.html`, `paws-data-client.js`, `timetable.js`)
+  - `beta-baseline.test.js` + `azure-deployment.test.js` SUCCESS; `upload-artifact` SUCCESS
+- frozen baseline `86bd5aa` unchanged; **not promoted** (Commit B not created)
+
+**Retired CI evidence (do not reuse as post-retarget evidence):**
+
+- Azure SQL Migration Tests run `36249819711` and Azure Beta Build run `36249819750` were
+  **pre-retarget historical** runs (head `075852b`). The Azure Beta Build checkout log for
+  that run showed `Merge 075852b... into edb46dc...` — PR #6 HEAD combined with the old
+  PR #3 HEAD, not with current `main`.
+- Correction: `tools/verify-beta-candidate.js` **IS** wired into `azure-beta-build.yml`
+  (step `Verify explicit Beta-R1 release-candidate drift`); the earlier note calling it
+  unwired was wrong.
+- Correction: strict beta-freeze + artifact freeze did **NOT** run on the PR candidate; that
+  step is SKIPPED on `pull_request`.
+
+**Merge status:** PR #6 must **NOT** be merged yet. Merging would put BETA-R1 runtime on
+`main` while the frozen baseline still points at `86bd5aa`, creating a failing intermediate
+`main` build. Commit B (freeze promotion) is a separate reviewed task.
 
 ## 6. BETA-R1 remaining live blockers
 

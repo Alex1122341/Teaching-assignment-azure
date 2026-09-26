@@ -3,7 +3,30 @@
 **Date:** 2026-09-26
 **Agent/model:** HY3 / WorkBuddy (strict release-engineering execution)
 **Repository:** Alex1122341/Teaching-assignment-azure
-**Task status:** COMPLETE
+**Task status:** COMPLETE — **SUPERSEDED / CORRECTED by `2026-09-26-beta-r3a2b-runtime-commit-a.md`**
+
+> ## ⚠ CORRECTION NOTICE (2026-09-26, BETA-R3A-2B)
+>
+> Three statements in this document were rejected by architect review and are corrected here.
+> Read `agent.Ai/updates/2026-09-26-beta-r3a2b-runtime-commit-a.md` for the authoritative record.
+>
+> 1. **CI evidence was NOT post-retarget.** Runs `36249819711` / `36249819750` were created
+>    before the PR #6 base change and are **pre-retarget historical evidence**. The Azure Beta
+>    Build checkout log for that run showed `HEAD is now at: d6d2339 Merge 075852b... into
+>    edb46dc...`, i.e. PR #6 HEAD merged with the **old PR #3 HEAD**, not with current `main`.
+>    Do not reuse them as post-retarget evidence.
+> 2. **`tools/verify-beta-candidate.js` IS wired into CI.** Section 7's NOTE claiming it is
+>    "not wired as a dedicated CI step" is **false**. `azure-beta-build.yml` runs it in the
+>    step `Verify explicit Beta-R1 release-candidate drift` (`if: github.event_name != 'push'`).
+> 3. **Strict beta-freeze + artifact freeze did NOT run on the PR candidate.** The step
+>    `Verify strict frozen main runtime` is gated `if: github.event_name == 'push'` and is
+>    therefore **SKIPPED** on `pull_request`. Only the explicit Beta-R1 release-candidate drift
+>    check runs on a PR.
+>
+> **Also corrected:** the "next safe action" below (merge PR #6, then promote the freeze) is
+> **NOT approved**. PR #6 remains unmerged. Runtime Commit A
+> (`6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`) has since been created with fresh CI
+> (`36265424485` / `36265424535`).
 
 ## 1. Goal
 
@@ -27,7 +50,7 @@ Prepare PR #6 so it is cleanly based against the newly merged `main`, contains O
 - Phase 8 gate: retarget-only accepted — PR #3 foundation already in `main`; PR #6 unique scope exactly BETA-R1; no conflict; no duplicate migration foundation.
 - Phase B1: changed PR #6 base `feature/azure-sql-cutover-foundation` → `main` via GitHub API. **HEAD unchanged** (`075852b`).
 - Phase 15: post-retarget PR changed-file count = **42**; no `agent.Ai`/`AGENTS.md` contamination; no DOE; no PR #3 migration foundation (`001/002/003`); only `004_swa_beta_permissions.sql`.
-- Phase 16: CI green for exact head `075852b` (Azure SQL Migration Tests run `36249819711`; Azure Beta Build run `36249819750`; event `pull_request`; conclusion `success`).
+- Phase 16: CI green for exact head `075852b` (Azure SQL Migration Tests run `36249819711`; Azure Beta Build run `36249819750`; event `pull_request`; conclusion `success`). — **CORRECTED:** these are **pre-retarget historical** runs, not post-retarget evidence (see correction notice above).
 - Phase 19: this continuity update + refreshed `PROJECT_STATE.md` / `TASK_CHAIN.md` on a separate docs branch (NOT in PR #6, to keep PR #6 HEAD unchanged). PR #9/#10 latest facts preserved.
 
 ## 4. Files / components changed
@@ -49,12 +72,22 @@ Prepare PR #6 so it is cleanly based against the newly merged `main`, contains O
 
 ## 7. Tests / CI evidence
 
-- **Azure SQL Migration Tests** — run `36249819711` — event `pull_request` — head `075852b150e8870b4e49e1076586cbbc82bc1bcb` — conclusion `success`.
+- **Azure SQL Migration Tests** — run `36249819711` — event `pull_request` — head `075852b150e8870b4e49e1076586cbbc82bc1bcb` — conclusion `success`. **PRE-RETARGET HISTORICAL — superseded.**
   - steps: python `unittest discover tests/python test_azure_sql_*.py` (success); pip install `requirements-azure-sql-migration` (success).
-- **Azure Beta Build** — run `36249819750` — event `pull_request` — head `075852b150e8870b4e49e1076586cbbc82bc1bcb` — conclusion `success`.
+- **Azure Beta Build** — run `36249819750` — event `pull_request` — head `075852b150e8870b4e49e1076586cbbc82bc1bcb` — conclusion `success`. **PRE-RETARGET HISTORICAL — superseded.**
   - steps: `npm test` (success); server SQL runtime authorization tests (success); `npm run test:emulator` ⇒ `firebase emulators:exec --only firestore,auth` (success); `node tools/build-static.js`; `node tools/beta-freeze.js` (+ `--artifact .deploy-static`) (success); `beta-baseline.test.js` + `azure-deployment.test.js` (success); `upload-artifact` (success).
-- **NOTE:** `tools/verify-beta-candidate.js` is present in PR #6 scope but is **not** currently wired as a dedicated CI step in either workflow — flag for architect (does not affect the two required workflows' green status).
-- Frozen baseline unchanged; freeze check passed.
+- **CORRECTED — CI step wiring.** `tools/verify-beta-candidate.js` **IS** wired into
+  `azure-beta-build.yml` as the step `Verify explicit Beta-R1 release-candidate drift`
+  (`run: node tools/verify-beta-candidate.js`, gated `if: github.event_name != 'push'`).
+  The previous claim that it is "not wired as a dedicated CI step" was false.
+- **CORRECTED — strict main freeze on a PR candidate.** `Verify strict frozen main runtime`
+  is gated `if: github.event_name == 'push'`, so on a `pull_request` run it is **SKIPPED**.
+  It did not pass on the PR candidate — it did not run. Only the explicit Beta-R1
+  release-candidate drift check runs on a PR, and that is the correct candidate behavior.
+- **Fresh post-Commit-A CI** (authoritative, replaces the two runs above): Azure SQL Migration
+  Tests `36265424485` and Azure Beta Build `36265424535`, both `pull_request`, head
+  `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`, both `success`.
+- Frozen baseline unchanged; not promoted.
 
 ## 8. Live operations
 
@@ -75,9 +108,12 @@ Prepare PR #6 so it is cleanly based against the newly merged `main`, contains O
 
 ## 9. Current state after task
 
-- final branch: `task/beta-r1-connect-azure-sql` (unchanged)
-- final SHA: `075852b150e8870b4e49e1076586cbbc82bc1bcb` (unchanged)
+- final branch: `task/beta-r1-connect-azure-sql` (unchanged at the time of this task)
+- final SHA: `075852b150e8870b4e49e1076586cbbc82bc1bcb` (unchanged at the time of this task)
 - PR #6: base = `main`, Draft, open, `mergeable = true`, head = `075852b`
+- **SUPERSEDED 2026-09-26 (BETA-R3A-2B):** Runtime Commit A
+  `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` merged current `main` INTO the PR branch;
+  PR #6 head is now `6eeb1a4`, still Draft, base `main`, 42 changed files.
 - merge/deploy state: NOT merged, NOT deployed
 - live counts: unchanged (`paws.UserProfile` 0 rows; no live mutation)
 
@@ -90,18 +126,38 @@ Prepare PR #6 so it is cleanly based against the newly merged `main`, contains O
 
 ## 11. Exact current breakpoint
 
-PR #6 is now cleanly based on `main` (`ea80eecc`) and contains only the 4 reviewed BETA-R1 commits; exact-head CI is green. The next safe action is an architect-reviewed merge of PR #6 to `main` (producing Runtime Commit A) followed by freeze promotion and BETA-R3 live activation — all explicitly OUT OF SCOPE for this task.
+**CORRECTED.** PR #6 is now cleanly based on `main` (`ea80eecc`) and contains only the 4
+reviewed BETA-R1 commits, but the CI cited below this section was pre-retarget historical
+evidence. Runtime Commit A (`6eeb1a4`) has since been created and produced genuinely fresh CI
+(`36265424485` / `36265424535`).
+
+The previously stated next action — architect-reviewed merge of PR #6 to `main` followed by
+freeze promotion — is **NOT approved** and is **RETRACTED**. Merging PR #6 now would place
+BETA-R1 runtime on `main` while the strict frozen baseline still points to
+`86bd5aa2c8a25259f3f708e49b322220ff43a147`, intentionally producing a failing intermediate
+`main` build. Commit A + Commit B exist precisely to avoid that.
 
 ## 12. Next safe action
 
-Architect reviews PR #6 (now base=`main`) and, upon approval, merges to `main` to produce Runtime Commit A; then freeze promotion and BETA-R3 activation preview/run per `TASK_CHAIN`. Do not merge #9/#10; their latest facts are preserved in `PROJECT_STATE.md` / `TASK_CHAIN.md` and this update.
+**Do NOT merge PR #6.** Architect reviews Runtime Commit A (`6eeb1a4`) with its fresh CI
+(`36265424485` / `36265424535`). Commit B (freeze promotion to the new runtime baseline) is a
+separate, separately reviewed task and must run only after that review plus explicit owner
+approval. Do not merge #9/#10/#11; their latest facts are preserved in
+`PROJECT_STATE.md` / `TASK_CHAIN.md` and this update.
 
 ## 13. DO NOT REDO
 
-- Do NOT rebase/rewrite PR #6 history — retarget-only was sufficient; HEAD unchanged.
+- **Do NOT merge PR #6** (or #9/#10/#11), deploy, or promote the freeze without explicit
+  architect + owner approval.
+- Do NOT reuse runs `36249819711` / `36249819750` as post-retarget CI evidence.
+- Do NOT claim the strict main beta-freeze passed on a PR candidate (it is SKIPPED on
+  `pull_request`), and do NOT claim `verify-beta-candidate.js` is unwired.
+- Do NOT rebase/rewrite PR #6 history — retarget-only was sufficient; BETA-R1 SHAs preserved.
 - Do NOT promote frozen baseline (`86bd5aa`) or modify `tools/beta-freeze.js` / `tools/beta-baseline.json` / `azure-beta-deploy.yml` baseline SHA.
 - Do NOT run any live mutation (SQL/DOE/Firebase/Azure/Entra).
 
 ## 14. Suggested next-agent prompt
 
-"Review PR #6 (base now `main`, 4 BETA-R1 commits, head `075852b`, CI green). Decide on merge to `main` (Runtime Commit A) per BETA-R3A plan. Then proceed to freeze promotion and BETA-R3 live activation only after explicit owner approval."
+~~"Review PR #6 (base now `main`, 4 BETA-R1 commits, head `075852b`, CI green). Decide on merge to `main` (Runtime Commit A)..."~~ — **RETRACTED.**
+
+"Review Runtime Commit A (`6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`) on PR #6 (base `main`, 4 BETA-R1 commits preserved, 42 changed files) with fresh CI: Azure SQL Migration Tests `36265424485` SUCCESS, Azure Beta Build `36265424535` SUCCESS. Confirm the PR candidate step behavior (strict frozen main runtime SKIPPED; explicit Beta-R1 release-candidate drift SUCCESS via `node tools/verify-beta-candidate.js`). Do NOT merge PR #6. Commit B (freeze promotion) is the next separate task, only after this review plus explicit owner approval."

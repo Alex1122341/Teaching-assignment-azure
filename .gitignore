@@ -8,3 +8,6 @@ output/
 .worktrees/
 .deploy-static/
 __pycache__/
+azure-sql-import-private/
+*.paws-import.json
+*.paws-import.jsonl

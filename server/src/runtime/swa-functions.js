@@ -1,0 +1,4 @@
+'use strict';
+function bearer(request){const h=request.headers&&request.headers.get?request.headers.get('authorization'):null;return h&&/^Bearer /i.test(h)?h.slice(7):'';}
+function createSwaFunctions({api}){return async request=>{try{const url=new URL(request.url),token=bearer(request);let r;if(request.method!=='GET')r={status:405,body:{error:{code:'METHOD_NOT_ALLOWED',message:'GET required.'}}};else if(url.pathname==='/api/health/sql')r=await api.health();else if(url.pathname==='/api/v1/me')r=await api.currentUser(token);else if(url.pathname==='/api/v1/sessions')r=await api.sessions(token,{start:url.searchParams.get('start'),end:url.searchParams.get('end')});else r={status:404,body:{error:{code:'NOT_FOUND',message:'Route not found.'}}};return {status:r.status,jsonBody:r.body};}catch(_){return {status:503,jsonBody:{error:{code:'SERVICE_UNAVAILABLE',message:'The service is temporarily unavailable.'}}};}};}
+module.exports={createSwaFunctions};

@@ -5,6 +5,20 @@
 **Repository:** Alex1122341/Teaching-assignment-azure
 **Task status:** COMPLETE — Runtime Commit A created and pushed; fresh CI green; PR #6 NOT merged
 
+> ## ⚠ SUPERSEDED (later on 2026-09-26, BETA-R3A-3)
+>
+> **Commit B has since been created.** Do not read "Commit B NOT created" below as current
+> state. Commit B `c53cddb535947362b13e9cb3858e43b31330c923` (parent `6eeb1a4`) promoted the
+> frozen Beta runtime baseline from `86bd5aa2c8a25259f3f708e49b322220ff43a147` to
+> `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`.
+>
+> The authoritative record is now `agent.Ai/updates/2026-09-26-beta-r3a3-commit-b-freeze-promotion.md`
+> on PR #6. This PR (#11) is **retired** — it is documentation-only, must NOT be merged, and its
+> facts have been folded into PR #6.
+>
+> One statement below that is now WRONG and must not be reused: section 4.3 and the related
+> "no Commit B" lines describe the state *at the time of Runtime Commit A*, before Commit B.
+
 ## 1. Goal
 
 Correct material errors in the previous BETA-R3A-2 report, then create **Runtime Commit A**
@@ -113,7 +127,11 @@ Therefore:
 `c006c9a`, `b230718`, `4af5af8`, `075852b` — all four SHAs unchanged and all are ancestors of
 Commit A (first-parent chain: `6eeb1a4` → `075852b` → `4af5af8` → `b230718` → `c006c9a`).
 
-### 4.3 Frozen baseline NOT promoted (no Commit B)
+### 4.3 Frozen baseline NOT promoted (no Commit B) — **SUPERSEDED, see banner above**
+
+> This section describes the state at Runtime Commit A only. Commit B
+> `c53cddb535947362b13e9cb3858e43b31330c923` has since promoted the baseline to
+> `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`.
 
 `tools/beta-freeze.js`, `tools/beta-baseline.json` and `azure-beta-deploy.yml` all still
 reference `86bd5aa2c8a25259f3f708e49b322220ff43a147`. Unchanged — Commit B is a separate,

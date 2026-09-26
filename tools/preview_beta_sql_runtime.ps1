@@ -18,10 +18,12 @@ $preview = [ordered]@{
     Principal = $Principal
     Permissions = @(
         'GRANT CONNECT',
-        'GRANT SELECT ON paws.UserProfile',
+        'GRANT SELECT on five authorization columns of paws.UserProfile',
         'GRANT SELECT ON paws.vCalendarSession',
-        'GRANT SELECT ON paws.SessionAssignment',
-        'DENY SELECT, INSERT, UPDATE, DELETE ON staging schema'
+        'GRANT SELECT on SessionId and FacultyId of paws.SessionAssignment',
+        'DENY INSERT, UPDATE, DELETE, EXECUTE ON paws schema',
+        'DENY SELECT, INSERT, UPDATE, DELETE, EXECUTE ON staging schema',
+        'REJECT database-role membership or permissions outside this list'
     )
     StaticWebAppSettingNames = @(
         'PAWS_SQL_CONNECTION_STRING',

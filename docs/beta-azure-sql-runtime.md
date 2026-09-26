@@ -6,11 +6,11 @@ This release candidate changes only timetable session reads. Firebase Authentica
 
 The preferred contained database principal is `paws_swa_beta`. The reviewed permission script grants `CONNECT` and `SELECT` on exactly these objects:
 
-- `paws.UserProfile`, for authorization and the health probe;
+- five columns of `paws.UserProfile` (`FirebaseUid`, `DisplayName`, `BaseRole`, `FacultyId`, and `Active`), for authorization and the health probe;
 - `paws.vCalendarSession`, for canonical calendar rows;
-- `paws.SessionAssignment`, to restrict faculty, HICC, and VISC reads to the linked `FacultyId`.
+- two columns of `paws.SessionAssignment` (`SessionId` and `FacultyId`), to restrict faculty, HICC, and VISC reads to the linked `FacultyId`.
 
-The runtime does not query `paws.Faculty` directly. `UserProfile INSERT is not granted`; live profile bootstrap is a separate reviewed operator action. The runtime receives no `UPDATE` or `DELETE`, and access to `staging` is explicitly denied.
+The runtime does not query `paws.Faculty` directly. `UserProfile INSERT is not granted`; live profile bootstrap is a separate reviewed operator action. The script rejects database-role membership and any direct permission outside the reviewed contract before applying column-level reads. Schema-level `INSERT`, `UPDATE`, `DELETE`, and `EXECUTE` are denied on `paws`; all data access and execution are denied on `staging`.
 
 `database/azure-sql/004_swa_beta_permissions.sql` deliberately refuses to create the principal. Creation and execution require separate authorization and are outside this phase.
 
@@ -28,4 +28,4 @@ No principal creation, permission application, UserProfile bootstrap, SWA settin
 
 ## PR #3 reconciliation item
 
-PR #3's `tools/azure_sql_migration/sql_access.ps1` currently spells the device-flow grant type as `oauth-grant-type`; Azure expects `oauth:grant-type`. The Phase 1 preview tool does not depend on that helper, so this branch leaves the PR #3 foundation untouched. Correcting it remains a visible PR #3 reconciliation item before using that helper operationally.
+The previously reported PR #3 OAuth helper defect was rechecked at the stacked base `c423929`. `tools/azure_sql_migration/sql_access.ps1` uses the correct `urn:ietf:params:oauth:grant-type:device_code` value and is verified as corrected. This runtime branch does not modify the helper; no PR #3 reconciliation change remains necessary for that spelling.

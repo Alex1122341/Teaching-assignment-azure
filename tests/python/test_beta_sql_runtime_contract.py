@@ -9,9 +9,13 @@ class BetaSqlRuntimeContractTests(unittest.TestCase):
         sql = (ROOT / "database/azure-sql/004_swa_beta_permissions.sql").read_text(encoding="utf-8")
         self.assertIn("paws_swa_beta", sql)
         self.assertRegex(sql, r"USER_ID\(N'paws_swa_beta'\).*THROW")
-        for name in ["paws.UserProfile", "paws.vCalendarSession", "paws.SessionAssignment"]:
-            self.assertRegex(sql, rf"GRANT SELECT ON OBJECT::{re.escape(name)} TO \[paws_swa_beta\]")
-        self.assertRegex(sql, r"DENY SELECT, INSERT, UPDATE, DELETE ON SCHEMA::staging TO \[paws_swa_beta\]")
+        self.assertIn("GRANT SELECT ON OBJECT::paws.UserProfile (FirebaseUid, DisplayName, BaseRole, FacultyId, Active)", sql)
+        self.assertIn("GRANT SELECT ON OBJECT::paws.SessionAssignment (SessionId, FacultyId)", sql)
+        self.assertIn("GRANT SELECT ON OBJECT::paws.vCalendarSession", sql)
+        self.assertRegex(sql, r"DENY SELECT, INSERT, UPDATE, DELETE, EXECUTE ON SCHEMA::staging TO \[paws_swa_beta\]")
+        self.assertIn("sys.database_role_members", sql)
+        self.assertIn("sys.database_permissions", sql)
+        self.assertGreaterEqual(sql.count("THROW"), 3)
         self.assertNotRegex(sql, r"GRANT\s+(?:INSERT|UPDATE|DELETE|CONTROL|ALTER)|db_owner|CREATE USER", re.I)
         self.assertNotIn("paws.Faculty TO [paws_swa_beta]", sql)
 
@@ -27,8 +31,8 @@ class BetaSqlRuntimeContractTests(unittest.TestCase):
     def test_docs_keep_bootstrap_and_oauth_defect_explicit(self):
         docs = (ROOT / "docs/beta-azure-sql-runtime.md").read_text(encoding="utf-8")
         self.assertIn("UserProfile INSERT is not granted", docs)
-        self.assertIn("oauth-grant-type", docs)
         self.assertIn("oauth:grant-type", docs)
+        self.assertIn("verified as corrected", docs)
         self.assertIn("PR #3", docs)
 
 if __name__ == "__main__":

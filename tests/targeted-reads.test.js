@@ -57,17 +57,21 @@ test('User Management uses the lightweight faculty index until an Owner requests
  assert.match(source,/async function previewProvision\(\)[\s\S]*await fullFaculty\(\)/);
 });
 
-test('Timetable faculty self-service subscribes to assigned faculty only',()=>{
+test('Timetable faculty self-service delegates exact assignment scoping to the authenticated SQL API',()=>{
  const source=read('timetable.js');
- assert.match(source,/where\('facultyIds','array-contains',facultyId\)/);
- assert.doesNotMatch(source,/db\.collection\('sessions'\)\.onSnapshot/);
+ assert.match(source,/UCVM_PAWS_DATA\.listSessions/);
  assert.match(source,/ensureSessionsForRange/);
+ assert.match(source,/function roleIsFaculty\(profile\).*faculty.*hicc.*visc/);
+ const start=source.indexOf('async function subscribeSessions');
+ const end=source.indexOf('function refreshSessionScope',start);
+ assert.doesNotMatch(source.slice(start,end),/db\.collection\('sessions'\)|onSnapshot/);
 });
 
-test('Timetable editing reads only affected dates and scoped exports avoid full reads',()=>{
+test('Timetable editing helpers request only affected Azure date ranges and scoped exports avoid full reads',()=>{
  const source=read('timetable.js');
  assert.match(source,/function ensureSessionsForDates/);
- assert.match(source,/where\('date','in',dateChunk\)/);
+ assert.match(source,/ensureSessionsForRange\(dates\[0\],dates\[dates\.length-1\]\)/);
+ assert.match(source,/fetchAzureSessions\(\{start:range\.start,end:/);
  for(const name of ['openSwapModal','startSessionSelection','openBulkSessionForm','openSessionForm']){
   const start=source.indexOf(`function ${name}`);
   const next=source.indexOf('\n  function ',start+1);

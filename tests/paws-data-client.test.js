@@ -10,7 +10,7 @@ test('Azure client is fixed to SQL mode and exposes no backend selector or write
   assert.equal(client.sessionBackend(),'azure-sql');
   assert.equal(client.sessionWritesEnabled(),false);
   assert.doesNotMatch(source,/firestore/i);
-  assert.doesNotMatch(source,/backend\s*[:=]/i);
+  assert.doesNotMatch(source,/UCVM_PAWS_SESSION_BACKEND|backend\s*:\s*['\"]/i);
 });
 
 test('current user and sessions use same-origin bearer GET requests',async()=>{

@@ -54,20 +54,18 @@ Result: **BLOCKED** — the activation blockers were environmental, not data.
 
 Status: **ATTEMPTED / BLOCKED (2026-09-26)**
 
-Not authorized to proceed. Two independent blockers:
+Three gates must be cleared:
 
-1. **Deploy is structurally impossible for this candidate.** `azure-beta-deploy.yml` requires the
-   candidate SHA to equal `origin/main` and the source build to be a `push` to `main`. Current `main`
-   is `71b7957a4df57e8c8dbd994f5f7c732e2f5706ad`; PR #6 is based on the foundation branch and its CI
-   ran on `pull_request`. Resolution requires a reviewed merge of PR #6 to `main` with owner approval.
-   Release controls must not be bypassed.
-2. **The Entra service principal cannot be created by the current operator account.** The Graph token
-   carries `Application.ReadWrite.All`, but app creation returns `403 Authorization_RequestDenied`.
-   The account holds no Entra directory role. Resolution requires an administrator to assign a
-   suitable directory role, or to create the `paws_swa_beta` app registration out-of-band.
+1. **Stacked-PR promotion:** PR #6 is based on PR #3 rather than `main`. Land/reconcile PR #3 first,
+   then retarget/rebase PR #6 onto current `main` and rerun exact-head CI.
+2. **Frozen-runtime promotion:** PR #6 intentionally changes protected runtime assets. Main push CI
+   and manual deploy both still enforce frozen baseline `86bd5aa2...`. A deliberate release-baseline
+   promotion is required before the SQL-backed runtime can produce a green deployable `main` build.
+3. **Entra app/service principal creation:** current operator receives Graph 403 under tenant policy.
+   An administrator must create `paws_swa_beta` (or explicitly grant an approved creation path).
 
-Also confirmed: `azureADOnlyAuthentication = True`, so SQL username/password authentication is
-unavailable and the locked Entra-service-principal decision is the only permitted path.
+Also confirmed: `azureADOnlyAuthentication = True`, so SQL username/password authentication is unavailable.
+The current minimal Beta runtime identity remains a dedicated Entra service principal for the SWA managed API.
 
 No live mutation was performed. See `updates/2026-09-26-beta-r2b-r3-activation-blocked.md`.
 

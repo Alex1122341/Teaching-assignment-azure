@@ -36,6 +36,7 @@
   "password.js",
   "session-guard.js",
   "signature-capture.js",
+  "paws-data-client.js",
   "scheduling-core.js",
   "timetable.css",
   "timetable-selection.js",

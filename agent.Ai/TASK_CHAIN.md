@@ -33,37 +33,43 @@ PR #6:
 
 ### BETA-R2 — activation preview
 
-Status: **NEXT**
+Status: **COMPLETE (read-only)**
 
-Read-only/operator preview only:
+Delivered:
 
-1. build/review exact six-profile UserProfile plan;
-2. verify HICC-1 exact Faculty link;
-3. confirm HICC-2 exclusion;
-4. inspect live `paws_swa_beta` principal state;
-5. preview narrow 004 permission contract;
-6. inspect SWA runtime setting names as PRESENT/ABSENT, never values;
-7. verify PR #6 candidate/artifact;
-8. stop before live mutation.
+1. six-profile UserProfile plan built and hash-pinned;
+2. HICC-1 exact Faculty link confirmed;
+3. HICC-2 exclusion confirmed (`HUMAN_CONFIRMED_DELETE_ACCOUNT`);
+4. live `paws_swa_beta` principal state inspected — ABSENT;
+5. narrow 004 permission contract previewed and statically verified;
+6. SWA runtime setting names inspected — not readable, because no managed API is deployed;
+7. PR #6 candidate/artifact verified green;
+8. no live mutation performed.
 
-Expected output:
+Plan SHA-256: `69211cfe160b10667ab5c13c7e6007608e37f5d7a3b4b384997fd5130bacf410`
 
-`READY-FOR-LIVE-ACTIVATION` or a precise blocker.
+Result: **BLOCKED** — the activation blockers were environmental, not data.
 
 ### BETA-R3 — live activation
 
-Status: **NOT AUTHORIZED YET**
+Status: **ATTEMPTED / BLOCKED (2026-09-26)**
 
-Only after explicit owner approval and a clean R2:
+Not authorized to proceed. Two independent blockers:
 
-- insert approved UserProfile rows;
-- create/configure runtime SQL principal if needed;
-- apply reviewed read permissions;
-- configure required server-side runtime settings;
-- deploy exact candidate;
-- run authenticated live smoke test.
+1. **Deploy is structurally impossible for this candidate.** `azure-beta-deploy.yml` requires the
+   candidate SHA to equal `origin/main` and the source build to be a `push` to `main`. Current `main`
+   is `71b7957a4df57e8c8dbd994f5f7c732e2f5706ad`; PR #6 is based on the foundation branch and its CI
+   ran on `pull_request`. Resolution requires a reviewed merge of PR #6 to `main` with owner approval.
+   Release controls must not be bypassed.
+2. **The Entra service principal cannot be created by the current operator account.** The Graph token
+   carries `Application.ReadWrite.All`, but app creation returns `403 Authorization_RequestDenied`.
+   The account holds no Entra directory role. Resolution requires an administrator to assign a
+   suitable directory role, or to create the `paws_swa_beta` app registration out-of-band.
 
-Do not combine R2 preview and R3 mutation without explicit approval.
+Also confirmed: `azureADOnlyAuthentication = True`, so SQL username/password authentication is
+unavailable and the locked Entra-service-principal decision is the only permitted path.
+
+No live mutation was performed. See `updates/2026-09-26-beta-r2b-r3-activation-blocked.md`.
 
 ### BETA-R4 — first live SQL-backed Beta validation
 

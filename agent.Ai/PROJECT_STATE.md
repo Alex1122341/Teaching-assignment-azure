@@ -55,7 +55,7 @@ Purpose:
 
 Current main:
 
-- `e15a53240a6b6a688d95299539a5628ac2b54144`
+- `71b7957a4df57e8c8dbd994f5f7c732e2f5706ad`
 
 Frozen application baseline:
 
@@ -188,14 +188,46 @@ Reviewed account outcome:
 - admin/global profiles have no FacultyId
 - no fuzzy identity matching
 
+### Activation status after BETA-R2b / BETA-R3 attempt (2026-09-26)
+
+Verified live:
+
+| Item | State |
+|---|---|
+| `azureADOnlyAuthentication` | `True` — SQL authentication disabled server-side |
+| `paws_swa_beta` | ABSENT (0 principals, 0 role memberships, 0 permissions) |
+| `paws.UserProfile` | 0 rows |
+| SWA `ucvm-teaching-lab-web` | exists; SKU Free; `red-cliff-04871ca0f.5.azurestaticapps.net` |
+| deployed `/api/*` | 404 — the Beta-R1 managed API is **not deployed** |
+| subscription resources | 4 total; no Function App, no App Service |
+
+The six-profile bootstrap plan is generated and hash-pinned:
+
+- `planSha256 = 69211cfe160b10667ab5c13c7e6007608e37f5d7a3b4b384997fd5130bacf410`
+- preview PASS: profileRows 6, excludedRows 1, unresolved 0, duplicates 0, writesPerformed false
+- the private manifest lives outside Git and is never committed
+
+**Two blockers now stand between this state and live activation — see `updates/2026-09-26-beta-r2b-r3-activation-blocked.md`:**
+
+1. **Deployment is structurally impossible for the current candidate.** `azure-beta-deploy.yml`
+   requires the candidate SHA to equal `origin/main` and the source build to be a `push` to `main`.
+   PR #6 is based on the foundation branch and its CI ran on `pull_request`. Resolution requires a
+   reviewed merge of PR #6 to `main` with owner approval. Release controls must not be bypassed.
+2. **The Entra service principal cannot be created by the current operator account.** The Graph token
+   carries `Application.ReadWrite.All`, but application creation returns
+   `403 Authorization_RequestDenied / "Insufficient privileges to complete the operation."` — the
+   account holds no Entra directory role (its 19 group memberships are all groups, not roles).
+   Resolution requires an administrator to assign a suitable directory role, or to create the
+   `paws_swa_beta` app registration and supply the client ID/secret out-of-band.
+
 ## 7. Current breakpoint
 
-The next safe work is **BETA-R2 activation preview**, not more feature development:
+BETA-R2 / BETA-R2b are complete (read-only). BETA-R3 was attempted and is **BLOCKED** on the two
+items above; it is not a code or data problem.
 
-- generate/review the six-profile UserProfile apply plan;
-- inspect whether `paws_swa_beta` exists and its effective permissions;
-- inspect presence/absence of required SWA runtime setting names without exposing values;
-- verify PR #6 deployment candidate;
-- stop before every live mutation.
+Next safe work is **not** feature development. It is:
 
-Only after an explicit owner-approved live activation step should profiles, principal/grants, settings or deployment be changed.
+- have an administrator assign the operator a directory role (or create the service principal), and
+- get PR #6 merged to `main` through the reviewed release process with owner approval.
+
+Only then resume BETA-R3 at §3 of the activation sequence. Stop before every live mutation.

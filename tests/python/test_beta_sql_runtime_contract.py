@@ -17,6 +17,7 @@ class BetaSqlRuntimeContractTests(unittest.TestCase):
         self.assertIn("sys.database_permissions", sql)
         self.assertIn("sys.database_principals AS public_principal", sql)
         self.assertIn("public_principal.name = N'public'", sql)
+        self.assertRegex(sql, r"permission\.class = 0 AND NOT \(permission\.permission_name = N'CONNECT' AND permission\.state = N'G'\)")
         self.assertIn("sys.databases", sql)
         self.assertIn("owner_sid = @PrincipalSid", sql)
         self.assertIn("EXTERNAL_GROUP", sql)

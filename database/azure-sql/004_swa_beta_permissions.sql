@@ -37,7 +37,7 @@ IF EXISTS (
        AND public_principal.name = N'public'
     WHERE permission.state IN (N'G', N'W')
       AND (
-        (permission.class = 0 AND permission.permission_name IN (N'CONTROL', N'SELECT ALL USER SECURABLES'))
+        (permission.class = 0 AND NOT (permission.permission_name = N'CONNECT' AND permission.state = N'G'))
         OR (permission.class = 3 AND SCHEMA_NAME(permission.major_id) IN (N'paws', N'staging'))
         OR (permission.class = 1 AND OBJECT_SCHEMA_NAME(permission.major_id) IN (N'paws', N'staging'))
       )

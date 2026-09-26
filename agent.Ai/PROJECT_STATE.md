@@ -207,27 +207,39 @@ The six-profile bootstrap plan is generated and hash-pinned:
 - preview PASS: profileRows 6, excludedRows 1, unresolved 0, duplicates 0, writesPerformed false
 - the private manifest lives outside Git and is never committed
 
-**Two blockers now stand between this state and live activation — see `updates/2026-09-26-beta-r2b-r3-activation-blocked.md`:**
+**Three release/activation blockers now stand between this state and live activation:**
 
-1. **Deployment is structurally impossible for the current candidate.** `azure-beta-deploy.yml`
-   requires the candidate SHA to equal `origin/main` and the source build to be a `push` to `main`.
-   PR #6 is based on the foundation branch and its CI ran on `pull_request`. Resolution requires a
-   reviewed merge of PR #6 to `main` with owner approval. Release controls must not be bypassed.
-2. **The Entra service principal cannot be created by the current operator account.** The Graph token
-   carries `Application.ReadWrite.All`, but application creation returns
-   `403 Authorization_RequestDenied / "Insufficient privileges to complete the operation."` — the
-   account holds no Entra directory role (its 19 group memberships are all groups, not roles).
-   Resolution requires an administrator to assign a suitable directory role, or to create the
-   `paws_swa_beta` app registration and supply the client ID/secret out-of-band.
+1. **PR #6 is not on `main`.** `azure-beta-deploy.yml` requires the deployed SHA to equal
+   `origin/main` and the source build to be a successful `push` build from `main`.
+   PR #6 is stacked on PR #3's foundation branch. A safe promotion therefore requires PR #3 to land
+   first (or an equivalent reviewed integration), then PR #6 to be retargeted/rebased onto current
+   `main` and revalidated.
+2. **Frozen-runtime promotion is still required.** PR #6 intentionally changes protected runtime
+   files (`index.html`, `timetable.js`, and new `paws-data-client.js`). On a `push` to `main`,
+   `Azure Beta Build` runs the strict freeze against baseline
+   `86bd5aa2c8a25259f3f708e49b322220ff43a147`; the deploy workflow also hard-codes that baseline.
+   Merging PR #6 to `main` without an explicit baseline-promotion change would not yield a deployable
+   green main build. Release controls must be deliberately advanced, not bypassed.
+3. **The current operator cannot create the Entra application/service principal.** The Graph create
+   call returns `403 Authorization_RequestDenied`. The operator has no Entra directory role in the
+   retrieved memberships. This proves the current account cannot perform the creation under current
+   tenant policy; do not overstate the cause as requiring only one specific built-in role, because
+   Microsoft also permits app creation for some non-admin users/roles when tenant policy allows it.
+   Resolution is an administrator-created `paws_swa_beta` app/service principal, or an approved
+   tenant role/policy change that lets this operator create it.
 
 ## 7. Current breakpoint
 
-BETA-R2 / BETA-R2b are complete (read-only). BETA-R3 was attempted and is **BLOCKED** on the two
-items above; it is not a code or data problem.
+BETA-R2 / BETA-R2b are complete (read-only). BETA-R3 was attempted and is **BLOCKED** on release
+promotion and Entra runtime identity, not on DOE or the SQL data load.
 
-Next safe work is **not** feature development. It is:
+Next safe work is two parallel lanes:
 
-- have an administrator assign the operator a directory role (or create the service principal), and
-- get PR #6 merged to `main` through the reviewed release process with owner approval.
+- **Identity lane:** administrator creates the dedicated `paws_swa_beta` Entra app/service principal
+  (or grants an approved ability to create it) and returns client/tenant identifiers plus the secret
+  through an approved secure channel.
+- **Release lane:** promote the stacked SQL foundation/runtime candidate through `main` without
+  bypassing freeze controls: PR #3 foundation first, then retarget/rebase PR #6, then add/review an
+  explicit frozen-baseline promotion so the exact `main` push build can pass and be deployed.
 
-Only then resume BETA-R3 at §3 of the activation sequence. Stop before every live mutation.
+Only after both lanes are clear should BETA-R3 resume live SQL-user/settings/UserProfile/deployment work.

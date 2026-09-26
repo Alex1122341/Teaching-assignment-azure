@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## Agent continuity memory
+
+If you do not already have reliable recent PAWS project context, you MUST read `agent.Ai/AGENT.md`, `agent.Ai/PROJECT_STATE.md`, `agent.Ai/TASK_CHAIN.md`, `agent.Ai/DECISIONS.md`, and the newest file under `agent.Ai/updates/` before starting substantive work.
+
+The `agent.Ai/` directory is documentation-only continuity memory. It has no application/runtime role.
+
+Before completing substantive work, leave a new chronological update under `agent.Ai/updates/` using `agent.Ai/UPDATE_TEMPLATE.md`, and refresh the current-state/task files when the breakpoint changes.
+
+For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and deployed runtime, verify current evidence before acting.
+
 ## Repository and deployment source of truth
 
 - Beta repository: `Alex1122341/Teaching-assignment-azure`.

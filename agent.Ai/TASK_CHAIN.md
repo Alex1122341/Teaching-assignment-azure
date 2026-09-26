@@ -2,139 +2,105 @@
 
 **Last updated:** 2026-09-26
 
-## P0 — Current Beta objective
+## P0 — CURRENT: BETA-A1 ADFA General access
 
-Get the Azure Beta frontend reading the existing Azure SQL database.
+Goal:
+
+**Allow and verify the approved ADFA General test account on the existing Firebase/Firestore-backed Azure Beta.**
+
+Architecture under test:
+
+```text
+Azure Static Web App
+  -> Firebase Authentication
+  -> Firestore tester-teaching
+```
+
+### BETA-A1 — controlled access verification
+
+Status: **CURRENT / READ-ONLY**
+
+Verify:
+
+1. Beta site reachability;
+2. approved Firebase Authentication account exists;
+3. matching `users/{uid}` profile exists;
+4. role is `adfa_general`;
+5. `active == true`;
+6. current `mustChangePassword` state and expected redirect behavior;
+7. Azure beta hostname is in Firebase Authorized Domains;
+8. normal browser sign-in succeeds without redirect loop;
+9. account is not treated as Faculty;
+10. Faculty Dashboard / timetable / User Management or other existing ADFA General admin surfaces load;
+11. existing Firestore-backed data loads without startup permission-denied errors.
+
+Mutation policy:
+
+- default read-only;
+- do not change account, password, role, active, `mustChangePassword`, authorized domains, Firestore rules or application data;
+- if one correction is required, stop and request approval for that exact mutation.
+
+### BETA-A2 — minimal approved access correction, only if needed
+
+Status: **NOT AUTHORIZED**
+
+Exists only if BETA-A1 identifies one specific blocking configuration/profile defect and the owner separately approves the exact fix.
+
+Do not bundle unrelated changes.
+
+## SQL cutover track — DEFERRED / HOLD
 
 ### BETA-R0 — SQL foundation/import
 
-Status: **COMPLETE as a loaded checkpoint**
+Status: **COMPLETE / PRESERVED**
 
-- Azure SQL reset completed.
-- canonical schema/data load completed.
-- do not rerun reset/initial loader.
-- PR #3 remains Draft/open as the migration foundation.
+- PR #3 is merged.
+- SQL reset/load already completed.
+- do not rerun reset or initial loader.
 
-### BETA-R1 — connect frontend read path to Azure SQL
+### BETA-R1 — Azure SQL timetable runtime
 
-Status: **IMPLEMENTATION COMPLETE / NOT DEPLOYED**
+Status: **IMPLEMENTED / PRESERVED / NOT DEPLOYED**
 
-PR #6:
+- PR #6 remains Draft and must not be merged for BETA-A1.
+- Runtime Commit A: `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`.
+- preserve Firebase Auth -> managed API -> Azure SQL implementation for later.
+- no Firestore session fallback in that candidate.
+- session writes remain disabled in that candidate.
 
-- HEAD `075852b150e8870b4e49e1076586cbbc82bc1bcb`
-- Firebase login retained
-- API token verification
-- SQL UserProfile authorization
-- `/api/v1/sessions` → `paws.vCalendarSession`
-- no Firestore session fallback
-- session writes disabled
-- no DOE changes
-- CI green in implementation report
+### Commit B / frozen-baseline promotion
 
-### BETA-R2 — activation preview
+Status: **HOLD**
 
-Status: **NEXT**
+Do not advance, replace or merge baseline-promotion work while BETA-A1 is the P0.
 
-Read-only/operator preview only:
+### SQL / Entra activation
 
-1. build/review exact six-profile UserProfile plan;
-2. verify HICC-1 exact Faculty link;
-3. confirm HICC-2 exclusion;
-4. inspect live `paws_swa_beta` principal state;
-5. preview narrow 004 permission contract;
-6. inspect SWA runtime setting names as PRESENT/ABSENT, never values;
-7. verify PR #6 candidate/artifact;
-8. stop before live mutation.
+Status: **HOLD**
 
-Expected output:
+Deferred:
 
-`READY-FOR-LIVE-ACTIVATION` or a precise blocker.
+- Entra service principal;
+- SQL runtime principal/grants;
+- `paws.UserProfile` activation;
+- SQL runtime application settings;
+- BETA-R1 deployment and SQL E2E smoke.
 
-### BETA-R3 — live activation
+## DOE
 
-Status: **NOT AUTHORIZED YET**
+Status for this Beta priority: **HOLD / OUT OF SCOPE**
 
-Only after explicit owner approval and a clean R2:
+Do not migrate, redesign, deploy or use DOE work to block BETA-A1.
 
-- insert approved UserProfile rows;
-- create/configure runtime SQL principal if needed;
-- apply reviewed read permissions;
-- configure required server-side runtime settings;
-- deploy exact candidate;
-- run authenticated live smoke test.
+## Later work
 
-Do not combine R2 preview and R3 mutation without explicit approval.
+Only after the owner changes priority:
 
-### BETA-R4 — first live SQL-backed Beta validation
-
-Status: **PENDING R3**
-
-Prove:
-
-- Firebase login works;
-- SQL profile lookup works;
-- Beta timetable shows Azure SQL sessions;
-- browser has no SQL credentials;
-- no Firestore session fallback;
-- writes remain fail-closed;
-- errors fail closed.
-
-## Separate/parallel Beta work
-
-### PR #5 Faculty enrichment
-
-Status: Draft, architecture accepted, live apply not completed at last checkpoint.
-
-Do not let enrichment block the first timetable connection unless a required field is actually missing.
-
-### Session reconciliation
-
-Status: needed before destructive/session migration decisions.
-
-Classify 1,861 Firestore vs 1,937 SQL deterministically. This does not block a read-only SQL Beta if the owner accepts the loaded SQL baseline for the read path.
-
-### PR #3 metadata cleanup
-
-Status: historical prose drift remains possible.
-
-Do not rerun operations because the PR body still mentions the old empty checkpoint.
-
-## HOLD
-
-### PR #4 old session-read candidate
-
-Status: HOLD / reference only.
-
-Do not merge as-is.
-
-PR #6 supersedes it for the current Beta-R1 implementation direction.
-
-## Experimental/Demo track
-
-Repository `Teaching-assignment`.
-
-### P3.1
-
-PR #76 remains a future-feature architecture source.
-
-Do not require full P3.1 completion before the immediate Beta SQL connection milestone.
-
-### DOE
-
-Current owner decision:
-
-- keep DOE algorithm/engine in Experimental/Demo;
-- no Azure DOE migration/rewrite now;
-- DOE must not block BETA-R1/R2/R3.
-
-## Later work, not current P0
-
-- Beta write APIs
-- full Change Request SQL port
-- live AFC SQL workflow/document sealing
-- Published Timetable implementation
-- P3.1 authority/review port
-- LAB SQL port
-- DOE SQL port
-- complete Firestore retirement
-- production hardening/hosting redesign if owner chooses it
+- resume SQL cutover and Commit B;
+- SQL UserProfile/runtime activation;
+- live SQL-backed Beta deployment;
+- session reconciliation/write APIs;
+- P3.1 future domains;
+- Published Timetable;
+- DOE SQL port;
+- complete Firestore retirement.

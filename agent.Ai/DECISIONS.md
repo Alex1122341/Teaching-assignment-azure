@@ -11,146 +11,137 @@ Only change this file when the owner/architect explicitly changes a decision.
 - no automatic repository synchronization.
 - mature behavior is deliberately ported.
 
-## Immediate Azure priority
+## Immediate Beta priority
 
-**LOCKED 2026-09-26**
+**LOCKED 2026-09-26 — STRATEGY CHANGE**
 
-First priority is to connect the Azure Beta frontend to the existing Azure SQL database and make that Beta path run.
+Current P0 is **ADFA General access to the existing Firebase/Firestore-backed Azure Beta**.
 
-Do not block this with future DOE/P3.1 work.
+For the current task, the deployed architecture is:
 
-## DOE
+```text
+Azure Static Web App
+  -> Firebase Authentication
+  -> Firestore tester-teaching
+```
 
-**LOCKED 2026-09-26**
+Azure SQL cutover is deferred.
 
-- DOE algorithm and engine remain in Experimental/Demo for now.
-- do not migrate DOE to Azure now.
-- do not redesign DOE now.
-- do not create a new DOE engine.
-- DOE is out of scope for BETA-R1/R2/R3 unless owner explicitly reopens it.
+This supersedes the earlier immediate-priority decision that SQL activation must happen before ordinary Beta access verification.
 
-This supersedes earlier plans that placed DOE SQL work on the immediate Azure migration path.
+## ADFA General access
 
-## Authentication
+**LOCKED FOR BETA-A1**
 
-Current Beta direction:
+- use the already-approved ADFA General Beta account;
+- do not create a new account unless separate evidence later proves the approved account genuinely does not exist and the owner separately authorizes creation;
+- expected application role is `adfa_general`;
+- expected account is active;
+- ADFA General is a global/office administrative identity, not Faculty-scoped;
+- FacultyId is not required;
+- do not enable Developer-only or Owner-only controls merely to increase apparent privilege;
+- use existing Beta role/capability behavior.
 
-- Firebase Authentication may remain for login.
-- Firestore business persistence and Firebase Authentication are separate decisions.
-- do not remove Firebase Auth merely because the Beta starts reading Azure SQL.
+Password gate:
+
+- `mustChangePassword=true` means the existing application intentionally redirects to the password-change page;
+- successful password change sets the flag false and requires sign-in again;
+- do not flip the flag merely to bypass the designed workflow;
+- if the flag itself is incorrect for the approved operator flow, stop and request approval before changing it.
+
+## Firebase mutation boundary
+
+**LOCKED FOR BETA-A1**
+
+Default is read-only.
+
+Do not, without separate owner approval:
+
+- create/delete Authentication accounts;
+- change passwords;
+- change role;
+- change `active`;
+- change `mustChangePassword`;
+- change Firebase Authorized Domains;
+- change Firestore rules;
+- write application data;
+- deploy.
+
+If a live defect requires one of these actions, report the smallest exact mutation and stop.
+
+## SQL cutover
+
+**DEFERRED / HOLD 2026-09-26**
+
+Preserve the completed SQL-cutover work but do not activate it during BETA-A1.
+
+Deferred:
+
+- PR #6 merge;
+- Commit B / baseline promotion;
+- Entra service principal;
+- runtime SQL principal/grants;
+- SQL `paws.UserProfile` activation;
+- SQL runtime settings;
+- BETA-R1 deployment.
+
+Runtime Commit A remains:
+
+`6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`
+
+Do not modify it during BETA-A1.
 
 ## Azure SQL baseline
 
-**LOCKED**
+**LOCKED / PRESERVE**
 
-- preserve the accepted loaded SQL baseline.
-- reset/load already completed.
-- do not rerun the reset.
-- do not rerun the empty-database initial loader.
-- SQL baseline is not overwritten from Firestore merely because counts differ.
+- reset/load already completed;
+- do not rerun reset;
+- do not rerun the initial empty-database loader;
+- do not modify SQL for BETA-A1.
 
-## Session count mismatch
-
-**LOCKED INTERPRETATION**
-
-Firestore 1,861 vs SQL 1,937 is a net count difference.
-
-Do not call it “76 missing Firestore sessions” without reconciliation.
-
-## Identity
+## DOE
 
 **LOCKED**
 
-- no fuzzy identity matching.
-- exact deterministic crosswalks only.
-- HICC-2 excluded from SQL UserProfile under `HUMAN_CONFIRMED_DELETE_ACCOUNT`.
-- HICC-1 uses exact reviewed Faculty mapping.
-- DVM/LAB Beta viewer accounts remain non-Faculty.
-- admin/global Beta accounts do not require FacultyId.
+- DOE algorithm and engine remain outside the current Beta access task;
+- do not migrate DOE to Azure now;
+- do not redesign DOE now;
+- do not create a new DOE engine;
+- DOE must not block BETA-A1.
 
-## BETA-R1 runtime behavior
+## Authentication
 
-**LOCKED FOR CURRENT CANDIDATE**
-
-- session reads use Azure SQL through backend API.
-- no direct browser SQL.
-- no Firestore fallback for Azure session reads.
-- session writes are disabled/fail-closed.
-- timetable UI is not being redesigned.
-- this is data-source substitution.
-
-## PR #4
-
-**LOCKED**
-
-HOLD / do not merge as-is.
-
-May be mined for implementation ideas only.
-
-## ADFAD / assignment truth
-
-**LOCKED ARCHITECTURE**
-
-`SessionAssignment` is the authoritative final assignment result.
-
-Do not create a rival authoritative FinalAssignment table.
-
-## Responsibility architecture
-
-**LOCKED FOR P3.1/FUTURE PORT**
-
-- Person != Responsibility.
-- responsibility != role label.
-- stable responsibility + temporal assignee.
-- HICC exact Course/Subject scope.
-- VISC authority from Teaching Assignment Group leadership.
-- TeachingAssignmentGroup != `faculty_groups`.
-- package identity uses AcademicYear + Group + stable HICC responsibility.
-
-## Workflow boundaries
-
-**LOCKED**
-
-- Working != Published.
-- Contribution != final assignment.
-- HICC/VISC review != Change Request/SWAP.
-- Topic != Subject.
-- ADFAD finalization != Publish.
-- LAB roster completion does not block HICC/VISC/ADFAD readiness.
-- missing referenced LAB group fails closed.
-
-## Published timetable
-
-Future architecture retained:
-
-- versioned sealed release;
-- active pointer;
-- no Working fallback for Faculty;
-- Publish does not mutate assignments and does not itself trigger DOE.
-
-Not part of immediate Beta connection work.
-
-## AFC
-
-Retain historical imported AFC separate from live AFC workflow.
-
-Future approved document should be immutable; SQL binary storage is preferred at the observed artifact size unless later evidence requires another mechanism.
-
-Not part of BETA-R1.
+- Firebase Authentication remains the login mechanism for the existing Beta.
+- Firestore `users/{uid}` remains the current deployed profile/role gate for BETA-A1.
+- Azure SQL/Entra identity work is not required for BETA-A1 success.
 
 ## Beta deployment
 
 - CI success != deployment.
-- no merge/deploy/live mutation without explicit owner authorization.
-- exact-SHA evidence required.
-- update continuity memory after a live activation.
+- no deployment or merge without explicit owner authorization.
+- BETA-A1 does not require deployment.
+- a 404 on undeployed BETA-R1 `/api/v1/*` routes is irrelevant to BETA-A1.
+
+## Existing architecture decisions preserved for later
+
+- no fuzzy identity matching;
+- Person != Responsibility;
+- Responsibility != role label;
+- Working != Published;
+- Contribution != final assignment;
+- HICC/VISC review != Change Request/SWAP;
+- Topic != Subject;
+- ADFAD finalization != Publish;
+- `SessionAssignment` remains the authoritative final assignment result for the SQL architecture;
+- Published Timetable and P3.1 future-domain work remain separate.
 
 ## Superseded assumptions
 
 Do not reuse these without re-verification:
 
 - “Azure-hosted means Azure SQL-backed” — false.
-- “PR #3 database is still empty” — historical prose, false for current loaded checkpoint.
-- “faculty_groups is TeachingAssignmentGroup” — false.
-- “DOE short repository keys prove a second short-name physical collection generation” — false; repository aliases must be inspected.
-- “all future P3.1/DOE domains must be completed before first SQL-backed Beta read” — superseded by current owner priority.
+- “SQL cutover is the current P0” — superseded by BETA-A1 access verification.
+- “PR #6 must deploy before ADFA General can test the current Beta” — false.
+- “ADFA General requires a SQL UserProfile for the current Beta” — false.
+- “FacultyId is required for ADFA General” — false.

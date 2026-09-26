@@ -243,3 +243,33 @@ Next safe work is two parallel lanes:
   explicit frozen-baseline promotion so the exact `main` push build can pass and be deployed.
 
 Only after both lanes are clear should BETA-R3 resume live SQL-user/settings/UserProfile/deployment work.
+
+
+### BETA-R3A release-promotion review
+
+BETA-R3A completed read-only release-topology analysis.
+
+Verified:
+
+- PR #3 exact HEAD `edb46dc734613ea35bb211d1c98dd21bce851e33` is open/Draft/mergeable;
+- exact-head Azure SQL Migration Tests and Azure Beta Build are green;
+- PR #3 changes zero frozen/protected runtime assets;
+- PR #3 is one main-side documentation commit behind current main but remains mergeable;
+- PR #6 is still stacked on PR #3 and must not be merged directly in that topology;
+- PR #6 runtime cannot become deployable merely by landing on main because strict main/deploy freeze still pins `86bd5aa...`;
+- an explicit BETA-R1 frozen-baseline promotion is required.
+
+PR #3 description was corrected on 2026-09-26 to remove stale "database empty / load not executed" wording and record the actual loaded checkpoint plus "do not rerun reset/loader" instruction.
+
+Current release order:
+
+1. owner approves PR #3 merge to main; no deployment;
+2. wait for the exact new-main push build to pass under the existing old freeze;
+3. rebase/retarget PR #6 onto that exact main and rerun exact-head CI;
+4. create final BETA-R1 Runtime Commit A;
+5. append governance-only Commit B pinning the frozen baseline to Commit A;
+6. run full PR CI with zero runtime drift;
+7. stop for a second owner approval before PR #6 merge;
+8. only later use the exact-main successful push build for manual deploy.
+
+Architect note: explicit runtime union with the old baseline manifest is optional/redundant for this promotion because the new 45-asset manifest already contains all 44 old protected paths plus `paws-data-client.js`. The invariant that matters is monotonic protected-path coverage. Prefer proving the new baseline manifest is a superset of the prior protected set rather than adding unnecessary permanent baseline-chain complexity.

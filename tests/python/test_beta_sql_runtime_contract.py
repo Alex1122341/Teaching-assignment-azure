@@ -15,7 +15,9 @@ class BetaSqlRuntimeContractTests(unittest.TestCase):
         self.assertRegex(sql, r"DENY SELECT, INSERT, UPDATE, DELETE, EXECUTE ON SCHEMA::staging TO \[paws_swa_beta\]")
         self.assertIn("sys.database_role_members", sql)
         self.assertIn("sys.database_permissions", sql)
-        self.assertGreaterEqual(sql.count("THROW"), 3)
+        self.assertIn("sys.schemas", sql)
+        self.assertIn("sys.objects", sql)
+        self.assertGreaterEqual(sql.count("THROW"), 4)
         self.assertNotRegex(sql, r"GRANT\s+(?:INSERT|UPDATE|DELETE|CONTROL|ALTER)|db_owner|CREATE USER", re.I)
         self.assertNotIn("paws.Faculty TO [paws_swa_beta]", sql)
 

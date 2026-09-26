@@ -11,6 +11,10 @@ IF EXISTS (
     WHERE member_principal_id = @PrincipalId
 ) THROW 51001, 'paws_swa_beta must not inherit any database role.', 1;
 
+IF EXISTS (SELECT 1 FROM sys.schemas WHERE principal_id = @PrincipalId)
+   OR EXISTS (SELECT 1 FROM sys.objects WHERE principal_id = @PrincipalId)
+    THROW 51003, 'paws_swa_beta must not own schemas or objects.', 1;
+
 IF EXISTS (
     SELECT 1
     FROM sys.database_permissions AS permission

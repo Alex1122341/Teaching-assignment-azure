@@ -142,3 +142,25 @@ Current owner decision:
 - DOE SQL port
 - complete Firestore retirement
 - production hardening/hosting redesign if owner chooses it
+
+
+### BETA-R3A — release promotion
+
+Status: **READY FOR FIRST OWNER MERGE APPROVAL**
+
+Read-only report completed.
+
+Next action:
+
+- merge PR #3 only, with owner approval and no deployment.
+
+After PR #3:
+
+- require green exact-main push build;
+- rebase/retarget PR #6 onto resulting main;
+- create immutable Runtime Commit A;
+- create governance-only Commit B promoting the frozen baseline to A;
+- require zero runtime drift under the promoted freeze;
+- stop for second owner approval before PR #6 merge.
+
+Do not merge PR #6 before PR #3 and baseline-promotion work are complete.

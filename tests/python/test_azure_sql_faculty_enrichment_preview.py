@@ -8,6 +8,7 @@ import csv
 import io
 import json
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -135,11 +136,12 @@ class FtePreviewTests(PreviewFixtureMixin, unittest.TestCase):
         self.assertEqual(counters["MatchedFaculty"], 1)
         self.assertEqual(counters["FteWritableCandidates"], 1)
 
-    def test_inactive_rows_cannot_receive_enrichment(self):
+    def test_inactive_real_faculty_is_excluded_but_is_not_a_placeholder(self):
         rows = [sql_row("f1", "10000001", active="False"), sql_row("f2", "10000002")]
         docs = [fs_doc("10000001", fte="0.5"), fs_doc("10000002", fte="0.5")]
         counters = fe.preview_fte(self.sql_file(rows), self.fs_file(docs), expected=None)["counters"]
-        self.assertEqual(counters["ExcludedPlaceholder"], 1)
+        self.assertEqual(counters["ExcludedInactiveFaculty"], 1)
+        self.assertEqual(counters["ExcludedPlaceholder"], 0)
         self.assertEqual(counters["MatchedFaculty"], 1)
 
     def test_malformed_nonblank_source_fte_is_reported_and_not_writable(self):
@@ -413,6 +415,158 @@ class FteBusinessDefaultTests(PreviewFixtureMixin, unittest.TestCase):
         self.assertEqual(counters["FteDefaultedToOne"], 2)
         self.assertEqual(counters["InvalidSourceFte"], 1)
         self.assertLessEqual(counters["FteDefaultedToOne"], counters["FteWritableCandidates"])
+
+
+class ExclusionSemanticsTests(PreviewFixtureMixin, unittest.TestCase):
+    """ExcludedPlaceholder and ExcludedInactiveFaculty are different things."""
+
+    def counters(self, rows, docs):
+        return fe.preview_fte(self.sql_file(rows), self.fs_file(docs), expected=None)["counters"]
+
+    def test_placeholder_rows_increment_only_the_placeholder_counter(self):
+        rows = [
+            sql_row("p1", "", record_type="vacancy"),
+            sql_row("p2", "", record_type="other_pool"),
+            sql_row("p3", "", record_type="sessional_pool"),
+        ]
+        counters = self.counters(rows, [])
+        self.assertEqual(counters["ExcludedPlaceholder"], 3)
+        self.assertEqual(counters["ExcludedInactiveFaculty"], 0)
+
+    def test_inactive_real_faculty_increments_only_the_inactive_counter(self):
+        rows = [sql_row("f1", "10000001", active="False")]
+        counters = self.counters(rows, [fs_doc("10000001", fte="0.5")])
+        self.assertEqual(counters["ExcludedInactiveFaculty"], 1)
+        self.assertEqual(counters["ExcludedPlaceholder"], 0)
+
+    def test_the_two_exclusion_counters_do_not_overlap(self):
+        rows = [
+            sql_row("p1", "", record_type="vacancy"),
+            sql_row("f1", "10000001", active="False"),
+            sql_row("f2", "10000002"),
+        ]
+        counters = self.counters(rows, [fs_doc("10000001", fte="0.5"), fs_doc("10000002", fte="0.5")])
+        self.assertEqual(counters["ExcludedPlaceholder"], 1)
+        self.assertEqual(counters["ExcludedInactiveFaculty"], 1)
+        self.assertEqual(counters["MatchedFaculty"], 1)
+
+    def test_split_faculty_rows_returns_three_distinct_buckets(self):
+        rows = [
+            sql_row("p1", "", record_type="vacancy"),
+            sql_row("f1", "10000001", active="False"),
+            sql_row("f2", "10000002"),
+        ]
+        canonical, placeholders, inactive = fe.split_faculty_rows(rows)
+        self.assertEqual([row["FacultyId"] for row in canonical], ["f2"])
+        self.assertEqual([row["FacultyId"] for row in placeholders], ["p1"])
+        self.assertEqual([row["FacultyId"] for row in inactive], ["f1"])
+
+    def test_inactive_faculty_never_reaches_the_directory_or_stream_candidates(self):
+        rows = [sql_row("f1", "10000001", active="False")]
+        docs = [fs_doc("10000001", campus="Spy Hill", stream="teaching")]
+        columns = fe.preview_directory(self.sql_file(rows), self.fs_file(docs), expected=None)["columns"]
+        self.assertEqual(columns["Campus"]["InsertCandidates"], 0)
+        self.assertEqual(columns["Campus"]["Unmatched"], 0)
+        stream = fe.compare_stream_values(self.sql_file(rows), self.fs_file(docs), expected=None)
+        self.assertEqual(sum(stream["sqlDistinct"].values()), 0)
+
+
+class PrivacySafeOutputTests(PreviewFixtureMixin, unittest.TestCase):
+    """Default stdout must never carry Faculty identifiers."""
+
+    UCID_A = "10000001"
+    UCID_B = "10000002"
+
+    def build(self):
+        rows = [sql_row("f1", self.UCID_A), sql_row("f2", self.UCID_B)]
+        docs = [fs_doc(self.UCID_A, fte=None, campus="Spy Hill"), fs_doc(self.UCID_B, fte="0.5")]
+        return self.sql_file(rows), self.fs_file(docs)
+
+    def run_cli(self, *extra):
+        sql_path, fs_path = self.build()
+        return subprocess.run(
+            [
+                sys.executable,
+                str(CLI),
+                "--sql-faculty",
+                str(sql_path),
+                "--firestore-faculty",
+                str(fs_path),
+                "--skip-baseline",
+                *extra,
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(ROOT),
+        )
+
+    def test_default_stdout_is_aggregate_only(self):
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["mode"], "preview")
+        self.assertEqual(payload["writes"], 0)
+        self.assertIn("counters", payload["fte"])
+        self.assertIn("columns", payload["directory"])
+        self.assertIn("sqlDistinct", payload["stream"])
+
+    def test_default_stdout_contains_no_faculty_identifiers(self):
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        stdout = result.stdout
+        for identifier in [self.UCID_A, self.UCID_B]:
+            self.assertNotIn(identifier, stdout, identifier)
+        for leaky_key in fe.IDENTIFIER_LEVEL_KEYS:
+            self.assertNotIn(leaky_key, stdout, leaky_key)
+
+    def test_default_stdout_contains_no_identifier_keyed_maps_or_detail_lists(self):
+        payload = json.loads(self.run_cli().stdout)
+        self.assertNotIn("detail", payload["directory"])
+        self.assertNotIn("writableFteByUcid", payload["fte"])
+        self.assertNotIn("writableUcids", payload["fte"])
+        self.assertNotIn("defaultedToUcids", payload["fte"])
+        self.assertNotIn("invalidSourceUcids", payload["fte"])
+
+    def test_private_detail_output_writes_identifiers_only_to_the_given_path(self):
+        destination = self.tmp / "private" / "detail.json"
+        result = self.run_cli("--private-detail-output", str(destination))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(destination.exists())
+        detail = json.loads(destination.read_text(encoding="utf-8"))
+        self.assertIn("detail", detail["directory"])
+        self.assertIn("writableUcids", detail["fte"])
+        # ...and stdout still carries none of it.
+        for identifier in [self.UCID_A, self.UCID_B]:
+            self.assertNotIn(identifier, result.stdout, identifier)
+
+    def test_no_private_detail_file_is_written_by_default(self):
+        self.build()
+        before = sorted(str(path.relative_to(self.tmp)) for path in self.tmp.rglob("*"))
+        self.run_cli()
+        after = sorted(str(path.relative_to(self.tmp)) for path in self.tmp.rglob("*"))
+        self.assertEqual(before, after)
+
+    def test_privacy_safe_view_strips_every_identifier_level_key(self):
+        sql_path, fs_path = self.build()
+        fte = fe.preview_fte(sql_path, fs_path, expected=None)
+        for key in fe.IDENTIFIER_LEVEL_KEYS:
+            if key in fte:
+                self.assertNotIn(key, fe.privacy_safe_view("fte", fte), key)
+
+    def test_privacy_safe_summary_is_serialisable_and_identifier_free(self):
+        sql_path, fs_path = self.build()
+        summary = fe.privacy_safe_summary(
+            fte=fe.preview_fte(sql_path, fs_path, expected=None),
+            directory=fe.preview_directory(sql_path, fs_path, expected=None),
+            stream=fe.compare_stream_values(sql_path, fs_path, expected=None),
+        )
+        serialised = json.dumps(summary, sort_keys=True)
+        for identifier in [self.UCID_A, self.UCID_B]:
+            self.assertNotIn(identifier, serialised)
+
+    def test_unknown_section_is_rejected(self):
+        with self.assertRaises(ValueError):
+            fe.privacy_safe_view("nope", {})
 
 
 class NoWriteGuaranteeTests(unittest.TestCase):

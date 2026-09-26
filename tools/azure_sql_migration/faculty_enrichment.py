@@ -40,6 +40,7 @@ FTE_COUNTERS = (
     "InvalidSourceFte",
     "Unmatched",
     "ExcludedPlaceholder",
+    "ExcludedInactiveFaculty",
 )
 
 EXPECTED_FTE_BASELINE = {
@@ -51,6 +52,7 @@ EXPECTED_FTE_BASELINE = {
     "InvalidSourceFte": 0,
     "Unmatched": 2,
     "ExcludedPlaceholder": 4,
+    "ExcludedInactiveFaculty": 0,
 }
 
 # Authoritative PAWS business rule: for Faculty employment FTE a blank/null
@@ -236,20 +238,28 @@ def index_firestore_by_ucid(docs: Iterable[dict]) -> tuple[dict[str, dict], list
     return index, sorted(set(duplicates))
 
 
-def split_faculty_rows(sql_rows: Iterable[dict]) -> tuple[list[dict], list[dict]]:
-    """Split into (canonical faculty rows, excluded placeholder rows)."""
+def split_faculty_rows(sql_rows: Iterable[dict]) -> tuple[list[dict], list[dict], list[dict]]:
+    """Split rows into (canonical, excluded placeholders, excluded inactive faculty).
+
+    The two exclusions are semantically different and must not be merged:
+      * a placeholder/pool row is not a real Faculty person at all
+        (RecordType is vacancy / other_pool / sessional_pool);
+      * an inactive real Faculty row is a real person whose profile is switched
+        off. It is still excluded from enrichment, but it is NOT a placeholder.
+    """
     canonical: list[dict] = []
-    excluded: list[dict] = []
+    excluded_placeholders: list[dict] = []
+    excluded_inactive: list[dict] = []
     for row in sql_rows:
         record_type = _text(row.get("RecordType")).casefold()
         if record_type != CANONICAL_RECORD_TYPE:
-            excluded.append(row)
+            excluded_placeholders.append(row)
             continue
         if not _is_true(row.get("Active")):
-            excluded.append(row)
+            excluded_inactive.append(row)
             continue
         canonical.append(row)
-    return canonical, excluded
+    return canonical, excluded_placeholders, excluded_inactive
 
 
 def _assert_no_duplicates(duplicates: list[str]) -> None:
@@ -281,7 +291,7 @@ def preview_fte(
     index, duplicates = index_firestore_by_ucid(fs_docs)
     _assert_no_duplicates(duplicates)
 
-    canonical, excluded = split_faculty_rows(sql_rows)
+    canonical, excluded_placeholders, excluded_inactive = split_faculty_rows(sql_rows)
 
     matched: list[tuple[dict, dict]] = []
     unmatched: list[dict] = []
@@ -320,7 +330,8 @@ def preview_fte(
         "FteDefaultedToOne": defaulted_to_one,
         "InvalidSourceFte": len(invalid_source),
         "Unmatched": len(unmatched),
-        "ExcludedPlaceholder": len(excluded),
+        "ExcludedPlaceholder": len(excluded_placeholders),
+        "ExcludedInactiveFaculty": len(excluded_inactive),
     }
 
     _assert_invariants(counters)
@@ -377,7 +388,7 @@ def preview_directory(
     index, duplicates = index_firestore_by_ucid(fs_docs)
     _assert_no_duplicates(duplicates)
 
-    canonical, _excluded = split_faculty_rows(sql_rows)
+    canonical, _excluded_placeholders, _excluded_inactive = split_faculty_rows(sql_rows)
     existing_rows = load_directory_profile(existing_profiles)
     existing_by_faculty = {
         _text(row.get("FacultyId")): row for row in existing_rows if _text(row.get("FacultyId"))
@@ -472,7 +483,7 @@ def compare_stream_values(
     index, duplicates = index_firestore_by_ucid(fs_docs)
     _assert_no_duplicates(duplicates)
 
-    canonical, _excluded = split_faculty_rows(sql_rows)
+    canonical, _excluded_placeholders, _excluded_inactive = split_faculty_rows(sql_rows)
 
     sql_distinct: dict[str, int] = {}
     fs_distinct: dict[str, int] = {}
@@ -524,3 +535,57 @@ def compare_stream_values(
             f"actual={actual} expected={expected}"
         )
     return preview
+
+
+# --------------------------------------------------------------------------- #
+# Privacy-safe presentation
+# --------------------------------------------------------------------------- #
+#
+# Default stdout is aggregate only. The whitelists below are the contract:
+# every key NOT listed is identifier-level evidence (UCIDs, FacultyIds, names,
+# emails, identifier-keyed maps, per-Faculty detail lists) and may only be
+# written to an explicitly supplied local path.
+
+IDENTIFIER_LEVEL_KEYS = (
+    "writableUcids",
+    "writableFteByUcid",
+    "defaultedToUcids",
+    "invalidSourceUcids",
+    "duplicateFirestoreUcid",
+    "detail",
+)
+
+PRIVACY_SAFE_KEYS = {
+    "fte": ("mode", "target", "writes", "counters", "matchesExpected"),
+    "directory": ("mode", "target", "writes", "columns", "matchesExpected"),
+    "stream": (
+        "mode",
+        "migrated",
+        "writes",
+        "declaresMapping",
+        "sqlDistinct",
+        "firestoreDistinct",
+        "observedPairs",
+        "sourceMissing",
+        "ambiguousSourceValues",
+        "matchesExpected",
+    ),
+}
+
+
+def privacy_safe_view(section: str, result: dict) -> dict:
+    """Return only the aggregate, non-identifying projection of a preview result."""
+    if section not in PRIVACY_SAFE_KEYS:
+        raise ValueError(f"Unknown preview section: {section!r}")
+    return {key: result[key] for key in PRIVACY_SAFE_KEYS[section] if key in result}
+
+
+def privacy_safe_summary(*, fte: dict, directory: dict, stream: dict) -> dict:
+    """Assemble the aggregate-only stdout payload."""
+    return {
+        "mode": "preview",
+        "writes": 0,
+        "fte": privacy_safe_view("fte", fte),
+        "directory": privacy_safe_view("directory", directory),
+        "stream": privacy_safe_view("stream", stream),
+    }

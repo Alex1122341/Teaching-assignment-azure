@@ -104,6 +104,28 @@ class FacultyDirectoryProfileSchemaContractTests(unittest.TestCase):
         self.assertRegex(body, r"CreatedAtUtc\s+datetime2\(7\)\s+NOT NULL")
         self.assertRegex(body, r"UpdatedAtUtc\s+datetime2\(7\)\s+NOT NULL")
 
+    def test_source_import_batch_id_is_constrained_by_a_foreign_key(self):
+        """Provenance must not be an opaque unconstrained UUID."""
+        body = table_body(read_sql())
+        self.assertRegex(body, r"SourceImportBatchId\s+uniqueidentifier\s+NULL")
+        self.assertRegex(
+            body,
+            r"CONSTRAINT\s+FK_FacultyDirectoryProfile_ImportBatch\s+FOREIGN KEY\s*\(SourceImportBatchId\)"
+            r"\s*REFERENCES\s+staging\.ImportBatch\s*\(ImportBatchId\)",
+        )
+
+    def test_reuses_staging_import_batch_and_creates_no_second_provenance_table(self):
+        code = sql_code(read_sql())
+        self.assertEqual(code.count("CREATE TABLE"), 1, "Phase A must create exactly one table")
+        self.assertIn("staging.ImportBatch", code)
+        self.assertNotIn("FacultyEnrichmentBatch", code)
+
+    def test_staging_import_batch_is_the_referenced_provenance_model(self):
+        """The referenced table must actually exist in the foundation schema."""
+        foundation = (ROOT / "database" / "azure-sql" / "001_foundation.sql").read_text(encoding="utf-8")
+        self.assertIn("CREATE TABLE staging.ImportBatch", foundation)
+        self.assertIn("ImportBatchId uniqueidentifier NOT NULL CONSTRAINT PK_ImportBatch PRIMARY KEY", foundation)
+
     def test_timestamps_use_repository_default_convention(self):
         body = table_body(read_sql())
         self.assertRegex(

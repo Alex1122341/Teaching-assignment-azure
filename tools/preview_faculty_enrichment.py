@@ -9,6 +9,11 @@ has no apply switch: preview is the only mode.
         --sql-faculty  <paws.Faculty CSV export> \\
         --firestore-faculty <Firestore /faculty evidence JSON>
 
+Default stdout is AGGREGATE ONLY. It never prints UCIDs, FacultyIds, names,
+emails, identifier-keyed maps, or per-Faculty detail lists. When identifier-level
+evidence is genuinely needed, pass --private-detail-output <path> to write it to
+an explicitly supplied local file. That file must never be committed.
+
 Exit codes:
     0  preview produced and it matched the pinned evidence baseline
     1  preview refused (FailClosedError) — counters differ from the baseline
@@ -32,6 +37,7 @@ from azure_sql_migration.faculty_enrichment import (  # noqa: E402
     compare_stream_values,
     preview_directory,
     preview_fte,
+    privacy_safe_summary,
 )
 
 
@@ -43,6 +49,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--existing-directory",
         default=None,
         help="optional paws.FacultyDirectoryProfile export (CSV); omit on the first Phase A run",
+    )
+    parser.add_argument(
+        "--private-detail-output",
+        default=None,
+        metavar="PATH",
+        help=(
+            "write identifier-level evidence (UCIDs, identifier-keyed maps and per-Faculty "
+            "detail lists) to this local file. Never printed to stdout and must never be committed."
+        ),
     )
     parser.add_argument(
         "--skip-baseline",
@@ -71,19 +86,21 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"mode": "preview", "writes": 0, "refused": True, "reason": str(error)}, indent=2))
         return 1
 
-    print(
-        json.dumps(
-            {
-                "mode": "preview",
-                "writes": 0,
-                "fte": fte,
-                "directory": directory,
-                "stream": stream,
-            },
-            indent=2,
-            sort_keys=True,
+    # Default stdout: aggregate only, never identifier-level.
+    print(json.dumps(privacy_safe_summary(fte=fte, directory=directory, stream=stream), indent=2, sort_keys=True))
+
+    if args.private_detail_output:
+        destination = Path(args.private_detail_output)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            json.dumps({"fte": fte, "directory": directory, "stream": stream}, indent=2, sort_keys=True),
+            encoding="utf-8",
         )
-    )
+        print(
+            f"identifier-level detail written to {destination} (local only; must never be committed)",
+            file=sys.stderr,
+        )
+
     return 0
 
 

@@ -14,7 +14,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 - Beta repository: `Alex1122341/Teaching-assignment-azure`.
 - This repository is the frozen Azure beta line; `main` is deployable only through the manual exact-SHA beta release workflow.
-- The application baseline is `45e0e93` (Runtime Commit E, the reviewed ACA-direct SQL-backed read runtime with deterministic calendar period mapping); do not merge or automatically synchronize the test repository.
+- The application baseline is `45e0e93` (Runtime Commit I, the reviewed BETA-R4D-9H admin timetable access fix); do not merge or automatically synchronize the test repository.
 - The beta URL is `https://red-cliff-04871ca0f.5.azurestaticapps.net`.
 - Do not commit feature work directly to `main`; use a feature branch / worktree and open a PR.
 - Build the static bundle with `node tools/build-static.js`.
@@ -22,7 +22,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 ## Frozen runtime contract
 
-- The Azure beta application is frozen at commit `f74443d945a9f6c917e7e634eb2e7825f02c7ab0`. That immutable commit (Runtime Commit E) is the content trust anchor.
+- The Azure beta application is frozen at commit `2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`. That immutable commit (Runtime Commit I) is the content trust anchor.
 - This baseline represents the **BETA-R4D-9B ACA-direct SQL-backed read runtime**. It is the reviewed frozen runtime, but it is **NOT YET DEPLOYED** — the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
 - **All** shipped static runtime assets are protected, not just a five-file subset. The authoritative shipped-file list is `tools/static-assets.json` (45 entries).
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.

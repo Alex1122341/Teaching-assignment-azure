@@ -50,10 +50,11 @@ test('the timetable requests only the visible date range from the Azure API', ()
   assert.doesNotMatch(body,/onSnapshot|db\.collection\(SESSION_COLLECTION\)/);
 });
 
-test('the first administrator landing aborts timetable readers before redirecting', () => {
+test('administrator landing no longer aborts timetable readers with a forced redirect', () => {
   const source = read('faculty-access.js');
-  assert.match(source, /if\(scheduleAdminLanding\(user,p\)\)return false/);
-  assert.match(source, /window\.__ucvmAdminLandingScheduled/);
+  assert.doesNotMatch(source, /if\(scheduleAdminLanding\(user,p\)\)return false/);
+  assert.doesNotMatch(source, /location\.replace\('faculty-admin\.html'\)/);
+  assert.match(source, /clearLegacyAdminLanding\(\);return true\}/);
 });
 
 test('the timetable loads the faculty directory only when an admin tool needs it', () => {

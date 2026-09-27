@@ -33,13 +33,13 @@ Status: **IMPLEMENTED / PR #17 OPEN / GOVERNANCE PROMOTION IN PROGRESS**
   date mapping; invalid dates fail closed.
 - SQL/API/backend/auth/CORS behavior is unchanged.
 
-## BETA-R4D-9F — Governance Commit F
+## BETA-R4D-9H — Governance Commit J
 
 Status: **IN PROGRESS / NOT MERGED / NOT DEPLOYED**
 
-- Parent must be Runtime Commit E `f74443d945a9f6c917e7e634eb2e7825f02c7ab0`.
+- Parent must be Runtime Commit I `2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`.
 - Governance-only changes promote the freeze anchor and update active tests/docs.
-- Keep PR #17 as the only review vehicle; do not create a replacement PR.
+- Keep PR #19 as the only review vehicle; do not create a replacement PR.
 
 ## BETA-R4D-4 — ACA packaging + UAMI SQL adapter
 

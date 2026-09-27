@@ -47,7 +47,11 @@ window.UCVM=(()=>{
   if(window.UCVMSessionGuard)window.UCVMSessionGuard.start(auth);
   return {auth,db};
  }
- function installLandingReset(){if(window.__ucvmLandingResetInstalled||typeof firebase==='undefined')return;window.__ucvmLandingResetInstalled=true;try{firebase.auth().onAuthStateChanged(u=>{if(!u){sessionStorage.removeItem('ucvm-admin-default-landing');window.__ucvmAdminLandingScheduled=false}})}catch(_){}}
+ // BETA-R4D-9H: the landing-reset hook existed only to clear the retired automatic-landing
+ // marker on sign-out. It is neutered rather than deleted so no auth-state listener can
+ // re-arm or re-trigger a redirect. Legacy sessionStorage is cleared directly by
+ // clearLegacyAdminLanding() on every ready() call instead.
+ function installLandingReset(){}
  async function linkFacultyIdentity(user,p){
   if(admin(p))return;
   const emails=[user?.email,p?.email].map(v=>String(v||'').trim()).filter((v,i,a)=>v&&a.indexOf(v)===i);
@@ -63,24 +67,21 @@ window.UCVM=(()=>{
    }catch(_){/* Keep the account usable even if the optional directory match is unavailable. */}
   }
  }
- function scheduleAdminLanding(user,p){
-  const page=(location.pathname.split('/').pop()||'index.html').toLowerCase(),raw=rawRole(p);
-  if(page!=='index.html'||!['owner','administrator','adfa_general','adfa_regular','admin'].includes(raw))return false;
-  if(window.__ucvmAdminLandingScheduled)return true;
+ function clearLegacyAdminLanding(){
   try{
-   if(sessionStorage.getItem('ucvm-admin-default-landing')===user.uid)return false;
-   sessionStorage.setItem('ucvm-admin-default-landing',user.uid);
-   window.__ucvmAdminLandingScheduled=true;
-   setTimeout(()=>{
-    try{
-     const current=firebase.auth().currentUser;
-     if(current&&current.uid===user.uid&&((location.pathname.split('/').pop()||'index.html').toLowerCase()==='index.html'))location.replace('faculty-admin.html');
-    }catch(_){}
-   },900);
-   return true;
-  }catch(_){return false}
+   if(typeof sessionStorage!=='undefined'&&typeof sessionStorage.removeItem==='function')sessionStorage.removeItem('ucvm-admin-default-landing');
+  }catch(_){}
+  if(typeof window!=='undefined')window.__ucvmAdminLandingScheduled=false;
  }
- async function ready(user,p){if(window.__ucvmSessionGuard?.blocked)return false;if(!p?.active)throw Error('This account is inactive.');if(p.mustChangePassword){location.replace('password.html');return false}installLandingReset();await linkFacultyIdentity(user,p);if(scheduleAdminLanding(user,p))return false;return true}
+ // BETA-R4D-9H: administrators keep the Timetable as their landing page. Dashboard is an
+ // explicit, user-initiated destination (faculty-dashboard-btn / UCVM.admin()), never an
+ // automatic redirect. Automatic admin landing was retired because it aborted timetable
+ // initialization (ready() returned false) and left the gate stuck on "Checking your
+ // timetable access..." before bouncing the user to faculty-admin.html.
+ // Retained as a no-op so any stale/session-restored caller cannot schedule a redirect,
+ // and to clear legacy sessionStorage left behind by older releases.
+ function scheduleAdminLanding(){clearLegacyAdminLanding();return false}
+ async function ready(user,p){if(window.__ucvmSessionGuard?.blocked)return false;if(!p?.active)throw Error('This account is inactive.');if(p.mustChangePassword){location.replace('password.html');return false}installLandingReset();await linkFacultyIdentity(user,p);clearLegacyAdminLanding();return true}
  function watch(user,p){let initial=true;return firebase.firestore().doc(`users/${user.uid}`).onSnapshot(s=>{const n=s.data();if(initial){initial=false;return}if(!n||['role','active','mustChangePassword'].some(k=>n[k]!==p[k]))location.reload()})}
  const value=v=>v===null||v===undefined?'—':Array.isArray(v)?v.map(x=>typeof x==='object'?`${x.name||x.ucid||''}${x.role?' ('+x.role+')':''}`:String(x)).filter(Boolean).join('; '):typeof v==='object'?JSON.stringify(v):String(v);
  const time=e=>e.changedAt?.toDate?e.changedAt.toDate().toLocaleString('en-CA',{timeZone:'America/Edmonton'}):'Pending';

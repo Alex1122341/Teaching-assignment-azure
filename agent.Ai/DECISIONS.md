@@ -149,9 +149,9 @@ Not part of BETA-R1.
 
 **LOCKED**
 
-- the frozen runtime trust anchor is Runtime Commit E `f74443d945a9f6c917e7e634eb2e7825f02c7ab0`.
+- the frozen runtime trust anchor is Runtime Commit I `2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`.
 - previous baseline `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` is historical evidence only.
-- the protected path set remains monotonic at 45 paths; Runtime Commit E preserves the complete prior set and adds only the approved calendar period mapping behavior.
+- the protected path set remains monotonic at 45 paths; Runtime Commit I preserves the complete prior set and adds only the approved admin timetable access behavior.
 - Git commit objects remain the immutable trust anchor; `tools/beta-baseline.json` stays non-authoritative.
 - zero protected runtime drift is allowed on BOTH `pull_request` and `push` to `main`.
 - the candidate drift whitelist is removed: no special-case exception exists.

@@ -30,6 +30,23 @@ manual SWA deployment remains static-only. Governance Commit F must promote
 the frozen baseline separately after review. No frontend deployment has been
 performed and no tokens, UIDs, or credentials are stored here.
 
+## 0B. BETA-R4D-9J session-time reconciliation breakpoint
+
+R4D-9J is implemented on `feature/beta-r4d9j-session-time-reconciliation`
+from fresh main `c090f73836d31ff02677b11f06a50dc8421d34af`. The source-backed
+reconciliation covers all 1,937 live Azure SQL sessions and identifies 423
+exact `SessionId` time corrections from `ucvm_timetable_master_2026-09-27.xlsx`;
+ambiguous/unmatched records fail closed. The persistent correction layer runs
+after stable SessionId generation. A read-only live preview confirmed all 423
+old intervals, 1,937 sessions, 4,970 canonical SessionAssignment relationships,
+and zero writes. `staging.TeachingAssignmentRaw` historically has 4,974 source
+rows; it is not the canonical assignment count.
+
+No live SQL update has been applied yet because
+`PAWS_Faculty_Workload_Normalized.xlsx` was unavailable in the owner's normal
+project/download/import folders, so the requested full temporary import rebuild
+could not be repeated. No frontend file changed and no SWA deployment is needed.
+
 ## 1. Immediate owner priority
 
 **P0: connect the existing Azure Beta frontend to the existing Azure SQL database and get the Beta running.**

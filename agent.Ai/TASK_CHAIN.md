@@ -2,6 +2,22 @@
 
 **Last updated:** 2026-09-27
 
+## BETA-R4D-9J — Authoritative session-time reconciliation
+
+Status: **IMPLEMENTED / LIVE PREVIEW PASSED / SQL APPLY BLOCKED**
+
+- Branch: `feature/beta-r4d9j-session-time-reconciliation`
+- Base main: `c090f73836d31ff02677b11f06a50dc8421d34af`
+- 1,937 current sessions reconciled; 423 source-backed exact corrections.
+- Existing SessionIds are preserved because corrections apply after canonical
+  identity generation.
+- Live preview: 1,937 sessions, 4,970 canonical SessionAssignments, 423/423 old
+  intervals matched, zero writes.
+- `PAWS_Faculty_Workload_Normalized.xlsx` is not available locally, so the full
+  temporary import rebuild gate remains incomplete. Do not run `-Apply` until
+  that workbook is supplied and the 1,937-ID/4,970-relationship rebuild passes.
+- No protected frontend file changed; no baseline promotion or SWA deployment.
+
 ## BETA-R4D-9B — Runtime Commit C
 
 Status: **IMPLEMENTED / MERGED / DEPLOYED**

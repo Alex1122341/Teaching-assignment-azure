@@ -130,7 +130,7 @@ class NormalizationTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_canonical_session_grouping_keeps_assignment_multiplicity(self):
-        summary = normalize_package(self.package)
+        summary = normalize_package(self.package, correction_manifest_path=None)
         sessions = read_jsonl(self.package / "session.jsonl")
         assignments = read_jsonl(self.package / "session_assignment.jsonl")
         self.assertEqual(len(sessions), 1)
@@ -141,7 +141,7 @@ class NormalizationTests(unittest.TestCase):
         self.assertEqual(summary["normalizedCounts"]["session"], 1)
 
     def test_former_faculty_is_preserved_in_raw_staging_but_excluded_from_canonical_data(self):
-        normalize_package(self.package)
+        normalize_package(self.package, correction_manifest_path=None)
         teaching_raw = read_jsonl(self.package / "teaching_assignment_raw.jsonl")
         afc_raw = read_jsonl(self.package / "afc_record_raw.jsonl")
         assignments = read_jsonl(self.package / "session_assignment.jsonl")
@@ -156,7 +156,7 @@ class NormalizationTests(unittest.TestCase):
         self.assertTrue(any(issue["code"] == "AFC_FORMER_FACULTY_EXCLUDED" for issue in issues))
 
     def test_invalid_faculty_email_placeholder_stays_raw_but_is_null_in_canonical_identity(self):
-        normalize_package(self.package)
+        normalize_package(self.package, correction_manifest_path=None)
         faculty_raw = read_jsonl(self.package / "faculty_raw.jsonl")
         faculty = read_jsonl(self.package / "faculty.jsonl")
         issues = read_jsonl(self.package / "validation_issues.jsonl")
@@ -172,14 +172,14 @@ class NormalizationTests(unittest.TestCase):
         self.assertEqual(len(invalid_email_issues), 2)
 
     def test_session_ids_are_stable_across_repeat_normalization(self):
-        normalize_package(self.package)
+        normalize_package(self.package, correction_manifest_path=None)
         first = read_jsonl(self.package / "session.jsonl")[0]["sessionId"]
-        normalize_package(self.package)
+        normalize_package(self.package, correction_manifest_path=None)
         second = read_jsonl(self.package / "session.jsonl")[0]["sessionId"]
         self.assertEqual(first, second)
 
     def test_bad_afc_range_is_reported_and_excluded(self):
-        normalize_package(self.package)
+        normalize_package(self.package, correction_manifest_path=None)
         afc = read_jsonl(self.package / "afc_record.jsonl")
         issues = read_jsonl(self.package / "validation_issues.jsonl")
         self.assertEqual(afc, [])

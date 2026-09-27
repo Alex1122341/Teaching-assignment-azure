@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 22, Azure Functions v4, CommonJS, `mssql` 11.0.1/Tedious, Dockerfile, Node test runner, GitHub Actions.
 
-**Spec:** `C:/Users/xinyu/.codex/attachments/63872cee-170a-425f-9c27-6c3bc7be198d/已粘贴的文本.txt`
+**Spec:** owner-provided BETA-R4D-4 task prompt
 
 ## Global Constraints
 
@@ -66,4 +66,3 @@
 - [ ] Run a local Docker build and startup smoke test if Docker is already available; otherwise report `NOT RUN — Docker unavailable` without installing Docker.
 - [ ] Update `agent.Ai/updates/` with the exact branch, commit, tests, and no-live-mutation evidence.
 - [ ] Commit, push the feature branch, and open a Draft PR only after fresh verification; do not merge.
-

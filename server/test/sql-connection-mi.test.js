@@ -29,7 +29,54 @@ test('managed identity mode rejects password-bearing endpoint configuration', ()
       connectionString: `${endpoint}User ID=legacy;Password=secret;`,
       miClientId: '00000000-0000-4000-8000-000000000001'
     }),
-    /must not contain SQL credentials/i
+    /not allowed|unknown/i
+  );
+});
+
+test('managed identity mode uses an allowlist for endpoint fields', () => {
+  for (const field of ['User ID', 'UID', 'Username', 'Password', 'PWD', 'Authentication', 'Integrated Security', 'Trusted_Connection', 'Access Token', 'Client Secret', 'Client ID', 'Tenant ID', 'Account Key', 'Token', 'UnknownOption']) {
+    assert.throws(
+      () => buildSqlConnectionConfig({
+        connectionString: `${endpoint}${field}=value;`,
+        miClientId: '00000000-0000-0000-0000-000000000001'
+      }),
+      /not allowed|unknown/i,
+      field
+    );
+  }
+});
+
+test('conflicting endpoint aliases fail closed', () => {
+  assert.throws(
+    () => buildSqlConnectionConfig({
+      connectionString: 'Server=a;Data Source=b;Database=db;',
+      miClientId: '00000000-0000-0000-0000-000000000001'
+    }),
+    /conflicting/i
+  );
+  assert.throws(
+    () => buildSqlConnectionConfig({
+      connectionString: 'Server=a;Database=x;Initial Catalog=y;',
+      miClientId: '00000000-0000-0000-0000-000000000001'
+    }),
+    /conflicting/i
+  );
+});
+
+test('managed identity mode rejects weakened encryption settings', () => {
+  assert.throws(
+    () => buildSqlConnectionConfig({
+      connectionString: 'Server=a;Database=db;Encrypt=false;',
+      miClientId: '00000000-0000-0000-0000-000000000001'
+    }),
+    /Encrypt must be true/i
+  );
+  assert.throws(
+    () => buildSqlConnectionConfig({
+      connectionString: 'Server=a;Database=db;TrustServerCertificate=true;',
+      miClientId: '00000000-0000-0000-0000-000000000001'
+    }),
+    /TrustServerCertificate must be false/i
   );
 });
 
@@ -48,6 +95,14 @@ test('managed identity mode rejects a malformed client ID', () => {
     () => buildSqlConnectionConfig({ connectionString: endpoint, miClientId: 'not-a-guid' }),
     /PAWS_SQL_MI_CLIENT_ID must be a UUID/i
   );
+});
+
+test('managed identity mode accepts a generic GUID-shaped client ID', () => {
+  const config = buildSqlConnectionConfig({
+    connectionString: endpoint,
+    miClientId: '00000000-0000-0000-0000-000000000001'
+  });
+  assert.equal(config.authentication.options.clientId, '00000000-0000-0000-0000-000000000001');
 });
 
 test('legacy mode preserves the original connection string', () => {

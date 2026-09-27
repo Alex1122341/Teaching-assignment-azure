@@ -23,9 +23,15 @@ test('packaging documentation requires the existing deterministic API build help
   assert.match(read('docs/beta-r4d4-aca-packaging.md'), /\.azure-production\/api/);
 });
 
+test('Azure Beta Build validates the ACA image locally without registry access', () => {
+  const workflow = read('.github/workflows/azure-beta-build.yml');
+  assert.match(workflow, /docker build -f deploy\/aca\/Dockerfile -t paws-sql-beta-api:\$\{\{ github\.sha \}\} \./);
+  assert.doesNotMatch(workflow, /docker (login|push)/);
+});
+
 test('Docker ignore excludes credentials and local/private artifacts', () => {
   const ignore = read('.dockerignore');
-  for (const entry of ['.git', '.firebase', '.env', 'activation-private', 'node_modules']) {
+  for (const entry of ['.git', '.firebase', '.env', 'activation-private', 'node_modules', 'agent.Ai', 'docs', 'tests']) {
     assert.match(ignore, new RegExp(`^${entry.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'm'));
   }
   assert.match(ignore, /^service-account\*\.json$/m);

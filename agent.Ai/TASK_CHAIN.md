@@ -4,7 +4,7 @@
 
 ## BETA-R4D-4 — ACA packaging + UAMI SQL adapter
 
-Status: **DRAFT PR OPEN / NOT MERGED**
+Status: **R4D-4A HARDENING IMPLEMENTED / CI PENDING**
 
 - Branch: `task/beta-r4d4-aca-packaging`
 - Base: `main` at `ffd870ee5faae298049df08d1bcb616832a07d87`
@@ -16,12 +16,12 @@ Status: **DRAFT PR OPEN / NOT MERGED**
 - No Azure deployment, ACR push, SQL mutation, or merge is authorized in this
   phase.
 
-Commit: `e3d1b35`
-
 Draft PR: https://github.com/Alex1122341/Teaching-assignment-azure/pull/14
 
-Next safe action: architect review of the Draft PR. Do not merge, deploy, push
-an image, or mutate Azure/SQL/Firebase/SWA.
+R4D-4A adds strict allowlist parsing, conflict detection, secure encryption
+enforcement, stale-reference cleanup, and a no-push Docker build step to the
+existing workflow. Next safe action: inspect GitHub CI for the new PR head.
+Do not merge, deploy, push an image, or mutate Azure/SQL/Firebase/SWA.
 
 ## P0 — Current Beta objective
 

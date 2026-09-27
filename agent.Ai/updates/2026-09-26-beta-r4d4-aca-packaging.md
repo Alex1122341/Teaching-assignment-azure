@@ -85,7 +85,7 @@ GitHub workflow mutation, deployment, merge, or DOE change.
 ## 9. Current state after task
 
 - final branch: `task/beta-r4d4-aca-packaging`
-- final SHA: `e3d1b35`
+- final SHA: see the latest PR head in Draft PR #14
 - PR: Draft #14 — https://github.com/Alex1122341/Teaching-assignment-azure/pull/14
 - merge/deploy state: pushed, draft review, not merged or deployed
 - live counts/state: unchanged
@@ -115,5 +115,5 @@ step. Keep Azure deployment and image push out of this task.
 
 ## 14. Suggested next-agent prompt
 
-Review R4D-4 Draft PR #14 at commit `e3d1b35`. Do not merge, deploy, push to
+Review R4D-4 Draft PR #14 at its current head. Do not merge, deploy, push to
 ACR, or modify SQL/Firebase/SWA/DOE.

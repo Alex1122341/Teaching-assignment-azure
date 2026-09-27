@@ -1,5 +1,7 @@
 .git
 .github
+.gitignore
+.dockerignore
 .firebase
 .env
 .env.*
@@ -11,5 +13,9 @@ local-sql-evidence
 *.sqlplan
 *.bacpac
 .azure-production/app
+agent.Ai
+docs
+tests
+tmp
+*.tmp
 *.log
-

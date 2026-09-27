@@ -1,13 +1,21 @@
 'use strict';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SECRET_KEYS = /^(user\s*id|uid|user(name)?|password|pwd|access\s*token|client\s*secret|authentication)$/i;
-const KEY_ALIASES = {
-  server: ['server', 'data source', 'address', 'addr', 'network address'],
-  database: ['database', 'initial catalog'],
-  encrypt: ['encrypt'],
-  trustServerCertificate: ['trustservercertificate']
-};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ALLOWED_KEYS = new Map([
+  ['server', 'server'],
+  ['datasource', 'server'],
+  ['address', 'server'],
+  ['addr', 'server'],
+  ['networkaddress', 'server'],
+  ['database', 'database'],
+  ['initialcatalog', 'database'],
+  ['encrypt', 'encrypt'],
+  ['trustservercertificate', 'trustServerCertificate']
+]);
+
+function normalizeKey(key) {
+  return key.toLowerCase().replace(/\s+/g, '');
+}
 
 function parseConnectionString(connectionString) {
   const values = {};
@@ -17,18 +25,14 @@ function parseConnectionString(connectionString) {
     if (separator < 1) throw Error('PAWS_SQL_CONNECTION_STRING contains an invalid segment');
     const key = segment.slice(0, separator).trim();
     const value = segment.slice(separator + 1).trim();
-    if (SECRET_KEYS.test(key)) throw Error('Managed identity configuration must not contain SQL credentials');
-    values[key.toLowerCase().replace(/\s+/g, '')] = value;
+    const logicalKey = ALLOWED_KEYS.get(normalizeKey(key));
+    if (!logicalKey) throw Error(`Managed identity connection option is not allowed: ${key}`);
+    if (values[logicalKey] !== undefined && values[logicalKey] !== value) {
+      throw Error(`Conflicting values supplied for ${logicalKey}`);
+    }
+    values[logicalKey] = value;
   }
   return values;
-}
-
-function lookup(values, aliases) {
-  for (const alias of aliases) {
-    const value = values[alias.toLowerCase().replace(/\s+/g, '')];
-    if (value) return value;
-  }
-  return undefined;
 }
 
 function parseServer(serverValue) {
@@ -46,9 +50,15 @@ function buildSqlConnectionConfig({ connectionString, miClientId } = {}) {
   if (!UUID.test(miClientId)) throw Error('PAWS_SQL_MI_CLIENT_ID must be a UUID');
 
   const values = parseConnectionString(connectionString);
-  const serverValue = lookup(values, KEY_ALIASES.server);
-  const database = lookup(values, KEY_ALIASES.database);
+  const serverValue = values.server;
+  const database = values.database;
   if (!serverValue || !database) throw Error('Managed identity configuration requires server and database');
+  if (values.encrypt !== undefined && values.encrypt.toLowerCase() !== 'true') {
+    throw Error('Encrypt must be true in managed identity mode');
+  }
+  if (values.trustServerCertificate !== undefined && values.trustServerCertificate.toLowerCase() !== 'false') {
+    throw Error('TrustServerCertificate must be false in managed identity mode');
+  }
 
   return {
     ...parseServer(serverValue),

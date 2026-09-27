@@ -3,14 +3,15 @@
 **Last verified:** 2026-09-26  
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 
-## 0. BETA-R4D-4 packaging breakpoint
+## 0. BETA-R4D-4A hardening breakpoint
 
 The R4D-4 feature branch `task/beta-r4d4-aca-packaging` starts from the
 verified Azure-Beta `main` SHA `ffd870ee5faae298049df08d1bcb616832a07d87`.
 It prepares a Node.js 22 Functions-on-Container-Apps image and a UAMI-aware
 SQL adapter only. No image has been pushed, no Azure resource has been
 created or changed, and no SQL/Firebase/SWA/GitHub live mutation has been
-performed. The branch is pushed at commit `e3d1b35` and Draft PR #14 is open:
+performed. R4D-4A hardening is implemented on the branch and Draft PR #14 is
+open. GitHub CI must verify the new Docker build step before final review:
 https://github.com/Alex1122341/Teaching-assignment-azure/pull/14
 
 This file is intentionally concise. Detailed history belongs in `updates/`.

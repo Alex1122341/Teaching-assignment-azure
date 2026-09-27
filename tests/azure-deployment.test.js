@@ -65,8 +65,19 @@ test('beta deployment is manual exact-main and reuses a successful build artifac
   assert.match(workflow,/name:\s*azure-beta-\$\{\{ inputs\.commit_sha \}\}/);
   assert.match(workflow,/secrets\.AZURE_STATIC_WEB_APPS_API_TOKEN/);
   assert.match(workflow,/Azure\/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1/);
+  assert.doesNotMatch(workflow,/api_location\s*:/);
+  assert.doesNotMatch(workflow,/skip_api_build\s*:\s*false/);
   const deploy=workflow.slice(workflow.indexOf('Deploy tested beta artifact'));
   assert.doesNotMatch(deploy,/npm ci|npm test|build-static/);
+});
+
+test('beta build may retain the API artifact for packaging while deploy remains static-only',()=>{
+  const build=read('tools/build-beta-release.js');
+  assert.match(build,/build-swa-api\.js/);
+  const workflow=read('.github/workflows/azure-beta-deploy.yml');
+  assert.match(workflow,/test -f \.azure-production\/api\/index\.js/);
+  assert.match(workflow,/test -f \.azure-production\/api\/package-lock\.json/);
+  assert.doesNotMatch(workflow,/api_location\s*:/);
 });
 
 test('beta deploy independently revalidates the frozen runtime before Azure upload',()=>{

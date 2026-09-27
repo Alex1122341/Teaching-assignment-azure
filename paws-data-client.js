@@ -9,6 +9,17 @@
 })(typeof window==='undefined'?globalThis:window,function(){
   'use strict';
 
+  const API_ORIGIN='https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io';
+
+  function validateApiOrigin(origin){
+    let parsed;
+    try{parsed=new URL(origin)}catch(_){throw new Error('The PAWS API origin is invalid.')}
+    if(parsed.protocol!=='https:'||parsed.pathname!=='/'||parsed.search||parsed.hash){
+      throw new Error('The PAWS API origin must be an HTTPS origin without a path.')
+    }
+    return parsed.origin;
+  }
+
   function defaultTokenProvider(){
     if(typeof firebase==='undefined'||!firebase.auth)return Promise.resolve('');
     const user=firebase.auth().currentUser;
@@ -25,6 +36,8 @@
   }={}){
     if(!fetchImpl)throw new Error('fetch is required');
 
+    const apiOrigin=validateApiOrigin(API_ORIGIN);
+
     async function request(path){
       const token=await tokenProvider();
       if(!token){
@@ -32,7 +45,7 @@
         error.code='UNAUTHENTICATED';
         throw error;
       }
-      const response=await fetchImpl(path,{method:'GET',headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
+      const response=await fetchImpl(apiOrigin+path,{method:'GET',headers:{Authorization:'Bearer '+token,Accept:'application/json'},credentials:'omit'});
       const body=await safeJson(response);
       if(!response.ok){
         const error=new Error(body?.error?.message||'The PAWS data service is unavailable.');

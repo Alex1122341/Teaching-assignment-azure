@@ -1,6 +1,19 @@
 # PAWS Task Chain
 
-**Last updated:** 2026-09-26
+**Last updated:** 2026-09-27
+
+## BETA-R4D-9B — Runtime Commit C
+
+Status: **IMPLEMENTATION IN PROGRESS / NOT DEPLOYED**
+
+- Fresh base main: `37b4db8a556cb12e588a0f95b08a83e793960851`
+- Goal: direct browser timetable reads to the approved ACA API with Firebase
+  Auth retained, no Firestore session fallback, and writes fail-closed.
+- The production SWA workflow must remain manual exact-main and must not attach
+  `.azure-production/api`; the API artifact may remain buildable for packaging.
+- The old frozen baseline `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` is not
+  changed in this runtime task. Governance Commit D is a separate follow-up.
+- No Azure/Firebase/SQL mutation or deployment is part of R4D-9B.
 
 ## BETA-R4D-4 — ACA packaging + UAMI SQL adapter
 

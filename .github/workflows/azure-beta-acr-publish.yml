@@ -1,0 +1,76 @@
+name: Azure Beta ACR Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact reviewed main commit to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ACR_NAME: pawssqlbetaacr
+  IMAGE_REPOSITORY: paws-sql-beta-api
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact reviewed commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify main and expected SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_SHA"
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix swa-api
+
+      - name: Build deterministic PAWS Beta API artifact
+        run: node tools/build-beta-release.js
+
+      - name: Log in to Azure with GitHub OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.PAWS_BETA_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.PAWS_BETA_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.PAWS_BETA_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Authenticate Docker to ACR with managed identity role
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Build immutable image
+        run: docker build -f deploy/aca/Dockerfile -t "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY:$GITHUB_SHA" .
+
+      - name: Push immutable image
+        run: docker push "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY:$GITHUB_SHA"
+
+      - name: Verify immutable image digest
+        run: |
+          set -euo pipefail
+          digest="$(az acr repository show-manifests --name "$ACR_NAME" --repository "$IMAGE_REPOSITORY" --query "[?tags[?contains(@, '$GITHUB_SHA')]].digest | [0]" -o tsv)"
+          test -n "$digest"
+          printf 'Published immutable image digest: %s\n' "$digest"

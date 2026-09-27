@@ -51,7 +51,7 @@ This is the **Azure beta repository** `Alex1122341/Teaching-assignment-azure`. I
 
 The beta site uses the live Firebase backend, project `tester-teaching`, for Authentication and Firestore. Test data-changing actions deliberately. Firebase Hosting is not used for beta web releases.
 
-The application baseline is `45e0e93` (Runtime Commit E, the reviewed BETA-R4D-9E ACA-direct SQL-backed read runtime with deterministic calendar period mapping). This repository is the frozen Azure beta line. It does not automatically sync from the GitHub Pages test repository `Alex1122341/Teaching-assignment`; a test-site feature is promoted only through a separately reviewed change after its complete test cycle succeeds.
+The application baseline is `45e0e93` (Runtime Commit I, the reviewed BETA-R4D-9H admin timetable access fix). This repository is the frozen Azure beta line. It does not automatically sync from the GitHub Pages test repository `Alex1122341/Teaching-assignment`; a test-site feature is promoted only through a separately reviewed change after its complete test cycle succeeds.
 
 Azure beta release requires successful CI for the exact current `main` SHA. No release happens without a successful **Azure Beta Build** run for that exact SHA, and no release is triggered automatically.
 
@@ -96,7 +96,7 @@ The Azure beta URL is publicly reachable and is not a security boundary. Firebas
 
 ### Frozen runtime contract
 
-Azure beta is frozen at commit `f74443d945a9f6c917e7e634eb2e7825f02c7ab0`. That immutable commit (Runtime Commit E) is the content trust anchor for every shipped file.
+Azure beta is frozen at commit `2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`. That immutable commit (Runtime Commit I) is the content trust anchor for every shipped file.
 
 This baseline is the **BETA-R4D-9B ACA-direct SQL-backed read runtime candidate**. It is the reviewed frozen runtime but it is **NOT YET DEPLOYED**: the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
 

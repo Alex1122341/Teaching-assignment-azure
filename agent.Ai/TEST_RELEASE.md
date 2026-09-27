@@ -32,9 +32,9 @@ Verify again if PR #6 HEAD moves.
 
 Frozen application baseline:
 
-`f74443d945a9f6c917e7e634eb2e7825f02c7ab0`
+`2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`
 
-This is Runtime Commit E, the BETA-R4D-9E ACA-direct SQL-backed read runtime candidate with deterministic calendar period mapping. It is the reviewed frozen runtime and is **NOT YET DEPLOYED**.
+This is Runtime Commit I, the BETA-R4D-9H admin timetable access fix: the automatic administrator landing redirect is removed so authorized ADFA/admin accounts remain in the timetable after sign-in, while the Faculty Dashboard stays reachable explicitly. It is the reviewed frozen runtime.
 
 Protected static assets are driven by `tools/static-assets.json` (45 entries; the previous 44-path set plus `paws-data-client.js`). Both `pull_request` and `push` to `main` allow zero protected runtime drift.
 

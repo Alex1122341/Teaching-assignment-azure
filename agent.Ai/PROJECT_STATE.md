@@ -84,8 +84,8 @@ Current main:
 
 Frozen application baseline:
 
-- `f74443d945a9f6c917e7e634eb2e7825f02c7ab0` (Runtime Commit E — BETA-R4D-9E ACA-direct SQL-backed read runtime with calendar period mapping)
-- previous baseline `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` is retained only as historical evidence
+- `2b10aca5b9ab26ffecdffb685bddd33ae4de70f5` (Runtime Commit I — BETA-R4D-9H admin timetable access: automatic administrator Dashboard landing removed so authorized ADFA/admin accounts stay in the timetable)
+- previous baselines `f74443d945a9f6c917e7e634eb2e7825f02c7ab0` (Runtime Commit G) and `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` are retained only as historical evidence
 - Governance Commit F is pending review; deployment remains a separate exact-main step.
 
 ## 3. Current Azure SQL checkpoint

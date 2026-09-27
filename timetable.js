@@ -196,10 +196,14 @@
     const academicYear=String(row?.academicYear||'');
     const curriculumYear=Number(row?.curriculumYear)||Number((academicYear.match(/\d+/)||[])[0])||1;
     const instructor=String(row?.instructorNames||'').trim();
+    const date=String(row?.date||'').slice(0,10);
+    const position=date?academicPositionForDate(parseYmd(date)):{semester:'',week:null};
     return {
       id:String(row?.id||''),
-      date:String(row?.date||'').slice(0,10),
+      date,
       year:curriculumYear,
+      semester:position.semester,
+      week:position.week,
       course:String(row?.courseCode||''),
       courseName:String(row?.courseName||''),
       topic:String(row?.topic||''),

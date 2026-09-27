@@ -9,8 +9,8 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// BETA-R4D-9C (Governance Commit D): the frozen trust anchor is Runtime Commit C.
-const BASELINE_COMMIT='4fed98d908476df7c4066062ad6435194d3b0493';
+// BETA-R4D-9E/F (Governance Commit F): the frozen trust anchor is Runtime Commit E.
+const BASELINE_COMMIT='45e0e93daa2cba7c172f1c89e3c05406ce093364';
 const PREVIOUS_BASELINE_COMMIT='6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
@@ -19,13 +19,13 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to Runtime Commit C',()=>{
+test('beta identity is pinned to Runtime Commit E',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
 });
 
-test('Runtime Commit C exists as a Git commit and is an ancestor of HEAD',()=>{
+test('Runtime Commit E exists as a Git commit and is an ancestor of HEAD',()=>{
   assert.equal(freeze.baselineCommitExists(root,BASELINE_COMMIT),true);
   execFileSync('git',['merge-base','--is-ancestor',BASELINE_COMMIT,'HEAD'],{cwd:root});
 });

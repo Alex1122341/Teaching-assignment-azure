@@ -10,7 +10,8 @@ verified Azure-Beta `main` SHA `ffd870ee5faae298049df08d1bcb616832a07d87`.
 It prepares a Node.js 22 Functions-on-Container-Apps image and a UAMI-aware
 SQL adapter only. No image has been pushed, no Azure resource has been
 created or changed, and no SQL/Firebase/SWA/GitHub live mutation has been
-performed. The branch is not yet pushed and has no PR at this breakpoint.
+performed. The branch is pushed at commit `e3d1b35` and Draft PR #14 is open:
+https://github.com/Alex1122341/Teaching-assignment-azure/pull/14
 
 This file is intentionally concise. Detailed history belongs in `updates/`.
 

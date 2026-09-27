@@ -4,7 +4,7 @@
 
 ## BETA-R4D-4 — ACA packaging + UAMI SQL adapter
 
-Status: **IMPLEMENTED LOCALLY / NOT PUSHED**
+Status: **DRAFT PR OPEN / NOT MERGED**
 
 - Branch: `task/beta-r4d4-aca-packaging`
 - Base: `main` at `ffd870ee5faae298049df08d1bcb616832a07d87`
@@ -16,8 +16,12 @@ Status: **IMPLEMENTED LOCALLY / NOT PUSHED**
 - No Azure deployment, ACR push, SQL mutation, or merge is authorized in this
   phase.
 
-Next safe action: run the final verification checklist, commit, push the
-feature branch, and open a Draft PR for architect review.
+Commit: `e3d1b35`
+
+Draft PR: https://github.com/Alex1122341/Teaching-assignment-azure/pull/14
+
+Next safe action: architect review of the Draft PR. Do not merge, deploy, push
+an image, or mutate Azure/SQL/Firebase/SWA.
 
 ## P0 — Current Beta objective
 

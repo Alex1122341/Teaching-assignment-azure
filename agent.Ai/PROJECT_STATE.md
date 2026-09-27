@@ -46,6 +46,7 @@ No live SQL update has been applied yet because
 `PAWS_Faculty_Workload_Normalized.xlsx` was unavailable in the owner's normal
 project/download/import folders, so the requested full temporary import rebuild
 could not be repeated. No frontend file changed and no SWA deployment is needed.
+Review is tracked in Draft PR #20.
 
 ## 1. Immediate owner priority
 

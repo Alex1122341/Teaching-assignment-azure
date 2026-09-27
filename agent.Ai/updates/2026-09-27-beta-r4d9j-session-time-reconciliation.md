@@ -17,7 +17,7 @@ generation, and prepare a transactional exact-SessionId SQL repair.
 - base SHA: `c090f73836d31ff02677b11f06a50dc8421d34af`
 - working branch: `feature/beta-r4d9j-session-time-reconciliation`
 - starting SHA: `c090f73836d31ff02677b11f06a50dc8421d34af`
-- PR: pending
+- PR: Draft PR #20
 - relevant prior update: `2026-09-27-beta-r4d9h-admin-timetable-access-governance-j.md`
 - live environment: SQL-backed Beta, 1,937 sessions, session writes disabled
 
@@ -69,7 +69,7 @@ count 1,082 -> 1,344 and early-clock count 755 -> 493; reversed 65 and sentinel
   the same two failures were present before this branch.
 - `node tools/verify-beta-candidate.js`: 45 protected paths, zero drift.
 - workbook: 1,937 rows; formula error scan 0; all three sheets rendered/reviewed.
-- CI: pending PR creation.
+- CI: pending on Draft PR #20.
 
 ## 8. Live operations
 
@@ -91,8 +91,9 @@ count 1,082 -> 1,344 and early-clock count 755 -> 493; reversed 65 and sentinel
 ## 9. Current state after task
 
 - final branch: `feature/beta-r4d9j-session-time-reconciliation`
-- final SHA: pending commit
-- PR: pending
+- implementation commit: `2cea57f2ef5bfe7e076204bd535439401471ff75`
+- final SHA: pending continuity follow-up commit
+- PR: Draft PR #20 — https://github.com/Alex1122341/Teaching-assignment-azure/pull/20
 - merge/deploy state: not merged, not deployed
 - live SQL remains pre-repair.
 
@@ -128,4 +129,3 @@ full rebuild gate and then the transactional repair.
 - do not reset/reimport SQL;
 - do not deploy the frontend;
 - do not run live `-Apply` before the rebuild gate.
-

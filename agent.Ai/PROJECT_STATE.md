@@ -11,7 +11,8 @@ It prepares a Node.js 22 Functions-on-Container-Apps image and a UAMI-aware
 SQL adapter only. No image has been pushed, no Azure resource has been
 created or changed, and no SQL/Firebase/SWA/GitHub live mutation has been
 performed. R4D-4A hardening is implemented on the branch and Draft PR #14 is
-open. GitHub CI must verify the new Docker build step before final review:
+open. GitHub Azure Beta Build run `36289550648` passed, including the Linux
+Docker build step:
 https://github.com/Alex1122341/Teaching-assignment-azure/pull/14
 
 This file is intentionally concise. Detailed history belongs in `updates/`.

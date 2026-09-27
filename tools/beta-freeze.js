@@ -11,10 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// BETA-R4D-9C (Governance Commit D): the frozen trust anchor is Runtime Commit C,
-// the reviewed ACA-direct SQL read runtime. Promotion is governance-only; the
-// security architecture below is unchanged.
-const BASELINE_COMMIT='4fed98d908476df7c4066062ad6435194d3b0493';
+// BETA-R4D-9E/F (Governance Commit F): the frozen trust anchor is Runtime Commit E,
+// the reviewed ACA-direct SQL read runtime with deterministic calendar mapping.
+const BASELINE_COMMIT='45e0e93daa2cba7c172f1c89e3c05406ce093364';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

@@ -145,13 +145,13 @@ Not part of BETA-R1.
 - exact-SHA evidence required.
 - update continuity memory after a live activation.
 
-## Frozen Beta runtime baseline (BETA-R4D-9C Governance Commit D)
+## Frozen Beta runtime baseline (BETA-R4D-9E/F Governance Commit F)
 
 **LOCKED**
 
-- the frozen runtime trust anchor is Runtime Commit C `4fed98d908476df7c4066062ad6435194d3b0493`.
+- the frozen runtime trust anchor is Runtime Commit E `45e0e93daa2cba7c172f1c89e3c05406ce093364`.
 - previous baseline `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` is historical evidence only.
-- the protected path set remains monotonic at 45 paths; Runtime Commit C preserves the complete prior set.
+- the protected path set remains monotonic at 45 paths; Runtime Commit E preserves the complete prior set and adds only the approved calendar period mapping behavior.
 - Git commit objects remain the immutable trust anchor; `tools/beta-baseline.json` stays non-authoritative.
 - zero protected runtime drift is allowed on BOTH `pull_request` and `push` to `main`.
 - the candidate drift whitelist is removed: no special-case exception exists.

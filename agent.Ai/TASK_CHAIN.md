@@ -4,7 +4,7 @@
 
 ## BETA-R4D-9B — Runtime Commit C
 
-Status: **IMPLEMENTED / DRAFT PR #16 OPEN / NOT DEPLOYED**
+Status: **IMPLEMENTED / MERGED / DEPLOYED**
 
 - Fresh base main: `37b4db8a556cb12e588a0f95b08a83e793960851`
 - Goal: direct browser timetable reads to the approved ACA API with Firebase
@@ -17,11 +17,29 @@ Status: **IMPLEMENTED / DRAFT PR #16 OPEN / NOT DEPLOYED**
 
 ## BETA-R4D-9C — Governance Commit D
 
-Status: **IN PROGRESS / NOT MERGED / NOT DEPLOYED**
+Status: **IMPLEMENTED / MERGED / DEPLOYED**
 
-- Parent must be Runtime Commit C `4fed98d908476df7c4066062ad6435194d3b0493`.
+- Parent was Runtime Commit C `4fed98d908476df7c4066062ad6435194d3b0493`; Governance Commit D is now merged and deployed.
 - Governance-only changes update the immutable freeze anchor and active docs/tests.
 - PR #16 remains the existing review vehicle; no replacement PR is allowed.
+
+## BETA-R4D-9E — Runtime Commit E
+
+Status: **IMPLEMENTED / PR #17 OPEN / GOVERNANCE PROMOTION IN PROGRESS**
+
+- Base main: `4071f7f339418162e473d9a3c7830f625bc1fa35`.
+- Branch: `feature/beta-r4d9e-calendar-period-mapping`.
+- `azureSessionRow` derives `semester` and `week` from the existing academic
+  date mapping; invalid dates fail closed.
+- SQL/API/backend/auth/CORS behavior is unchanged.
+
+## BETA-R4D-9F — Governance Commit F
+
+Status: **IN PROGRESS / NOT MERGED / NOT DEPLOYED**
+
+- Parent must be Runtime Commit E `45e0e93daa2cba7c172f1c89e3c05406ce093364`.
+- Governance-only changes promote the freeze anchor and update active tests/docs.
+- Keep PR #17 as the only review vehicle; do not create a replacement PR.
 
 ## BETA-R4D-4 — ACA packaging + UAMI SQL adapter
 

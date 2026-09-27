@@ -13,7 +13,7 @@ const {execFileSync}=require('node:child_process');
 
 // BETA-R4D-9E/F (Governance Commit F): the frozen trust anchor is Runtime Commit E,
 // the reviewed ACA-direct SQL read runtime with deterministic calendar mapping.
-const BASELINE_COMMIT='45e0e93daa2cba7c172f1c89e3c05406ce093364';
+const BASELINE_COMMIT='f74443d945a9f6c917e7e634eb2e7825f02c7ab0';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

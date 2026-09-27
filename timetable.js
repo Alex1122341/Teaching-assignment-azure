@@ -866,8 +866,8 @@
   }
 
   function layoutDaySessions(items) {
-    const sorted = items.map(session=>({session,timing:scheduling.validateInterval(session.start,session.end,{timeUnknown:session.timeUnknown===true})}))
-      .filter(item=>item.timing.status==='valid')
+    const sorted = items.map(session=>({session,timing:calendarTimingDisposition(session)}))
+      .filter(item=>item.timing.disposition==='grid')
       .map(({session,timing})=>({session,startM:timing.startMinutes,endM:timing.endMinutes,lane:0,laneCount:1}))
       .sort((a,b) => a.startM-b.startM || a.endM-b.endM);
     const groups=[]; let group=[]; let groupMaxEnd=-1;
@@ -889,10 +889,53 @@
     flush(); return groups;
   }
 
+  // Shared Day/Week calendar window. `validateInterval()` answers "is this a
+  // well-formed interval?" (end after start); it deliberately knows nothing about
+  // the visible grid. A session can be a valid interval and still be unpositionable
+  // here (e.g. 01:30-02:30 sits entirely before the grid). The grid predicate and the
+  // check-needed predicate below must stay a partition: every session is EITHER
+  // grid-positionable OR check-needed. Never re-derive positionability from raw
+  // minutes elsewhere, or the two sides can disagree and a session vanishes.
+  const CALENDAR_DAY_START=450, CALENDAR_DAY_END=1020;
+
+  // Canonical display decision for the Day/Week grid. Returns the timing check plus a
+  // disposition of 'invalid' | 'grid' | 'before' | 'after'.
+  // Self-contained by design: the beta-freeze test harness extracts this function and
+  // evaluates it in isolation, so it must not depend on outer-scope bindings.
+  function calendarTimingDisposition(session){
+    const dayStart=450, dayEnd=1020;
+    const core=(typeof scheduling!=='undefined'&&scheduling)?scheduling:window.UCVM_SCHEDULING;
+    const timing=core.validateInterval(session.start,session.end,{timeUnknown:session.timeUnknown===true});
+    if(timing.status!=='valid')return{timing,disposition:'invalid',startMinutes:null,endMinutes:null};
+    if(timing.endMinutes<=dayStart)return{timing,disposition:'before',startMinutes:timing.startMinutes,endMinutes:timing.endMinutes};
+    if(timing.startMinutes>=dayEnd)return{timing,disposition:'after',startMinutes:timing.startMinutes,endMinutes:timing.endMinutes};
+    return{timing,disposition:'grid',startMinutes:timing.startMinutes,endMinutes:timing.endMinutes};
+  }
+
+  function isGridPositionable(session){ return calendarTimingDisposition(session).disposition==='grid'; }
+
+  function unpositionedReason(session,disposition){
+    if(session.timeUnknown===true)return 'Time unknown';
+    if(disposition==='invalid')return 'Invalid time interval';
+    if(disposition==='before')return 'Outside calendar hours - before grid';
+    if(disposition==='after')return 'Outside calendar hours - after grid';
+    return 'Unpositionable';
+  }
+
+  // Heading is deliberately truthful: an out-of-grid session is not necessarily a
+  // wrong time. We surface it for review instead of discarding or "correcting" it.
   function unpositionedSessionsHtml(items){
-    const rows=items.filter(session=>scheduling.validateInterval(session.start,session.end,{timeUnknown:session.timeUnknown===true}).status!=='valid');
+    const rows=items.map(session=>({session,check:calendarTimingDisposition(session)}))
+      .filter(row=>row.check.disposition!=='grid');
     if(!rows.length)return'';
-    return `<section class="untimed-sessions"><h3>Time not confirmed - Check needed</h3>${rows.map(session=>`<button class="btn btn-secondary" data-session-id="${escapeHtml(session.id)}">${escapeHtml(session.date)} - ${escapeHtml(session.course)} - ${escapeHtml(session.topic)}</button>`).join('')}</section>`;
+    const heading='Sessions not shown in calendar grid - Check needed';
+    const list=rows.map(({session,check})=>{
+      const stored=session.start||session.end?`${session.start||''}-${session.end||''}`.replace(/^-|-$/g,''):'';
+      const bits=[escapeHtml(session.date||''),escapeHtml(String(session.course||'')),escapeHtml(String(session.type||'')),escapeHtml(String(session.topic||''))].filter(Boolean).join(' · ');
+      const reason=escapeHtml(unpositionedReason(session,check.disposition));
+      return `<button class="btn btn-secondary untimed-session" data-session-id="${escapeHtml(session.id)}"><span class="untimed-session-line">${bits}</span>${stored?`<span class="untimed-session-time">${escapeHtml(stored)}</span>`:''}<span class="untimed-session-reason">${reason}</span></button>`;
+    }).join('');
+    return `<section class="untimed-sessions"><h3>${heading} <span class="untimed-count">${rows.length}</span></h3><div class="untimed-sessions-list">${list}</div></section>`;
   }
 
   function renderDay() {
@@ -900,13 +943,13 @@
     $('cal-label').textContent=formatLongDate(date);
     const data=filteredSessions(sessionsWithCcc(sessions,dateText,dateText)).filter(s=>s.date===dateText);
     renderedSessions=data;
-    const DAY_START=450,DAY_END=1020,SPAN=DAY_END-DAY_START,marks=[450,480,540,600,660,720,780,840,900,960,1020];
+    const DAY_START=CALENDAR_DAY_START,DAY_END=CALENDAR_DAY_END,SPAN=DAY_END-DAY_START,marks=[450,480,540,600,660,720,780,840,900,960,1020];
     let html=`<div class="tg-wrap day-single"><div class="tg-corner"></div><div class="tg-day-head"><div class="week-dow">${DAYS[selectedDayIndex]}</div><div class="week-date">${date.getDate()}</div></div></div><div class="tg-body day-single"><div class="tg-time-axis"><div class="tg-track">`;
     marks.forEach(m=>{const top=((m-DAY_START)/SPAN)*100,h=Math.floor(m/60),min=m%60,h12=((h+11)%12)+1;html+=`<span class="tg-hour-label" style="top:${top}%">${h12}:${String(min).padStart(2,'0')}</span>`});
     html+='</div></div><div class="tg-day-col">';
     marks.forEach(m=>{html+=`<div class="tg-gridline" style="top:${((m-DAY_START)/SPAN)*100}%"></div>`});
     layoutDaySessions(data).forEach(item=>{
-      const s=item.session,startM=Math.max(DAY_START,item.startM),endM=Math.min(DAY_END,item.endM);if(endM<=DAY_START||startM>=DAY_END)return;
+      const s=item.session,startM=Math.max(DAY_START,item.startM),endM=Math.min(DAY_END,item.endM);if(endM<=startM)return;
       const top=((startM-DAY_START)/SPAN)*100,height=Math.max(3.5,((endM-startM)/SPAN)*100),laneWidth=100/item.laneCount,left=item.lane*laneWidth;
       html+=`<div class="tg-block ${colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.room?` | ${escapeHtml(s.room)}`:''}<br>${escapeHtml(s.instructor||'TBD')}</div></div>`;
     });
@@ -918,7 +961,7 @@
     $('cal-label').textContent = `${selectedSemester === 'winter' ? 'Winter' : (selectedSemester === 'spring' ? 'Spring' : 'Fall')} Week ${selectedWeek} - ${formatDate(start)} to ${formatDate(end)}, ${end.getFullYear()}`;
     const data = filteredSessions(sessionsWithCcc(sessions,ymd(start),ymd(end))).filter(s => s.week === selectedWeek);
     renderedSessions=data;
-    const DAY_START=450, DAY_END=1020, SPAN=DAY_END-DAY_START; // 7:30am-5:00pm
+    const DAY_START=CALENDAR_DAY_START, DAY_END=CALENDAR_DAY_END, SPAN=DAY_END-DAY_START; // 7:30am-5:00pm
     let html = '<div class="tg-wrap"><div class="tg-corner"></div>';
     for (let i = 0; i < 5; i++) {
       const d = addDays(start, i);
@@ -939,7 +982,7 @@
       dayItems.forEach(item => {
         const s=item.session;
         const startM = Math.max(DAY_START, item.startM), endM = Math.min(DAY_END, item.endM);
-        if (endM <= DAY_START || startM >= DAY_END) return;
+        if (endM <= startM) return;
         const top = ((startM - DAY_START) / SPAN) * 100;
         const height = Math.max(3.5, ((endM - startM) / SPAN) * 100);
         const laneWidth=100/item.laneCount, left=item.lane*laneWidth;

@@ -37,7 +37,7 @@ Status: **IMPLEMENTED / PR #17 OPEN / GOVERNANCE PROMOTION IN PROGRESS**
 
 Status: **IN PROGRESS / NOT MERGED / NOT DEPLOYED**
 
-- Parent must be Runtime Commit E `45e0e93daa2cba7c172f1c89e3c05406ce093364`.
+- Parent must be Runtime Commit E `f74443d945a9f6c917e7e634eb2e7825f02c7ab0`.
 - Governance-only changes promote the freeze anchor and update active tests/docs.
 - Keep PR #17 as the only review vehicle; do not create a replacement PR.
 

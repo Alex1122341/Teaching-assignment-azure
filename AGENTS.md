@@ -22,7 +22,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 ## Frozen runtime contract
 
-- The Azure beta application is frozen at commit `45e0e93daa2cba7c172f1c89e3c05406ce093364`. That immutable commit (Runtime Commit E) is the content trust anchor.
+- The Azure beta application is frozen at commit `f74443d945a9f6c917e7e634eb2e7825f02c7ab0`. That immutable commit (Runtime Commit E) is the content trust anchor.
 - This baseline represents the **BETA-R4D-9B ACA-direct SQL-backed read runtime**. It is the reviewed frozen runtime, but it is **NOT YET DEPLOYED** — the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
 - **All** shipped static runtime assets are protected, not just a five-file subset. The authoritative shipped-file list is `tools/static-assets.json` (45 entries).
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.

@@ -96,7 +96,7 @@ The Azure beta URL is publicly reachable and is not a security boundary. Firebas
 
 ### Frozen runtime contract
 
-Azure beta is frozen at commit `45e0e93daa2cba7c172f1c89e3c05406ce093364`. That immutable commit (Runtime Commit E) is the content trust anchor for every shipped file.
+Azure beta is frozen at commit `f74443d945a9f6c917e7e634eb2e7825f02c7ab0`. That immutable commit (Runtime Commit E) is the content trust anchor for every shipped file.
 
 This baseline is the **BETA-R4D-9B ACA-direct SQL-backed read runtime candidate**. It is the reviewed frozen runtime but it is **NOT YET DEPLOYED**: the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
 

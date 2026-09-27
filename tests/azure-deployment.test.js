@@ -94,7 +94,7 @@ test('beta deploy independently revalidates the frozen runtime before Azure uplo
   // Independent frozen-runtime revalidation happens before that upload.
   assert.match(before,/node tools\/beta-freeze\.js/);
   assert.match(before,/--artifact\s+\.azure-production\/app/);
-  assert.match(before,/45e0e93daa2cba7c172f1c89e3c05406ce093364/);
+  assert.match(before,/f74443d945a9f6c917e7e634eb2e7825f02c7ab0/);
   assert.match(before,/ref:\s*\$\{\{ inputs\.commit_sha \}\}/);
   // Revalidation must not become a second build.
   assert.doesNotMatch(before,/node tools\/build-beta-release\.js/);
@@ -138,7 +138,7 @@ test('the build workflow triggers on both pull_request and push to main',()=>{
 // I. Deploy contract.
 test('manual deploy still requires exact current main and independently verifies both copies',()=>{
   const workflow=read('.github/workflows/azure-beta-deploy.yml');
-  const baseline='45e0e93daa2cba7c172f1c89e3c05406ce093364';
+  const baseline='f74443d945a9f6c917e7e634eb2e7825f02c7ab0';
   // exact-main gates preserved
   assert.match(workflow,/test "\$\(git rev-parse HEAD\)" = "\$EXPECTED_SHA"/);
   assert.match(workflow,/test "\$\(git rev-parse origin\/main\)" = "\$EXPECTED_SHA"/);

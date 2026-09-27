@@ -32,7 +32,7 @@ Verify again if PR #6 HEAD moves.
 
 Frozen application baseline:
 
-`45e0e93daa2cba7c172f1c89e3c05406ce093364`
+`f74443d945a9f6c917e7e634eb2e7825f02c7ab0`
 
 This is Runtime Commit E, the BETA-R4D-9E ACA-direct SQL-backed read runtime candidate with deterministic calendar period mapping. It is the reviewed frozen runtime and is **NOT YET DEPLOYED**.
 

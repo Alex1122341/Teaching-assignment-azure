@@ -10,7 +10,7 @@ const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
 // BETA-R4D-9E/F (Governance Commit F): the frozen trust anchor is Runtime Commit E.
-const BASELINE_COMMIT='45e0e93daa2cba7c172f1c89e3c05406ce093364';
+const BASELINE_COMMIT='f74443d945a9f6c917e7e634eb2e7825f02c7ab0';
 const PREVIOUS_BASELINE_COMMIT='6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 

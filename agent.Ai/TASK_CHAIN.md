@@ -2,6 +2,23 @@
 
 **Last updated:** 2026-09-26
 
+## BETA-R4D-4 — ACA packaging + UAMI SQL adapter
+
+Status: **IMPLEMENTED LOCALLY / NOT PUSHED**
+
+- Branch: `task/beta-r4d4-aca-packaging`
+- Base: `main` at `ffd870ee5faae298049df08d1bcb616832a07d87`
+- Adds the official Node 22 Functions Dockerfile, deterministic API artifact
+  packaging, private-file exclusions, and explicit `mssql` Azure AD default
+  authentication for `PAWS_SQL_MI_CLIENT_ID`.
+- Existing Firebase verification, public routes, and frontend freeze assets
+  remain unchanged.
+- No Azure deployment, ACR push, SQL mutation, or merge is authorized in this
+  phase.
+
+Next safe action: run the final verification checklist, commit, push the
+feature branch, and open a Draft PR for architect review.
+
 ## P0 — Current Beta objective
 
 Get the Azure Beta frontend reading the existing Azure SQL database.

@@ -56,7 +56,7 @@ This branch contains no database execution step for UserProfile provisioning, do
 
 Frozen Beta runtime baseline:
 
-`6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`
+`4fed98d908476df7c4066062ad6435194d3b0493`
 
 This commit is Runtime Commit A — the merge of current `main` (`ea80eecc9fa2ac2b693c23979bad5c5809a26863`) into the BETA-R1 branch — and it now carries the frozen trust anchor previously held by `86bd5aa2c8a25259f3f708e49b322220ff43a147`.
 

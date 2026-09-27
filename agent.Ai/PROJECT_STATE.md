@@ -1,6 +1,6 @@
 # PAWS Current Project State
 
-**Last verified:** 2026-09-26  
+**Last verified:** 2026-09-27
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 
 ## 0. BETA-R4D-4A hardening breakpoint
@@ -16,6 +16,17 @@ Docker build step:
 https://github.com/Alex1122341/Teaching-assignment-azure/pull/14
 
 This file is intentionally concise. Detailed history belongs in `updates/`.
+
+## 0A. R4D-8B / R4D-9B breakpoint
+
+R4D-8B authenticated proof is complete for both approved ADFA General
+accounts. The ACA API returns 1,937 SQL-backed sessions; Account A also has a
+deterministic ordered SQL TOP 3 source check. R4D-9B Runtime Commit C is being
+implemented on a feature branch from main `37b4db8a556cb12e588a0f95b08a83e793960851`:
+the browser data client will call the exact ACA origin directly, while the
+manual SWA deployment remains static-only. Governance Commit D must promote
+the frozen baseline separately after review. No frontend deployment has been
+performed and no tokens, UIDs, or credentials are stored here.
 
 ## 1. Immediate owner priority
 
@@ -71,9 +82,9 @@ Current main:
 
 Frozen application baseline:
 
-- `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` (Runtime Commit A — BETA-R1 SQL-backed read runtime candidate)
-- previous baseline `86bd5aa2c8a25259f3f708e49b322220ff43a147` is retained only as historical evidence
-- the promoted baseline is **NOT YET DEPLOYED**; the live Azure beta site still predates BETA-R1
+- `4fed98d908476df7c4066062ad6435194d3b0493` (Runtime Commit C — BETA-R4D-9B ACA-direct SQL-backed read runtime)
+- previous baseline `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` is retained only as historical evidence
+- the promoted baseline is **NOT YET DEPLOYED**; the live Azure beta site still predates BETA-R4D-9B
 
 ## 3. Current Azure SQL checkpoint
 

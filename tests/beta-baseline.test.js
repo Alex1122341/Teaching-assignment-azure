@@ -9,9 +9,9 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// BETA-R3A-3 (Commit B): the frozen trust anchor is Runtime Commit A.
-const BASELINE_COMMIT='6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26';
-const PREVIOUS_BASELINE_COMMIT='86bd5aa2c8a25259f3f708e49b322220ff43a147';
+// BETA-R4D-9C (Governance Commit D): the frozen trust anchor is Runtime Commit C.
+const BASELINE_COMMIT='4fed98d908476df7c4066062ad6435194d3b0493';
+const PREVIOUS_BASELINE_COMMIT='6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
@@ -19,13 +19,13 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to Runtime Commit A',()=>{
+test('beta identity is pinned to Runtime Commit C',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
 });
 
-test('Runtime Commit A exists as a Git commit and is an ancestor of HEAD',()=>{
+test('Runtime Commit C exists as a Git commit and is an ancestor of HEAD',()=>{
   assert.equal(freeze.baselineCommitExists(root,BASELINE_COMMIT),true);
   execFileSync('git',['merge-base','--is-ancestor',BASELINE_COMMIT,'HEAD'],{cwd:root});
 });
@@ -58,15 +58,15 @@ test('paws-data-client.js is a protected runtime asset',()=>{
   assert.deepEqual(result.drift,[]);
 });
 
-// D. Historical monotonicity (44 -> 45) --------------------------------------
+// D. Historical monotonicity (45 -> 45) --------------------------------------
 test('the new baseline manifest is a superset of the previous protected path set',()=>{
   const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
   const current=baselineJson(BASELINE_COMMIT);
-  assert.equal(previous.length,44);
+  assert.equal(previous.length,45);
   assert.equal(current.length,45);
   const missing=previous.filter(name=>!current.includes(name));
   assert.deepEqual(missing,[]);
-  assert.deepEqual(current.filter(name=>!previous.includes(name)),['paws-data-client.js']);
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),[]);
 });
 
 test('every previous protected path is still protected under the promoted baseline',()=>{

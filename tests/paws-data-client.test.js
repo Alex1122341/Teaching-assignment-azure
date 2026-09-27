@@ -13,23 +13,25 @@ test('Azure client is fixed to SQL mode and exposes no backend selector or write
   assert.doesNotMatch(source,/UCVM_PAWS_SESSION_BACKEND|backend\s*:\s*['\"]/i);
 });
 
-test('current user and sessions use same-origin bearer GET requests',async()=>{
+test('current user and sessions use the ACA-origin bearer GET requests',async()=>{
   const calls=[];
+  const origin='https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io';
   const client=createPawsAzureDataClient({
     tokenProvider:async()=>'firebase-id-token',
     fetchImpl:async(url,init)=>{
       calls.push({url,init});
-      if(url==='/api/v1/me')return{ok:true,json:async()=>({profile:{role:'viewer'}})};
+      if(url===origin+'/api/v1/me')return{ok:true,json:async()=>({profile:{role:'viewer'}})};
       return{ok:true,json:async()=>({sessions:[{id:'1'}]})};
     }
   });
   assert.equal((await client.currentUser()).role,'viewer');
   assert.deepEqual(await client.listSessions({start:'2026-09-01',end:'2026-09-08'}),[{id:'1'}]);
-  assert.equal(calls[0].url,'/api/v1/me');
-  assert.match(calls[1].url,/^\/api\/v1\/sessions\?/);
+  assert.equal(calls[0].url,origin+'/api/v1/me');
+  assert.match(calls[1].url,new RegExp('^'+origin.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\/api\\/v1\\/sessions\\?'));
   for(const call of calls){
     assert.equal(call.init.method,'GET');
     assert.equal(call.init.headers.Authorization,'Bearer firebase-id-token');
+    assert.equal(call.init.credentials,'omit');
   }
 });
 

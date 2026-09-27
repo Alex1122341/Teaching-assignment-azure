@@ -65,8 +65,19 @@ test('beta deployment is manual exact-main and reuses a successful build artifac
   assert.match(workflow,/name:\s*azure-beta-\$\{\{ inputs\.commit_sha \}\}/);
   assert.match(workflow,/secrets\.AZURE_STATIC_WEB_APPS_API_TOKEN/);
   assert.match(workflow,/Azure\/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1/);
+  assert.doesNotMatch(workflow,/api_location\s*:/);
+  assert.doesNotMatch(workflow,/skip_api_build\s*:\s*false/);
   const deploy=workflow.slice(workflow.indexOf('Deploy tested beta artifact'));
   assert.doesNotMatch(deploy,/npm ci|npm test|build-static/);
+});
+
+test('beta build may retain the API artifact for packaging while deploy remains static-only',()=>{
+  const build=read('tools/build-beta-release.js');
+  assert.match(build,/build-swa-api\.js/);
+  const workflow=read('.github/workflows/azure-beta-deploy.yml');
+  assert.match(workflow,/test -f \.azure-production\/api\/index\.js/);
+  assert.match(workflow,/test -f \.azure-production\/api\/package-lock\.json/);
+  assert.doesNotMatch(workflow,/api_location\s*:/);
 });
 
 test('beta deploy independently revalidates the frozen runtime before Azure upload',()=>{
@@ -83,7 +94,7 @@ test('beta deploy independently revalidates the frozen runtime before Azure uplo
   // Independent frozen-runtime revalidation happens before that upload.
   assert.match(before,/node tools\/beta-freeze\.js/);
   assert.match(before,/--artifact\s+\.azure-production\/app/);
-  assert.match(before,/6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26/);
+  assert.match(before,/4fed98d908476df7c4066062ad6435194d3b0493/);
   assert.match(before,/ref:\s*\$\{\{ inputs\.commit_sha \}\}/);
   // Revalidation must not become a second build.
   assert.doesNotMatch(before,/node tools\/build-beta-release\.js/);
@@ -127,7 +138,7 @@ test('the build workflow triggers on both pull_request and push to main',()=>{
 // I. Deploy contract.
 test('manual deploy still requires exact current main and independently verifies both copies',()=>{
   const workflow=read('.github/workflows/azure-beta-deploy.yml');
-  const baseline='6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26';
+  const baseline='4fed98d908476df7c4066062ad6435194d3b0493';
   // exact-main gates preserved
   assert.match(workflow,/test "\$\(git rev-parse HEAD\)" = "\$EXPECTED_SHA"/);
   assert.match(workflow,/test "\$\(git rev-parse origin\/main\)" = "\$EXPECTED_SHA"/);

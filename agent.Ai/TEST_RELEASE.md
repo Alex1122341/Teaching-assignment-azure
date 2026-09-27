@@ -32,9 +32,9 @@ Verify again if PR #6 HEAD moves.
 
 Frozen application baseline:
 
-`6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`
+`4fed98d908476df7c4066062ad6435194d3b0493`
 
-This is Runtime Commit A, the BETA-R1 SQL-backed read runtime candidate. It is the reviewed frozen runtime and is **NOT YET DEPLOYED**.
+This is Runtime Commit C, the BETA-R4D-9B ACA-direct SQL-backed read runtime candidate. It is the reviewed frozen runtime and is **NOT YET DEPLOYED**.
 
 Protected static assets are driven by `tools/static-assets.json` (45 entries; the previous 44-path set plus `paws-data-client.js`). Both `pull_request` and `push` to `main` allow zero protected runtime drift.
 

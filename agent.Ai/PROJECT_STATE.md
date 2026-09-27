@@ -82,9 +82,9 @@ Current main:
 
 Frozen application baseline:
 
-- `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` (Runtime Commit A — BETA-R1 SQL-backed read runtime candidate)
-- previous baseline `86bd5aa2c8a25259f3f708e49b322220ff43a147` is retained only as historical evidence
-- the promoted baseline is **NOT YET DEPLOYED**; the live Azure beta site still predates BETA-R1
+- `4fed98d908476df7c4066062ad6435194d3b0493` (Runtime Commit C — BETA-R4D-9B ACA-direct SQL-backed read runtime)
+- previous baseline `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` is retained only as historical evidence
+- the promoted baseline is **NOT YET DEPLOYED**; the live Azure beta site still predates BETA-R4D-9B
 
 ## 3. Current Azure SQL checkpoint
 

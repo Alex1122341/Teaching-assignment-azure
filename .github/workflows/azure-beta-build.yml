@@ -39,7 +39,7 @@ jobs:
       - run: node tools/build-beta-release.js
       - name: Build ACA Functions container (no push)
         run: docker build -f deploy/aca/Dockerfile -t paws-sql-beta-api:${{ github.sha }} .
-      # BETA-R3A-3 (Commit B): the frozen baseline IS Runtime Commit A, so both
+      # BETA-R4D-9C (Governance Commit D): the frozen baseline IS Runtime Commit C, so both
       # pull_request and push validate the same frozen runtime with ZERO allowed
       # protected drift. There is no candidate-drift exception any more.
       - name: Verify frozen Beta runtime baseline (repository)

@@ -145,18 +145,18 @@ Not part of BETA-R1.
 - exact-SHA evidence required.
 - update continuity memory after a live activation.
 
-## Frozen Beta runtime baseline (BETA-R3A-3 Commit B)
+## Frozen Beta runtime baseline (BETA-R4D-9C Governance Commit D)
 
 **LOCKED**
 
-- the frozen runtime trust anchor is Runtime Commit A `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26`.
-- previous baseline `86bd5aa2c8a25259f3f708e49b322220ff43a147` is historical evidence only.
-- the protected path set is monotonic: the 45-path Commit A manifest contains all 44 previous protected paths plus `paws-data-client.js`.
+- the frozen runtime trust anchor is Runtime Commit C `4fed98d908476df7c4066062ad6435194d3b0493`.
+- previous baseline `6eeb1a4ac8c9565a4afbf479277a7e2f543f9e26` is historical evidence only.
+- the protected path set remains monotonic at 45 paths; Runtime Commit C preserves the complete prior set.
 - Git commit objects remain the immutable trust anchor; `tools/beta-baseline.json` stays non-authoritative.
 - zero protected runtime drift is allowed on BOTH `pull_request` and `push` to `main`.
-- the candidate drift whitelist is removed: no Beta-R1 special-case exception exists.
+- the candidate drift whitelist is removed: no special-case exception exists.
 - promotion is governance-only; it does not deploy. The promoted baseline is NOT YET DEPLOYED.
-- Commit B does not authorize a PR #6 merge; merge remains a separate architect/owner decision.
+- Governance Commit D does not authorize a PR #16 merge; merge remains a separate architect/owner decision after CI review.
 
 ## Superseded assumptions
 

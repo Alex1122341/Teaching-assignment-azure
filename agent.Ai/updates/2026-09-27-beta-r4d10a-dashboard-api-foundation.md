@@ -118,11 +118,68 @@ Live probes: `health/sql` 200; `/api/v1/sessions` 401; `/api/v1/dashboard/summar
 was 503 after a 15 s SQL handshake (ACA cold start), 200 in 48 ms immediately
 after.
 
+## 7C. Live finding — the runtime principal is not the reviewed principal
+
+This is the most consequential finding of R4D-10A, and it was only visible from
+the live database.
+
+The reviewed permission contract addressed a contained database user named
+`paws_swa_beta`. Querying `teaching-assignment-lab` directly showed that
+principal **does not exist**. The database contains only `dbo`, `guest`,
+`INFORMATION_SCHEMA`, `sys` and **`paws-sql-beta-mi`** (an `EXTERNAL_USER`), and
+the deployed runtime authenticates as that managed identity.
+
+Its live permission set was exactly the R4D-9J2 set — `CONNECT`; column-scoped
+`SELECT` on `paws.UserProfile` (`FirebaseUid, DisplayName, BaseRole, FacultyId,
+Active, MustChangePassword`) and `paws.SessionAssignment` (`SessionId,
+FacultyId`); whole-object `SELECT` on `paws.vCalendarSession`; `DENY
+INSERT/UPDATE/DELETE/EXECUTE` on `SCHEMA::paws`; `DENY SELECT/INSERT/UPDATE/
+DELETE/EXECUTE` on `SCHEMA::staging`; zero role memberships; 19 rows in total.
+
+**`paws.Faculty` was not granted at all.** So the Dashboard `faculty` and
+`faculty/:id` routes would have failed at runtime with a permission error, and
+the `GRANT … TO [paws_swa_beta]` the reviewed script contained would have been
+inert — it would have granted to a principal nobody authenticates as.
+
+Remedy:
+
+1. parameterize `004_swa_beta_permissions.sql` and the read-only proof on
+   `$(PAWS_API_PRINCIPAL)` (default unchanged, so an unparameterised run behaves
+   exactly as reviewed);
+2. update the Node test `P` and the Python contract tests to **require** the
+   binding and reject a hardcoded principal;
+3. add `apply-dashboard-grant.ps1` — an additive-only, fail-closed operator
+   wrapper that proves the principal's properties, supports an offline
+   `-SkipConnection -SnapshotPath` rehearsal and `-EmitSql`, and refuses to stack
+   a grant on any unreviewed permission surface;
+4. verify the 12 granted columns against the live `paws.Faculty` definition.
+
+Lesson worth carrying forward: a permission script that names its principal by
+literal can pass every static test and CI check while being a **no-op** on the
+real database. The principal name is a fact about the deployed environment, not
+about the repository — it has to be read from the environment.
+
+## 7D. Live finding — PowerShell 5.1 param block placement
+
+`apply-dashboard-grant.ps1` initially failed to parse with `Unexpected attribute
+'CmdletBinding'`. The cause was not the `-WhatIf` logic: PowerShell 5.1 requires
+`[CmdletBinding()] param(...)` to precede **every executable statement** in a
+script. Having `Set-StrictMode -Version Latest` / `$ErrorActionPreference` first
+made the param block unparseable. Minimal reproduction confirmed it
+(`param` first → 0 errors; one statement first → 2 errors).
+
+Fix: `Set-StrictMode` / `$ErrorActionPreference` now follow the param block.
+A secondary trap in the same file: a backtick line-continuation inside the
+comment header.
+
 ## 8. Open items
 
-* ship the 405 binding fix (follow-up commit / PR) and re-verify the live probe;
+* apply the additive `paws.Faculty` grant to live `paws-sql-beta-mi` and re-run
+  the read-only proof against that principal;
 * authenticated live acceptance for Account A (`adfa@ucalgary.ca`) and Account B
-  (`xinyu.zhu1@ucalgary.ca`).
+  (`xinyu.zhu1@ucalgary.ca`) — both are `adfa_general`, `Active=True`,
+  `MustChangePassword=False`, and neither carries a `FacultyId`;
+* re-run the full local suites on the merged `main`.
 
 ## 9. Out of scope, deliberately
 

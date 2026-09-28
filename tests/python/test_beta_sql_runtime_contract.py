@@ -8,7 +8,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 class BetaR1SqlRuntimeContractTests(unittest.TestCase):
     def test_api_permission_script_is_read_only_and_column_scoped(self):
         sql = (ROOT / "database" / "azure-sql" / "004_swa_beta_permissions.sql").read_text(encoding="utf-8")
-        self.assertIn("paws_swa_beta", sql)
+        # The runtime principal is bound at apply time; the deployed Beta runtime
+        # connects as the application managed identity, not a `paws_swa_beta`
+        # contained user, so the script must address a parameter.
+        self.assertIn("$(PAWS_API_PRINCIPAL)", sql)
         self.assertIn("paws.UserProfile", sql)
         self.assertIn("MustChangePassword", sql)
         self.assertIn("paws.vCalendarSession", sql)
@@ -45,6 +48,9 @@ class BetaR1SqlRuntimeContractTests(unittest.TestCase):
         self.assertIsNotNone(grant)
         self.assertNotIn("SourceImportBatchId", grant.group(1))
         self.assertNotIn("SourceRow", grant.group(1))
+        # Every GRANT must address the bound runtime principal, never a hardcoded one.
+        for statement in re.findall(r"GRANT[^;]*;", sql, re.S):
+            self.assertIn("$(PAWS_API_PRINCIPAL)", statement, statement[:80])
 
     def test_dashboard_readonly_proof_script_exists_and_fails_closed(self):
         proof = (ROOT / "database" / "azure-sql" / "004_swa_beta_permissions_readonly_proof.sql").read_text(encoding="utf-8")
@@ -52,6 +58,32 @@ class BetaR1SqlRuntimeContractTests(unittest.TestCase):
         self.assertIn("READ_ONLY_PROOF_OK", proof)
         self.assertRegex(proof, r"THROW 5110[0-9]")
         self.assertNotRegex(proof, r"(?im)^\s*(?:INSERT|UPDATE|DELETE|MERGE|DROP|ALTER)\b")
+
+    def test_dashboard_grant_wrapper_is_additive_only_and_guarded(self):
+        # The wrapper is the reviewed live-apply path for the R4D-10A grant. It
+        # must be able to prove what it will do without touching the database, and
+        # it must fail closed on every precondition.
+        wrapper = (ROOT / "database" / "azure-sql" / "apply-dashboard-grant.ps1").read_text(encoding="utf-8")
+        self.assertIn("GRANT SELECT ON OBJECT::paws.Faculty", wrapper)
+        # Param block must precede any statement, or PowerShell 5.1 cannot parse it.
+        self.assertLess(wrapper.index("param("), wrapper.index("Set-StrictMode"))
+        # Only additive GRANT: the wrapper never revokes, drops or denies.
+        self.assertNotRegex(wrapper, r"\bREVOKE\b")
+        self.assertNotRegex(wrapper, r"\bDROP\b")
+        # No DML. Context-anchored so prose and `DENY DELETE SCHEMA` rows do not
+        # read as mutations (the same false positive guarded against in the
+        # Node suite's SQL_MUTATION pattern).
+        self.assertNotRegex(wrapper, r"\bINSERT\s+INTO\b|\bDELETE\s+FROM\b|\bUPDATE\s+\w+\s+SET\b|\bMERGE\s+INTO\b", re.I)
+        # Guards that must be present and must throw (not warn and continue).
+        for guard in ("EXTERNAL_GROUP", "owns the database", "inherits", "owns schemas or objects"):
+            self.assertIn(guard, wrapper)
+        self.assertIn("throw", wrapper)
+        # Offline rehearsal + SQL emission so the effect is reviewable pre-apply.
+        self.assertIn("-SkipConnection", wrapper)
+        self.assertIn("-EmitSql", wrapper)
+        # The applied statement must address the bound principal, not a literal.
+        self.assertIn("TO [$Principal]", wrapper)
+        self.assertNotIn("TO [paws_swa_beta]", wrapper)
 
     def test_userprofile_bootstrap_tool_has_no_database_apply_transport(self):
         source = (ROOT / "tools" / "preview_beta_userprofile_bootstrap.js").read_text(encoding="utf-8")

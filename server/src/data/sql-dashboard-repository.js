@@ -77,6 +77,35 @@ function roleTypeInPredicate(column, values, prefix) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// GRANT-SAFE ROW COUNTING (R4D-10A2 hotfix, confirmed live 2026-09-28)
+// ---------------------------------------------------------------------------
+//
+// `paws-sql-beta-mi` holds COLUMN-scoped SELECT grants, not object-scoped ones.
+// Several tables retain import-provenance columns (`SourceImportBatchId`,
+// `SourceRow`, `SourceFacultyName`, `ReportsToRaw`, `CreatedAtUtc`,
+// `UpdatedAtUtc`, …) that are deliberately NOT granted.
+//
+// Under column-level security, `SELECT COUNT(*)` is authorised against *every*
+// column of the object, so a bare `COUNT(*)` over such a table is refused even
+// though it returns no data:
+//
+//   The SELECT permission was denied on the column 'SourceRow' of the object
+//   'AfcRecord', database 'teaching-assignment-lab', schema 'paws'. (err 230)
+//
+// A correlated `COUNT(*)` that filters on a granted column happens to succeed
+// (the optimiser can seek), but that is an accident of the plan, not a contract.
+// The deterministic fix is to count a NOT NULL column the principal is
+// authorised to read. Every table below has a NOT NULL primary-key surrogate
+// (`AfcRecordId`, `RoleAssignmentId`, `SessionAssignmentId`, `FacultyId`,
+// `JointAppointmentId`), so `COUNT(<pk>)` equals `COUNT(*)` exactly, while
+// touching only granted columns.
+//
+// This helper renders that form for a qualified column reference.
+function rowCount(qualifiedKey) {
+  return `COUNT(${qualifiedKey})`;
+}
+
 function isUuid(value) {
   return typeof value === 'string' && UUID.test(value.trim());
 }
@@ -160,7 +189,7 @@ function createSqlDashboardRepository(db) {
                ))
          )
          SELECT
-             (SELECT COUNT(*) FROM paws.Faculty f WHERE f.Active = 1) AS activeFacultyCount,
+             (SELECT ${rowCount('f.FacultyId')} FROM paws.Faculty f WHERE f.Active = 1) AS activeFacultyCount,
              (SELECT COUNT(*) FROM scoped) AS sessionCount,
              (SELECT COUNT(DISTINCT s.CourseCode) FROM scoped s) AS courseCount,
              (SELECT COUNT(*)
@@ -175,22 +204,22 @@ function createSqlDashboardRepository(db) {
                   OR s.EndTime IS NULL
                   OR s.StartTime < CONVERT(time(0), '${GRID_START}')
                   OR s.EndTime <= s.StartTime) AS checkNeededCount,
-             (SELECT COUNT(*)
+             (SELECT ${rowCount('sa.SessionAssignmentId')}
                 FROM paws.SessionAssignment sa
                 INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId
                WHERE c.AcademicYear = @academicYear${scoped}) AS assignmentCount,
-             (SELECT COUNT(*)
+             (SELECT ${rowCount('ra.RoleAssignmentId')}
                 FROM paws.RoleAssignment ra
                WHERE ra.AcademicYear = @academicYear${roleScoped}) AS roleAssignmentCount,
-             (SELECT COUNT(*)
+             (SELECT ${rowCount('ra.RoleAssignmentId')}
                 FROM paws.RoleAssignment ra
                WHERE ra.AcademicYear = @academicYear
                  AND ${hicc.sql}${roleScoped}) AS hiccCount,
-             (SELECT COUNT(*)
+             (SELECT ${rowCount('ra.RoleAssignmentId')}
                 FROM paws.RoleAssignment ra
                WHERE ra.AcademicYear = @academicYear
                  AND ${visc.sql}${roleScoped}) AS viscCount,
-             (SELECT COUNT(*) FROM paws.AfcRecord ar WHERE 1 = 1${afcScoped}) AS afcRecordCount`,
+             (SELECT ${rowCount('ar.AfcRecordId')} FROM paws.AfcRecord ar WHERE 1 = 1${afcScoped}) AS afcRecordCount`,
         params
       );
 
@@ -250,14 +279,14 @@ function createSqlDashboardRepository(db) {
                 INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId
                WHERE sa.FacultyId = f.FacultyId
                  AND c.AcademicYear = @academicYear) AS sessionCount,
-             (SELECT COUNT(*)
+             (SELECT ${rowCount('ra.RoleAssignmentId')}
                 FROM paws.RoleAssignment ra
                WHERE ra.FacultyId = f.FacultyId
                  AND ra.AcademicYear = @academicYear) AS roleCount,
-             (SELECT COUNT(*)
+             (SELECT ${rowCount('ar.AfcRecordId')}
                 FROM paws.AfcRecord ar
                WHERE ar.FacultyId = f.FacultyId) AS afcCount,
-             (SELECT COUNT(*)
+             (SELECT ${rowCount('ja.JointAppointmentId')}
                 FROM paws.JointAppointment ja
                WHERE ja.FacultyId = f.FacultyId) AS jointAppointmentCount
          FROM paws.Faculty f

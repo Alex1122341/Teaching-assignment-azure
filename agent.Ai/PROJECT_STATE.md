@@ -3,6 +3,28 @@
 **Last verified:** 2026-09-27
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 
+## 0. BETA-R4D-10B Stage 3 ACCEPTED + Stage 4 baseline promoted — AWAITING ARCHITECT REVIEW
+
+**Last verified:** 2026-09-28
+
+- **Accepted Stage 3 runtime candidate:** `25e8f483b7d2455c0f96b00c82f3fde30760ac17`
+- **Promoted frozen baseline:** `25e8f483b7d2455c0f96b00c82f3fde30760ac17` (previous: `2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`)
+
+The Faculty Dashboard is now an API-only, read-only surface. `faculty-admin.html` loads exactly five script
+elements (Firebase app + auth compat CDN, `session-guard.js`, `paws-data-client.js`, `faculty-admin.js`) and no
+longer loads the Firestore SDK, `faculty-access.js`, the legacy auto-start Dashboard modules, or the legacy tabs
+and write/import controls. `faculty-admin.js` contains zero Firestore and zero `UCVM.` runtime references; all
+Dashboard business data comes from the PAWS Azure SQL Dashboard API with Firebase Authentication only.
+
+The frontend role policy now matches the server exactly: ADMIN = owner / administrator / adfa_general /
+adfa_regular / admin, SELF-SERVICE = faculty / hicc / visc, and `other_office` is retired and denied on both sides.
+
+Stage 4 promoted the frozen trust anchor to the accepted Stage 3 runtime candidate with **zero protected runtime
+delta**. `verifyFreeze` reports 45 protected paths and no drift. Governance promotion PASS; release readiness is
+NO pending the two faculty-swap source-contract test failures. No merge, PR, deployment, or Azure/SQL/Firebase
+mutation was performed.
+
+---
 ## 0. BETA-R4D-10B Stage 2 — IMPLEMENTED / AWAITING ARCHITECT REVIEW
 
 Stage 2 is implemented on `feature/beta-r4d10b-dashboard-api-client-auth` from

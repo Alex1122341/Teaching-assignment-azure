@@ -11,9 +11,12 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// BETA-R4D-9E/F (Governance Commit F): the frozen trust anchor is Runtime Commit E,
-// the reviewed ACA-direct SQL read runtime with deterministic calendar mapping.
-const BASELINE_COMMIT='2b10aca5b9ab26ffecdffb685bddd33ae4de70f5';
+// BETA-R4D-10B (Stage 4 governance promotion): the frozen trust anchor is the
+// accepted Stage 3 zero-Firestore Dashboard runtime candidate 25e8f483, which
+// reads Dashboard business data from the PAWS Azure SQL API with Firebase
+// Authentication only, loads no Firestore SDK, and keeps no Firestore runtime
+// dependency in the Dashboard controller.
+const BASELINE_COMMIT='25e8f483b7d2455c0f96b00c82f3fde30760ac17';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

@@ -188,13 +188,52 @@ It throws on the first violation and prints `READ_ONLY_PROOF_OK` only when:
 * the principal holds no `INSERT/UPDATE/DELETE/MERGE/EXECUTE/ALTER/CONTROL`
   grant anywhere;
 * there is no `SELECT` grant of any kind on `staging`;
-* the mutation `DENY` rows and the `staging` `SELECT` `DENY` row are present;
+* all four `paws` mutation `DENY` rows and the `staging` `SELECT` `DENY` row are
+  present (counted per verb, so one missing `DENY` cannot hide behind its
+  siblings);
 * the principal holds no database role;
-* `HAS_PERMS_BY_NAME` returns 0 for every mutation verb probed (this is the
-  effective check — it accounts for role and `DENY` inheritance);
+* **no mutation verb is effectively permitted** — expressed as a
+  principal-scoped, DENY-aware probe over the runtime principal's own rows;
 * every granted whole-object `SELECT` is the single reviewed view.
 
 The file itself performs no mutation.
+
+#### Why not `HAS_PERMS_BY_NAME`
+
+The first version of this proof used `HAS_PERMS_BY_NAME(..., 'UPDATE') = 0` as
+its effective-permission check. **That check can never work here.**
+`HAS_PERMS_BY_NAME` evaluates the **caller's** effective permissions and ignores
+its principal argument entirely, so when the script runs as a `db_owner` it
+reports the *db_owner's* rights. Verified live: it returned `1` for
+`paws.Session`/`UPDATE` even though the runtime principal holds an explicit
+`DENY UPDATE ON SCHEMA::paws`.
+
+The live run caught this — a static test could not, because the SQL was valid
+and simply meant something different from what it read as. The replacement
+probe joins the principal's own grant rows against its deny rows at database,
+schema and object scope, honouring `DENY`-over-`GRANT`, and is paired with a
+positive control (`THROW 51108`) so it cannot pass vacuously.
+
+### Live proof result
+
+Applied to the live runtime principal, the corrected proof returns:
+
+| Field | Value |
+|---|---|
+| Result | `READ_ONLY_PROOF_OK` |
+| Principal | `paws-sql-beta-mi` |
+| GrantCount | **22** |
+| DenyCount | **9** |
+
+Independent post-apply verification:
+
+| Check | Result |
+|---|---|
+| `paws.Faculty` rows readable | **120** |
+| `paws.Faculty` columns granted | **exactly the 12 reviewed** |
+| Effective mutation verbs | **none** |
+| `staging` access | **none** |
+| Totals | **22 grants / 9 denies / 0 roles** |
 
 ## 6. Tests
 

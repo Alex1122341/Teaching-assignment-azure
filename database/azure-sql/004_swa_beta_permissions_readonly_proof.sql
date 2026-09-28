@@ -26,7 +26,7 @@ IF EXISTS (
     WHERE p.grantee_principal_id = @PrincipalId
       AND p.state IN (N'G', N'W')
       AND p.permission_name IN (N'INSERT', N'UPDATE', N'DELETE', N'MERGE', N'EXECUTE', N'ALTER', N'CONTROL', N'TAKE OWNERSHIP')
-) THROW 51101, 'paws_swa_beta holds a mutation-capable permission.', 1;
+) THROW 51101, 'The runtime principal holds a mutation-capable permission.', 1;
 
 -- 2. No SELECT grant of any kind on the staging schema.
 IF EXISTS (
@@ -39,19 +39,20 @@ IF EXISTS (
         (p.class = 3 AND SCHEMA_NAME(p.major_id) = N'staging')
         OR (p.class = 1 AND OBJECT_SCHEMA_NAME(p.major_id) = N'staging')
       )
-) THROW 51102, 'paws_swa_beta can read the staging schema.', 1;
+) THROW 51102, 'The runtime principal can read the staging schema.', 1;
 
--- 3. Explicit DENY rows exist for the mutation verbs and for staging SELECT.
-IF NOT EXISTS (
-    SELECT 1
+-- 3. Explicit DENY rows exist for every mutation verb on `paws` and for
+--    `staging` SELECT. Counted per verb so a missing DENY cannot hide behind
+--    its siblings.
+IF (
+    SELECT COUNT(DISTINCT permission_name)
     FROM sys.database_permissions
     WHERE grantee_principal_id = @PrincipalId
       AND class = 3
       AND SCHEMA_NAME(major_id) = N'paws'
       AND state = N'D'
       AND permission_name IN (N'INSERT', N'UPDATE', N'DELETE', N'EXECUTE')
-    GROUP BY granted_privileges
-) THROW 51103, 'paws schema mutation DENY rows are missing.', 1;
+) <> 4 THROW 51103, 'The four paws schema mutation DENY rows are not all present.', 1;
 
 IF NOT EXISTS (
     SELECT 1
@@ -65,17 +66,61 @@ IF NOT EXISTS (
 
 -- 4. The principal holds no database role.
 IF EXISTS (SELECT 1 FROM sys.database_role_members WHERE member_principal_id = @PrincipalId)
-    THROW 51105, 'paws_swa_beta inherits a database role.', 1;
+    THROW 51105, 'The runtime principal inherits a database role.', 1;
 
--- 5. Effective-permission probe: HAS_PERMS_BY_NAME must be 0 for every verb.
---    This is the authoritative effective check (it accounts for role and DENY
---    inheritance, unlike a raw sys.database_permissions scan).
-IF HAS_PERMS_BY_NAME(N'paws.Session', N'OBJECT', N'INSERT') = 1
-    OR HAS_PERMS_BY_NAME(N'paws.Session', N'OBJECT', N'UPDATE') = 1
-    OR HAS_PERMS_BY_NAME(N'paws.Session', N'OBJECT', N'DELETE') = 1
-    OR HAS_PERMS_BY_NAME(N'paws.UserProfile', N'OBJECT', N'UPDATE') = 1
-    OR HAS_PERMS_BY_NAME(N'paws.Faculty', N'OBJECT', N'INSERT') = 1
-THROW 51106, 'paws_swa_beta has effective mutation permission on a paws object.', 1;
+-- 5. Principal-scoped effective-mutation probe.
+--
+--    HAS_PERMS_BY_NAME cannot be used here: it evaluates the CALLER's effective
+--    permissions and ignores its principal argument entirely, so when this
+--    script runs as a db_owner it reports the db_owner's rights (verified live:
+--    it returns 1 for `paws.Session`/UPDATE even though the runtime principal
+--    has an explicit DENY). The effective check therefore has to be expressed
+--    against the runtime principal's own rows, honouring DENY-over-GRANT.
+--
+--    A verb is effectively permitted only when there is a GRANT at database,
+--    schema or object scope and no DENY covering it. Every mutation verb below
+--    must have zero effective permission.
+IF EXISTS (
+    SELECT 1
+    FROM (VALUES
+        (N'INSERT'), (N'UPDATE'), (N'DELETE'), (N'EXECUTE'),
+        (N'ALTER'), (N'CONTROL'), (N'TAKE OWNERSHIP')
+    ) AS verb(name)
+    WHERE EXISTS (
+        SELECT 1
+        FROM sys.database_permissions AS grant_row
+        WHERE grant_row.grantee_principal_id = @PrincipalId
+          AND grant_row.state IN (N'G', N'W')
+          AND grant_row.permission_name = verb.name
+          AND NOT EXISTS (
+              SELECT 1
+              FROM sys.database_permissions AS deny_row
+              WHERE deny_row.grantee_principal_id = @PrincipalId
+                AND deny_row.state = N'D'
+                AND deny_row.permission_name = verb.name
+                AND (
+                    deny_row.class = 0
+                    OR (deny_row.class = 3 AND (
+                        grant_row.class = 0
+                        OR (grant_row.class = 3 AND deny_row.major_id = grant_row.major_id)
+                        OR (grant_row.class = 1 AND deny_row.major_id = SCHEMA_ID(OBJECT_SCHEMA_NAME(grant_row.major_id)))
+                    ))
+                )
+          )
+    )
+) THROW 51106, 'The runtime principal has effective mutation permission on a paws object.', 1;
+
+-- 5b. Positive control: the mutation DENYs really are in force for this
+--     principal, so check 5 is not vacuously true.
+IF (
+    SELECT COUNT(DISTINCT permission_name)
+    FROM sys.database_permissions
+    WHERE grantee_principal_id = @PrincipalId
+      AND class = 3
+      AND SCHEMA_NAME(major_id) = N'paws'
+      AND state = N'D'
+      AND permission_name IN (N'INSERT', N'UPDATE', N'DELETE', N'EXECUTE')
+) <> 4 THROW 51108, 'The paws schema mutation DENYs are not all in force.', 1;
 
 -- 6. Every granted SELECT is column-scoped except the reviewed view.
 IF EXISTS (
@@ -87,7 +132,7 @@ IF EXISTS (
       AND p.class = 1
       AND p.minor_id = 0
       AND NOT (OBJECT_SCHEMA_NAME(p.major_id) = N'paws' AND OBJECT_NAME(p.major_id) IN (N'vCalendarSession'))
-) THROW 51107, 'paws_swa_beta has an unreviewed whole-object SELECT grant.', 1;
+) THROW 51107, 'The runtime principal has an unreviewed whole-object SELECT grant.', 1;
 
 SELECT
     N'READ_ONLY_PROOF_OK' AS Result,

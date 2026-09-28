@@ -30,7 +30,7 @@ test('ADFA queue includes AFC requests and availability lookup cross-checks both
 test('the API-only Dashboard exposes no bulk import control and keeps the rules contract',()=>{
  const html=read('faculty-admin.html'),js=read('faculty-admin.js');
  assert.equal(html.includes('data-general-only'),false,'no bulk import control may ship on the API-only Dashboard');
- assert.match(js,/requireGeneralImport/);
+ assert.equal(js.includes('requireGeneralImport'),false,'the read-only Dashboard has no bulk-import gate');
  const rules=read('firestore.rules');
  assert.match(rules,/bulkFacultyImportChange/);
  assert.match(rules,/public_info/);

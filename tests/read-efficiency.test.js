@@ -31,11 +31,11 @@ test('authenticated pages reuse the profile read when starting the role watcher'
   }
 });
 
-test('the large auxiliary settings document is loaded only when the sessional tab is opened', () => {
+test('the Dashboard no longer loads the legacy auxiliary settings document', () => {
   const source = read('faculty-admin.js');
-  assert.match(source, /function loadAuxOnce/);
-  assert.match(source, /tab==='sessional'.*loadAuxOnce\(\)/);
-  assert.doesNotMatch(source, /subscribeAux\(\);subscribeSessions\(\)/);
+  assert.equal(source.includes('loadAuxOnce'), false);
+  assert.equal(source.includes('faculty_summary_2026_27'), false);
+  assert.equal(source.includes('AUX_DOC'), false);
 });
 
 test('the timetable requests only the visible date range from the Azure API', () => {
@@ -75,5 +75,5 @@ test('audit details are written directly without scanning recent logs after save
  const access=read('faculty-access.js'),timetable=read('timetable.js'),admin=read('faculty-admin.js');
  assert.doesNotMatch(access,/patchRecent|waitClosed|new MutationObserver\(inspect\)/);
  assert.match(timetable,/UCVM_AUDIT_DETAILS\.diff/);
- assert.match(admin,/UCVM_AUDIT_DETAILS\.diff/);
+ assert.equal(admin.includes('UCVM_AUDIT_DETAILS'),false,'the read-only Dashboard has no audit-write path');
 });

@@ -357,15 +357,12 @@ test('Lookup renders the API roster and searches only the permitted fields', asy
   }
 });
 
-test('the campus filter is deactivated because the roster DTO has no campus field', async () => {
-  const h = await driveAdmin();
-  const campus = h.byId('filter-campus');
-  assert.equal(campus.classList.contains('hidden'), true, 'campus filter must be hidden');
-  assert.equal(campus.disabled, true, 'campus filter must be disabled');
-  assert.equal(campus.value, '', 'campus filter must be inert');
-  assert.match(read('faculty-admin.html'), /<select class="select hidden" id="filter-campus" disabled aria-hidden="true">/);
-  const lookup = slice('function filteredLookup', 'function overrideOf');
-  assert.doesNotMatch(lookup, /filter-campus/);
+test('the campus filter is gone entirely because the roster DTO has no campus field', () => {
+  assert.equal(read('faculty-admin.html').includes('filter-campus'), false, 'no campus filter may ship');
+  assert.equal(ADMIN_SOURCE.includes('filter-campus'), false, 'no campus filter code may remain');
+  assert.equal(ADMIN_SOURCE.includes('deactivateCampusFilter'), false);
+  const lookup = slice('function filteredLookup', 'function field(');
+  assert.doesNotMatch(lookup, /campus/i);
   assert.match(lookup, /filter-rank/, 'the rank filter stays supported');
 });
 
@@ -433,9 +430,9 @@ test('the core flow never invokes the legacy Firestore loaders', () => {
 
 test('AFC purpose appears only in the selected detail', () => {
   assert.match(slice('function renderApiDetail', 'function renderDetailPending'), /Purpose/, 'AFC purpose is rendered in detail');
-  assert.doesNotMatch(slice('function renderLookup', 'function field('), /purpose/i, 'the roster must not expose AFC purpose');
+  assert.doesNotMatch(slice('function renderLookup', 'function pawsTimingEnabled'), /purpose/i, 'the roster must not expose AFC purpose');
   assert.doesNotMatch(read('faculty-admin.html'), /away purpose/);
-  assert.doesNotMatch(slice('function updateKpis', 'function updateLegacyKpis'), /purpose/i, 'no global KPI exposes AFC purpose');
+  assert.doesNotMatch(slice('function updateKpis', 'function renderLookup'), /purpose/i, 'no global KPI exposes AFC purpose');
 });
 
 test('DOE values are displayed exactly as stored, with no client-side recomputation', async () => {
@@ -452,7 +449,7 @@ test('DOE values are displayed exactly as stored, with no client-side recomputat
     assert.match(detail, new RegExp(field), `DOE field ${field} must be rendered`);
   }
   assert.doesNotMatch(detail, /doeRate\s*\*|\*\s*doeQuantity|doeCredit\s*=/, 'DOE must not be recomputed');
-  assert.doesNotMatch(slice('function rosterRecord', 'function detailFailureMessage'), /doe/i, 'the roster adapter must not invent DOE values');
+  assert.doesNotMatch(slice('function rosterRecord', 'function detailFailureMessage'), /doe[A-Z(]|doeRate|doeCredit|doeOverride/, 'the roster adapter must not invent DOE values');
 });
 
 // ===========================================================================
@@ -561,7 +558,7 @@ test('timing hooks are opt-in and do not change business behaviour', async () =>
 });
 
 test('timing instrumentation introduces no external telemetry and no persistence', () => {
-  const src = slice('function pawsTimingEnabled', 'function rosterRecord');
+  const src = slice('function pawsTimingEnabled', 'function detailFailureMessage');
   assert.match(src, /performance\.now\(\)/);
   assert.match(src, /console\.log/);
   assert.doesNotMatch(src, /fetch\(|sendBeacon|localStorage|sessionStorage|indexedDB|XMLHttpRequest/);

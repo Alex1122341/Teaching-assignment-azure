@@ -33,14 +33,13 @@
   <div class="kpis"><div class="kpi"><div class="kpi-label">Current Faculty</div><div class="kpi-value" id="kpi-total">0</div></div><div class="kpi"><div class="kpi-label">Timetable Sessions</div><div class="kpi-value" id="kpi-sessions">0</div></div><div class="kpi"><div class="kpi-label">Teaching Assignments</div><div class="kpi-value" id="kpi-assignments">0</div></div><div class="kpi"><div class="kpi-label">Courses</div><div class="kpi-value" id="kpi-courses">0</div></div><div class="kpi"><div class="kpi-label">Role Assignments</div><div class="kpi-value" id="kpi-roles">0</div></div><div class="kpi"><div class="kpi-label">HICC roles</div><div class="kpi-value" id="kpi-hicc">0</div></div><div class="kpi"><div class="kpi-label">VISC roles</div><div class="kpi-value" id="kpi-visc">0</div></div><div class="kpi"><div class="kpi-label">AFC Records</div><div class="kpi-value" id="kpi-afc">0</div></div><div class="kpi"><div class="kpi-label">Calendar-grid Sessions</div><div class="kpi-value" id="kpi-grid">0</div></div><div class="kpi"><div class="kpi-label">Check Needed</div><div class="kpi-value" id="kpi-check">0</div></div></div>
 
   <section id="lookup-view" class="panel">
-    <div class="toolbar"><input class="input search" id="lookup-search" placeholder="Search name, UCID, email, rank, stream, teaching area, professional category, reports to…"><select class="select hidden" id="filter-campus" disabled aria-hidden="true"><option value="">All campuses</option></select><select class="select" id="filter-rank"><option value="">All ranks</option></select><button class="btn" id="lookup-reset">Reset</button><span class="toolbar-note" id="summary-load-note">Azure SQL summary: loading…</span></div>
+    <div class="toolbar"><input class="input search" id="lookup-search" placeholder="Search name, UCID, email, rank, stream, teaching area, professional category, reports to…"><select class="select" id="filter-rank"><option value="">All ranks</option></select><button class="btn" id="lookup-reset">Reset</button><span class="toolbar-note" id="summary-load-note">Azure SQL summary: loading…</span></div>
     <div class="lookup-grid"><div class="result-pane"><div class="result-head"><span id="result-count">0</span> faculty</div><div class="result-list" id="result-list"></div></div><div class="profile-pane" id="profile-pane"><div class="empty">Select a faculty member to view their profile.</div></div></div>
   </section>
 </main>
 <div class="toast" id="toast"></div>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script>window.UCVM_PAWS_DASHBOARD_API_ONLY=true;</script>
-<script src="session-guard.js"></script><script src="faculty-access.js"></script>
+<script src="session-guard.js"></script>
 <script src="paws-data-client.js"></script>
 <script src="faculty-admin.js"></script>
 </body></html>

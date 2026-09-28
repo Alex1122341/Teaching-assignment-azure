@@ -17,7 +17,7 @@ test('maintenance helpers replace and remove sessions without losing faculty IDs
 test('session writes add derived faculty IDs',()=>{
  const index=read('timetable.js'),admin=read('faculty-admin.js'),approval=read('approval-workflow.js');
  assert.match(index,/UCVM_INDEX_MAINTENANCE\.sessionForWrite\(s\)/);
- assert.match(admin,/UCVM_INDEX_MAINTENANCE\.sessionForWrite\(rec\)/);
+ assert.equal(admin.includes('UCVM_INDEX_MAINTENANCE'),false,'the read-only Dashboard has no session-write path');
  assert.match(approval,/patch\.facultyIds=UCVM_DATA_INDEX\.sessionFacultyIds/);
 });
 
@@ -27,7 +27,7 @@ test('session mutations update derived settings from exact before and after reco
  assert.match(index,/\{before:existing\|\|null,after:next\}/);
  assert.match(index,/\{before:s,after:null\}/);
  assert.match(approval,/updateDerivedIndexes\?\.\(\[\{before:current,after/);
- assert.match(admin,/writeDerivedIndexes/);
+ assert.equal(admin.includes('writeDerivedIndexes'),false,'the read-only Dashboard has no derived-index write');
  assert.match(maintenance,/faculty_index/);
  assert.match(maintenance,/schedule_stats/);
 });

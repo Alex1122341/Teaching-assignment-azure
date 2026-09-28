@@ -27,7 +27,7 @@ test('faculty dashboard has a linked self-profile mode that does not subscribe t
  assert.match(selfBody,/UCVM_PAWS_DATA\.dashboardFacultyById\(facultyId\)/);
  assert.doesNotMatch(selfBody,/listenFacultySessions\(|db\.collection\(/,'self-service must not start a Firestore listener or read Firestore');
  assert.match(src,/if\(isSelfServiceProfile\(p\)\)\{await enterSelfMode\(user,p\);return\}/);
- assert.match(src,/if\(UCVM\.admin\(p\)\)\{enterAdminMode\(user,p\);return\}/);
+ assert.match(src,/if\(dashboardAdmin\(p\)\)\{enterAdminMode\(user,p\);return\}/);
  const start=src.indexOf('async function enterSelfMode(user,p)');
  const end=src.indexOf('\nfunction enterAdminMode',start);
  assert.ok(start>=0&&end>start,'enterSelfMode must exist');
@@ -40,7 +40,7 @@ test('faculty dashboard has a linked self-profile mode that does not subscribe t
 test('faculty self mode is full-width and removes admin navigation and editing',()=>{
  const src=read('faculty-admin.js');
  assert.match(src,/document\.body\.classList\.add\('faculty-self-mode'\)/);
- assert.match(src,/const editButton=selfMode\?'':/);
+ assert.equal(src.includes('editButton'),false,'the edit control is retired from the read-only Dashboard');
  assert.match(src,/body\.faculty-self-mode \.tabs/);
  assert.match(src,/body\.faculty-self-mode \.kpis/);
  assert.match(src,/body\.faculty-self-mode #lookup-view > \.toolbar/);

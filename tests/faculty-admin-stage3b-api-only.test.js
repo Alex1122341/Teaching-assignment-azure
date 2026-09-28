@@ -26,7 +26,7 @@ const RETIRED_SCRIPTS = [
   'index-maintenance.js', 'audit-details.js', 'faculty-account-planner.js', 'approval-scheduling.js',
   'maintenance-state.js', 'bulk-import-core.js', 'bulk-import-backup.js', 'bulk-import-firestore.js',
   'bulk-import-controller.js', 'faculty-swap-safe.js', 'bulk-import-ui.js', 'derived-index-health.js',
-  'faculty-admin-enhancements.js'
+  'faculty-admin-enhancements.js', 'faculty-access.js'
 ];
 
 // Legacy mutation controls that must not ship on the Dashboard page.
@@ -156,7 +156,7 @@ test('A. admin API core still runs with no Firestore global at all', async () =>
 });
 
 test('Q. summary and roster are still requested through one parallel Promise.all', async () => {
-  const load = slice('async function loadAdminDashboard', 'async function writeDerivedIndexes');
+  const load = slice('async function loadAdminDashboard', 'function dashboardRawRole');
   assert.match(load, /await Promise\.all\(\[UCVM_PAWS_DATA\.dashboardSummary\(\),UCVM_PAWS_DATA\.dashboardFaculty\(\)\]\)/, 'both requests must be started together');
   assert.equal(load.split('await').length - 1, 1, 'no serial await may precede the parallel load');
   const h = createHarness();
@@ -194,7 +194,7 @@ test('V / W. a 503 still has no Firestore fallback and never signs out', async (
   await flush();
   assert.equal(h.signOuts(), 0);
   assert.equal(h.ucvmInitCalls(), 0);
-  const src = slice('async function loadAdminDashboard', 'async function writeDerivedIndexes');
+  const src = slice('async function loadAdminDashboard', 'function dashboardRawRole');
   assert.doesNotMatch(src, /firestore|collection\(/i);
 });
 
@@ -249,19 +249,13 @@ test('G–L. no retired legacy module is loaded by the Dashboard page', () => {
   }
 });
 
-test('25 / 26 / 27. the API-only flag suppresses the enhancement loader without changing legacy behaviour', async () => {
-  assert.match(ADMIN_HTML, /window\.UCVM_PAWS_DASHBOARD_API_ONLY=true;/, 'the page must set the opt-out flag');
-  const flagAt = ADMIN_HTML.indexOf('window.UCVM_PAWS_DASHBOARD_API_ONLY=true');
-  const accessAt = ADMIN_HTML.indexOf('src="faculty-access.js"');
-  assert.ok(flagAt >= 0 && accessAt > flagAt, 'the flag must be set before faculty-access.js loads');
-  assert.match(ACCESS_SOURCE, /page==='faculty-admin\.html'&&window\.UCVM_PAWS_DASHBOARD_API_ONLY!==true/);
-
-  const withFlag = await runAccessLoader({ pathname: '/faculty-admin.html', apiOnly: true });
-  assert.deepEqual(withFlag.loaded, [], 'the API-only Dashboard must not load faculty-admin-enhancements.js');
+test('25 / 26 / 27. the Dashboard no longer loads faculty-access.js and other pages keep the legacy loader', async () => {
+  assert.equal(ADMIN_HTML.includes('faculty-access.js'), false, 'the Dashboard must not load faculty-access.js');
+  assert.equal(ADMIN_HTML.includes('UCVM_PAWS_DASHBOARD_API_ONLY'), false, 'the Stage 3B inline opt-out flag is gone');
+  assert.match(ACCESS_SOURCE, /page==='faculty-admin\.html'&&window\.UCVM_PAWS_DASHBOARD_API_ONLY!==true/, 'the Stage 3B guard stays in the shared file');
 
   const legacy = await runAccessLoader({ pathname: '/faculty-admin.html', apiOnly: false });
-  assert.deepEqual(legacy.loaded, ['faculty-admin-enhancements.js'], 'the default/legacy Dashboard behaviour is preserved');
-
+  assert.deepEqual(legacy.loaded, ['faculty-admin-enhancements.js'], 'a legacy/flag-less Dashboard still loads the enhancement');
   const timetable = await runAccessLoader({ pathname: '/index.html', apiOnly: true });
   assert.deepEqual(timetable.loaded, ['approval-workflow.js'], 'other pages are unchanged');
 });
@@ -272,13 +266,13 @@ test('M. the default loader still loads the timetable approval workflow in order
   assert.equal(result.keys[0], 'data-ucvmApprovalWorkflow');
 });
 
-test('28 / 29. the retained script set is the smallest API-only set', () => {
+test('28 / 29. the final local script set is session-guard + paws-data-client + faculty-admin', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const local = srcs.filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local.sort(), ['faculty-access.js', 'faculty-admin.js', 'paws-data-client.js', 'session-guard.js'].sort());
+  assert.deepEqual(local.sort(), ['faculty-admin.js', 'paws-data-client.js', 'session-guard.js'].sort());
   assert.equal(srcs.filter(s => /gstatic\.com\/firebasejs/.test(s)).length, 2, 'only the app and auth compat SDKs remain');
   const inline = [...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].map(m => m[1].trim());
-  assert.deepEqual(inline, ['window.UCVM_PAWS_DASHBOARD_API_ONLY=true;']);
+  assert.deepEqual(inline, [], 'no inline script remains');
 });
 
 // ===========================================================================
@@ -318,7 +312,7 @@ test('39–49. no unsupported mutation control ships on the Dashboard page', () 
 });
 
 test('50 / 51. no mutation handler is bound and the legacy writers are unreachable', () => {
-  const bindUI = slice('function bindUI()', 'async function setTab');
+  const bindUI = slice('function bindUI()', 'function renderActiveTab');
   for (const legacy of ['importAfcJson', 'importSummaryJson', 'importWorkloadJson', 'importJson', 'saveEditor', 'deleteRecord', 'openEditor', 'closeEditor', 'exportJson', 'exportCsv', 'subscribeFaculty', 'subscribeSessions', 'setTab']) {
     assert.doesNotMatch(bindUI, new RegExp(legacy), `bindUI must not bind ${legacy}`);
   }
@@ -351,10 +345,10 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 test('58–63. the Dashboard page runtime surface shrank and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 7, 'script elements: 2 Firebase CDN + 1 inline flag + 4 local');
+  assert.equal(srcs, 5, 'script elements: 2 Firebase CDN + 3 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 4, 'local scripts: session-guard, faculty-access, paws-data-client, faculty-admin');
-  assert.equal(RETIRED_SCRIPTS.length, 17);
+  assert.equal(local.length, 3);
+  assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });
 
@@ -368,15 +362,14 @@ test('64. performance timing hooks are preserved', () => {
 // ===========================================================================
 // 65–68: remaining dormant Firestore references (Stage 3C scope)
 // ===========================================================================
-test('65 / 67. dormant Firestore references remain but no executed path is reachable', () => {
-  assert.ok(ADMIN_SOURCE.includes('firebase.firestore'), 'dormant legacy references remain for Stage 3C');
-  assert.ok(ADMIN_SOURCE.includes('db.collection('), 'dormant legacy references remain for Stage 3C');
-  // Every remaining reference sits inside a legacy writer that the shipped page cannot reach.
-  const live = [slice('function init()', 'function bindUI'), slice('async function loadAdminDashboard', 'async function writeDerivedIndexes'), slice('function renderLookup', 'function field('), slice('async function selectFacultyDetail', 'async function loadAdminDashboard'), slice('async function loadSelfFaculty', 'async function enterSelfMode')];
-  for (const body of live) assert.doesNotMatch(body, /firebase\.firestore|db\.collection\(|db\.doc\(/, 'no live path may touch Firestore');
+test('65 / 67. the Dashboard controller contains zero Firestore implementation', () => {
+  for (const pattern of ['firebase.firestore', 'db.collection', 'db.doc(', 'FieldValue', 'enablePersistence', 'onSnapshot']) {
+    assert.equal(ADMIN_SOURCE.includes(pattern), false, `${pattern} must be absent`);
+  }
+  assert.equal(/UCVM\./.test(ADMIN_SOURCE), false, 'no UCVM dependency may remain');
 });
 
-test('66. faculty-access.js keeps its legacy exports and only gained the narrow opt-out', () => {
+test('66. faculty-access.js is unchanged by Stage 3C and keeps its legacy exports for other pages', () => {
   assert.match(ACCESS_SOURCE, /return \{config,role,admin,general,historyAll,label,esc,number,init,ready,watch,logs\}/);
   assert.match(ACCESS_SOURCE, /enablePersistence\(\{synchronizeTabs:true\}\)/);
   const runLines = ACCESS_SOURCE.split(/\r?\n/).filter(l => l.includes('const run='));

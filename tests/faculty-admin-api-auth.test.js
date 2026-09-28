@@ -69,7 +69,7 @@ test('Dashboard auth preserves API password, role, self-link, and failure gates'
   assert.match(init,/location\.replace\(['"]password\.html['"]\)/);
   assert.match(init,/isSelfServiceProfile\(p\)/);
   assert.match(init,/p\.facultyId/);
-  assert.match(init,/UCVM\.admin\(p\)/);
+  assert.match(init,/dashboardAdmin\(p\)/);
   assert.match(init,/dashboardAuthFailureMessage\(e\)/);
   assert.doesNotMatch(init,/auth\.signOut\(|location\.(?:href|replace)\(['"]index\.html['"]\)/);
 });

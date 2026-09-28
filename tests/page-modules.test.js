@@ -12,8 +12,8 @@ test('Faculty Dashboard keeps administrative tabs while supporting linked facult
  assert.doesNotMatch(html,/Faculty Admin Dashboard|Faculty Directory|Faculty Administration/);
  assert.match(source,/function isSelfServiceProfile\(p\)/);
  assert.match(source,/if\(isSelfServiceProfile\(p\)\)\{await enterSelfMode\(user,p\);return\}/);
- assert.match(source,/if\(UCVM\.admin\(p\)\)\{enterAdminMode\(user,p\);return\}/);
- assert.match(source,/\$\('user-management-link'\)\.classList\.toggle\('hidden',!UCVM\.general\(p\)\)/);
+ assert.match(source,/if\(dashboardAdmin\(p\)\)\{enterAdminMode\(user,p\);return\}/);
+ assert.match(source,/\$\('user-management-link'\)\.classList\.toggle\('hidden',!dashboardGeneral\(p\)\)/);
  const rename=enhancements.match(/ function renameDashboard\(\)\{[\s\S]*?\n \}/)?.[0];
  assert.ok(rename,'renameDashboard should remain independently executable');
  const nodes=new Map(),document={title:'Old title',documentElement:{dataset:{}},querySelector(selector){if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector)}};

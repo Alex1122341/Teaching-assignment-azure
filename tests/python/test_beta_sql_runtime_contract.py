@@ -54,9 +54,22 @@ class BetaR1SqlRuntimeContractTests(unittest.TestCase):
 
     def test_dashboard_readonly_proof_script_exists_and_fails_closed(self):
         proof = (ROOT / "database" / "azure-sql" / "004_swa_beta_permissions_readonly_proof.sql").read_text(encoding="utf-8")
-        self.assertIn("HAS_PERMS_BY_NAME", proof)
         self.assertIn("READ_ONLY_PROOF_OK", proof)
         self.assertRegex(proof, r"THROW 5110[0-9]")
+        # The effective-permission probe must be principal-scoped. HAS_PERMS_BY_NAME
+        # evaluates the CALLER, not its principal argument, so running this script
+        # as a db_owner would have made that probe meaningless (it reported the
+        # db_owner's own rights). The check must therefore be expressed against the
+        # runtime principal's own rows, honouring DENY-over-GRANT. The name may
+        # still appear in prose explaining why it is avoided.
+        executable = re.sub(r"--[^\n]*", " ", proof)
+        self.assertNotIn("HAS_PERMS_BY_NAME", executable)
+        self.assertIn("grantee_principal_id", proof)
+        self.assertIn("deny_row", proof)
+        # Positive control so the mutation check cannot be vacuously true.
+        self.assertIn("THROW 51108", proof)
+        # No hardcoded principal in the diagnostics.
+        self.assertNotIn("paws_swa_beta has", proof)
         self.assertNotRegex(proof, r"(?im)^\s*(?:INSERT|UPDATE|DELETE|MERGE|DROP|ALTER)\b")
 
     def test_dashboard_grant_wrapper_is_additive_only_and_guarded(self):

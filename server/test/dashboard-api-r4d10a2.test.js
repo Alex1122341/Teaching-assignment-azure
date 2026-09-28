@@ -751,3 +751,131 @@ test('W3: an unscoped summary still reads the same, with no zeroed counters', as
   assert.equal(summary.activeFacultyCount, 120);
   assert.equal(summary.afcRecordCount, 791);
 });
+
+// ---------------------------------------------------------------------------
+// X block — GRANT-SAFE ROW COUNTING (R4D-10A2 hotfix).
+//
+// `paws-sql-beta-mi` is granted COLUMN-scoped SELECT, never object-scoped SELECT.
+// Under column-level security SQL Server authorises `COUNT(*)` against *every*
+// column of the object, so a bare `COUNT(*)` over a table that retains
+// ungranted provenance columns (`SourceRow`, `SourceImportBatchId`, …) is
+// refused at execution time even though it returns no data:
+//
+//   The SELECT permission was denied on the column 'SourceRow' of the object
+//   'AfcRecord'. (error 230)
+//
+// Every count must therefore be taken over a column the principal may read.
+// These tests are static: they assert the SHAPE of the emitted SQL, so they hold
+// without a live database.
+// ---------------------------------------------------------------------------
+
+// Columns `paws-sql-beta-mi` may read, mirroring 004_swa_beta_permissions.
+// Phase ordering: only the read-only proof document owns the live list; these
+// tests only need the primary keys that are guaranteed to be granted.
+const COUNTABLE_KEYS = [
+  'f.FacultyId',
+  'sa.SessionAssignmentId',
+  'ra.RoleAssignmentId',
+  'ar.AfcRecordId',
+  'ja.JointAppointmentId'
+];
+
+// Objects that carry ungranted provenance columns and therefore must never be
+// counted with a bare `COUNT(*)`.
+const PROVENANCE_BEARING = [
+  'paws.Faculty',
+  'paws.FacultyProfessionalProfile',
+  'paws.JointAppointment',
+  'paws.RoleAssignment',
+  'paws.AfcRecord',
+  'paws.SessionAssignment',
+  'paws.UserProfile'
+];
+
+// Extracts the FROM target of every `COUNT(*)` sub-select.
+function bareCountTargets(text) {
+  const targets = [];
+  const re = /COUNT\(\*\)\s*\n?\s*FROM\s+([A-Za-z0-9_.]+)/gi;
+  let match;
+  while ((match = re.exec(text)) !== null) targets.push(match[1]);
+  return targets;
+}
+
+test('X1: no statement counts (*) over a table with ungranted columns', async () => {
+  const { seen, db } = captureStatements();
+  const repository = createSqlDashboardRepository(db);
+  await repository.summary({ academicYear: AY });
+  await repository.summary({ academicYear: AY, facultyId: FACULTY_ID });
+  await repository.faculty({ academicYear: AY, limit: 5 });
+  await repository.faculty({ academicYear: AY, limit: 5, facultyId: FACULTY_ID });
+  await repository.facultyById({ facultyId: FACULTY_ID, academicYear: AY });
+
+  for (const entry of seen) {
+    for (const target of bareCountTargets(entry.text)) {
+      assert.equal(
+        PROVENANCE_BEARING.includes(target),
+        false,
+        `${target} carries ungranted provenance columns; COUNT(*) would be denied (err 230)`
+      );
+    }
+  }
+});
+
+test('X2: every row count is taken over a grantable NOT NULL key', async () => {
+  const { seen, db } = captureStatements();
+  const repository = createSqlDashboardRepository(db);
+  await repository.summary({ academicYear: AY });
+  await repository.faculty({ academicYear: AY, limit: 5 });
+  await repository.facultyById({ facultyId: FACULTY_ID, academicYear: AY });
+
+  const counts = [];
+  for (const entry of seen) {
+    const re = /COUNT\(\s*([a-z]{1,3}\.[A-Za-z0-9_]+)\s*\)/g;
+    let m;
+    while ((m = re.exec(entry.text)) !== null) counts.push(m[1]);
+  }
+
+  assert.ok(counts.length >= 8, 'the KPI set must be counted over real keys');
+  for (const key of counts) {
+    assert.equal(
+      COUNTABLE_KEYS.includes(key),
+      true,
+      `COUNT(${key}) must target a granted NOT NULL key`
+    );
+  }
+});
+
+test('X3: the summary afcRecordCount no longer uses a bare COUNT(*) over AfcRecord', async () => {
+  const { seen, db } = captureStatements();
+  const repository = createSqlDashboardRepository(db);
+  await repository.summary({ academicYear: AY });
+  const statement = seen.find(entry => /AS afcRecordCount/.test(entry.text));
+  assert.ok(statement, 'the summary statement must have been issued');
+  assert.equal(
+    /COUNT\(\*\)[^)]*paws\.AfcRecord/i.test(statement.text),
+    false,
+    'COUNT(*) over paws.AfcRecord is denied for the managed identity (err 230)'
+  );
+  assert.ok(
+    /COUNT\(\s*ar\.AfcRecordId\s*\)/i.test(statement.text),
+    'afcRecordCount must count a granted key column'
+  );
+});
+
+test('X4: no statement issues a bare COUNT(1) over a provenance-bearing table', async () => {
+  const { seen, db } = captureStatements();
+  const repository = createSqlDashboardRepository(db);
+  await repository.summary({ academicYear: AY });
+  await repository.faculty({ academicYear: AY, limit: 5 });
+  await repository.facultyById({ facultyId: FACULTY_ID, academicYear: AY });
+  for (const entry of seen) {
+    const m = /COUNT\(1\)\s*\n?\s*FROM\s+([A-Za-z0-9_.]+)/i.exec(entry.text);
+    if (m) {
+      assert.equal(
+        PROVENANCE_BEARING.includes(m[1]),
+        false,
+        `COUNT(1) over ${m[1]} is authorised against every column and would be denied`
+      );
+    }
+  }
+});

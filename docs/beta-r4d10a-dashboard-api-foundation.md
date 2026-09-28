@@ -26,6 +26,23 @@ route is registered).
 Any other method on any of these paths returns **405** with `Allow: GET`. An
 unknown path returns 404, so the wrapper's ownership boundary is observable.
 
+### Why the routes are bound to every common method
+
+This is load-bearing, and it was found on the live deployment rather than in
+review. Azure Functions' route matcher resolves a request whose method was not
+bound to the function to **404**, before any handler executes. Binding the three
+Dashboard routes to `GET` only therefore produced `POST /api/v1/dashboard/summary
+→ 404` over the wire, which contradicts the reviewed contract.
+
+The fix binds the Dashboard routes to `GET, POST, PUT, PATCH, DELETE, HEAD,
+OPTIONS` and lets `swa-dashboard-functions.js` produce the 405 itself. The 405
+verdict is now the runtime's, not the host's, and it carries the `Allow: GET`
+header the host would never have set. The three timetable routes stay `GET`-bound
+because their reviewed contract is unchanged and a 404 there is not a regression.
+
+Test `N2` pins this binding so a future "tidy up to GET" edit cannot silently
+reintroduce the 404.
+
 Optional query string: `academicYear` (validated `YYYY-YYYY`, default
 `2026-2027`), plus `search` and `limit` on the roster route (limit clamped
 1–500).
@@ -136,7 +153,7 @@ ship in the release artifact and that no non-GET method is registered.
 
 | Suite | Result |
 |---|---|
-| `server` (`node --test test/*.test.js`) | **39 pass / 0 fail** |
+| `server` (`node --test test/*.test.js`) | **40 pass / 0 fail** |
 | root (`node --test tests/*.test.js`) | **357 pass / 1 fail / 29 skipped** |
 | Python (`unittest`, 12 modules) | **64 pass / 0 fail** |
 
@@ -147,6 +164,32 @@ base commit too.
 
 The frozen-baseline check (`tools/verify-beta-candidate.js`) still reports zero
 protected drift: no protected frontend asset was touched.
+
+## 6A. Live deployment
+
+| Item | Value |
+|---|---|
+| Merged `main` | `983e6ab577054162e1cbd0bc7de8c9c1d4443c24` (true merge commit, PR #22) |
+| Main build run | `36369400775` SUCCESS |
+| ACR image | `pawssqlbetaacr.azurecr.io/paws-sql-beta-api:983e6ab577054162e1cbd0bc7de8c9c1d4443c24` |
+| Image digest | `sha256:e5488e2b1bd337ce5796fb91be2879db898ef70ae9473c3c0bc29243d32934bf` |
+| ACR publish run | `36369556506` SUCCESS |
+| ACA revision | new revision, `Healthy` / `Provisioned`, 100% traffic |
+| SWA | **not deployed** (this step is backend-only) |
+
+Live probes:
+
+| Probe | Result |
+|---|---|
+| `GET /api/health/sql` | **200** `{"status":"ok","service":"paws-beta-sql-runtime"}` |
+| `GET /api/v1/sessions` (no token) | **401** `UNAUTHENTICATED` |
+| `GET /api/v1/dashboard/summary` (no token) | **401** `UNAUTHENTICATED` |
+| `GET /api/v1/dashboard/faculty` (no token) | **401** `UNAUTHENTICATED` |
+
+Cold-start note: the first `health/sql` call on the new revision returned 503
+after a 15-second SQL pool handshake; the immediately following call returned 200
+in 48 ms. This is the known Azure SQL cold-connection behaviour on a scaled-to-
+zero ACA revision, not a regression — the second call is the steady state.
 
 ## 7. What this change does NOT do
 

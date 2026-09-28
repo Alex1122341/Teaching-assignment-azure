@@ -129,8 +129,14 @@ function createSqlDashboardRepository(db) {
       const scoped = facultyId ? ' AND sa.FacultyId = @facultyId' : '';
       const roleScoped = facultyId ? ' AND ra.FacultyId = @facultyId' : '';
       const afcScoped = facultyId ? ' AND ar.FacultyId = @facultyId' : '';
-      const params = { academicYear: resolvedYear };
-      if (facultyId) params.facultyId = facultyId;
+      // `@facultyId` is ALWAYS referenced by the CTE's
+      // `(@facultyId IS NULL OR EXISTS (...))` guard, so it must ALWAYS be
+      // supplied. The connection layer deliberately drops null/undefined
+      // parameters (`sql-connection.js`), which would leave the statement
+      // referencing an undeclared variable and fail with
+      // "Must declare the scalar variable @facultyId" -> 503 SQL_UNAVAILABLE.
+      // Bind an explicit SQL NULL instead of omitting the parameter.
+      const params = { academicYear: resolvedYear, facultyId: facultyId || null };
 
       // HICC / VISC are matched on `RoleType`, the column that actually carries
       // the vocabulary. See the constant block above for the live evidence.

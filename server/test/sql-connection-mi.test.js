@@ -133,3 +133,62 @@ test('missing SQL endpoint configuration fails closed', () => {
     /PAWS_SQL_CONNECTION_STRING is required/
   );
 });
+
+// ---------------------------------------------------------------------------
+// BETA-R4D-10A2 regression: parameter binding must never leave a variable that
+// the statement references undeclared. The live Dashboard summary returned
+// 503 SQL_UNAVAILABLE ("Must declare the scalar variable @facultyId") because
+// an explicit `null` was dropped instead of being bound as SQL NULL.
+// ---------------------------------------------------------------------------
+
+function recordingConnection() {
+  const bound = [];
+  const sql = {
+    ConnectionPool: class {
+      constructor() {}
+      async connect() { return this; }
+      request() {
+        return {
+          input(name, value) { bound.push({ name, value }); },
+          async query() { return { recordset: [] }; }
+        };
+      }
+    }
+  };
+  return { bound, sql };
+}
+
+test('an explicitly supplied null is bound as a real SQL NULL', async () => {
+  const { bound, sql } = recordingConnection();
+  await createSqlConnection({
+    connectionString: endpoint,
+    miClientId: '00000000-0000-4000-8000-000000000001',
+    sql
+  }).query('SELECT 1 WHERE (@facultyId IS NULL OR 1 = 1)', { facultyId: null });
+  assert.deepEqual(bound, [{ name: 'facultyId', value: null }]);
+});
+
+test('an undefined parameter is skipped rather than bound', async () => {
+  const { bound, sql } = recordingConnection();
+  await createSqlConnection({
+    connectionString: endpoint,
+    miClientId: '00000000-0000-4000-8000-000000000001',
+    sql
+  }).query('SELECT 1', { facultyId: undefined });
+  assert.deepEqual(bound, []);
+});
+
+test('every parameter the statement references is actually bound', async () => {
+  const { bound, sql } = recordingConnection();
+  const text = 'SELECT 1 WHERE a = @academicYear AND (@facultyId IS NULL OR b = @facultyId) AND c IN (@hiccRoleType0)';
+  await createSqlConnection({
+    connectionString: endpoint,
+    miClientId: '00000000-0000-4000-8000-000000000001',
+    sql
+  }).query(text, { academicYear: '2026-27', facultyId: null, hiccRoleType0: 'VISC' });
+  const declared = [...new Set([...text.matchAll(/@([A-Za-z_][A-Za-z0-9_]*)/g)].map(m => m[1]))];
+  const names = bound.map(b => b.name);
+  for (const name of declared) {
+    assert.equal(names.includes(name), true, `parameter @${name} is referenced but was not bound`);
+  }
+});

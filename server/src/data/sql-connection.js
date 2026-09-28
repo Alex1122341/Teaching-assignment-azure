@@ -82,7 +82,12 @@ function createSqlConnection({ connectionString, miClientId, sql }) {
       pool = pool || await new sql.ConnectionPool(config).connect();
       const request = pool.request();
       for (const [name, value] of Object.entries(params)) {
-        if (value !== undefined && value !== null) request.input(name, value);
+        // An explicitly supplied `null` is a real SQL NULL and must be bound:
+        // a statement may reference the parameter in an
+        // `@p IS NULL OR ...` guard. Only `undefined` (meaning "not supplied")
+        // is skipped, so a caller can never leave a referenced variable
+        // undeclared.
+        if (value !== undefined) request.input(name, value === null ? null : value);
       }
       const result = await request.query(text);
       return result.recordset || [];

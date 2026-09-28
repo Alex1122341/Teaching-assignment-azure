@@ -54,12 +54,40 @@ function Save-Log {
     [System.IO.File]::WriteAllLines($LogPath, $script:Log)
 }
 
-# The exact reviewed R4D-10A column-scoped Faculty grant. Kept as one string so
-# the -WhatIf preview, the -EmitSql output and the live apply cannot drift.
+# The exact reviewed R4D-10A + R4D-10A2 column-scoped grants. Kept as one string
+# so the -WhatIf preview, the -EmitSql output and the live apply cannot drift.
 $GrantStatement = @"
 GRANT SELECT ON OBJECT::paws.Faculty
     (FacultyId, RecordType, PreferredFirstName, PreferredLastName, DisplayName,
      Ucid, Email, Stream, Rank, Fte, ReportsToFacultyId, Active)
+    TO [$Principal];
+
+GRANT SELECT ON OBJECT::paws.SessionAssignment
+    (SessionAssignmentId, SessionId, FacultyId, TeachingRole, LabLead,
+     CreditedHours, DoeRate, DoeQuantity, DoeUnit, DoeCredit, DoeStatus)
+    TO [$Principal];
+
+GRANT SELECT ON OBJECT::paws.FacultyProfessionalProfile
+    (FacultyId, TeachingArea, ProfessionalCategory, ServiceDate,
+     PriorYearsExperience, DvmEarnedDate, DvmType, MastersEarnedDate, MastersArea,
+     PhdEarnedDate, PhdArea, BoardCertifiedDate, BoardCertification,
+     BoardCertificationCount, AbvmaLicenseNumber, AbvmaMemberType)
+    TO [$Principal];
+
+GRANT SELECT ON OBJECT::paws.JointAppointment
+    (JointAppointmentId, FacultyId, HomeFaculty, JointFaculty, FteUcvm,
+     FteOtherFaculty, ExpiryDate, Notes)
+    TO [$Principal];
+
+GRANT SELECT ON OBJECT::paws.RoleAssignment
+    (RoleAssignmentId, FacultyId, FacultyResolutionStatus, AcademicYear,
+     RoleCategory, RoleType, CourseOrSubjectOrRotation, CourseName, Details,
+     EffectiveDate, ExpirationDate, DoeMappedValue, DoeOverrideValue,
+     DoeOverrideReason, SpecialNotes)
+    TO [$Principal];
+
+GRANT SELECT ON OBJECT::paws.AfcRecord
+    (AfcRecordId, FacultyId, StartDate, EndDate, Purpose, Active)
     TO [$Principal];
 "@
 
@@ -67,14 +95,16 @@ GRANT SELECT ON OBJECT::paws.Faculty
 #   * CONNECT                              (database)
 #   * SELECT paws.vCalendarSession         (whole object - the reviewed view)
 #   * SELECT paws.UserProfile              (6 named columns)
-#   * SELECT paws.SessionAssignment        (2 named columns)
+#   * SELECT paws.SessionAssignment        (11 named columns - R4D-10A2)
 #   * SELECT paws.Faculty                  (12 named columns - R4D-10A)
+#   * SELECT paws.FacultyProfessionalProfile (16 named columns - R4D-10A2)
+#   * SELECT paws.JointAppointment         (8 named columns - R4D-10A2)
+#   * SELECT paws.RoleAssignment           (15 named columns - R4D-10A2)
+#   * SELECT paws.AfcRecord                (6 named columns - R4D-10A2)
 # plus the five DENY rows. `AllowedRows` is the full expected post-apply set and
 # is what the -SkipConnection rehearsal compares the snapshot against.
 $AllowedGrants = @(
     'GRANT CONNECT DATABASE',
-    'GRANT SELECT OBJECT paws.SessionAssignment(FacultyId)',
-    'GRANT SELECT OBJECT paws.SessionAssignment(SessionId)',
     'GRANT SELECT OBJECT paws.UserProfile(Active)',
     'GRANT SELECT OBJECT paws.UserProfile(BaseRole)',
     'GRANT SELECT OBJECT paws.UserProfile(DisplayName)',
@@ -94,6 +124,7 @@ $AllowedDenies = @(
     'DENY SELECT SCHEMA staging',
     'DENY UPDATE SCHEMA staging'
 )
+# Every column-scoped SELECT row the reviewed R4D-10A/10A2 contract grants.
 $FacultyGrantRows = @(
     'GRANT SELECT OBJECT paws.Faculty(Active)',
     'GRANT SELECT OBJECT paws.Faculty(DisplayName)',
@@ -106,7 +137,68 @@ $FacultyGrantRows = @(
     'GRANT SELECT OBJECT paws.Faculty(RecordType)',
     'GRANT SELECT OBJECT paws.Faculty(ReportsToFacultyId)',
     'GRANT SELECT OBJECT paws.Faculty(Stream)',
-    'GRANT SELECT OBJECT paws.Faculty(Ucid)'
+    'GRANT SELECT OBJECT paws.Faculty(Ucid)',
+    # R4D-10A2 - full SessionAssignment / DOE read surface
+    'GRANT SELECT OBJECT paws.SessionAssignment(SessionAssignmentId)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(SessionId)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(FacultyId)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(TeachingRole)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(LabLead)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(CreditedHours)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(DoeRate)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(DoeQuantity)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(DoeUnit)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(DoeCredit)',
+    'GRANT SELECT OBJECT paws.SessionAssignment(DoeStatus)',
+    # R4D-10A2 - FacultyProfessionalProfile
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(FacultyId)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(TeachingArea)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(ProfessionalCategory)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(ServiceDate)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(PriorYearsExperience)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(DvmEarnedDate)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(DvmType)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(MastersEarnedDate)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(MastersArea)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(PhdEarnedDate)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(PhdArea)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(BoardCertifiedDate)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(BoardCertification)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(BoardCertificationCount)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(AbvmaLicenseNumber)',
+    'GRANT SELECT OBJECT paws.FacultyProfessionalProfile(AbvmaMemberType)',
+    # R4D-10A2 - JointAppointment
+    'GRANT SELECT OBJECT paws.JointAppointment(JointAppointmentId)',
+    'GRANT SELECT OBJECT paws.JointAppointment(FacultyId)',
+    'GRANT SELECT OBJECT paws.JointAppointment(HomeFaculty)',
+    'GRANT SELECT OBJECT paws.JointAppointment(JointFaculty)',
+    'GRANT SELECT OBJECT paws.JointAppointment(FteUcvm)',
+    'GRANT SELECT OBJECT paws.JointAppointment(FteOtherFaculty)',
+    'GRANT SELECT OBJECT paws.JointAppointment(ExpiryDate)',
+    'GRANT SELECT OBJECT paws.JointAppointment(Notes)',
+    # R4D-10A2 - RoleAssignment
+    'GRANT SELECT OBJECT paws.RoleAssignment(RoleAssignmentId)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(FacultyId)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(FacultyResolutionStatus)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(AcademicYear)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(RoleCategory)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(RoleType)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(CourseOrSubjectOrRotation)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(CourseName)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(Details)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(EffectiveDate)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(ExpirationDate)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(DoeMappedValue)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(DoeOverrideValue)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(DoeOverrideReason)',
+    'GRANT SELECT OBJECT paws.RoleAssignment(SpecialNotes)',
+    # R4D-10A2 - AfcRecord
+    'GRANT SELECT OBJECT paws.AfcRecord(AfcRecordId)',
+    'GRANT SELECT OBJECT paws.AfcRecord(FacultyId)',
+    'GRANT SELECT OBJECT paws.AfcRecord(StartDate)',
+    'GRANT SELECT OBJECT paws.AfcRecord(EndDate)',
+    'GRANT SELECT OBJECT paws.AfcRecord(Purpose)',
+    'GRANT SELECT OBJECT paws.AfcRecord(Active)'
 )
 
 if ($EmitSql) {
@@ -240,7 +332,7 @@ try {
     Write-Log "contract_guard=OK unexpected_count=0"
 
     $alreadyGranted = @($before | Where-Object { $FacultyGrantRows -contains $_ })
-    Write-Log "faculty_grant_present=$($alreadyGranted.Count)/12"
+    Write-Log "dashboard_grants_present=$($alreadyGranted.Count)/$($FacultyGrantRows.Count)"
 
     if ($WhatIf) {
         Write-Log 'WHATIF: no change applied.'

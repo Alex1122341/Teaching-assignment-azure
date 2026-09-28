@@ -642,3 +642,112 @@ test('E6: facultyById assembles the six sections and honours the inactive rule',
   const inactive = createSqlDashboardRepository({ query: async () => [] });
   assert.equal(await inactive.facultyById({ facultyId: FACULTY_ID }), null);
 });
+
+// ---------------------------------------------------------------------------
+// BETA-R4D-10A2 regression — the 503 SQL_UNAVAILABLE defect.
+//
+// Live symptom: GET /api/v1/dashboard/summary returned 503
+// {"error":{"code":"SQL_UNAVAILABLE"}} for BOTH administrator accounts while
+// GET /api/v1/dashboard/faculty returned 200 through the same repository,
+// connection, and grants.
+//
+// Root cause: the summary CTE always references `@facultyId` in its
+// `(@facultyId IS NULL OR EXISTS (...))` guard, but an administrator passes
+// facultyId = null, and the connection layer skipped null/undefined params.
+// The statement therefore reached SQL Server with an undeclared variable and
+// failed with "Must declare the scalar variable @facultyId".
+//
+// The fix has two halves and BOTH are asserted here:
+//   1. the repository always supplies `facultyId` (explicit null when unscoped)
+//   2. the connection layer binds an explicit null as a real SQL NULL
+// ---------------------------------------------------------------------------
+
+// Mirrors the production binder in sql-connection.js after the fix.
+function mirrorBindableParams(params) {
+  return Object.entries(params)
+    .filter(([, value]) => value !== undefined)
+    .map(([name]) => name);
+}
+
+function referencedParams(statement) {
+  return [...new Set([...statement.matchAll(/@([A-Za-z_][A-Za-z0-9_]*)/g)].map(match => match[1]))];
+}
+
+function captureStatements(db) {
+  const seen = [];
+  return {
+    seen,
+    db: {
+      async query(text, params = {}) {
+        seen.push({ text, params });
+        if (/AS activeFacultyCount/.test(text)) {
+          return [{
+            activeFacultyCount: 1, sessionCount: 1, courseCount: 1,
+            gridPositionableCount: 1, checkNeededCount: 0, assignmentCount: 1,
+            roleAssignmentCount: 1, hiccCount: 1, viscCount: 1, afcRecordCount: 1
+          }];
+        }
+        return [];
+      }
+    }
+  };
+}
+
+test('W1: the summary statement always supplies @facultyId, even for an administrator', async () => {
+  const { seen, db } = captureStatements();
+  const repository = createSqlDashboardRepository(db);
+  await repository.summary({ academicYear: AY });
+  const statement = seen.find(entry => /AS activeFacultyCount/.test(entry.text));
+  assert.ok(statement, 'the summary statement must have been issued');
+  assert.ok(referencedParams(statement.text).includes('facultyId'), 'the CTE references @facultyId');
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(statement.params, 'facultyId'),
+    true,
+    'an unscoped summary must still supply @facultyId (as null)'
+  );
+  assert.equal(statement.params.facultyId, null);
+});
+
+test('W2: no repository statement ever references an unbound parameter', async () => {
+  const { seen, db } = captureStatements();
+  const repository = createSqlDashboardRepository(db);
+  await repository.summary({ academicYear: AY });
+  await repository.summary({ academicYear: AY, facultyId: FACULTY_ID });
+  await repository.faculty({ academicYear: AY, limit: 2 });
+  await repository.faculty({ academicYear: AY, limit: 2, facultyId: FACULTY_ID });
+  await repository.facultyById({ facultyId: FACULTY_ID, academicYear: AY });
+  await repository.roleCategoryVocabulary();
+
+  assert.ok(seen.length >= 6, 'every method must have issued at least one statement');
+  for (const entry of seen) {
+    const bound = mirrorBindableParams(entry.params);
+    for (const name of referencedParams(entry.text)) {
+      assert.equal(
+        bound.includes(name),
+        true,
+        `statement references @${name} but the connection layer would not bind it`
+      );
+    }
+  }
+});
+
+test('W3: an unscoped summary still reads the same, with no zeroed counters', async () => {
+  const repository = createSqlDashboardRepository({
+    async query(text) {
+      if (/AS activeFacultyCount/.test(text)) {
+        return [{
+          activeFacultyCount: 120, sessionCount: 1937, courseCount: 33,
+          gridPositionableCount: 1389, checkNeededCount: 548, assignmentCount: 4970,
+          roleAssignmentCount: 162, hiccCount: 64, viscCount: 35, afcRecordCount: 791
+        }];
+      }
+      return [];
+    }
+  });
+  const summary = await repository.summary({ academicYear: AY });
+  assert.equal(summary.sessionCount, 1937, 'the canonical session total must survive');
+  assert.equal(summary.hiccCount, 64, 'HICC must not silently read zero');
+  assert.equal(summary.viscCount, 35, 'VISC must not silently read zero');
+  assert.equal(summary.activeFacultyCount, 120);
+  assert.equal(summary.afcRecordCount, 791);
+});

@@ -139,11 +139,16 @@ test('G: faculty scope is a SQL predicate, never a presentation-side filter', as
   assert.match(seen.query, /sa\.FacultyId = @facultyId/);
   assert.equal(seen.params.facultyId, FACULTY_ID);
 
-  // An administrator scope passes no FacultyId, so the predicate is absent.
+  // An administrator scope passes no *filter*, but `@facultyId` is still
+  // referenced by the CTE's `(@facultyId IS NULL OR EXISTS (...))` guard, so it
+  // must be supplied explicitly as null. Omitting it (the previous behaviour)
+  // left the statement referencing an undeclared variable and produced a live
+  // 503 SQL_UNAVAILABLE. See the W1/W2 regression block in
+  // dashboard-api-r4d10a2.test.js.
   seen = undefined;
   await repository.summary({ academicYear: '2026-27' });
   assert.doesNotMatch(seen.query, /sa\.FacultyId = @facultyId/);
-  assert.equal(seen.params.facultyId, undefined);
+  assert.equal(seen.params.facultyId, null);
 });
 
 // G2 ------------------------------------------------------------------------

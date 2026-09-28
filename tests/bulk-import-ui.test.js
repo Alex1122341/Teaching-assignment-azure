@@ -41,11 +41,11 @@ test('raw file payload preserves exact bytes used for fingerprinting',async()=>{
  assert.deepEqual([...payload.bytes],[...raw]);
 });
 
-test('Faculty Dashboard loads bulk import runtime after legacy admin bindings so it can replace the old destructive handler',()=>{
+test('the API-only Faculty Dashboard does not load the bulk import UI',()=>{
  const html=fs.readFileSync(path.join(root,'faculty-admin.html'),'utf8');
- assert.ok(html.indexOf('bulk-import-core.js')>0);
- assert.ok(html.indexOf('bulk-import-controller.js')>html.indexOf('bulk-import-core.js'));
- assert.ok(html.indexOf('bulk-import-ui.js')>html.indexOf('faculty-admin.js'));
+ assert.equal(html.includes('bulk-import-core.js'),false);
+ assert.equal(html.includes('bulk-import-controller.js'),false);
+ assert.equal(html.includes('bulk-import-ui.js'),false);
 });
 
 test('bulk import runtime injects the full derived-index verifier and atomic writer',()=>{

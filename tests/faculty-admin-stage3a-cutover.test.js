@@ -118,6 +118,7 @@ function createHarness(overrides = {}) {
   const calls = [];
   const events = [];
   const logs = [];
+  const errors = [];
   const redirects = [];
   const rowStubs = new Map();
   let authCallback = null;
@@ -181,6 +182,15 @@ function createHarness(overrides = {}) {
     async signOut() { signOuts += 1; }
   };
 
+  // BETA-R4D-10B Stage 3B: the Dashboard is auth-only. Any touch of
+  // firebase.firestore or UCVM.init() is a contract violation and fails loudly.
+  let firestoreTouches = 0, ucvmInitCalls = 0;
+  const firebaseAuth = Object.assign(function () { return auth; }, { Auth: { Persistence: { LOCAL: 'local' } } });
+  const firebaseStub = { apps: [], initializeApp() {}, auth: firebaseAuth };
+  Object.defineProperty(firebaseStub, 'firestore', {
+    get() { firestoreTouches += 1; throw new Error('firebase.firestore must not be touched by the Dashboard'); }
+  });
+
   const document = {
     title: '',
     documentElement: { dataset: {} },
@@ -212,9 +222,9 @@ function createHarness(overrides = {}) {
     window,
     document,
     location: { href: '', pathname: '/faculty-admin.html', replace(target) { redirects.push(target); } },
-    firebase: { auth: { Auth: { Persistence: { LOCAL: 'local' } } }, firestore: { FieldValue: { serverTimestamp: () => 'ts', delete: () => 'del' } } },
+    firebase: firebaseStub,
     UCVM: {
-      init: () => ({ auth, db: firestore }),
+      init() { ucvmInitCalls += 1; throw new Error('UCVM.init must not be called by the Dashboard'); },
       number: value => (value === null || value === undefined || value === '' ? null : Number(value)),
       role: value => String(value || ''),
       admin: profile => ADMIN_ROLES.includes(profile && profile.role),
@@ -222,9 +232,10 @@ function createHarness(overrides = {}) {
       label: value => String(value || ''),
       logs: () => {}
     },
+    UCVMSessionGuard: { start() {} },
     UCVM_PAWS_DATA: pawsData,
     Event: class { constructor(type) { this.type = type; } },
-    console: { error() {}, warn() {}, info() {}, log(...args) { logs.push(args.join(' ')); } },
+    console: { error(...a) { errors.push(a.map(v => (v && v.stack) || String(v)).join(' ')); }, warn() {}, info() {}, log(...args) { logs.push(args.join(' ')); } },
     performance: { now: () => Date.now() },
     setTimeout, clearTimeout, setInterval, clearInterval,
     Map, Set, Date, JSON, String, Number, Boolean, Array, Object, Math, Promise, RegExp, Error, TypeError, isNaN, parseInt, parseFloat
@@ -232,11 +243,14 @@ function createHarness(overrides = {}) {
   context.globalThis = context;
 
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
-  assert.equal(typeof authCallback, 'function', 'faculty-admin.js must register an auth callback');
+  assert.equal(typeof authCallback, 'function', 'faculty-admin.js must register an auth callback :: ' + errors.join(' | '));
 
   return {
     reads, calls, events, logs, redirects, byId,
     signOuts: () => signOuts,
+    firestoreTouches: () => firestoreTouches,
+    errors,
+    ucvmInitCalls: () => ucvmInitCalls,
     signIn: async (user) => { await authCallback(user || { uid: 'u-1', email: 'admin@example.test' }); },
     rowIds: () => (byId('result-list').innerHTML.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')),
     // Simulates the user clicking a rendered roster row.
@@ -266,6 +280,8 @@ test('admin startup issues exactly one summary and one roster request and no Fir
   assert.equal(h.calls.filter(c => c === 'dashboardFaculty').length, 1, 'one dashboardFaculty()');
   assert.deepEqual(h.calls.filter(c => c.startsWith('dashboardFacultyById')), [], 'no detail fanout');
   assert.deepEqual(h.reads, [], 'the core flow must not touch Firestore at all');
+  assert.equal(h.firestoreTouches(), 0, 'firebase.firestore must never be touched');
+  assert.equal(h.ucvmInitCalls(), 0, 'UCVM.init must never be called by the Dashboard');
 });
 
 test('admin startup begins summary and roster in parallel rather than serially', async () => {

@@ -30,11 +30,14 @@ test('status rows always name all four derived documents',()=>{
  ]);
 });
 
-test('Faculty Database owns the health card and rebuild participates in maintenance blocking',()=>{
+test('the retired Faculty Database view and derived-index health card are gone from the API-only Dashboard',()=>{
  const html=read('faculty-admin.html');
- assert.match(html,/id="database-view"[\s\S]*id="derived-index-health-card"/);
- assert.match(html,/id="derived-index-rebuild"[^>]*data-derived-index-rebuild/);
- assert.ok(html.indexOf('derived-index-health.js')>html.indexOf('index-maintenance.js'));
+ assert.equal(html.includes('derived-index-health-card'),false);
+ assert.equal(html.includes('data-derived-index-rebuild'),false);
+ assert.equal(html.includes('derived-index-health.js'),false);
+ assert.equal(html.includes('index-maintenance.js'),false);
+ const manifest=JSON.parse(read('tools/static-assets.json'));
+ for(const name of ['derived-index-health.js','index-maintenance.js'])assert.ok(manifest.includes(name),name);
 });
 
 test('runtime separates read-only verify from full rebuild',()=>{

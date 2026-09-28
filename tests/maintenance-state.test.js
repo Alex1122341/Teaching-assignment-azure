@@ -48,8 +48,8 @@ test('UI blocker covers timetable, approval, faculty, import, and derived-index 
  assert.equal(api.BLOCKED_CLICK_SELECTORS.includes('#derived-index-verify'),false);
 });
 
-test('both timetable and faculty dashboard load maintenance-state before their mutation controllers',()=>{
+test('the timetable loads maintenance-state before its mutation controllers and the API-only Dashboard does not',()=>{
  const index=fs.readFileSync(path.join(root,'index.html'),'utf8'),admin=fs.readFileSync(path.join(root,'faculty-admin.html'),'utf8');
  assert.ok(index.indexOf('maintenance-state.js')>0&&index.indexOf('maintenance-state.js')<index.indexOf('timetable.js'));
- assert.ok(admin.indexOf('maintenance-state.js')>0&&admin.indexOf('maintenance-state.js')<admin.indexOf('faculty-admin.js'));
+ assert.equal(admin.includes('maintenance-state.js'),false,'the API-only Dashboard must not load maintenance-state');
 });

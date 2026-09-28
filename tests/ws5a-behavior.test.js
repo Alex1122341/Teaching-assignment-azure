@@ -26,8 +26,11 @@ test('candidate assessment never reports Available for unknown or reversed timin
  const check=index.assessSwapCandidate(candidate,[{id:'bad-peer',date:'2026-10-01',start:'10:00',end:'09:00',assignments:[{name:'Sample Faculty',ucid:'private-id'}]}],{id:'target',date:'2026-10-01',start:'08:00',end:'11:00'});assert.equal(check.available,null);assert.doesNotMatch(JSON.stringify(check),/private-id/);
 });
 test('runtime entry points load the core before data-index and approval policy before consumers',()=>{
- for(const file of ['index.html','faculty-admin.html','user-management.html']){const html=fs.readFileSync(path.join(root,file),'utf8');assert.ok(html.indexOf('scheduling-core.js')>=0,file);assert.ok(html.indexOf('scheduling-core.js')<html.indexOf('data-index.js'),file);}
- for(const file of ['index.html','faculty-admin.html']){const html=fs.readFileSync(path.join(root,file),'utf8');assert.ok(html.indexOf('approval-scheduling.js')>=0,file);assert.ok(html.indexOf('approval-scheduling.js')<html.indexOf('faculty-access.js'),file);}
+ for(const file of ['index.html','user-management.html']){const html=fs.readFileSync(path.join(root,file),'utf8');assert.ok(html.indexOf('scheduling-core.js')>=0,file);assert.ok(html.indexOf('scheduling-core.js')<html.indexOf('data-index.js'),file);}
+ for(const file of ['index.html']){const html=fs.readFileSync(path.join(root,file),'utf8');assert.ok(html.indexOf('approval-scheduling.js')>=0,file);assert.ok(html.indexOf('approval-scheduling.js')<html.indexOf('faculty-access.js'),file);}
+ const dashboard=fs.readFileSync(path.join(root,'faculty-admin.html'),'utf8');
+ assert.equal(dashboard.includes('scheduling-core.js'),false,'the API-only Dashboard must not load scheduling-core.js');
+ assert.equal(dashboard.includes('approval-scheduling.js'),false,'the API-only Dashboard must not load approval-scheduling.js');
 });
 function reviewHarness(accept=true){
  const prompts=[],faculty={__id:'f1',preferredFullName:'Test Faculty'};

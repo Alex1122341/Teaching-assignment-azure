@@ -34,11 +34,11 @@ function dashboardHarness(currentUser){
   };
   const db={collection(name){reads.push(name);return{doc(){return this},where(){return this},onSnapshot(){return()=>{}},async get(){return{exists:false,docs:[]}}}}};
   const context={
-    window:{dispatchEvent(){},UCVM_ADMIN_DATA:null},
+    window:{dispatchEvent(){},UCVM_ADMIN_DATA:null,UCVMSessionGuard:{start(){}}},
     document:{getElementById:byId,querySelector:()=>element(),querySelectorAll:()=>[],createElement:()=>element(),body:element(),head:{appendChild(){}}},
     location:{href:'',replace(value){redirects.push(value)}},
-    firebase:{auth:{Auth:{Persistence:{LOCAL:'local'}}},firestore:{FieldValue:{}}},
-    UCVM:{init:()=>({auth,db}),number:value=>Number(value),role:value=>String(value||''),admin:profile=>['owner','administrator','adfa_general','adfa_regular','admin'].includes(profile?.role),general:()=>true,label:value=>String(value||'')},
+    firebase:{apps:[],initializeApp(){},auth:Object.assign(function(){return auth;},{Auth:{Persistence:{LOCAL:'local'}}})},
+    UCVM:{init(){throw new Error('UCVM.init must not be called by the Dashboard')},number:value=>Number(value),role:value=>String(value||''),admin:profile=>['owner','administrator','adfa_general','adfa_regular','admin'].includes(profile?.role),general:()=>true,label:value=>String(value||'')},
     UCVM_PAWS_DATA:{currentUser},
     Event:class{constructor(type){this.type=type}},
     console:{error(){}},setTimeout,clearTimeout,Map,Set,Date,JSON,String,Number,Array,Object,Math,Blob:class{},URL:{createObjectURL(){return''},revokeObjectURL(){}},confirm:()=>false

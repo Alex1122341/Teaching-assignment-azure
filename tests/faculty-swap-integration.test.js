@@ -83,7 +83,7 @@ test('shared static build includes safe swap and loads it for timetable and admi
  const legacy=loader.indexOf("loadScriptOnce('approval-workflow.js'");
  assert.ok(safe>=0&&handoff>safe&&legacy>handoff,'safe swap compatibility asset must load after safe picker and before approval-workflow.js');
  assert.match(loader,/ensureApprovalWorkflow/);
- assert.match(admin,/src="faculty-swap-safe\.js"/);
+ assert.equal(admin.includes('src="faculty-swap-safe.js"'),false,'the API-only Dashboard must not load the swap runtime');
  assert.match(safeSrc,/faculty-admin\.html/);
  assert.match(safeSrc,/maybeInitializeSwapDirectory/);
 });

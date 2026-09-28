@@ -27,7 +27,7 @@ const path = require('node:path');
 
 const { createDashboardApi, resolveScope, ADMIN_ROLES, SELF_SERVICE_ROLES } = require('../src/data/dashboard-api');
 const { createDashboardFunctions } = require('../src/runtime/swa-dashboard-functions');
-const { createSqlDashboardRepository, isUuid } = require('../src/data/sql-dashboard-repository');
+const { createSqlDashboardRepository, isUuid, DEFAULT_ACADEMIC_YEAR } = require('../src/data/sql-dashboard-repository');
 
 const root = path.resolve(__dirname, '..', '..');
 const FACULTY_ID = '11111111-1111-1111-1111-111111111111';
@@ -42,7 +42,7 @@ const request = (url, { method = 'GET', token = 'ok' } = {}) => ({
 function harness(profile, overrides = {}) {
   const calls = [];
   const repository = {
-    summary: async args => { calls.push(['summary', args]); return { academicYear: '2026-2027', sessionCount: 1937 }; },
+    summary: async args => { calls.push(['summary', args]); return { academicYear: '2026-27', sessionCount: 1937 }; },
     faculty: async args => { calls.push(['faculty', args]); return [{ facultyId: FACULTY_ID, displayName: 'A' }]; },
     facultyById: async args => { calls.push(['facultyById', args]); return args.facultyId === FACULTY_ID ? { facultyId: FACULTY_ID, displayName: 'A' } : null; },
     ...overrides.repository
@@ -125,15 +125,46 @@ test('G: faculty scope is a SQL predicate, never a presentation-side filter', as
   const repository = createSqlDashboardRepository({
     query: async (query, params) => { seen = { query, params }; return [{}]; }
   });
-  await repository.summary({ academicYear: '2026-2027', facultyId: FACULTY_ID });
+  await repository.summary({ academicYear: '2026-27', facultyId: FACULTY_ID });
   assert.match(seen.query, /sa\.FacultyId = @facultyId/);
   assert.equal(seen.params.facultyId, FACULTY_ID);
 
   // An administrator scope passes no FacultyId, so the predicate is absent.
   seen = undefined;
-  await repository.summary({ academicYear: '2026-2027' });
+  await repository.summary({ academicYear: '2026-27' });
   assert.doesNotMatch(seen.query, /sa\.FacultyId = @facultyId/);
   assert.equal(seen.params.facultyId, undefined);
+});
+
+// G2 ------------------------------------------------------------------------
+// Regression: the stored academic year is `YYYY-YY` (`2026-27`), NOT
+// `YYYY-YYYY`. A `2026-2027` default matched nothing in `paws.vCalendarSession`,
+// so every academic-year-scoped aggregate returned 0 while still answering 200 —
+// a silent wrong answer, not an error. Verified live against `/api/v1/sessions`,
+// which echoes `2026-27` for all 1937 rows.
+test('G2: the stored academic year is YYYY-YY, not YYYY-YYYY', () => {
+  assert.equal(DEFAULT_ACADEMIC_YEAR, '2026-27');
+  assert.match(DEFAULT_ACADEMIC_YEAR, /^\d{4}-\d{2}$/);
+  assert.doesNotMatch(DEFAULT_ACADEMIC_YEAR, /^\d{4}-\d{4}$/);
+});
+
+test('G2: a well-formed override is honoured and a malformed one falls back', async () => {
+  let seen;
+  const repository = createSqlDashboardRepository({
+    query: async (query, params) => { seen = { query, params }; return [{}]; }
+  });
+
+  await repository.summary({ academicYear: '2027-28' });
+  assert.equal(seen.params.academicYear, '2027-28');
+
+  // Junk must not reach SQL; it falls back to the stored default.
+  await repository.summary({ academicYear: 'not-a-year' });
+  assert.equal(seen.params.academicYear, DEFAULT_ACADEMIC_YEAR);
+
+  // A 4-4 form is still accepted as an explicit caller override, but it is never
+  // the default.
+  await repository.summary({ academicYear: '2026-2027' });
+  assert.equal(seen.params.academicYear, '2026-2027');
 });
 
 // H -------------------------------------------------------------------------

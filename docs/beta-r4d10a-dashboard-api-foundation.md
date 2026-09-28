@@ -320,6 +320,75 @@ after a 15-second SQL pool handshake; the immediately following call returned 20
 in 48 ms. This is the known Azure SQL cold-connection behaviour on a scaled-to-
 zero ACA revision, not a regression — the second call is the steady state.
 
+## 6B. Authenticated live acceptance
+
+Both acceptance accounts are `adfa_general`, `Active=True`,
+`MustChangePassword=False`, and carry no `FacultyId` — so they exercise the
+**administrator** path, not the faculty-scoped gate.
+
+| Probe | Account A `adfa@ucalgary.ca` | Account B `xinyu.zhu1@ucalgary.ca` |
+|---|---|---|
+| `GET /dashboard/summary` | **200** | **200** |
+| `GET /dashboard/faculty?limit=3` | **200** | **200** |
+| `GET /dashboard/faculty/:id` | **200** | **200** |
+| `GET /dashboard/faculty/<unknown-uuid>` | **404** `FACULTY_NOT_FOUND` | **404** `FACULTY_NOT_FOUND` |
+| `GET /api/v1/sessions` | **200**, 1937 sessions, `academicYear=2026-27` | **200**, same |
+
+This is the step that proves the `paws.Faculty` grant works end-to-end: before
+the grant in §5.2 the two `faculty` routes could only fail with a permission
+error; they now return real roster rows.
+
+Roster shape (exactly the reviewed projection — no DOE, creditable-hour or
+source-provenance column):
+
+```json
+{"facultyId":"40364B66-…","displayName":"Alanna, Zantingh",
+ "email":"alanna.zantingh@ucalgary.ca","ucid":"10201640",
+ "recordType":"faculty","stream":"Teaching-Focused",
+ "rank":"Assistant Professor (Teaching)","fte":null,"sessionCount":113}
+```
+
+## 6C. Live finding — a wrong academic-year format silently zeroed every aggregate
+
+The first authenticated run returned **HTTP 200 with a well-formed payload that
+was entirely zero**:
+
+```json
+{"academicYear":"2026-2027","sessionCount":0,"courseCount":0,
+ "gridPositionableCount":0,"checkNeededCount":0,"assignmentCount":0}
+```
+
+while `/api/v1/sessions` returned **1937** sessions and
+`paws.SessionAssignment` held **4970** rows.
+
+Root cause: the stored academic year is **`2026-27`**, but the repository
+defaulted to **`2026-2027`**. Two compounding defects:
+
+1. `DEFAULT_ACADEMIC_YEAR = '2026-2027'` matched zero rows.
+2. the validator `/^\d{4}-\d{4}$/` **rejected** the real `2026-27` form, so a
+   caller could not even override it correctly.
+
+This is the worst failure mode available: not an error, a **wrong answer**.
+Every aggregate returned `0` with a 200 and a correctly shaped body, so no
+contract test could see it, and the unauthenticated 401/405 probes could not see
+it either. Only an authenticated run against real data could.
+
+Verified side by side on live SQL:
+
+| `@academicYear` | sessionCount | courseCount | grid | checkNeeded | assignments |
+|---|---|---|---|---|---|
+| **`2026-27`** | **1933** | **33** | **1386** | **547** | **4970** |
+| `2026-2027` | 0 | 0 | 0 | 0 | 0 |
+
+The fix sets the default to `2026-27`, widens the validator to
+`/^\d{4}-\d{2,4}$/` so both the stored form and an explicit 4-4 override pass
+through while malformed input still falls back, and adds two regression tests
+(`G2`) pinning the format.
+
+`1933` vs `1937` is expected and correct: the summary is scoped to sessions that
+**have** an assignment, while `/sessions` lists all sessions. Four sessions
+carry no `SessionAssignment`.
+
 ## 7. What this change does NOT do
 
 * does not switch the Dashboard frontend to the SQL API;

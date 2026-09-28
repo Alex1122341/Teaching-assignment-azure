@@ -16,7 +16,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Academic-year vocabulary shared with the calendar view. Values are used as
 // parameters, never spliced into SQL.
-const DEFAULT_ACADEMIC_YEAR = '2026-2027';
+//
+// The stored format is `YYYY-YY` (e.g. `2026-27`), NOT `YYYY-YYYY`. This was
+// verified against live data: every row of `paws.vCalendarSession` carries
+// `2026-27`, and the timetable endpoint echoes the same value. An earlier
+// `2026-2027` default matched nothing, so every academic-year-scoped aggregate
+// silently returned zero while still responding 200.
+const DEFAULT_ACADEMIC_YEAR = '2026-27';
 
 function isUuid(value) {
   return typeof value === 'string' && UUID.test(value.trim());
@@ -24,7 +30,7 @@ function isUuid(value) {
 
 function academicYear(value) {
   const text = value === null || value === undefined ? '' : String(value).trim();
-  return /^\d{4}-\d{4}$/.test(text) ? text : DEFAULT_ACADEMIC_YEAR;
+  return /^\d{4}-\d{2,4}$/.test(text) ? text : DEFAULT_ACADEMIC_YEAR;
 }
 
 // The Dashboard "needs attention" predicate mirrors the reviewed session-quality

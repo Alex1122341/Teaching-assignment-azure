@@ -9,6 +9,12 @@ test('combined release artifact is deterministic and contains app plus managed A
  for(const f of ['app/index.html','app/staticwebapp.config.json','api/host.json','api/package.json','api/package-lock.json','api/index.js','api/server/src/runtime/swa-sql-runtime.js'])assert.ok(fs.existsSync(path.join(out,f)),f);
  const pkg=JSON.parse(fs.readFileSync(path.join(out,'api/package.json'))),lock=JSON.parse(fs.readFileSync(path.join(out,'api/package-lock.json')));assert.deepEqual(lock.packages[''].dependencies,pkg.dependencies);for(const [name,version] of Object.entries(pkg.dependencies))assert.equal(lock.packages[`node_modules/${name}`].version,version,name);
  const entry=fs.readFileSync(path.join(out,'api/index.js'),'utf8');for(const route of ['health/sql','v1/me','v1/sessions'])assert.ok(entry.includes(route),route);
+ // BETA-R4D-10A: the Dashboard read routes ship in the same artifact, still GET-only.
+ for(const route of ['v1/dashboard/summary','v1/dashboard/faculty','v1/dashboard/faculty/{facultyId}'])assert.ok(entry.includes(route),route);
+ assert.doesNotMatch(entry,/methods:\s*\[\s*'(?:POST|PUT|PATCH|DELETE)'/);
+ assert.ok(fs.existsSync(path.join(out,'api/server/src/data/sql-dashboard-repository.js')));
+ assert.ok(fs.existsSync(path.join(out,'api/server/src/data/dashboard-api.js')));
+ assert.ok(fs.existsSync(path.join(out,'api/server/src/runtime/swa-dashboard-functions.js')));
 });
 test('artifact excludes migration evidence and secrets',()=>{
  const inventory=files(out);assert.equal(inventory.some(f=>/\.(?:xlsx?|paws-import\.jsonl?)$/i.test(f)||/(?:^|\/)(?:database|docs|tools|azure-sql-import-private)(?:\/|$)/i.test(f)),false);

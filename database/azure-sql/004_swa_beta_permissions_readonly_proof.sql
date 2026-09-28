@@ -5,14 +5,19 @@
 -- throws as soon as one fails, so a green run is a positive statement that the
 -- Dashboard read principal cannot mutate `paws` and cannot read `staging`.
 --
+-- Bind the principal that actually connects:
+--     sqlcmd -v PAWS_API_PRINCIPAL="paws-sql-beta-mi" -i 004_swa_beta_permissions_readonly_proof.sql
+--
 -- This script performs no mutation.
 
 SET NOCOUNT ON;
 
-DECLARE @Principal sysname = N'paws_swa_beta';
+:setvar PAWS_API_PRINCIPAL "paws_swa_beta"
+
+DECLARE @Principal sysname = N'$(PAWS_API_PRINCIPAL)';
 DECLARE @PrincipalId int = USER_ID(@Principal);
 IF @PrincipalId IS NULL
-    THROW 51100, 'paws_swa_beta does not exist; apply 004_swa_beta_permissions.sql first.', 1;
+    THROW 51100, 'The runtime principal does not exist; apply 004_swa_beta_permissions.sql first.', 1;
 
 -- 1. No schema-wide or object-level DML grant anywhere in `paws`.
 IF EXISTS (

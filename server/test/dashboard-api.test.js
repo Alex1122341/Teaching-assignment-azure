@@ -330,6 +330,14 @@ test('P: the permission script grants column-scoped SELECT only and denies write
   assert.doesNotMatch(sql, /GRANT\s+(?:INSERT|UPDATE|DELETE|MERGE|CONTROL|ALTER|EXECUTE)/i);
   assert.doesNotMatch(sql, /GRANT\s+SELECT\s+ON\s+SCHEMA::(?:paws|staging)/i);
 
+  // The runtime principal is bound at apply time. The deployed Beta runtime
+  // connects as the application managed identity, so a hardcoded `paws_swa_beta`
+  // grant would be inert against the live database.
+  assert.match(sql, /:setvar PAWS_API_PRINCIPAL/);
+  for (const statement of sql.match(/GRANT[^;]*;/gs) || []) {
+    assert.match(statement, /\$\(PAWS_API_PRINCIPAL\)/, statement.slice(0, 80));
+  }
+
   // The granted Faculty column list must not include DOE or provenance fields.
   const grant = /GRANT SELECT ON OBJECT::paws\.Faculty\s*\(([^)]*)\)/s.exec(sql)[1];
   for (const forbidden of ['SourceImportBatchId', 'SourceRow']) {

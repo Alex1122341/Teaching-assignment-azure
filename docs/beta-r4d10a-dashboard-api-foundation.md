@@ -95,14 +95,50 @@ anywhere on this path, and that is statically asserted.
 
 ## 5. SQL permissions
 
+### 5.1 Which principal actually connects
+
+The reviewed contract originally named a contained database user
+`paws_swa_beta`. **Live verification showed that principal does not exist in
+`teaching-assignment-lab`.** The database contains only `dbo`, `guest`,
+`INFORMATION_SCHEMA`, `sys` and **`paws-sql-beta-mi`**, and the deployed runtime
+authenticates as that application managed identity (an `EXTERNAL_USER`).
+
+This matters because a `GRANT … TO [paws_swa_beta]` would have been **inert**:
+the grant would have applied to nobody, and every `/dashboard/faculty` route
+would have failed at runtime with a permission error rather than returning data.
+
+The permission file is therefore **parameterised** rather than renamed:
+
+```sql
+:setvar PAWS_API_PRINCIPAL "paws_swa_beta"
+```
+
+and every principal reference in the file and in the read-only proof now uses
+`$(PAWS_API_PRINCIPAL)`. Apply against the live runtime principal with:
+
+```
+sqlcmd -v PAWS_API_PRINCIPAL="paws-sql-beta-mi" -i 004_swa_beta_permissions.sql
+```
+
+The default value is unchanged, so an unparameterised run behaves exactly as
+reviewed. The Node and Python contract tests now **require** the parameter
+binding and reject a hardcoded principal, so the file cannot silently drift back.
+
+### 5.2 The grant
+
 `database/azure-sql/004_swa_beta_permissions.sql` is extended, not relaxed:
 
 ```sql
 GRANT SELECT ON OBJECT::paws.Faculty
     (FacultyId, RecordType, PreferredFirstName, PreferredLastName, DisplayName,
      Ucid, Email, Stream, Rank, Fte, ReportsToFacultyId, Active)
-    TO [paws_swa_beta];
+    TO [$(PAWS_API_PRINCIPAL)];
 ```
+
+The 12 granted columns were verified against the live `paws.Faculty` definition
+(17 columns total). `ReportsToRaw`, `SourceImportBatchId`, `SourceRow`,
+`CreatedAtUtc` and `UpdatedAtUtc` are deliberately excluded, and the repository
+proves it never selects them.
 
 The reviewed-contract guard in the same script is extended with the matching
 allow-list, so **any** unreviewed permission on this principal still throws
@@ -114,11 +150,40 @@ The schema-wide `DENY INSERT, UPDATE, DELETE, EXECUTE ON SCHEMA::paws` and
 `DENY SELECT, … ON SCHEMA::staging` remain in force, so the change widens the
 read surface without widening the mutation surface.
 
+### 5.3 Live apply wrapper
+
+`database/azure-sql/apply-dashboard-grant.ps1` — new. This is the reviewed
+operator path for the additive grant, because it must run as a *different*
+principal (database owner / sysadmin) than the runtime MI it grants to.
+
+It is additive-only and fails closed:
+
+* refuses if the principal is missing, is an `EXTERNAL_GROUP`, owns the database,
+  owns schemas/objects, or inherits any database role;
+* refuses if the principal already holds **any** permission outside the reviewed
+  allowed sets — a grant is never stacked on an unreviewed surface;
+* prints the full before/after effective permission set with added/removed deltas;
+* supports `-WhatIf` and `-SkipConnection -SnapshotPath <csv>` so the entire
+  effect can be rehearsed offline against a recorded live snapshot;
+* supports `-EmitSql` to emit the exact transactional T-SQL for review;
+* re-checks the post-apply state against the full expected set and fails if
+  anything is missing or unexpected.
+
+The parameter block must precede any statement in the file: PowerShell 5.1
+cannot parse `[CmdletBinding()] param(...)` once an executable statement has
+already appeared, so `Set-StrictMode` follows the block rather than leading the
+file.
+
 ### Read-only proof
 
 `database/azure-sql/004_swa_beta_permissions_readonly_proof.sql` — new. Run as
-`db_owner` after applying the grant script. It throws on the first violation and
-prints `READ_ONLY_PROOF_OK` only when:
+`db_owner` after applying the grant script, binding the runtime principal:
+
+```
+sqlcmd -v PAWS_API_PRINCIPAL="paws-sql-beta-mi" -i 004_swa_beta_permissions_readonly_proof.sql
+```
+
+It throws on the first violation and prints `READ_ONLY_PROOF_OK` only when:
 
 * the principal holds no `INSERT/UPDATE/DELETE/MERGE/EXECUTE/ALTER/CONTROL`
   grant anywhere;
@@ -142,9 +207,12 @@ administrator-only, own-record-only detail access, 404/400 handling without SQL,
 `Allow: GET` for six methods on three routes, static read-only/staging/Firestore
 scanning, and the permission-script contract.
 
-`tests/python/test_beta_sql_runtime_contract.py` gains four contract cases:
-repository read-only/SQL-only, column-scoped grant, proof-script shape, and the
-no-mutation-verb scan.
+`tests/python/test_beta_sql_runtime_contract.py` gains five contract cases:
+repository read-only/SQL-only, column-scoped grant, proof-script shape, the
+no-mutation-verb scan, and — added with the principal parameterization — the
+live-apply wrapper contract (additive only, no `REVOKE`/`DROP`/DML, every guard
+present, param block precedes any statement, `-SkipConnection`/`-EmitSql`
+present, binds `[...$Principal]` and never a literal principal).
 
 `tests/beta-runtime-artifact.test.js` gains assertions that the three new routes
 ship in the release artifact and that no non-GET method is registered.
@@ -155,12 +223,34 @@ ship in the release artifact and that no non-GET method is registered.
 |---|---|
 | `server` (`node --test test/*.test.js`) | **40 pass / 0 fail** |
 | root (`node --test tests/*.test.js`) | **357 pass / 1 fail / 29 skipped** |
-| Python (`unittest`, 12 modules) | **64 pass / 0 fail** |
+| Python (`unittest`) | **68 pass / 0 fail** |
+| `tests/beta-baseline.test.js` | **11 pass / 0 fail** |
 
 The single root failure is the pre-existing environment-only
-`spawnSync pwsh.exe ENOENT` in `tests/hosting-boundary.test.js`; `pwsh` is not
-installed on this machine. It is unrelated to this change and present on the
-base commit too.
+`spawnSync pwsh.exe ENOENT` in `tests/hosting-boundary.test.js`; `pwsh` is
+verified absent from this machine (not on `PATH` and not present at
+`C:\Program Files\PowerShell\7\pwsh.exe`). That test file is **not touched by
+this branch** — the branch changes only the four files listed above — and the
+failure reproduces on the base commit.
+
+### Offline rehearsal evidence
+
+The wrapper was rehearsed against a recorded live snapshot of the runtime
+principal before any live change:
+
+| Step | Result |
+|---|---|
+| Live permission rows (before) | **19** |
+| Contract guard | `unexpected_count=0` → `OK` |
+| `faculty_grant_present` before | `0/12` |
+| Expected rows after | **31** |
+| Added | **12** |
+| Removed | **0** |
+| Post-apply contract | `OK total=31 expected=31` |
+| Overall | `RESULT=OK` |
+
+This proves the guard logic and the exact 12-row delta **without opening a
+connection**, so the live apply is a formality rather than an experiment.
 
 The frozen-baseline check (`tools/verify-beta-candidate.js`) still reports zero
 protected drift: no protected frontend asset was touched.

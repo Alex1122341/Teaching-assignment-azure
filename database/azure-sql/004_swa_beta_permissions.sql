@@ -76,10 +76,18 @@ IF EXISTS (
               AND OBJECT_NAME(permission.major_id) = N'UserProfile'
               AND COL_NAME(permission.major_id, permission.minor_id) IN (N'FirebaseUid', N'DisplayName', N'BaseRole', N'FacultyId', N'Active', N'MustChangePassword')
             )
+            -- BETA-R4D-10A2: full teaching-assignment / DOE read contract. The
+            -- workload and stored DOE columns are now part of the reviewed
+            -- surface; source provenance columns (SourceFacultyName,
+            -- SourceImportBatchId, SourceRow) deliberately stay unreadable.
             OR (
               OBJECT_SCHEMA_NAME(permission.major_id) = N'paws'
               AND OBJECT_NAME(permission.major_id) = N'SessionAssignment'
-              AND COL_NAME(permission.major_id, permission.minor_id) IN (N'SessionId', N'FacultyId')
+              AND COL_NAME(permission.major_id, permission.minor_id) IN (
+                N'SessionAssignmentId', N'SessionId', N'FacultyId', N'TeachingRole',
+                N'LabLead', N'CreditedHours', N'DoeRate', N'DoeQuantity',
+                N'DoeUnit', N'DoeCredit', N'DoeStatus'
+              )
             )
             -- BETA-R4D-10A: least-privilege Dashboard read columns. Only the
             -- roster and detail fields the read API projects are granted; FTE and
@@ -94,18 +102,64 @@ IF EXISTS (
                 N'ReportsToFacultyId', N'Active'
               )
             )
+            -- BETA-R4D-10A2: professional profile detail. Every returned field is
+            -- granted; SourceImportBatchId and SourceRow are not.
+            OR (
+              OBJECT_SCHEMA_NAME(permission.major_id) = N'paws'
+              AND OBJECT_NAME(permission.major_id) = N'FacultyProfessionalProfile'
+              AND COL_NAME(permission.major_id, permission.minor_id) IN (
+                N'FacultyId', N'TeachingArea', N'ProfessionalCategory', N'ServiceDate',
+                N'PriorYearsExperience', N'DvmEarnedDate', N'DvmType',
+                N'MastersEarnedDate', N'MastersArea', N'PhdEarnedDate', N'PhdArea',
+                N'BoardCertifiedDate', N'BoardCertification', N'BoardCertificationCount',
+                N'AbvmaLicenseNumber', N'AbvmaMemberType'
+              )
+            )
+            -- BETA-R4D-10A2: joint appointments. Source metadata excluded.
+            OR (
+              OBJECT_SCHEMA_NAME(permission.major_id) = N'paws'
+              AND OBJECT_NAME(permission.major_id) = N'JointAppointment'
+              AND COL_NAME(permission.major_id, permission.minor_id) IN (
+                N'JointAppointmentId', N'FacultyId', N'HomeFaculty', N'JointFaculty',
+                N'FteUcvm', N'FteOtherFaculty', N'ExpiryDate', N'Notes'
+              )
+            )
+            -- BETA-R4D-10A2: role assignments. Stored DOE values are returned
+            -- as-is; SourceFacultyName / SourceImportBatchId / SourceRow are not.
+            OR (
+              OBJECT_SCHEMA_NAME(permission.major_id) = N'paws'
+              AND OBJECT_NAME(permission.major_id) = N'RoleAssignment'
+              AND COL_NAME(permission.major_id, permission.minor_id) IN (
+                N'RoleAssignmentId', N'FacultyId', N'FacultyResolutionStatus',
+                N'AcademicYear', N'RoleCategory', N'RoleType',
+                N'CourseOrSubjectOrRotation', N'CourseName', N'Details',
+                N'EffectiveDate', N'ExpirationDate', N'DoeMappedValue',
+                N'DoeOverrideValue', N'DoeOverrideReason', N'SpecialNotes'
+              )
+            )
+            -- BETA-R4D-10A2: AFC records, including the detail-only Purpose.
+            OR (
+              OBJECT_SCHEMA_NAME(permission.major_id) = N'paws'
+              AND OBJECT_NAME(permission.major_id) = N'AfcRecord'
+              AND COL_NAME(permission.major_id, permission.minor_id) IN (
+                N'AfcRecordId', N'FacultyId', N'StartDate', N'EndDate', N'Purpose', N'Active'
+              )
+            )
           )
         ))
         OR permission.class NOT IN (0, 1, 3)
       )
-) THROW 51002, 'The runtime principal has permissions outside the reviewed Beta-R1 + R4D-10A contract.', 1;
+) THROW 51002, 'The runtime principal has permissions outside the reviewed Beta-R1 + R4D-10A/10A2 contract.', 1;
 
 GRANT CONNECT TO [$(PAWS_API_PRINCIPAL)];
 GRANT SELECT ON OBJECT::paws.UserProfile
     (FirebaseUid, DisplayName, BaseRole, FacultyId, Active, MustChangePassword)
     TO [$(PAWS_API_PRINCIPAL)];
 GRANT SELECT ON OBJECT::paws.vCalendarSession TO [$(PAWS_API_PRINCIPAL)];
-GRANT SELECT ON OBJECT::paws.SessionAssignment (SessionId, FacultyId) TO [$(PAWS_API_PRINCIPAL)];
+GRANT SELECT ON OBJECT::paws.SessionAssignment
+    (SessionAssignmentId, SessionId, FacultyId, TeachingRole, LabLead,
+     CreditedHours, DoeRate, DoeQuantity, DoeUnit, DoeCredit, DoeStatus)
+    TO [$(PAWS_API_PRINCIPAL)];
 
 -- BETA-R4D-10A: Dashboard read contract. Column-scoped SELECT only; the
 -- schema-wide DML denies stay in force below, so these grants widen the read
@@ -117,6 +171,33 @@ GRANT SELECT ON OBJECT::paws.SessionAssignment (SessionId, FacultyId) TO [$(PAWS
 GRANT SELECT ON OBJECT::paws.Faculty
     (FacultyId, RecordType, PreferredFirstName, PreferredLastName, DisplayName,
      Ucid, Email, Stream, Rank, Fte, ReportsToFacultyId, Active)
+    TO [$(PAWS_API_PRINCIPAL)];
+
+-- BETA-R4D-10A2: complete the Dashboard read contract. Each grant is
+-- column-scoped to exactly the fields the read API returns or joins on. Source
+-- provenance columns (SourceImportBatchId, SourceRow, SourceFacultyName) are
+-- deliberately absent, so the API can never surface import metadata.
+GRANT SELECT ON OBJECT::paws.FacultyProfessionalProfile
+    (FacultyId, TeachingArea, ProfessionalCategory, ServiceDate,
+     PriorYearsExperience, DvmEarnedDate, DvmType, MastersEarnedDate, MastersArea,
+     PhdEarnedDate, PhdArea, BoardCertifiedDate, BoardCertification,
+     BoardCertificationCount, AbvmaLicenseNumber, AbvmaMemberType)
+    TO [$(PAWS_API_PRINCIPAL)];
+
+GRANT SELECT ON OBJECT::paws.JointAppointment
+    (JointAppointmentId, FacultyId, HomeFaculty, JointFaculty, FteUcvm,
+     FteOtherFaculty, ExpiryDate, Notes)
+    TO [$(PAWS_API_PRINCIPAL)];
+
+GRANT SELECT ON OBJECT::paws.RoleAssignment
+    (RoleAssignmentId, FacultyId, FacultyResolutionStatus, AcademicYear,
+     RoleCategory, RoleType, CourseOrSubjectOrRotation, CourseName, Details,
+     EffectiveDate, ExpirationDate, DoeMappedValue, DoeOverrideValue,
+     DoeOverrideReason, SpecialNotes)
+    TO [$(PAWS_API_PRINCIPAL)];
+
+GRANT SELECT ON OBJECT::paws.AfcRecord
+    (AfcRecordId, FacultyId, StartDate, EndDate, Purpose, Active)
     TO [$(PAWS_API_PRINCIPAL)];
 
 DENY INSERT, UPDATE, DELETE, EXECUTE ON SCHEMA::paws TO [$(PAWS_API_PRINCIPAL)];

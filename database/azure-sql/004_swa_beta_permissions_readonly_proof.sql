@@ -134,6 +134,73 @@ IF EXISTS (
       AND NOT (OBJECT_SCHEMA_NAME(p.major_id) = N'paws' AND OBJECT_NAME(p.major_id) IN (N'vCalendarSession'))
 ) THROW 51107, 'The runtime principal has an unreviewed whole-object SELECT grant.', 1;
 
+-- 7. BETA-R4D-10A2 positive control: the expanded Dashboard read surface is
+--    actually present. Without this, a silent loss of the R4D-10A2 grants would
+--    still produce a green "read-only" run while the API quietly broke.
+--
+--    The expected (object, column) pairs are projected with a SELECT and a row
+--    constructor, so the proof script contains no DML statement of any kind -
+--    not even against a temporary table variable.
+SELECT object_name, column_name
+  INTO #ExpectedColumns
+  FROM (VALUES
+    (N'FacultyProfessionalProfile', N'TeachingArea'),
+    (N'FacultyProfessionalProfile', N'ProfessionalCategory'),
+    (N'FacultyProfessionalProfile', N'AbvmaMemberType'),
+    (N'JointAppointment', N'JointAppointmentId'),
+    (N'JointAppointment', N'FteUcvm'),
+    (N'JointAppointment', N'Notes'),
+    (N'RoleAssignment', N'RoleAssignmentId'),
+    (N'RoleAssignment', N'RoleCategory'),
+    (N'RoleAssignment', N'DoeOverrideValue'),
+    (N'AfcRecord', N'AfcRecordId'),
+    (N'AfcRecord', N'Purpose'),
+    (N'AfcRecord', N'Active'),
+    (N'SessionAssignment', N'SessionAssignmentId'),
+    (N'SessionAssignment', N'TeachingRole'),
+    (N'SessionAssignment', N'LabLead'),
+    (N'SessionAssignment', N'CreditedHours'),
+    (N'SessionAssignment', N'DoeRate'),
+    (N'SessionAssignment', N'DoeQuantity'),
+    (N'SessionAssignment', N'DoeUnit'),
+    (N'SessionAssignment', N'DoeCredit'),
+    (N'SessionAssignment', N'DoeStatus')
+  ) AS expected(object_name, column_name);
+
+IF EXISTS (
+    SELECT 1
+    FROM #ExpectedColumns AS expected
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM sys.database_permissions AS p
+        WHERE p.grantee_principal_id = @PrincipalId
+          AND p.state = N'G'
+          AND p.permission_name = N'SELECT'
+          AND p.class = 1
+          AND OBJECT_SCHEMA_NAME(p.major_id) = N'paws'
+          AND OBJECT_NAME(p.major_id) = expected.object_name
+          AND COL_NAME(p.major_id, p.minor_id) = expected.column_name
+    )
+) THROW 51109, 'The R4D-10A2 Dashboard read grants are incomplete.', 1;
+
+-- 8. BETA-R4D-10A2 negative control: provenance columns must NOT be readable.
+--    Source metadata staying unreachable is the point of the column-scoped
+--    grant, so a grant here would be a regression, not a convenience.
+IF EXISTS (
+    SELECT 1
+    FROM sys.database_permissions AS p
+    WHERE p.grantee_principal_id = @PrincipalId
+      AND p.state IN (N'G', N'W')
+      AND p.permission_name = N'SELECT'
+      AND p.class = 1
+      AND OBJECT_SCHEMA_NAME(p.major_id) = N'paws'
+      AND (
+        (OBJECT_NAME(p.major_id) IN (N'Faculty', N'FacultyProfessionalProfile', N'JointAppointment', N'RoleAssignment', N'AfcRecord', N'SessionAssignment')
+         AND (COL_NAME(p.major_id, p.minor_id) IN (N'SourceImportBatchId', N'SourceRow', N'SourceFacultyName')
+              OR p.minor_id = 0))
+      )
+) THROW 51110, 'The runtime principal can read source import provenance.', 1;
+
 SELECT
     N'READ_ONLY_PROOF_OK' AS Result,
     @Principal AS PrincipalName,

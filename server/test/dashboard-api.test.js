@@ -28,6 +28,7 @@ const path = require('node:path');
 const { createDashboardApi, resolveScope, ADMIN_ROLES, SELF_SERVICE_ROLES } = require('../src/data/dashboard-api');
 const { createDashboardFunctions } = require('../src/runtime/swa-dashboard-functions');
 const { createSqlDashboardRepository, isUuid, DEFAULT_ACADEMIC_YEAR } = require('../src/data/sql-dashboard-repository');
+const { canonicalAcademicYear } = require('../src/data/academic-year');
 
 const root = path.resolve(__dirname, '..', '..');
 const FACULTY_ID = '11111111-1111-1111-1111-111111111111';
@@ -77,12 +78,21 @@ test('B: exactly owner, administrator, adfa_general, adfa_regular and admin are 
 });
 
 // C -------------------------------------------------------------------------
-test('C: faculty, hicc and visc read their own scoped summary', async () => {
+// BETA-R4D-10A2 supersedes the R4D-10A behavior. The summary is now
+// administrator-only: a self-service caller is refused rather than receiving a
+// narrowed copy. Self-service callers use the scoped roster and detail routes.
+test('C: faculty, hicc and visc are denied the summary but keep their scoped routes', async () => {
   assert.deepEqual([...SELF_SERVICE_ROLES].sort(), ['faculty', 'hicc', 'visc']);
   for (const role of ['faculty', 'hicc', 'visc']) {
     const { app, calls } = harness(selfProfile(role));
     const response = await app(request('/api/v1/dashboard/summary'));
-    assert.equal(response.status, 200, role);
+    assert.equal(response.status, 403, role);
+    assert.equal(response.jsonBody.error.code, 'ROLE_DENIED', role);
+    assert.equal(calls.length, 0, role);
+
+    // The scoped roster still works for the same caller.
+    const roster = await app(request('/api/v1/dashboard/faculty'));
+    assert.equal(roster.status, 200, role);
     assert.equal(calls[0][1].facultyId, FACULTY_ID, role);
   }
 });
@@ -148,35 +158,47 @@ test('G2: the stored academic year is YYYY-YY, not YYYY-YYYY', () => {
   assert.doesNotMatch(DEFAULT_ACADEMIC_YEAR, /^\d{4}-\d{4}$/);
 });
 
-test('G2: a well-formed override is honoured and a malformed one falls back', async () => {
+// BETA-R4D-10A2 supersedes the R4D-10A G2 behavior. The old test asserted that a
+// malformed override "falls back to the default" and that `2026-2027` is passed
+// to SQL verbatim. Both are now deliberately wrong: a malformed year must be a
+// 400 rather than a silent wrong answer, and the 4-4 form must be canonicalised.
+test('G2: an academic-year override is canonicalised and a malformed one is rejected', async () => {
+  // The canonicaliser is unit-tested directly; here we prove the repository
+  // never forwards an uncanonical or unusable value to SQL.
+  assert.equal(canonicalAcademicYear('2027-28'), '2027-28');
+  assert.equal(canonicalAcademicYear('2026-2027'), '2026-27');
+  assert.throws(() => canonicalAcademicYear('not-a-year'), /not a recognised academic year/);
+
   let seen;
   const repository = createSqlDashboardRepository({
     query: async (query, params) => { seen = { query, params }; return [{}]; }
   });
-
-  await repository.summary({ academicYear: '2027-28' });
-  assert.equal(seen.params.academicYear, '2027-28');
-
-  // Junk must not reach SQL; it falls back to the stored default.
-  await repository.summary({ academicYear: 'not-a-year' });
-  assert.equal(seen.params.academicYear, DEFAULT_ACADEMIC_YEAR);
-
-  // A 4-4 form is still accepted as an explicit caller override, but it is never
-  // the default.
   await repository.summary({ academicYear: '2026-2027' });
-  assert.equal(seen.params.academicYear, '2026-2027');
+  assert.equal(seen.params.academicYear, '2026-27', 'the 4-4 form must reach SQL canonicalised');
+
+  // A malformed explicit year must reject rather than silently defaulting.
+  await assert.rejects(
+    () => repository.summary({ academicYear: 'not-a-year' }),
+    /not a recognised academic year/
+  );
 });
 
 // H -------------------------------------------------------------------------
-test('H: the faculty roster is administrator-only', async () => {
+// BETA-R4D-10A2 supersedes the R4D-10A behavior. The roster is no longer
+// administrator-only: a self-service caller now receives exactly its own row,
+// narrowed by a server-side predicate, rather than a blanket 403.
+test('H: the faculty roster is the full roster for an administrator and one row for self-service', async () => {
   const admin = harness(adminProfile('adfa_general'));
   assert.equal((await admin.app(request('/api/v1/dashboard/faculty'))).status, 200);
+  assert.equal(admin.calls[0][1].facultyId, null);
 
-  const scoped = harness(selfProfile('faculty'));
-  const denied = await scoped.app(request('/api/v1/dashboard/faculty'));
-  assert.equal(denied.status, 403);
-  assert.equal(denied.jsonBody.error.code, 'ROLE_DENIED');
-  assert.equal(scoped.calls.length, 0);
+  for (const role of ['faculty', 'hicc', 'visc']) {
+    const scoped = harness(selfProfile(role));
+    const own = await scoped.app(request('/api/v1/dashboard/faculty'));
+    assert.equal(own.status, 200, role);
+    assert.equal(scoped.calls[0][1].facultyId, FACULTY_ID, role);
+    assert.equal(own.jsonBody.count, 1, role);
+  }
 });
 
 // I -------------------------------------------------------------------------
@@ -378,10 +400,14 @@ test('P: the permission script grants column-scoped SELECT only and denies write
 
 test('the read-only proof script throws on every mutation or staging read', () => {
   const proof = fs.readFileSync(path.join(root, 'database/azure-sql/004_swa_beta_permissions_readonly_proof.sql'), 'utf8');
-  assert.match(proof, /HAS_PERMS_BY_NAME/);
+  // PR #25 lesson: HAS_PERMS_BY_NAME evaluates the CALLER's rights, not the
+  // named principal's, so it must NOT be used as a principal probe here.
+  const code = proof.split('\n').filter(line => !/^\s*--/.test(line)).join('\n');
+  assert.doesNotMatch(code, /HAS_PERMS_BY_NAME/);
   assert.match(proof, /READ_ONLY_PROOF_OK/);
   assert.match(proof, /THROW 5110[0-9]/);
-  assert.doesNotMatch(proof, /^\s*(?:INSERT|UPDATE|DELETE|MERGE|DROP|ALTER)\b/im);
+  // No mutation statement anywhere in the executable body.
+  assert.doesNotMatch(code, /^\s*(?:INSERT|UPDATE|DELETE|MERGE|DROP|ALTER)\b/im);
 });
 
 test('the timetable runtime keeps its reviewed route surface unchanged', () => {

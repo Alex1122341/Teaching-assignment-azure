@@ -5,6 +5,7 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 const maintenance=require('../index-maintenance.js');
+const {functionBody}=require('../test-support/source-contract.js');
 
 test('index maintenance exposes swap-index writers and safe AFC range patching',()=>{
  assert.equal(typeof maintenance.writeFacultySwapIndexes,'function');
@@ -27,10 +28,9 @@ test('faculty self swap uses sanitized directory with availability and special t
 
 test('faculty session modal routes assigned replacements directly to the privacy-safe picker',()=>{
  const src=read('approval-workflow.js');
- const start=src.indexOf('function openFacultySession(s)');
- const end=src.indexOf('\n }\n\n async function createRequest',start);
- assert.ok(start>=0&&end>start,'openFacultySession must exist');
- const body=src.slice(start,end);
+ const slice=functionBody(src,'function openFacultySession(s)');
+ assert.ok(slice,'openFacultySession must exist');
+ const body=slice.body;
  assert.match(body,/const openSelfReplacement=window\.UCVM_SAFE_SWAP\?\.openSelfReplacement/);
  assert.match(body,/if\(own\.length&&typeof openSelfReplacement==='function'\)return openSelfReplacement\(s\)/);
  assert.match(body,/return openSelfSwap\(s\)/);

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
+from .session_time_corrections import DEFAULT_MANIFEST_PATH
 from .workbooks import WorkbookRecord, inspect_workbook
 
 FORMAT = "paws-azure-sql-import-v1"
@@ -44,7 +45,11 @@ def _write_jsonl(path: Path, rows) -> None:
             handle.write("\n")
 
 
-def build_package(workbook_paths: Iterable[str | Path], output_root: str | Path) -> Path:
+def build_package(
+    workbook_paths: Iterable[str | Path],
+    output_root: str | Path,
+    correction_manifest_path: str | Path | None = DEFAULT_MANIFEST_PATH,
+) -> Path:
     records = [inspect_workbook(path) for path in workbook_paths]
     core = _source_manifest_core(records)
     manifest_sha = _source_manifest_sha(core)
@@ -66,7 +71,7 @@ def build_package(workbook_paths: Iterable[str | Path], output_root: str | Path)
     )
 
     from .normalize import normalize_package
-    summary = normalize_package(package_dir)
+    summary = normalize_package(package_dir, correction_manifest_path=correction_manifest_path)
     manifest.update(summary)
     (package_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n",

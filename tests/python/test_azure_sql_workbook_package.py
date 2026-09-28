@@ -38,7 +38,7 @@ class WorkbookPackageTests(unittest.TestCase):
         self.temp.cleanup()
 
     def build(self):
-        return build_package([self.workbook], self.root / "out")
+        return build_package([self.workbook], self.root / "out", correction_manifest_path=None)
 
     def test_preserves_every_nonempty_row_and_formula_text(self):
         package = self.build()
@@ -71,6 +71,7 @@ class WorkbookPackageTests(unittest.TestCase):
             "--afc", str(self.workbook),
             "--faculty", str(self.workbook),
             "--output-root", str(out),
+            "--no-session-time-corrections",
         ], cwd=Path(__file__).resolve().parents[2], text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)

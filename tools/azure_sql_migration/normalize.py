@@ -8,6 +8,7 @@ from typing import Any
 
 from .constants import BUSINESS_SHEETS, FORMER_FACULTY_EXCLUSIONS, PLACEHOLDERS
 from .identity import FacultyResolver, parse_preferred_name, stable_id
+from .session_time_corrections import DEFAULT_MANIFEST_PATH, apply_corrections, load_correction_manifest
 
 
 def _canonical_json(value: Any) -> str:
@@ -140,7 +141,10 @@ def _load_aliases() -> dict[str, str]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def normalize_package(package_dir: str | Path) -> dict[str, Any]:
+def normalize_package(
+    package_dir: str | Path,
+    correction_manifest_path: str | Path | None = DEFAULT_MANIFEST_PATH,
+) -> dict[str, Any]:
     package_dir = Path(package_dir)
     raw_rows = _read_jsonl(package_dir / "raw_rows.jsonl")
     typed = _business_rows(raw_rows)
@@ -437,13 +441,17 @@ def normalize_package(package_dir: str | Path) -> dict[str, Any]:
             "sourceRow": row["sourceRow"],
         })
 
+    session_rows = list(sessions_by_key.values())
+    if correction_manifest_path is not None:
+        session_rows = apply_corrections(session_rows, load_correction_manifest(correction_manifest_path))
+
     outputs = {
         "faculty.jsonl": faculty_rows,
         "faculty_alias.jsonl": alias_rows,
         "faculty_professional_profile.jsonl": profile_rows,
         "joint_appointment.jsonl": joint_rows,
         "course.jsonl": course_rows,
-        "session.jsonl": list(sessions_by_key.values()),
+        "session.jsonl": session_rows,
         "session_assignment.jsonl": assignment_rows,
         "afc_record.jsonl": afc_rows,
         "role_assignment.jsonl": role_rows,

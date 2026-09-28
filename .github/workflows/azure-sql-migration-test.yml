@@ -7,10 +7,15 @@ on:
       - "database/azure-sql/**"
       - "tools/azure_sql_migration/**"
       - "tools/build_azure_sql_import.py"
+      - "tools/reconcile_session_times.py"
+      - "tools/build_session_time_reconciliation_workbook.mjs"
+      - "tools/repair_paws_session_times.ps1"
       - "tools/plan_paws_azure_sql_reset.ps1"
       - "tools/reset_paws_azure_sql_exact.ps1"
       - "tools/load_paws_azure_sql_empty.ps1"
       - "tests/python/test_azure_sql_*.py"
+      - "tests/python/test_reconcile_session_times_cli.py"
+      - "tests/python/test_session_time_*.py"
       - "tests/powershell/**"
       - "tools/requirements-azure-sql-migration.txt"
       - "docs/azure-sql-migration.md"
@@ -23,10 +28,15 @@ on:
       - "database/azure-sql/**"
       - "tools/azure_sql_migration/**"
       - "tools/build_azure_sql_import.py"
+      - "tools/reconcile_session_times.py"
+      - "tools/build_session_time_reconciliation_workbook.mjs"
+      - "tools/repair_paws_session_times.ps1"
       - "tools/plan_paws_azure_sql_reset.ps1"
       - "tools/reset_paws_azure_sql_exact.ps1"
       - "tools/load_paws_azure_sql_empty.ps1"
       - "tests/python/test_azure_sql_*.py"
+      - "tests/python/test_reconcile_session_times_cli.py"
+      - "tests/python/test_session_time_*.py"
       - "tests/powershell/**"
       - "tools/requirements-azure-sql-migration.txt"
       - "docs/azure-sql-migration.md"
@@ -54,7 +64,8 @@ jobs:
             'tools/azure_sql_migration/sql_access.ps1',
             'tools/plan_paws_azure_sql_reset.ps1',
             'tools/reset_paws_azure_sql_exact.ps1',
-            'tools/load_paws_azure_sql_empty.ps1'
+            'tools/load_paws_azure_sql_empty.ps1',
+            'tools/repair_paws_session_times.ps1'
           )) {
             $tokens = $null
             $errors = $null
@@ -71,7 +82,7 @@ jobs:
             $parseErrors | ForEach-Object { Write-Error $_ }
             exit 1
           }
-      - run: python -m unittest discover -s tests/python -p "test_azure_sql_*.py" -v
+      - run: python -m unittest discover -s tests/python -p "test_*.py" -v
       - name: Run PowerShell loader helper regression test
         shell: pwsh
         run: ./tests/powershell/test_azure_sql_loader_helpers.ps1

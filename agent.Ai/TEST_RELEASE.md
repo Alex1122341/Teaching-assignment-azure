@@ -28,6 +28,38 @@ PR #6 implementation report recorded:
 
 Verify again if PR #6 HEAD moves.
 
+## 2A. BETA-R4D-9J live repair acceptance
+
+R4D-9J live acceptance completed on 2026-09-27 using the reviewed
+foreground PowerShell/device-code operator path.
+
+Evidence:
+
+- operator UPDATE mutates only `StartTime` and `EndTime`; the exact
+  `SessionId + old StartTime + old EndTime` guard remains;
+- manifest = 423, SHA-256
+  `3802b09a9e0bc5b75a598f45390667577da90e7cb11493a399d0fee947fa17a9`;
+- pre-apply preview = 423 corrections, 1,937 sessions, 4,970 canonical
+  SessionAssignments, zero writes;
+- outside-Git backup SHA-256 =
+  `3c47c9890e56d65e3319947da2a88e92aa0cd3ea3d2d803d8ff819ecc7817ad8`;
+- transaction = COMMITTED; 423 updated, 0 inserted, 0 deleted;
+- Session and SessionAssignment counts unchanged at 1,937 and 4,970;
+- all captured domain table row counts unchanged;
+- SessionId-set SHA unchanged at
+  `2a105c0086ac52dc574a732d7aef2b2eb9cac0cdfe9648d6ca346c4db1093224`;
+- manifest new-time verification = 423/423;
+- `paws.vCalendarSession` = 1,937; corrected sample = 20/20;
+- browser/API = `azure-sql`, writes disabled, 1,937 sessions; corrected
+  API sample = 20/20;
+- Fall W1/W5/W6 and representative Spring W4 partitions are exhaustive and
+  duplicate-free;
+- rollback preview PASS with zero writes;
+- no SWA deployment and no protected frontend runtime change.
+
+PR #20 may be merged only after its post-continuity-update CI is green, using a
+normal merge commit (no squash/rebase).
+
 ## 3. Freeze/baseline
 
 Frozen application baseline:

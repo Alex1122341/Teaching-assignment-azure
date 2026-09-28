@@ -243,8 +243,7 @@ try {
             $command.CommandText = @'
 UPDATE paws.Session
 SET StartTime = @newStart,
-    EndTime = @newEnd,
-    UpdatedAtUtc = SYSUTCDATETIME()
+    EndTime = @newEnd
 WHERE SessionId = @sessionId
   AND StartTime = @oldStart
   AND EndTime = @oldEnd;

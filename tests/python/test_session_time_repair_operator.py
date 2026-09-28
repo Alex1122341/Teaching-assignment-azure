@@ -15,7 +15,7 @@ class SessionTimeRepairOperatorTests(unittest.TestCase):
     def test_session_update_only_mutates_approved_time_columns_with_exact_old_value_guard(self):
         script_text = SCRIPT.read_text(encoding="utf-8")
         matches = re.findall(
-            r"UPDATE\\s+paws\\.Session\\s+SET\\s+(.*?)\\s+WHERE\\s+(.*?);",
+            r"UPDATE\s+paws\.Session\s+SET\s+(.*?)\s+WHERE\s+(.*?);",
             script_text,
             flags=re.IGNORECASE | re.DOTALL,
         )

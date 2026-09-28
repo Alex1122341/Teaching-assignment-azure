@@ -320,7 +320,7 @@ function loadHelpers() {
   return vm.runInNewContext(`${src}\n({dashboardRole,dashboardAdmin,dashboardGeneral,dashboardRoleLabel});`);
 }
 
-test('AE. the local access helpers preserve the exact Stage 3B role semantics', () => {
+test('AE. the local access helpers match the locked server role policy', () => {
   const h = loadHelpers();
   const cases = [
     ['owner', 'adfa_general', true, true, 'Owner'],
@@ -328,7 +328,7 @@ test('AE. the local access helpers preserve the exact Stage 3B role semantics', 
     ['administrator', 'adfa_regular', true, false, 'Administrator'],
     ['adfa_regular', 'adfa_regular', true, false, 'Administrator'],
     ['admin', 'adfa_regular', true, false, 'Administrator'],
-    ['other_office', 'other_office', true, false, 'Other Office'],
+    ['other_office', 'other_office', false, false, 'Other Office'],
     ['faculty', 'faculty', false, false, 'Faculty'],
     ['hicc', 'hicc', false, false, 'HICC'],
     ['visc', 'visc', false, false, 'VISC'],

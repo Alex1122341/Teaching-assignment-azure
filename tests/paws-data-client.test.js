@@ -47,3 +47,72 @@ test('missing token and API failures fail closed without alternate data source',
   });
   await assert.rejects(failed.listSessions(),e=>e.code==='PROFILE_REQUIRED'&&e.status===403);
 });
+
+test('Dashboard summary uses the bearer GET endpoint and returns a deterministic summary object',async()=>{
+  const calls=[];
+  const client=createPawsAzureDataClient({
+    tokenProvider:async()=>'dashboard-token',
+    fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({summary:{activeFacultyCount:120,hiccCount:64,viscCount:35}})}}
+  });
+  assert.deepEqual(await client.dashboardSummary(),{activeFacultyCount:120,hiccCount:64,viscCount:35});
+  assert.equal(calls[0].url,'https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io/api/v1/dashboard/summary');
+  assert.equal(calls[0].init.method,'GET');
+  assert.equal(calls[0].init.headers.Authorization,'Bearer dashboard-token');
+  assert.equal(calls[0].init.credentials,'omit');
+});
+
+test('Dashboard summary omits blank academic year and query-encodes a supplied year',async()=>{
+  const urls=[];
+  const client=createPawsAzureDataClient({
+    tokenProvider:async()=>'t',
+    fetchImpl:async url=>{urls.push(url);return{ok:true,json:async()=>({})}}
+  });
+  assert.deepEqual(await client.dashboardSummary({academicYear:'  '}),{});
+  assert.deepEqual(await client.dashboardSummary({academicYear:'2026-27'}),{});
+  assert.equal(urls[0],'https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io/api/v1/dashboard/summary');
+  assert.equal(urls[1],'https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io/api/v1/dashboard/summary?academicYear=2026-27');
+});
+
+test('Dashboard faculty query safely encodes reserved search characters and returns only the roster array',async()=>{
+  let request;
+  const client=createPawsAzureDataClient({
+    tokenProvider:async()=>'t',
+    fetchImpl:async(url,init)=>{request={url,init};return{ok:true,json:async()=>({faculty:[{facultyId:'F1'}],ignored:true})}}
+  });
+  assert.deepEqual(await client.dashboardFaculty({academicYear:'2026-27',search:'A% &= B',limit:25}),[{facultyId:'F1'}]);
+  assert.equal(request.url,'https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io/api/v1/dashboard/faculty?academicYear=2026-27&search=A%25+%26%3D+B&limit=25');
+  assert.equal(request.init.method,'GET');
+});
+
+test('Dashboard faculty returns an empty roster when the response shape is missing',async()=>{
+  const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({faculty:null})})});
+  assert.deepEqual(await client.dashboardFaculty(),[]);
+});
+
+test('Dashboard detail requires a faculty id, encodes the path segment, and preserves the complete body',async()=>{
+  let url='';
+  const response={faculty:{facultyId:'F/1 ?'},roles:[],afcRecords:[],teachingAssignments:[],academicYear:'2026/27'};
+  const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async value=>{url=value;return{ok:true,json:async()=>response}}});
+  await assert.rejects(client.dashboardFacultyById('  '),/facultyId is required/i);
+  assert.equal(await client.dashboardFacultyById('F/1 ?',{academicYear:'2026/27'}),response);
+  assert.equal(url,'https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io/api/v1/dashboard/faculty/F%2F1%20%3F?academicYear=2026%2F27');
+});
+
+test('Dashboard methods preserve API status, code, and server message without a fallback',async()=>{
+  for(const [status,code] of [[400,'INVALID_ACADEMIC_YEAR'],[401,'UNAUTHENTICATED'],[403,'ROLE_DENIED'],[404,'FACULTY_NOT_FOUND'],[503,'SQL_UNAVAILABLE']]){
+    const client=createPawsAzureDataClient({
+      tokenProvider:async()=>'t',
+      fetchImpl:async()=>({ok:false,status,json:async()=>({error:{code,message:`failure ${status}`}})})
+    });
+    await assert.rejects(client.dashboardSummary(),error=>error.status===status&&error.code===code&&error.message===`failure ${status}`);
+  }
+});
+
+test('Dashboard client introduces read methods only and no Firestore fallback',()=>{
+  const source=fs.readFileSync('paws-data-client.js','utf8');
+  const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
+  assert.deepEqual(Object.keys(client).sort(),[
+    'currentUser','dashboardFaculty','dashboardFacultyById','dashboardSummary','listSessions','sessionBackend','sessionWritesEnabled'
+  ]);
+  assert.doesNotMatch(source,/firestore|\.post\(|method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/i);
+});

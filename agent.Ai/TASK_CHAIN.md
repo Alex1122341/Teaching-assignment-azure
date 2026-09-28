@@ -2,6 +2,22 @@
 
 **Last updated:** 2026-09-27
 
+## BETA-R4D-10B — Dashboard Firestore → Azure SQL/API read cutover
+
+Status: **STAGE 2 IMPLEMENTED / AWAITING ARCHITECT REVIEW**
+
+- Branch: `feature/beta-r4d10b-dashboard-api-client-auth`
+- Base: `db777d721ccff5665bc103fba89482a356dc0041`
+- Stage 1 audit: accepted (`READY_FOR_IMPLEMENTATION`).
+- Stage 2: Dashboard API client methods added; Dashboard auth profile source
+  changed from Firestore `users/{uid}` to `/api/v1/me`.
+- Current auth path has zero `users/{uid}` reads, zero `UCVM.ready()` calls,
+  zero `UCVM.watch()` calls, zero `linkFacultyIdentity()` calls, and one
+  `UCVM_PAWS_DATA.currentUser()` call.
+- No PR, baseline promotion, deployment, backend, SQL, or live data mutation.
+- Next only after Architect approval: Stage 3 Dashboard UI API read cutover and
+  fail-closed legacy mutation controls.
+
 ## BETA-R4D-9J — Authoritative session-time reconciliation
 
 Status: **LIVE ACCEPTANCE PASSED / READY FOR FINAL PR MERGE**

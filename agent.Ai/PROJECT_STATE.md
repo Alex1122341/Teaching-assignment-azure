@@ -3,6 +3,22 @@
 **Last verified:** 2026-09-27
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 
+## 0. BETA-R4D-10B Stage 2 — IMPLEMENTED / AWAITING ARCHITECT REVIEW
+
+Stage 2 is implemented on `feature/beta-r4d10b-dashboard-api-client-auth` from
+exact main `db777d721ccff5665bc103fba89482a356dc0041`. The shared browser data
+client now exposes the three existing read-only Dashboard endpoints, and the
+Faculty Dashboard authorization gate now resolves `/api/v1/me` through
+`UCVM_PAWS_DATA.currentUser()` instead of reading Firestore `users/{uid}` or
+calling `UCVM.ready()` / `UCVM.watch()` / `linkFacultyIdentity()`.
+
+This is intentionally not the business-data cutover: the existing Dashboard
+roster/detail/session Firestore reads and mutation controls remain for Stage 3,
+and this branch has not been deployed. Protected runtime drift is expected for
+`faculty-admin.html`, `faculty-admin.js`, and `paws-data-client.js`; frozen
+baseline promotion remains Stage 4. No API, SQL, Firebase, Firestore, ACA, or
+SWA live mutation was performed.
+
 ## 0. BETA-R4D-10A Dashboard read API foundation — IMPLEMENTED ON BRANCH
 
 R4D-10A is implemented on `feature/beta-r4d10a-dashboard-api-read` from main

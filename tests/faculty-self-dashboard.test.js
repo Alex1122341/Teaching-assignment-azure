@@ -18,8 +18,14 @@ test('faculty dashboard has a linked self-profile mode that does not subscribe t
  const src=read('faculty-admin.js');
  assert.match(src,/function isSelfServiceProfile\(p\)\{return \['faculty','hicc','visc'\]\.includes\(String\(p\?\.role\|\|''\)\.toLowerCase\(\)\)\}/);
  assert.match(src,/async function loadSelfFaculty\(facultyId\)/);
- assert.match(src,/db\.collection\(COLLECTION\)\.doc\(String\(facultyId\)\)\.get\(\)/);
- assert.match(src,/listenFacultySessions\(facultyId\)/);
+ assert.doesNotMatch(src,/db\.collection\(COLLECTION\)\.doc\(String\(facultyId\)\)\.get\(\)/,'self-service must not read the Firestore faculty document');
+ const selfStart=src.indexOf('async function loadSelfFaculty(facultyId)');
+ const selfEnd=src.indexOf('async function enterSelfMode',selfStart);
+ assert.ok(selfStart>=0&&selfEnd>selfStart,'loadSelfFaculty must exist');
+ const selfBody=src.slice(selfStart,selfEnd);
+ assert.match(selfBody,/UCVM_PAWS_DATA\.dashboardFaculty\(\)/);
+ assert.match(selfBody,/UCVM_PAWS_DATA\.dashboardFacultyById\(facultyId\)/);
+ assert.doesNotMatch(selfBody,/listenFacultySessions\(|db\.collection\(/,'self-service must not start a Firestore listener or read Firestore');
  assert.match(src,/if\(isSelfServiceProfile\(p\)\)\{await enterSelfMode\(user,p\);return\}/);
  assert.match(src,/if\(UCVM\.admin\(p\)\)\{enterAdminMode\(user,p\);return\}/);
  const start=src.indexOf('async function enterSelfMode(user,p)');

@@ -4,6 +4,16 @@ $ErrorActionPreference = 'Stop'
 function Get-PawsSqlAccessToken {
     param([string]$TenantId = 'c609a0ec-a5e3-4631-9686-192280bd9151')
 
+    # BETA-R4D-9J2: allow operators to reuse an already-acquired access token instead of
+    # re-running the interactive device flow. Read-only callers (preview/acceptance) and
+    # scripted runs can point PAWS_SQL_ACCESS_TOKEN_FILE at a token file; the interactive
+    # device-code path remains the default and is unchanged.
+    $tokenFile = $env:PAWS_SQL_ACCESS_TOKEN_FILE
+    if ($tokenFile -and (Test-Path -LiteralPath $tokenFile)) {
+        $cached = (Get-Content -LiteralPath $tokenFile -Raw).Trim()
+        if ($cached) { return $cached }
+    }
+
     $clientId = '04b07795-8ddb-461a-bbee-02f9e1bf7b46'
     $deviceEndpoint = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/devicecode"
     $tokenEndpoint = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"

@@ -30,23 +30,43 @@ manual SWA deployment remains static-only. Governance Commit F must promote
 the frozen baseline separately after review. No frontend deployment has been
 performed and no tokens, UIDs, or credentials are stored here.
 
-## 0B. BETA-R4D-9J session-time reconciliation breakpoint
+## 0B. BETA-R4D-9J session-time reconciliation — LIVE ACCEPTANCE PASSED
 
 R4D-9J is implemented on `feature/beta-r4d9j-session-time-reconciliation`
-from fresh main `c090f73836d31ff02677b11f06a50dc8421d34af`. The source-backed
-reconciliation covers all 1,937 live Azure SQL sessions and identifies 423
-exact `SessionId` time corrections from `ucvm_timetable_master_2026-09-27.xlsx`;
-ambiguous/unmatched records fail closed. The persistent correction layer runs
-after stable SessionId generation. A read-only live preview confirmed all 423
-old intervals, 1,937 sessions, 4,970 canonical SessionAssignment relationships,
-and zero writes. `staging.TeachingAssignmentRaw` historically has 4,974 source
-rows; it is not the canonical assignment count.
+from main `c090f73836d31ff02677b11f06a50dc8421d34af`. The source-backed
+reconciliation covers all 1,937 Azure SQL sessions and preserves the stable
+SessionId set while applying 423 exact StartTime/EndTime corrections from
+`ucvm_timetable_master_2026-09-27.xlsx`. The full rebuild gate passed:
+4,974 raw Teaching Assignments -> 4,970 canonical SessionAssignments, 1,937
+sessions before/after, identical SessionId sets, identical assignment
+relationships, and zero approved-time mismatches.
 
-No live SQL update has been applied yet because
-`PAWS_Faculty_Workload_Normalized.xlsx` was unavailable in the owner's normal
-project/download/import folders, so the requested full temporary import rebuild
-could not be repeated. No frontend file changed and no SWA deployment is needed.
-Review is tracked in Draft PR #20.
+The reviewed live operator path completed successfully on 2026-09-27. The
+operator-safety fix removed the out-of-bound `UpdatedAtUtc` mutation so the SQL
+UPDATE changes only `StartTime` and `EndTime` under the exact old-value guard.
+A pre-update backup was written outside Git to
+`C:\Users\xinyu\Desktop\PAWS-R4D9J-Live-Backup\PAWS_BETA_R4D9J_SQL_TIME_BACKUP.csv`
+with SHA-256
+`3c47c9890e56d65e3319947da2a88e92aa0cd3ea3d2d803d8ff819ecc7817ad8`.
+The transaction committed 423/423 updates, 0 inserts, and 0 deletes.
+`paws.Session` stayed 1,937, `paws.SessionAssignment` stayed 4,970, and
+the SessionId-set SHA-256 stayed
+`2a105c0086ac52dc574a732d7aef2b2eb9cac0cdfe9648d6ca346c4db1093224`.
+
+Post-apply acceptance passed: all 423 manifest times match SQL,
+`paws.vCalendarSession` = 1,937, 20/20 corrected view samples match,
+the live browser reports `azure-sql`, writes disabled, and 1,937 API sessions,
+with 20/20 corrected API samples matching. Calendar partition checks passed for
+Fall W1 (52 grid + 25 check = 77), Fall W5 (60 + 9 = 69), Fall W6
+(60 + 19 = 79), and Spring W4 (10 + 7 = 17), with unique SessionId counts equal
+to totals. Fall W5 changed from 37 grid / 32 check to 60 grid / 9 check while
+preserving 69 total sessions. Remaining unresolved SQL classification is
+493 early-clock, 65 reversed, 35 00:00 sentinels, 0 other, total 593
+Check-needed. Rollback preview passed with zero writes.
+
+No protected frontend file changed, no Firestore timetable fallback was added,
+and no SWA deployment is required for R4D-9J. PR #20 is the final review/merge
+vehicle; merge only after the continuity commit CI is green.
 
 ## 1. Immediate owner priority
 

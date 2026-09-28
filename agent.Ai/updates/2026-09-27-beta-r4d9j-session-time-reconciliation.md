@@ -3,7 +3,7 @@
 **Date:** 2026-09-27  
 **Agent/model:** Codex / GPT-5  
 **Repository:** `Alex1122341/Teaching-assignment-azure`  
-**Task status:** PARTIAL
+**Task status:** LIVE ACCEPTANCE PASSED / PR FINALIZATION
 
 ## 1. Goal
 
@@ -31,7 +31,7 @@ generation, and prepare a transactional exact-SessionId SQL repair.
 - added a preview-default transactional SQL repair/rollback command;
 - ran a live read-only preview after device-code authentication.
 
-No live SQL write, deployment, Firebase mutation, or merge was performed.
+The live SQL repair was committed through the reviewed operator path. No frontend deployment, Firebase mutation, or merge was performed during the live repair itself.
 
 ## 4. Files / components changed
 
@@ -73,54 +73,114 @@ count 1,082 -> 1,344 and early-clock count 755 -> 493; reversed 65 and sentinel
 
 ## 8. Live operations
 
-### Performed
+### Safety and rebuild gates
 
-- read-only SQL preview: 423/423 exact old intervals matched;
-- live counts: 1,937 sessions and 4,970 canonical SessionAssignments;
-- SessionId-set SHA-256 recorded outside continuity docs;
-- writes performed: 0.
+- operator UPDATE narrowed to `StartTime` + `EndTime` only;
+- safety fix commit: `6f875be2302b75082aa51d47a87dfe19b397421c`;
+- focused test follow-up: `c825f87497ab2852bf19be9d00b7046da5a7a13e`;
+- manifest SHA-256 verified:
+  `3802b09a9e0bc5b75a598f45390667577da90e7cb11493a399d0fee947fa17a9`;
+- workload SHA-256:
+  `fe3eb279b28f3c46a8bec7097e3c3ae82330a5f21d7e23629805f9f306f25214`;
+- rebuild gate PASS: 4,974 raw rows, 4,970 canonical assignments before/after,
+  1,937 sessions before/after, SessionId sets identical, assignment relationship
+  SHA before/after
+  `6e2f663e8dcc1071a2294f5bb285e197945a8f2856a38069edb6a2edc93195a7`,
+  approved correction mismatches 0.
 
-### Explicitly NOT performed
+### Live apply
 
-- no SQL update/insert/delete;
-- no database reset/import;
-- no frontend deploy or SWA change;
-- no Firebase/auth/ACA/CORS/network/DOE/AFC/role/UserProfile change;
-- no merge.
+Final preview: 423/423 exact old intervals, 1,937 sessions, 4,970 assignments,
+zero writes.
 
-## 9. Current state after task
+Pre/post domain counts were identical:
 
-- final branch: `feature/beta-r4d9j-session-time-reconciliation`
-- implementation commit: `2cea57f2ef5bfe7e076204bd535439401471ff75`
-- final SHA: pending continuity follow-up commit
-- PR: Draft PR #20 — https://github.com/Alex1122341/Teaching-assignment-azure/pull/20
-- merge/deploy state: not merged, not deployed
-- live SQL remains pre-repair.
+| Object | Before | After |
+|---|---:|---:|
+| Session | 1937 | 1937 |
+| SessionAssignment | 4970 | 4970 |
+| UserProfile | 2 | 2 |
+| Faculty | 120 | 120 |
+| FacultyAlias | 5 | 5 |
+| FacultyProfessionalProfile | 116 | 116 |
+| JointAppointment | 14 | 14 |
+| Course | 43 | 43 |
+| AfcRecord | 791 | 791 |
+| RoleAssignment | 162 | 162 |
+| DoeRuleSeed | 24 | 24 |
+| RoleDefinition | 14 | 14 |
+| AuditEvent | 0 | 0 |
+
+Backup:
+`C:\Users\xinyu\Desktop\PAWS-R4D9J-Live-Backup\PAWS_BETA_R4D9J_SQL_TIME_BACKUP.csv`
+
+Backup SHA-256:
+`3c47c9890e56d65e3319947da2a88e92aa0cd3ea3d2d803d8ff819ecc7817ad8`
+
+Apply result:
+
+- mode = repair
+- applied = true
+- correctionCount = 423
+- rowsUpdated = 423
+- rowsInserted = 0
+- rowsDeleted = 0
+- Session = 1937 -> 1937
+- SessionAssignment = 4970 -> 4970
+- SessionId set identical = true
+- SessionId SHA before/after =
+  `2a105c0086ac52dc574a732d7aef2b2eb9cac0cdfe9648d6ca346c4db1093224`
+- transaction = COMMITTED
+
+### Post-apply acceptance
+
+- SQL manifest new-time match = 423/423, mismatch = 0;
+- `paws.vCalendarSession` = 1,937;
+- corrected view sample = 20/20;
+- ACA health = 200 / `paws-beta-sql-runtime`;
+- browser runtime = `azure-sql`, writes disabled, 1,937 sessions;
+- corrected API sample = 20/20;
+- Fall W1 = 52 grid + 25 check = 77, unique 77;
+- Fall W5 = 60 grid + 9 check = 69, unique 69;
+- Fall W6 = 60 grid + 19 check = 79, unique 79;
+- Spring W4 = 10 grid + 7 check = 17, unique 17;
+- Fall W5 before/after = 37 grid / 32 check -> 60 grid / 9 check,
+  total population 69 both sides;
+- remaining mutually exclusive Check-needed classification = 493 early-clock,
+  65 reversed, 35 `00:00` sentinel, 0 other; total 593;
+- rollback preview PASS: `applied=false`, `writesPerformed=false`,
+  423 restore candidates, 1,937 sessions, 4,970 assignments.
+
+The 423 manifest contains no Spring-period corrections; Spring W4 therefore
+validates partition/exhaustiveness and unresolved-sentinel visibility rather
+than a corrected Spring SessionId.
+
+## 9. Current state after live acceptance
+
+- branch: `feature/beta-r4d9j-session-time-reconciliation`
+- PR: #20
+- live SQL repair: COMPLETE
+- API acceptance: PASS
+- Calendar acceptance: PASS
+- rollback preview: PASS
+- frontend deployment: NOT REQUIRED / NOT PERFORMED
+- protected frontend runtime changes: 0
+- Firestore timetable fallback: none
+- merge state: pending final continuity commit CI and normal merge commit.
 
 ## 10. Blockers / unresolved questions
 
-`PAWS_Faculty_Workload_Normalized.xlsx` was not found in the owner's normal
-project/import/download folders. The current 1,937-row CSV replay proves the
-SessionId set and only-time-field differences, and live preview proves every
-target old interval, but the task explicitly requires a full temporary import
-normalization rebuild before live mutation. SQL apply remains blocked on that
-source workbook.
-
-The repository baseline clarifies that 4,974 is the raw teaching-assignment row
-count, while the accepted canonical `paws.SessionAssignment` count is 4,970.
+No R4D-9J live-repair blocker remains. The remaining 593 Check-needed sessions
+are intentionally unresolved data and must not be inferred or auto-corrected.
 
 ## 11. Exact current breakpoint
 
-Implementation, tests, source reconciliation, workbook, and live preview are
-complete. The SQL database is unchanged. Resume by supplying the missing
-normalized workload workbook, run the temporary full import, compare 1,937
-SessionIds and 4,970 canonical relationships, then run the existing operator
-with outside-Git backup and `-Apply` only if the gate passes.
+Commit these continuity updates to PR #20, mark the PR ready for review, wait
+for all CI to pass, then merge with a normal merge commit. Do not deploy SWA.
 
 ## 12. Next safe action
 
-Create/review the Draft PR. Once the missing workbook is available, execute the
-full rebuild gate and then the transactional repair.
+Finalize and merge PR #20 after green CI. No Azure Beta Deploy is required.
 
 ## 13. DO NOT REDO
 

@@ -77,3 +77,25 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 
 Rollback requires the current SQL rows to equal the manifest's corrected times, then restores the backup's old times by exact `SessionId` under the same transaction gates.
 
+## Completed live operation — 2026-09-27
+
+The reviewed R4D-9J live repair completed successfully.
+
+- manifest: 423 exact corrections;
+- manifest SHA-256:
+  `3802b09a9e0bc5b75a598f45390667577da90e7cb11493a399d0fee947fa17a9`;
+- backup:
+  `C:\Users\xinyu\Desktop\PAWS-R4D9J-Live-Backup\PAWS_BETA_R4D9J_SQL_TIME_BACKUP.csv`;
+- backup SHA-256:
+  `3c47c9890e56d65e3319947da2a88e92aa0cd3ea3d2d803d8ff819ecc7817ad8`;
+- transaction: COMMITTED;
+- rows updated/inserted/deleted: 423 / 0 / 0;
+- Session: 1,937 -> 1,937;
+- SessionAssignment: 4,970 -> 4,970;
+- SessionId-set SHA unchanged:
+  `2a105c0086ac52dc574a732d7aef2b2eb9cac0cdfe9648d6ca346c4db1093224`;
+- post-apply manifest verification: 423/423;
+- rollback preview: PASS, zero writes.
+
+Do not apply rollback unless a later approved incident response requires it.
+

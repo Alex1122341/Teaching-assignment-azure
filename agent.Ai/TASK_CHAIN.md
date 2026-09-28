@@ -4,20 +4,36 @@
 
 ## BETA-R4D-9J — Authoritative session-time reconciliation
 
-Status: **IMPLEMENTED / LIVE PREVIEW PASSED / SQL APPLY BLOCKED**
+Status: **LIVE ACCEPTANCE PASSED / READY FOR FINAL PR MERGE**
 
 - Branch: `feature/beta-r4d9j-session-time-reconciliation`
-- Draft PR: `#20`
-- Base main: `c090f73836d31ff02677b11f06a50dc8421d34af`
-- 1,937 current sessions reconciled; 423 source-backed exact corrections.
-- Existing SessionIds are preserved because corrections apply after canonical
-  identity generation.
-- Live preview: 1,937 sessions, 4,970 canonical SessionAssignments, 423/423 old
-  intervals matched, zero writes.
-- `PAWS_Faculty_Workload_Normalized.xlsx` is not available locally, so the full
-  temporary import rebuild gate remains incomplete. Do not run `-Apply` until
-  that workbook is supplied and the 1,937-ID/4,970-relationship rebuild passes.
-- No protected frontend file changed; no baseline promotion or SWA deployment.
+- PR: `#20`
+- Starting PR HEAD for live operation: `90b4276cfb03891a679bfce1ae4765f8608a77d9`
+- Operator safety fix: `6f875be2302b75082aa51d47a87dfe19b397421c`
+- Focused test follow-up: `c825f87497ab2852bf19be9d00b7046da5a7a13e`
+- Manifest: 423 corrections; SHA-256 `3802b09a9e0bc5b75a598f45390667577da90e7cb11493a399d0fee947fa17a9`
+- Rebuild gate PASS: 4,974 raw Teaching Assignments, 4,970 canonical
+  SessionAssignments before/after, 1,937 sessions before/after, identical
+  SessionIds and assignment relationships.
+- Live repair COMMITTED: 423 updates, 0 inserts, 0 deletes; Session 1,937 ->
+  1,937; SessionAssignment 4,970 -> 4,970.
+- SessionId SHA before/after:
+  `2a105c0086ac52dc574a732d7aef2b2eb9cac0cdfe9648d6ca346c4db1093224`.
+- Backup SHA-256:
+  `3c47c9890e56d65e3319947da2a88e92aa0cd3ea3d2d803d8ff819ecc7817ad8`.
+- Post-SQL: 423/423 new times match; `vCalendarSession` = 1,937; 20/20
+  corrected view samples pass.
+- Browser/API: `sessionBackend() = azure-sql`,
+  `sessionWritesEnabled() = false`, `listSessions().length = 1937`,
+  corrected API sample = 20/20.
+- Calendar partition PASS: Fall W1 52+25=77; Fall W5 60+9=69; Fall W6
+  60+19=79; Spring W4 10+7=17; unique counts equal totals.
+- Fall W5 before/after: 37 grid / 32 check -> 60 grid / 9 check; total 69.
+- Remaining Check-needed: 493 early-clock + 65 reversed + 35 00:00 sentinel
+  = 593; other invalid/out-of-window = 0.
+- Rollback preview PASS; `applied=false`, `writesPerformed=false`.
+- No protected frontend runtime change; no SWA deployment; no Firestore
+  timetable fallback.
 
 ## BETA-R4D-9B — Runtime Commit C
 

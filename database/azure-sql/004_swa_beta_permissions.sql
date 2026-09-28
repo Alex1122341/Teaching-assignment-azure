@@ -70,6 +70,19 @@ IF EXISTS (
               AND OBJECT_NAME(permission.major_id) = N'SessionAssignment'
               AND COL_NAME(permission.major_id, permission.minor_id) IN (N'SessionId', N'FacultyId')
             )
+            -- BETA-R4D-10A: least-privilege Dashboard read columns. Only the
+            -- roster and detail fields the read API projects are granted; FTE and
+            -- reporting relations stay readable, DOE/creditable-hour and source
+            -- provenance columns deliberately do not.
+            OR (
+              OBJECT_SCHEMA_NAME(permission.major_id) = N'paws'
+              AND OBJECT_NAME(permission.major_id) = N'Faculty'
+              AND COL_NAME(permission.major_id, permission.minor_id) IN (
+                N'FacultyId', N'RecordType', N'PreferredFirstName', N'PreferredLastName',
+                N'DisplayName', N'Ucid', N'Email', N'Stream', N'Rank', N'Fte',
+                N'ReportsToFacultyId', N'Active'
+              )
+            )
           )
         ))
         OR permission.class NOT IN (0, 1, 3)
@@ -82,6 +95,14 @@ GRANT SELECT ON OBJECT::paws.UserProfile
     TO [paws_swa_beta];
 GRANT SELECT ON OBJECT::paws.vCalendarSession TO [paws_swa_beta];
 GRANT SELECT ON OBJECT::paws.SessionAssignment (SessionId, FacultyId) TO [paws_swa_beta];
+
+-- BETA-R4D-10A: Dashboard read contract. Column-scoped SELECT only; the
+-- previously denied schema-wide DML stays denied below, so these grants widen
+-- read surface without widening mutation surface.
+GRANT SELECT ON OBJECT::paws.Faculty
+    (FacultyId, RecordType, PreferredFirstName, PreferredLastName, DisplayName,
+     Ucid, Email, Stream, Rank, Fte, ReportsToFacultyId, Active)
+    TO [paws_swa_beta];
 
 DENY INSERT, UPDATE, DELETE, EXECUTE ON SCHEMA::paws TO [paws_swa_beta];
 DENY SELECT, INSERT, UPDATE, DELETE, EXECUTE ON SCHEMA::staging TO [paws_swa_beta];

@@ -3,6 +3,44 @@
 **Last verified:** 2026-09-27
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 
+## 0. BETA-R4D-10A Dashboard read API foundation — IMPLEMENTED ON BRANCH
+
+R4D-10A is implemented on `feature/beta-r4d10a-dashboard-api-read` from main
+`7c0d857ed48ca5864aea78e58502066b568004d1` (the true merge commit of PR #21 /
+BETA-R4D-9J2). It adds a READ-ONLY Azure SQL Dashboard surface:
+`GET /api/v1/dashboard/summary`, `/faculty`, and `/faculty/:facultyId`.
+Administrator roles are `owner`, `administrator`, `adfa_general`, `adfa_regular`,
+and `admin`; self-service roles are `faculty`, `hicc`, and `visc`; `viewer` is
+denied and `other_office` is deliberately NOT introduced. Faculty scope is a
+server-side SQL predicate, not a presentation-side filter, and a faculty-scoped
+caller with no linked FacultyId is refused with 403 `FACULTY_LINK_REQUIRED`
+before any SQL read. Any non-GET method on a Dashboard path returns 405 with
+`Allow: GET`.
+
+The reviewed timetable wrapper is unchanged and no protected runtime asset was
+touched, so the frozen baseline still reports zero drift. The Dashboard frontend
+is NOT switched and no SWA deployment is part of this step. Tests: server 39/39,
+root 357 pass / 1 environment-only fail / 29 skipped, Python 64/64. ACA
+deployment and live acceptance follow the merge on the exact merged main SHA.
+
+## 0C. BETA-R4D-9J2 owner 24-hour session patch — LANDED ON MAIN
+
+R4D-9J2 replaced the inferred 423-entry session-time proposal with the
+owner-supplied `PAWS_Faculty_Summaries_SQL_24h.csv`
+(SHA-256 `de62f81cfed0bcd3a79f70a34bc6a6c352a2b68770fafa52c0516ce614ad4cde`).
+Matching was exact-SessionId only: 224/224 matched, 0 material identity
+mismatches, 179 already correct, 45 differing. All 45 are now grid-positionable
+(39 AM→PM shifts, 6 reversed-interval repairs). The apply ran in a single
+committed transaction through the approved device-code operator path
+(rowsUpdated=45, 0 inserts, 0 deletes); `paws.Session` stayed 1,937,
+`paws.SessionAssignment` stayed 4,970, and the SessionId set was unchanged.
+
+The default repair manifest is now a 45-entry CSV-backed patch
+(`tools/azure_sql_migration/session_time_corrections.json`, SHA-256
+`ec79244237af3de374fff70e1c26ca1f652a381e8ab4b345b184ae3d5d781204`); the retired
+423-entry set is retained as history only. Delivered via PR #21, merged to main as
+`7c0d857ed48ca5864aea78e58502066b568004d1`.
+
 ## 0. BETA-R4D-4A hardening breakpoint
 
 The R4D-4 feature branch `task/beta-r4d4-aca-packaging` starts from the

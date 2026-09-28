@@ -6,6 +6,11 @@ const handle=request=>(runtime||(runtime=createSwaSqlRuntime()))(request);
 app.http('paws-health-sql',{methods:['GET'],authLevel:'anonymous',route:'health/sql',handler:handle});
 app.http('paws-current-user',{methods:['GET'],authLevel:'anonymous',route:'v1/me',handler:handle});
 app.http('paws-sessions',{methods:['GET'],authLevel:'anonymous',route:'v1/sessions',handler:handle});
-app.http('paws-dashboard-summary',{methods:['GET'],authLevel:'anonymous',route:'v1/dashboard/summary',handler:handle});
-app.http('paws-dashboard-faculty',{methods:['GET'],authLevel:'anonymous',route:'v1/dashboard/faculty',handler:handle});
-app.http('paws-dashboard-faculty-id',{methods:['GET'],authLevel:'anonymous',route:'v1/dashboard/faculty/{facultyId}',handler:handle});
+// BETA-R4D-10A: the Dashboard routes are bound to every common method so the
+// runtime — not the Functions host's route matcher — owns the 405 decision.
+// Binding GET only would let the host answer a POST with 404 before the handler
+// runs, which contradicts the reviewed Dashboard contract (405 + Allow: GET).
+const DASHBOARD_METHODS=['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS'];
+app.http('paws-dashboard-summary',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/summary',handler:handle});
+app.http('paws-dashboard-faculty',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/faculty',handler:handle});
+app.http('paws-dashboard-faculty-id',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/faculty/{facultyId}',handler:handle});

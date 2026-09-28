@@ -243,6 +243,30 @@ test('N: every non-GET method on a dashboard path is 405 with Allow: GET', async
   assert.equal((await app(request('/api/v1/dashboard/unknown'))).status, 404);
 });
 
+test('N2: the 405 verdict is produced by the wrapper, not by the Functions host', () => {
+  // Azure Functions' route matcher answers a method it was not bound for with
+  // 404 before any handler runs. Binding the Dashboard routes to every common
+  // method is therefore load-bearing: it is what makes the reviewed
+  // "405 + Allow: GET" contract observable over the wire. This test pins that
+  // binding so a future "tidy up to GET" edit cannot silently regress it.
+  const entry = fs.readFileSync(path.join(root, 'swa-api/index.js'), 'utf8');
+  const binding = name => {
+    const match = new RegExp(name + "'[^}]*methods:([^,}]+),").exec(entry);
+    assert.ok(match, name + ' binding not found');
+    return match[1];
+  };
+  assert.equal(binding('paws-health-sql'), "['GET']");
+  assert.equal(binding('paws-current-user'), "['GET']");
+  assert.equal(binding('paws-sessions'), "['GET']");
+  for (const name of ['paws-dashboard-summary', 'paws-dashboard-faculty', 'paws-dashboard-faculty-id']) {
+    assert.equal(binding(name), 'DASHBOARD_METHODS', name);
+  }
+  const methods = /DASHBOARD_METHODS\s*=\s*\[([^\]]+)\]/.exec(entry)[1];
+  for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']) {
+    assert.ok(methods.includes("'" + method + "'"), method);
+  }
+});
+
 // O -------------------------------------------------------------------------
 // Comments and string literals are stripped first: the modules intentionally
 // document the verbs they must never emit, so a raw text scan would match its
@@ -280,12 +304,21 @@ test('O: the Dashboard repository is read-only and never touches staging or Fire
   assert.match(repository, /@search/);
   assert.doesNotMatch(repository, /\+ *facultyId|\$\{ *facultyId *\}|' *\+ *facultyId/);
 
-  // The Functions entry point registers the three Dashboard routes as GET only.
+  // The Functions entry point registers the three Dashboard routes for every
+  // common method, so the 405 verdict is produced by the dashboard wrapper
+  // rather than by the Functions host's route matcher (which would answer 404).
   const entry = fs.readFileSync(path.join(root, 'swa-api/index.js'), 'utf8');
   for (const route of ['v1/dashboard/summary', 'v1/dashboard/faculty', 'v1/dashboard/faculty/{facultyId}']) {
     assert.ok(entry.includes(route), route);
   }
-  assert.doesNotMatch(entry, /methods:\s*\[\s*'POST'/);
+  assert.match(entry, /DASHBOARD_METHODS\s*=\s*\[[^\]]*'GET'[^\]]*'POST'[^\]]*\]/);
+  for (const name of ['paws-dashboard-summary', 'paws-dashboard-faculty', 'paws-dashboard-faculty-id']) {
+    assert.match(entry, new RegExp(name + "'[^}]*methods:DASHBOARD_METHODS"), name);
+  }
+  // The timetable routes stay GET-bound: their reviewed contract is unchanged.
+  for (const name of ['paws-health-sql', 'paws-current-user', 'paws-sessions']) {
+    assert.match(entry, new RegExp(name + "'[^}]*methods:\\['GET'\\]"), name);
+  }
 });
 
 // P -------------------------------------------------------------------------

@@ -78,7 +78,7 @@ Modified:
 
 | Suite | Result |
 |---|---|
-| `server` | 39 pass / 0 fail |
+| `server` | 40 pass / 0 fail |
 | root | 357 pass / 1 fail / 29 skipped |
 | Python | 64 pass / 0 fail |
 
@@ -86,14 +86,43 @@ The single root failure is the pre-existing environment-only
 `spawnSync pwsh.exe ENOENT` in `tests/hosting-boundary.test.js` (no `pwsh` on
 this machine), present on the base commit as well.
 
+## 7A. Live finding — the 405 contract needed a binding change
+
+PR #22 CI was green, but the live deployment surfaced something the PR-time
+tests could not: `POST /api/v1/dashboard/summary` returned **404**, not 405.
+Azure Functions' route matcher answers a method the function was not bound for
+with 404 before any handler runs, so binding the Dashboard routes to `GET` only
+made the reviewed 405 contract unreachable over the wire.
+
+Fix: bind the three Dashboard routes to `GET, POST, PUT, PATCH, DELETE, HEAD,
+OPTIONS` and let the wrapper own the 405 verdict (with its `Allow: GET` header).
+The three timetable routes stay `GET`-bound. Test `N2` now pins the binding.
+
+Lesson worth carrying forward: a wrapper-level unit test cannot see an
+Azure-Functions host-level routing decision. Only a live probe can.
+
+## 7B. Deployment
+
+| Item | Value |
+|---|---|
+| Merged `main` | `983e6ab577054162e1cbd0bc7de8c9c1d4443c24` (true merge, PR #22) |
+| Main build run | `36369400775` SUCCESS |
+| ACR publish run | `36369556506` SUCCESS |
+| Image | `pawssqlbetaacr.azurecr.io/paws-sql-beta-api:983e6ab577054162e1cbd0bc7de8c9c1d4443c24` |
+| Image digest | `sha256:e5488e2b1bd337ce5796fb91be2879db898ef70ae9473c3c0bc29243d32934bf` |
+| ACA revision | new revision, Healthy/Provisioned, 100% traffic |
+| SWA | not deployed |
+
+Live probes: `health/sql` 200; `/api/v1/sessions` 401; `/api/v1/dashboard/summary`
+401; `/api/v1/dashboard/faculty` 401. The first `health/sql` on the new revision
+was 503 after a 15 s SQL handshake (ACA cold start), 200 in 48 ms immediately
+after.
+
 ## 8. Open items
 
-* push the branch and open the PR;
-* wait for green CI;
-* merge with a normal merge commit;
-* deploy ACA on the exact merged `main` SHA (no SWA deployment);
-* live acceptance: health 200, unauthenticated 401, and authenticated reads for
-  Account A (`adfa@ucalgary.ca`) and Account B (`xinyu.zhu1@ucalgary.ca`).
+* ship the 405 binding fix (follow-up commit / PR) and re-verify the live probe;
+* authenticated live acceptance for Account A (`adfa@ucalgary.ca`) and Account B
+  (`xinyu.zhu1@ucalgary.ca`).
 
 ## 9. Out of scope, deliberately
 

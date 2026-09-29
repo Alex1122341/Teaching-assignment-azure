@@ -98,15 +98,20 @@ jobs:
           az acr repository show --name "$ACR_NAME" --image "$IMAGE_REPOSITORY:$COMMIT_SHA" -o json > /tmp/existing-tag.json 2>"$err_file"
           status=$?
           set -e
-          if [ "$status" -eq 0 ]; then
-            echo 'SHA_TAG_ALREADY_EXISTS_REVIEW_REQUIRED'
-            exit 1
-          fi
-          if ! grep -Eqi 'MANIFEST_UNKNOWN|manifest[^[:cntrl:]]*(not found|does not exist)|tag[^[:cntrl:]]*not found' "$err_file"; then
-            cat "$err_file" >&2
-            exit "$status"
-          fi
-          echo 'SHA tag is absent; single-publish guard permits the build.'
+          classification="$(node tools/beta-acr-tag-guard.js "$status" "$err_file")"
+          case "$classification" in
+            EXISTS)
+              echo 'SHA_TAG_ALREADY_EXISTS_REVIEW_REQUIRED'
+              exit 1
+              ;;
+            ABSENT)
+              echo 'SHA tag is absent; single-publish guard permits the build.'
+              ;;
+            *)
+              cat "$err_file" >&2
+              exit "$status"
+              ;;
+          esac
 
       - name: Build image from the downloaded tested API artifact
         env:

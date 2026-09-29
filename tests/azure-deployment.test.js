@@ -68,7 +68,7 @@ test('beta deployment is manual exact-main and reuses a successful build artifac
   assert.doesNotMatch(workflow,/api_location\s*:/);
   assert.doesNotMatch(workflow,/skip_api_build\s*:\s*false/);
   const deploy=workflow.slice(workflow.indexOf('Deploy tested beta artifact'));
-  assert.doesNotMatch(deploy,/npm ci|npm test|build-static/);
+  assert.doesNotMatch(workflow,/npm ci|npm test|node tools\/build-beta-release\.js|build-static\.js/);
 });
 
 test('beta build may retain the API artifact for packaging while deploy remains static-only',()=>{
@@ -94,11 +94,26 @@ test('beta deploy independently revalidates the frozen runtime before Azure uplo
   // Independent frozen-runtime revalidation happens before that upload.
   assert.match(before,/node tools\/beta-freeze\.js/);
   assert.match(before,/--artifact\s+\.azure-production\/app/);
-  assert.match(before,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
+  assert.match(before,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
+  assert.match(before,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
+  assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
+  assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
   assert.match(before,/ref:\s*\$\{\{ inputs\.commit_sha \}\}/);
   // Revalidation must not become a second build.
   assert.doesNotMatch(before,/node tools\/build-beta-release\.js/);
   assert.doesNotMatch(before,/npm run test:emulator/);
+});
+
+test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
+  const workflow=read('.github/workflows/azure-beta-deploy.yml');
+  const freeze=require('../tools/beta-freeze.js');
+  const baseline=require('../tools/beta-baseline.json');
+  assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
+  assert.equal(freeze.BASELINE_COMMIT,'25e8f483b7d2455c0f96b00c82f3fde30760ac17');
+  assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
+  assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
+  assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
+  assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
 });
 
 // G + H. Candidate and main CI contracts: ZERO allowed protected runtime drift.
@@ -138,7 +153,6 @@ test('the build workflow triggers on both pull_request and push to main',()=>{
 // I. Deploy contract.
 test('manual deploy still requires exact current main and independently verifies both copies',()=>{
   const workflow=read('.github/workflows/azure-beta-deploy.yml');
-  const baseline='2b10aca5b9ab26ffecdffb685bddd33ae4de70f5';
   // exact-main gates preserved
   assert.match(workflow,/test "\$\(git rev-parse HEAD\)" = "\$EXPECTED_SHA"/);
   assert.match(workflow,/test "\$\(git rev-parse origin\/main\)" = "\$EXPECTED_SHA"/);
@@ -149,10 +163,11 @@ test('manual deploy still requires exact current main and independently verifies
   assert.match(workflow,/'\.status'.*= "completed"/);
   assert.match(workflow,/'\.conclusion'.*= "success"/);
   assert.match(workflow,/'\.path'.*= "\.github\/workflows\/azure-beta-build\.yml"/);
-  // repository copy verified against Commit A
-  assert.match(workflow,new RegExp(`node tools/beta-freeze\\.js --baseline ${baseline}\\b`));
-  // downloaded artifact verified against the SAME Commit A
-  assert.match(workflow,new RegExp(`node tools/beta-freeze\\.js --baseline ${baseline} --artifact \\.azure-production/app`));
+  // repository and downloaded artifact delegate baseline selection to beta-freeze.js
+  assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
+  assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
+  assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
+  assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
   assert.doesNotMatch(workflow,/86bd5aa2c8a25259f3f708e49b322220ff43a147/);
 });
 

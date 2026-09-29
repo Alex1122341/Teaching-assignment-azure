@@ -1,7 +1,13 @@
 /* HICC timetable + Spark-safe approval workflow for the main timetable only. */
 (()=>{
  'use strict';
- if(window.UCVM_PAWS_DATA?.sessionBackend?.()==='azure-sql')return;
+ function businessBackend(){
+  try{
+   const value=window.UCVM_PAWS_DATA?.sessionBackend?.();
+   return typeof value==='string'?value.trim():'';
+  }catch(_){return ''}
+ }
+ if(businessBackend()!=='firestore')return;
  if(!window.UCVM||typeof firebase==='undefined')return;
  const scheduling=window.UCVM_SCHEDULING,approvalScheduling=window.UCVM_APPROVAL_SCHEDULING;
  if(!scheduling||!approvalScheduling)throw new Error('UCVM scheduling and approval policy helpers are required.');

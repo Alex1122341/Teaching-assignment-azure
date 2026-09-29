@@ -8,9 +8,14 @@ window.UCVM_ASSETS=(()=>{
   pending.set(url,promise);return promise;
  }
  async function ensureAfcPdf(){await loadScriptOnce('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js','PDFLib');await loadScriptOnce('afc-form-values.js','UCVM_AFC_FORM_VALUES');await loadScriptOnce('afc-pdf-browser.js','UCVM_AFC_PDF');return window.UCVM_AFC_PDF}
- const azureSqlBackend=()=>window.UCVM_PAWS_DATA?.sessionBackend?.()==='azure-sql';
+ function businessBackend(){
+  try{
+   const value=window.UCVM_PAWS_DATA?.sessionBackend?.();
+   return typeof value==='string'?value.trim():'';
+  }catch(_){return ''}
+ }
  async function ensureApprovalWorkflow(){
-  if(azureSqlBackend())return false;
+  if(businessBackend()!=='firestore')return false;
   await loadScriptOnce('faculty-swap-safe.js','UCVM_SAFE_SWAP');await loadScriptOnce('faculty-swap-handoff.js');await loadScriptOnce('approval-workflow.js');return true
  }
  function enableFacultyDashboardLink(){

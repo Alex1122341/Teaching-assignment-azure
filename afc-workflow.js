@@ -1,7 +1,12 @@
 'use strict';
 (()=>{
- const azureSqlBackend=window.UCVM_PAWS_DATA?.sessionBackend?.()==='azure-sql';
- if(azureSqlBackend){
+ function businessBackend(){
+  try{
+   const value=window.UCVM_PAWS_DATA?.sessionBackend?.();
+   return typeof value==='string'?value.trim():'';
+  }catch(_){return ''}
+ }
+ if(businessBackend()!=='firestore'){
   const message='AFC request entry is being moved to the Azure SQL Beta workflow. Existing teaching and change-history views remain available.';
   let panelId='afc-panel';
   function renderUnavailable(){

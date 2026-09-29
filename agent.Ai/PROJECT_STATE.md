@@ -1,5 +1,56 @@
 # PAWS Current Project State
 
+## BETA-R4D-12A5G — CONCURRENT AUTHORITY FOUNDATION ACCEPTED / CONTINUITY SYNC
+
+**Last verified:** 2026-09-29
+**Accepted branch:** `feature/beta-r4d12a5-concurrent-responsibility-assignees`
+**Accepted implementation HEAD before continuity commit:** `e9a415247c80ade128210384a87992257b4c4959`
+**Expected `origin/main`:** `342b45ab7433997ed2961dc13a68a2978fa989a5`
+
+R4D-12A5/A5R is **FOUNDATION ACCEPTED / NOT LIVE / NOT SEEDED**. The
+concurrent responsibility foundation remains dormant. Migration 005 is merged
+but NOT applied. Migration 006 is merged after the A5R fail-closed correction
+but NOT applied. No authority seed, Work Queue, AFC, DOE, API/UI route, or
+deployment is part of this unit.
+
+Accepted authority semantics:
+
+- `AssignmentMode` is exactly `exclusive` or `concurrent`.
+- A stable responsibility may have multiple concurrent Faculty assignees.
+- Overlap is valid only for different Faculty rows when both rows are
+  `concurrent`; same-Faculty overlap and every overlap involving `exclusive`
+  are invalid.
+- Touching handoff boundaries and deliberate temporal gaps are valid.
+- Co-HICC assignees share one stable responsibility and one package.
+- Co-VISC assignees share one stable leader responsibility and do not
+  automatically create another group.
+- Package identity is independent of the assignee set. DOE remains separate.
+
+Migration 006 fails closed when existing assignee rows are present before
+`AssignmentMode` is introduced; it does not infer their mode. The `WITH
+VALUES` default is reachable only for a zero-row assignee table.
+
+Continuity evidence retained for the next review gate:
+
+- R1/R2/R3/R4/R5 = `9 / 9 / 0 / 0 / 0`.
+- Four exact Faculty lookups remain `NO_MATCH`; no identities were guessed.
+- 18 legacy-only HICC courses remain historical/not-current candidates.
+- Exact live evidence: 539 Session rows, 24 legacy ambiguous HICC
+  RoleAssignment rows, and all 18 `paws.Course` rows exist.
+- Private Owner Review V2.1 artifacts remain outside the repository and must
+  not be committed.
+
+Owner-dependent review remains intentionally unresolved: OD-01 source
+currentness, OD-02 unresolved responsibility patterns, OD-03 legacy-only
+disposition, OD-04 temporal bounds, OD-05 Teaching Assignment Group
+crosswalk, and OD-06 Faculty identity. A2B remains blocked.
+
+The next independent product queue is ordered as follows and is recorded only
+for future work: B0 Beta Approval Queue real-data cleanup; B1 AFC line-by-line
+and controlled create; B2 Login UX plus measured performance diagnostics; B3
+remaining Dashboard/UI cleanup; then DOE semantic/source repair. None of these
+is implemented in A5G.
+
 ## BETA-R4D-12A1 — FOUNDATION ACCEPTED / NOT LIVE / MIGRATION NOT APPLIED
 
 **Last verified:** 2026-09-29

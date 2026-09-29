@@ -1,5 +1,73 @@
 # PAWS Task Chain
 
+## BETA-R4D-12A5G — FOUNDATION ACCEPTED / CONTINUITY SYNC / PR MERGE GATE
+
+Status: **A5/A5R ACCEPTED FOR INTEGRATION; CONTINUITY DOCUMENTATION ONLY**
+
+- Expected `origin/main`: `342b45ab7433997ed2961dc13a68a2978fa989a5`.
+- Accepted branch: `feature/beta-r4d12a5-concurrent-responsibility-assignees`.
+- Accepted A5R implementation HEAD before this documentation-only commit:
+  `e9a415247c80ade128210384a87992257b4c4959`.
+- Expected branch distance before continuity sync: ahead 2, behind 0.
+- R4D-12A5 is **FOUNDATION ACCEPTED / NOT LIVE / NOT SEEDED**.
+- Migration 005 is MERGED / NOT APPLIED. Migration 006 is MERGED AFTER A5G /
+  NOT APPLIED. No authority seed, SQL write, Work Queue implementation,
+  deployment, or B-series implementation is included.
+
+Accepted concurrency contract: `exclusive` and `concurrent` are the only
+assignment modes; different Faculty rows may overlap only when both are
+`concurrent`; same-Faculty overlap and all `exclusive` overlap fail; touching
+boundaries and deliberate gaps are valid; co-HICC shares one package; co-VISC
+shares one stable leader responsibility; package identity does not depend on
+assignees; DOE is independent.
+
+Continuity evidence: R1/R2/R3/R4/R5 = 9/9/0/0/0; four exact Faculty lookups
+remain NO_MATCH; 18 legacy-only HICC courses remain historical/not-current
+candidates; exact live evidence is 539 Session rows, 24 legacy ambiguous HICC
+RoleAssignment rows, and all 18 `paws.Course` rows. Private V2.1 CSV/XLSX
+remain outside Git.
+
+Required documentation-only changes:
+
+- Update `agent.Ai/PROJECT_STATE.md` without rewriting historical sections.
+- Update this task chain without rewriting historical update files.
+- Add `agent.Ai/updates/2026-09-29-beta-r4d12a5-concurrent-authority-accepted.md`.
+- Commit only documentation with message
+  `docs: record R4D-12A5 concurrent authority acceptance`.
+- Re-run `git diff --check`, `node tools/beta-freeze.js`,
+  `node tools/beta-api-freeze.js`, and the normal Beta test suite.
+- Push the same feature branch and open one PR to `main`.
+
+### Future product order — do not implement in A5G
+
+1. **B0 — Beta Approval Queue real-data cleanup.** Trace each visible ADFA,
+   AFC, and Timetable request to its source; classify REAL, TEST, SYNTHETIC,
+   HARDCODED, or DEMO/FALLBACK; preserve real business records; remove or
+   disable only confirmed non-real data after downstream/audit review. An
+   empty queue is correct when no real pending requests exist. Acceptance must
+   prove no mock/hardcoded/Firestore-demo fallback remains on the migrated
+   Beta path and real SQL/API records remain untouched.
+2. **B1 — AFC line-by-line and controlled create.** One AFC record per line
+   with canonical Faculty, Start Date, End Date, Reason, and optional Notes;
+   `EndDate >= StartDate` including same-day AFC; reasons are University
+   Travel, Vacation, RSL, Medical, MAT, Special, Other; Special/Other require
+   explanatory Notes. AFC does not reassign HICC/VISC, sessions, DOE, or
+   packages automatically.
+3. **B2 — Login UX and measured performance diagnostics.** Separate visible
+   Signing in state, loading, duplicate-submit prevention, accessible status,
+   failure recovery, and retry from timing instrumentation T0 through T7.
+   Report T0-T2, T2-T4, T4-T5, T5-T7, and T0-T7. Do not replace Firebase or
+   assume cold start without evidence.
+4. **B3 — remaining Dashboard/UI cleanup.** Keep after B0, B1, and B2.
+5. **DOE semantic/source repair.** Keep after current Dashboard/UI work; do
+   not present a sum of personal Faculty DOE percentages as one institutional
+   percentage. Required future sources remain Faculty Summary, Faculty
+   Workload, UCVM Workload Guidelines, DOE Map/role DOE, Azure
+   teaching/service evidence, with experimental DOE logic reference-only.
+
+Parallel owner-dependent path remains: Owner review -> A2B -> SQL-backed
+Teaching Assignment Work Queue. It must not block independent B-series work.
+
 ## BETA-R4D-12A1 — FOUNDATION ACCEPTED / NOT LIVE / MIGRATION NOT APPLIED
 
 Status: **FOUNDATION ACCEPTED / AWAITING INTEGRATION GATE**

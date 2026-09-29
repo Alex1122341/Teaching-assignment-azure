@@ -52,3 +52,23 @@ test('Dashboard runtime remains zero-Firestore and self-service stays scoped', (
   assert.match(source, /body\.faculty-self-mode/);
 });
 
+test('11A2 worksheet cards and evidence groups are honest about Azure coverage', () => {
+  for (const label of ['Recorded Assigned DOE', 'Scheduled Teaching', 'Roles / Appointments', 'Applied Supervision', 'Effective Target', 'Remaining / Over', 'Policy Version', 'Reserve', 'AVAILABLE NOW', 'NOT YET AVAILABLE', 'DOE Evidence', 'Teaching evidence', 'Role evidence']) {
+    assert.match(source, new RegExp(label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')), label);
+  }
+  assert.match(source, /Azure recorded evidence/);
+  assert.match(source, /Not available in Azure Beta/);
+  assert.match(source, /no rate × quantity/);
+  assert.match(source, /DOE unavailable \/ Needs Review/);
+  assert.match(source, /Partial \/ Needs Review/);
+});
+
+test('11A2 aggregate faculty names navigate to cached Lookup detail without fanout', () => {
+  assert.match(source, /data-summary-person/);
+  assert.match(source, /function openFacultyFromAggregate\(/);
+  assert.match(source, /selectedId = id/);
+  assert.match(source, /selectTab\('lookup'\)/);
+  assert.match(source, /detailCache/);
+  assert.doesNotMatch(source, /dashboardFacultyById\(row\.facultyId\)/);
+});
+

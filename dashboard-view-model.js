@@ -72,9 +72,8 @@ function groupTeachingAssignments(assignments) {
 
   return [...years.values()]
     .sort((left, right) => yearSortValue(left.curriculumYear) - yearSortValue(right.curriculumYear) || compareText(left.curriculumYear, right.curriculumYear))
-    .map(year => ({
-      ...year,
-      courses: year.courses.sort((left, right) => compareText(left.courseCode, right.courseCode)).map(course => {
+    .map(year => {
+      const courses = year.courses.sort((left, right) => compareText(left.courseCode, right.courseCode)).map(course => {
         const assignmentsSorted = course.assignments.sort(compareAssignment);
         const creditedHours = assignmentsSorted.reduce((sum, assignment) => {
           const value = number(assignment.creditedHours);
@@ -96,8 +95,15 @@ function groupTeachingAssignments(assignments) {
           doeStatus: assignmentsSorted.length === 0 ? 'none' : (missing ? 'needs-review' : 'complete'),
           missingDoeCount: missing
         };
-      })
-    }));
+      });
+      return {
+        ...year,
+        courses,
+        assignmentCount: courses.reduce((sum, course) => sum + course.assignmentCount, 0),
+        sessionCount: courses.reduce((sum, course) => sum + course.assignmentCount, 0),
+        creditedHours: courses.reduce((sum, course) => sum + course.creditedHours, 0)
+      };
+    });
 }
 
 function summarizeDoe(detail = {}) {

@@ -24,9 +24,14 @@ test('groups assignments by curriculum year then course and sorts sessions deter
   assert.equal(groups[1].courses[0].doeTotal, 0.5);
   assert.equal(groups[1].courses[0].recordedDoeCount, 2);
   assert.equal(groups[1].courses[0].missingDoeCount, 0);
+  assert.equal(groups[1].sessionCount, 2);
+  assert.equal(groups[1].assignmentCount, 2);
+  assert.equal(groups[1].creditedHours, 3);
   assert.equal(groups[0].courses[0].doeStatus, 'needs-review');
   assert.equal(groups[0].courses[0].doeTotal, null);
   assert.equal(groups[0].courses[0].assignmentCount, 2);
+  assert.equal(groups[0].sessionCount, 2);
+  assert.equal(groups[0].creditedHours, 0);
 });
 
 test('normalizes numeric and text curriculum years into one canonical group', () => {

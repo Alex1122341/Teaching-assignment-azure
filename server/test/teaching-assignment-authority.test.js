@@ -11,7 +11,7 @@ const responsibility = (patch = {}) => ({
   ...patch
 });
 const group = (patch = {}) => ({
-  id: 'bovine', active: true, leaderViscResponsibilityId: 'visc-bovine',
+  groupId: 'bovine', active: true, leaderViscResponsibilityId: 'visc-bovine',
   hiccResponsibilityIds: ['hicc-surgery'], ...patch
 });
 const assignee = (patch = {}) => ({
@@ -23,7 +23,7 @@ const packageRecord = (patch = {}) => ({
   academicYear: '2026-27', groupId: 'bovine', hiccResponsibilityId: 'hicc-surgery',
   status: 'draft', workingRevision: 0, submittedWorkingRevision: null,
   viscApprovedWorkingRevision: null, reviewFingerprint: null, viscApprovedFingerprint: null,
-  teachingAssignmentPackageId: 'package-1', packageId: 'package-1',
+  packageId: 'package-1',
   ...patch
 });
 const fingerprint = 'a'.repeat(64);
@@ -55,6 +55,7 @@ test('package identity is deterministic and independent of assignee', () => {
 test('package state integrity is separate from submitted and approved freshness', () => {
   assert.equal(authority.packageStateIntegrity(packageRecord()), true);
   assert.equal(authority.packageStateIntegrity(packageRecord({status: 'changes_requested', workingRevision: 3, submittedWorkingRevision: 2, reviewFingerprint: fingerprint})), true);
+  assert.equal(authority.packageStateIntegrity(packageRecord({status: 'changes_requested', workingRevision: 2, submittedWorkingRevision: 3, reviewFingerprint: fingerprint})), false);
   assert.equal(authority.isSubmittedRevisionFresh(packageRecord({status: 'changes_requested', workingRevision: 3, submittedWorkingRevision: 2, reviewFingerprint: fingerprint})), false);
   assert.equal(authority.packageStateIntegrity(packageRecord({status: 'visc_review', workingRevision: 2, submittedWorkingRevision: 2, reviewFingerprint: fingerprint})), true);
   assert.equal(authority.packageStateIntegrity(packageRecord({status: 'visc_review', workingRevision: 2, submittedWorkingRevision: 1, reviewFingerprint: fingerprint})), false);
@@ -89,6 +90,27 @@ test('temporal schedule rejects overlapping effective assignees', () => {
   assert.doesNotThrow(() => authority.validateTemporalAssignees([
     assignee(), assignee({responsibilityId: 'hicc-medicine'}), assignee({academicYear: '2027-28', activeDate: '2026-09-01', expirationDate: '2027-05-01'})
   ]));
+});
+
+test('temporal partition identity is canonical and fail-closed', () => {
+  for (const patch of [
+    {responsibilityId: undefined},
+    {responsibilityId: 'HICC-SURGERY'},
+    {academicYear: '2026-28'},
+    {academicYear: '2026'},
+  ]) assert.throws(() => authority.validateTemporalAssignees([assignee(patch)]), /partition identity/i);
+  assert.doesNotThrow(() => authority.validateTemporalAssignees([
+    assignee(), assignee({facultyId: 'faculty-2', activeDate: '2027-05-01', expirationDate: '2027-08-01'})
+  ]));
+  assert.doesNotThrow(() => authority.validateTemporalAssignees([
+    assignee(), assignee({responsibilityId: 'hicc-medicine', activeDate: '2026-09-01', expirationDate: '2027-05-01'})
+  ]));
+  assert.doesNotThrow(() => authority.validateTemporalAssignees([
+    assignee(), assignee({academicYear: '2027-28', activeDate: '2026-09-01', expirationDate: '2027-05-01'})
+  ]));
+  assert.throws(() => authority.validateTemporalAssignees([
+    assignee(), assignee({facultyId: 'faculty-2', activeDate: '2027-04-30', expirationDate: '2027-08-01'})
+  ]), /overlap/i);
 });
 
 test('SQL-shaped package identity interoperates with the pure domain identity', () => {
@@ -137,6 +159,22 @@ test('HICC responsibility authority survives push-back/edit and approved Working
   assert.equal(authority.isFacultyCurrentAssignee({...base, package: editedAfterApproval}), true);
 });
 
+test('authority denies cross-HICC package/session inheritance and wrong groups', () => {
+  const base = {
+    authenticatedFacultyId: 'faculty-1', asOfDate: '2026-09-08', responsibility: responsibility(), assignee: assignee(),
+    responsibilityScopes: [{courseCode: 'VTMD 506', subjectKey: 'surgery'}], group: group(), package: packageRecord(),
+    session: {academicYear: '2026-27', groupId: 'bovine', hiccResponsibilityId: 'hicc-surgery', packageId: 'package-1', packageIdentity: 'ta-package-v1__2026-27__bovine__hicc-surgery', courseCode: 'VTMD 506', subjectKey: 'surgery'}
+  };
+  assert.equal(authority.isFacultyCurrentAssignee(base), true);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, group: group({hiccResponsibilityIds: ['hicc-surgery', 'hicc-medicine']}), package: packageRecord({hiccResponsibilityId: 'hicc-medicine', packageIdentity: 'ta-package-v1__2026-27__bovine__hicc-medicine'}), session: {...base.session, hiccResponsibilityId: 'hicc-medicine', packageIdentity: 'ta-package-v1__2026-27__bovine__hicc-medicine'}}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, group: group({groupId: 'equine', hiccResponsibilityIds: ['hicc-surgery']})}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, package: packageRecord({groupId: 'equine', packageIdentity: 'ta-package-v1__2026-27__equine__hicc-surgery'})}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, session: {...base.session, groupId: 'equine', packageIdentity: 'ta-package-v1__2026-27__equine__hicc-surgery'}}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, package: packageRecord({packageId: 'package-2'}), session: {...base.session, packageId: 'package-1'}}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, package: packageRecord({academicYear: '2027-28', packageIdentity: 'ta-package-v1__2027-28__bovine__hicc-surgery'}), session: {...base.session, academicYear: '2027-28', packageIdentity: 'ta-package-v1__2027-28__bovine__hicc-surgery'}}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, package: {...packageRecord(), teachingAssignmentPackageId: 'package-legacy'}}), false);
+});
+
 test('course-wide HICC scope is a Subject wildcard but never substitutes Topic', () => {
   const base = {
     authenticatedFacultyId: 'faculty-1', asOfDate: '2026-09-08', responsibility: responsibility(), assignee: assignee(), group: group(),
@@ -154,7 +192,7 @@ test('course-wide HICC scope is a Subject wildcard but never substitutes Topic',
 test('VISC authority requires current leader responsibility and no HICC course token', () => {
   const base = {
     authenticatedFacultyId: 'faculty-1', asOfDate: '2026-09-08', responsibility: {responsibilityId: 'visc-bovine', kind: 'visc', active: true},
-    packageHiccResponsibility: responsibility(), assignee: {...assignee(), responsibilityId: 'visc-bovine'}, group: group(), responsibilityScopes: [], package: packageRecord(),
+    packageHiccResponsibility: {...responsibility(), groupId: 'bovine'}, assignee: {...assignee(), responsibilityId: 'visc-bovine'}, group: group(), responsibilityScopes: [], package: packageRecord(),
     session: {academicYear: '2026-27', groupId: 'bovine', hiccResponsibilityId: 'hicc-surgery', packageId: 'package-1', packageIdentity: 'ta-package-v1__2026-27__bovine__hicc-surgery', courseCode: 'VTMD 506', subjectKey: 'surgery'}
   };
   assert.equal(authority.isFacultyCurrentAssignee(base), true);
@@ -165,6 +203,21 @@ test('VISC authority requires current leader responsibility and no HICC course t
   assert.equal(authority.isFacultyCurrentAssignee({...base, session: {...base.session, packageIdentity: 'ta-package-v1__2026-27__bovine__hicc-other'}}), false);
 });
 
+test('VISC authority requires independently supplied exact-group HICC evidence', () => {
+  const base = {
+    authenticatedFacultyId: 'faculty-1', asOfDate: '2026-09-08', responsibility: {responsibilityId: 'visc-bovine', kind: 'visc', active: true},
+    packageHiccResponsibility: {...responsibility(), groupId: 'bovine'}, assignee: {...assignee(), responsibilityId: 'visc-bovine'}, group: group(), package: packageRecord(),
+    session: {academicYear: '2026-27', groupId: 'bovine', hiccResponsibilityId: 'hicc-surgery', packageId: 'package-1', packageIdentity: 'ta-package-v1__2026-27__bovine__hicc-surgery', courseCode: 'VTMD 506', subjectKey: 'surgery'}
+  };
+  assert.equal(authority.isFacultyCurrentAssignee(base), true);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, packageHiccResponsibility: responsibility({active: false})}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, packageHiccResponsibility: responsibility({responsibilityId: 'hicc-medicine'}), group: group({hiccResponsibilityIds: ['hicc-surgery']})}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, packageHiccResponsibility: {...responsibility(), groupId: 'equine'}}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, packageHiccResponsibility: undefined}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, group: group({groupId: 'equine', hiccResponsibilityIds: ['hicc-surgery']})}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, group: group({groupId: 'bovine', hiccResponsibilityIds: []})}), false);
+});
+
 test('normalized repository DTOs interoperate with authority without PascalCase remapping', () => {
   const ownership = authority.workingSessionOwnership({
     sessionId: 'session-1', academicYear: '2026-27', groupId: 'bovine', hiccResponsibilityId: 'hicc-surgery', packageId: 'package-1', subjectKey: 'surgery', courseCode: 'VTMD 506'
@@ -172,7 +225,7 @@ test('normalized repository DTOs interoperate with authority without PascalCase 
   const normalizedResponsibility = {responsibilityId: 'hicc-surgery', kind: 'hicc', label: 'Surgery', active: true};
   const normalizedAssignee = {...assignee(), responsibilityId: 'hicc-surgery', activeDate: '2026-09-01', expirationDate: '2027-05-01'};
   const normalizedGroup = {groupId: 'bovine', active: true, leaderViscResponsibilityId: 'visc-bovine', hiccResponsibilityIds: ['hicc-surgery']};
-  const normalizedPackage = {...packageRecord(), packageId: 'package-1', teachingAssignmentPackageId: 'package-1'};
+  const normalizedPackage = {...packageRecord(), packageId: 'package-1'};
   assert.equal(ownership.packageId, 'package-1');
   assert.equal(authority.isFacultyCurrentAssignee({authenticatedFacultyId: 'faculty-1', asOfDate: '2026-09-08', responsibility: normalizedResponsibility, assignee: normalizedAssignee, group: normalizedGroup, responsibilityScopes: [{courseCode: 'VTMD 506', subjectKey: 'surgery'}], package: normalizedPackage, session: {...ownership, subjectKey: 'surgery', courseCode: 'VTMD 506'}}), true);
 });
@@ -183,7 +236,7 @@ test('working session ownership is separate from final SessionAssignment', () =>
     hiccResponsibilityId: 'hicc-surgery', packageId: 'package-1', subjectId: null
   }), {
     sessionId: 'session-1', academicYear: '2026-27', groupId: 'bovine',
-    hiccResponsibilityId: 'hicc-surgery', packageId: 'package-1', teachingAssignmentPackageId: 'package-1', packageIdentity: 'ta-package-v1__2026-27__bovine__hicc-surgery', subjectId: null, subjectKey: null, courseCode: null
+    hiccResponsibilityId: 'hicc-surgery', packageId: 'package-1', packageIdentity: 'ta-package-v1__2026-27__bovine__hicc-surgery', subjectId: null, subjectKey: null, courseCode: null
   });
   const source = fs.readFileSync(path.join(__dirname, '../../database/azure-sql/005_teaching_assignment_authority_foundation.sql'), 'utf8');
   assert.match(source, /TeachingSessionOwnership/);

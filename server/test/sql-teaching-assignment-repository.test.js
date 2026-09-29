@@ -31,7 +31,8 @@ test('repository methods read only paws authority objects and never staging', as
   await repository.getPackage('2026-27', 'g1', 'r1');
   await repository.listPackagesForActor('faculty-1', '2026-27', '2026-09-08');
   await repository.getWorkingSessionOwnership('s1');
-  assert.equal(seen.length, 7);
+  await repository.getGroupHiccResponsibilities('g1');
+  assert.equal(seen.length, 8);
   for (const row of seen) {
     assert.doesNotMatch(row.sql, /\b(INSERT|UPDATE|DELETE|MERGE|EXEC|CREATE|ALTER|DROP)\b/i);
     assert.doesNotMatch(row.sql, /staging\./i);
@@ -57,6 +58,8 @@ test('repository/schema contract uses the canonical authority column names', asy
   assert.match(seen[2].sql, /p\.PackageIdentity AS packageIdentity/);
   assert.match(seen[2].sql, /p\.GroupId AS groupId/);
   assert.match(seen[2].sql, /p\.HiccResponsibilityId AS hiccResponsibilityId/);
+  assert.match(seen[2].sql, /p\.TeachingAssignmentPackageId AS packageId/);
+  assert.doesNotMatch(seen[2].sql, /AS teachingAssignmentPackageId/i);
   assert.match(migration, /HiccResponsibilityId nvarchar\(64\)/);
   assert.match(migration, /ResponsibilityId nvarchar\(64\)/);
   assert.match(migration, /GroupId nvarchar\(64\)/);
@@ -78,6 +81,17 @@ test('repository/schema contract uses the canonical authority column names', asy
   assert.match(seen[3].sql, /p\.HiccResponsibilityId = tso\.ResponsibleHiccResponsibilityId/);
   assert.match(seen[3].sql, /tso\.SessionOwnershipId AS sessionOwnershipId/);
   assert.match(seen[3].sql, /tso\.TeachingAssignmentPackageId AS packageId/);
+  assert.doesNotMatch(seen[3].sql, /AS teachingAssignmentPackageId/i);
+});
+
+test('repository exposes direct canonical group HICC membership evidence', async () => {
+  const {repository, seen} = capture();
+  await repository.getGroupHiccResponsibilities('bovine');
+  assert.match(seen[0].sql, /FROM paws\.TeachingAssignmentGroupHicc gh/);
+  assert.match(seen[0].sql, /gh\.GroupId AS groupId/);
+  assert.match(seen[0].sql, /gh\.HiccResponsibilityId AS hiccResponsibilityId/);
+  assert.match(seen[0].sql, /gh\.HiccResponsibilityKind = N'hicc'/);
+  assert.deepEqual(seen[0].params, {groupId: 'bovine'});
 });
 
 test('repository stays dormant and is not mounted into API runtime', () => {

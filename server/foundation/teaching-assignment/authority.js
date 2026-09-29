@@ -11,7 +11,6 @@ function normalizeSubjectKey(value) { const key = text(value).toLowerCase(); ret
 function normalizeCourseCode(value) { const code = text(value).replace(/\s+/g, ' ').toUpperCase(); return COURSE_CODE.test(code) ? code : ''; }
 function validRevision(value) { return Number.isInteger(value) && value >= 0; }
 function validFingerprint(value) { return typeof value === 'string' && FINGERPRINT.test(value); }
-function responsibilityIdOf(value) { return text(value?.responsibilityId ?? value?.id); }
 
 function subjectRecord(input = {}) {
   const subjectKey = normalizeSubjectKey(input.subjectKey), label = text(input.label);
@@ -20,7 +19,7 @@ function subjectRecord(input = {}) {
 }
 
 function responsibilityRecord(input = {}) {
-  const responsibilityId = responsibilityIdOf(input), kind = text(input.kind).toLowerCase(), label = text(input.label);
+  const responsibilityId = text(input.responsibilityId), kind = text(input.kind).toLowerCase(), label = text(input.label);
   if (!CANONICAL_ID.test(responsibilityId) || !['hicc', 'visc'].includes(kind) || !label || label.length > 120 || typeof input.active !== 'boolean') throw new Error('Invalid Teaching Responsibility record.');
   return Object.freeze({responsibilityId, kind, label, active: input.active});
 }
@@ -60,7 +59,9 @@ function validateTemporalAssignees(rows) {
   rows.forEach(row => {
     const start = dateMs(row?.activeDate), end = dateMs(row?.expirationDate);
     if (start === null || end === null || end <= start) throw new Error('Temporal assignee expiration must be later than active date.');
-    const key = `${responsibilityIdOf(row)}\u0000${text(row?.academicYear)}`;
+    const responsibilityId = text(row?.responsibilityId), year = academicYear(row?.academicYear);
+    if (!CANONICAL_ID.test(responsibilityId) || !year) throw new Error('Temporal assignee partition identity is invalid.');
+    const key = `${responsibilityId}\u0000${year}`;
     const bucket = byResponsibilityYear.get(key) || [];
     bucket.push({start, end});
     byResponsibilityYear.set(key, bucket);
@@ -101,7 +102,7 @@ function packageStateIntegrity(record = {}) {
     return record.submittedWorkingRevision === null && record.reviewFingerprint === null && record.viscApprovedWorkingRevision === null && record.viscApprovedFingerprint === null;
   }
   if (status === 'changes_requested') {
-    return validRevision(record.submittedWorkingRevision) && validFingerprint(record.reviewFingerprint) && record.viscApprovedWorkingRevision === null && record.viscApprovedFingerprint === null;
+    return validRevision(record.submittedWorkingRevision) && record.submittedWorkingRevision <= record.workingRevision && validFingerprint(record.reviewFingerprint) && record.viscApprovedWorkingRevision === null && record.viscApprovedFingerprint === null;
   }
   if (status === 'visc_review') return hasCurrentViscReview(record);
   if (status === 'visc_approved') return storedApprovalIntegrity(record);
@@ -124,24 +125,24 @@ function trustedOwnership(session = {}) {
   return {
     sessionId: text(ownership.sessionId),
     academicYear: text(ownership.academicYear),
-    groupId: text(ownership.groupId ?? ownership.teachingAssignmentGroupId),
-    hiccResponsibilityId: text(ownership.hiccResponsibilityId ?? ownership.responsibleHiccResponsibilityId),
-    packageId: text(ownership.packageId ?? ownership.teachingAssignmentPackageId),
-    packageIdentity: text(ownership.packageIdentity)
+    groupId: text(ownership.groupId),
+    hiccResponsibilityId: text(ownership.hiccResponsibilityId),
+    packageId: text(ownership.packageId),
+    packageIdentity: text(ownership.packageIdentity),
+    valid: !Object.prototype.hasOwnProperty.call(ownership, 'teachingAssignmentGroupId') && !Object.prototype.hasOwnProperty.call(ownership, 'responsibleHiccResponsibilityId') && !Object.prototype.hasOwnProperty.call(ownership, 'teachingAssignmentPackageId')
   };
 }
 
-function packageMatches(record, session, {requireHicc} = {}) {
+function packageMatches(record, session) {
   const ownership = trustedOwnership(session), year = academicYear(ownership.academicYear);
-  if (!packageStateIntegrity(record) || !packageIdentityMatches(record) || !year || record.academicYear !== year || record.groupId !== ownership.groupId || !ownership.packageIdentity || ownership.packageIdentity !== record.packageIdentity) return false;
-  if (record.teachingAssignmentPackageId && ownership.packageId !== text(record.teachingAssignmentPackageId)) return false;
+  if (!ownership.valid || Object.prototype.hasOwnProperty.call(record || {}, 'teachingAssignmentPackageId') || !packageStateIntegrity(record) || !packageIdentityMatches(record) || !year || record.academicYear !== year || record.groupId !== ownership.groupId || !ownership.packageIdentity || ownership.packageIdentity !== record.packageIdentity || !ownership.packageId || ownership.packageId !== text(record.packageId)) return false;
   if (!ownership.hiccResponsibilityId || record.hiccResponsibilityId !== ownership.hiccResponsibilityId) return false;
   return true;
 }
 
 function packageHiccIsActive(input, record, group) {
   const packageHicc = input.packageHiccResponsibility || input.hiccResponsibility;
-  return Boolean(packageHicc && responsibilityIdOf(packageHicc) === record.hiccResponsibilityId && packageHicc.kind === 'hicc' && packageHicc.active === true && Array.isArray(group.hiccResponsibilityIds) && group.hiccResponsibilityIds.includes(record.hiccResponsibilityId));
+  return Boolean(packageHicc && text(packageHicc.responsibilityId) === record.hiccResponsibilityId && text(packageHicc.groupId) === text(group.groupId) && packageHicc.kind === 'hicc' && packageHicc.active === true && Array.isArray(group.hiccResponsibilityIds) && group.hiccResponsibilityIds.includes(record.hiccResponsibilityId));
 }
 
 function optionalSubject(value) {
@@ -162,26 +163,28 @@ function exactHiccScope(scopes, session) {
 
 function isFacultyCurrentAssignee(input = {}) {
   const actor = text(input.authenticatedFacultyId), responsibility = input.responsibility, group = input.group, session = input.session;
-  const responsibilityId = responsibilityIdOf(responsibility);
-  if (!actor || !responsibility || !group || !session || !responsibilityId || responsibility.active !== true || group.active !== true || !['hicc', 'visc'].includes(responsibility.kind)) return false;
+  if (!actor || !responsibility || !group || !session || responsibility.active !== true || group.active !== true || !['hicc', 'visc'].includes(responsibility.kind)) return false;
+  const responsibilityId = text(responsibility.responsibilityId);
+  if (!responsibilityId) return false;
   const ownership = trustedOwnership(session), year = academicYear(ownership.academicYear);
   if (!year) return false;
   let assignee = input.assignee;
   if (Array.isArray(input.assignees)) {
     try { validateTemporalAssignees(input.assignees); } catch (_) { return false; }
-    const active = input.assignees.filter(row => row.academicYear === year && responsibilityIdOf(row) === responsibilityId && isCurrentTemporalAssignee({...row, authenticatedFacultyId: actor, asOfDate: input.asOfDate}));
+    const active = input.assignees.filter(row => row.academicYear === year && text(row.responsibilityId) === responsibilityId && isCurrentTemporalAssignee({...row, authenticatedFacultyId: actor, asOfDate: input.asOfDate}));
     if (active.length !== 1) return false;
     [assignee] = active;
   }
-  if (!assignee || responsibilityIdOf(assignee) !== responsibilityId || text(assignee.academicYear) !== year || !isCurrentTemporalAssignee({...assignee, authenticatedFacultyId: actor, asOfDate: input.asOfDate})) return false;
-  if (responsibility.kind === 'hicc') return packageMatches(input.package, session, {requireHicc: true}) && Array.isArray(group.hiccResponsibilityIds) && group.hiccResponsibilityIds.includes(responsibilityId) && exactHiccScope(input.responsibilityScopes, session);
+  if (!assignee || text(assignee.responsibilityId) !== responsibilityId || text(assignee.academicYear) !== year || !isCurrentTemporalAssignee({...assignee, authenticatedFacultyId: actor, asOfDate: input.asOfDate})) return false;
+  if (text(group.groupId) !== text(input.package?.groupId) || text(group.groupId) !== trustedOwnership(session).groupId) return false;
+  if (responsibility.kind === 'hicc') return responsibilityId === text(input.package?.hiccResponsibilityId) && responsibilityId === trustedOwnership(session).hiccResponsibilityId && Array.isArray(group.hiccResponsibilityIds) && group.hiccResponsibilityIds.includes(responsibilityId) && packageMatches(input.package, session) && exactHiccScope(input.responsibilityScopes, session);
   return group.leaderViscResponsibilityId === responsibilityId && packageMatches(input.package, session) && packageHiccIsActive(input, input.package, group);
 }
 
 function workingSessionOwnership(input = {}) {
-  const year = academicYear(input.academicYear), groupId = canonicalId(input.groupId, 'groupId'), hiccResponsibilityId = canonicalId(input.hiccResponsibilityId, 'hiccResponsibilityId'), sessionId = text(input.sessionId), packageId = text(input.packageId ?? input.teachingAssignmentPackageId);
+  const year = academicYear(input.academicYear), groupId = canonicalId(input.groupId, 'groupId'), hiccResponsibilityId = canonicalId(input.hiccResponsibilityId, 'hiccResponsibilityId'), sessionId = text(input.sessionId), packageId = text(input.packageId);
   if (!year || !sessionId || !packageId) throw new Error('Working session ownership requires a session, package, and Academic Year.');
-  return Object.freeze({sessionId, academicYear: year, groupId, hiccResponsibilityId, packageId, teachingAssignmentPackageId: packageId, packageIdentity: packageIdentity({academicYear: year, groupId, hiccResponsibilityId}), subjectId: input.subjectId ?? null, subjectKey: input.subjectKey ?? null, courseCode: input.courseCode ?? null});
+  return Object.freeze({sessionId, academicYear: year, groupId, hiccResponsibilityId, packageId, packageIdentity: packageIdentity({academicYear: year, groupId, hiccResponsibilityId}), subjectId: input.subjectId ?? null, subjectKey: input.subjectKey ?? null, courseCode: input.courseCode ?? null});
 }
 
 module.exports = Object.freeze({normalizeSubjectKey, normalizeCourseCode, subjectRecord, responsibilityRecord, packageIdentity, isCurrentTemporalAssignee, validateTemporalAssignees, isSubmittedRevisionFresh, isApprovedRevisionFresh, hasCurrentViscReview, hasCurrentViscApproval, packageStateIntegrity, isPackageFresh, exactHiccScope, isFacultyCurrentAssignee, workingSessionOwnership});

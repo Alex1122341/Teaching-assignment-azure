@@ -12,7 +12,7 @@ BEGIN
         Active bit NOT NULL,
         CreatedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_Subject_CreatedAt DEFAULT SYSUTCDATETIME(),
         UpdatedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_Subject_UpdatedAt DEFAULT SYSUTCDATETIME(),
-        CONSTRAINT CK_Subject_Key CHECK (SubjectKey = LOWER(LTRIM(RTRIM(SubjectKey))) AND SubjectKey LIKE '[a-z]%' AND SubjectKey NOT LIKE '%[^a-z0-9_-]%'),
+        CONSTRAINT CK_Subject_Key CHECK (SubjectKey COLLATE Latin1_General_100_BIN2 = LOWER(LTRIM(RTRIM(SubjectKey))) COLLATE Latin1_General_100_BIN2 AND SubjectKey COLLATE Latin1_General_100_BIN2 LIKE '[a-z]%' AND SubjectKey COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^a-z0-9_-]%'),
         CONSTRAINT CK_Subject_Label CHECK (LEN(LTRIM(RTRIM(Label))) > 0)
     );
     CREATE UNIQUE INDEX UX_Subject_KeyNormalized ON paws.Subject(SubjectKeyNormalized);
@@ -28,8 +28,8 @@ BEGIN
         CreatedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_TeachingResponsibility_CreatedAt DEFAULT SYSUTCDATETIME(),
         UpdatedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_TeachingResponsibility_UpdatedAt DEFAULT SYSUTCDATETIME(),
         CONSTRAINT UQ_TeachingResponsibility_IdKind UNIQUE (ResponsibilityId, Kind),
-        CONSTRAINT CK_TeachingResponsibility_Id CHECK (ResponsibilityId = LOWER(LTRIM(RTRIM(ResponsibilityId))) AND ResponsibilityId LIKE '[a-z]%' AND ResponsibilityId NOT LIKE '%[^a-z0-9_-]%'),
-        CONSTRAINT CK_TeachingResponsibility_Kind CHECK (Kind IN (N'hicc', N'visc')),
+        CONSTRAINT CK_TeachingResponsibility_Id CHECK (ResponsibilityId COLLATE Latin1_General_100_BIN2 = LOWER(LTRIM(RTRIM(ResponsibilityId))) COLLATE Latin1_General_100_BIN2 AND ResponsibilityId COLLATE Latin1_General_100_BIN2 LIKE '[a-z]%' AND ResponsibilityId COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^a-z0-9_-]%'),
+        CONSTRAINT CK_TeachingResponsibility_Kind CHECK (Kind COLLATE Latin1_General_100_BIN2 IN (N'hicc', N'visc')),
         CONSTRAINT CK_TeachingResponsibility_Label CHECK (LEN(LTRIM(RTRIM(Label))) > 0)
     );
 END;
@@ -45,7 +45,7 @@ BEGIN
         CONSTRAINT FK_TeachingResponsibilityScope_Responsibility FOREIGN KEY (HiccResponsibilityId, HiccResponsibilityKind) REFERENCES paws.TeachingResponsibility(ResponsibilityId, Kind),
         CONSTRAINT FK_TeachingResponsibilityScope_Course FOREIGN KEY (CourseId) REFERENCES paws.Course(CourseId),
         CONSTRAINT FK_TeachingResponsibilityScope_Subject FOREIGN KEY (SubjectId) REFERENCES paws.Subject(SubjectId),
-        CONSTRAINT CK_TeachingResponsibilityScope_Kind CHECK (HiccResponsibilityKind = N'hicc')
+        CONSTRAINT CK_TeachingResponsibilityScope_Kind CHECK (HiccResponsibilityKind COLLATE Latin1_General_100_BIN2 = N'hicc')
     );
     CREATE UNIQUE INDEX UX_TeachingResponsibilityScope_Subject ON paws.TeachingResponsibilityScope(HiccResponsibilityId, CourseId, SubjectId) WHERE SubjectId IS NOT NULL;
     CREATE UNIQUE INDEX UX_TeachingResponsibilityScope_CourseWide ON paws.TeachingResponsibilityScope(HiccResponsibilityId, CourseId) WHERE SubjectId IS NULL;
@@ -79,9 +79,9 @@ BEGIN
         LeaderViscResponsibilityKind nvarchar(16) NOT NULL CONSTRAINT DF_TeachingAssignmentGroup_LeaderKind DEFAULT N'visc',
         Active bit NOT NULL,
         CONSTRAINT FK_TeachingAssignmentGroup_Visc FOREIGN KEY (LeaderViscResponsibilityId, LeaderViscResponsibilityKind) REFERENCES paws.TeachingResponsibility(ResponsibilityId, Kind),
-        CONSTRAINT CK_TeachingAssignmentGroup_Id CHECK (GroupId = LOWER(LTRIM(RTRIM(GroupId))) AND GroupId LIKE '[a-z]%' AND GroupId NOT LIKE '%[^a-z0-9_-]%'),
+        CONSTRAINT CK_TeachingAssignmentGroup_Id CHECK (GroupId COLLATE Latin1_General_100_BIN2 = LOWER(LTRIM(RTRIM(GroupId))) COLLATE Latin1_General_100_BIN2 AND GroupId COLLATE Latin1_General_100_BIN2 LIKE '[a-z]%' AND GroupId COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^a-z0-9_-]%'),
         CONSTRAINT CK_TeachingAssignmentGroup_Name CHECK (LEN(LTRIM(RTRIM(Name))) > 0),
-        CONSTRAINT CK_TeachingAssignmentGroup_LeaderKind CHECK (LeaderViscResponsibilityKind = N'visc')
+        CONSTRAINT CK_TeachingAssignmentGroup_LeaderKind CHECK (LeaderViscResponsibilityKind COLLATE Latin1_General_100_BIN2 = N'visc')
     );
 END;
 
@@ -94,7 +94,7 @@ BEGIN
         CONSTRAINT PK_TeachingAssignmentGroupHicc PRIMARY KEY (GroupId, HiccResponsibilityId),
         CONSTRAINT FK_TeachingAssignmentGroupHicc_Group FOREIGN KEY (GroupId) REFERENCES paws.TeachingAssignmentGroup(GroupId),
         CONSTRAINT FK_TeachingAssignmentGroupHicc_Hicc FOREIGN KEY (HiccResponsibilityId, HiccResponsibilityKind) REFERENCES paws.TeachingResponsibility(ResponsibilityId, Kind),
-        CONSTRAINT CK_TeachingAssignmentGroupHicc_Kind CHECK (HiccResponsibilityKind = N'hicc')
+        CONSTRAINT CK_TeachingAssignmentGroupHicc_Kind CHECK (HiccResponsibilityKind COLLATE Latin1_General_100_BIN2 = N'hicc')
     );
 END;
 
@@ -123,12 +123,12 @@ BEGIN
         CONSTRAINT FK_TeachingAssignmentPackage_Hicc FOREIGN KEY (HiccResponsibilityId, HiccResponsibilityKind) REFERENCES paws.TeachingResponsibility(ResponsibilityId, Kind),
         CONSTRAINT FK_TeachingAssignmentPackage_GroupHicc FOREIGN KEY (GroupId, HiccResponsibilityId) REFERENCES paws.TeachingAssignmentGroupHicc(GroupId, HiccResponsibilityId),
         CONSTRAINT CK_TeachingAssignmentPackage_Identity CHECK (PackageIdentity = N'ta-package-v1__' + AcademicYear + N'__' + GroupId + N'__' + HiccResponsibilityId),
-        CONSTRAINT CK_TeachingAssignmentPackage_HiccKind CHECK (HiccResponsibilityKind = N'hicc'),
+        CONSTRAINT CK_TeachingAssignmentPackage_HiccKind CHECK (HiccResponsibilityKind COLLATE Latin1_General_100_BIN2 = N'hicc'),
         CONSTRAINT CK_TeachingAssignmentPackage_AcademicYear CHECK (AcademicYear LIKE '[1-9][0-9][0-9][0-9]-[0-9][0-9]' AND TRY_CONVERT(int, LEFT(AcademicYear, 4)) IS NOT NULL AND TRY_CONVERT(int, RIGHT(AcademicYear, 2)) = (TRY_CONVERT(int, LEFT(AcademicYear, 4)) + 1) % 100),
-        CONSTRAINT CK_TeachingAssignmentPackage_Status CHECK (Status IN (N'draft', N'visc_review', N'visc_approved', N'changes_requested', N'submitted_to_adfad', N'adfad_finalized')),
+        CONSTRAINT CK_TeachingAssignmentPackage_Status CHECK (Status COLLATE Latin1_General_100_BIN2 IN (N'draft', N'visc_review', N'visc_approved', N'changes_requested', N'submitted_to_adfad', N'adfad_finalized')),
         CONSTRAINT CK_TeachingAssignmentPackage_Revisions CHECK (WorkingRevision >= 0 AND (SubmittedWorkingRevision IS NULL OR SubmittedWorkingRevision >= 0) AND (ViscApprovedWorkingRevision IS NULL OR ViscApprovedWorkingRevision >= 0)),
-        CONSTRAINT CK_TeachingAssignmentPackage_ReviewFingerprint CHECK (ReviewFingerprint IS NULL OR (DATALENGTH(ReviewFingerprint) = 64 AND ReviewFingerprint = LOWER(ReviewFingerprint) AND ReviewFingerprint NOT LIKE '%[^0-9a-f]%')),
-        CONSTRAINT CK_TeachingAssignmentPackage_ApprovedFingerprint CHECK (ViscApprovedFingerprint IS NULL OR (DATALENGTH(ViscApprovedFingerprint) = 64 AND ViscApprovedFingerprint = LOWER(ViscApprovedFingerprint) AND ViscApprovedFingerprint NOT LIKE '%[^0-9a-f]%'))
+        CONSTRAINT CK_TeachingAssignmentPackage_ReviewFingerprint CHECK (ReviewFingerprint IS NULL OR (DATALENGTH(ReviewFingerprint) = 64 AND ReviewFingerprint COLLATE Latin1_General_100_BIN2 = LOWER(ReviewFingerprint) COLLATE Latin1_General_100_BIN2 AND ReviewFingerprint COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^0-9a-f]%')),
+        CONSTRAINT CK_TeachingAssignmentPackage_ApprovedFingerprint CHECK (ViscApprovedFingerprint IS NULL OR (DATALENGTH(ViscApprovedFingerprint) = 64 AND ViscApprovedFingerprint COLLATE Latin1_General_100_BIN2 = LOWER(ViscApprovedFingerprint) COLLATE Latin1_General_100_BIN2 AND ViscApprovedFingerprint COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^0-9a-f]%'))
     );
     CREATE INDEX IX_TeachingAssignmentPackage_GroupHicc ON paws.TeachingAssignmentPackage(GroupId, HiccResponsibilityId, AcademicYear);
 END;

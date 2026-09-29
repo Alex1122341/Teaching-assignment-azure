@@ -1,4 +1,33 @@
 'use strict';
-const {createSqlConnection}=require('../data/sql-connection'),{createSqlUserRepository}=require('../data/sql-user-repository'),{createSqlSessionRepository}=require('../data/sql-session-repository'),{createSqlDashboardRepository}=require('../data/sql-dashboard-repository'),{createDataApi}=require('../data/data-api'),{createDashboardApi}=require('../data/dashboard-api'),{createSwaFunctions}=require('./swa-functions'),{createDashboardFunctions}=require('./swa-dashboard-functions'),{createFirebaseVerifier}=require('../auth/firebase-admin'),{createFirebaseSqlAuth}=require('../auth/firebase-sql-auth');
-function createSwaSqlRuntime({env=process.env,admin=require('firebase-admin'),sql=require('mssql')}={}){const db=createSqlConnection({connectionString:env.PAWS_SQL_CONNECTION_STRING,miClientId:env.PAWS_SQL_MI_CLIENT_ID,sql}),users=createSqlUserRepository(db),sessions=createSqlSessionRepository(db),dashboard=createSqlDashboardRepository(db),verify=createFirebaseSqlAuth({verifyIdToken:createFirebaseVerifier({admin,projectId:env.FIREBASE_PROJECT_ID,serviceAccountJson:env.FIREBASE_SERVICE_ACCOUNT_JSON}),expectedProjectId:env.FIREBASE_PROJECT_ID});const timetable=createSwaFunctions({api:createDataApi({verifyToken:verify,findUser:users.findByUid,listSessions:sessions.list,health:()=>db.health()})});const dashboardRoutes=createDashboardFunctions({api:createDashboardApi({verifyToken:verify,findUser:users.findByUid,repository:dashboard})});return async request=>{const url=new URL(request.url);return url.pathname.startsWith('/api/v1/dashboard/')?dashboardRoutes(request):timetable(request);};}
+const { createSqlConnection } = require('../data/sql-connection');
+const { createSqlUserRepository } = require('../data/sql-user-repository');
+const { createSqlSessionRepository } = require('../data/sql-session-repository');
+const { createSqlDashboardRepository } = require('../data/sql-dashboard-repository');
+const { createSqlAfcWriteRepository } = require('../data/sql-afc-write-repository');
+const { createDataApi } = require('../data/data-api');
+const { createDashboardApi } = require('../data/dashboard-api');
+const { createSwaFunctions } = require('./swa-functions');
+const { createDashboardFunctions } = require('./swa-dashboard-functions');
+const { createFirebaseVerifier } = require('../auth/firebase-admin');
+const { createFirebaseSqlAuth } = require('../auth/firebase-sql-auth');
+
+function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql = require('mssql') } = {}) {
+  const db = createSqlConnection({ connectionString: env.PAWS_SQL_CONNECTION_STRING, miClientId: env.PAWS_SQL_MI_CLIENT_ID, sql });
+  const users = createSqlUserRepository(db);
+  const sessions = createSqlSessionRepository(db);
+  const dashboard = createSqlDashboardRepository(db);
+  const afcWrite = createSqlAfcWriteRepository(db);
+  const verify = createFirebaseSqlAuth({
+    verifyIdToken: createFirebaseVerifier({ admin, projectId: env.FIREBASE_PROJECT_ID, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }),
+    expectedProjectId: env.FIREBASE_PROJECT_ID
+  });
+  const timetable = createSwaFunctions({ api: createDataApi({ verifyToken: verify, findUser: users.findByUid, listSessions: sessions.list, health: () => db.health() }) });
+  const dashboardRoutes = createDashboardFunctions({
+    api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: afcWrite })
+  });
+  return async request => {
+    const url = new URL(request.url);
+    return url.pathname.startsWith('/api/v1/dashboard/') ? dashboardRoutes(request) : timetable(request);
+  };
+}
 module.exports={createSwaSqlRuntime};

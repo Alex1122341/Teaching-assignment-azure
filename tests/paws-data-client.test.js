@@ -134,11 +134,29 @@ test('Dashboard aggregate methods use lazy read-only endpoints and preserve resp
   }
 });
 
-test('Dashboard client introduces read methods only and no Firestore fallback',()=>{
+test('Dashboard client exposes explicit AFC methods without Firestore fallback',()=>{
   const source=fs.readFileSync('paws-data-client.js','utf8');
   const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
-    'currentUser','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','listSessions','sessionBackend','sessionWritesEnabled'
+    'createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','listSessions','sessionBackend','sessionWritesEnabled'
   ]);
-  assert.doesNotMatch(source,/firestore|\.post\(|method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/i);
+  assert.doesNotMatch(source,/firestore/i);
+});
+
+test('B1 client uses explicit AFC GET and POST methods with business fields only', async () => {
+  const calls = [];
+  const client = createPawsAzureDataClient({
+    tokenProvider: async () => 't',
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return { ok: true, json: async () => ({ afcRecords: [], afcRecord: { afcRecordId: 'a1' } }) };
+    }
+  });
+  await client.dashboardAfcRecords({ search: 'Ada', reason: 'vacation', active: true, limit: 25 });
+  await client.createDashboardAfcRecord({ facultyId: 'f1', startDate: '2026-10-01', endDate: '2026-10-01', reasonCode: 'vacation', notes: '' });
+  assert.equal(calls[0].init.method, 'GET');
+  assert.match(calls[0].url, /dashboard\/afc-records\?search=Ada&reason=vacation&active=true&limit=25$/);
+  assert.equal(calls[1].init.method, 'POST');
+  assert.equal(calls[1].init.headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(calls[1].init.body), { facultyId: 'f1', startDate: '2026-10-01', endDate: '2026-10-01', reasonCode: 'vacation', notes: '' });
 });

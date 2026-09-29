@@ -1,3 +1,33 @@
+# BETA-R4D-12B1 — AFC LINE-BY-LINE / ISOLATED SQL CREATE FOUNDATION
+
+Status: **IMPLEMENTED / PENDING ARCHITECT REVIEW / NOT LIVE**
+
+- Starting `origin/main`: `68cd57074bbcf7916da6a031a238175d5530ae0b`.
+- Feature branch: `feature/beta-r4d12b1-afc-dashboard-write-foundation`.
+- Frozen baseline remains `b3458f79a05353ce1255874754e1c6c1ec8ee683`.
+- B0 remains LIVE ACCEPTED / CLOSED.
+- Migration 007 adds `paws.AfcManualRecord`, `paws.vAfcRecordUnified`, and
+  `paws_api.CreateAfcRecord` as proposal-only artifacts independent of 005/006.
+- Dashboard AFC reads use the unified view and a hard maximum of 2,000 rows;
+  AFC counts and faculty detail use the same source. The write repository is
+  separate and can invoke only the hard-coded stored procedure.
+- The API adds administrator-only GET/POST `/api/v1/dashboard/afc-records`;
+  all existing Dashboard routes remain GET-only. Actor identity and record /
+  request IDs are server-trusted/generated.
+- The admin-only AFC Records tab renders one row per unified record, uses the
+  canonical FacultyId selector, validates the frozen reason vocabulary and
+  notes/date rules, disables Submit while saving, and reloads from the server.
+- Focused B1 tests pass 20/20; server suite passes 135/135. Full root and
+  emulator suites pass all behavioral tests; each reports only the expected
+  three frozen-baseline drift assertions. `git diff --check` and changed-JS
+  syntax checks pass.
+- No SQL apply, permission apply, live AFC creation, Firestore/Firebase/Auth/
+  Rules mutation, Azure mutation, ACR/ACA/SWA deployment, PR, merge, baseline
+  promotion, A2B, Work Queue, B2A, B2B, or DOE change occurred.
+
+Next exact action: create the B1 implementation commit and push the feature
+branch. Stop after the architect report; B1G and B1D remain queued.
+
 # PAWS Task Chain
 
 ## BETA-R4D-12B0G — FROZEN BASELINE PROMOTION / PR-INTEGRATION GATE

@@ -440,10 +440,10 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
   assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'dashboard-view-model.js', 'faculty-admin.js']);
 });
 
-test('92 / 94 / 96. the controller size and function surface shrank as intended', () => {
+test('92 / 94 / 96. the controller stays bounded after the isolated AFC admin surface', () => {
   const bytes = fs.statSync(path.join(root, 'faculty-admin.js')).size;
   const named = [...ADMIN_SOURCE.matchAll(/function ([A-Za-z0-9_$]+)\(/g)].length;
-  assert.ok(bytes < 40000, `controller must remain bounded (actual ${bytes})`);
+  assert.ok(bytes < 50000, `controller must remain bounded (actual ${bytes})`);
   assert.match(ADMIN_SOURCE, /function renderTeachingSummary\(/);
   assert.match(ADMIN_SOURCE, /function renderRoles\(/);
   assert.match(ADMIN_SOURCE, /function renderDoeOverview\(/);

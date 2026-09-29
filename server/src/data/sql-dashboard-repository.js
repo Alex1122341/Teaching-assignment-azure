@@ -33,6 +33,7 @@ const GRID_START = '07:30:00';
 // never spliced into the statement text.
 const DEFAULT_LIMIT = 200;
 const MAX_LIMIT = 500;
+const AFC_MAX_LIMIT = 2000;
 
 // Deterministic HICC / VISC classification.
 //
@@ -120,6 +121,12 @@ function boundLimit(value) {
   const numeric = Number.isFinite(value) ? Math.trunc(value) : NaN;
   if (!Number.isFinite(numeric)) return DEFAULT_LIMIT;
   return Math.min(Math.max(numeric, 1), MAX_LIMIT);
+}
+
+function boundAfcLimit(value) {
+  const numeric = Number.isFinite(value) ? Math.trunc(value) : NaN;
+  if (!Number.isFinite(numeric)) return AFC_MAX_LIMIT;
+  return Math.min(Math.max(numeric, 1), AFC_MAX_LIMIT);
 }
 
 // `LIKE` metacharacters are escaped and the statement declares `ESCAPE '\'`, so
@@ -219,7 +226,7 @@ function createSqlDashboardRepository(db) {
                 FROM paws.RoleAssignment ra
                WHERE ra.AcademicYear = @academicYear
                  AND ${visc.sql}${roleScoped}) AS viscCount,
-             (SELECT ${rowCount('ar.AfcRecordId')} FROM paws.AfcRecord ar WHERE 1 = 1${afcScoped}) AS afcRecordCount`,
+             (SELECT ${rowCount('ar.AfcRecordId')} FROM paws.vAfcRecordUnified ar WHERE 1 = 1${afcScoped}) AS afcRecordCount`,
         params
       );
 
@@ -284,7 +291,7 @@ function createSqlDashboardRepository(db) {
                WHERE ra.FacultyId = f.FacultyId
                  AND ra.AcademicYear = @academicYear) AS roleCount,
              (SELECT ${rowCount('ar.AfcRecordId')}
-                FROM paws.AfcRecord ar
+                FROM paws.vAfcRecordUnified ar
                WHERE ar.FacultyId = f.FacultyId) AS afcCount,
              (SELECT ${rowCount('ja.JointAppointmentId')}
                 FROM paws.JointAppointment ja
@@ -317,6 +324,65 @@ function createSqlDashboardRepository(db) {
         roleCount: toInt(row.roleCount),
         afcCount: toInt(row.afcCount),
         jointAppointmentCount: toInt(row.jointAppointmentCount)
+      }));
+    },
+
+    // ------------------------------------------------------------- AFC list
+    // Unified, bounded read surface for the administrator AFC Records tab.
+    // Imported and manual records remain separate rows with an explicit
+    // SourceKind; no overlap or duplicate business rows are collapsed.
+    async listAfcRecords({ search = null, reason = null, active, limit } = {}) {
+      const params = { limit: boundAfcLimit(limit) };
+      const predicates = ['f.Active = 1'];
+      if (search && String(search).trim()) {
+        predicates.push("(f.DisplayName LIKE @search ESCAPE '\\' OR u.ReasonDisplay LIKE @search ESCAPE '\\' OR u.LegacyPurpose LIKE @search ESCAPE '\\' OR u.Notes LIKE @search ESCAPE '\\')");
+        params.search = likePattern(search);
+      }
+      if (reason && String(reason).trim()) {
+        predicates.push('(u.ReasonCode = @reason OR (u.ReasonCode IS NULL AND u.ReasonDisplay = @reason))');
+        params.reason = String(reason).trim();
+      }
+      if (active === true || active === false) {
+        predicates.push('u.Active = @active');
+        params.active = active;
+      }
+      const rows = await db.query(
+        `SELECT TOP (@limit)
+             u.AfcRecordId AS afcRecordId,
+             u.FacultyId AS facultyId,
+             f.DisplayName AS facultyName,
+             CONVERT(varchar(10), u.StartDate, 23) AS startDate,
+             CONVERT(varchar(10), u.EndDate, 23) AS endDate,
+             u.ReasonCode AS reasonCode,
+             u.ReasonDisplay AS reason,
+             u.Notes AS notes,
+             u.LegacyPurpose AS legacyPurpose,
+             u.Active AS active,
+             u.SourceKind AS sourceKind,
+             u.CreatedAtUtc AS createdAtUtc,
+             u.CreatedByName AS createdByName,
+             u.RecordKey AS recordKey
+         FROM paws.vAfcRecordUnified u
+         INNER JOIN paws.Faculty f ON f.FacultyId = u.FacultyId
+         WHERE ${predicates.join(' AND ')}
+         ORDER BY u.StartDate DESC, f.DisplayName, u.AfcRecordId`,
+        params
+      );
+      return rows.map(row => ({
+        afcRecordId: row.afcRecordId,
+        facultyId: row.facultyId,
+        facultyName: toText(row.facultyName),
+        startDate: toText(row.startDate),
+        endDate: toText(row.endDate),
+        reasonCode: toText(row.reasonCode),
+        reason: toText(row.reason),
+        notes: toText(row.notes),
+        legacyPurpose: toText(row.legacyPurpose),
+        active: toBool(row.active),
+        sourceKind: toText(row.sourceKind),
+        createdAtUtc: row.createdAtUtc || null,
+        createdByName: toText(row.createdByName),
+        recordKey: toText(row.recordKey)
       }));
     },
 
@@ -422,9 +488,16 @@ function createSqlDashboardRepository(db) {
                a.AfcRecordId AS afcRecordId,
                CONVERT(varchar(10), a.StartDate, 23) AS startDate,
                CONVERT(varchar(10), a.EndDate, 23) AS endDate,
-               a.Purpose AS purpose,
-               a.Active AS active
-           FROM paws.AfcRecord a
+               a.ReasonCode AS reasonCode,
+               a.ReasonDisplay AS reason,
+               a.Notes AS notes,
+               a.LegacyPurpose AS legacyPurpose,
+               a.Active AS active,
+               a.SourceKind AS sourceKind,
+               a.CreatedAtUtc AS createdAtUtc,
+               a.CreatedByName AS createdByName,
+               a.RecordKey AS recordKey
+           FROM paws.vAfcRecordUnified a
            WHERE a.FacultyId = @facultyId
            ORDER BY a.StartDate DESC, a.AfcRecordId`,
           { facultyId }
@@ -559,8 +632,16 @@ function createSqlDashboardRepository(db) {
           afcRecordId: row.afcRecordId,
           startDate: toText(row.startDate),
           endDate: toText(row.endDate),
-          purpose: toText(row.purpose),
-          active: toBool(row.active)
+          reasonCode: toText(row.reasonCode),
+          reason: toText(row.reason),
+          notes: toText(row.notes),
+          legacyPurpose: toText(row.legacyPurpose),
+          purpose: toText(row.legacyPurpose || row.reason),
+          active: toBool(row.active),
+          sourceKind: toText(row.sourceKind),
+          createdAtUtc: row.createdAtUtc || null,
+          createdByName: toText(row.createdByName),
+          recordKey: toText(row.recordKey)
         })),
         teachingAssignments,
         sessionCount: teachingAssignments.length,
@@ -793,6 +874,7 @@ module.exports = {
   GRID_START,
   DEFAULT_LIMIT,
   MAX_LIMIT,
+  AFC_MAX_LIMIT,
   HICC_ROLE_TYPES,
   VISC_ROLE_TYPES,
   HICC_CATEGORY,
@@ -801,5 +883,6 @@ module.exports = {
   isUuid,
   academicYear,
   boundLimit,
+  boundAfcLimit,
   likePattern
 };

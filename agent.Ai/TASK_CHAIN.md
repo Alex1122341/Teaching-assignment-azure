@@ -3,6 +3,7 @@
 Status: **CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE**
 
 - Starting B1R2 HEAD: `b38afabeba683f728e751cfca0bfd144e471d5ee`.
+- B1R2 correction commit and remote HEAD: `87026ec216ffbd418e2c61fb2f78d6a4862c2584`.
 - Same branch: `feature/beta-r4d12b1-afc-dashboard-write-foundation`.
 - Frozen baseline remains `b3458f79a05353ce1255874754e1c6c1ec8ee683`.
 - 007 permissions and proof now share the same normalized exact permission
@@ -16,8 +17,8 @@ Status: **CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE**
 - No runtime/API/UI/auth/data behavior changed. No SQL apply, live permission
   mutation, proof against live, deployment, PR, baseline promotion, A2B, Work
   Queue, B2A, B2B, or DOE change occurred.
-- B1R2 correction commit and push are the next handoff action; B1G, B1D, B2A,
-  B2B, B3, and DOE remain queued.
+- B1R2 correction commit and push succeeded; B1G, B1D, B2A, B2B, B3, and DOE
+  remain queued.
 
 # BETA-R4D-12B1R — AFC WRITE SECURITY + DATA INTEGRITY CORRECTIONS
 

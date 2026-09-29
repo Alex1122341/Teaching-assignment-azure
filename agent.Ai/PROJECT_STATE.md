@@ -5,6 +5,8 @@
 **Feature branch:** `feature/beta-r4d12b1-afc-dashboard-write-foundation`
 **Frozen baseline:** `b3458f79a05353ce1255874754e1c6c1ec8ee683`
 **Starting B1R2 HEAD:** `b38afabeba683f728e751cfca0bfd144e471d5ee`
+**B1R2 correction commit:** `87026ec216ffbd418e2c61fb2f78d6a4862c2584`
+**Remote branch HEAD:** `87026ec216ffbd418e2c61fb2f78d6a4862c2584`
 **Status:** B1R2 CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE.
 
 B1R2 changes only the proposal-only SQL permission contract and offline
@@ -35,8 +37,8 @@ Work Queue, B2A, B2B, and DOE changes were not performed. B1G, B1D, B2A, B2B,
 B3, and DOE remain queued. Do not open a PR, promote the baseline, apply SQL,
 or deploy.
 
-Next exact action: commit and push B1R2 on this same branch, report the two
-separated sections requested by the architect, then wait for final review.
+Next exact action: report the two separated sections requested by the architect,
+then wait for final review. The B1R2 correction is committed and pushed.
 
 # BETA-R4D-12B1R — AFC WRITE SECURITY + DATA INTEGRITY CORRECTIONS / NOT LIVE
 

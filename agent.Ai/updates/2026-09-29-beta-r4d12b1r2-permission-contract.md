@@ -3,6 +3,7 @@
 **Date:** 2026-09-29
 **Branch:** `feature/beta-r4d12b1-afc-dashboard-write-foundation`
 **Starting B1R2 HEAD:** `b38afabeba683f728e751cfca0bfd144e471d5ee`
+**Correction commit / remote HEAD:** `87026ec216ffbd418e2c61fb2f78d6a4862c2584`
 **Status:** B1R2 CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE
 
 ## Implementation result
@@ -56,6 +57,6 @@
 
 ## Handoff
 
-Commit and push on the same branch. Do not open a PR, apply SQL, deploy, or
+Committed and pushed on the same branch. Do not open a PR, apply SQL, deploy, or
 begin B2A. Remain queued for B1G, B1D, B2A, B2B, B3, and DOE pending final
 architect review.

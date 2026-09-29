@@ -1,10 +1,11 @@
-# BETA-R4D-12B1 — AFC LINE-BY-LINE / ISOLATED SQL CREATE FOUNDATION
+# BETA-R4D-12B1R — AFC WRITE SECURITY + DATA INTEGRITY CORRECTIONS
 
-Status: **IMPLEMENTED / PENDING ARCHITECT REVIEW / NOT LIVE**
+Status: **CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE**
 
 - Starting `origin/main`: `68cd57074bbcf7916da6a031a238175d5530ae0b`.
 - Feature branch: `feature/beta-r4d12b1-afc-dashboard-write-foundation`.
-- Implementation commit: `7da1eff243464995f9fab58dc56af4378779ba90`, pushed to origin.
+- Starting B1R HEAD: `59632a1f6c04650fabc177bbb1687ebb904a203f`.
+- Correction commit: `438dba9cce6f0c917614643c13e6e011b6a0b668`.
 - Frozen baseline remains `b3458f79a05353ce1255874754e1c6c1ec8ee683`.
 - B0 remains LIVE ACCEPTED / CLOSED.
 - Migration 007 adds `paws.AfcManualRecord`, `paws.vAfcRecordUnified`, and
@@ -18,7 +19,11 @@ Status: **IMPLEMENTED / PENDING ARCHITECT REVIEW / NOT LIVE**
 - The admin-only AFC Records tab renders one row per unified record, uses the
   canonical FacultyId selector, validates the frozen reason vocabulary and
   notes/date rules, disables Submit while saving, and reloads from the server.
-- Focused B1 tests pass 20/20; server suite passes 135/135. Full root and
+- B1R corrected exact SQL ReasonCode case, widened procedure validation inputs,
+  made schema/object ownership checks fail closed, hardened permission apply
+  preflight and least-privilege proof, restored inactive-Faculty AFC history,
+  and removed the post-commit response read.
+- Focused B1/B1R tests pass 25/25; server suite passes 140/140. Full root and
   emulator suites pass all behavioral tests; each reports only the expected
   three frozen-baseline drift assertions. `git diff --check` and changed-JS
   syntax checks pass.
@@ -26,8 +31,12 @@ Status: **IMPLEMENTED / PENDING ARCHITECT REVIEW / NOT LIVE**
   Rules mutation, Azure mutation, ACR/ACA/SWA deployment, PR, merge, baseline
   promotion, A2B, Work Queue, B2A, B2B, or DOE change occurred.
 
-Next exact action: create the B1 implementation commit and push the feature
-branch. Stop after the architect report; B1G and B1D remain queued.
+- Focused B1/B1R tests pass 25/25; server suite passes 140/140. Root and
+  emulator behavioral tests are green with only the three expected baseline
+  drift assertions.
+
+Next exact action: push the B1R correction commit on the same feature branch,
+then return the B1R report. B1G and B1D remain queued.
 
 # PAWS Task Chain
 

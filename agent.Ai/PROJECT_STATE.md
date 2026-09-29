@@ -1,17 +1,19 @@
-# BETA-R4D-12B1 — AFC MANUAL WRITE FOUNDATION / IMPLEMENTED / NOT LIVE
+# BETA-R4D-12B1R — AFC WRITE SECURITY + DATA INTEGRITY CORRECTIONS / NOT LIVE
 
 **Last verified:** 2026-09-29
 **Starting `origin/main`:** `68cd57074bbcf7916da6a031a238175d5530ae0b`
 **Feature branch:** `feature/beta-r4d12b1-afc-dashboard-write-foundation`
 **Frozen baseline:** `b3458f79a05353ce1255874754e1c6c1ec8ee683`
-**Implementation commit:** `7da1eff243464995f9fab58dc56af4378779ba90`
-**Status:** B1 IMPLEMENTED / PENDING ARCHITECT REVIEW / NOT LIVE.
+**Starting B1R HEAD:** `59632a1f6c04650fabc177bbb1687ebb904a203f`
+**Correction commit:** `438dba9cce6f0c917614643c13e6e011b6a0b668`
+**Status:** B1R CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE.
 
 B0 remains LIVE ACCEPTED / CLOSED. B1 adds an isolated Azure SQL AFC manual
 record proposal, unified imported/manual AFC reads, an administrator-only
-Dashboard GET/POST surface, and an administrator-only AFC Records UI. The
-write path is server-authorized and calls only `paws_api.CreateAfcRecord`;
-manual records and `paws.AuditEvent` are atomic in the proposed procedure.
+Dashboard GET/POST surface, and an administrator-only AFC Records UI. B1R
+hardens the exact case-sensitive ReasonCode contract, wide SQL validation
+inputs, schema/object ownership chain, permission preflight/proof, inactive-
+Faculty historical reads, and post-commit procedure response reliability.
 
 Migration 007, its permission proposal, and its least-privilege proof are
 proposal artifacts only. No SQL migration, permission grant, manual AFC row,
@@ -20,9 +22,9 @@ deploy, SWA deploy, PR, or merge was performed. Timetable/session writes,
 Teaching Assignment authority, HICC/VISC authority, AssignmentMode, DOE, A2B,
 Work Queue, B2A, B2B, and B3 remain untouched.
 
-Focused B1 tests pass 20/20 and the server suite passes 135/135. The full root
-Beta suite and emulator suite each have only the expected three frozen-baseline
-drift assertions failing; behavioral tests pass. Expected static drift is
+Focused B1/B1R tests pass 25/25 and the server suite passes 140/140. The full
+root Beta suite and emulator suite each have only the expected three
+frozen-baseline drift assertions failing; behavioral tests pass. Expected static drift is
 `faculty-admin.html`, `faculty-admin.js`, and `paws-data-client.js`. Expected
 API drift is `server/src/data/dashboard-api.js`,
 `server/src/data/sql-afc-write-repository.js` (missing at baseline),
@@ -30,9 +32,9 @@ API drift is `server/src/data/dashboard-api.js`,
 `server/src/runtime/swa-dashboard-functions.js`,
 `server/src/runtime/swa-sql-runtime.js`, and `swa-api/index.js`.
 
-Next exact action: commit and push this feature branch, then send the required
-B1 implementation report to the architect. Do not open a PR, promote the
-baseline, apply SQL, grant permissions, deploy, or start B1G/B1D/B2A.
+Next exact action: push the B1R correction on this same feature branch, then
+send the required B1R A–L report to the architect. Do not open a PR, promote
+the baseline, apply SQL, grant permissions, deploy, or start B1G/B1D/B2A.
 
 # PAWS Current Project State
 

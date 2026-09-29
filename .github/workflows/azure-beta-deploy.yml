@@ -20,6 +20,10 @@ permissions:
   actions: read
   contents: read
 
+env:
+  ACR_NAME: pawssqlbetaacr
+  IMAGE_REPOSITORY: paws-sql-beta-api
+
 concurrency:
   group: azure-beta-manual-${{ inputs.commit_sha }}
   cancel-in-progress: false
@@ -45,6 +49,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
           git fetch origin main --depth=1
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           test "$(git rev-parse origin/main)" = "$EXPECTED_SHA"
@@ -61,6 +67,7 @@ jobs:
           test "$(jq -r '.head_sha' <<< "$aca_run_json")" = "$EXPECTED_SHA"
           test "$(jq -r '.path' <<< "$aca_run_json")" = ".github/workflows/azure-beta-aca-deploy.yml"
           test "$(jq -r '.event' <<< "$aca_run_json")" = "workflow_dispatch"
+          test "$(jq -r '.head_branch' <<< "$aca_run_json")" = "main"
           test "$(jq -r '.status' <<< "$aca_run_json")" = "completed"
           test "$(jq -r '.conclusion' <<< "$aca_run_json")" = "success"
       - name: Verify frozen runtime baseline at requested SHA
@@ -110,8 +117,12 @@ jobs:
           test "$(jq -r '.sqlHealthPassed' "$evidence")" = "true"
           test "$(jq -r '.authBoundaryPassed' "$evidence")" = "true"
           test "$(jq -r '.newRoutesPassed' "$evidence")" = "true"
+          test "$(jq -r '.revisionMode' "$evidence")" = "Single"
+          test -n "$(jq -r '.newRevision // empty' "$evidence")"
           digest="$(jq -r '.imageDigest' "$evidence")"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          expected_image="$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY@$digest"
+          test "$(jq -r '.newImage' "$evidence")" = "$expected_image"
       - name: Deploy tested beta artifact
         uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
         with:

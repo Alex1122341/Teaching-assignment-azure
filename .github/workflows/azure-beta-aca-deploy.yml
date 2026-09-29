@@ -52,6 +52,8 @@ jobs:
           test -n "$SOURCE_RUN_ID"
           test -n "$PUBLISH_RUN_ID"
           test -n "$COMMIT_SHA"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$COMMIT_SHA"
           git fetch --no-tags origin main
           test "$(git rev-parse HEAD)" = "$COMMIT_SHA"
           test "$(git rev-parse origin/main)" = "$COMMIT_SHA"
@@ -67,6 +69,7 @@ jobs:
           test "$(jq -r '.repository.full_name' <<< "$publish_json")" = "$GITHUB_REPOSITORY"
           test "$(jq -r '.path' <<< "$publish_json")" = ".github/workflows/azure-beta-acr-publish.yml"
           test "$(jq -r '.event' <<< "$publish_json")" = "workflow_dispatch"
+          test "$(jq -r '.head_branch' <<< "$publish_json")" = "main"
           test "$(jq -r '.head_sha' <<< "$publish_json")" = "$COMMIT_SHA"
           test "$(jq -r '.status' <<< "$publish_json")" = "completed"
           test "$(jq -r '.conclusion' <<< "$publish_json")" = "success"
@@ -76,7 +79,7 @@ jobs:
           node tools/beta-freeze.js
           node tools/beta-api-freeze.js
 
-      - name: Download and verify immutable image evidence
+      - name: Download and verify published image evidence
         uses: actions/download-artifact@v8
         with:
           name: aca-image-${{ inputs.commit_sha }}
@@ -95,6 +98,8 @@ jobs:
           set -euo pipefail
           evidence="aca-image-evidence/aca-image-evidence.json"
           test -f "$evidence"
+          test "$(jq -r '.repository' "$evidence")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.imageRepository' "$evidence")" = "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY"
           test "$(jq -r '.commitSha' "$evidence")" = "$COMMIT_SHA"
           test "$(jq -r '.sourceRunId' "$evidence")" = "$SOURCE_RUN_ID"
           test "$(jq -r '.publishRunId' "$evidence")" = "$PUBLISH_RUN_ID"
@@ -123,12 +128,19 @@ jobs:
           test "$mode" = "$EXPECTED_REVISION_MODE"
           fqdn="$(jq -r '.properties.configuration.ingress.fqdn // empty' <<< "$app_json")"
           test "$fqdn" = "$ACA_FQDN"
-          previous_revision="$(jq -r '.properties.latestRevisionName // .properties.latestReadyRevisionName // empty' <<< "$app_json")"
-          previous_image="$(jq -r '.properties.template.containers[0].image // empty' <<< "$app_json")"
-          test -n "$previous_revision"
+          revisions_json="$(az containerapp revision list --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
+          active_count="$(jq '[.[] | select(.properties.active == true)] | length' <<< "$revisions_json")"
+          test "$active_count" = "1"
+          active_revision="$(jq -r '[.[] | select(.properties.active == true)][0].name // empty' <<< "$revisions_json")"
+          previous_image="$(jq -r '[.[] | select(.properties.active == true)][0].properties.template.containers[0].image // empty' <<< "$revisions_json")"
+          previous_health="$(jq -r '[.[] | select(.properties.active == true)][0].properties.healthState // empty' <<< "$revisions_json")"
+          previous_provisioning="$(jq -r '[.[] | select(.properties.active == true)][0].properties.provisioningState // empty' <<< "$revisions_json")"
+          test -n "$active_revision"
           test -n "$previous_image"
-          printf 'previousRevision=%s\n' "$previous_revision" >> "$GITHUB_OUTPUT"
+          printf 'previousRevision=%s\n' "$active_revision" >> "$GITHUB_OUTPUT"
           printf 'previousImage=%s\n' "$previous_image" >> "$GITHUB_OUTPUT"
+          printf 'previousHealthState=%s\n' "$previous_health" >> "$GITHUB_OUTPUT"
+          printf 'previousProvisioningState=%s\n' "$previous_provisioning" >> "$GITHUB_OUTPUT"
           printf 'fqdn=%s\n' "$fqdn" >> "$GITHUB_OUTPUT"
           printf 'revisionMode=%s\n' "$mode" >> "$GITHUB_OUTPUT"
           jq -S '{fqdn:.properties.configuration.ingress.fqdn,revisionMode:.properties.configuration.activeRevisionsMode,ingress:.properties.configuration.ingress,scale:.properties.template.scale,resources:[.properties.template.containers[].resources],env:[.properties.template.containers[].env]}' <<< "$app_json" > aca-predeploy-state.json
@@ -140,8 +152,9 @@ jobs:
         run: |
           set -euo pipefail
           expected="$(cat aca-image-evidence/image-digest.txt)"
-          current="$(az acr repository show-manifests --name "$ACR_NAME" --repository "$IMAGE_REPOSITORY" --query "[?tags[?contains(@, '$COMMIT_SHA')]].digest | [0]" -o tsv)"
+          current="$(az acr repository show --name "$ACR_NAME" --image "$IMAGE_REPOSITORY:$COMMIT_SHA" --query digest -o tsv)"
           test "$current" = "$expected"
+          test "$(jq -r '.imageDigest' aca-image-evidence/aca-image-evidence.json)" = "$current"
 
       - name: Activate exact API image digest (image-only mutation)
         id: activate
@@ -152,15 +165,20 @@ jobs:
           set -euo pipefail
           digest="$(cat aca-image-evidence/image-digest.txt)"
           image="$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY@$digest"
-          app_json="$(az containerapp show --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
-          current_image="$(jq -r '.properties.template.containers[0].image // empty' <<< "$app_json")"
-          if [ "$current_image" = "$image" ]; then
+          revisions_json="$(az containerapp revision list --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
+          active_count="$(jq '[.[] | select(.properties.active == true)] | length' <<< "$revisions_json")"
+          test "$active_count" = "1"
+          active_image="$(jq -r '[.[] | select(.properties.active == true)][0].properties.template.containers[0].image // empty' <<< "$revisions_json")"
+          if [ "$active_image" = "$image" ]; then
             echo 'activationPerformed=false' >> "$GITHUB_OUTPUT"
             echo 'Reviewed digest is already live; no duplicate revision created.'
           else
             suffix="r${COMMIT_SHA:0:12}"
-            existing="$(jq -r --arg suffix "$suffix" '.properties.latestRevisionName // "" | select(. == ($suffix) or endswith("--" + $suffix))' <<< "$app_json")"
-            test -z "$existing"
+            conflict="$(jq -r --arg suffix "$suffix" '[.[] | select((.name == $suffix) or (.name | endswith("--" + $suffix)))] | length' <<< "$revisions_json")"
+            if [ "$conflict" != "0" ]; then
+              echo 'REVISION_SUFFIX_CONFLICT'
+              exit 1
+            fi
             az containerapp update \
               --name "$ACA_APP_NAME" \
               --resource-group "$ACA_RESOURCE_GROUP" \
@@ -175,15 +193,32 @@ jobs:
         run: |
           set -euo pipefail
           expected_image="$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY@$(cat aca-image-evidence/image-digest.txt)"
-          app_json="$(az containerapp show --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
-          actual_image="$(jq -r '.properties.template.containers[0].image // empty' <<< "$app_json")"
-          test "$actual_image" = "$expected_image"
+          ready=false
+          for attempt in $(seq 1 18); do
+            app_json="$(az containerapp show --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
+            revisions_json="$(az containerapp revision list --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
+            active_count="$(jq '[.[] | select(.properties.active == true)] | length' <<< "$revisions_json")"
+            active_revision="$(jq -r '[.[] | select(.properties.active == true)][0].name // empty' <<< "$revisions_json")"
+            actual_image="$(jq -r '[.[] | select(.properties.active == true)][0].properties.template.containers[0].image // empty' <<< "$revisions_json")"
+            health="$(jq -r '[.[] | select(.properties.active == true)][0].properties.healthState // empty' <<< "$revisions_json")"
+            provisioning="$(jq -r '[.[] | select(.properties.active == true)][0].properties.provisioningState // empty' <<< "$revisions_json")"
+            if [ "$active_count" = "1" ] && [ -n "$active_revision" ] && [ "$actual_image" = "$expected_image" ] \
+              && { [ -z "$provisioning" ] || [ "$provisioning" = "Provisioned" ] || [ "$provisioning" = "Succeeded" ]; } \
+              && { [ -z "$health" ] || [ "$health" = "Healthy" ]; }; then
+              ready=true
+              break
+            fi
+            sleep 10
+          done
+          test "$ready" = true
           test "$(jq -r '.properties.configuration.ingress.fqdn' <<< "$app_json")" = "${{ steps.predeploy.outputs.fqdn }}"
           test "$(jq -r '.properties.configuration.activeRevisionsMode' <<< "$app_json")" = "${{ steps.predeploy.outputs.revisionMode }}"
           jq -S '{fqdn:.properties.configuration.ingress.fqdn,revisionMode:.properties.configuration.activeRevisionsMode,ingress:.properties.configuration.ingress,scale:.properties.template.scale,resources:[.properties.template.containers[].resources],env:[.properties.template.containers[].env]}' <<< "$app_json" > aca-postdeploy-state.json
           diff -u aca-predeploy-state.json aca-postdeploy-state.json
-          printf 'newRevision=%s\n' "$(jq -r '.properties.latestRevisionName // .properties.latestReadyRevisionName' <<< "$app_json")" >> "$GITHUB_OUTPUT"
+          printf 'newRevision=%s\n' "$active_revision" >> "$GITHUB_OUTPUT"
           printf 'newImage=%s\n' "$actual_image" >> "$GITHUB_OUTPUT"
+          printf 'newHealthState=%s\n' "$health" >> "$GITHUB_OUTPUT"
+          printf 'newProvisioningState=%s\n' "$provisioning" >> "$GITHUB_OUTPUT"
 
       - name: Verify SQL health with bounded retry
         id: health
@@ -192,25 +227,33 @@ jobs:
           set -euo pipefail
           passed=false
           for attempt in $(seq 1 12); do
-            status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' "https://$ACA_FQDN/api/health/sql" || true)"
-            if [ "$status" = "200" ]; then passed=true; break; fi
+            body_file="$(mktemp)"
+            status="$(curl --silent --show-error --max-time 10 -o "$body_file" -w '%{http_code}' "https://$ACA_FQDN/api/health/sql" || true)"
+            if [ "$status" = "200" ] && [ "$(jq -r '.status // empty' "$body_file" 2>/dev/null || true)" = "ok" ] \
+              && [ "$(jq -r '.service // empty' "$body_file" 2>/dev/null || true)" = "paws-beta-sql-runtime" ]; then passed=true; break; fi
             sleep 10
           done
           test "$passed" = true
+          echo 'sqlHealthPassed=true' >> "$GITHUB_OUTPUT"
 
       - name: Verify anonymous auth boundary and new routes
         id: smoke
         shell: bash
         run: |
           set -euo pipefail
+          me_status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' "https://$ACA_FQDN/api/v1/me" || true)"
+          test "$me_status" = "401"
+          echo 'authBoundaryPassed=true' >> "$GITHUB_OUTPUT"
+          new_routes_passed=true
           for route in \
-            /api/v1/me \
             /api/v1/dashboard/teaching-summary \
             /api/v1/dashboard/roles \
             /api/v1/dashboard/doe-overview; do
             status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' "https://$ACA_FQDN$route" || true)"
-            test "$status" = "401"
+            if [ "$status" != "401" ]; then new_routes_passed=false; fi
           done
+          test "$new_routes_passed" = true
+          echo 'newRoutesPassed=true' >> "$GITHUB_OUTPUT"
 
       - name: Write ACA deploy evidence
         if: always()
@@ -220,7 +263,8 @@ jobs:
           PUBLISH_RUN_ID: ${{ inputs.publish_run_id }}
           ACTIVATION_PERFORMED: ${{ steps.activate.outputs.activationPerformed }}
           SQL_HEALTH: ${{ steps.health.outcome == 'success' && 'true' || 'false' }}
-          AUTH_SMOKE: ${{ steps.smoke.outcome == 'success' && 'true' || 'false' }}
+          AUTH_BOUNDARY: ${{ steps.smoke.outputs.authBoundaryPassed == 'true' && 'true' || 'false' }}
+          NEW_ROUTES: ${{ steps.smoke.outputs.newRoutesPassed == 'true' && 'true' || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -234,15 +278,19 @@ jobs:
             --arg previousImage "${{ steps.predeploy.outputs.previousImage }}" \
             --arg newRevision "${{ steps.postactivate.outputs.newRevision }}" \
             --arg newImage "${{ steps.postactivate.outputs.newImage }}" \
-            --arg imageDigest "$(cat aca-image-evidence/image-digest.txt)" \
+            --arg imageDigest "$(cat aca-image-evidence/image-digest.txt 2>/dev/null || true)" \
             --arg fqdn "${{ steps.predeploy.outputs.fqdn }}" \
             --arg revisionMode "${{ steps.predeploy.outputs.revisionMode }}" \
+            --arg previousHealthState "${{ steps.predeploy.outputs.previousHealthState }}" \
+            --arg previousProvisioningState "${{ steps.predeploy.outputs.previousProvisioningState }}" \
+            --arg newHealthState "${{ steps.postactivate.outputs.newHealthState }}" \
+            --arg newProvisioningState "${{ steps.postactivate.outputs.newProvisioningState }}" \
             --argjson sqlHealthPassed "$SQL_HEALTH" \
-            --argjson authBoundaryPassed "$AUTH_SMOKE" \
-            --argjson newRoutesPassed "$AUTH_SMOKE" \
+            --argjson authBoundaryPassed "$AUTH_BOUNDARY" \
+            --argjson newRoutesPassed "$NEW_ROUTES" \
             --argjson activationPerformed "${ACTIVATION_PERFORMED:-false}" \
             --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{commitSha:$commitSha,sourceRunId:$sourceRunId,publishRunId:$publishRunId,acaDeployRunId:$acaDeployRunId,previousRevision:$previousRevision,previousImage:$previousImage,newRevision:$newRevision,newImage:$newImage,imageDigest:$imageDigest,fqdn:$fqdn,revisionMode:$revisionMode,sqlHealthPassed:$sqlHealthPassed,authBoundaryPassed:$authBoundaryPassed,newRoutesPassed:$newRoutesPassed,activationPerformed:$activationPerformed,timestamp:$timestamp}' \
+            '{commitSha:$commitSha,sourceRunId:$sourceRunId,publishRunId:$publishRunId,acaDeployRunId:$acaDeployRunId,previousRevision:$previousRevision,previousImage:$previousImage,previousHealthState:$previousHealthState,previousProvisioningState:$previousProvisioningState,newRevision:$newRevision,newImage:$newImage,newHealthState:$newHealthState,newProvisioningState:$newProvisioningState,imageDigest:$imageDigest,fqdn:$fqdn,revisionMode:$revisionMode,sqlHealthPassed:$sqlHealthPassed,authBoundaryPassed:$authBoundaryPassed,newRoutesPassed:$newRoutesPassed,activationPerformed:$activationPerformed,timestamp:$timestamp}' \
             > aca-deploy-evidence/aca-deploy-evidence.json
 
       - name: Upload ACA deploy evidence

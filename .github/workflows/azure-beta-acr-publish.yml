@@ -42,6 +42,8 @@ jobs:
           set -euo pipefail
           test -n "$SOURCE_RUN_ID"
           test -n "$COMMIT_SHA"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$COMMIT_SHA"
           git fetch --no-tags origin main
           test "$(git rev-parse HEAD)" = "$COMMIT_SHA"
           test "$(git rev-parse origin/main)" = "$COMMIT_SHA"
@@ -85,24 +87,45 @@ jobs:
       - name: Authenticate Docker to ACR with managed identity role
         run: az acr login --name "$ACR_NAME"
 
+      - name: Refuse an existing process tag before build or push
+        env:
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          err_file="$(mktemp)"
+          set +e
+          az acr repository show --name "$ACR_NAME" --image "$IMAGE_REPOSITORY:$COMMIT_SHA" -o json > /tmp/existing-tag.json 2>"$err_file"
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo 'SHA_TAG_ALREADY_EXISTS_REVIEW_REQUIRED'
+            exit 1
+          fi
+          if ! grep -Eqi 'MANIFEST_UNKNOWN|manifest[^[:cntrl:]]*(not found|does not exist)|tag[^[:cntrl:]]*not found' "$err_file"; then
+            cat "$err_file" >&2
+            exit "$status"
+          fi
+          echo 'SHA tag is absent; single-publish guard permits the build.'
+
       - name: Build image from the downloaded tested API artifact
         env:
           COMMIT_SHA: ${{ inputs.commit_sha }}
         run: docker build -f deploy/aca/Dockerfile -t "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY:$COMMIT_SHA" .
 
-      - name: Push immutable SHA image
+      - name: Push verified SHA image
         env:
           COMMIT_SHA: ${{ inputs.commit_sha }}
         run: docker push "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY:$COMMIT_SHA"
 
-      - name: Verify immutable image digest and write evidence
+      - name: Verify published image digest and write evidence
         env:
           COMMIT_SHA: ${{ inputs.commit_sha }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
         shell: bash
         run: |
           set -euo pipefail
-          digest="$(az acr repository show-manifests --name "$ACR_NAME" --repository "$IMAGE_REPOSITORY" --query "[?tags[?contains(@, '$COMMIT_SHA')]].digest | [0]" -o tsv)"
+          digest="$(az acr repository show --name "$ACR_NAME" --image "$IMAGE_REPOSITORY:$COMMIT_SHA" --query digest -o tsv)"
           test -n "$digest"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           mkdir -p aca-image-evidence
@@ -117,7 +140,7 @@ jobs:
             --arg createdAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{commitSha:$commitSha,sourceRunId:$sourceRunId,publishRunId:$publishRunId,repository:$repository,imageRepository:$imageRepository,imageTag:$imageTag,imageDigest:$imageDigest,createdAt:$createdAt}' \
             > aca-image-evidence/aca-image-evidence.json
-          printf 'Published immutable image digest: %s\n' "$digest"
+          printf 'Published verified image digest: %s\n' "$digest"
 
       - name: Upload image evidence
         uses: actions/upload-artifact@v7

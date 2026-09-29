@@ -3,9 +3,35 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { classifyAcrTagLookup } = require('../tools/beta-acr-tag-guard');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+
+test('ACR tag guard refuses an existing exact-SHA tag', () => {
+  assert.equal(classifyAcrTagLookup({ status: 0, stderr: '' }), 'EXISTS');
+});
+
+test('ACR tag guard accepts Azure CLI exact absence response', () => {
+  assert.equal(
+    classifyAcrTagLookup({ status: 1, stderr: 'Error: the specified tag does not exist' }),
+    'ABSENT',
+  );
+});
+
+test('ACR tag guard keeps legacy manifest absence wording compatible', () => {
+  assert.equal(
+    classifyAcrTagLookup({ status: 1, stderr: 'MANIFEST_UNKNOWN: manifest unknown' }),
+    'ABSENT',
+  );
+});
+
+test('ACR tag guard fails closed for unexpected lookup errors', () => {
+  assert.equal(
+    classifyAcrTagLookup({ status: 1, stderr: 'ERROR: authentication failed' }),
+    'UNKNOWN_ERROR',
+  );
+});
 
 test('dual-runtime candidate verifier checks static and API surfaces', () => {
   const verifier = read('tools/verify-beta-candidate.js');
@@ -36,6 +62,7 @@ test('ACR Publish consumes the tested artifact and remains publish-only', () => 
   assert.match(workflow, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
   assert.match(workflow, /test "\$GITHUB_SHA" = "\$COMMIT_SHA"/);
   assert.match(workflow, /az acr repository show --name "\$ACR_NAME" --image "\$IMAGE_REPOSITORY:\$COMMIT_SHA"/);
+  assert.match(workflow, /beta-acr-tag-guard\.js/);
   assert.match(workflow, /SHA_TAG_ALREADY_EXISTS_REVIEW_REQUIRED/);
   assert.doesNotMatch(workflow, /contains\(@, '\$COMMIT_SHA'\)/);
   assert.ok(workflow.indexOf('Refuse an existing process tag before build or push') < workflow.indexOf('Build image from the downloaded tested API artifact'));

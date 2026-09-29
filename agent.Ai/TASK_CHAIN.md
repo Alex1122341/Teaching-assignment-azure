@@ -1,5 +1,20 @@
 # PAWS Task Chain
 
+## BETA-R4D-11G3 — ACR guard PR continuity synchronized / awaiting merge gate
+
+Status: **PR #32 OPEN / CI PASSED / AWAITING FINAL MERGE GATE**
+
+- Base: `origin/main` at `22194b098ddde312c16af5af01633387374cdd72`.
+- Clean branch: `fix/beta-r4d11g2-acr-tag-guard`.
+- Local implementation `378dd79...` was cherry-picked as `295cc8c...`; the historical R4D-11C branch was not reused.
+- Scope: ACR exact-SHA absent-tag classification, behavior-level tests, and continuity documentation only.
+- PR #32 is open against `main`; the original accepted PR head before this continuity sync was `16aac238426fafcc59c72719ba3fa6bae35c5171`.
+- Azure Beta Build #132 / run ID `36572092893` passed; synthetic PR merge SHA was `b6929c5dfdd3bc21e522beb18a033e71cbb2a8d7`.
+- Protected static runtime: 46 paths / zero drift. Protected API runtime: 16 runtime files plus `deploy/aca/Dockerfile` / zero drift.
+- No product runtime, Azure, SQL, Firebase, ACR, ACA, SWA, merge, or deployment mutation occurred.
+- Current breakpoint: PR #32 exists, CI passed, merge has not occurred, and release has not started.
+- Next safe action: await the Architect merge gate. After any future merge, use a new exact-main Build before release.
+
 ## BETA-R4D-11A — Dashboard UI + DOE parity
 
 Status: **IMPLEMENTED / AWAITING ARCHITECT REVIEW**

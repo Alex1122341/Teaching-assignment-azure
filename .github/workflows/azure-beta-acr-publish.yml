@@ -3,13 +3,18 @@ name: Azure Beta ACR Publish
 on:
   workflow_dispatch:
     inputs:
-      expected_sha:
-        description: Exact reviewed main commit to publish
+      source_run_id:
+        description: Successful Azure Beta Build run ID from main
+        required: true
+        type: string
+      commit_sha:
+        description: Exact main commit whose tested artifact must be published
         required: true
         type: string
 
 permissions:
   contents: read
+  actions: read
   id-token: write
 
 env:
@@ -19,38 +24,56 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
-      - name: Checkout exact reviewed commit
+      - name: Checkout exact requested main commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.sha }}
+          ref: ${{ inputs.commit_sha }}
 
-      - name: Verify main and expected SHA
+      - name: Verify exact main commit and successful source build
         shell: bash
         env:
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = "refs/heads/main"
-          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test -n "$SOURCE_RUN_ID"
+          test -n "$COMMIT_SHA"
           git fetch --no-tags origin main
-          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          test "$(git rev-parse origin/main)" = "$EXPECTED_SHA"
+          test "$(git rev-parse HEAD)" = "$COMMIT_SHA"
+          test "$(git rev-parse origin/main)" = "$COMMIT_SHA"
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}")"
+          test "$(jq -r '.repository.full_name' <<< "$run_json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.path' <<< "$run_json")" = ".github/workflows/azure-beta-build.yml"
+          test "$(jq -r '.event' <<< "$run_json")" = "push"
+          test "$(jq -r '.head_branch' <<< "$run_json")" = "main"
+          test "$(jq -r '.head_sha' <<< "$run_json")" = "$COMMIT_SHA"
+          test "$(jq -r '.status' <<< "$run_json")" = "completed"
+          test "$(jq -r '.conclusion' <<< "$run_json")" = "success"
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@v4
+      - name: Download exact tested combined artifact
+        uses: actions/download-artifact@v8
         with:
-          node-version: 22
-          cache: npm
+          name: azure-beta-${{ inputs.commit_sha }}
+          path: .azure-production
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
 
-      - name: Install dependencies
+      - name: Verify tested artifact handoff and both runtime freezes
         run: |
-          npm ci
-          npm ci --prefix swa-api
-
-      - name: Build deterministic PAWS Beta API artifact
-        run: node tools/build-beta-release.js
+          set -euo pipefail
+          test -f .azure-production/app/index.html
+          test -f .azure-production/app/staticwebapp.config.json
+          test -f .azure-production/api/index.js
+          test -f .azure-production/api/artifact-inventory.json
+          node tools/beta-freeze.js
+          node tools/beta-api-freeze.js
+          node tools/beta-freeze.js --artifact .azure-production/app
+          node tools/beta-api-freeze.js --artifact .azure-production/api
 
       - name: Log in to Azure with GitHub OIDC
         uses: azure/login@v2
@@ -62,15 +85,44 @@ jobs:
       - name: Authenticate Docker to ACR with managed identity role
         run: az acr login --name "$ACR_NAME"
 
-      - name: Build immutable image
-        run: docker build -f deploy/aca/Dockerfile -t "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY:$GITHUB_SHA" .
+      - name: Build image from the downloaded tested API artifact
+        env:
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: docker build -f deploy/aca/Dockerfile -t "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY:$COMMIT_SHA" .
 
-      - name: Push immutable image
-        run: docker push "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY:$GITHUB_SHA"
+      - name: Push immutable SHA image
+        env:
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: docker push "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY:$COMMIT_SHA"
 
-      - name: Verify immutable image digest
+      - name: Verify immutable image digest and write evidence
+        env:
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        shell: bash
         run: |
           set -euo pipefail
-          digest="$(az acr repository show-manifests --name "$ACR_NAME" --repository "$IMAGE_REPOSITORY" --query "[?tags[?contains(@, '$GITHUB_SHA')]].digest | [0]" -o tsv)"
+          digest="$(az acr repository show-manifests --name "$ACR_NAME" --repository "$IMAGE_REPOSITORY" --query "[?tags[?contains(@, '$COMMIT_SHA')]].digest | [0]" -o tsv)"
           test -n "$digest"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          mkdir -p aca-image-evidence
+          jq -n \
+            --arg commitSha "$COMMIT_SHA" \
+            --arg sourceRunId "$SOURCE_RUN_ID" \
+            --arg publishRunId "$GITHUB_RUN_ID" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg imageRepository "$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY" \
+            --arg imageTag "$COMMIT_SHA" \
+            --arg imageDigest "$digest" \
+            --arg createdAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{commitSha:$commitSha,sourceRunId:$sourceRunId,publishRunId:$publishRunId,repository:$repository,imageRepository:$imageRepository,imageTag:$imageTag,imageDigest:$imageDigest,createdAt:$createdAt}' \
+            > aca-image-evidence/aca-image-evidence.json
           printf 'Published immutable image digest: %s\n' "$digest"
+
+      - name: Upload image evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: aca-image-${{ inputs.commit_sha }}
+          path: aca-image-evidence/aca-image-evidence.json
+          if-no-files-found: error
+          retention-days: 7

@@ -11,6 +11,10 @@ on:
         description: Exact current beta main commit SHA
         required: true
         type: string
+      aca_deploy_run_id:
+        description: Successful Azure Beta ACA Deploy run ID for the same commit
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -37,6 +41,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           EXPECTED_SHA: ${{ inputs.commit_sha }}
+          ACA_DEPLOY_RUN_ID: ${{ inputs.aca_deploy_run_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -51,8 +56,17 @@ jobs:
           test "$(jq -r '.status' <<< "$run_json")" = "completed"
           test "$(jq -r '.conclusion' <<< "$run_json")" = "success"
           test "$(jq -r '.path' <<< "$run_json")" = ".github/workflows/azure-beta-build.yml"
+          aca_run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ACA_DEPLOY_RUN_ID}")"
+          test "$(jq -r '.repository.full_name' <<< "$aca_run_json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.head_sha' <<< "$aca_run_json")" = "$EXPECTED_SHA"
+          test "$(jq -r '.path' <<< "$aca_run_json")" = ".github/workflows/azure-beta-aca-deploy.yml"
+          test "$(jq -r '.event' <<< "$aca_run_json")" = "workflow_dispatch"
+          test "$(jq -r '.status' <<< "$aca_run_json")" = "completed"
+          test "$(jq -r '.conclusion' <<< "$aca_run_json")" = "success"
       - name: Verify frozen runtime baseline at requested SHA
         run: node tools/beta-freeze.js
+      - name: Verify API runtime baseline at requested SHA
+        run: node tools/beta-api-freeze.js
       - name: Download tested beta artifact
         uses: actions/download-artifact@v8
         with:
@@ -67,8 +81,37 @@ jobs:
           test -f .azure-production/app/staticwebapp.config.json
           test -f .azure-production/api/index.js
           test -f .azure-production/api/package-lock.json
+          test -f .azure-production/api/artifact-inventory.json
       - name: Verify downloaded artifact matches frozen baseline
         run: node tools/beta-freeze.js --artifact .azure-production/app
+      - name: Verify downloaded API artifact matches frozen baseline
+        run: node tools/beta-api-freeze.js --artifact .azure-production/api
+      - name: Download successful ACA acceptance evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: aca-deploy-${{ inputs.commit_sha }}
+          path: aca-deploy-evidence
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.aca_deploy_run_id }}
+      - name: Verify ACA acceptance evidence before static cutover
+        env:
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          ACA_DEPLOY_RUN_ID: ${{ inputs.aca_deploy_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="aca-deploy-evidence/aca-deploy-evidence.json"
+          test -f "$evidence"
+          test "$(jq -r '.commitSha' "$evidence")" = "$EXPECTED_SHA"
+          test "$(jq -r '.sourceRunId' "$evidence")" = "$SOURCE_RUN_ID"
+          test "$(jq -r '.acaDeployRunId' "$evidence")" = "$ACA_DEPLOY_RUN_ID"
+          test "$(jq -r '.sqlHealthPassed' "$evidence")" = "true"
+          test "$(jq -r '.authBoundaryPassed' "$evidence")" = "true"
+          test "$(jq -r '.newRoutesPassed' "$evidence")" = "true"
+          digest="$(jq -r '.imageDigest' "$evidence")"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
       - name: Deploy tested beta artifact
         uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
         with:

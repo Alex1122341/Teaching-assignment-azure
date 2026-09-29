@@ -20,3 +20,7 @@ Static upload is blocked unless the live ACA app is `Single` mode with exactly o
 ## Known predeploy condition
 
 The last B0G live check recorded the SQL health endpoint timing out. The B0D workflow therefore emits `PREDEPLOY_SQL_HEALTH_BLOCKER` and performs no static upload if the bounded 12-attempt health gate does not resolve. No API image publish, ACA change, SQL write, Firestore delete, or B1 work is authorized in this phase.
+
+## First dispatch diagnostic
+
+The first fresh-main Static Deploy dispatch (`36635176574`) stopped before Azure operations because the job-level `environment: beta` changed the GitHub OIDC subject to an unconfigured environment subject. No SWA upload, ACA operation, SQL write, or Firestore write/delete occurred. The remediation removes the job-level environment declaration so the workflow uses the existing branch-compatible federated identity; the fix must itself pass a new PR and exact-main Build before another dispatch.

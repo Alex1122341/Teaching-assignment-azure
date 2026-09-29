@@ -27,6 +27,7 @@ test('B0D static release workflow is dispatch-only with explicit release identit
   assert.match(workflow, /permissions:\s*[\s\S]*id-token:\s*write/);
   assert.doesNotMatch(workflow, /\npush:/);
   assert.doesNotMatch(workflow, /\npull_request:/);
+  assert.doesNotMatch(workflow, /\n    environment:\s*\n/, 'job-level environment would change the configured OIDC subject');
 });
 
 test('B0D proves exact main and exact successful push build before artifact use', () => {

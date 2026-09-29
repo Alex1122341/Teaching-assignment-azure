@@ -42,9 +42,6 @@ jobs:
   deploy_static:
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    environment:
-      name: beta
-      url: https://red-cliff-04871ca0f.5.azurestaticapps.net
     steps:
       - name: Checkout exact requested main commit
         uses: actions/checkout@v4

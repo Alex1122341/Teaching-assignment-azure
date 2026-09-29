@@ -1,5 +1,25 @@
 # PAWS Task Chain
 
+## BETA-R4D-11 — FINAL RELEASE CLOSURE
+
+Status: **COMPLETE / LIVE ACCEPTED / CLOSED**
+
+The deployed release SHA is `dcf0607c027a08e5341710a449091fca4c7aa106`. The release sequence is complete: Dashboard/DOE presentation accepted, ACR guard defect fixed, exact-main Build #134 passed (run `36574888135`), immutable ACR image published by ACR Publish #9 (run `36575614909`), ACA exact-digest activation passed by ACA Deploy #2 (run `36582044521`), static cutover passed by Static Deploy #7 (run `36582983859`), ADFA authenticated acceptance passed, and Faculty authenticated acceptance passed.
+
+Release evidence:
+
+- Tested artifact `azure-beta-dcf0607c027a08e5341710a449091fca4c7aa106`, artifact ID `11036059566`, artifact digest `sha256:2adbfbdcd94ec580d8f5ee84878dab4ebee66d82091ae65b2c5feb4675c00103`.
+- Immutable ACR image digest `sha256:a9d9021fec23439fa33bd4f67cc958cec8d2737d0cb9afa90f85912948b12503`.
+- Active ACA revision `paws-sql-beta-api-260926--rdcf0607c027a`.
+- Faculty scope proved exact `153/153` `SessionId` set equality; admin-boundary calls returned 403; cross-faculty detail returned 403.
+- Session writes are disabled; the migrated timetable/dashboard path has no Firestore business fallback; DOE remains presentation-only (`DOE_PRESENTATION_PARITY=YES`, `FULL_DOE_ENGINE_PARITY=NO`).
+
+ACA Deploy #1 (run `36581374421`) is retained as a safe failure before mutation: missing `Microsoft.App/containerApps/read`, `activationPerformed=false`, and no revision/image mutation. The ACR G1 failure is likewise retained as a historical safe failure with no image build/push. No private service-principal identifiers are recorded.
+
+The deployed release SHA and repository main are distinct concepts. Documentation-only advancement of main after this closure must not be described as a deployment. The next task is **AWAITING OWNER / ARCHITECT SCOPING**; no R4D-12 is created.
+
+## Historical task chain (pre-closure)
+
 ## BETA-R4D-11G3 — ACR guard PR continuity synchronized / awaiting merge gate
 
 Status: **PR #32 OPEN / CI PASSED / AWAITING FINAL MERGE GATE**

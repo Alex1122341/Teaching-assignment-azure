@@ -63,7 +63,8 @@ BEGIN
         CONSTRAINT FK_TeachingResponsibilityAssignee_Responsibility FOREIGN KEY (ResponsibilityId) REFERENCES paws.TeachingResponsibility(ResponsibilityId),
         CONSTRAINT FK_TeachingResponsibilityAssignee_Faculty FOREIGN KEY (FacultyId) REFERENCES paws.Faculty(FacultyId),
         CONSTRAINT UQ_TeachingResponsibilityAssignee_Window UNIQUE (ResponsibilityId, AcademicYear, FacultyId, ActiveDate),
-        CONSTRAINT CK_TeachingResponsibilityAssignee_Dates CHECK (ExpirationDate > ActiveDate)
+        CONSTRAINT CK_TeachingResponsibilityAssignee_Dates CHECK (ExpirationDate > ActiveDate),
+        CONSTRAINT CK_TeachingResponsibilityAssignee_AcademicYear CHECK (AcademicYear LIKE '[1-9][0-9][0-9][0-9]-[0-9][0-9]' AND TRY_CONVERT(int, LEFT(AcademicYear, 4)) IS NOT NULL AND TRY_CONVERT(int, RIGHT(AcademicYear, 2)) = (TRY_CONVERT(int, LEFT(AcademicYear, 4)) + 1) % 100)
     );
     CREATE INDEX IX_TeachingResponsibilityAssignee_ActorWindow ON paws.TeachingResponsibilityAssignee(FacultyId, AcademicYear, ActiveDate, ExpirationDate);
     CREATE INDEX IX_TeachingResponsibilityAssignee_ResponsibilityWindow ON paws.TeachingResponsibilityAssignee(ResponsibilityId, AcademicYear, ActiveDate, ExpirationDate);
@@ -77,7 +78,6 @@ BEGIN
         LeaderViscResponsibilityId nvarchar(64) NOT NULL,
         LeaderViscResponsibilityKind nvarchar(16) NOT NULL CONSTRAINT DF_TeachingAssignmentGroup_LeaderKind DEFAULT N'visc',
         Active bit NOT NULL,
-        CONSTRAINT UQ_TeachingAssignmentGroup_IdKind UNIQUE (GroupId, LeaderViscResponsibilityId),
         CONSTRAINT FK_TeachingAssignmentGroup_Visc FOREIGN KEY (LeaderViscResponsibilityId, LeaderViscResponsibilityKind) REFERENCES paws.TeachingResponsibility(ResponsibilityId, Kind),
         CONSTRAINT CK_TeachingAssignmentGroup_Id CHECK (GroupId = LOWER(LTRIM(RTRIM(GroupId))) AND GroupId LIKE '[a-z]%' AND GroupId NOT LIKE '%[^a-z0-9_-]%'),
         CONSTRAINT CK_TeachingAssignmentGroup_Name CHECK (LEN(LTRIM(RTRIM(Name))) > 0),
@@ -124,6 +124,7 @@ BEGIN
         CONSTRAINT FK_TeachingAssignmentPackage_GroupHicc FOREIGN KEY (GroupId, HiccResponsibilityId) REFERENCES paws.TeachingAssignmentGroupHicc(GroupId, HiccResponsibilityId),
         CONSTRAINT CK_TeachingAssignmentPackage_Identity CHECK (PackageIdentity = N'ta-package-v1__' + AcademicYear + N'__' + GroupId + N'__' + HiccResponsibilityId),
         CONSTRAINT CK_TeachingAssignmentPackage_HiccKind CHECK (HiccResponsibilityKind = N'hicc'),
+        CONSTRAINT CK_TeachingAssignmentPackage_AcademicYear CHECK (AcademicYear LIKE '[1-9][0-9][0-9][0-9]-[0-9][0-9]' AND TRY_CONVERT(int, LEFT(AcademicYear, 4)) IS NOT NULL AND TRY_CONVERT(int, RIGHT(AcademicYear, 2)) = (TRY_CONVERT(int, LEFT(AcademicYear, 4)) + 1) % 100),
         CONSTRAINT CK_TeachingAssignmentPackage_Status CHECK (Status IN (N'draft', N'visc_review', N'visc_approved', N'changes_requested', N'submitted_to_adfad', N'adfad_finalized')),
         CONSTRAINT CK_TeachingAssignmentPackage_Revisions CHECK (WorkingRevision >= 0 AND (SubmittedWorkingRevision IS NULL OR SubmittedWorkingRevision >= 0) AND (ViscApprovedWorkingRevision IS NULL OR ViscApprovedWorkingRevision >= 0)),
         CONSTRAINT CK_TeachingAssignmentPackage_ReviewFingerprint CHECK (ReviewFingerprint IS NULL OR (DATALENGTH(ReviewFingerprint) = 64 AND ReviewFingerprint = LOWER(ReviewFingerprint) AND ReviewFingerprint NOT LIKE '%[^0-9a-f]%')),
@@ -147,7 +148,8 @@ BEGIN
         CONSTRAINT FK_TeachingSessionOwnership_Group FOREIGN KEY (TeachingAssignmentGroupId) REFERENCES paws.TeachingAssignmentGroup(GroupId),
         CONSTRAINT FK_TeachingSessionOwnership_Hicc FOREIGN KEY (ResponsibleHiccResponsibilityId) REFERENCES paws.TeachingResponsibility(ResponsibilityId),
         CONSTRAINT FK_TeachingSessionOwnership_PackageTuple FOREIGN KEY (AcademicYear, TeachingAssignmentGroupId, ResponsibleHiccResponsibilityId, TeachingAssignmentPackageId) REFERENCES paws.TeachingAssignmentPackage(AcademicYear, GroupId, HiccResponsibilityId, TeachingAssignmentPackageId),
-        CONSTRAINT FK_TeachingSessionOwnership_Subject FOREIGN KEY (SubjectId) REFERENCES paws.Subject(SubjectId)
+        CONSTRAINT FK_TeachingSessionOwnership_Subject FOREIGN KEY (SubjectId) REFERENCES paws.Subject(SubjectId),
+        CONSTRAINT CK_TeachingSessionOwnership_AcademicYear CHECK (AcademicYear LIKE '[1-9][0-9][0-9][0-9]-[0-9][0-9]' AND TRY_CONVERT(int, LEFT(AcademicYear, 4)) IS NOT NULL AND TRY_CONVERT(int, RIGHT(AcademicYear, 2)) = (TRY_CONVERT(int, LEFT(AcademicYear, 4)) + 1) % 100)
     );
     CREATE INDEX IX_TeachingSessionOwnership_Package ON paws.TeachingSessionOwnership(TeachingAssignmentPackageId, SessionId);
 END;

@@ -43,6 +43,7 @@ test('repository methods read only paws authority objects and never staging', as
 test('repository/schema contract uses the canonical authority column names', async () => {
   const {repository, seen} = capture();
   await repository.getResponsibilityScopes('hicc-surgery');
+  await repository.getResponsibilityAssignees('hicc-surgery', '2026-27');
   await repository.listPackagesForActor('faculty-1', '2026-27', '2026-09-08');
   await repository.getWorkingSessionOwnership('session-1');
   const migration = fs.readFileSync(path.join(__dirname, '../../database/azure-sql/005_teaching_assignment_authority_foundation.sql'), 'utf8');
@@ -50,20 +51,33 @@ test('repository/schema contract uses the canonical authority column names', asy
   assert.match(scopeSql, /trs\.HiccResponsibilityId/);
   assert.match(scopeSql, /trs\.HiccResponsibilityKind/);
   assert.doesNotMatch(scopeSql, /trs\.ResponsibilityId/);
+  assert.match(seen[1].sql, /ResponsibilityId AS responsibilityId/);
+  assert.match(seen[1].sql, /CONVERT\(varchar\(10\), ActiveDate, 23\) AS activeDate/);
+  assert.match(seen[1].sql, /CONVERT\(varchar\(10\), ExpirationDate, 23\) AS expirationDate/);
+  assert.match(seen[2].sql, /p\.PackageIdentity AS packageIdentity/);
+  assert.match(seen[2].sql, /p\.GroupId AS groupId/);
+  assert.match(seen[2].sql, /p\.HiccResponsibilityId AS hiccResponsibilityId/);
   assert.match(migration, /HiccResponsibilityId nvarchar\(64\)/);
+  assert.match(migration, /ResponsibilityId nvarchar\(64\)/);
   assert.match(migration, /GroupId nvarchar\(64\)/);
   assert.match(migration, /ReviewFingerprint varchar\(64\) NULL/);
   assert.match(migration, /ViscApprovedFingerprint varchar\(64\) NULL/);
   assert.match(migration, /FK_TeachingAssignmentPackage_GroupHicc/);
   assert.match(migration, /FK_TeachingSessionOwnership_PackageTuple/);
   assert.match(migration, /CK_TeachingAssignmentGroup_LeaderKind/);
+  assert.match(migration, /CK_TeachingResponsibilityAssignee_AcademicYear/);
+  assert.match(migration, /CK_TeachingAssignmentPackage_AcademicYear/);
+  assert.match(migration, /CK_TeachingSessionOwnership_AcademicYear/);
   assert.doesNotMatch(migration, /ResponsibilityKey|GroupKey/);
-  assert.match(seen[1].sql, /gh\.GroupId IS NOT NULL/);
-  assert.match(seen[1].sql, /tr\.Active = 1/);
-  assert.match(seen[1].sql, /g\.Active = 1/);
-  assert.match(seen[2].sql, /p\.AcademicYear = tso\.AcademicYear/);
-  assert.match(seen[2].sql, /p\.GroupId = tso\.TeachingAssignmentGroupId/);
-  assert.match(seen[2].sql, /p\.HiccResponsibilityId = tso\.ResponsibleHiccResponsibilityId/);
+  assert.doesNotMatch(migration, /UQ_TeachingAssignmentGroup_IdKind/);
+  assert.match(seen[2].sql, /gh\.GroupId = p\.GroupId/);
+  assert.match(seen[2].sql, /tr\.Active = 1/);
+  assert.match(seen[2].sql, /g\.Active = 1/);
+  assert.match(seen[3].sql, /p\.AcademicYear = tso\.AcademicYear/);
+  assert.match(seen[3].sql, /p\.GroupId = tso\.TeachingAssignmentGroupId/);
+  assert.match(seen[3].sql, /p\.HiccResponsibilityId = tso\.ResponsibleHiccResponsibilityId/);
+  assert.match(seen[3].sql, /tso\.SessionOwnershipId AS sessionOwnershipId/);
+  assert.match(seen[3].sql, /tso\.TeachingAssignmentPackageId AS packageId/);
 });
 
 test('repository stays dormant and is not mounted into API runtime', () => {

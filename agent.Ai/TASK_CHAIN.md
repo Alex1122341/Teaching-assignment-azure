@@ -1,3 +1,24 @@
+# BETA-R4D-12B1R2 — EXACT AFC SQL PERMISSION CONTRACT CORRECTION
+
+Status: **CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE**
+
+- Starting B1R2 HEAD: `b38afabeba683f728e751cfca0bfd144e471d5ee`.
+- Same branch: `feature/beta-r4d12b1-afc-dashboard-write-foundation`.
+- Frozen baseline remains `b3458f79a05353ce1255874754e1c6c1ec8ee683`.
+- 007 permissions and proof now share the same normalized exact permission
+  contract: CONNECT, reviewed R4D-10A/10A2 reads, four paws DENYs, five staging
+  DENYs, and only the two B1 object grants.
+- Valid preflight states are exact pre-B1 and exact idempotent post-B1. Any
+  unexpected class, permission, state, object, column, grant option, role,
+  ownership, public broadening, missing DENY, or other delta fails before GRANT.
+- Offline fixtures cover valid pre/post contracts, the class=1/class=3 guard
+  regression, all requested invalid permission variants, and public broadening.
+- No runtime/API/UI/auth/data behavior changed. No SQL apply, live permission
+  mutation, proof against live, deployment, PR, baseline promotion, A2B, Work
+  Queue, B2A, B2B, or DOE change occurred.
+- B1R2 correction commit and push are the next handoff action; B1G, B1D, B2A,
+  B2B, B3, and DOE remain queued.
+
 # BETA-R4D-12B1R — AFC WRITE SECURITY + DATA INTEGRITY CORRECTIONS
 
 Status: **CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE**

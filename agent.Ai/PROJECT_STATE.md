@@ -1,3 +1,43 @@
+# BETA-R4D-12B1R2 — EXACT AFC SQL PERMISSION CONTRACT CORRECTION / NOT LIVE
+
+**Last verified:** 2026-09-29
+**Starting `origin/main`:** `68cd57074bbcf7916da6a031a238175d5530ae0b`
+**Feature branch:** `feature/beta-r4d12b1-afc-dashboard-write-foundation`
+**Frozen baseline:** `b3458f79a05353ce1255874754e1c6c1ec8ee683`
+**Starting B1R2 HEAD:** `b38afabeba683f728e751cfca0bfd144e471d5ee`
+**Status:** B1R2 CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE.
+
+B1R2 changes only the proposal-only SQL permission contract and offline
+contract fixtures. Both 007 permission artifacts now normalize database,
+schema, whole-object, and column-level rows into an explicit exact allowlist.
+The apply script accepts only the reviewed pre-B1 state or the idempotent
+post-B1 state, then grants exactly `paws.vAfcRecordUnified` SELECT and
+`paws_api.CreateAfcRecord` EXECUTE, and verifies the exact post-state after the
+transaction. The proof script validates the same post-state without mutation.
+
+The class=1/class=3 regression is covered by deterministic fixtures: legitimate
+column SELECT and schema DENY rows no longer trip the database-level guard;
+unexpected database, schema, full-object, provenance-column, direct AFC,
+extra EXECUTE, grant-option, permission-type, missing-DENY, and public-
+broadening variants fail closed. No runtime business, API, UI, auth, or data
+model redesign was made.
+
+Focused B1/B1R/B1R2/UI/client tests pass 30/30 and the server suite passes
+145/145. Root Beta and emulator suites report zero behavioral failures and the
+same expected three static frozen-baseline drift failures. API freeze reports
+the same six intentional B1 runtime drifts, including the new write repository
+missing at the frozen baseline. `git diff --check` and changed-test syntax
+checks pass. Baseline, manifest, and freeze governance remain unchanged.
+
+Migration 007, permissions, proof against live, AFC inserts, SQL grants,
+Firestore/Firebase/Auth/Rules changes, Azure mutations, deployments, A2B,
+Work Queue, B2A, B2B, and DOE changes were not performed. B1G, B1D, B2A, B2B,
+B3, and DOE remain queued. Do not open a PR, promote the baseline, apply SQL,
+or deploy.
+
+Next exact action: commit and push B1R2 on this same branch, report the two
+separated sections requested by the architect, then wait for final review.
+
 # BETA-R4D-12B1R — AFC WRITE SECURITY + DATA INTEGRITY CORRECTIONS / NOT LIVE
 
 **Last verified:** 2026-09-29

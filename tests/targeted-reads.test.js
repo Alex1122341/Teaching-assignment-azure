@@ -5,25 +5,16 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 
-test('Faculty Admin starts from settings indexes and loads selected detail only',()=>{
+test('Faculty Admin is an API-only reader with no Firestore surface',()=>{
  const source=read('faculty-admin.js');
- assert.match(source,/doc\('faculty_index'\)/);
- assert.match(source,/doc\('schedule_stats'\)/);
- assert.match(source,/function loadFacultyDetail\(id\)/);
- assert.match(source,/doc\(String\(id\)\)\.get\(\)/);
- assert.match(source,/where\('facultyIds','array-contains',String\(id\)\)/);
- assert.doesNotMatch(source,/db\.collection\(COLLECTION\)\.onSnapshot/);
- assert.doesNotMatch(source,/db\.collection\(SESSION_COLLECTION\)\.onSnapshot/);
+ for(const pattern of ['faculty_index','schedule_stats','db.collection','onSnapshot','loadFacultyDetail','subscribeFaculty','subscribeSessions'])assert.equal(source.includes(pattern),false,pattern);
+ assert.match(source,/function loadAdminDashboard\(\)/);
+ assert.match(source,/function selectFacultyDetail\(facultyId\)/);
 });
 
-test('full Faculty Admin datasets are loaded only for full-data operations',()=>{
+test('the Dashboard no longer loads full Firestore datasets',()=>{
  const source=read('faculty-admin.js');
- assert.match(source,/function ensureFullFaculty/);
- assert.match(source,/function ensureFullSessions/);
- const setTab=source.match(/async function setTab\(tab\)[\s\S]*?\nfunction subscribeFaculty/)?.[0]||'';
- assert.match(setTab,/tab==='summary'.*ensureAdminDataset/s);
- assert.match(setTab,/\['roles','database'\]\.includes\(tab\).*ensureFullFaculty/s);
- assert.doesNotMatch(setTab,/\['roles','database'\][\s\S]*?ensureFullSessions/);
+ for(const pattern of ['ensureFullFaculty','ensureFullSessions','ensureAdminDataset','reloadAdminDataset','setTab','renderSummary','renderRoles','renderDatabase'])assert.equal(source.includes(pattern),false,pattern);
 });
 
 test('approval workflow fetches only sessions referenced by requests',()=>{

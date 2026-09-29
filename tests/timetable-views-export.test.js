@@ -28,8 +28,7 @@ test('CCC records are opt-in and sourced from the sanitized public schedule docu
  const rules=fs.readFileSync(path.join(root,'firestore.rules'),'utf8');
  assert.match(rules,/match \/public_schedule\/\{id\}/);
  const admin=fs.readFileSync(path.join(root,'faculty-admin.js'),'utf8');
- assert.match(admin,/function syncCccPublicSchedule/);
- assert.match(admin,/await syncCccPublicSchedule\(p\)/);
+ assert.equal(admin.includes('syncCccPublicSchedule'),false,'the read-only Dashboard has no CCC sync path');
 });
 
 test('CSV and calendar exports use filters and support date, academic, and all scopes',()=>{

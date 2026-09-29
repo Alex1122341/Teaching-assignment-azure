@@ -6,13 +6,14 @@ test('AFC PDF dependencies load only when an approval needs them',()=>{const htm
 test('Faculty Dashboard keeps administrative tabs while supporting linked faculty self-service',()=>{
  const html=read('faculty-admin.html'),source=read('faculty-admin.js'),enhancements=read('faculty-admin-enhancements.js');
  for(const pattern of [/<title>Faculty Dashboard<\/title>/,/class="gate-title">Faculty Dashboard</,/class="brand-title">Faculty Dashboard</,/<h1>Faculty Dashboard<\/h1>/])assert.match(html,pattern);
- for(const label of ['Lookup','Teaching Summary','Roles & Appointments','Sessional / Other','Faculty Database','Change History','AFC Requests','User Management','Change password'])assert.ok(html.includes('>'+label+'<'),label);
+ for(const label of ['Lookup','AFC Requests','User Management','Change password'])assert.ok(html.includes('>'+label+'<'),label);
+ for(const retired of ['Teaching Summary','Roles & Appointments','Sessional / Other','Faculty Database','Change History'])assert.ok(!html.includes('>'+retired+'<'),retired);
  assert.match(html,/href="index\.html">Timetable<\/a>/);
  assert.doesNotMatch(html,/Faculty Admin Dashboard|Faculty Directory|Faculty Administration/);
  assert.match(source,/function isSelfServiceProfile\(p\)/);
  assert.match(source,/if\(isSelfServiceProfile\(p\)\)\{await enterSelfMode\(user,p\);return\}/);
- assert.match(source,/if\(UCVM\.admin\(p\)\)\{enterAdminMode\(user,p\);return\}/);
- assert.match(source,/\$\('user-management-link'\)\.classList\.toggle\('hidden',!UCVM\.general\(p\)\)/);
+ assert.match(source,/if\(dashboardAdmin\(p\)\)\{enterAdminMode\(user,p\);return\}/);
+ assert.match(source,/\$\('user-management-link'\)\.classList\.toggle\('hidden',!dashboardGeneral\(p\)\)/);
  const rename=enhancements.match(/ function renameDashboard\(\)\{[\s\S]*?\n \}/)?.[0];
  assert.ok(rename,'renameDashboard should remain independently executable');
  const nodes=new Map(),document={title:'Old title',documentElement:{dataset:{}},querySelector(selector){if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector)}};
@@ -43,12 +44,11 @@ test('timetable Faculty Dashboard button supports administrators and faculty sel
  assert.match(loader,/window\.location\.href='faculty-admin\.html'/);
 });
 
-test('change history uses the full-width Faculty Dashboard panel theme',()=>{
+test('the retired change-history panel is gone from the Dashboard and its theme stays available for other pages',()=>{
  const html=read('faculty-admin.html'),css=read('faculty-admin.css'),access=read('faculty-access.js');
- assert.match(html,/id="history-view" class="panel history-panel hidden"/);
- assert.match(html,/class="history-heading"/);
+ assert.equal(html.includes('history-view'),false);
+ assert.equal(html.includes('faculty-audit'),false);
  assert.match(css,/\.history-panel\s*\{[^}]*width:\s*100%/s);
  assert.match(css,/#faculty-audit table\{[^}]*table-layout:fixed/s);
- assert.match(css,/#faculty-audit th:nth-child\(5\)/);
  assert.match(access,/class="audit-table"/);
 });

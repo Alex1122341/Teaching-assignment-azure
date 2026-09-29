@@ -40,7 +40,7 @@ test('Faculty Dashboard DOE list delegates effective target calculation to the c
 });
 
 test('pages load canonical DOE before data-index consumers',()=>{
- for(const file of ['index.html','faculty-admin.html','user-management.html']){
+ for(const file of ['index.html','user-management.html']){
   const html=fs.readFileSync(path.join(__dirname,'..',file),'utf8');
   const canonical=html.indexOf('src="faculty-doe.js"');
   const consumer=html.indexOf('src="data-index.js"');
@@ -48,4 +48,7 @@ test('pages load canonical DOE before data-index consumers',()=>{
   assert.ok(consumer>=0,`${file} must load data-index.js`);
   assert.ok(canonical<consumer,`${file} must load faculty-doe.js before data-index.js`);
  }
+ const dashboard=fs.readFileSync(path.join(__dirname,'..','faculty-admin.html'),'utf8');
+ assert.equal(dashboard.includes('faculty-doe.js'),false,'the API-only Dashboard must not load the legacy DOE canonicaliser');
+ assert.equal(dashboard.includes('data-index.js'),false,'the API-only Dashboard must not load the legacy data index');
 });

@@ -27,10 +27,10 @@ test('ADFA queue includes AFC requests and availability lookup cross-checks both
  assert.match(lookup,/awayFromCampusRecords/);assert.match(lookup,/sessions/);assert.match(lookup,/Available faculty/);
 });
 
-test('bulk import controls and handlers require highest permission',()=>{
+test('the API-only Dashboard exposes no bulk import control and keeps the rules contract',()=>{
  const html=read('faculty-admin.html'),js=read('faculty-admin.js');
- assert.match(html,/data-general-only/);
- assert.match(js,/requireGeneralImport/);
+ assert.equal(html.includes('data-general-only'),false,'no bulk import control may ship on the API-only Dashboard');
+ assert.equal(js.includes('requireGeneralImport'),false,'the read-only Dashboard has no bulk-import gate');
  const rules=read('firestore.rules');
  assert.match(rules,/bulkFacultyImportChange/);
  assert.match(rules,/public_info/);

@@ -10,10 +10,7 @@ test('shared deployment allowlist includes every bulk import recovery runtime as
  for(const name of ['bulk-import-core.js','bulk-import-backup.js','bulk-import-firestore.js','bulk-import-controller.js','bulk-import-ui.js','maintenance-state.js'])assert.ok(manifest.includes(name),name);
 });
 
-test('Faculty Dashboard loads import modules in dependency order and UI after legacy handler binding',()=>{
+test('the API-only Faculty Dashboard no longer loads the bulk import runtime',()=>{
  const html=fs.readFileSync(path.join(root,'faculty-admin.html'),'utf8');
- const names=['maintenance-state.js','bulk-import-core.js','bulk-import-backup.js','bulk-import-firestore.js','bulk-import-controller.js','faculty-admin.js','bulk-import-ui.js'];
- const positions=names.map(name=>html.indexOf(name));
- assert.ok(positions.every(value=>value>=0));
- for(let i=1;i<positions.length;i++)assert.ok(positions[i]>positions[i-1],`${names[i]} should load after ${names[i-1]}`);
+ for(const name of ['maintenance-state.js','bulk-import-core.js','bulk-import-backup.js','bulk-import-firestore.js','bulk-import-controller.js','bulk-import-ui.js'])assert.equal(html.includes(name),false,`${name} must not load on the API-only Dashboard`);
 });

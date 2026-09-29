@@ -10,11 +10,9 @@ test('Assigned AD is removed from faculty lookup, editor, filters, and exports',
   assert.doesNotMatch(source, /id="filter-ad"|field\('Assigned AD'|\['assignedAD'|\['assignedAD','Assigned AD'/);
 });
 
-test('an existing DOE override is highlighted beside the faculty name', () => {
-  assert.match(source, /doeOverride2026_27/);
-  assert.match(source, /const numeric=UCVM\.number/);
-  assert.match(source, /function overrideOf\(r\)\{const o=r\?\.doeOverride2026_27;return o&&numeric\(o\.value\)!==null\?o:null\}/);
-  assert.match(source, /Override DOE \$\{Number\(o\.value\)\.toFixed\(2\)\}%/);
-  assert.match(source, /override-badge/);
-  assert.match(source, /Office DOE Override/);
+test('the Dashboard no longer carries a DOE override badge or a legacy numeric adapter', () => {
+  assert.equal(source.includes('doeOverride2026_27'), false);
+  assert.equal(source.includes('overrideBadge'), false);
+  assert.equal(source.includes('Office DOE Override'), false);
+  assert.equal(/UCVM\./.test(source), false);
 });

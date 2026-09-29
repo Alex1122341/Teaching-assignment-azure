@@ -330,10 +330,12 @@ function createSqlDashboardRepository(db) {
     // ------------------------------------------------------------- AFC list
     // Unified, bounded read surface for the administrator AFC Records tab.
     // Imported and manual records remain separate rows with an explicit
-    // SourceKind; no overlap or duplicate business rows are collapsed.
+    // SourceKind; no overlap or duplicate business rows are collapsed. This
+    // is historical/business evidence, so a later inactive Faculty state must
+    // not hide an otherwise valid AFC row.
     async listAfcRecords({ search = null, reason = null, active, limit } = {}) {
       const params = { limit: boundAfcLimit(limit) };
-      const predicates = ['f.Active = 1'];
+      const predicates = [];
       if (search && String(search).trim()) {
         predicates.push("(f.DisplayName LIKE @search ESCAPE '\\' OR u.ReasonDisplay LIKE @search ESCAPE '\\' OR u.LegacyPurpose LIKE @search ESCAPE '\\' OR u.Notes LIKE @search ESCAPE '\\')");
         params.search = likePattern(search);

@@ -5,8 +5,25 @@ SET XACT_ABORT ON;
   B1 proposal only. This migration is intentionally independent of migrations
   005/006 and never changes imported paws.AfcRecord rows.
 */
+IF SCHEMA_ID(N'paws') IS NULL
+    THROW 51200, 'The paws schema must already exist before B1 AFC objects are created.', 1;
+IF EXISTS (
+    SELECT 1
+    FROM sys.schemas
+    WHERE name = N'paws'
+      AND USER_NAME(principal_id) <> N'dbo'
+)
+    THROW 51213, 'The paws schema must be owned by dbo for the AFC ownership chain.', 1;
+
 IF SCHEMA_ID(N'paws_api') IS NULL
     EXEC(N'CREATE SCHEMA paws_api AUTHORIZATION dbo;');
+IF EXISTS (
+    SELECT 1
+    FROM sys.schemas
+    WHERE name = N'paws_api'
+      AND USER_NAME(principal_id) <> N'dbo'
+)
+    THROW 51214, 'The paws_api schema must be owned by dbo for the AFC ownership chain.', 1;
 GO
 
 IF OBJECT_ID(N'paws.AfcManualRecord', N'U') IS NULL
@@ -25,11 +42,12 @@ BEGIN
         RequestId uniqueidentifier NOT NULL,
         CONSTRAINT FK_AfcManualRecord_Faculty FOREIGN KEY (FacultyId) REFERENCES paws.Faculty(FacultyId),
         CONSTRAINT CK_AfcManualRecord_DateRange CHECK (EndDate >= StartDate),
-        CONSTRAINT CK_AfcManualRecord_Reason CHECK (ReasonCode IN (
+        CONSTRAINT CK_AfcManualRecord_Reason CHECK (ReasonCode COLLATE Latin1_General_100_BIN2 IN (
             N'university_travel', N'vacation', N'rsl', N'medical', N'mat', N'special', N'other'
         )),
         CONSTRAINT CK_AfcManualRecord_Notes CHECK (
-            ReasonCode NOT IN (N'special', N'other') OR NULLIF(LTRIM(RTRIM(Notes)), N'') IS NOT NULL
+            ReasonCode COLLATE Latin1_General_100_BIN2 NOT IN (N'special', N'other')
+            OR NULLIF(LTRIM(RTRIM(Notes)), N'') IS NOT NULL
         )
     );
 END;
@@ -89,8 +107,8 @@ CREATE OR ALTER PROCEDURE paws_api.CreateAfcRecord
     @FacultyId uniqueidentifier,
     @StartDate date,
     @EndDate date,
-    @ReasonCode nvarchar(32),
-    @Notes nvarchar(1000),
+    @ReasonCode nvarchar(128),
+    @Notes nvarchar(max),
     @ActorFirebaseUid nvarchar(128),
     @ActorName nvarchar(260),
     @RequestId uniqueidentifier
@@ -99,10 +117,23 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    SET @ReasonCode = LOWER(LTRIM(RTRIM(@ReasonCode)));
+    -- Trim is presentation normalization only. Case conversion is deliberately
+    -- forbidden: the stored value must be one exact canonical lowercase code.
+    SET @ReasonCode = LTRIM(RTRIM(COALESCE(@ReasonCode, N'')));
     SET @Notes = NULLIF(LTRIM(RTRIM(COALESCE(@Notes, N''))), N'');
     SET @ActorFirebaseUid = LTRIM(RTRIM(@ActorFirebaseUid));
     SET @ActorName = NULLIF(LTRIM(RTRIM(COALESCE(@ActorName, N''))), N'');
+
+    DECLARE @FacultyName nvarchar(260);
+    DECLARE @ReasonDisplay nvarchar(64) = CASE @ReasonCode COLLATE Latin1_General_100_BIN2
+        WHEN N'university_travel' THEN N'University Travel'
+        WHEN N'vacation' THEN N'Vacation'
+        WHEN N'rsl' THEN N'RSL'
+        WHEN N'medical' THEN N'Medical'
+        WHEN N'mat' THEN N'MAT'
+        WHEN N'special' THEN N'Special'
+        WHEN N'other' THEN N'Other'
+    END;
 
     IF @AfcRecordId IS NULL THROW 51201, 'AfcRecordId is required.', 1;
     IF @RequestId IS NULL THROW 51202, 'RequestId is required.', 1;
@@ -110,16 +141,26 @@ BEGIN
     IF NULLIF(@ActorFirebaseUid, N'') IS NULL THROW 51204, 'ActorFirebaseUid is required.', 1;
     IF @StartDate IS NULL OR @EndDate IS NULL THROW 51205, 'AFC dates are required.', 1;
     IF @EndDate < @StartDate THROW 51206, 'EndDate must be on or after StartDate.', 1;
-    IF @ReasonCode NOT IN (N'university_travel', N'vacation', N'rsl', N'medical', N'mat', N'special', N'other')
+    IF @ReasonCode IS NULL OR @ReasonCode COLLATE Latin1_General_100_BIN2 NOT IN (
+        N'university_travel', N'vacation', N'rsl', N'medical', N'mat', N'special', N'other'
+    )
         THROW 51207, 'ReasonCode is not recognised.', 1;
-    IF @ReasonCode IN (N'special', N'other') AND NULLIF(@Notes, N'') IS NULL
+    IF @ReasonCode COLLATE Latin1_General_100_BIN2 IN (N'special', N'other') AND NULLIF(@Notes, N'') IS NULL
         THROW 51208, 'Notes are required for Special and Other.', 1;
     IF DATALENGTH(@Notes) / 2 > 1000 THROW 51209, 'Notes are too long.', 1;
-    IF NOT EXISTS (SELECT 1 FROM paws.Faculty WHERE FacultyId = @FacultyId AND Active = 1)
-        THROW 51210, 'Active Faculty record was not found.', 1;
 
     BEGIN TRY
         BEGIN TRANSACTION;
+
+        -- Resolve Faculty and capture its display name inside the same
+        -- transaction as both writes. The response after COMMIT uses only
+        -- captured variables; it never re-reads business tables.
+        SELECT @FacultyName = f.DisplayName
+        FROM paws.Faculty AS f
+        WHERE f.FacultyId = @FacultyId
+          AND f.Active = 1;
+        IF @@ROWCOUNT = 0
+            THROW 51210, 'Active Faculty record was not found.', 1;
 
         INSERT INTO paws.AfcManualRecord (
             AfcRecordId, FacultyId, StartDate, EndDate, ReasonCode, Notes,
@@ -152,19 +193,16 @@ BEGIN
         THROW;
     END CATCH;
 
-    SELECT TOP (1)
-        u.AfcRecordId AS afcRecordId,
-        u.FacultyId AS facultyId,
-        f.DisplayName AS facultyName,
-        CONVERT(varchar(10), u.StartDate, 23) AS startDate,
-        CONVERT(varchar(10), u.EndDate, 23) AS endDate,
-        u.ReasonCode AS reasonCode,
-        u.ReasonDisplay AS reason,
-        u.Notes AS notes,
-        u.Active AS active,
-        u.SourceKind AS sourceKind
-    FROM paws.vAfcRecordUnified AS u
-    INNER JOIN paws.Faculty AS f ON f.FacultyId = u.FacultyId
-    WHERE u.AfcRecordId = @AfcRecordId;
+    SELECT
+        @AfcRecordId AS afcRecordId,
+        @FacultyId AS facultyId,
+        @FacultyName AS facultyName,
+        CONVERT(varchar(10), @StartDate, 23) AS startDate,
+        CONVERT(varchar(10), @EndDate, 23) AS endDate,
+        @ReasonCode AS reasonCode,
+        @ReasonDisplay AS reason,
+        @Notes AS notes,
+        CAST(1 AS bit) AS active,
+        CAST(N'manual' AS nvarchar(16)) AS sourceKind;
 END;
 GO

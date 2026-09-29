@@ -130,3 +130,75 @@ test('B1 write repository and dashboard read repository are separate and bounded
   assert.match(read, /vAfcRecordUnified/);
   assert.match(read, /TOP \(@limit\)/i);
 });
+
+test('B1R SQL keeps the ReasonCode vocabulary exact and validates beyond storage width', () => {
+  const source = fs.readFileSync(path.join(root, 'database', 'azure-sql', '007_afc_manual_write_foundation.sql'), 'utf8');
+  const procedure = source.slice(source.indexOf('CREATE OR ALTER PROCEDURE'));
+  assert.match(source, /ReasonCode\s+COLLATE\s+Latin1_General_100_BIN2\s+IN/i);
+  assert.match(procedure, /@ReasonCode\s+nvarchar\(128\)/i);
+  assert.match(procedure, /@Notes\s+nvarchar\(max\)/i);
+  assert.doesNotMatch(procedure, /LOWER\s*\(/i);
+  assert.match(procedure, /@ReasonCode\s+COLLATE\s+Latin1_General_100_BIN2\s+NOT IN/i);
+  assert.match(procedure, /DATALENGTH\(\@Notes\)\s*\/\s*2\s*>\s*1000/i);
+  assert.match(procedure, /@ReasonCode\s+COLLATE\s+Latin1_General_100_BIN2\s+IN\s*\(N'special'/i);
+  assert.match(source, /university_travel.*vacation.*rsl.*medical.*mat.*special.*other/s);
+});
+
+test('B1R migration and proof fail closed on both schema/object ownership models', () => {
+  const migration = fs.readFileSync(path.join(root, 'database', 'azure-sql', '007_afc_manual_write_foundation.sql'), 'utf8');
+  const permissions = fs.readFileSync(path.join(root, 'database', 'azure-sql', '007_afc_manual_write_permissions.sql'), 'utf8');
+  const proof = fs.readFileSync(path.join(root, 'database', 'azure-sql', '007_afc_manual_write_least_privilege_proof.sql'), 'utf8');
+  assert.match(migration, /sys\.schemas[\s\S]*principal_id/i);
+  assert.match(migration, /USER_NAME\(principal_id\)\s*<>\s*N'dbo'/i);
+  for (const source of [permissions, proof]) {
+    assert.match(source, /sys\.schemas[\s\S]*principal_id/i);
+    assert.match(source, /sys\.objects[\s\S]*principal_id/i);
+    assert.match(source, /USER_NAME\(principal_id\)\s*<>\s*N'dbo'/i);
+  }
+  assert.doesNotMatch(proof, /sys\.database_principals[\s\S]{0,160}owning_principal_id/i);
+  assert.match(migration, /schema must be owned by dbo/i);
+  assert.match(permissions, /All guards above execute before either new B1 GRANT/i);
+  assert.ok(permissions.indexOf('GRANT SELECT ON OBJECT::paws.vAfcRecordUnified') > permissions.indexOf('All guards above execute before either new B1 GRANT'));
+});
+
+test('B1R permission scripts reject unexpected grants before exact post-state grants', () => {
+  const permissions = fs.readFileSync(path.join(root, 'database', 'azure-sql', '007_afc_manual_write_permissions.sql'), 'utf8');
+  const proof = fs.readFileSync(path.join(root, 'database', 'azure-sql', '007_afc_manual_write_least_privilege_proof.sql'), 'utf8');
+  for (const source of [permissions, proof]) {
+    assert.match(source, /database-level permission/i);
+    assert.match(source, /schema-level permission/i);
+    assert.match(source, /object (?:write|mutation|execute)/i);
+    assert.match(source, /public[\s\S]*paws_api[\s\S]*staging/i);
+    assert.match(source, /database_role_members/i);
+    assert.match(source, /schema_id\s*\(N?'paws'\)/i);
+    assert.match(source, /schema_id\s*\(N?'staging'\)/i);
+    assert.match(source, /paws_api\.CreateAfcRecord/i);
+  }
+  assert.match(proof, /LEAST_PRIVILEGE_WRITE_PROOF_OK/);
+  assert.match(proof, /permission_name\s+IN\s*\(N'INSERT',\s*N'UPDATE',\s*N'DELETE'/i);
+  assert.match(proof, /permission_name\s*=\s*N'EXECUTE'/i);
+});
+
+test('B1R admin AFC list preserves inactive Faculty history while creation stays active-only', () => {
+  const source = fs.readFileSync(path.join(root, 'server', 'src', 'data', 'sql-dashboard-repository.js'), 'utf8');
+  const listStart = source.indexOf('async listAfcRecords');
+  const listEnd = source.indexOf('\n    },', listStart);
+  const list = source.slice(listStart, listEnd);
+  assert.doesNotMatch(list, /f\.Active\s*=\s*1/i);
+  assert.match(list, /INNER JOIN paws\.Faculty f ON f\.FacultyId = u\.FacultyId/i);
+  const migration = fs.readFileSync(path.join(root, 'database', 'azure-sql', '007_afc_manual_write_foundation.sql'), 'utf8');
+  const procedure = migration.slice(migration.indexOf('CREATE OR ALTER PROCEDURE'));
+  assert.match(procedure, /f\.FacultyId\s*=\s*\@FacultyId[\s\S]*f\.Active\s*=\s*1/i);
+});
+
+test('B1R procedure response is captured in-transaction and has no post-commit business read', () => {
+  const source = fs.readFileSync(path.join(root, 'database', 'azure-sql', '007_afc_manual_write_foundation.sql'), 'utf8');
+  const procedure = source.slice(source.indexOf('CREATE OR ALTER PROCEDURE'));
+  const commit = procedure.indexOf('COMMIT TRANSACTION;');
+  assert.ok(commit > 0);
+  const afterCommit = procedure.slice(commit);
+  assert.doesNotMatch(afterCommit, /FROM\s+paws\.(?:vAfcRecordUnified|AfcManualRecord|Faculty)/i);
+  assert.match(afterCommit, /\@FacultyName\s+AS\s+facultyName/i);
+  assert.match(afterCommit, /CAST\(N'manual'\s+AS\s+nvarchar\(16\)\)\s+AS\s+sourceKind/i);
+  assert.match(procedure, /BEGIN TRANSACTION[\s\S]*SELECT\s+\@FacultyName\s*=\s*f\.DisplayName[\s\S]*AfcManualRecord[\s\S]*AuditEvent[\s\S]*COMMIT TRANSACTION/i);
+});

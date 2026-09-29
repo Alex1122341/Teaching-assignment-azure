@@ -109,7 +109,7 @@ PR or merge; no baseline promotion; no A2B, Work Queue, B2A, B2B, or DOE work.
 ## 9. Current state after task
 
 - final branch: `feature/beta-r4d12b1-afc-dashboard-write-foundation`
-- final SHA: pending commit
+- final implementation SHA: `7da1eff243464995f9fab58dc56af4378779ba90`
 - PR: not opened
 - merge/deploy state: not merged / not deployed / not live
 - live counts/state: not reverified or mutated by B1.
@@ -122,14 +122,15 @@ weakened or promoted in this phase.
 
 ## 11. Exact current breakpoint
 
-All B1 implementation and verification work is complete. The next action is to
-commit the working tree with `feat: add isolated SQL AFC create foundation`,
-push the exact feature branch, send the A–M B1 report to the architect, and
-stop pending B1 review.
+All B1 implementation and verification work is complete. The implementation
+commit `7da1eff243464995f9fab58dc56af4378779ba90` is pushed to the exact
+feature branch. The next action is to send the A–M B1 report to the architect
+and stop pending B1 review.
 
 ## 12. Next safe action
 
-Run final status/diff review, commit, push, and report. Do not open a PR or
+Send the final architect report after confirming the branch is clean and the
+remote branch points to the implementation commit. Do not open a PR or
 apply/deploy anything.
 
 ## 13. DO NOT REDO

@@ -4,6 +4,7 @@ Status: **IMPLEMENTED / PENDING ARCHITECT REVIEW / NOT LIVE**
 
 - Starting `origin/main`: `68cd57074bbcf7916da6a031a238175d5530ae0b`.
 - Feature branch: `feature/beta-r4d12b1-afc-dashboard-write-foundation`.
+- Implementation commit: `7da1eff243464995f9fab58dc56af4378779ba90`, pushed to origin.
 - Frozen baseline remains `b3458f79a05353ce1255874754e1c6c1ec8ee683`.
 - B0 remains LIVE ACCEPTED / CLOSED.
 - Migration 007 adds `paws.AfcManualRecord`, `paws.vAfcRecordUnified`, and

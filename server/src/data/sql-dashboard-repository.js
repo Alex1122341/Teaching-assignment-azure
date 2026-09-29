@@ -577,7 +577,9 @@ function createSqlDashboardRepository(db) {
       const rows = await db.query(
         `WITH teaching AS (
            SELECT sa.FacultyId,
-                  SUM(CASE WHEN sa.DoeCredit IS NOT NULL THEN sa.DoeCredit ELSE 0 END) AS assignedTeachingDoe,
+                  SUM(sa.DoeCredit) AS assignedTeachingDoe,
+                  COUNT(sa.SessionAssignmentId) AS teachingLineCount,
+                  SUM(CASE WHEN sa.DoeCredit IS NOT NULL THEN 1 ELSE 0 END) AS teachingRecordedCount,
                   SUM(CASE WHEN sa.DoeCredit IS NULL THEN 1 ELSE 0 END) AS teachingMissingCount,
                   SUM(CASE WHEN TRY_CONVERT(int, c.CurriculumYear) = 1 OR CONVERT(varchar(20), c.CurriculumYear) = 'Year 1' THEN 1 ELSE 0 END) AS year1Assignments,
                   SUM(CASE WHEN TRY_CONVERT(int, c.CurriculumYear) = 2 OR CONVERT(varchar(20), c.CurriculumYear) = 'Year 2' THEN 1 ELSE 0 END) AS year2Assignments,
@@ -592,8 +594,9 @@ function createSqlDashboardRepository(db) {
             GROUP BY sa.FacultyId
          ), roles AS (
            SELECT r.FacultyId,
-                  SUM(CASE WHEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL
-                           THEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) ELSE 0 END) AS roleDoe,
+                  SUM(COALESCE(r.DoeOverrideValue, r.DoeMappedValue)) AS roleDoe,
+                  COUNT(r.RoleAssignmentId) AS roleLineCount,
+                  SUM(CASE WHEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL THEN 1 ELSE 0 END) AS roleRecordedCount,
                   SUM(CASE WHEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NULL THEN 1 ELSE 0 END) AS roleMissingCount
              FROM paws.RoleAssignment r
             WHERE r.AcademicYear = @academicYear
@@ -601,10 +604,18 @@ function createSqlDashboardRepository(db) {
          )
          SELECT f.FacultyId AS facultyId,
                 f.DisplayName AS displayName,
-                COALESCE(t.assignedTeachingDoe, 0) AS assignedTeachingDoe,
-                COALESCE(r.roleDoe, 0) AS roleDoe,
-                COALESCE(t.assignedTeachingDoe, 0) + COALESCE(r.roleDoe, 0) AS recordedDoeTotal,
+                CASE WHEN COALESCE(t.teachingLineCount, 0) = 0 THEN 0 ELSE t.assignedTeachingDoe END AS assignedTeachingDoe,
+                CASE WHEN COALESCE(r.roleLineCount, 0) = 0 THEN 0 ELSE r.roleDoe END AS roleDoe,
+                CASE
+                  WHEN COALESCE(t.teachingLineCount, 0) + COALESCE(r.roleLineCount, 0) = 0 THEN 0
+                  WHEN COALESCE(t.teachingRecordedCount, 0) + COALESCE(r.roleRecordedCount, 0) = 0 THEN NULL
+                  ELSE COALESCE(t.assignedTeachingDoe, 0) + COALESCE(r.roleDoe, 0)
+                END AS recordedDoeTotal,
+                COALESCE(t.teachingLineCount, 0) AS teachingLineCount,
+                COALESCE(t.teachingRecordedCount, 0) AS teachingRecordedCount,
                 COALESCE(t.teachingMissingCount, 0) AS teachingMissingCount,
+                COALESCE(r.roleLineCount, 0) AS roleLineCount,
+                COALESCE(r.roleRecordedCount, 0) AS roleRecordedCount,
                 COALESCE(r.roleMissingCount, 0) AS roleMissingCount,
                 CASE WHEN COALESCE(t.teachingMissingCount, 0) + COALESCE(r.roleMissingCount, 0) = 0 THEN 1 ELSE 0 END AS doeComplete,
                 COALESCE(t.year1Assignments, 0) AS year1Assignments,
@@ -627,7 +638,11 @@ function createSqlDashboardRepository(db) {
         assignedTeachingDoe: toNumber(row.assignedTeachingDoe),
         roleDoe: toNumber(row.roleDoe),
         recordedDoeTotal: toNumber(row.recordedDoeTotal),
+        teachingLineCount: toInt(row.teachingLineCount),
+        teachingRecordedCount: toInt(row.teachingRecordedCount),
         teachingMissingCount: toInt(row.teachingMissingCount),
+        roleLineCount: toInt(row.roleLineCount),
+        roleRecordedCount: toInt(row.roleRecordedCount),
         roleMissingCount: toInt(row.roleMissingCount),
         doeComplete: toBool(row.doeComplete),
         year1Assignments: toInt(row.year1Assignments),
@@ -706,10 +721,12 @@ function createSqlDashboardRepository(db) {
          SELECT
            (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear) AS teachingLineCount,
            (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND sa.DoeCredit IS NULL) AS teachingMissingCount,
-           (SELECT COALESCE(SUM(sa.DoeCredit), 0) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear) AS teachingDoe,
+           (SELECT SUM(sa.DoeCredit) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear) AS teachingDoe,
+           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND sa.DoeCredit IS NOT NULL) AS teachingRecordedCount,
            (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear) AS roleLineCount,
            (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeMappedValue IS NULL AND r.DoeOverrideValue IS NULL) AS roleMissingCount,
-           (SELECT COALESCE(SUM(COALESCE(r.DoeOverrideValue, r.DoeMappedValue)), 0) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear) AS roleDoe,
+           (SELECT SUM(COALESCE(r.DoeOverrideValue, r.DoeMappedValue)) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear) AS roleDoe,
+           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL) AS roleRecordedCount,
            (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue IS NOT NULL) AS overrideCount,
            (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue = 0) AS overrideZeroCount,
            (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue < 0) AS overrideNegativeCount`,
@@ -718,17 +735,33 @@ function createSqlDashboardRepository(db) {
       const row = rows[0] || {};
       const teachingMissingCount = toInt(row.teachingMissingCount);
       const roleMissingCount = toInt(row.roleMissingCount);
-      const teachingDoe = toNumber(row.teachingDoe) || 0;
-      const roleDoe = toNumber(row.roleDoe) || 0;
+      const teachingLineCount = toInt(row.teachingLineCount);
+      const roleLineCount = toInt(row.roleLineCount);
+      const teachingRecordedCount = toInt(row.teachingRecordedCount);
+      const roleRecordedCount = toInt(row.roleRecordedCount);
+      const teachingDoe = teachingLineCount === 0 ? 0 : toNumber(row.teachingDoe);
+      const roleDoe = roleLineCount === 0 ? 0 : toNumber(row.roleDoe);
+      const recordedDoeTotal = teachingLineCount + roleLineCount === 0
+        ? 0
+        : teachingRecordedCount + roleRecordedCount === 0
+          ? null
+          : (teachingDoe || 0) + (roleDoe || 0);
       return {
         academicYear: resolvedYear,
-        teachingLineCount: toInt(row.teachingLineCount),
+        teachingLineCount,
+        teachingRecordedCount,
         teachingMissingCount,
         teachingDoe,
-        roleLineCount: toInt(row.roleLineCount),
+        roleLineCount,
+        roleRecordedCount,
         roleMissingCount,
         roleDoe,
-        recordedDoeTotal: teachingDoe + roleDoe,
+        recordedDoeTotal,
+        doeStatus: teachingLineCount + roleLineCount === 0
+          ? 'none'
+          : teachingRecordedCount + roleRecordedCount === 0
+            ? 'missing'
+            : teachingMissingCount + roleMissingCount > 0 ? 'partial' : 'complete',
         overrideCount: toInt(row.overrideCount),
         overrideZeroCount: toInt(row.overrideZeroCount),
         overrideNegativeCount: toInt(row.overrideNegativeCount),

@@ -29,7 +29,7 @@ const DELETED_SYMBOLS = [
   'writeDerivedIndexes', 'queueDerivedIndexWrite', 'indexedFaculty', 'loadFacultyDetail',
   'listenFacultySessions', 'ensureFullFaculty', 'ensureFullSessions', 'ensureAdminDataset',
   'reloadAdminDataset', 'subscribeFaculty', 'subscribeSessions', 'loadAuxOnce', 'setTab',
-  'renderSummary', 'renderRoles', 'renderSessional', 'renderDatabase', 'renderProfile',
+  'renderSessional', 'renderDatabase', 'renderProfile',
   'importAfcJson', 'syncCccPublicSchedule', 'saveEditor', 'deleteRecord', 'importWorkloadJson',
   'importSummaryJson', 'importJson', 'openEditor', 'closeEditor', 'exportJson', 'exportCsv',
   'updateLegacyStatus', 'updateLegacyKpis', 'stripLocal', 'exportSafe', 'download',
@@ -128,7 +128,7 @@ async function drive(overrides) { const h = createHarness(overrides); await h.si
 // ===========================================================================
 // A–D: final page runtime graph
 // ===========================================================================
-test('A / D. the page loads only the Firebase app+auth CDN and three local scripts', () => {
+test('A / D. the page loads only the Firebase app+auth CDN and four local scripts', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const cdn = srcs.filter(s => /^https?:/.test(s));
   const local = srcs.filter(s => !/^https?:/.test(s));
@@ -136,8 +136,8 @@ test('A / D. the page loads only the Firebase app+auth CDN and three local scrip
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'faculty-admin.js']);
-  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 5, '5 script elements total');
+  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'dashboard-view-model.js', 'faculty-admin.js']);
+  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 6, '6 script elements total');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
 
@@ -182,8 +182,10 @@ test('AA / AB / AC / AD. no mutation, import, subscription or global renderer re
   for (const pattern of ['db.batch', 'batch.commit', 'batch.set', 'batch.update', 'batch.delete', 'FileReader', 'afc-import', 'import-summary', 'import-workload', 'derived-index', 'JSON.stringify({exportedAt']) {
     assert.equal(ADMIN_SOURCE.includes(pattern), false, `${pattern} must be absent`);
   }
-  const named = [...ADMIN_SOURCE.matchAll(/function ([A-Za-z0-9_$]+)\(/g)].map(m => m[1]);
-  assert.equal(named.length, 44, 'the controller keeps only the accepted API-flow functions');
+  assert.match(ADMIN_SOURCE, /function renderTeachingSummary\(/);
+  assert.match(ADMIN_SOURCE, /function renderRoles\(/);
+  assert.match(ADMIN_SOURCE, /function renderDoeOverview\(/);
+  assert.match(ADMIN_SOURCE, /function renderActiveTab\(/);
 });
 
 // ===========================================================================
@@ -224,7 +226,7 @@ test('O / P / Q / R / S. request counts are exactly as accepted, with no N+1', a
   assert.deepEqual(h.calls.filter(c => c.startsWith('dashboardFacultyById')), ['dashboardFacultyById:f-1', 'dashboardFacultyById:f-2'], 'S: one per distinct faculty, never a fanout');
 
   const load = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('async function loadAdminDashboard'), ADMIN_SOURCE.indexOf('function dashboardRawRole'));
-  assert.match(load, /await Promise\.all\(\[UCVM_PAWS_DATA\.dashboardSummary\(\),UCVM_PAWS_DATA\.dashboardFaculty\(\)\]\)/, 'summary + roster stay parallel');
+  assert.match(load, /await Promise\.all\(\[UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\)\]\)/, 'summary + roster stay parallel');
   assert.equal(load.split('await').length - 1, 1, 'no serial await precedes the parallel load');
 });
 
@@ -280,9 +282,9 @@ test('Z. DOE is the stored API value, never recomputed', async () => {
   const h = await drive();
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
-  assert.match(pane, /<td>percent<\/td><td>0\.9<\/td><td>Confirmed<\/td>/);
-  assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25<\/td>/);
-  assert.match(pane, /<td>12\.5<\/td><td>10<\/td>/, 'roles render stored doeMappedValue / doeOverrideValue');
+   assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/);
+   assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/);
+   assert.match(pane, /<td>12\.50%<\/td><td>10\.00%<\/td>/, 'roles render stored doeMappedValue / doeOverrideValue');
   assert.doesNotMatch(ADMIN_SOURCE, /doeRate\s*\*|\*\s*doeQuantity/, 'no browser DOE recomputation');
 });
 
@@ -293,7 +295,7 @@ test('77–83. the canonical API detail renders profile, joint appointments, rol
   const h = await drive();
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
-  assert.match(pane, /Professional profile/, '77');
+   assert.match(pane, /Professional Profile/i, '77');
   assert.match(pane, /Renewal pending/, '78');
   assert.match(pane, /VETM 300/, '79');
   assert.match(pane, new RegExp(AFC_PURPOSE), '80');
@@ -348,7 +350,7 @@ test('AE. the local access helpers match the locked server role policy', () => {
 });
 
 test('AF. User Management visibility stays restricted to the high-trust UI role', () => {
-  assert.match(ADMIN_SOURCE, /\$\('user-management-link'\)\.classList\.toggle\('hidden',!dashboardGeneral\(p\)\)/);
+   assert.match(ADMIN_SOURCE, /\$\('user-management-link'\)\??\.classList\.toggle\('hidden',\s*!dashboardGeneral\(profile\)\)/);
   assert.equal(ADMIN_SOURCE.includes('dashboardAdmin(p));unlock'), false, 'admin roles must not reveal User Management');
   const h = loadHelpers();
   assert.equal(h.dashboardGeneral({ role: 'adfa_regular' }), false, 'a plain administrator does not see it');
@@ -407,11 +409,11 @@ test('AJ / AK. detail 404 and 503 keep the roster and report truthfully', async 
 // AN: timing hooks
 // ===========================================================================
 test('AN. the opt-in timing hooks are preserved', () => {
-  assert.match(ADMIN_SOURCE, /window\.__pawsDashboardTiming===true/);
+  assert.match(ADMIN_SOURCE, /window\.__pawsDashboardTiming\s*===\s*true/);
   assert.match(ADMIN_SOURCE, /\[PAWS dashboard timing\]/);
-  assert.match(ADMIN_SOURCE, /pawsTiming\('me'/);
-  assert.match(ADMIN_SOURCE, /pawsTiming\('summary\+faculty'/);
-  assert.match(ADMIN_SOURCE, /pawsTiming\('detail'/);
+   assert.match(ADMIN_SOURCE, /pawsTimingLog\('me'/);
+   assert.match(ADMIN_SOURCE, /pawsTimingLog\('summary\+faculty'/);
+   assert.match(ADMIN_SOURCE, /pawsTimingLog\(`detail`/);
   assert.doesNotMatch(ADMIN_SOURCE, /sendBeacon|localStorage|sessionStorage|XMLHttpRequest|fetch\(/, 'no telemetry and no persistence');
 });
 
@@ -422,7 +424,7 @@ test('33. the page exposes the read-only Lookup experience and nothing retired',
   for (const present of ['Faculty Dashboard', 'PAWS Azure SQL Beta API', 'read-only', 'id="kpi-total"', 'id="lookup-search"', 'id="filter-rank"', 'id="profile-pane"', 'index.html#approvals', 'user-management.html', 'password.html', 'id="signout-btn"']) {
     assert.equal(ADMIN_HTML.includes(present), true, `${present} must be present`);
   }
-  for (const absent of ['firestore', 'xlsx', 'V9.7', 'data-general-only', 'edit-modal', 'derived-index', 'history-view', 'database-view', 'roles-view', 'sessional-view', 'summary-view', 'data-tab=']) {
+  for (const absent of ['firestore', 'xlsx', 'V9.7', 'data-general-only', 'edit-modal', 'derived-index', 'history-view', 'database-view', 'sessional-view']) {
     assert.equal(ADMIN_HTML.includes(absent), false, `${absent} must be absent`);
   }
 });
@@ -435,12 +437,15 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
   assert.equal(/\bfirestore\b/i.test(CLIENT_SOURCE), false, 'paws-data-client.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(ADMIN_SOURCE), false, 'faculty-admin.js: no Firestore dependency');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'faculty-admin.js']);
+  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'dashboard-view-model.js', 'faculty-admin.js']);
 });
 
 test('92 / 94 / 96. the controller size and function surface shrank as intended', () => {
   const bytes = fs.statSync(path.join(root, 'faculty-admin.js')).size;
   const named = [...ADMIN_SOURCE.matchAll(/function ([A-Za-z0-9_$]+)\(/g)].length;
-  assert.ok(bytes < 25000, `controller must be far smaller than the 75,130-byte Stage 3B file (actual ${bytes})`);
-  assert.equal(named, 44);
+  assert.ok(bytes < 40000, `controller must remain bounded (actual ${bytes})`);
+  assert.match(ADMIN_SOURCE, /function renderTeachingSummary\(/);
+  assert.match(ADMIN_SOURCE, /function renderRoles\(/);
+  assert.match(ADMIN_SOURCE, /function renderDoeOverview\(/);
+  assert.match(ADMIN_SOURCE, /function renderActiveTab\(/);
 });

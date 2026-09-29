@@ -14,3 +14,6 @@ const DASHBOARD_METHODS=['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS'];
 app.http('paws-dashboard-summary',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/summary',handler:handle});
 app.http('paws-dashboard-faculty',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/faculty',handler:handle});
 app.http('paws-dashboard-faculty-id',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/faculty/{facultyId}',handler:handle});
+app.http('paws-dashboard-teaching-summary',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/teaching-summary',handler:handle});
+app.http('paws-dashboard-roles',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/roles',handler:handle});
+app.http('paws-dashboard-doe-overview',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/doe-overview',handler:handle});

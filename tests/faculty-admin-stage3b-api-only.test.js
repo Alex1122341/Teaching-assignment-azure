@@ -157,8 +157,8 @@ test('A. admin API core still runs with no Firestore global at all', async () =>
 
 test('Q. summary and roster are still requested through one parallel Promise.all', async () => {
   const load = slice('async function loadAdminDashboard', 'function dashboardRawRole');
-  assert.match(load, /await Promise\.all\(\[UCVM_PAWS_DATA\.dashboardSummary\(\),UCVM_PAWS_DATA\.dashboardFaculty\(\)\]\)/, 'both requests must be started together');
-  assert.equal(load.split('await').length - 1, 1, 'no serial await may precede the parallel load');
+  assert.match(load, /await Promise\.all\(\s*\[\s*UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\)\s*\]\)/s, 'both requests must be started together');
+  assert.equal((load.match(/await Promise\.all/g) || []).length, 1, 'summary and roster use one parallel aggregate load');
   const h = createHarness();
   await h.signIn();
   await flush();
@@ -184,8 +184,8 @@ test('T / U. AFC purpose stays detail-only and DOE stays the stored value', asyn
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
   assert.match(pane, new RegExp(AFC_PURPOSE), 'AFC purpose is shown in the selected detail');
-  assert.match(pane, /<td>percent<\/td><td>0\.9<\/td><td>Confirmed<\/td>/, 'stored DOE credit is displayed verbatim');
-  assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25<\/td>/);
+  assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/, 'stored DOE credit is displayed with canonical percentage formatting');
+  assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/);
 });
 
 test('V / W. a 503 still has no Firestore fallback and never signs out', async () => {
@@ -266,10 +266,10 @@ test('M. the default loader still loads the timetable approval workflow in order
   assert.equal(result.keys[0], 'data-ucvmApprovalWorkflow');
 });
 
-test('28 / 29. the final local script set is session-guard + paws-data-client + faculty-admin', () => {
+test('28 / 29. the final local script set includes the modular view model', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const local = srcs.filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local.sort(), ['faculty-admin.js', 'paws-data-client.js', 'session-guard.js'].sort());
+  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin.js', 'paws-data-client.js', 'session-guard.js'].sort());
   assert.equal(srcs.filter(s => /gstatic\.com\/firebasejs/.test(s)).length, 2, 'only the app and auth compat SDKs remain');
   const inline = [...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].map(m => m[1].trim());
   assert.deepEqual(inline, [], 'no inline script remains');
@@ -278,13 +278,10 @@ test('28 / 29. the final local script set is session-guard + paws-data-client + 
 // ===========================================================================
 // 30–38: legacy tabs retired, canonical detail preserved
 // ===========================================================================
-test('30–35. Lookup remains and no legacy global tab is exposed', () => {
-  assert.match(ADMIN_HTML, /<span class="toolbar-note">Lookup<\/span>/);
+test('30–35. read-only Dashboard tabs are exposed without legacy write surfaces', () => {
   assert.match(ADMIN_HTML, /<section id="lookup-view" class="panel">/);
-  assert.equal(/class="tab[\s"]/.test(ADMIN_HTML), false, 'no tab button may remain');
-  for (const retired of ['data-tab=', 'summary-view', 'roles-view', 'sessional-view', 'database-view', 'history-view', 'faculty-audit']) {
-    assert.equal(ADMIN_HTML.includes(retired), false, `${retired} must be gone`);
-  }
+  for (const tab of ['data-tab="lookup"', 'data-tab="summary"', 'data-tab="roles"', 'data-tab="doe-overview"']) assert.equal(ADMIN_HTML.includes(tab), true, `${tab} must remain available`);
+  for (const retired of ['sessional-view', 'database-view', 'history-view', 'faculty-audit', 'Import Full Faculty JSON', 'DOE Rule Book']) assert.equal(ADMIN_HTML.includes(retired), false, `${retired} must be gone`);
 });
 
 test('36 / 37 / 38. the selected canonical API detail still renders roles, teaching and AFC', async () => {
@@ -316,12 +313,11 @@ test('50 / 51. no mutation handler is bound and the legacy writers are unreachab
   for (const legacy of ['importAfcJson', 'importSummaryJson', 'importWorkloadJson', 'importJson', 'saveEditor', 'deleteRecord', 'openEditor', 'closeEditor', 'exportJson', 'exportCsv', 'subscribeFaculty', 'subscribeSessions', 'setTab']) {
     assert.doesNotMatch(bindUI, new RegExp(legacy), `bindUI must not bind ${legacy}`);
   }
-  assert.match(bindUI, /\$\('lookup-search'\)\.oninput/);
-  assert.match(bindUI, /\$\('filter-rank'\)\.onchange/);
-  assert.match(bindUI, /\$\('lookup-reset'\)\.onclick/);
-  assert.doesNotMatch(bindUI, /querySelectorAll\('\.tab'\)/, 'no tab click binding may remain');
-  // Lookup is the only renderable view, so the retired renderers cannot be reached.
-  assert.match(ADMIN_SOURCE, /function renderActiveTab\(\)\{renderLookup\(\)\}/);
+  assert.match(bindUI, /on\(\$\('lookup-search'\), 'input'/);
+  assert.match(bindUI, /on\(\$\('filter-rank'\), 'change'/);
+  assert.match(bindUI, /on\(\$\('lookup-reset'\), 'click'/);
+  assert.match(bindUI, /querySelectorAll\('\.tab'\)/, 'read-only tab binding remains');
+  assert.match(ADMIN_SOURCE, /function renderActiveTab\(\)/);
 });
 
 test('the read-only source message replaces the legacy workbook/Firestore claim', () => {
@@ -343,20 +339,20 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 // 58–64: performance surface (static, no latency claim)
 // ===========================================================================
-test('58–63. the Dashboard page runtime surface shrank and makes no latency claim', () => {
+test('58–63. the Dashboard page runtime surface is bounded and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 5, 'script elements: 2 Firebase CDN + 3 local');
+  assert.equal(srcs, 6, 'script elements: 2 Firebase CDN + 4 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 3);
+  assert.equal(local.length, 4);
   assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });
 
 test('64. performance timing hooks are preserved', () => {
-  assert.match(ADMIN_SOURCE, /window\.__pawsDashboardTiming===true/);
+  assert.match(ADMIN_SOURCE, /window\.__pawsDashboardTiming\s*===\s*true/);
   assert.match(ADMIN_SOURCE, /\[PAWS dashboard timing\]/);
-  assert.match(ADMIN_SOURCE, /pawsTiming\('summary\+faculty'/);
-  assert.match(ADMIN_SOURCE, /pawsTiming\('detail'/);
+  assert.match(ADMIN_SOURCE, /pawsTimingLog\('summary\+faculty'/);
+  assert.match(ADMIN_SOURCE, /pawsTimingLog\(`detail`/);
 });
 
 // ===========================================================================

@@ -96,12 +96,27 @@ test('repository effective role DOE preserves zero and negative overrides', asyn
 test('repository DOE overview returns empty-safe values for null DOE lines', async () => {
   const repository = createSqlDashboardRepository({ query: async () => [{
     teachingLineCount: 2, teachingMissingCount: 1, teachingDoe: 0,
-    roleLineCount: 1, roleMissingCount: 1, roleDoe: 0,
+    teachingRecordedCount: 1,
+    roleLineCount: 1, roleMissingCount: 1, roleDoe: null, roleRecordedCount: 0,
     overrideCount: 1, overrideZeroCount: 1, overrideNegativeCount: 0
   }] });
   const overview = await repository.doeOverview({ academicYear: '2026-27' });
   assert.equal(overview.partial, true);
   assert.equal(overview.teachingDoe, 0);
-  assert.equal(overview.roleDoe, 0);
+  assert.equal(overview.roleDoe, null);
+  assert.equal(overview.recordedDoeTotal, 0);
   assert.equal(overview.overrideZeroCount, 1);
+});
+
+test('repository DOE overview preserves legitimate zero when no lines exist', async () => {
+  const repository = createSqlDashboardRepository({ query: async () => [{
+    teachingLineCount: 0, teachingRecordedCount: 0, teachingMissingCount: 0, teachingDoe: null,
+    roleLineCount: 0, roleRecordedCount: 0, roleMissingCount: 0, roleDoe: null,
+    overrideCount: 0, overrideZeroCount: 0, overrideNegativeCount: 0
+  }] });
+  const overview = await repository.doeOverview({ academicYear: '2026-27' });
+  assert.equal(overview.teachingDoe, 0);
+  assert.equal(overview.roleDoe, 0);
+  assert.equal(overview.recordedDoeTotal, 0);
+  assert.equal(overview.doeStatus, 'none');
 });

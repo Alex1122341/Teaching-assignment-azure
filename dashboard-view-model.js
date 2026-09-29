@@ -16,6 +16,13 @@ function text(value) {
   return value === null || value === undefined ? '' : String(value).trim();
 }
 
+function normalizeCurriculumYear(value) {
+  const raw = text(value);
+  if (!raw) return 'Unassigned year';
+  const match = raw.match(/^(?:year\s*)?([1-4])$/i);
+  return match ? `Year ${match[1]}` : raw;
+}
+
 function yearSortValue(value) {
   const match = text(value).match(/(\d{1,4})/);
   return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
@@ -47,7 +54,7 @@ function groupTeachingAssignments(assignments) {
   const years = new Map();
   for (const original of Array.isArray(assignments) ? assignments : []) {
     const assignment = original && typeof original === 'object' ? { ...original } : {};
-    const curriculumYear = text(assignment.curriculumYear) || 'Unassigned year';
+    const curriculumYear = normalizeCurriculumYear(assignment.curriculumYear);
     const courseCode = text(assignment.courseCode) || 'Course unavailable';
     let year = years.get(curriculumYear);
     if (!year) {
@@ -73,15 +80,20 @@ function groupTeachingAssignments(assignments) {
           const value = number(assignment.creditedHours);
           return value === null ? sum : sum + value;
         }, 0);
-        const doeValues = assignmentsSorted.map(assignment => number(assignment.doeCredit)).filter(value => value !== null);
-        const missing = assignmentsSorted.length - doeValues.length;
+        const doeValues = assignmentsSorted.map(assignment => number(assignment.doeCredit));
+        const recordedDoeCount = doeValues.filter(value => value !== null).length;
+        const missing = assignmentsSorted.length - recordedDoeCount;
+        const doeTotal = recordedDoeCount === 0 && assignmentsSorted.length > 0
+          ? null
+          : doeValues.filter(value => value !== null).reduce((sum, value) => sum + value, 0);
         return {
           ...course,
           assignments: assignmentsSorted,
           assignmentCount: assignmentsSorted.length,
           creditedHours,
-          doeTotal: doeValues.reduce((sum, value) => sum + value, 0),
-          doeStatus: missing ? 'needs-review' : 'complete',
+          doeTotal,
+          recordedDoeCount,
+          doeStatus: assignmentsSorted.length === 0 ? 'none' : (missing ? 'needs-review' : 'complete'),
           missingDoeCount: missing
         };
       })
@@ -95,14 +107,23 @@ function summarizeDoe(detail = {}) {
   const roleValues = roles.map(role => effectiveRoleDoe(role));
   const teachingPresent = teachingValues.filter(value => value !== null);
   const rolePresent = roleValues.map(item => item.effective).filter(value => value !== null);
-  const teachingMissingCount = teachingValues.length - teachingPresent.length;
-  const roleMissingCount = roleValues.length - rolePresent.length;
-  const teachingDoe = teachingPresent.reduce((sum, value) => sum + value, 0);
-  const roleDoe = rolePresent.reduce((sum, value) => sum + value, 0);
+  const teachingLineCount = teachingValues.length;
+  const roleLineCount = roleValues.length;
+  const teachingMissingCount = teachingLineCount - teachingPresent.length;
+  const roleMissingCount = roleLineCount - rolePresent.length;
+  const teachingDoe = teachingLineCount === 0 ? 0 : (teachingPresent.length === 0 ? null : teachingPresent.reduce((sum, value) => sum + value, 0));
+  const roleDoe = roleLineCount === 0 ? 0 : (rolePresent.length === 0 ? null : rolePresent.reduce((sum, value) => sum + value, 0));
+  const recordedValues = [...teachingPresent, ...rolePresent];
   return {
     teachingDoe,
     roleDoe,
-    recordedDoeTotal: teachingDoe + roleDoe,
+    recordedDoeTotal: recordedValues.length === 0
+      ? (teachingLineCount + roleLineCount === 0 ? 0 : null)
+      : recordedValues.reduce((sum, value) => sum + value, 0),
+    teachingLineCount,
+    teachingRecordedCount: teachingPresent.length,
+    roleLineCount,
+    roleRecordedCount: rolePresent.length,
     teachingMissingCount,
     roleMissingCount,
     partial: teachingMissingCount > 0 || roleMissingCount > 0
@@ -114,5 +135,5 @@ function formatDoe(value) {
   return parsed === null ? 'DOE unavailable' : `${parsed.toFixed(2)}%`;
 }
 
-  return { groupTeachingAssignments, effectiveRoleDoe, summarizeDoe, formatDoe };
+  return { groupTeachingAssignments, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear };
 });

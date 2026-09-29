@@ -4,22 +4,47 @@
   const FIREBASE_CONFIG = { apiKey: 'AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY', authDomain: 'tester-teaching.firebaseapp.com', projectId: 'tester-teaching', storageBucket: 'tester-teaching.firebasestorage.app', messagingSenderId: '566638053186', appId: '1:566638053186:web:90e04b52251c4b859baadb', measurementId: 'G-F7HW5XX4JE' };
   const VIEW = window.PAWS_DASHBOARD_VIEW_MODEL || {};
   const number = value => value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value);
+  const normalizeCurriculumYear = VIEW.normalizeCurriculumYear || (value => {
+    const raw = text(value);
+    if (!raw) return 'Unassigned year';
+    const match = raw.match(/^(?:year\s*)?([1-4])$/i);
+    return match ? `Year ${match[1]}` : raw;
+  });
   const groupTeachingAssignments = VIEW.groupTeachingAssignments || (assignments => {
     const groups = new Map();
     (Array.isArray(assignments) ? assignments : []).forEach(item => {
       const row = item && typeof item === 'object' ? item : {};
-      const year = text(row.curriculumYear || row.year || 'Unassigned');
+      const year = normalizeCurriculumYear(row.curriculumYear || row.year);
       const code = text(row.courseCode || row.course || 'Unassigned');
       const key = `${year}::${code}`;
-      if (!groups.has(key)) groups.set(key, { curriculumYear: year, courses: [{ courseCode: code, courseName: text(row.courseName), assignments: [], assignmentCount: 0, creditedHours: 0, doeTotal: 0, doeStatus: 'complete' }] });
+      if (!groups.has(key)) groups.set(key, { curriculumYear: year, courses: [{ courseCode: code, courseName: text(row.courseName), assignments: [], assignmentCount: 0, recordedDoeCount: 0, missingDoeCount: 0, creditedHours: 0, doeTotal: null, doeStatus: 'none' }] });
       const course = groups.get(key).courses[0];
       course.assignments.push(row); course.assignmentCount += 1; course.creditedHours += Number(row.creditedHours) || 0;
-      if (row.doeCredit === null || row.doeCredit === undefined || row.doeCredit === '') course.doeStatus = 'needs-review'; else course.doeTotal += Number(row.doeCredit) || 0;
+      const doe = number(row.doeCredit);
+      if (doe === null) course.missingDoeCount += 1;
+      else { course.recordedDoeCount += 1; course.doeTotal = (course.doeTotal === null ? 0 : course.doeTotal) + doe; }
     });
-    return [...groups.values()].sort((a, b) => String(a.curriculumYear).localeCompare(String(b.curriculumYear))).map(group => { group.courses.sort((a, b) => String(a.courseCode).localeCompare(String(b.courseCode))); return group; });
+    return [...groups.values()].sort((a, b) => String(a.curriculumYear).localeCompare(String(b.curriculumYear))).map(group => { group.courses.sort((a, b) => String(a.courseCode).localeCompare(String(b.courseCode))); group.courses.forEach(course => { course.doeStatus = course.assignmentCount === 0 ? 'none' : (course.missingDoeCount ? 'needs-review' : 'complete'); }); return group; });
   });
   const effectiveRoleDoe = VIEW.effectiveRoleDoe || (role => { const mapped = number(role?.doeMappedValue), override = role?.doeOverrideValue === null || role?.doeOverrideValue === undefined ? null : number(role.doeOverrideValue); const effective = Object.prototype.hasOwnProperty.call(role || {}, 'effectiveDoe') ? number(role.effectiveDoe) : (override !== null ? override : mapped); return { mapped, override, effective, status: effective === null ? 'needs-review' : 'stored' }; });
-  const summarizeDoe = VIEW.summarizeDoe || (() => ({ teachingDoe: 0, roleDoe: 0, recordedDoeTotal: 0, partial: true }));
+  const summarizeDoe = VIEW.summarizeDoe || ((input = {}) => {
+    const teaching = Array.isArray(input.teachingAssignments) ? input.teachingAssignments : [];
+    const roles = Array.isArray(input.roles) ? input.roles : [];
+    const teachingValues = teaching.map(row => number(row?.doeCredit)).filter(value => value !== null);
+    const roleValues = roles.map(row => effectiveRoleDoe(row).effective).filter(value => value !== null);
+    const teachingMissingCount = teaching.length - teachingValues.length;
+    const roleMissingCount = roles.length - roleValues.length;
+    const sum = values => values.reduce((total, value) => total + value, 0);
+    const teachingDoe = teaching.length && !teachingValues.length ? null : sum(teachingValues);
+    const roleDoe = roles.length && !roleValues.length ? null : sum(roleValues);
+    return {
+      teachingDoe, roleDoe,
+      recordedDoeTotal: (teaching.length + roles.length) && !(teachingValues.length + roleValues.length) ? null : sum([...teachingValues, ...roleValues]),
+      teachingLineCount: teaching.length, teachingRecordedCount: teachingValues.length, teachingMissingCount,
+      roleLineCount: roles.length, roleRecordedCount: roleValues.length, roleMissingCount,
+      partial: teachingMissingCount > 0 || roleMissingCount > 0
+    };
+  });
   const formatDoe = VIEW.formatDoe || (value => number(value) === null ? 'DOE unavailable' : `${Number(value).toFixed(2)}%`);
   const $ = id => document.getElementById(id);
   const on = (element, event, handler) => {
@@ -192,7 +217,7 @@
   function renderRoles() {
     const body = $('roles-body'); if (!body) return; const query = norm($('roles-search')?.value), type = $('role-type-filter')?.value || '';
     const rows = (aggregateCache.roles || []).filter(row => (!query || norm(`${row.displayName} ${row.roleType} ${row.courseOrSubjectOrRotation} ${row.courseName}`).includes(query)) && (!type || row.roleType === type));
-    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><strong>${esc(row.displayName || row.facultyId)}</strong></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || row.details || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.effectiveDate || '—')}</td><td>${esc(row.expirationDate || '—')}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">No role assignments.</td></tr>';
+    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><strong>${esc(row.displayName || row.facultyId)}</strong></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.details || '—')}</td><td>${esc(row.effectiveDate || '—')}</td><td>${esc(row.expirationDate || '—')}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="12" class="empty">No role assignments.</td></tr>';
   }
 
   function renderDoeOverview() {
@@ -209,7 +234,7 @@
     const identity = field('Display name', facultyRecord.displayName) + field('UCID', facultyRecord.ucid) + field('Email', facultyRecord.email) + field('Rank', facultyRecord.rank) + field('Stream', facultyRecord.stream) + field('FTE', facultyRecord.fte) + field('Reports to', facultyRecord.reportsToName) + field('Active', facultyRecord.active === false ? 'No' : 'Yes');
     const professional = profile ? field('Teaching area', profile.teachingArea, true) + field('Professional category', profile.professionalCategory) + field('Service date', profile.serviceDate) + field('Prior years experience', profile.priorYearsExperience) + field('DVM earned', profile.dvmEarnedDate) + field('DVM type', profile.dvmType) + field('Masters earned', profile.mastersEarnedDate) + field('Masters area', profile.mastersArea, true) + field('PhD earned', profile.phdEarnedDate) + field('PhD area', profile.phdArea, true) + field('Board certification', profile.boardCertification, true) + field('ABVMA member type', profile.abvmaMemberType) : '';
     const joints = (Array.isArray(data.jointAppointments) ? data.jointAppointments : []).map((joint, index) => section(`Joint appointment ${index + 1}`, field('Home faculty', joint.homeFaculty) + field('Joint faculty', joint.jointFaculty) + field('FTE UCVM', joint.fteUcvm) + field('FTE other faculty', joint.fteOtherFaculty) + field('Expiry date', joint.expiryDate) + field('Notes', joint.notes, true))).join('');
-    const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Effective', 'Expires', 'Mapped DOE', 'Override DOE', 'Effective DOE', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.effectiveDate, role.expirationDate, formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.effective), role.doeOverrideReason, role.specialNotes]; })));
+    const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Effective', 'Expires', 'Mapped DOE', 'Override DOE', 'Effective DOE', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, role.effectiveDate, role.expirationDate, formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.effective), role.doeOverrideReason, role.specialNotes]; })));
     const afcHtml = apiSection('Away from Campus', apiTable(['Start', 'End', 'Active', 'Purpose'], (Array.isArray(data.afcRecords) ? data.afcRecords : []).map(record => [record.startDate, record.endDate, record.active === false ? 'No' : 'Yes', record.purpose])));
     const scope = section('Identity / appointment metadata', field('Academic year', data.academicYear) + field('Teaching assignments', data.sessionCount) + field('Assignments needing time review', data.checkNeededCount), true);
     pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyRecord.displayName || facultyRecord.facultyId || '')}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div></div></div><div class="profile-sections">${renderDoeSummary(doe)}${renderTeachingCourses(assignments)}${rolesHtml}${afcHtml}${profile ? section('Professional Profile', professional, true) : ''}${joints}${scope}${section('Identity', identity)}</div>`;
@@ -218,7 +243,7 @@
   function renderDoeSummary(summary) { return `<section class="section wide doe-profile-summary"><div class="section-title">DOE Summary</div><div class="doe-summary-grid"><div class="doe-summary-card"><div class="doe-summary-label">Assigned Teaching DOE</div><div class="doe-summary-value">${formatDoe(summary.teachingDoe)}</div></div><div class="doe-summary-card"><div class="doe-summary-label">Role / Appointment DOE</div><div class="doe-summary-value">${formatDoe(summary.roleDoe)}</div></div><div class="doe-summary-card"><div class="doe-summary-label">Recorded DOE Total</div><div class="doe-summary-value">${formatDoe(summary.recordedDoeTotal)}</div></div><div class="doe-summary-card"><div class="doe-summary-label">Evidence status</div><div class="doe-summary-value ${summary.partial ? 'doe-under' : 'doe-within'}">${summary.partial ? 'Needs Review' : 'Stored'}</div></div></div><div class="doe-note">Totals use stored non-null DOE credits only. Missing lines remain missing and are not converted to zero or recalculated in the browser.</div></section>`; }
 
   function renderTeachingCourses(assignments) {
-    const years = groupTeachingAssignments(assignments); const body = years.map(year => `<section class="year-section"><h3 class="year-title">${esc(year.curriculumYear)}</h3>${year.courses.map(course => `<details class="course-group"><summary><div><div class="course-group-title">${esc(course.courseCode)}</div><div class="course-group-meta">${esc(course.courseName || 'Course name unavailable')} · ${course.assignmentCount} sessions · ${course.creditedHours.toFixed(2)} credited hours · ${formatDoe(course.doeTotal)} stored DOE</div></div><span class="course-group-meta">${course.doeStatus === 'complete' ? 'DOE recorded' : 'Needs Review'} ▾</span></summary><div class="table-wrap"><table class="activity-table"><thead><tr><th>Date</th><th>Start</th><th>End</th><th>Session Type</th><th>Teaching Role</th><th>Topic / Activity</th><th>Room</th><th>Credited Hours</th><th>DOE Rate</th><th>DOE Quantity</th><th>DOE Unit</th><th>DOE Credit</th><th>DOE Status</th></tr></thead><tbody>${course.assignments.map(assignment => `<tr data-session-id="${esc(assignment.sessionId || '')}"><td>${esc(assignment.date || '—')}</td><td>${esc(assignment.startTime || '—')}</td><td>${esc(assignment.endTime || '—')}</td><td>${esc(assignment.sessionType || '—')}</td><td>${esc(assignment.teachingRole || '—')}</td><td class="session-topic">${esc(assignment.topic || '—')}</td><td>${esc(assignment.room || '—')}</td><td>${display(assignment.creditedHours)}</td><td>${display(assignment.doeRate)}</td><td>${display(assignment.doeQuantity)}</td><td>${esc(assignment.doeUnit || '—')}</td><td>${display(assignment.doeCredit)}</td><td>${esc(assignment.doeStatus || 'Needs Review')}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}</section>`).join('') || '<div class="empty">No teaching assignments recorded for this academic year.</div>';
+    const years = groupTeachingAssignments(assignments); const body = years.map(year => `<section class="year-section"><h3 class="year-title">${esc(year.curriculumYear)}</h3>${year.courses.map(course => `<details class="course-group"><summary><div><div class="course-group-title">${esc(course.courseCode)}</div><div class="course-group-meta">${esc(course.courseName || 'Course name unavailable')} · ${course.assignmentCount} sessions · ${course.creditedHours.toFixed(2)} credited hours · ${formatDoe(course.doeTotal)} stored DOE</div></div><span class="course-group-meta">${course.doeStatus === 'complete' ? 'DOE recorded' : 'Needs Review'} ▾</span></summary><div class="table-wrap"><table class="activity-table"><thead><tr><th>Date</th><th>Start</th><th>End</th><th>Session Type</th><th>Teaching Role</th><th>Topic / Activity</th><th>Room</th><th>Credited Hours</th><th>DOE Rate</th><th>DOE Quantity</th><th>DOE Unit</th><th>DOE Credit</th><th>DOE Status</th></tr></thead><tbody>${course.assignments.map(assignment => `<tr data-session-id="${esc(assignment.sessionId || '')}"><td>${esc(assignment.date || '—')}</td><td>${esc(assignment.startTime || '—')}</td><td>${esc(assignment.endTime || '—')}</td><td>${esc(assignment.sessionType || '—')}</td><td>${esc(assignment.teachingRole || '—')}</td><td class="session-topic">${esc(assignment.topic || '—')}</td><td>${esc(assignment.room || '—')}</td><td>${display(assignment.creditedHours)}</td><td>${formatDoe(assignment.doeRate)}</td><td>${display(assignment.doeQuantity)}</td><td>${esc(assignment.doeUnit || '—')}</td><td>${formatDoe(assignment.doeCredit)}</td><td>${esc(assignment.doeStatus || 'Needs Review')}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}</section>`).join('') || '<div class="empty">No teaching assignments recorded for this academic year.</div>';
     return `<section class="section wide"><div class="section-title">Teaching / Courses</div>${body}</section>`;
   }
 

@@ -40,6 +40,7 @@ function dashboardHarness(currentUser){
     firebase:{apps:[],initializeApp(){},auth:Object.assign(function(){return auth;},{Auth:{Persistence:{LOCAL:'local'}}})},
     UCVM:{init(){throw new Error('UCVM.init must not be called by the Dashboard')},number:value=>Number(value),role:value=>String(value||''),admin:profile=>['owner','administrator','adfa_general','adfa_regular','admin'].includes(profile?.role),general:()=>true,label:value=>String(value||'')},
     UCVM_PAWS_DATA:{currentUser},
+    performance:{now:()=>Date.now()},
     Event:class{constructor(type){this.type=type}},
     console:{error(){}},setTimeout,clearTimeout,Map,Set,Date,JSON,String,Number,Array,Object,Math,Blob:class{},URL:{createObjectURL(){return''},revokeObjectURL(){}},confirm:()=>false
   };
@@ -67,10 +68,10 @@ test('Dashboard auth preserves API password, role, self-link, and failure gates'
   const init=functionSource(source,'init');
   assert.match(init,/mustChangePassword/);
   assert.match(init,/location\.replace\(['"]password\.html['"]\)/);
-  assert.match(init,/isSelfServiceProfile\(p\)/);
-  assert.match(init,/p\.facultyId/);
-  assert.match(init,/dashboardAdmin\(p\)/);
-  assert.match(init,/dashboardAuthFailureMessage\(e\)/);
+  assert.match(init,/isSelfServiceProfile\(profile\)/);
+  assert.match(init,/profile\.facultyId/);
+  assert.match(init,/dashboardAdmin\(profile\)/);
+  assert.match(init,/dashboardAuthFailureMessage\((?:e|error)\)/);
   assert.doesNotMatch(init,/auth\.signOut\(|location\.(?:href|replace)\(['"]index\.html['"]\)/);
 });
 
@@ -94,9 +95,8 @@ test('Dashboard auth distinguishes 401, 403, and transient API failures without 
   assert.match(message(new TypeError('network failed')),/temporarily unavailable.*sign-in is still active/is);
 });
 
-test('Dashboard redirects a password-gated /me rejection without Firestore lookup or signout',async()=>{
-  const failure=Object.assign(new Error('Password change is required before Dashboard access.'),{status:403,code:'PASSWORD_CHANGE_REQUIRED'});
-  const harness=dashboardHarness(async()=>{throw failure});
+test('Dashboard redirects a password-gated /me profile without Firestore lookup or signout',async()=>{
+  const harness=dashboardHarness(async()=>({active:true,mustChangePassword:true,role:'faculty',facultyId:'f-1'}));
   await harness.run({uid:'firebase-user',email:'user@example.test'});
   assert.deepEqual(harness.redirects,['password.html']);
   assert.equal(harness.signOuts(),0);

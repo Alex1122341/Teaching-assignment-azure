@@ -16,7 +16,8 @@ test('faculty, HICC, and VISC can open Faculty Dashboard from the timetable',()=
 
 test('faculty dashboard has a linked self-profile mode that does not subscribe to the faculty index',()=>{
  const src=read('faculty-admin.js');
- assert.match(src,/function isSelfServiceProfile\(p\)\{return \['faculty','hicc','visc'\]\.includes\(String\(p\?\.role\|\|''\)\.toLowerCase\(\)\)\}/);
+  assert.match(src,/function isSelfServiceProfile\(p\)/);
+  assert.match(src,/\['faculty','hicc','visc'\]\.includes\(String\(p\?\.role\|\|''\)\.toLowerCase\(\)\)/);
  assert.match(src,/async function loadSelfFaculty\(facultyId\)/);
  assert.doesNotMatch(src,/db\.collection\(COLLECTION\)\.doc\(String\(facultyId\)\)\.get\(\)/,'self-service must not read the Firestore faculty document');
  const selfStart=src.indexOf('async function loadSelfFaculty(facultyId)');
@@ -26,10 +27,10 @@ test('faculty dashboard has a linked self-profile mode that does not subscribe t
  assert.match(selfBody,/UCVM_PAWS_DATA\.dashboardFaculty\(\)/);
  assert.match(selfBody,/UCVM_PAWS_DATA\.dashboardFacultyById\(facultyId\)/);
  assert.doesNotMatch(selfBody,/listenFacultySessions\(|db\.collection\(/,'self-service must not start a Firestore listener or read Firestore');
- assert.match(src,/if\(isSelfServiceProfile\(p\)\)\{await enterSelfMode\(user,p\);return\}/);
- assert.match(src,/if\(dashboardAdmin\(p\)\)\{enterAdminMode\(user,p\);return\}/);
- const start=src.indexOf('async function enterSelfMode(user,p)');
- const end=src.indexOf('\nfunction enterAdminMode',start);
+  assert.match(src,/if \(isSelfServiceProfile\(profile\)\) \{ await enterSelfMode\(user, profile\); return; \}/);
+  assert.match(src,/if \(dashboardAdmin\(profile\)\) \{ enterAdminMode\(user, profile\); return; \}/);
+  const start=src.indexOf('async function enterSelfMode(user, profile)');
+ const end=src.indexOf('\n  function enterAdminMode',start);
  assert.ok(start>=0&&end>start,'enterSelfMode must exist');
  const body=src.slice(start,end);
  assert.doesNotMatch(body,/subscribeFaculty\(/);

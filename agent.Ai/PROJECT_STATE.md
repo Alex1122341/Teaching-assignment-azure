@@ -1,5 +1,35 @@
 # PAWS Current Project State
 
+## BETA-R4D-12B0 — LEGACY FIRESTORE APPROVAL CONTAINMENT / CLEANUP COMPLETE
+
+**Last verified:** 2026-09-29
+**Starting main:** `5e5d947fd4c24b340185c1b8bb1a4bbe2c27d67d`
+**Feature branch:** `feature/beta-r4d12b0-approval-queue-real-data-cleanup`
+**Status:** B0 IMPLEMENTED / PENDING ARCHITECT REVIEW; LIVE CODE NOT DEPLOYED.
+
+The exact Beta Firebase project was verified as `tester-teaching`. Only the
+`change_requests` and `afc_requests` collections were enumerated. The private
+pre-cleanup snapshot is outside Git at
+`C:\Users\xinyu\Documents\Codex\2026-08-31\outputs\b0\PAWS_BETA_B0_Legacy_Pending_Approval_Backup_2026-09-29.json`.
+Its SHA-256 is
+`e8bbf5e61d1dd60ff44918e0b7d140456f842fcb2c6a66864f59ed5d932ab572`.
+
+The live legacy queue contained two pending `change_requests` and one
+`pending_admin` AFC request. No pending record had finalized signature/PDF
+evidence. Those three pending parents were deleted after backup; no AFC child
+documents were present. Post-cleanup counts are zero for pending
+`change_requests`, `pending_report_to`, and `pending_admin`; one approved AFC
+record and one rejected change request remain. No audit/history collection was
+modified.
+
+B0 code containment is limited to `asset-loader.js`, `approval-workflow.js`,
+and `afc-workflow.js`, plus focused containment tests. Azure SQL mode no longer
+loads or initializes the legacy approval workflow, direct legacy script loading
+fails closed before `UCVM.init()`, and the AFC panel keeps teaching/history
+navigation while showing the temporary Azure SQL migration message without a
+request or approval action. No SQL write, migration, seed, deployment, B1/B2,
+DOE, Firebase Auth, or Firestore-rules change was made.
+
 ## BETA-R4D-12A5G — CONCURRENT AUTHORITY FOUNDATION ACCEPTED / CONTINUITY SYNC
 
 **Last verified:** 2026-09-29

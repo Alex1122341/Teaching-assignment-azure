@@ -1,5 +1,36 @@
 # PAWS Task Chain
 
+## BETA-R4D-12B0 — APPROVAL QUEUE REAL-DATA CLEANUP / REVIEW GATE
+
+Status: **IMPLEMENTED / LIVE LEGACY QUEUE CLEANUP COMPLETE / PENDING ARCHITECT REVIEW**
+
+- Starting `origin/main`: `5e5d947fd4c24b340185c1b8bb1a4bbe2c27d67d`.
+- Feature branch: `feature/beta-r4d12b0-approval-queue-real-data-cleanup`.
+- Verified Beta Firebase project: `tester-teaching`.
+- Live R4D-11 runtime was not deployed or mutated; SQL health remained 200.
+- Migration 005 and 006 remain unapplied; no authority seed exists.
+- Pre-cleanup inventory: `change_requests` total 3 (`pending` 2,
+  `rejected` 1); request types `session_edit` 1 and `faculty_swap` 2.
+  `afc_requests` total 2 (`pending_admin` 1, `approved` 1).
+- Private backup is outside Git at the B0 output path recorded in
+  `PROJECT_STATE.md`, SHA-256
+  `e8bbf5e61d1dd60ff44918e0b7d140456f842fcb2c6a66864f59ed5d932ab572`.
+- Targeted cleanup deleted exactly two pending change requests and one pending
+  AFC request; no `pdf_chunks` children existed. Post-cleanup pending counts
+  are all zero, with completed records preserved.
+- Azure SQL containment skips legacy approval dependencies, guards direct
+  `approval-workflow.js` loading before `UCVM.init()`, and exposes a safe AFC
+  facade that preserves panel navigation without Firestore request/approval
+  reads or writes.
+- Focused B0 and all non-freeze runtime regression tests pass. The only full
+  suite failure is the existing zero-drift baseline assertion, intentionally
+  reporting the exact three protected frontend B0 files; the freeze baseline
+  was not promoted. API freeze remains zero drift.
+- No PR, merge, deployment, SQL write, migration, seed, A2B, Work Queue, B1,
+  B2, DOE, Firebase Auth, or Firestore-rules change was performed.
+
+Next exact action: Architect review/integration gate for B0. Do not begin B1.
+
 ## BETA-R4D-12A5G — FOUNDATION ACCEPTED / CONTINUITY SYNC / PR MERGE GATE
 
 Status: **A5/A5R ACCEPTED FOR INTEGRATION; CONTINUITY DOCUMENTATION ONLY**

@@ -1,6 +1,7 @@
 /* HICC timetable + Spark-safe approval workflow for the main timetable only. */
 (()=>{
  'use strict';
+ if(window.UCVM_PAWS_DATA?.sessionBackend?.()==='azure-sql')return;
  if(!window.UCVM||typeof firebase==='undefined')return;
  const scheduling=window.UCVM_SCHEDULING,approvalScheduling=window.UCVM_APPROVAL_SCHEDULING;
  if(!scheduling||!approvalScheduling)throw new Error('UCVM scheduling and approval policy helpers are required.');

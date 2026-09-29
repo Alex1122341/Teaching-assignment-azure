@@ -1,5 +1,18 @@
 'use strict';
 (()=>{
+ const azureSqlBackend=window.UCVM_PAWS_DATA?.sessionBackend?.()==='azure-sql';
+ if(azureSqlBackend){
+  const message='AFC request entry is being moved to the Azure SQL Beta workflow. Existing teaching and change-history views remain available.';
+  let panelId='afc-panel';
+  function renderUnavailable(){
+   const target=window.document?.getElementById?.(panelId);
+   if(target)target.innerHTML=`<p class="afc-note" role="status">${message}</p>`;
+  }
+  function mount(options={}){panelId=String(options.panelId||'afc-panel');return window.UCVM_AFC}
+  window.UCVM_AFC={mount,teachingListHtml:()=>'',submit:async()=>{throw Error(message)},unavailable:true};
+  if(typeof addEventListener==='function')addEventListener('ucvm:afc-open',renderUnavailable);
+  return;
+ }
  const $=id=>document.getElementById(id),e=s=>UCVM.esc(String(s??'')),{db}=UCVM.init(),auth=firebase.auth(),stamp=()=>firebase.firestore.FieldValue.serverTimestamp();
  const holidays=new Set(['2026-01-01','2026-02-16','2026-04-03','2026-04-06','2026-05-18','2026-07-01','2026-08-03','2026-09-07','2026-09-30','2026-10-12','2026-11-11','2026-12-25','2026-12-28','2026-12-29','2026-12-30','2026-12-31','2027-01-01','2027-02-15','2027-03-26','2027-03-29','2027-05-24','2027-07-01','2027-08-02','2027-09-06','2027-09-30','2027-10-11','2027-11-11','2027-12-27','2027-12-28','2027-12-29','2027-12-30','2027-12-31']);
  let loaded=false,busy=false,requests=[],applicantSignature=null,panelId='afc-panel',mode='dashboard',dataSubscription=null,subscribedSource=null,rangeLoading='',rangeLoaded='',rangeError=null;

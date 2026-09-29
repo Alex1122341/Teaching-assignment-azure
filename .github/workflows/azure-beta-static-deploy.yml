@@ -1,0 +1,359 @@
+name: Azure Beta Static Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful Azure Beta Build push run ID from main
+        required: true
+        type: string
+      commit_sha:
+        description: Exact current main commit whose tested artifact is released
+        required: true
+        type: string
+      expected_live_aca_revision:
+        description: Expected single active ACA revision before and after static release
+        required: true
+        type: string
+      expected_live_api_digest:
+        description: Expected immutable live API image digest before and after static release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+env:
+  ACR_NAME: pawssqlbetaacr
+  IMAGE_REPOSITORY: paws-sql-beta-api
+  ACA_APP_NAME: paws-sql-beta-api-260926
+  ACA_RESOURCE_GROUP: rg-ucvm-teaching-lab
+  ACA_FQDN: paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io
+  EXPECTED_REVISION_MODE: Single
+  SWA_URL: https://red-cliff-04871ca0f.5.azurestaticapps.net
+
+concurrency:
+  group: azure-beta-static-${{ inputs.commit_sha }}
+  cancel-in-progress: false
+
+jobs:
+  deploy_static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment:
+      name: beta
+      url: https://red-cliff-04871ca0f.5.azurestaticapps.net
+    steps:
+      - name: Checkout exact requested main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify exact main and successful exact-main push build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$SOURCE_RUN_ID"
+          test -n "$COMMIT_SHA"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$COMMIT_SHA"
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$COMMIT_SHA"
+          test "$(git rev-parse origin/main)" = "$COMMIT_SHA"
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}")"
+          test "$(jq -r '.repository.full_name' <<< "$run_json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.path' <<< "$run_json")" = ".github/workflows/azure-beta-build.yml"
+          test "$(jq -r '.event' <<< "$run_json")" = "push"
+          test "$(jq -r '.head_branch' <<< "$run_json")" = "main"
+          test "$(jq -r '.head_sha' <<< "$run_json")" = "$COMMIT_SHA"
+          test "$(jq -r '.status' <<< "$run_json")" = "completed"
+          test "$(jq -r '.conclusion' <<< "$run_json")" = "success"
+
+      - name: Verify frozen repository runtime before artifact handoff
+        run: |
+          node tools/beta-freeze.js
+          node tools/beta-api-freeze.js
+
+      - name: Download exact tested combined artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: azure-beta-${{ inputs.commit_sha }}
+          path: .azure-production
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+
+      - name: Verify tested artifact handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .azure-production/app/index.html
+          test -f .azure-production/app/staticwebapp.config.json
+          test -f .azure-production/api/index.js
+          test -f .azure-production/api/package-lock.json
+          test -f .azure-production/api/artifact-inventory.json
+
+      - name: Verify frozen static and API artifacts
+        run: |
+          node tools/beta-freeze.js --artifact .azure-production/app
+          node tools/beta-api-freeze.js --artifact .azure-production/api
+
+      - name: Log in to Azure with read-only verification identity
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.PAWS_BETA_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.PAWS_BETA_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.PAWS_BETA_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify live ACA identity before static release
+        id: predeploy_aca
+        shell: bash
+        env:
+          EXPECTED_REVISION: ${{ inputs.expected_live_aca_revision }}
+          EXPECTED_API_DIGEST: ${{ inputs.expected_live_api_digest }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_API_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          expected_image="$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY@$EXPECTED_API_DIGEST"
+          app_json="$(az containerapp show --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
+          mode="$(jq -r '.properties.configuration.activeRevisionsMode // empty' <<< "$app_json")"
+          fqdn="$(jq -r '.properties.configuration.ingress.fqdn // empty' <<< "$app_json")"
+          test "$mode" = "$EXPECTED_REVISION_MODE"
+          test "$fqdn" = "$ACA_FQDN"
+          revisions_json="$(az containerapp revision list --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
+          active_count="$(jq '[.[] | select(.properties.active == true)] | length' <<< "$revisions_json")"
+          test "$active_count" = "1"
+          active_revision="$(jq -r '[.[] | select(.properties.active == true)][0].name // empty' <<< "$revisions_json")"
+          active_image="$(jq -r '[.[] | select(.properties.active == true)][0].properties.template.containers[0].image // empty' <<< "$revisions_json")"
+          health="$(jq -r '[.[] | select(.properties.active == true)][0].properties.healthState // empty' <<< "$revisions_json")"
+          provisioning="$(jq -r '[.[] | select(.properties.active == true)][0].properties.provisioningState // empty' <<< "$revisions_json")"
+          test "$active_revision" = "$EXPECTED_REVISION"
+          test "$active_image" = "$expected_image"
+          test "$health" = "Healthy"
+          test "$provisioning" = "Provisioned" || test "$provisioning" = "Succeeded"
+          jq -n \
+            --arg fqdn "$fqdn" \
+            --arg revisionMode "$mode" \
+            --arg revision "$active_revision" \
+            --arg image "$active_image" \
+            --arg health "$health" \
+            --arg provisioning "$provisioning" \
+            '{fqdn:$fqdn,revisionMode:$revisionMode,activeRevision:$revision,apiImage:$image,health:$health,provisioning:$provisioning}' \
+            > aca-predeploy-state.json
+          printf 'revision=%s\n' "$active_revision" >> "$GITHUB_OUTPUT"
+          printf 'apiImage=%s\n' "$active_image" >> "$GITHUB_OUTPUT"
+
+      - name: Verify SQL health before static release
+        id: predeploy_sql
+        shell: bash
+        run: |
+          set -euo pipefail
+          passed=false
+          observed_status="000"
+          observed_body=''
+          for attempt in $(seq 1 12); do
+            body_file="$(mktemp)"
+            observed_status="$(curl --silent --show-error --max-time 10 -o "$body_file" -w '%{http_code}' "https://$ACA_FQDN/api/health/sql" || true)"
+            observed_body="$(cat "$body_file" 2>/dev/null || true)"
+            if [ "$observed_status" = "200" ] \
+              && [ "$(jq -r '.status // empty' "$body_file" 2>/dev/null || true)" = "ok" ] \
+              && [ "$(jq -r '.service // empty' "$body_file" 2>/dev/null || true)" = "paws-beta-sql-runtime" ]; then
+              passed=true
+              break
+            fi
+            sleep 10
+          done
+          if [ "$passed" != true ]; then
+            echo "PREDEPLOY_SQL_HEALTH_BLOCKER status=$observed_status body=$observed_body"
+            exit 1
+          fi
+          echo 'sqlHealthPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Verify anonymous auth boundary before static release
+        id: predeploy_auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          routes=(
+            /api/v1/me
+            /api/v1/dashboard/summary
+            /api/v1/dashboard/faculty
+            /api/v1/dashboard/teaching-summary
+            /api/v1/dashboard/roles
+            /api/v1/dashboard/doe-overview
+          )
+          for route in "${routes[@]}"; do
+            status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' "https://$ACA_FQDN$route" || true)"
+            test "$status" = "401"
+          done
+          echo 'authBoundaryPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Deploy tested static app
+        uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: .azure-production/app
+          output_location: ''
+          skip_app_build: true
+          production_branch: main
+
+      - name: Verify public static bytes converge to tested artifact
+        id: static_verify
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          files=(index.html asset-loader.js approval-workflow.js afc-workflow.js paws-data-client.js)
+          mkdir -p public-static
+          passed=false
+          for attempt in $(seq 1 12); do
+            all_match=true
+            for file in "${files[@]}"; do
+              expected=".azure-production/app/$file"
+              target="public-static/$file"
+              status="$(curl --silent --show-error --max-time 20 -o "$target" -w '%{http_code}' "${SWA_URL}/$file?b0d=${COMMIT_SHA}&attempt=${attempt}" || true)"
+              if [ "$status" != "200" ] || [ ! -f "$expected" ] || ! cmp -s "$expected" "$target"; then
+                all_match=false
+              fi
+            done
+            if [ "$all_match" = true ]; then
+              passed=true
+              break
+            fi
+            sleep 10
+          done
+          if [ "$passed" != true ]; then
+            echo 'STATIC_ASSET_CONVERGENCE_BLOCKER'
+            exit 1
+          fi
+          echo 'staticHashesPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Verify ACA identity and API invariance after static release
+        id: postdeploy_aca
+        shell: bash
+        env:
+          EXPECTED_REVISION: ${{ inputs.expected_live_aca_revision }}
+          EXPECTED_API_DIGEST: ${{ inputs.expected_live_api_digest }}
+        run: |
+          set -euo pipefail
+          expected_image="$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY@$EXPECTED_API_DIGEST"
+          app_json="$(az containerapp show --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
+          mode="$(jq -r '.properties.configuration.activeRevisionsMode // empty' <<< "$app_json")"
+          fqdn="$(jq -r '.properties.configuration.ingress.fqdn // empty' <<< "$app_json")"
+          test "$mode" = "$EXPECTED_REVISION_MODE"
+          test "$fqdn" = "$ACA_FQDN"
+          revisions_json="$(az containerapp revision list --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
+          active_count="$(jq '[.[] | select(.properties.active == true)] | length' <<< "$revisions_json")"
+          test "$active_count" = "1"
+          active_revision="$(jq -r '[.[] | select(.properties.active == true)][0].name // empty' <<< "$revisions_json")"
+          active_image="$(jq -r '[.[] | select(.properties.active == true)][0].properties.template.containers[0].image // empty' <<< "$revisions_json")"
+          health="$(jq -r '[.[] | select(.properties.active == true)][0].properties.healthState // empty' <<< "$revisions_json")"
+          provisioning="$(jq -r '[.[] | select(.properties.active == true)][0].properties.provisioningState // empty' <<< "$revisions_json")"
+          test "$active_revision" = "$EXPECTED_REVISION"
+          test "$active_image" = "$expected_image"
+          test "$health" = "Healthy"
+          test "$provisioning" = "Provisioned" || test "$provisioning" = "Succeeded"
+          jq -n \
+            --arg fqdn "$fqdn" \
+            --arg revisionMode "$mode" \
+            --arg revision "$active_revision" \
+            --arg image "$active_image" \
+            --arg health "$health" \
+            --arg provisioning "$provisioning" \
+            '{fqdn:$fqdn,revisionMode:$revisionMode,activeRevision:$revision,apiImage:$image,health:$health,provisioning:$provisioning}' \
+            > aca-postdeploy-state.json
+          diff -u aca-predeploy-state.json aca-postdeploy-state.json
+          printf 'revision=%s\n' "$active_revision" >> "$GITHUB_OUTPUT"
+          printf 'apiImage=%s\n' "$active_image" >> "$GITHUB_OUTPUT"
+          echo 'apiInvariantPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Verify SQL health after static release
+        id: postdeploy_sql
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 10 -o postdeploy-sql-health.json -w '%{http_code}' "https://$ACA_FQDN/api/health/sql" || true)"
+          test "$status" = "200"
+          test "$(jq -r '.status // empty' postdeploy-sql-health.json)" = "ok"
+          test "$(jq -r '.service // empty' postdeploy-sql-health.json)" = "paws-beta-sql-runtime"
+          echo 'sqlHealthPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Verify anonymous auth boundary after static release
+        id: postdeploy_auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          routes=(
+            /api/v1/me
+            /api/v1/dashboard/summary
+            /api/v1/dashboard/faculty
+            /api/v1/dashboard/teaching-summary
+            /api/v1/dashboard/roles
+            /api/v1/dashboard/doe-overview
+          )
+          for route in "${routes[@]}"; do
+            status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' "https://$ACA_FQDN$route" || true)"
+            test "$status" = "401"
+          done
+          echo 'authBoundaryPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Write static deploy evidence
+        if: always()
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          EXPECTED_REVISION: ${{ inputs.expected_live_aca_revision }}
+          EXPECTED_API_DIGEST: ${{ inputs.expected_live_api_digest }}
+          PRE_SQL: ${{ steps.predeploy_sql.outputs.sqlHealthPassed == 'true' && 'true' || 'false' }}
+          POST_SQL: ${{ steps.postdeploy_sql.outputs.sqlHealthPassed == 'true' && 'true' || 'false' }}
+          PRE_AUTH: ${{ steps.predeploy_auth.outputs.authBoundaryPassed == 'true' && 'true' || 'false' }}
+          POST_AUTH: ${{ steps.postdeploy_auth.outputs.authBoundaryPassed == 'true' && 'true' || 'false' }}
+          STATIC_HASHES: ${{ steps.static_verify.outputs.staticHashesPassed == 'true' && 'true' || 'false' }}
+          API_INVARIANT: ${{ steps.postdeploy_aca.outputs.apiInvariantPassed == 'true' && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg commitSha "$COMMIT_SHA" \
+            --arg sourceRunId "$SOURCE_RUN_ID" \
+            --arg staticDeployRunId "$GITHUB_RUN_ID" \
+            --arg staticDeployRunNumber "$GITHUB_RUN_NUMBER" \
+            --arg siteUrl "$SWA_URL" \
+            --arg baseline "b3458f79a05353ce1255874754e1c6c1ec8ee683" \
+            --arg artifactName "azure-beta-$COMMIT_SHA" \
+            --arg expectedRevision "$EXPECTED_REVISION" \
+            --arg observedRevision "${{ steps.postdeploy_aca.outputs.revision }}" \
+            --arg expectedApiDigest "$EXPECTED_API_DIGEST" \
+            --arg observedApiImage "${{ steps.postdeploy_aca.outputs.apiImage }}" \
+            --arg deployedAtUtc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson sqlHealthPre "$PRE_SQL" \
+            --argjson sqlHealthPost "$POST_SQL" \
+            --argjson authBoundaryPre "$PRE_AUTH" \
+            --argjson authBoundaryPost "$POST_AUTH" \
+            --argjson staticHashesPassed "$STATIC_HASHES" \
+            --argjson apiInvariantPassed "$API_INVARIANT" \
+            '{repository:$repository,commitSha:$commitSha,sourceRunId:$sourceRunId,staticDeployRunId:$staticDeployRunId,staticDeployRunNumber:$staticDeployRunNumber,siteUrl:$siteUrl,baseline:$baseline,artifactName:$artifactName,expectedRevision:$expectedRevision,observedRevision:$observedRevision,expectedApiDigest:$expectedApiDigest,observedApiImage:$observedApiImage,sqlHealthPre:$sqlHealthPre,sqlHealthPost:$sqlHealthPost,authBoundaryPre:$authBoundaryPre,authBoundaryPost:$authBoundaryPost,staticHashesPassed:$staticHashesPassed,apiInvariantPassed:$apiInvariantPassed,deployedAtUtc:$deployedAtUtc}' \
+            > static-deploy-evidence.json
+
+      - name: Upload static deploy evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: static-deploy-${{ inputs.commit_sha }}
+          path: static-deploy-evidence.json
+          if-no-files-found: error
+          retention-days: 7

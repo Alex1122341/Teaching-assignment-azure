@@ -94,6 +94,27 @@
         if(String(academicYear??'').trim())query.set('academicYear',String(academicYear));
         const suffix=query.toString()?'?'+query.toString():'';
         return request('/api/v1/dashboard/faculty/'+encodeURIComponent(id)+suffix);
+      },
+      async dashboardTeachingSummary({academicYear=null}={}){
+        const query=new URLSearchParams();
+        if(String(academicYear??'').trim())query.set('academicYear',String(academicYear));
+        const suffix=query.toString()?'?'+query.toString():'';
+        const body=await request('/api/v1/dashboard/teaching-summary'+suffix);
+        return Array.isArray(body.teachingSummary)?body.teachingSummary:[];
+      },
+      async dashboardRoles({academicYear=null}={}){
+        const query=new URLSearchParams();
+        if(String(academicYear??'').trim())query.set('academicYear',String(academicYear));
+        const suffix=query.toString()?'?'+query.toString():'';
+        const body=await request('/api/v1/dashboard/roles'+suffix);
+        return Array.isArray(body.roles)?body.roles:[];
+      },
+      async dashboardDoeOverview({academicYear=null}={}){
+        const query=new URLSearchParams();
+        if(String(academicYear??'').trim())query.set('academicYear',String(academicYear));
+        const suffix=query.toString()?'?'+query.toString():'';
+        const body=await request('/api/v1/dashboard/doe-overview'+suffix);
+        return body.doeOverview&&typeof body.doeOverview==='object'&&!Array.isArray(body.doeOverview)?body.doeOverview:{};
       }
     });
   }

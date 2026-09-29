@@ -64,11 +64,11 @@ normal merge commit (no squash/rebase).
 
 Frozen application baseline:
 
-`2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`
+`8b1388f5afe210c761d6dbc3b4240536758f7342`
 
-This is Runtime Commit I, the BETA-R4D-9H admin timetable access fix: the automatic administrator landing redirect is removed so authorized ADFA/admin accounts remain in the timetable after sign-in, while the Faculty Dashboard stays reachable explicitly. It is the reviewed frozen runtime.
+This is the BETA-R4D-11A2 Dashboard DOE presentation runtime candidate shared by the static and API runtimes. It is the reviewed frozen runtime.
 
-Protected static assets are driven by `tools/static-assets.json` (45 entries; the previous 44-path set plus `paws-data-client.js`). Both `pull_request` and `push` to `main` allow zero protected runtime drift.
+Protected static assets are driven by `tools/static-assets.json` (46 entries; the previous 45-path set plus `dashboard-view-model.js`). Both `pull_request` and `push` to `main` allow zero protected runtime drift.
 
 `tools/beta-freeze.js` compares against immutable Git blobs from the frozen baseline.
 

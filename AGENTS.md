@@ -22,9 +22,9 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 ## Frozen runtime contract
 
-- The Azure beta application is frozen at commit `2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`. That immutable commit (Runtime Commit I) is the content trust anchor.
-- This baseline represents the **BETA-R4D-9B ACA-direct SQL-backed read runtime**. It is the reviewed frozen runtime, but it is **NOT YET DEPLOYED** — the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
-- **All** shipped static runtime assets are protected, not just a five-file subset. The authoritative shipped-file list is `tools/static-assets.json` (45 entries).
+- The Azure beta application is frozen at commit `8b1388f5afe210c761d6dbc3b4240536758f7342`. That immutable commit is the dual-runtime content trust anchor.
+- This baseline represents the **BETA-R4D-11A2 Dashboard DOE presentation runtime** shared by the static site and the API runtime. It is the reviewed frozen runtime, but it is **NOT YET DEPLOYED** — the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
+- **All** shipped static runtime assets are protected, not just a five-file subset. The authoritative shipped-file list is `tools/static-assets.json` (46 entries; the previous 45-path set plus `dashboard-view-model.js`).
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.
 - `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .azure-production/app` to validate a built or downloaded artifact.
 - `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.

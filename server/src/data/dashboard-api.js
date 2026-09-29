@@ -162,6 +162,37 @@ function createDashboardApi({ verifyToken, findUser, repository }) {
             ? result(200, record)
             : error(404, 'FACULTY_NOT_FOUND', 'Faculty record not found.')));
       });
+    },
+
+    // Administrator-only read aggregates used by the restored Dashboard tabs.
+    async teachingSummary(token, { academicYear: year } = {}) {
+      const resolved = resolveYear(year);
+      if (resolved.error) return resolved.error;
+      return guarded(token, scope => {
+        if (!scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot read the Dashboard teaching summary.');
+        return repository.teachingSummary({ academicYear: resolved.year })
+          .then(teachingSummary => result(200, { academicYear: resolved.year, teachingSummary }));
+      });
+    },
+
+    async roles(token, { academicYear: year } = {}) {
+      const resolved = resolveYear(year);
+      if (resolved.error) return resolved.error;
+      return guarded(token, scope => {
+        if (!scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot read the Dashboard roles.');
+        return repository.roles({ academicYear: resolved.year })
+          .then(roles => result(200, { academicYear: resolved.year, roles }));
+      });
+    },
+
+    async doeOverview(token, { academicYear: year } = {}) {
+      const resolved = resolveYear(year);
+      if (resolved.error) return resolved.error;
+      return guarded(token, scope => {
+        if (!scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot read the Dashboard DOE overview.');
+        return repository.doeOverview({ academicYear: resolved.year })
+          .then(doeOverview => result(200, { doeOverview }));
+      });
     }
   };
 }

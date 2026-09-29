@@ -1,14 +1,34 @@
 # PAWS Current Project State
 
+## BETA-R4D-11A — Dashboard UI parity + DOE evidence (IMPLEMENTED / AWAITING ARCHITECT REVIEW)
+
+**Branch:** `feature/beta-r4d11a-dashboard-ui-doe-parity`
+**Base:** `6adf40cd8cd89a915e23bcd505d0e3110f91b2e4`
+
+The Azure Dashboard now has four administrator read-only views (Lookup, Teaching
+Summary, Roles & Appointments, DOE Overview), lazy server-side aggregate reads,
+rich faculty detail sections, deterministic Year → Course → Session expansion,
+and self-service profile scope. Stored `DoeCredit` and server-provided effective
+role DOE remain authoritative; null, zero, and negative values are preserved.
+The Dashboard runtime remains Firebase Auth → PAWS API → Azure SQL with no
+Firestore SDK, fallback, writes, imports, rule editing, or N+1 detail loading.
+
+No Azure resource, SQL, Firebase, Firestore, SWA, deployment, merge, baseline
+promotion, or PR mutation was performed. Full server tests pass 102/102;
+focused R4D-11A frontend tests pass. The freeze check reports intentional
+protected drift only in the intentional candidate runtime files
+`faculty-admin.html`, `faculty-admin.js`, `paws-data-client.js`, and the new
+`dashboard-view-model.js` asset (missing from the older frozen baseline).
+
 **Last verified:** 2026-09-27
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 
-## 0. BETA-R4D-10B Stage 3 ACCEPTED + Stage 4 baseline promoted — AWAITING ARCHITECT REVIEW
+## 0. BETA-R4D-11D dual-runtime baseline promoted — AWAITING ARCHITECT REVIEW
 
 **Last verified:** 2026-09-28
 
-- **Accepted Stage 3 runtime candidate:** `25e8f483b7d2455c0f96b00c82f3fde30760ac17`
-- **Promoted frozen baseline:** `25e8f483b7d2455c0f96b00c82f3fde30760ac17` (previous: `2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`)
+- **Accepted product/API runtime candidate:** `8b1388f5afe210c761d6dbc3b4240536758f7342`
+- **Promoted frozen baseline:** `8b1388f5afe210c761d6dbc3b4240536758f7342` (previous: `25e8f483b7d2455c0f96b00c82f3fde30760ac17`)
 
 The Faculty Dashboard is now an API-only, read-only surface. `faculty-admin.html` loads exactly five script
 elements (Firebase app + auth compat CDN, `session-guard.js`, `paws-data-client.js`, `faculty-admin.js`) and no
@@ -19,10 +39,10 @@ Dashboard business data comes from the PAWS Azure SQL Dashboard API with Firebas
 The frontend role policy now matches the server exactly: ADMIN = owner / administrator / adfa_general /
 adfa_regular / admin, SELF-SERVICE = faculty / hicc / visc, and `other_office` is retired and denied on both sides.
 
-Stage 4 promoted the frozen trust anchor to the accepted Stage 3 runtime candidate with **zero protected runtime
-delta**. `verifyFreeze` reports 45 protected paths and no drift. Governance promotion PASS; release readiness is
-NO pending the two faculty-swap source-contract test failures. No merge, PR, deployment, or Azure/SQL/Firebase
-mutation was performed.
+R4D-11D promoted the shared static/API frozen trust anchor to the accepted product/API runtime candidate with
+**zero static and API drift**. `verifyFreeze` reports 46 protected static paths; the API freeze reports 16 runtime
+files plus the protected ACA Dockerfile. Governance promotion PASS; release readiness is NO pending the existing
+faculty-swap source-contract test failures. No merge, PR, deployment, or Azure/SQL/Firebase mutation was performed.
 
 ---
 ## 0. BETA-R4D-10B Stage 2 — IMPLEMENTED / AWAITING ARCHITECT REVIEW

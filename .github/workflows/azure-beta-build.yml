@@ -46,6 +46,10 @@ jobs:
         run: node tools/verify-beta-candidate.js
       - name: Verify frozen Beta runtime baseline (built artifact)
         run: node tools/beta-freeze.js --artifact .azure-production/app
+      - name: Verify frozen API runtime baseline (repository)
+        run: node tools/beta-api-freeze.js
+      - name: Verify frozen API runtime baseline (built artifact)
+        run: node tools/beta-api-freeze.js --artifact .azure-production/api
       - run: node --test tests/beta-baseline.test.js tests/azure-deployment.test.js
       - uses: actions/upload-artifact@v7
         with:

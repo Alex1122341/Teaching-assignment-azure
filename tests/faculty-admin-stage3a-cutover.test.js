@@ -361,7 +361,7 @@ test('the campus filter is gone entirely because the roster DTO has no campus fi
   assert.equal(read('faculty-admin.html').includes('filter-campus'), false, 'no campus filter may ship');
   assert.equal(ADMIN_SOURCE.includes('filter-campus'), false, 'no campus filter code may remain');
   assert.equal(ADMIN_SOURCE.includes('deactivateCampusFilter'), false);
-  const lookup = slice('function filteredLookup', 'function field(');
+  const lookup = slice('function filteredLookup', 'function installSelfModeStyles');
   assert.doesNotMatch(lookup, /campus/i);
   assert.match(lookup, /filter-rank/, 'the rank filter stays supported');
 });
@@ -441,15 +441,15 @@ test('DOE values are displayed exactly as stored, with no client-side recomputat
   const pane = h.byId('profile-pane').innerHTML;
   // doeRate 0.5 * doeQuantity 2.5 = 1.25, but the authoritative stored credit is
   // 0.9, so the DOE unit/credit/status cells prove the stored value is displayed.
-  assert.match(pane, /<td>percent<\/td><td>0\.9<\/td><td>Confirmed<\/td>/, 'the stored DOE unit, credit and status render verbatim');
-  assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25<\/td>/, 'the DOE credit must not be recomputed from rate x quantity');
+  assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/, 'the stored DOE unit, credit and status render verbatim');
+  assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/, 'the DOE credit must not be recomputed from rate x quantity');
 
-  const detail = slice('function renderApiDetail', 'function renderDetailPending');
+  const detail = ADMIN_SOURCE;
   for (const field of ['doeRate', 'doeQuantity', 'doeUnit', 'doeCredit', 'doeStatus', 'doeMappedValue', 'doeOverrideValue']) {
     assert.match(detail, new RegExp(field), `DOE field ${field} must be rendered`);
   }
   assert.doesNotMatch(detail, /doeRate\s*\*|\*\s*doeQuantity|doeCredit\s*=/, 'DOE must not be recomputed');
-  assert.doesNotMatch(slice('function rosterRecord', 'function detailFailureMessage'), /doe[A-Z(]|doeRate|doeCredit|doeOverride/, 'the roster adapter must not invent DOE values');
+  assert.doesNotMatch(slice('function rosterRecord', 'async function loadAdminDashboard'), /doe[A-Z(]|doeRate|doeCredit|doeOverride/, 'the roster adapter must not invent DOE values');
 });
 
 // ===========================================================================

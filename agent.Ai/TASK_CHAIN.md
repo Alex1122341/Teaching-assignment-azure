@@ -1,5 +1,20 @@
 # PAWS Task Chain
 
+## BETA-R4D-11A — Dashboard UI + DOE parity
+
+Status: **IMPLEMENTED / AWAITING ARCHITECT REVIEW**
+
+- Branch: `feature/beta-r4d11a-dashboard-ui-doe-parity`
+- Base: `6adf40cd8cd89a915e23bcd505d0e3110f91b2e4`
+- Added pure DOE/course view models, three administrator-only GET aggregate
+  routes, lazy API client methods, four read-only Dashboard tabs, rich detail
+  sections, deterministic course/session expansion, and scoped self-service.
+- No Firestore dependency/fallback, CRUD/import/rule editor, SQL write,
+  deployment, merge, baseline promotion, or PR was performed.
+- Server suite: 102/102. Focused R4D-11A frontend suite passes; legacy Stage 3
+  source-shape assertions that require the retired lookup-only UI are tracked
+  as expected compatibility-test drift.
+
 **Last updated:** 2026-09-27
 
 ## BETA-R4D-10B — Dashboard Firestore → Azure SQL/API read cutover

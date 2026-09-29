@@ -551,6 +551,7 @@ function createSqlDashboardRepository(db) {
           expirationDate: toText(row.expirationDate),
           doeMappedValue: toNumber(row.doeMappedValue),
           doeOverrideValue: toNumber(row.doeOverrideValue),
+          effectiveDoe: toNumber(row.doeOverrideValue) !== null ? toNumber(row.doeOverrideValue) : toNumber(row.doeMappedValue),
           doeOverrideReason: toText(row.doeOverrideReason),
           specialNotes: toText(row.specialNotes)
         })),
@@ -564,6 +565,207 @@ function createSqlDashboardRepository(db) {
         teachingAssignments,
         sessionCount: teachingAssignments.length,
         checkNeededCount: checkNeeded
+      };
+    },
+
+    // ------------------------------------------------------- teaching summary
+    // One server-side aggregation for the admin Teaching Summary tab. This
+    // deliberately uses separate CTEs for assignments and roles so a faculty
+    // member's DOE lines are never multiplied by a cross-join.
+    async teachingSummary({ academicYear: year } = {}) {
+      const resolvedYear = resolveAcademicYear(year);
+      const rows = await db.query(
+        `WITH teaching AS (
+           SELECT sa.FacultyId,
+                  SUM(sa.DoeCredit) AS assignedTeachingDoe,
+                  COUNT(sa.SessionAssignmentId) AS teachingLineCount,
+                  SUM(CASE WHEN sa.DoeCredit IS NOT NULL THEN 1 ELSE 0 END) AS teachingRecordedCount,
+                  SUM(CASE WHEN sa.DoeCredit IS NULL THEN 1 ELSE 0 END) AS teachingMissingCount,
+                  SUM(CASE WHEN TRY_CONVERT(int, c.CurriculumYear) = 1 OR CONVERT(varchar(20), c.CurriculumYear) = 'Year 1' THEN 1 ELSE 0 END) AS year1Assignments,
+                  SUM(CASE WHEN TRY_CONVERT(int, c.CurriculumYear) = 2 OR CONVERT(varchar(20), c.CurriculumYear) = 'Year 2' THEN 1 ELSE 0 END) AS year2Assignments,
+                  SUM(CASE WHEN TRY_CONVERT(int, c.CurriculumYear) = 3 OR CONVERT(varchar(20), c.CurriculumYear) = 'Year 3' THEN 1 ELSE 0 END) AS year3Assignments,
+                  SUM(CASE WHEN TRY_CONVERT(int, c.CurriculumYear) = 4 OR CONVERT(varchar(20), c.CurriculumYear) = 'Year 4' THEN 1 ELSE 0 END) AS year4Assignments,
+                  SUM(CASE WHEN sa.CreditedHours IS NOT NULL THEN sa.CreditedHours ELSE 0 END) AS creditedHours,
+                  COUNT(DISTINCT c.CourseCode) AS courseCount,
+                  COUNT(DISTINCT c.SessionId) AS sessionCount
+             FROM paws.SessionAssignment sa
+             INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId
+            WHERE c.AcademicYear = @academicYear
+            GROUP BY sa.FacultyId
+         ), roles AS (
+           SELECT r.FacultyId,
+                  SUM(COALESCE(r.DoeOverrideValue, r.DoeMappedValue)) AS roleDoe,
+                  COUNT(r.RoleAssignmentId) AS roleLineCount,
+                  SUM(CASE WHEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL THEN 1 ELSE 0 END) AS roleRecordedCount,
+                  SUM(CASE WHEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NULL THEN 1 ELSE 0 END) AS roleMissingCount
+             FROM paws.RoleAssignment r
+            WHERE r.AcademicYear = @academicYear
+            GROUP BY r.FacultyId
+         )
+         SELECT f.FacultyId AS facultyId,
+                f.DisplayName AS displayName,
+                CASE WHEN COALESCE(t.teachingLineCount, 0) = 0 THEN 0 ELSE t.assignedTeachingDoe END AS assignedTeachingDoe,
+                CASE WHEN COALESCE(r.roleLineCount, 0) = 0 THEN 0 ELSE r.roleDoe END AS roleDoe,
+                CASE
+                  WHEN COALESCE(t.teachingLineCount, 0) + COALESCE(r.roleLineCount, 0) = 0 THEN 0
+                  WHEN COALESCE(t.teachingRecordedCount, 0) + COALESCE(r.roleRecordedCount, 0) = 0 THEN NULL
+                  ELSE COALESCE(t.assignedTeachingDoe, 0) + COALESCE(r.roleDoe, 0)
+                END AS recordedDoeTotal,
+                COALESCE(t.teachingLineCount, 0) AS teachingLineCount,
+                COALESCE(t.teachingRecordedCount, 0) AS teachingRecordedCount,
+                COALESCE(t.teachingMissingCount, 0) AS teachingMissingCount,
+                COALESCE(r.roleLineCount, 0) AS roleLineCount,
+                COALESCE(r.roleRecordedCount, 0) AS roleRecordedCount,
+                COALESCE(r.roleMissingCount, 0) AS roleMissingCount,
+                CASE WHEN COALESCE(t.teachingMissingCount, 0) + COALESCE(r.roleMissingCount, 0) = 0 THEN 1 ELSE 0 END AS doeComplete,
+                COALESCE(t.year1Assignments, 0) AS year1Assignments,
+                COALESCE(t.year2Assignments, 0) AS year2Assignments,
+                COALESCE(t.year3Assignments, 0) AS year3Assignments,
+                COALESCE(t.year4Assignments, 0) AS year4Assignments,
+                COALESCE(t.creditedHours, 0) AS creditedHours,
+                COALESCE(t.courseCount, 0) AS courseCount,
+                COALESCE(t.sessionCount, 0) AS sessionCount
+           FROM paws.Faculty f
+           LEFT JOIN teaching t ON t.FacultyId = f.FacultyId
+           LEFT JOIN roles r ON r.FacultyId = f.FacultyId
+          WHERE f.Active = 1
+          ORDER BY f.DisplayName, f.FacultyId`,
+        { academicYear: resolvedYear }
+      );
+      return rows.map(row => ({
+        facultyId: row.facultyId,
+        displayName: toText(row.displayName),
+        assignedTeachingDoe: toNumber(row.assignedTeachingDoe),
+        roleDoe: toNumber(row.roleDoe),
+        recordedDoeTotal: toNumber(row.recordedDoeTotal),
+        teachingLineCount: toInt(row.teachingLineCount),
+        teachingRecordedCount: toInt(row.teachingRecordedCount),
+        teachingMissingCount: toInt(row.teachingMissingCount),
+        roleLineCount: toInt(row.roleLineCount),
+        roleRecordedCount: toInt(row.roleRecordedCount),
+        roleMissingCount: toInt(row.roleMissingCount),
+        doeComplete: toBool(row.doeComplete),
+        year1Assignments: toInt(row.year1Assignments),
+        year2Assignments: toInt(row.year2Assignments),
+        year3Assignments: toInt(row.year3Assignments),
+        year4Assignments: toInt(row.year4Assignments),
+        creditedHours: toNumber(row.creditedHours),
+        courseCount: toInt(row.courseCount),
+        sessionCount: toInt(row.sessionCount)
+      }));
+    },
+
+    // --------------------------------------------------------------- roles
+    // Read-only role aggregate for the administrator Roles & Appointments tab.
+    async roles({ academicYear: year } = {}) {
+      const resolvedYear = resolveAcademicYear(year);
+      const rows = await db.query(
+        `SELECT f.FacultyId AS facultyId,
+                f.DisplayName AS displayName,
+                r.RoleAssignmentId AS roleAssignmentId,
+                r.FacultyResolutionStatus AS facultyResolutionStatus,
+                r.AcademicYear AS academicYear,
+                r.RoleCategory AS roleCategory,
+                r.RoleType AS roleType,
+                r.CourseOrSubjectOrRotation AS courseOrSubjectOrRotation,
+                r.CourseName AS courseName,
+                r.Details AS details,
+                CONVERT(varchar(10), r.EffectiveDate, 23) AS effectiveDate,
+                CONVERT(varchar(10), r.ExpirationDate, 23) AS expirationDate,
+                r.DoeMappedValue AS doeMappedValue,
+                r.DoeOverrideValue AS doeOverrideValue,
+                r.DoeOverrideReason AS doeOverrideReason,
+                r.SpecialNotes AS specialNotes
+           FROM paws.RoleAssignment r
+           INNER JOIN paws.Faculty f ON f.FacultyId = r.FacultyId
+          WHERE r.AcademicYear = @academicYear
+            AND f.Active = 1
+          ORDER BY f.DisplayName, r.RoleType, r.RoleAssignmentId`,
+        { academicYear: resolvedYear }
+      );
+      return rows.map(row => ({
+        facultyId: row.facultyId,
+        displayName: toText(row.displayName),
+        roleAssignmentId: row.roleAssignmentId,
+        facultyResolutionStatus: toText(row.facultyResolutionStatus),
+        academicYear: toText(row.academicYear),
+        roleCategory: toText(row.roleCategory),
+        roleType: toText(row.roleType),
+        courseOrSubjectOrRotation: toText(row.courseOrSubjectOrRotation),
+        courseName: toText(row.courseName),
+        details: toText(row.details),
+        effectiveDate: toText(row.effectiveDate),
+        expirationDate: toText(row.expirationDate),
+        doeMappedValue: toNumber(row.doeMappedValue),
+        doeOverrideValue: toNumber(row.doeOverrideValue),
+        effectiveDoe: toNumber(row.doeOverrideValue) !== null ? toNumber(row.doeOverrideValue) : toNumber(row.doeMappedValue),
+        doeOverrideReason: toText(row.doeOverrideReason),
+        specialNotes: toText(row.specialNotes)
+      }));
+    },
+
+    // ---------------------------------------------------------- DOE overview
+    async doeOverview({ academicYear: year } = {}) {
+      const resolvedYear = resolveAcademicYear(year);
+      const rows = await db.query(
+        `WITH teaching AS (
+           SELECT sa.DoeCredit
+             FROM paws.SessionAssignment sa
+             INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId
+            WHERE c.AcademicYear = @academicYear
+         ), roles AS (
+           SELECT r.DoeMappedValue, r.DoeOverrideValue
+             FROM paws.RoleAssignment r
+            WHERE r.AcademicYear = @academicYear
+         )
+         SELECT
+           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear) AS teachingLineCount,
+           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND sa.DoeCredit IS NULL) AS teachingMissingCount,
+           (SELECT SUM(sa.DoeCredit) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear) AS teachingDoe,
+           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND sa.DoeCredit IS NOT NULL) AS teachingRecordedCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear) AS roleLineCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeMappedValue IS NULL AND r.DoeOverrideValue IS NULL) AS roleMissingCount,
+           (SELECT SUM(COALESCE(r.DoeOverrideValue, r.DoeMappedValue)) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear) AS roleDoe,
+           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL) AS roleRecordedCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue IS NOT NULL) AS overrideCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue = 0) AS overrideZeroCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue < 0) AS overrideNegativeCount`,
+        { academicYear: resolvedYear }
+      );
+      const row = rows[0] || {};
+      const teachingMissingCount = toInt(row.teachingMissingCount);
+      const roleMissingCount = toInt(row.roleMissingCount);
+      const teachingLineCount = toInt(row.teachingLineCount);
+      const roleLineCount = toInt(row.roleLineCount);
+      const teachingRecordedCount = toInt(row.teachingRecordedCount);
+      const roleRecordedCount = toInt(row.roleRecordedCount);
+      const teachingDoe = teachingLineCount === 0 ? 0 : toNumber(row.teachingDoe);
+      const roleDoe = roleLineCount === 0 ? 0 : toNumber(row.roleDoe);
+      const recordedDoeTotal = teachingLineCount + roleLineCount === 0
+        ? 0
+        : teachingRecordedCount + roleRecordedCount === 0
+          ? null
+          : (teachingDoe || 0) + (roleDoe || 0);
+      return {
+        academicYear: resolvedYear,
+        teachingLineCount,
+        teachingRecordedCount,
+        teachingMissingCount,
+        teachingDoe,
+        roleLineCount,
+        roleRecordedCount,
+        roleMissingCount,
+        roleDoe,
+        recordedDoeTotal,
+        doeStatus: teachingLineCount + roleLineCount === 0
+          ? 'none'
+          : teachingRecordedCount + roleRecordedCount === 0
+            ? 'missing'
+            : teachingMissingCount + roleMissingCount > 0 ? 'partial' : 'complete',
+        overrideCount: toInt(row.overrideCount),
+        overrideZeroCount: toInt(row.overrideZeroCount),
+        overrideNegativeCount: toInt(row.overrideNegativeCount),
+        partial: teachingMissingCount > 0 || roleMissingCount > 0
       };
     },
 

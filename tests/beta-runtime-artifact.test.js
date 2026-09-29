@@ -8,11 +8,7 @@ test('combined release artifact is deterministic and contains app plus managed A
  execFileSync(process.execPath,['tools/build-beta-release.js'],{cwd:root,stdio:'pipe'});assert.equal(digest(),first);
  for(const f of ['app/index.html','app/staticwebapp.config.json','api/host.json','api/package.json','api/package-lock.json','api/index.js','api/server/src/runtime/swa-sql-runtime.js'])assert.ok(fs.existsSync(path.join(out,f)),f);
  const pkg=JSON.parse(fs.readFileSync(path.join(out,'api/package.json'))),lock=JSON.parse(fs.readFileSync(path.join(out,'api/package-lock.json')));assert.deepEqual(lock.packages[''].dependencies,pkg.dependencies);for(const [name,version] of Object.entries(pkg.dependencies))assert.equal(lock.packages[`node_modules/${name}`].version,version,name);
- const entry=fs.readFileSync(path.join(out,'api/index.js'),'utf8');for(const route of ['health/sql','v1/me','v1/sessions'])assert.ok(entry.includes(route),route);
- // BETA-R4D-10A: the Dashboard read routes ship in the same artifact. They are
- // bound to every common method so the wrapper — not the Functions host — owns
- // the 405 verdict; the timetable routes stay GET-bound.
- for(const route of ['v1/dashboard/summary','v1/dashboard/faculty','v1/dashboard/faculty/{facultyId}'])assert.ok(entry.includes(route),route);
+ const entry=fs.readFileSync(path.join(out,'api/index.js'),'utf8');for(const route of ['health/sql','v1/me','v1/sessions','v1/dashboard/summary','v1/dashboard/faculty','v1/dashboard/faculty/{facultyId}','v1/dashboard/teaching-summary','v1/dashboard/roles','v1/dashboard/doe-overview'])assert.ok(entry.includes(route),route);
  assert.match(entry,/DASHBOARD_METHODS\s*=\s*\[[^\]]*'POST'/);
  assert.match(entry,/paws-health-sql'[^}]*methods:\['GET'\]/);
  assert.ok(fs.existsSync(path.join(out,'api/server/src/data/sql-dashboard-repository.js')));

@@ -14,7 +14,11 @@ test('Faculty Admin is an API-only reader with no Firestore surface',()=>{
 
 test('the Dashboard no longer loads full Firestore datasets',()=>{
  const source=read('faculty-admin.js');
- for(const pattern of ['ensureFullFaculty','ensureFullSessions','ensureAdminDataset','reloadAdminDataset','setTab','renderSummary','renderRoles','renderDatabase'])assert.equal(source.includes(pattern),false,pattern);
+  for(const pattern of ['ensureFullFaculty','ensureFullSessions','ensureAdminDataset','reloadAdminDataset','setTab','renderSummary','renderDatabase'])assert.equal(source.includes(pattern),false,pattern);
+  assert.match(source,/function renderRoles\(/);
+  assert.match(source,/dashboardTeachingSummary\(\)/);
+  assert.match(source,/dashboardRoles\(\)/);
+  assert.match(source,/dashboardDoeOverview\(\)/);
 });
 
 test('approval workflow fetches only sessions referenced by requests',()=>{

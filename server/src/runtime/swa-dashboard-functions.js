@@ -57,6 +57,21 @@ function createDashboardFunctions({ api }) {
         return { status: response.status, jsonBody: response.body };
       }
 
+      if (pathname === '/api/v1/dashboard/teaching-summary') {
+        const response = await api.teachingSummary(token, { academicYear });
+        return { status: response.status, jsonBody: response.body };
+      }
+
+      if (pathname === '/api/v1/dashboard/roles') {
+        const response = await api.roles(token, { academicYear });
+        return { status: response.status, jsonBody: response.body };
+      }
+
+      if (pathname === '/api/v1/dashboard/doe-overview') {
+        const response = await api.doeOverview(token, { academicYear });
+        return { status: response.status, jsonBody: response.body };
+      }
+
       const match = /^\/api\/v1\/dashboard\/faculty\/([^/]+)$/.exec(pathname);
       if (match) {
         let facultyId;

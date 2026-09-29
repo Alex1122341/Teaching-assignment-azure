@@ -316,7 +316,7 @@ test('N2: the 405 verdict is produced by the wrapper, not by the Functions host'
   assert.equal(binding('paws-health-sql'), "['GET']");
   assert.equal(binding('paws-current-user'), "['GET']");
   assert.equal(binding('paws-sessions'), "['GET']");
-  for (const name of ['paws-dashboard-summary', 'paws-dashboard-faculty', 'paws-dashboard-faculty-id']) {
+  for (const name of ['paws-dashboard-summary', 'paws-dashboard-faculty', 'paws-dashboard-faculty-id', 'paws-dashboard-teaching-summary', 'paws-dashboard-roles', 'paws-dashboard-doe-overview']) {
     assert.equal(binding(name), 'DASHBOARD_METHODS', name);
   }
   const methods = /DASHBOARD_METHODS\s*=\s*\[([^\]]+)\]/.exec(entry)[1];
@@ -366,11 +366,11 @@ test('O: the Dashboard repository is read-only and never touches staging or Fire
   // common method, so the 405 verdict is produced by the dashboard wrapper
   // rather than by the Functions host's route matcher (which would answer 404).
   const entry = fs.readFileSync(path.join(root, 'swa-api/index.js'), 'utf8');
-  for (const route of ['v1/dashboard/summary', 'v1/dashboard/faculty', 'v1/dashboard/faculty/{facultyId}']) {
+  for (const route of ['v1/dashboard/summary', 'v1/dashboard/faculty', 'v1/dashboard/faculty/{facultyId}', 'v1/dashboard/teaching-summary', 'v1/dashboard/roles', 'v1/dashboard/doe-overview']) {
     assert.ok(entry.includes(route), route);
   }
   assert.match(entry, /DASHBOARD_METHODS\s*=\s*\[[^\]]*'GET'[^\]]*'POST'[^\]]*\]/);
-  for (const name of ['paws-dashboard-summary', 'paws-dashboard-faculty', 'paws-dashboard-faculty-id']) {
+  for (const name of ['paws-dashboard-summary', 'paws-dashboard-faculty', 'paws-dashboard-faculty-id', 'paws-dashboard-teaching-summary', 'paws-dashboard-roles', 'paws-dashboard-doe-overview']) {
     assert.match(entry, new RegExp(name + "'[^}]*methods:DASHBOARD_METHODS"), name);
   }
   // The timetable routes stay GET-bound: their reviewed contract is unchanged.

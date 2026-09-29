@@ -1,6 +1,6 @@
 # PAWS Current Project State
 
-## BETA-R4D-11G2 — ACR guard clean integration prepared locally / PR blocked
+## BETA-R4D-11G3 — ACR guard PR continuity synchronized / awaiting merge gate
 
 **Last verified:** 2026-09-29
 
@@ -8,9 +8,12 @@
 - The G2 implementation commit `378dd79...` was based on historical `a4550c...`; it was cherry-picked onto the new clean branch `fix/beta-r4d11g2-acr-tag-guard` as local commit `295cc8c...`.
 - Scope is limited to the ACR guard, behavior-level regression coverage, and continuity documentation. Product/runtime drift is not introduced.
 - R4D-11G1 remains `BLOCKED / SAFE FAILURE / NO IMAGE PUSH / NO LIVE MUTATION`; live Beta remains R4D-10G.
-- No PR, merge, deployment, ACR/ACA/SWA action, SQL mutation, or Firebase mutation occurred. The user-provided project boundary currently blocks remote publication and PR creation.
+- PR #32 exists from `fix/beta-r4d11g2-acr-tag-guard` to `main`; the accepted implementation head before the continuity sync was `16aac238426fafcc59c72719ba3fa6bae35c5171`.
+- PR #32 CI passed: Azure Beta Build #132, run ID `36572092893`; synthetic PR merge SHA `b6929c5dfdd3bc21e522beb18a033e71cbb2a8d7`.
+- Protected static runtime verification is 46 paths / zero drift; protected API runtime verification is 16 runtime files plus `deploy/aca/Dockerfile` / zero drift.
+- No merge, deployment, ACR/ACA/SWA action, SQL mutation, or Firebase mutation occurred. No release workflow has started.
 
-The next safe action is clean-branch verification and Architect reporting. If remote publication later becomes explicitly authorized, push only this branch, open a PR to `main`, verify CI against the exact PR head, and stop before merge. After merge, start a new exact-main Build; do not reuse Build #131 or artifact `11013550164` for the post-G2 release.
+The current breakpoint is PR #32 accepted through implementation/CI review and awaiting the final merge gate. Do not merge from this checkpoint; after an authorized future merge, start a new exact-main Build and do not reuse Build #131 or artifact `11013550164` for the post-G2 release.
 
 ## BETA-R4D-11A — Dashboard UI parity + DOE evidence (IMPLEMENTED / AWAITING ARCHITECT REVIEW)
 

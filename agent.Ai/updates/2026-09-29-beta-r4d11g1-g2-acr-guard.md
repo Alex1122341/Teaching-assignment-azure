@@ -3,7 +3,7 @@
 **Date:** 2026-09-29  
 **Agent/model:** GPT-5.6 Sol  
 **Repository:** Alex1122341/Teaching-assignment-azure  
-**Task status:** PARTIAL / BLOCKED AT REMOTE PR
+**Task status:** CONTINUITY SYNCED / PR #32 OPEN / CI PASSED / AWAITING MERGE GATE
 
 ## 1. Goal
 
@@ -15,7 +15,7 @@ Carry the narrow R4D-11G2 ACR exact-SHA absent-tag guard fix onto a clean branch
 - base SHA: `22194b098ddde312c16af5af01633387374cdd72`
 - working branch: `fix/beta-r4d11g2-acr-tag-guard`
 - starting SHA: `22194b098ddde312c16af5af01633387374cdd72`
-- PR: none; user project boundary prohibits PR creation
+- PR: #32, open against `main`; the original accepted PR head before continuity sync was `16aac238426fafcc59c72719ba3fa6bae35c5171`
 - relevant prior update: `2026-09-28-beta-r4d11a-dashboard-ui-doe-parity.md`
 - live environment assumptions: R4D-11G1 failed before Docker build/push; live Beta remained R4D-10G
 
@@ -46,7 +46,7 @@ Only the release-workflow guard state machine changed. No SQL, identity, authori
 
 ## 7. Tests / CI evidence
 
-Clean-branch re-verification passed: targeted governance tests 10/10; full `npm test` 529 total / 500 pass / 0 fail / 29 skipped; `node --check tools/beta-acr-tag-guard.js`; `node tools/beta-freeze.js` reports `ok=true`, 46 protected paths and zero static drift; `node tools/beta-api-freeze.js` reports `ok=true`, 16 runtime files plus `deploy/aca/Dockerfile` and zero API drift; `git diff --check` passed. No CI run exists because the branch was not pushed under the current owner boundary.
+Clean-branch re-verification passed: targeted governance tests 10/10; full `npm test` 529 total / 500 pass / 0 fail / 29 skipped; `node --check tools/beta-acr-tag-guard.js`; `node tools/beta-freeze.js` reports `ok=true`, 46 protected paths and zero static drift; `node tools/beta-api-freeze.js` reports `ok=true`, 16 runtime files plus `deploy/aca/Dockerfile` and zero API drift; `git diff --check` passed. CI passed as Azure Beta Build #132, run ID `36572092893`; synthetic PR merge SHA `b6929c5dfdd3bc21e522beb18a033e71cbb2a8d7`.
 
 ## 8. Live operations
 
@@ -56,28 +56,26 @@ None.
 
 ### Explicitly NOT performed
 
-No Azure, SQL, Firebase, ACR, ACA, or SWA mutation; no image build/push; no deployment; no merge; no PR; no rerun of ACR Publish #8; no SQL reset or loader.
+No Azure, SQL, Firebase, ACR, ACA, or SWA mutation; no image build/push; no deployment; no merge; no rerun of ACR Publish #8; no SQL reset or loader.
 
 ## 9. Current state after task
 
 - final branch: `fix/beta-r4d11g2-acr-tag-guard`
-- final SHA: final clean-branch tip is reported with the completed verification record
-- PR: none
+- original accepted PR head before continuity sync: `16aac238426fafcc59c72719ba3fa6bae35c5171`
+- PR: #32 exists and remains open against `main`
+- CI: Azure Beta Build #132 / run ID `36572092893` passed
+- synthetic PR merge SHA: `b6929c5dfdd3bc21e522beb18a033e71cbb2a8d7`
 - merge/deploy state: unmerged and undeployed
 - live state: R4D-11G1 remained safe failure; live Beta remained R4D-10G
 
-## 10. Blockers / unresolved questions
+## 10. Exact current breakpoint
 
-The user-provided project scope explicitly prohibits PR/merge/main mutation and does not authorize remote branch publication. Therefore the Architect #3 request to push and open a PR cannot be completed without a new explicit owner-scope change. CI evidence is consequently unavailable.
+PR #32 EXISTS. CI PASSED. MERGE HAS NOT OCCURRED. RELEASE HAS NOT STARTED. The G2 implementation and its release-governance scope are accepted through implementation/CI review; the next release-safe gate is the Architect merge gate. After a new merged main SHA, a new exact-main Build must precede any ACR/ACA/SWA release chain.
 
-## 11. Exact current breakpoint
+## 11. Next safe action
 
-The G2 implementation is cleanly based on current main and locally documented, but remains local-only. The next release-safe gate is owner-authorized remote publication and PR review; after a new merged main SHA, a new exact-main Build must precede any ACR/ACA/SWA release chain.
+Await the Architect merge gate. Do not merge PR #32 or start the release chain from this checkpoint.
 
-## 12. Next safe action
-
-Re-run the required clean-branch tests and freeze checks, report the local evidence to Architect #3, then wait for an explicit owner-scope change before any push or PR action.
-
-## 13. DO NOT REDO
+## 12. DO NOT REDO
 
 Do not reuse the historical R4D-11C branch, rerun ACR Publish #8, manually push an image, deploy ACA/SWA, mutate SQL/Firebase, reset/load SQL, or treat old Build #131 as the post-G2 release artifact.

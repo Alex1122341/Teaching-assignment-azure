@@ -1,5 +1,17 @@
 # PAWS Task Chain
 
+## BETA-R4D-11G2 — ACR guard clean integration prepared locally / PR blocked
+
+Status: **LOCAL IMPLEMENTATION VERIFIED PENDING CLEAN-BRANCH TESTS / REMOTE PR NOT AUTHORIZED**
+
+- Base: `origin/main` at `22194b098ddde312c16af5af01633387374cdd72`.
+- Clean branch: `fix/beta-r4d11g2-acr-tag-guard`.
+- Local implementation `378dd79...` was cherry-picked as `295cc8c...`; the historical R4D-11C branch was not reused.
+- Scope: ACR exact-SHA absent-tag classification, behavior-level tests, and continuity documentation only.
+- No product runtime, Azure, SQL, Firebase, ACR, ACA, SWA, merge, or deployment mutation occurred.
+- The user-provided project scope blocks push/PR creation; CI evidence is unavailable until that scope changes.
+- Next safe action: run clean-branch verification, report to Architect #3, and wait. After any future merge, use a new exact-main Build before release.
+
 ## BETA-R4D-11A — Dashboard UI + DOE parity
 
 Status: **IMPLEMENTED / AWAITING ARCHITECT REVIEW**

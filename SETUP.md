@@ -96,11 +96,11 @@ The Azure beta URL is publicly reachable and is not a security boundary. Firebas
 
 ### Frozen runtime contract
 
-Azure beta is frozen at commit `2b10aca5b9ab26ffecdffb685bddd33ae4de70f5`. That immutable commit (Runtime Commit I) is the content trust anchor for every shipped file.
+Azure beta is frozen at commit `8b1388f5afe210c761d6dbc3b4240536758f7342`. That immutable commit is the dual-runtime content trust anchor for every shipped file.
 
-This baseline is the **BETA-R4D-9B ACA-direct SQL-backed read runtime candidate**. It is the reviewed frozen runtime but it is **NOT YET DEPLOYED**: the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
+This baseline is the **BETA-R4D-11A2 Dashboard DOE presentation runtime candidate** shared by static and API runtimes. It is the reviewed frozen runtime but it is **NOT YET DEPLOYED**: the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
 
-1. The authoritative list of shipped application files is `tools/static-assets.json` (45 entries). All of them are protected, not a five-file subset.
+1. The authoritative list of shipped application files is `tools/static-assets.json` (46 entries: the previous 45-path set plus `dashboard-view-model.js`). All of them are protected, not a five-file subset.
 2. The protected set is the union of the paths named by the current manifest and by the manifest stored in the frozen baseline commit. Deleting a path from the mutable manifest does not remove it from the freeze.
 3. Protection is enforced by `tools/beta-freeze.js`, which compares each protected file with the blob stored in the frozen baseline commit using `git cat-file`. It never compares against a hash file in the working tree.
 4. `tools/beta-baseline.json` is documentation and live-site reporting only. Editing a runtime file and that JSON together still fails CI, because verification reads the baseline Git objects.

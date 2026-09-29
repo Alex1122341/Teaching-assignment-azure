@@ -1,10 +1,9 @@
 'use strict';
 // Strict frozen Beta runtime verification.
 //
-// BETA-R3A-3 (Commit B) promoted the frozen baseline to Runtime Commit A, so the
-// BETA-R1 candidate IS the frozen runtime. The old intentional-drift exception
-// model (index.html / paws-data-client.js / timetable.js) is REMOVED: there is no
-// whitelist and no Beta-R1 special case. ANY protected runtime drift fails.
+// BETA-R4D-11D promotes one immutable Git baseline for both static and API
+// runtimes. The old intentional-drift exception model is REMOVED: there is no
+// whitelist and any protected runtime drift fails.
 //
 // This wrapper delegates to tools/beta-freeze.js, which reads immutable Git
 // objects from the baseline commit, so a coordinated edit of a runtime file plus

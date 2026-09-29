@@ -1,13 +1,15 @@
 {
-  "sourceCommit": "25e8f483b7d2455c0f96b00c82f3fde30760ac17",
+  "sourceCommit": "8b1388f5afe210c761d6dbc3b4240536758f7342",
   "siteUrl": "https://red-cliff-04871ca0f.5.azurestaticapps.net",
   "sha256": {
     "index.html": "e28419c052c63a8d2ccb89d10d09ce5f5b06a3a125b45fc88e740f7f7be8ea18",
     "timetable.js": "7c58ac6c6cbe1f339d7fa64894feaef86c95814e5e87f4f5fb5fe9b69a5b77a9",
     "timetable.css": "edb890254b208559906da74479fd42b5a23f54e035bf21c6bbfd39e019f3250d",
-    "faculty-admin.html": "731cec76f3ad2950eeb97c73c5ec47676bb478c37807b12201add650b0ef6452",
-    "faculty-admin.js": "ec2c51fbfc3931da808d0fe8bcd2e5b9ba1a118991cc10c8e068e2846009bd38",
+    "faculty-admin.html": "5e9edb074f569e40b24a06613999d239f9df5bae5bff463f76577e39a9804be9",
+    "faculty-admin.js": "6f5c7bd31c6bc71579296e5f54cda9eaed5da59c443c641a5584d7b61a9531bb",
+    "faculty-admin.css": "20652166523c32a1c31a6f8a001c6899a4f9ee656659c1062cfd0a5eef99f0e9",
+    "dashboard-view-model.js": "124c26e724754dda49b68c2a9c1fb19918989b9b300e93e73a724f7db3e9c328",
     "faculty-access.js": "2e825d27ab6840d62b5e06da1c3d0e3bc3d55598f8294fff067080977c64f818",
-    "paws-data-client.js": "c075a2d344ca3f2163498e53ec61356e61caf5c8afae879f79075531e8730826"
+    "paws-data-client.js": "f88b86e9e279b438474d4095fe44c157c8572d2aff9446e67934bd86e208631b"
   }
 }

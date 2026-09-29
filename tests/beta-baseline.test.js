@@ -9,9 +9,9 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// BETA-R4D-10B (Stage 4): the frozen trust anchor is the accepted Stage 3 runtime baseline.
-const BASELINE_COMMIT='25e8f483b7d2455c0f96b00c82f3fde30760ac17';
-const PREVIOUS_BASELINE_COMMIT='2b10aca5b9ab26ffecdffb685bddd33ae4de70f5';
+// BETA-R4D-11D: static and API runtimes share the accepted Dashboard candidate baseline.
+const BASELINE_COMMIT='8b1388f5afe210c761d6dbc3b4240536758f7342';
+const PREVIOUS_BASELINE_COMMIT='25e8f483b7d2455c0f96b00c82f3fde30760ac17';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
@@ -19,13 +19,13 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the accepted Stage 3 runtime baseline',()=>{
+test('beta identity is pinned to the promoted dual-runtime baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
 });
 
-test('the accepted Stage 3 runtime baseline exists as a Git commit and is an ancestor of HEAD',()=>{
+test('the promoted dual-runtime baseline exists as a Git commit and is an ancestor of HEAD',()=>{
   assert.equal(freeze.baselineCommitExists(root,BASELINE_COMMIT),true);
   execFileSync('git',['merge-base','--is-ancestor',BASELINE_COMMIT,'HEAD'],{cwd:root});
 });
@@ -36,7 +36,12 @@ test('the promoted frozen runtime reports zero protected drift',()=>{
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,45);
+  assert.equal(result.protected,46);
+});
+
+test('the current static manifest has exactly 46 protected files',()=>{
+  assert.equal(manifest().length,46);
+  assert.equal(freeze.protectedPaths({root}).length,46);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -58,15 +63,15 @@ test('paws-data-client.js is a protected runtime asset',()=>{
   assert.deepEqual(result.drift,[]);
 });
 
-// D. Historical monotonicity (45 -> 45) --------------------------------------
+// D. Historical monotonicity (45 -> 46) --------------------------------------
 test('the new baseline manifest is a superset of the previous protected path set',()=>{
   const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
   const current=baselineJson(BASELINE_COMMIT);
   assert.equal(previous.length,45);
-  assert.equal(current.length,45);
+  assert.equal(current.length,46);
   const missing=previous.filter(name=>!current.includes(name));
   assert.deepEqual(missing,[]);
-  assert.deepEqual(current.filter(name=>!previous.includes(name)),[]);
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),['dashboard-view-model.js']);
 });
 
 test('every previous protected path is still protected under the promoted baseline',()=>{
@@ -83,7 +88,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-data-client.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,45);
+  assert.equal(protectedFiles.length,46);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -113,4 +118,22 @@ test('beta-baseline.json remains non-authoritative and records the promoted base
   // Verification never reads this file: a drift verdict comes from Git objects only.
   const result=freeze.verifyFreeze({root,files:['timetable.js'],readWorking:()=>Buffer.from('tampered\n')});
   assert.equal(result.ok,false);
+});
+
+// G. Dual-runtime baseline ---------------------------------------------------
+test('API freeze shares the promoted static baseline and has zero runtime drift',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
+  assert.equal(apiFreeze.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
+  const result=apiFreeze.verifyFreeze({root});
+  assert.deepEqual(result.drift,[]);
+  assert.equal(result.ok,true);
+  assert.equal(result.runtimeFiles.length,16);
+  assert.ok(result.buildDefinitionFiles.includes('deploy/aca/Dockerfile'));
+});
+
+test('API freeze imports the single static baseline constant',()=>{
+  const apiFreezeSource=fs.readFileSync(path.join(root,'tools/beta-api-freeze.js'),'utf8');
+  assert.doesNotMatch(apiFreezeSource,/const\s+BASELINE_COMMIT\s*=/);
+  assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
 });

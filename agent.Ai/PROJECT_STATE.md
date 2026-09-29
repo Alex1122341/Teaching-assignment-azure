@@ -1,5 +1,35 @@
 # PAWS Current Project State
 
+## BETA-R4D-12A1 — FOUNDATION ACCEPTED / NOT LIVE / MIGRATION NOT APPLIED
+
+**Last verified:** 2026-09-29
+**Accepted branch:** `feature/beta-r4d12a1-ta-authority-foundation`
+**Accepted branch HEAD:** `bae3d11784575b4b4dc5f17c9789c023e54de5bf`
+**Live deployed release remains:** `dcf0607c027a08e5341710a449091fca4c7aa106`
+**Current accepted runtime remains:** R4D-11.
+
+R4D-12A1 is a dormant, SELECT-only Teaching Assignment authority foundation.
+Merging dormant foundation code does not deploy it. Migration
+`005_teaching_assignment_authority_foundation.sql` remains a proposal and has
+not been applied. No Subject, responsibility, group, package, or
+session-ownership production rows exist from this task unless separately
+authorized later.
+
+The immediate next bounded unit is **BETA-R4D-12A2 — CONTROLLED TEACHING
+ASSIGNMENT SEED / SOURCE RECONCILIATION AUDIT**. A2 is read-only first and
+must produce deterministic reviewed seed evidence for canonical Subjects,
+stable HICC/VISC responsibilities, exact HICC Course/Subject scopes,
+temporal assignees, groups, memberships, VISC leaders, packages, and working
+session ownership. No fuzzy or guessed seeding and no live seed/apply occur
+without a later Architect gate. A2 is not Work Queue UI implementation.
+
+Queued follow-up units, not implemented here:
+
+- SQL-backed read-only Work Queue after approved foundation and controlled seed data.
+- Owner-directed Dashboard/UI repair without restarting visual design.
+- AFC line-by-line records and separately controlled Dashboard write design.
+- DOE semantic/source repair, including source reconciliation and removal of meaningless cross-faculty percentage totals.
+
 ## 0. Current live state — BETA-R4D-11 CLOSED
 
 **BETA-R4D-11: LIVE DEPLOYED / AUTHENTICATED ACCEPTANCE PASSED / RELEASE CLOSED**

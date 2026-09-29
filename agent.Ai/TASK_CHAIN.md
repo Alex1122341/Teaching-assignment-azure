@@ -1,5 +1,31 @@
 # PAWS Task Chain
 
+## BETA-R4D-12A1 — FOUNDATION ACCEPTED / NOT LIVE / MIGRATION NOT APPLIED
+
+Status: **FOUNDATION ACCEPTED / AWAITING INTEGRATION GATE**
+
+- Accepted branch: `feature/beta-r4d12a1-ta-authority-foundation`.
+- Accepted implementation HEAD: `bae3d11784575b4b4dc5f17c9789c023e54de5bf`.
+- Live deployed release remains `dcf0607c027a08e5341710a449091fca4c7aa106`; current accepted runtime remains R4D-11.
+- This is dormant foundation code. Merging it does not deploy it.
+- Migration `005_teaching_assignment_authority_foundation.sql` is proposal-only and NOT applied; no seed data, API mount, Work Queue UI, DOE change, or live SQL/Firebase/Firestore/Azure mutation exists.
+- Evidence at acceptance: focused 22/22, server 125/125, Beta 500 passed / 29 skipped / 0 failed, static freeze protected 46 with zero drift, API freeze zero protected runtime drift.
+
+### Immediate next bounded unit — BETA-R4D-12A2
+
+**CONTROLLED TEACHING ASSIGNMENT SEED / SOURCE RECONCILIATION AUDIT**
+
+Read-only first. Produce deterministic reviewed seed evidence for canonical
+Subjects, stable HICC/VISC responsibilities, exact HICC Course/Subject scopes,
+temporal Faculty assignee windows, Teaching Assignment Groups, explicit HICC
+memberships, VISC group leaders, AY + Group + HICC packages, and working-session
+ownership. No fuzzy or guessed seeding and no live seed/apply before a later
+Architect gate. A2 is not Work Queue UI implementation.
+
+Queued after the bounded A2 audit: SQL-backed read-only Work Queue; owner-directed
+Dashboard/UI repair; AFC line-by-line records plus a separate controlled write
+design; and DOE semantic/source repair. These queues are not implemented here.
+
 ## BETA-R4D-11 — FINAL RELEASE CLOSURE
 
 Status: **COMPLETE / LIVE ACCEPTED / CLOSED**

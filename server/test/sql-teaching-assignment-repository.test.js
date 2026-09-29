@@ -40,6 +40,32 @@ test('repository methods read only paws authority objects and never staging', as
   }
 });
 
+test('repository/schema contract uses the canonical authority column names', async () => {
+  const {repository, seen} = capture();
+  await repository.getResponsibilityScopes('hicc-surgery');
+  await repository.listPackagesForActor('faculty-1', '2026-27', '2026-09-08');
+  await repository.getWorkingSessionOwnership('session-1');
+  const migration = fs.readFileSync(path.join(__dirname, '../../database/azure-sql/005_teaching_assignment_authority_foundation.sql'), 'utf8');
+  const scopeSql = seen[0].sql;
+  assert.match(scopeSql, /trs\.HiccResponsibilityId/);
+  assert.match(scopeSql, /trs\.HiccResponsibilityKind/);
+  assert.doesNotMatch(scopeSql, /trs\.ResponsibilityId/);
+  assert.match(migration, /HiccResponsibilityId nvarchar\(64\)/);
+  assert.match(migration, /GroupId nvarchar\(64\)/);
+  assert.match(migration, /ReviewFingerprint varchar\(64\) NULL/);
+  assert.match(migration, /ViscApprovedFingerprint varchar\(64\) NULL/);
+  assert.match(migration, /FK_TeachingAssignmentPackage_GroupHicc/);
+  assert.match(migration, /FK_TeachingSessionOwnership_PackageTuple/);
+  assert.match(migration, /CK_TeachingAssignmentGroup_LeaderKind/);
+  assert.doesNotMatch(migration, /ResponsibilityKey|GroupKey/);
+  assert.match(seen[1].sql, /gh\.GroupId IS NOT NULL/);
+  assert.match(seen[1].sql, /tr\.Active = 1/);
+  assert.match(seen[1].sql, /g\.Active = 1/);
+  assert.match(seen[2].sql, /p\.AcademicYear = tso\.AcademicYear/);
+  assert.match(seen[2].sql, /p\.GroupId = tso\.TeachingAssignmentGroupId/);
+  assert.match(seen[2].sql, /p\.HiccResponsibilityId = tso\.ResponsibleHiccResponsibilityId/);
+});
+
 test('repository stays dormant and is not mounted into API runtime', () => {
   const repoSource = fs.readFileSync(path.join(__dirname, '../foundation/sql-teaching-assignment-repository.js'), 'utf8');
   assert.doesNotMatch(repoSource, /\b(INSERT|UPDATE|DELETE|MERGE|EXEC|CREATE|ALTER|DROP)\b/i);

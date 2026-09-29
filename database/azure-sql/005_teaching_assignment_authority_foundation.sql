@@ -21,15 +21,16 @@ END;
 IF OBJECT_ID(N'paws.TeachingResponsibility', N'U') IS NULL
 BEGIN
     CREATE TABLE paws.TeachingResponsibility (
-        ResponsibilityId uniqueidentifier NOT NULL CONSTRAINT PK_TeachingResponsibility PRIMARY KEY,
-        ResponsibilityKey nvarchar(64) NOT NULL,
+        ResponsibilityId nvarchar(64) NOT NULL CONSTRAINT PK_TeachingResponsibility PRIMARY KEY,
         Kind nvarchar(16) NOT NULL,
         Label nvarchar(120) NOT NULL,
         Active bit NOT NULL,
         CreatedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_TeachingResponsibility_CreatedAt DEFAULT SYSUTCDATETIME(),
         UpdatedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_TeachingResponsibility_UpdatedAt DEFAULT SYSUTCDATETIME(),
-        CONSTRAINT UQ_TeachingResponsibility_Key UNIQUE (ResponsibilityKey),
-        CONSTRAINT CK_TeachingResponsibility_Kind CHECK (Kind IN (N'hicc', N'visc'))
+        CONSTRAINT UQ_TeachingResponsibility_IdKind UNIQUE (ResponsibilityId, Kind),
+        CONSTRAINT CK_TeachingResponsibility_Id CHECK (ResponsibilityId = LOWER(LTRIM(RTRIM(ResponsibilityId))) AND ResponsibilityId LIKE '[a-z]%' AND ResponsibilityId NOT LIKE '%[^a-z0-9_-]%'),
+        CONSTRAINT CK_TeachingResponsibility_Kind CHECK (Kind IN (N'hicc', N'visc')),
+        CONSTRAINT CK_TeachingResponsibility_Label CHECK (LEN(LTRIM(RTRIM(Label))) > 0)
     );
 END;
 
@@ -37,12 +38,14 @@ IF OBJECT_ID(N'paws.TeachingResponsibilityScope', N'U') IS NULL
 BEGIN
     CREATE TABLE paws.TeachingResponsibilityScope (
         ResponsibilityScopeId uniqueidentifier NOT NULL CONSTRAINT PK_TeachingResponsibilityScope PRIMARY KEY,
-        HiccResponsibilityId uniqueidentifier NOT NULL,
+        HiccResponsibilityId nvarchar(64) NOT NULL,
+        HiccResponsibilityKind nvarchar(16) NOT NULL CONSTRAINT DF_TeachingResponsibilityScope_Kind DEFAULT N'hicc',
         CourseId uniqueidentifier NOT NULL,
         SubjectId uniqueidentifier NULL,
-        CONSTRAINT FK_TeachingResponsibilityScope_Responsibility FOREIGN KEY (HiccResponsibilityId) REFERENCES paws.TeachingResponsibility(ResponsibilityId),
+        CONSTRAINT FK_TeachingResponsibilityScope_Responsibility FOREIGN KEY (HiccResponsibilityId, HiccResponsibilityKind) REFERENCES paws.TeachingResponsibility(ResponsibilityId, Kind),
         CONSTRAINT FK_TeachingResponsibilityScope_Course FOREIGN KEY (CourseId) REFERENCES paws.Course(CourseId),
-        CONSTRAINT FK_TeachingResponsibilityScope_Subject FOREIGN KEY (SubjectId) REFERENCES paws.Subject(SubjectId)
+        CONSTRAINT FK_TeachingResponsibilityScope_Subject FOREIGN KEY (SubjectId) REFERENCES paws.Subject(SubjectId),
+        CONSTRAINT CK_TeachingResponsibilityScope_Kind CHECK (HiccResponsibilityKind = N'hicc')
     );
     CREATE UNIQUE INDEX UX_TeachingResponsibilityScope_Subject ON paws.TeachingResponsibilityScope(HiccResponsibilityId, CourseId, SubjectId) WHERE SubjectId IS NOT NULL;
     CREATE UNIQUE INDEX UX_TeachingResponsibilityScope_CourseWide ON paws.TeachingResponsibilityScope(HiccResponsibilityId, CourseId) WHERE SubjectId IS NULL;
@@ -52,7 +55,7 @@ IF OBJECT_ID(N'paws.TeachingResponsibilityAssignee', N'U') IS NULL
 BEGIN
     CREATE TABLE paws.TeachingResponsibilityAssignee (
         ResponsibilityAssigneeId uniqueidentifier NOT NULL CONSTRAINT PK_TeachingResponsibilityAssignee PRIMARY KEY,
-        ResponsibilityId uniqueidentifier NOT NULL,
+        ResponsibilityId nvarchar(64) NOT NULL,
         AcademicYear nvarchar(32) NOT NULL,
         FacultyId uniqueidentifier NOT NULL,
         ActiveDate date NOT NULL,
@@ -63,29 +66,35 @@ BEGIN
         CONSTRAINT CK_TeachingResponsibilityAssignee_Dates CHECK (ExpirationDate > ActiveDate)
     );
     CREATE INDEX IX_TeachingResponsibilityAssignee_ActorWindow ON paws.TeachingResponsibilityAssignee(FacultyId, AcademicYear, ActiveDate, ExpirationDate);
+    CREATE INDEX IX_TeachingResponsibilityAssignee_ResponsibilityWindow ON paws.TeachingResponsibilityAssignee(ResponsibilityId, AcademicYear, ActiveDate, ExpirationDate);
 END;
 
 IF OBJECT_ID(N'paws.TeachingAssignmentGroup', N'U') IS NULL
 BEGIN
     CREATE TABLE paws.TeachingAssignmentGroup (
-        GroupId uniqueidentifier NOT NULL CONSTRAINT PK_TeachingAssignmentGroup PRIMARY KEY,
-        GroupKey nvarchar(64) NOT NULL,
+        GroupId nvarchar(64) NOT NULL CONSTRAINT PK_TeachingAssignmentGroup PRIMARY KEY,
         Name nvarchar(120) NOT NULL,
-        LeaderViscResponsibilityId uniqueidentifier NOT NULL,
+        LeaderViscResponsibilityId nvarchar(64) NOT NULL,
+        LeaderViscResponsibilityKind nvarchar(16) NOT NULL CONSTRAINT DF_TeachingAssignmentGroup_LeaderKind DEFAULT N'visc',
         Active bit NOT NULL,
-        CONSTRAINT UQ_TeachingAssignmentGroup_Key UNIQUE (GroupKey),
-        CONSTRAINT FK_TeachingAssignmentGroup_Visc FOREIGN KEY (LeaderViscResponsibilityId) REFERENCES paws.TeachingResponsibility(ResponsibilityId)
+        CONSTRAINT UQ_TeachingAssignmentGroup_IdKind UNIQUE (GroupId, LeaderViscResponsibilityId),
+        CONSTRAINT FK_TeachingAssignmentGroup_Visc FOREIGN KEY (LeaderViscResponsibilityId, LeaderViscResponsibilityKind) REFERENCES paws.TeachingResponsibility(ResponsibilityId, Kind),
+        CONSTRAINT CK_TeachingAssignmentGroup_Id CHECK (GroupId = LOWER(LTRIM(RTRIM(GroupId))) AND GroupId LIKE '[a-z]%' AND GroupId NOT LIKE '%[^a-z0-9_-]%'),
+        CONSTRAINT CK_TeachingAssignmentGroup_Name CHECK (LEN(LTRIM(RTRIM(Name))) > 0),
+        CONSTRAINT CK_TeachingAssignmentGroup_LeaderKind CHECK (LeaderViscResponsibilityKind = N'visc')
     );
 END;
 
 IF OBJECT_ID(N'paws.TeachingAssignmentGroupHicc', N'U') IS NULL
 BEGIN
     CREATE TABLE paws.TeachingAssignmentGroupHicc (
-        GroupId uniqueidentifier NOT NULL,
-        HiccResponsibilityId uniqueidentifier NOT NULL,
+        GroupId nvarchar(64) NOT NULL,
+        HiccResponsibilityId nvarchar(64) NOT NULL,
+        HiccResponsibilityKind nvarchar(16) NOT NULL CONSTRAINT DF_TeachingAssignmentGroupHicc_Kind DEFAULT N'hicc',
         CONSTRAINT PK_TeachingAssignmentGroupHicc PRIMARY KEY (GroupId, HiccResponsibilityId),
         CONSTRAINT FK_TeachingAssignmentGroupHicc_Group FOREIGN KEY (GroupId) REFERENCES paws.TeachingAssignmentGroup(GroupId),
-        CONSTRAINT FK_TeachingAssignmentGroupHicc_Hicc FOREIGN KEY (HiccResponsibilityId) REFERENCES paws.TeachingResponsibility(ResponsibilityId)
+        CONSTRAINT FK_TeachingAssignmentGroupHicc_Hicc FOREIGN KEY (HiccResponsibilityId, HiccResponsibilityKind) REFERENCES paws.TeachingResponsibility(ResponsibilityId, Kind),
+        CONSTRAINT CK_TeachingAssignmentGroupHicc_Kind CHECK (HiccResponsibilityKind = N'hicc')
     );
 END;
 
@@ -95,23 +104,30 @@ BEGIN
         TeachingAssignmentPackageId uniqueidentifier NOT NULL CONSTRAINT PK_TeachingAssignmentPackage PRIMARY KEY,
         PackageIdentity nvarchar(256) NOT NULL,
         AcademicYear nvarchar(32) NOT NULL,
-        GroupId uniqueidentifier NOT NULL,
-        HiccResponsibilityId uniqueidentifier NOT NULL,
+        GroupId nvarchar(64) NOT NULL,
+        HiccResponsibilityId nvarchar(64) NOT NULL,
+        HiccResponsibilityKind nvarchar(16) NOT NULL CONSTRAINT DF_TeachingAssignmentPackage_HiccKind DEFAULT N'hicc',
         Status nvarchar(32) NOT NULL,
         WorkingRevision int NOT NULL,
         SubmittedWorkingRevision int NULL,
         ViscApprovedWorkingRevision int NULL,
-        ReviewFingerprint char(64) NOT NULL,
-        ViscApprovedFingerprint char(64) NOT NULL,
+        ReviewFingerprint varchar(64) NULL,
+        ViscApprovedFingerprint varchar(64) NULL,
         ViscReviewComment nvarchar(2000) NULL,
         CreatedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_TeachingAssignmentPackage_CreatedAt DEFAULT SYSUTCDATETIME(),
         UpdatedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_TeachingAssignmentPackage_UpdatedAt DEFAULT SYSUTCDATETIME(),
         CONSTRAINT UQ_TeachingAssignmentPackage_Identity UNIQUE (PackageIdentity),
         CONSTRAINT UQ_TeachingAssignmentPackage_Tuple UNIQUE (AcademicYear, GroupId, HiccResponsibilityId),
+        CONSTRAINT UQ_TeachingAssignmentPackage_TupleWithId UNIQUE (AcademicYear, GroupId, HiccResponsibilityId, TeachingAssignmentPackageId),
         CONSTRAINT FK_TeachingAssignmentPackage_Group FOREIGN KEY (GroupId) REFERENCES paws.TeachingAssignmentGroup(GroupId),
-        CONSTRAINT FK_TeachingAssignmentPackage_Hicc FOREIGN KEY (HiccResponsibilityId) REFERENCES paws.TeachingResponsibility(ResponsibilityId),
+        CONSTRAINT FK_TeachingAssignmentPackage_Hicc FOREIGN KEY (HiccResponsibilityId, HiccResponsibilityKind) REFERENCES paws.TeachingResponsibility(ResponsibilityId, Kind),
+        CONSTRAINT FK_TeachingAssignmentPackage_GroupHicc FOREIGN KEY (GroupId, HiccResponsibilityId) REFERENCES paws.TeachingAssignmentGroupHicc(GroupId, HiccResponsibilityId),
+        CONSTRAINT CK_TeachingAssignmentPackage_Identity CHECK (PackageIdentity = N'ta-package-v1__' + AcademicYear + N'__' + GroupId + N'__' + HiccResponsibilityId),
+        CONSTRAINT CK_TeachingAssignmentPackage_HiccKind CHECK (HiccResponsibilityKind = N'hicc'),
         CONSTRAINT CK_TeachingAssignmentPackage_Status CHECK (Status IN (N'draft', N'visc_review', N'visc_approved', N'changes_requested', N'submitted_to_adfad', N'adfad_finalized')),
-        CONSTRAINT CK_TeachingAssignmentPackage_Revisions CHECK (WorkingRevision >= 0 AND (SubmittedWorkingRevision IS NULL OR SubmittedWorkingRevision >= 0) AND (ViscApprovedWorkingRevision IS NULL OR ViscApprovedWorkingRevision >= 0))
+        CONSTRAINT CK_TeachingAssignmentPackage_Revisions CHECK (WorkingRevision >= 0 AND (SubmittedWorkingRevision IS NULL OR SubmittedWorkingRevision >= 0) AND (ViscApprovedWorkingRevision IS NULL OR ViscApprovedWorkingRevision >= 0)),
+        CONSTRAINT CK_TeachingAssignmentPackage_ReviewFingerprint CHECK (ReviewFingerprint IS NULL OR (DATALENGTH(ReviewFingerprint) = 64 AND ReviewFingerprint = LOWER(ReviewFingerprint) AND ReviewFingerprint NOT LIKE '%[^0-9a-f]%')),
+        CONSTRAINT CK_TeachingAssignmentPackage_ApprovedFingerprint CHECK (ViscApprovedFingerprint IS NULL OR (DATALENGTH(ViscApprovedFingerprint) = 64 AND ViscApprovedFingerprint = LOWER(ViscApprovedFingerprint) AND ViscApprovedFingerprint NOT LIKE '%[^0-9a-f]%'))
     );
     CREATE INDEX IX_TeachingAssignmentPackage_GroupHicc ON paws.TeachingAssignmentPackage(GroupId, HiccResponsibilityId, AcademicYear);
 END;
@@ -122,15 +138,15 @@ BEGIN
         SessionOwnershipId uniqueidentifier NOT NULL CONSTRAINT PK_TeachingSessionOwnership PRIMARY KEY,
         SessionId uniqueidentifier NOT NULL,
         AcademicYear nvarchar(32) NOT NULL,
-        TeachingAssignmentGroupId uniqueidentifier NOT NULL,
-        ResponsibleHiccResponsibilityId uniqueidentifier NOT NULL,
+        TeachingAssignmentGroupId nvarchar(64) NOT NULL,
+        ResponsibleHiccResponsibilityId nvarchar(64) NOT NULL,
         TeachingAssignmentPackageId uniqueidentifier NOT NULL,
         SubjectId uniqueidentifier NULL,
         CONSTRAINT UQ_TeachingSessionOwnership_Session UNIQUE (SessionId),
         CONSTRAINT FK_TeachingSessionOwnership_Session FOREIGN KEY (SessionId) REFERENCES paws.Session(SessionId),
         CONSTRAINT FK_TeachingSessionOwnership_Group FOREIGN KEY (TeachingAssignmentGroupId) REFERENCES paws.TeachingAssignmentGroup(GroupId),
         CONSTRAINT FK_TeachingSessionOwnership_Hicc FOREIGN KEY (ResponsibleHiccResponsibilityId) REFERENCES paws.TeachingResponsibility(ResponsibilityId),
-        CONSTRAINT FK_TeachingSessionOwnership_Package FOREIGN KEY (TeachingAssignmentPackageId) REFERENCES paws.TeachingAssignmentPackage(TeachingAssignmentPackageId),
+        CONSTRAINT FK_TeachingSessionOwnership_PackageTuple FOREIGN KEY (AcademicYear, TeachingAssignmentGroupId, ResponsibleHiccResponsibilityId, TeachingAssignmentPackageId) REFERENCES paws.TeachingAssignmentPackage(AcademicYear, GroupId, HiccResponsibilityId, TeachingAssignmentPackageId),
         CONSTRAINT FK_TeachingSessionOwnership_Subject FOREIGN KEY (SubjectId) REFERENCES paws.Subject(SubjectId)
     );
     CREATE INDEX IX_TeachingSessionOwnership_Package ON paws.TeachingSessionOwnership(TeachingAssignmentPackageId, SessionId);

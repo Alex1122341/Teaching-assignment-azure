@@ -22,9 +22,10 @@ const packageRecord = (patch = {}) => ({
   packageIdentity: 'ta-package-v1__2026-27__bovine__hicc-surgery',
   academicYear: '2026-27', groupId: 'bovine', hiccResponsibilityId: 'hicc-surgery',
   status: 'draft', workingRevision: 0, submittedWorkingRevision: null,
-  viscApprovedWorkingRevision: null, reviewFingerprint: '', viscApprovedFingerprint: '',
+  viscApprovedWorkingRevision: null, reviewFingerprint: null, viscApprovedFingerprint: null,
   ...patch
 });
+const fingerprint = 'a'.repeat(64);
 
 test('Subject keys are canonical and never inferred from Session.Topic', () => {
   assert.equal(authority.normalizeSubjectKey('  Small-Animal_1 '), 'small-animal_1');
@@ -50,11 +51,16 @@ test('package identity is deterministic and independent of assignee', () => {
   assert.notEqual(authority.packageIdentity(input), authority.packageIdentity({...input, hiccResponsibilityId: 'hicc-medicine'}));
 });
 
-test('package freshness requires both the approved revision and fingerprint to match', () => {
+test('package freshness follows explicit lifecycle and revision/fingerprint integrity rules', () => {
   assert.equal(authority.isPackageFresh(packageRecord()), true);
-  assert.equal(authority.isPackageFresh(packageRecord({workingRevision: 2, viscApprovedWorkingRevision: 2, reviewFingerprint: 'fp', viscApprovedFingerprint: 'fp'})), true);
-  assert.equal(authority.isPackageFresh(packageRecord({workingRevision: 2, viscApprovedWorkingRevision: 1, reviewFingerprint: 'fp', viscApprovedFingerprint: 'fp'})), false);
-  assert.equal(authority.isPackageFresh(packageRecord({workingRevision: 2, viscApprovedWorkingRevision: 2, reviewFingerprint: 'new', viscApprovedFingerprint: 'old'})), false);
+  assert.equal(authority.isPackageFresh(packageRecord({status: 'visc_review', workingRevision: 2, submittedWorkingRevision: 2, reviewFingerprint: fingerprint})), true);
+  assert.equal(authority.isPackageFresh(packageRecord({status: 'visc_review', workingRevision: 2, submittedWorkingRevision: 1, reviewFingerprint: fingerprint})), false);
+  assert.equal(authority.isPackageFresh(packageRecord({status: 'visc_review', workingRevision: 2, submittedWorkingRevision: 2, reviewFingerprint: 'invalid'})), false);
+  assert.equal(authority.isPackageFresh(packageRecord({status: 'visc_approved', workingRevision: 2, submittedWorkingRevision: 2, viscApprovedWorkingRevision: 2, reviewFingerprint: fingerprint, viscApprovedFingerprint: fingerprint})), true);
+  assert.equal(authority.isPackageFresh(packageRecord({status: 'visc_approved', workingRevision: 2, submittedWorkingRevision: 2, reviewFingerprint: fingerprint})), false);
+  assert.equal(authority.isPackageFresh(packageRecord({status: 'submitted_to_adfad', workingRevision: 2, submittedWorkingRevision: 2, viscApprovedWorkingRevision: 1, reviewFingerprint: fingerprint, viscApprovedFingerprint: fingerprint})), false);
+  assert.equal(authority.isPackageFresh(packageRecord({status: 'adfad_finalized', workingRevision: 2, submittedWorkingRevision: 2, viscApprovedWorkingRevision: 2, reviewFingerprint: fingerprint, viscApprovedFingerprint: 'b'.repeat(64)})), false);
+  assert.equal(authority.isPackageFresh(packageRecord({status: 'changes_requested', workingRevision: 2, viscApprovedWorkingRevision: 1, reviewFingerprint: fingerprint, viscApprovedFingerprint: fingerprint})), false);
 });
 
 test('temporal assignee uses exact FacultyId and half-open date window', () => {
@@ -74,6 +80,18 @@ test('temporal schedule rejects overlapping effective assignees', () => {
   assert.throws(() => authority.validateTemporalAssignees([
     assignee(), assignee({facultyId: 'faculty-2', activeDate: '2027-04-30', expirationDate: '2027-08-01'})
   ]), /overlap/i);
+  assert.doesNotThrow(() => authority.validateTemporalAssignees([
+    assignee(), assignee({responsibilityId: 'hicc-medicine'}), assignee({academicYear: '2027-28', activeDate: '2026-09-01', expirationDate: '2027-05-01'})
+  ]));
+});
+
+test('SQL-shaped package identity interoperates with the pure domain identity', () => {
+  const sqlRecord = {AcademicYear: '2026-27', GroupId: 'bovine', HiccResponsibilityId: 'hicc-surgery'};
+  assert.equal(authority.packageIdentity({
+    academicYear: sqlRecord.AcademicYear,
+    groupId: sqlRecord.GroupId,
+    hiccResponsibilityId: sqlRecord.HiccResponsibilityId
+  }), 'ta-package-v1__2026-27__bovine__hicc-surgery');
 });
 
 test('HICC authority requires exact course, optional exact subject, group membership, package identity and fresh metadata', () => {
@@ -97,26 +115,29 @@ test('HICC authority requires exact course, optional exact subject, group member
   assert.equal(authority.isFacultyCurrentAssignee({...base, assignee: undefined, assignees: [assignee(), assignee({facultyId: 'faculty-2', activeDate: '2026-09-01', expirationDate: '2027-05-01'})]}), false);
 });
 
-test('course-wide HICC scope accepts no Subject but never substitutes Topic', () => {
+test('course-wide HICC scope is a Subject wildcard but never substitutes Topic', () => {
   const base = {
     authenticatedFacultyId: 'faculty-1', asOfDate: '2026-09-08', responsibility: responsibility(), assignee: assignee(), group: group(),
     responsibilityScopes: [{courseCode: 'VTMD 506', subjectKey: null}], package: packageRecord(),
     session: {academicYear: '2026-27', groupId: 'bovine', hiccResponsibilityId: 'hicc-surgery', courseCode: 'VTMD 506', subjectKey: null, topic: 'Surgery'}
   };
   assert.equal(authority.isFacultyCurrentAssignee(base), true);
-  assert.equal(authority.isFacultyCurrentAssignee({...base, session: {...base.session, subjectKey: 'surgery'}}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, session: {...base.session, subjectKey: 'surgery'}}), true);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, session: {...base.session, subjectKey: 'medicine'}}), true);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, session: {...base.session, courseCode: 'VTMD 507'}}), false);
   assert.equal(authority.isFacultyCurrentAssignee({...base, session: {...base.session, subjectKey: undefined, topic: 'medicine'}}), true);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, responsibilityScopes: [{courseCode: 'VTMD 506', subjectKey: 'surgery'}], session: {...base.session, subjectKey: null, topic: 'surgery'}}), false);
 });
 
 test('VISC authority requires current leader responsibility and no HICC course token', () => {
   const base = {
     authenticatedFacultyId: 'faculty-1', asOfDate: '2026-09-08', responsibility: {id: 'visc-bovine', kind: 'visc', active: true},
     assignee: {...assignee(), responsibilityId: 'visc-bovine'}, group: group(), responsibilityScopes: [], package: packageRecord(),
-    session: {academicYear: '2026-27', groupId: 'bovine', hiccResponsibilityId: 'hicc-surgery', courseCode: 'VTMD 506', subjectKey: 'surgery'}
+    session: {academicYear: '2026-27', groupId: 'bovine', courseCode: 'VTMD 506', subjectKey: 'surgery'}
   };
   assert.equal(authority.isFacultyCurrentAssignee(base), true);
   assert.equal(authority.isFacultyCurrentAssignee({...base, group: group({leaderViscResponsibilityId: 'visc-other'})}), false);
-  assert.equal(authority.isFacultyCurrentAssignee({...base, responsibilityScopes: [{courseCode: 'VTMD 506', subjectKey: 'surgery'}]}), false);
+  assert.equal(authority.isFacultyCurrentAssignee({...base, responsibilityScopes: [{courseCode: 'VTMD 506', subjectKey: 'surgery'}]}), true);
   assert.equal(authority.isFacultyCurrentAssignee({...base, asOfDate: '2027-05-01'}), false);
 });
 

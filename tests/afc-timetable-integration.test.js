@@ -35,6 +35,7 @@ test('AFC timetable mount subscribes once and renders teaching sessions as sorte
     FormData: class {},
     document: { getElementById: () => null, createElement: () => ({}) },
     addEventListener: (name, callback) => listeners.set(name, callback),
+    UCVM_PAWS_DATA: { sessionBackend: () => 'firestore' },
     firebase: {
       auth: () => ({ currentUser: null }),
       firestore: { FieldValue: { serverTimestamp: () => 'timestamp' } }
@@ -87,6 +88,7 @@ function submissionHarness(ensureSessionsForRange, initialSessions = []) {
     FormData: class { constructor(target) { this.values = target.values; } get(name) { return this.values[name] || ''; } },
     document: { getElementById: () => null, createElement: () => ({}) },
     addEventListener() {},
+    UCVM_PAWS_DATA: { sessionBackend: () => 'firestore' },
     firebase: {
       auth: () => ({ currentUser: { uid: 'faculty-user', email: 'faculty@ucalgary.ca' } }),
       firestore: { FieldValue: { serverTimestamp: () => 'timestamp' } }

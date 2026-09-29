@@ -11,12 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// BETA-R4D-11D (dual-runtime baseline promotion): the frozen trust anchor is
-// the accepted Dashboard zero-Firestore runtime candidate 8b1388f5, which
-// reads Dashboard business data from the PAWS Azure SQL API with Firebase
-// Authentication only, loads no Firestore SDK, and keeps no Firestore runtime
-// dependency in the Dashboard controller.
-const BASELINE_COMMIT='8b1388f5afe210c761d6dbc3b4240536758f7342';
+// BETA-R4D-12B0G: the frozen trust anchor is the reviewed B0 static runtime
+// candidate. It contains the fail-closed legacy Firestore Approval/AFC
+// containment; this governance promotion does not deploy it.
+const BASELINE_COMMIT='b3458f79a05353ce1255874754e1c6c1ec8ee683';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

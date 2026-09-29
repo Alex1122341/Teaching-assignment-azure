@@ -22,7 +22,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 ## Frozen runtime contract
 
-- The Azure beta application is frozen at commit `8b1388f5afe210c761d6dbc3b4240536758f7342`. That immutable commit is the dual-runtime content trust anchor.
+- The Azure beta application is frozen at reviewed B0 runtime candidate commit `b3458f79a05353ce1255874754e1c6c1ec8ee683`. That immutable commit is the dual-runtime content trust anchor; it is not live until the separately gated B0D release.
 - This baseline represents the **BETA-R4D-11A2 Dashboard DOE presentation runtime** shared by the static site and the API runtime. It is the reviewed frozen runtime, but it is **NOT YET DEPLOYED** — the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
 - **All** shipped static runtime assets are protected, not just a five-file subset. The authoritative shipped-file list is `tools/static-assets.json` (46 entries; the previous 45-path set plus `dashboard-view-model.js`).
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.

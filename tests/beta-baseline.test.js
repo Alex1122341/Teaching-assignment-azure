@@ -9,9 +9,9 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// BETA-R4D-11D: static and API runtimes share the accepted Dashboard candidate baseline.
-const BASELINE_COMMIT='8b1388f5afe210c761d6dbc3b4240536758f7342';
-const PREVIOUS_BASELINE_COMMIT='25e8f483b7d2455c0f96b00c82f3fde30760ac17';
+// BETA-R4D-12B0G: static and API runtimes share the accepted B0 candidate baseline.
+const BASELINE_COMMIT='b3458f79a05353ce1255874754e1c6c1ec8ee683';
+const PREVIOUS_BASELINE_COMMIT='8b1388f5afe210c761d6dbc3b4240536758f7342';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
@@ -63,21 +63,32 @@ test('paws-data-client.js is a protected runtime asset',()=>{
   assert.deepEqual(result.drift,[]);
 });
 
-// D. Historical monotonicity (45 -> 46) --------------------------------------
-test('the new baseline manifest is a superset of the previous protected path set',()=>{
+// D. Baseline manifest continuity (46 -> 46) -------------------------------
+test('the new baseline preserves the previous protected path set',()=>{
   const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
   const current=baselineJson(BASELINE_COMMIT);
-  assert.equal(previous.length,45);
+  assert.equal(previous.length,46);
   assert.equal(current.length,46);
   const missing=previous.filter(name=>!current.includes(name));
+  const added=current.filter(name=>!previous.includes(name));
   assert.deepEqual(missing,[]);
-  assert.deepEqual(current.filter(name=>!previous.includes(name)),['dashboard-view-model.js']);
+  assert.deepEqual(added,[]);
 });
 
 test('every previous protected path is still protected under the promoted baseline',()=>{
   const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
   const protectedFiles=freeze.protectedPaths({root});
   for(const name of previous)assert.ok(protectedFiles.includes(name),`${name} must remain protected`);
+});
+
+test('B0 runtime candidate files are protected and byte-identical to the promoted baseline',()=>{
+  for(const name of ['asset-loader.js','approval-workflow.js','afc-workflow.js']){
+    assert.ok(freeze.protectedPaths({root}).includes(name),`${name} must be protected`);
+    assert.equal(freeze.bytesMatch(
+      freeze.readBaselineFile({root,file:name}),
+      fs.readFileSync(path.join(root,name))
+    ),true,name);
+  }
 });
 
 // E. Mutable-manifest attack -------------------------------------------------

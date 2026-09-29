@@ -23,6 +23,16 @@ The ACR G1 failure remains historical safe-failure evidence: no image build/push
 
 The deployed release SHA must remain distinct from repository main. A documentation-only main advance is not a deployment. After this closure, the next task is **AWAITING OWNER / ARCHITECT SCOPING**; no R4D-12 is implied.
 
+## 0A. Current BETA-R4D-12B0G governance state
+
+The reviewed B0 runtime candidate `b3458f79a05353ce1255874754e1c6c1ec8ee683`
+is now the immutable static/API freeze trust anchor. B0 is implemented,
+runtime-accepted, frozen, pending PR/integration, and **NOT LIVE**. The
+legacy Firestore Approval/AFC workflow is fail-closed unless the explicit
+compatibility backend is `firestore`; the Azure Beta client remains
+`azure-sql` with writes disabled. B0D is the separate controlled release and
+live-acceptance gate.
+
 The older sections below are retained as historical guidance and evidence.
 
 ## 1. Core rule
@@ -89,7 +99,7 @@ normal merge commit (no squash/rebase).
 
 Frozen application baseline:
 
-`8b1388f5afe210c761d6dbc3b4240536758f7342`
+`b3458f79a05353ce1255874754e1c6c1ec8ee683`
 
 This is the BETA-R4D-11A2 Dashboard DOE presentation runtime candidate shared by the static and API runtimes. It is the reviewed frozen runtime.
 

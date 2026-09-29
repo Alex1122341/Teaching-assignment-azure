@@ -1,11 +1,40 @@
 # PAWS Current Project State
 
+## BETA-R4D-12B0G — FROZEN BASELINE PROMOTED / PENDING PR / NOT LIVE
+
+**Last verified:** 2026-09-29
+**Runtime candidate:** `b3458f79a05353ce1255874754e1c6c1ec8ee683`
+**Previous frozen baseline:** `8b1388f5afe210c761d6dbc3b4240536758f7342`
+**Branch:** `feature/beta-r4d12b0-approval-queue-real-data-cleanup`
+**Expected `origin/main`:** `5e5d947fd4c24b340185c1b8bb1a4bbe2c27d67d`
+
+B0/B0R is runtime-accepted. B0G promotes the exact reviewed candidate as the
+immutable static/API trust anchor. The protected manifest remains 46 paths with
+zero missing previous paths and zero newly added paths. The governance unit is
+pending PR/integration and is **NOT LIVE**; B0D remains the separate controlled
+static release and live-acceptance gate.
+
+The old visible Approval Queue came from Firestore `change_requests` and
+`afc_requests`, not Azure SQL. The live pending legacy records were backed up
+and cleared; the B0R read-only recheck remains zero for pending
+`change_requests`, `pending_report_to`, and `pending_admin`, and no completed,
+signed, audit, or history records were deleted.
+
+The canonical runtime rule is that legacy Firestore approval/AFC business
+behavior executes only when `sessionBackend() === 'firestore'`. Azure SQL,
+missing, unknown, and throwing backend states fail closed. The current Beta
+client remains `sessionBackend() === 'azure-sql'` and
+`sessionWritesEnabled() === false`.
+
+The old baseline references retained in historical update/spec/plan records
+are intentionally historical references and are not rewritten.
+
 ## BETA-R4D-12B0 — LEGACY FIRESTORE APPROVAL CONTAINMENT / CLEANUP COMPLETE
 
 **Last verified:** 2026-09-29
 **Starting main:** `5e5d947fd4c24b340185c1b8bb1a4bbe2c27d67d`
 **Feature branch:** `feature/beta-r4d12b0-approval-queue-real-data-cleanup`
-**Status:** B0 IMPLEMENTED / PENDING ARCHITECT REVIEW; LIVE CODE NOT DEPLOYED.
+**Status:** B0 IMPLEMENTED / RUNTIME ACCEPTED / FROZEN BASELINE PROMOTED / PENDING PR-INTEGRATION; LIVE CODE NOT DEPLOYED.
 
 The exact Beta Firebase project was verified as `tester-teaching`. Only the
 `change_requests` and `afc_requests` collections were enumerated. The private

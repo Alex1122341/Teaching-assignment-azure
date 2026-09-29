@@ -1,8 +1,31 @@
 # PAWS Task Chain
 
+## BETA-R4D-12B0G — FROZEN BASELINE PROMOTION / PR-INTEGRATION GATE
+
+Status: **IMPLEMENTED / RUNTIME ACCEPTED / FROZEN BASELINE PROMOTED / PENDING PR-INTEGRATION / NOT LIVE**
+
+- Reviewed B0 runtime candidate: `b3458f79a05353ce1255874754e1c6c1ec8ee683`.
+- Previous frozen baseline: `8b1388f5afe210c761d6dbc3b4240536758f7342`.
+- `origin/main` remains `5e5d947fd4c24b340185c1b8bb1a4bbe2c27d67d`; the
+  feature branch starts from the accepted candidate and is ahead 2, behind 0.
+- The protected static manifest remains exactly 46 paths: previous paths
+  missing = 0 and new paths = 0. The old baseline is retained only in
+  historical update/spec/plan records.
+- The B0G governance commit changes only freeze references, regenerated
+  reporting hashes, baseline tests, and active continuity documentation. It
+  must not change protected runtime/API bytes.
+- Current live R4D-11 remains unchanged. No SQL write, Firestore write,
+  Firebase Auth mutation, Rules change, deployment, A2B, Work Queue, B1, B2,
+  or DOE work is part of B0G.
+
+Next exact action after the governance commit is one PR to `main`, followed by
+required green CI and a merge-commit-only integration gate. After merge, the
+next task is **B0D — controlled static release + final live acceptance**. Do
+not begin B1.
+
 ## BETA-R4D-12B0 — APPROVAL QUEUE REAL-DATA CLEANUP / REVIEW GATE
 
-Status: **IMPLEMENTED / LIVE LEGACY QUEUE CLEANUP COMPLETE / PENDING ARCHITECT REVIEW**
+Status: **IMPLEMENTED / LIVE LEGACY QUEUE CLEANUP COMPLETE / RUNTIME ACCEPTED / FROZEN BASELINE PROMOTED / PENDING PR-INTEGRATION / NOT LIVE**
 
 - Starting `origin/main`: `5e5d947fd4c24b340185c1b8bb1a4bbe2c27d67d`.
 - Feature branch: `feature/beta-r4d12b0-approval-queue-real-data-cleanup`.

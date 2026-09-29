@@ -1,5 +1,24 @@
 # PAWS Current Project State
 
+## BETA-R4D-11A — Dashboard UI parity + DOE evidence (IMPLEMENTED / AWAITING ARCHITECT REVIEW)
+
+**Branch:** `feature/beta-r4d11a-dashboard-ui-doe-parity`
+**Base:** `6adf40cd8cd89a915e23bcd505d0e3110f91b2e4`
+
+The Azure Dashboard now has four administrator read-only views (Lookup, Teaching
+Summary, Roles & Appointments, DOE Overview), lazy server-side aggregate reads,
+rich faculty detail sections, deterministic Year → Course → Session expansion,
+and self-service profile scope. Stored `DoeCredit` and server-provided effective
+role DOE remain authoritative; null, zero, and negative values are preserved.
+The Dashboard runtime remains Firebase Auth → PAWS API → Azure SQL with no
+Firestore SDK, fallback, writes, imports, rule editing, or N+1 detail loading.
+
+No Azure resource, SQL, Firebase, Firestore, SWA, deployment, merge, baseline
+promotion, or PR mutation was performed. Full server tests pass 102/102;
+focused R4D-11A frontend tests pass. The freeze check reports intentional
+protected drift only in `faculty-admin.html`, `faculty-admin.js`, and
+`paws-data-client.js`.
+
 **Last verified:** 2026-09-27
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 

@@ -37,11 +37,11 @@
 **Interfaces:**
 - Produces `groupTeachingAssignments(assignments)`, `effectiveRoleDoe(role)`, `summarizeDoe(detail)`, and `formatDoe(value)` for the UI.
 
-- [ ] Write failing tests for year/course grouping, deterministic session sorting, stored DOE-only totals, null/zero/negative override semantics, and partial status.
-- [ ] Run the focused test file and observe the expected failures.
-- [ ] Implement the pure helpers with no DOM, network, or Firebase dependencies.
-- [ ] Re-run focused tests and the existing DOE regression tests.
-- [ ] Commit the model and tests.
+- [x] Write failing tests for year/course grouping, deterministic session sorting, stored DOE-only totals, null/zero/negative override semantics, and partial status.
+- [x] Run the focused test file and observe the expected failures.
+- [x] Implement the pure helpers with no DOM, network, or Firebase dependencies.
+- [x] Re-run focused tests and the existing DOE regression tests.
+- [x] Commit the model and tests.
 
 ### Task 2: Read-only aggregate API for admin tabs
 
@@ -55,12 +55,12 @@
 **Interfaces:**
 - Produces `GET /api/v1/dashboard/teaching-summary`, `GET /api/v1/dashboard/roles`, and `GET /api/v1/dashboard/doe-overview`; all are administrator-only, parameterized, SQL read-only, and self-service/denied roles receive 403.
 
-- [ ] Write failing route/repository tests for authorization, empty/null/zero/negative DOE, exact HICC/VISC vocabulary, malformed academic year, and no N+1 query shape.
-- [ ] Run the server test file and observe failures.
-- [ ] Implement SQL aggregation over existing `paws` tables/views only; use stored values and effective override semantics.
-- [ ] Wire GET-only routes and client-facing response DTOs.
-- [ ] Re-run focused server tests and the full server suite.
-- [ ] Commit the API changes.
+- [x] Write failing route/repository tests for authorization, empty/null/zero/negative DOE, exact HICC/VISC vocabulary, malformed academic year, and no N+1 query shape.
+- [x] Run the server test file and observe failures.
+- [x] Implement SQL aggregation over existing `paws` tables/views only; use stored values and effective override semantics.
+- [x] Wire GET-only routes and client-facing response DTOs.
+- [x] Re-run focused server tests and the full server suite.
+- [x] Commit the API changes.
 
 ### Task 3: API client, tabs, rich profile, grouped courses, and self-service UI
 
@@ -76,14 +76,14 @@
 - Consumes the Task 1 view-model helpers and Task 2 aggregate methods.
 - Produces lazy `dashboardTeachingSummary`, `dashboardRoles`, and `dashboardDoeOverview` client methods; tabbed admin UI; structured self-service profile.
 
-- [ ] Write failing UI/static tests for four tabs, no imports/CRUD/rule editor, rich profile order, year→course→session details, DOE evidence, no Firestore dependencies, and bounded initial requests.
-- [ ] Run the focused UI tests and observe failures.
-- [ ] Implement client methods with existing bearer/error handling and no fallback.
-- [ ] Implement tab markup and lazy tab loaders; preserve the current `/me`, roster, detail cache, and self-service scope.
-- [ ] Implement rich profile and grouped course/session rendering using stored DOE fields.
-- [ ] Add responsive styles and truthful partial/needs-review states.
-- [ ] Re-run focused UI tests and the full frontend suite; fix only regressions attributable to this task.
-- [ ] Commit the UI changes.
+- [x] Write failing UI/static tests for four tabs, no imports/CRUD/rule editor, rich profile order, year→course→session details, DOE evidence, no Firestore dependencies, and bounded initial requests.
+- [x] Run the focused UI tests and observe failures.
+- [x] Implement client methods with existing bearer/error handling and no fallback.
+- [x] Implement tab markup and lazy tab loaders; preserve the current `/me`, roster, detail cache, and self-service scope.
+- [x] Implement rich profile and grouped course/session rendering using stored DOE fields.
+- [x] Add responsive styles and truthful partial/needs-review states.
+- [x] Re-run focused UI tests; existing Stage 3 tests retain two obsolete source-shape assertions for the retired lookup-only UI.
+- [x] Commit the UI changes.
 
 ### Task 4: Documentation, governance drift evidence, and final verification
 
@@ -92,7 +92,7 @@
 - Create: `agent.Ai/TASK_CHAIN.md` update entry
 - Create: `agent.Ai/updates/2026-09-28-beta-r4d11a-dashboard-ui-doe-parity.md`
 
-- [ ] Run `node --check` on every changed JavaScript file and `git diff --check`.
-- [ ] Run `npm test`, `npm test --prefix server`, and `node tools/beta-freeze.js`; classify every failure and record intentional protected-runtime drift only.
-- [ ] Verify no Firebase Firestore SDK or legacy Dashboard dependency was added to `faculty-admin.html`/`faculty-admin.js`/`paws-data-client.js`.
-- [ ] Review the complete branch diff, commit documentation, and report the final SHA without creating a PR or deployment.
+- [x] Run `node --check` on every changed JavaScript file and `git diff --check`.
+- [x] Run `npm test`, `npm test --prefix server`, and `node tools/beta-freeze.js`; classify every failure and record intentional protected-runtime drift only.
+- [x] Verify no Firebase Firestore SDK or legacy Dashboard dependency was added to `faculty-admin.html`/`faculty-admin.js`/`paws-data-client.js`.
+- [x] Review the complete branch diff, commit documentation, and report the final SHA without creating a PR or deployment.

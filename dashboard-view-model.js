@@ -1,4 +1,10 @@
-'use strict';
+(function(root, factory) {
+  'use strict';
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (root) root.PAWS_DASHBOARD_VIEW_MODEL = api;
+})(typeof window === 'undefined' ? globalThis : window, function() {
+  'use strict';
 
 function number(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -31,7 +37,9 @@ function effectiveRoleDoe(role = {}) {
   const override = role.doeOverrideValue === null || role.doeOverrideValue === undefined
     ? null
     : number(role.doeOverrideValue);
-  const effective = override !== null ? override : mapped;
+  const effective = Object.prototype.hasOwnProperty.call(role, 'effectiveDoe')
+    ? number(role.effectiveDoe)
+    : (override !== null ? override : mapped);
   return { mapped, override, effective, status: effective === null ? 'needs-review' : 'stored' };
 }
 
@@ -106,4 +114,5 @@ function formatDoe(value) {
   return parsed === null ? 'DOE unavailable' : `${parsed.toFixed(2)}%`;
 }
 
-module.exports = { groupTeachingAssignments, effectiveRoleDoe, summarizeDoe, formatDoe };
+  return { groupTeachingAssignments, effectiveRoleDoe, summarizeDoe, formatDoe };
+});

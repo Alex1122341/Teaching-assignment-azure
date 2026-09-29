@@ -108,11 +108,37 @@ test('Dashboard methods preserve API status, code, and server message without a 
   }
 });
 
+test('Dashboard aggregate methods use lazy read-only endpoints and preserve response shapes',async()=>{
+  const calls=[];
+  const client=createPawsAzureDataClient({
+    tokenProvider:async()=>'t',
+    fetchImpl:async(url,init)=>{
+      calls.push({url,init});
+      if(url.includes('/teaching-summary'))return{ok:true,json:async()=>({teachingSummary:[{facultyId:'f1',recordedDoeTotal:3}]})};
+      if(url.includes('/roles'))return{ok:true,json:async()=>({roles:[{roleType:'VISC'}]})};
+      return{ok:true,json:async()=>({doeOverview:{partial:true}})};
+    }
+  });
+  assert.deepEqual(await client.dashboardTeachingSummary({academicYear:'2026-27'}),[{facultyId:'f1',recordedDoeTotal:3}]);
+  assert.deepEqual(await client.dashboardRoles({academicYear:'2026-27'}),[{roleType:'VISC'}]);
+  assert.deepEqual(await client.dashboardDoeOverview({academicYear:'2026-27'}),{partial:true});
+  assert.deepEqual(calls.map(call=>call.url),[
+    'https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io/api/v1/dashboard/teaching-summary?academicYear=2026-27',
+    'https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io/api/v1/dashboard/roles?academicYear=2026-27',
+    'https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io/api/v1/dashboard/doe-overview?academicYear=2026-27'
+  ]);
+  for(const call of calls){
+    assert.equal(call.init.method,'GET');
+    assert.equal(call.init.credentials,'omit');
+    assert.equal(call.init.headers.Authorization,'Bearer t');
+  }
+});
+
 test('Dashboard client introduces read methods only and no Firestore fallback',()=>{
   const source=fs.readFileSync('paws-data-client.js','utf8');
   const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
-    'currentUser','dashboardFaculty','dashboardFacultyById','dashboardSummary','listSessions','sessionBackend','sessionWritesEnabled'
+    'currentUser','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','listSessions','sessionBackend','sessionWritesEnabled'
   ]);
   assert.doesNotMatch(source,/firestore|\.post\(|method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)/i);
 });

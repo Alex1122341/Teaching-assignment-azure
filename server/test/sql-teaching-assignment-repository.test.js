@@ -51,6 +51,8 @@ test('repository/schema contract uses the canonical authority column names', asy
   const scopeSql = seen[0].sql;
   assert.match(scopeSql, /trs\.HiccResponsibilityId/);
   assert.match(scopeSql, /trs\.HiccResponsibilityKind/);
+  const assigneeSql = seen[1].sql;
+  assert.match(assigneeSql, /AssignmentMode\s+AS\s+assignmentMode/i);
   assert.doesNotMatch(scopeSql, /trs\.ResponsibilityId/);
   assert.match(seen[1].sql, /ResponsibilityId AS responsibilityId/);
   assert.match(seen[1].sql, /CONVERT\(varchar\(10\), ActiveDate, 23\) AS activeDate/);

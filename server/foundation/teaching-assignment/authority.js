@@ -5,6 +5,7 @@ const CANONICAL_ID = /^[a-z][a-z0-9_-]{0,63}$/;
 const COURSE_CODE = /^[A-Z]{2,10} [0-9]{3,4}[A-Z]?$/;
 const ACADEMIC_YEAR = /^(\d{4})-(\d{2})$/;
 const FINGERPRINT = /^[0-9a-f]{64}$/;
+const ASSIGNMENT_MODES = new Set(['exclusive', 'concurrent']);
 
 function text(value) { return typeof value === 'string' ? value.trim() : ''; }
 function normalizeSubjectKey(value) { const key = text(value).toLowerCase(); return SUBJECT_KEY.test(key) ? key : ''; }
@@ -48,28 +49,40 @@ function dateMs(value) {
   return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== raw ? null : date.getTime();
 }
 
+function normalizeAssignmentMode(value) {
+  const mode = text(value);
+  return ASSIGNMENT_MODES.has(mode) ? mode : '';
+}
+
 function isCurrentTemporalAssignee(input = {}) {
   const start = dateMs(input.activeDate), end = dateMs(input.expirationDate), asOf = dateMs(input.asOfDate);
-  return Boolean(input.enabled !== false && text(input.authenticatedFacultyId) && text(input.authenticatedFacultyId) === text(input.facultyId) && start !== null && end !== null && asOf !== null && end > start && asOf >= start && asOf < end);
+  return Boolean(normalizeAssignmentMode(input.assignmentMode) && input.enabled !== false && text(input.authenticatedFacultyId) && text(input.authenticatedFacultyId) === text(input.facultyId) && start !== null && end !== null && asOf !== null && end > start && asOf >= start && asOf < end);
 }
 
 function validateTemporalAssignees(rows) {
   if (!Array.isArray(rows)) throw new Error('Temporal assignees must be a list.');
   const byResponsibilityYear = new Map();
   rows.forEach(row => {
+    if (!normalizeAssignmentMode(row?.assignmentMode)) throw new Error('Temporal assignee assignment mode is invalid.');
     const start = dateMs(row?.activeDate), end = dateMs(row?.expirationDate);
     if (start === null || end === null || end <= start) throw new Error('Temporal assignee expiration must be later than active date.');
-    const responsibilityId = text(row?.responsibilityId), year = academicYear(row?.academicYear);
-    if (!CANONICAL_ID.test(responsibilityId) || !year) throw new Error('Temporal assignee partition identity is invalid.');
+    const responsibilityId = text(row?.responsibilityId), year = academicYear(row?.academicYear), facultyId = text(row?.facultyId);
+    if (!CANONICAL_ID.test(responsibilityId) || !year || !facultyId) throw new Error('Temporal assignee partition identity is invalid.');
     const key = `${responsibilityId}\u0000${year}`;
     const bucket = byResponsibilityYear.get(key) || [];
-    bucket.push({start, end});
+    bucket.push({start, end, facultyId, assignmentMode: normalizeAssignmentMode(row?.assignmentMode)});
     byResponsibilityYear.set(key, bucket);
   });
   for (const windows of byResponsibilityYear.values()) {
     windows.sort((a, b) => a.start - b.start || a.end - b.end);
-    for (let index = 1; index < windows.length; index += 1) {
-      if (windows[index].start < windows[index - 1].end) throw new Error('Temporal assignee windows overlap.');
+    for (let leftIndex = 0; leftIndex < windows.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < windows.length; rightIndex += 1) {
+        const left = windows[leftIndex], right = windows[rightIndex];
+        if (right.start >= left.end) break;
+        if (!left.facultyId || left.facultyId === right.facultyId || left.assignmentMode !== 'concurrent' || right.assignmentMode !== 'concurrent') {
+          throw new Error('Temporal assignee windows overlap.');
+        }
+      }
     }
   }
   return true;
@@ -168,13 +181,11 @@ function isFacultyCurrentAssignee(input = {}) {
   if (!responsibilityId) return false;
   const ownership = trustedOwnership(session), year = academicYear(ownership.academicYear);
   if (!year) return false;
-  let assignee = input.assignee;
-  if (Array.isArray(input.assignees)) {
-    try { validateTemporalAssignees(input.assignees); } catch (_) { return false; }
-    const active = input.assignees.filter(row => row.academicYear === year && text(row.responsibilityId) === responsibilityId && isCurrentTemporalAssignee({...row, authenticatedFacultyId: actor, asOfDate: input.asOfDate}));
-    if (active.length !== 1) return false;
-    [assignee] = active;
-  }
+  if (!Array.isArray(input.assignees)) return false;
+  try { validateTemporalAssignees(input.assignees); } catch (_) { return false; }
+  const active = input.assignees.filter(row => row.academicYear === year && text(row.responsibilityId) === responsibilityId && isCurrentTemporalAssignee({...row, authenticatedFacultyId: actor, asOfDate: input.asOfDate}));
+  if (active.length !== 1) return false;
+  const [assignee] = active;
   if (!assignee || text(assignee.responsibilityId) !== responsibilityId || text(assignee.academicYear) !== year || !isCurrentTemporalAssignee({...assignee, authenticatedFacultyId: actor, asOfDate: input.asOfDate})) return false;
   if (text(group.groupId) !== text(input.package?.groupId) || text(group.groupId) !== trustedOwnership(session).groupId) return false;
   if (responsibility.kind === 'hicc') return responsibilityId === text(input.package?.hiccResponsibilityId) && responsibilityId === trustedOwnership(session).hiccResponsibilityId && Array.isArray(group.hiccResponsibilityIds) && group.hiccResponsibilityIds.includes(responsibilityId) && packageMatches(input.package, session) && exactHiccScope(input.responsibilityScopes, session);
@@ -187,4 +198,4 @@ function workingSessionOwnership(input = {}) {
   return Object.freeze({sessionId, academicYear: year, groupId, hiccResponsibilityId, packageId, packageIdentity: packageIdentity({academicYear: year, groupId, hiccResponsibilityId}), subjectId: input.subjectId ?? null, subjectKey: input.subjectKey ?? null, courseCode: input.courseCode ?? null});
 }
 
-module.exports = Object.freeze({normalizeSubjectKey, normalizeCourseCode, subjectRecord, responsibilityRecord, packageIdentity, isCurrentTemporalAssignee, validateTemporalAssignees, isSubmittedRevisionFresh, isApprovedRevisionFresh, hasCurrentViscReview, hasCurrentViscApproval, packageStateIntegrity, isPackageFresh, exactHiccScope, isFacultyCurrentAssignee, workingSessionOwnership});
+module.exports = Object.freeze({normalizeSubjectKey, normalizeCourseCode, normalizeAssignmentMode, subjectRecord, responsibilityRecord, packageIdentity, isCurrentTemporalAssignee, validateTemporalAssignees, isSubmittedRevisionFresh, isApprovedRevisionFresh, hasCurrentViscReview, hasCurrentViscApproval, packageStateIntegrity, isPackageFresh, exactHiccScope, isFacultyCurrentAssignee, workingSessionOwnership});

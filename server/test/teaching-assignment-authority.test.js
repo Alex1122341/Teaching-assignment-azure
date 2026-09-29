@@ -315,6 +315,11 @@ test('concurrent assignee migration is additive and exact-mode constrained', () 
   assert.doesNotMatch(source, /\b(INSERT|UPDATE|DELETE|MERGE|DROP)\b/i);
   assert.doesNotMatch(source, /staging\./i);
   assert.doesNotMatch(source, /CREATE\s+(TRIGGER|PROCEDURE)/i);
+  const existingRowGuard = source.indexOf('IF EXISTS (SELECT 1 FROM paws.TeachingResponsibilityAssignee)');
+  const columnAddition = source.indexOf('ALTER TABLE paws.TeachingResponsibilityAssignee');
+  assert.ok(existingRowGuard >= 0 && existingRowGuard < columnAddition, 'existing-row guard must precede column addition');
+  assert.match(source, /THROW\s+51001[^;]*Existing responsibility assignees require explicit AssignmentMode classification/i);
+  assert.match(source, /IF EXISTS \(SELECT 1 FROM paws\.TeachingResponsibilityAssignee\)[\s\S]*THROW[\s\S]*DEFAULT \(N'exclusive'\)[\s\S]*WITH VALUES/i);
   assert.match(source, /ALTER\s+TABLE\s+paws\.TeachingResponsibilityAssignee/i);
   assert.match(source, /AssignmentMode\s+nvarchar\s*\(\s*16\s*\)/i);
   assert.match(source, /AssignmentMode[^;]+NOT NULL/i);

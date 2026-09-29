@@ -93,6 +93,6 @@
 - Create: `agent.Ai/updates/2026-09-28-beta-r4d11a-dashboard-ui-doe-parity.md`
 
 - [x] Run `node --check` on every changed JavaScript file and `git diff --check`.
-- [x] Run `npm test`, `npm test --prefix server`, and `node tools/beta-freeze.js`; classify every failure and record intentional protected-runtime drift only.
+- [x] Run `npm test`, `npm test --prefix server`, and `node tools/beta-freeze.js`; classify every failure and record intentional protected-runtime drift only (including the new shipped view-model asset absent from the older baseline).
 - [x] Verify no Firebase Firestore SDK or legacy Dashboard dependency was added to `faculty-admin.html`/`faculty-admin.js`/`paws-data-client.js`.
 - [x] Review the complete branch diff, commit documentation, and report the final SHA without creating a PR or deployment.

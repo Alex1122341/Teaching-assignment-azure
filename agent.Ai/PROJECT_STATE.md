@@ -16,8 +16,9 @@ Firestore SDK, fallback, writes, imports, rule editing, or N+1 detail loading.
 No Azure resource, SQL, Firebase, Firestore, SWA, deployment, merge, baseline
 promotion, or PR mutation was performed. Full server tests pass 102/102;
 focused R4D-11A frontend tests pass. The freeze check reports intentional
-protected drift only in `faculty-admin.html`, `faculty-admin.js`, and
-`paws-data-client.js`.
+protected drift only in the intentional candidate runtime files
+`faculty-admin.html`, `faculty-admin.js`, `paws-data-client.js`, and the new
+`dashboard-view-model.js` asset (missing from the older frozen baseline).
 
 **Last verified:** 2026-09-27
 **Repository:** `Alex1122341/Teaching-assignment-azure`

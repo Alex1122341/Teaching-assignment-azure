@@ -27,9 +27,10 @@ Base: `6adf40cd8cd89a915e23bcd505d0e3110f91b2e4`
 - JavaScript syntax checks and `git diff --check` pass.
 - Firestore/legacy dependency scan is clean for Dashboard HTML, controller,
   client, and view model.
-- `node tools/beta-freeze.js` reports only the intentional protected runtime
-  drift in `faculty-admin.html`, `faculty-admin.js`, and `paws-data-client.js`;
-  no baseline promotion was performed.
+- `node tools/beta-freeze.js` reports only intentional candidate-runtime drift
+  in `faculty-admin.html`, `faculty-admin.js`, `paws-data-client.js`, and the
+  new `dashboard-view-model.js` asset (which is absent from the older frozen
+  baseline); no baseline promotion was performed.
 
 ## Safety boundary
 

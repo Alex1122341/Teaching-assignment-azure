@@ -1,5 +1,52 @@
 # PAWS Current Project State
 
+## 0. Current live state — BETA-R4D-11 CLOSED
+
+**BETA-R4D-11: LIVE DEPLOYED / AUTHENTICATED ACCEPTANCE PASSED / RELEASE CLOSED**
+
+**Last verified:** 2026-09-29
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Deployed release SHA:** `dcf0607c027a08e5341710a449091fca4c7aa106`
+**Repository main:** may advance after this point for documentation-only continuity work; a main-branch advance is not a new deployment unless a separately authorized release is performed.
+
+The BETA-R4D-11 release is complete, live, and accepted. The release chain is closed:
+
+- Dashboard/DOE presentation accepted within the documented boundary.
+- ACR guard defect fixed.
+- Exact-main Build #134 passed (run `36574888135`).
+- Immutable ACR image published by ACR Publish #9 (run `36575614909`).
+- ACA exact-digest activation passed by ACA Deploy #2 (run `36582044521`).
+- Static cutover passed by Static Deploy #7 (run `36582983859`).
+- ADFA authenticated acceptance passed.
+- Faculty authenticated acceptance passed, including exact `153/153` scoped `SessionId` set equality.
+
+Accepted release artifacts:
+
+- Tested artifact: `azure-beta-dcf0607c027a08e5341710a449091fca4c7aa106` (artifact ID `11036059566`).
+- Artifact digest: `sha256:2adbfbdcd94ec580d8f5ee84878dab4ebee66d82091ae65b2c5feb4675c00103`.
+- Immutable ACR image digest: `sha256:a9d9021fec23439fa33bd4f67cc958cec8d2737d0cb9afa90f85912948b12503`.
+- Active ACA revision: `paws-sql-beta-api-260926--rdcf0607c027a`.
+
+Current architecture and release boundary:
+
+`Browser → Firebase Authentication → Firebase ID token → PAWS Azure Container Apps API → Azure SQL`
+
+- The static frontend is hosted by Azure Static Web Apps.
+- Timetable and dashboard business reads use the Azure SQL/API path.
+- Session writes are disabled and fail closed.
+- There is no Firestore business-data fallback for the migrated timetable/dashboard path.
+- DOE evidence is presentation-only from stored SQL evidence: `DOE_PRESENTATION_PARITY=YES`; `FULL_DOE_ENGINE_PARITY=NO`. The Experimental DOE engine is not claimed as migrated.
+
+Canonical accepted SQL counts are Faculty 120, Session 1,937, SessionAssignment 4,970, RoleAssignment 162, and AFC 791. The live Beta has an active faculty-scoped UserProfile for the accepted faculty account; private identity keys are intentionally not recorded, and no total UserProfile count is claimed here.
+
+ACA Deploy #1 (run `36581374421`) remains a **SAFE FAILURE BEFORE MUTATION**: its OIDC identity lacked `Microsoft.App/containerApps/read`, `activationPerformed=false`, and no revision or image mutation occurred. The remediation used the exact target Container Apps Contributor role; private service-principal object identifiers are not recorded.
+
+The earlier ACR G1 failure also remains historical and safe: no image build/push occurred, the absence-classification defect was fixed, and the single-publish/no-overwrite invariant remained intact.
+
+**Next task:** `AWAITING OWNER / ARCHITECT SCOPING`. No R4D-12 is invented here.
+
+The sections below are retained as historical continuity records and are superseded by the current live state above.
+
 ## BETA-R4D-11G3 — ACR guard PR continuity synchronized / awaiting merge gate
 
 **Last verified:** 2026-09-29

@@ -1,5 +1,30 @@
 # PAWS Test and Release Guide
 
+## 0. Current BETA-R4D-11 release evidence
+
+**Status: LIVE DEPLOYED / AUTHENTICATED ACCEPTANCE PASSED / RELEASE CLOSED**
+
+- Deployed release SHA: `dcf0607c027a08e5341710a449091fca4c7aa106`.
+- Build #134 / run `36574888135` passed on exact main.
+- Tested artifact: `azure-beta-dcf0607c027a08e5341710a449091fca4c7aa106`, artifact ID `11036059566`.
+- Artifact digest: `sha256:2adbfbdcd94ec580d8f5ee84878dab4ebee66d82091ae65b2c5feb4675c00103`.
+- ACR Publish #9 / run `36575614909` published immutable image digest `sha256:a9d9021fec23439fa33bd4f67cc958cec8d2737d0cb9afa90f85912948b12503`.
+- ACA Deploy #2 / run `36582044521` activated revision `paws-sql-beta-api-260926--rdcf0607c027a` by exact digest.
+- Static Deploy #7 / run `36582983859` completed the static cutover.
+- ADFA authenticated acceptance passed.
+- Faculty authenticated acceptance passed with exact `153/153` Faculty-scoped `SessionId` set equality.
+- Admin-boundary API tests returned 403 and the cross-faculty detail test returned 403.
+- Session writes were disabled and fail closed; no Firestore business fallback was used for the migrated timetable/dashboard path.
+- DOE evidence was presentation-only from stored SQL evidence: `DOE_PRESENTATION_PARITY=YES`; `FULL_DOE_ENGINE_PARITY=NO`.
+
+ACA Deploy #1 / run `36581374421` is a safe failure before mutation: OIDC lacked `Microsoft.App/containerApps/read`, `activationPerformed=false`, and no revision/image mutation occurred. The remediation was the exact target Container Apps Contributor role. Do not record private service-principal object IDs.
+
+The ACR G1 failure remains historical safe-failure evidence: no image build/push occurred, the absence-classification defect was fixed, and the single-publish/no-overwrite invariant remained intact.
+
+The deployed release SHA must remain distinct from repository main. A documentation-only main advance is not a deployment. After this closure, the next task is **AWAITING OWNER / ARCHITECT SCOPING**; no R4D-12 is implied.
+
+The older sections below are retained as historical guidance and evidence.
+
 ## 1. Core rule
 
 **Green CI is evidence, not deployment authorization.**

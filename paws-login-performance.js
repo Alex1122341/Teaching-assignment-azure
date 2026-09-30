@@ -53,6 +53,7 @@
       if(!attempt)throw new Error('No active login attempt.');
       if(!STAGES.includes(stage))throw new Error('Unknown login stage.');
       if(Object.prototype.hasOwnProperty.call(attempt.stages,stage))return attempt.stages[stage];
+      if(attempt.status!=='active')throw new Error('Login attempt is terminal.');
       const expected=expectedStage();
       if(stage!==expected)throw new Error(`Login stage order violation: expected ${expected||'complete'}, received ${stage}.`);
       const value=Number(now());
@@ -103,6 +104,7 @@
 
     function fail(info={}){
       if(!attempt)return null;
+      if(attempt.status!=='active')return snapshot();
       attempt.status='failed';
       const kind=String(info.kind||'unexpected');
       attempt.failureKind=FAILURE_KINDS.has(kind)?kind:'unexpected';
@@ -111,6 +113,8 @@
 
     function complete(){
       if(!attempt)return null;
+      if(attempt.status!=='active')return snapshot();
+      if(attempt.flow==='interactive'&&!Object.prototype.hasOwnProperty.call(attempt.stages,'T7'))throw new Error('Interactive login cannot complete before T7.');
       attempt.status='complete';
       return snapshot();
     }

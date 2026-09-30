@@ -425,3 +425,148 @@ test('38. new performance asset is loaded before timetable bootstrap and protect
   assert.ok(perf>=0&&tt>perf);
   assert.ok(manifest.includes('paws-login-performance.js'));
 });
+
+
+function flushReviewAsync(){
+  return new Promise(resolve=>setImmediate(resolve));
+}
+function reviewFacultyEnrichmentHarness({sessionsLoaded=true,deferredEnrichment=false}={}){
+  const scheduleSrc=sourceFunction('timetable.js','scheduleOptionalFacultyEnrichment');
+  const belongsSrc=sourceFunction('timetable.js','sessionBelongsToCurrentFaculty');
+  const profileA={facultyId:'F-A',instructor:'Fallback Alias'};
+  const userA={uid:'A',name:'Faculty A',email:'a@example.invalid',instructorName:'Fallback Alias',profile:profileA};
+  const metrics={render:0,publish:0,ensure:0,warn:0};
+  let releaseEnrichment=null;
+  const enrichmentGate=deferredEnrichment?new Promise(resolve=>{releaseEnrichment=resolve}):Promise.resolve();
+  const sandbox={
+    initialUser:userA,
+    sessions:sessionsLoaded?[{id:'s1'}]:[],
+    sessionCache:new Map(sessionsLoaded?[['s1',{id:'s1'}]]:[]),
+    metrics,
+    UCVM:{async enrichFacultyIdentity(_user,profile){await enrichmentGate;profile.instructor='Correct Alias';}},
+    authSettings:{instructorAlias:'Faculty 001'},
+    console:{warn(){metrics.warn+=1},error(){},log(){}},
+    swapNameKey(value){return String(value||'').trim().toLowerCase()},
+    splitInstructorNames(value){return String(value||'').split(';').map(x=>x.trim()).filter(Boolean)}
+  };
+  sandbox.globalThis=sandbox;
+  const code=`(()=>{let currentUser=globalThis.initialUser;let currentFacultyRecord=null;const sessions=globalThis.sessions;const sessionCache=globalThis.sessionCache;const UCVM=globalThis.UCVM;const authSettings=globalThis.authSettings;const swapNameKey=globalThis.swapNameKey;const splitInstructorNames=globalThis.splitInstructorNames;const publishPageData=()=>{globalThis.metrics.publish+=1};const render=()=>{globalThis.metrics.render+=1};const ensureCurrentFaculty=async()=>{globalThis.metrics.ensure+=1;currentFacultyRecord={id:String(currentUser?.profile?.facultyId||'')};return currentFacultyRecord};${belongsSrc}\n${scheduleSrc}\nreturn{start:(u,p)=>scheduleOptionalFacultyEnrichment(u,p),setUser:u=>{currentUser=u},getUser:()=>currentUser,getFaculty:()=>currentFacultyRecord,belongs:s=>sessionBelongsToCurrentFaculty(s)}})()`;
+  const harness=vm.runInContext(code,vm.createContext(sandbox));
+  return{harness,userA,profileA,metrics,release:()=>releaseEnrichment?.()};
+}
+
+test('REVIEW-1 session-data-first enrichment reconciles My Timetable with one local render',async()=>{
+  const {harness,userA,profileA,metrics}=reviewFacultyEnrichmentHarness({sessionsLoaded:true});
+  const session={assignments:[{name:'Correct Alias'}],instructor:'Correct Alias'};
+  assert.equal(harness.belongs(session),false,'fallback alias does not initially match');
+  harness.start(userA,profileA);
+  await flushReviewAsync();
+  assert.equal(harness.getUser().instructorName,'Correct Alias');
+  assert.equal(harness.belongs(session),true,'corrected alias matches after enrichment');
+  assert.equal(metrics.render,1,'loaded timetable is locally rerendered exactly once');
+});
+
+test('REVIEW-2 enrichment-first waits for normal session render and avoids duplicate local render',async()=>{
+  const {harness,userA,profileA,metrics}=reviewFacultyEnrichmentHarness({sessionsLoaded:false});
+  harness.start(userA,profileA);
+  await flushReviewAsync();
+  assert.equal(harness.getUser().instructorName,'Correct Alias');
+  assert.equal(metrics.render,0,'no local timetable rerender is needed before session data exists');
+  assert.equal(harness.belongs({assignments:[{name:'Correct Alias'}],instructor:'Correct Alias'}),true,'later session data uses the corrected alias');
+});
+
+test('REVIEW-3 late User A enrichment cannot overwrite or rerender User B',async()=>{
+  const {harness,userA,profileA,metrics,release}=reviewFacultyEnrichmentHarness({sessionsLoaded:true,deferredEnrichment:true});
+  harness.start(userA,profileA);
+  await Promise.resolve();
+  const userB={uid:'B',name:'Faculty B',email:'b@example.invalid',instructorName:'B Alias',profile:{facultyId:'F-B',instructor:'B Alias'}};
+  harness.setUser(userB);
+  release();
+  await flushReviewAsync();
+  assert.equal(harness.getUser().uid,'B');
+  assert.equal(harness.getUser().instructorName,'B Alias');
+  assert.equal(metrics.ensure,0);
+  assert.equal(metrics.render,0);
+});
+
+test('REVIEW-4 stale ensureCurrentFaculty result cannot write User A faculty context into User B',async()=>{
+  const src=sourceFunction('timetable.js','ensureCurrentFaculty');
+  let resolveDoc;
+  const metrics={publish:0};
+  const sandbox={
+    userA:{uid:'A',profile:{facultyId:'F-A'}},
+    db:{collection(){return{doc(){return{get(){return new Promise(resolve=>{resolveDoc=resolve})}}}}}},
+    metrics,
+    console:{error(){}}
+  };
+  sandbox.globalThis=sandbox;
+  const code=`(()=>{let currentUser=globalThis.userA;let currentFacultyRecord=null;let currentFacultyLoading=null;const db=globalThis.db;const publishPageData=()=>{globalThis.metrics.publish+=1};const clearCurrentFaculty=()=>{currentFacultyRecord=null;currentFacultyLoading=null;publishPageData()};${src}\nreturn{load:()=>ensureCurrentFaculty(),setUser:u=>{currentUser=u},record:()=>currentFacultyRecord}})()`;
+  const h=vm.runInContext(code,vm.createContext(sandbox));
+  const pending=h.load();
+  h.setUser({uid:'B',profile:{facultyId:'F-B'}});
+  resolveDoc({exists:true,id:'F-A',data(){return{name:'Faculty A'}}});
+  await pending;
+  assert.equal(h.record(),null);
+  assert.equal(metrics.publish,0);
+});
+
+test('REVIEW-5 mustChangePassword keeps the existing route and never signs out',async()=>{
+  const src=sourceFunction('faculty-access.js','ready');
+  const metrics={route:null,signout:0};
+  const sandbox={
+    window:{__ucvmSessionGuard:{blocked:false}},
+    location:{replace(value){metrics.route=value}},
+    installLandingReset(){},
+    clearLegacyAdminLanding(){},
+    metrics
+  };
+  sandbox.globalThis=sandbox;
+  const fn=vm.runInContext(`(async()=>{${src}\nreturn ready({uid:'u1'},{active:true,mustChangePassword:true})})()`,vm.createContext(sandbox));
+  assert.equal(await fn,false);
+  assert.equal(metrics.route,'password.html');
+  assert.equal(metrics.signout,0);
+});
+
+test('REVIEW-6 password-change route has its own diagnostic classification and stops before T6/T7',()=>{
+  const s=timetable();
+  const start=s.indexOf('const accessReady=await UCVM.ready(user, profile);');
+  const t6=s.indexOf("markLoginStage('T6')",start);
+  const branch=s.slice(start,t6);
+  assert.match(branch,/password-change-required/);
+  assert.doesNotMatch(branch,/setAccessRecovery\(/);
+  assert.doesNotMatch(branch,/auth\.signOut\(/);
+  assert.match(branch,/if \(!accessReady\)[\s\S]*return;/);
+});
+
+test('REVIEW-7 failed tracker attempt cannot later become successful without begin',()=>{
+  const t=perfModule().createTracker({now:fakeClock([0,1,2,3])});
+  t.begin({method:'email',flow:'interactive'});
+  t.mark('T1');
+  const failed=t.fail({kind:'transient'});
+  assert.equal(failed.status,'failed');
+  const completed=t.complete();
+  assert.equal(completed.status,'failed');
+  assert.equal(completed.failureKind,'transient');
+});
+
+test('REVIEW-8 terminal failed attempt rejects new stages but preserves duplicate-stage timing',()=>{
+  const t=perfModule().createTracker({now:fakeClock([0,1,99])});
+  t.begin({method:'email',flow:'interactive'});
+  t.mark('T1');
+  t.fail({kind:'transient'});
+  assert.equal(t.mark('T1'),1,'late duplicate mark returns the original timestamp');
+  assert.throws(()=>t.mark('T2'),/terminal/i);
+  assert.equal(t.snapshot().durations.firebaseAuth,null);
+});
+
+test('REVIEW-9 completed interactive attempt contains T7 and late duplicate cannot alter durations',()=>{
+  const t=perfModule().createTracker({now:fakeClock([0,1,2,3,4,5,6,7,99])});
+  t.begin({method:'email',flow:'interactive'});
+  for(const stage of ['T1','T2','T3','T4','T5','T6','T7'])t.mark(stage);
+  const completed=t.complete();
+  assert.equal(completed.status,'complete');
+  assert.equal(completed.stages.T7,7);
+  const before=JSON.stringify(completed.durations);
+  assert.equal(t.mark('T7'),7);
+  assert.equal(JSON.stringify(t.snapshot().durations),before);
+});

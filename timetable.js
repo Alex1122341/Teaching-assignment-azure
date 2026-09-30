@@ -259,6 +259,7 @@
   let facultyDirectory = [];
   let currentFacultyRecord = null;
   let currentFacultyLoading = null;
+  let currentFacultyLoadingKey = '';
   let facultyLoading = null;
   let sessionRangeKey = '';
   const sessionCache = new Map();
@@ -615,27 +616,45 @@
   }
 
   function unsubscribeFacultyDirectory(){ if(facultyUnsubscribe){try{facultyUnsubscribe()}catch(_){ } facultyUnsubscribe=null;} facultyDirectory=[];facultyLoading=null; }
-  function clearCurrentFaculty(){currentFacultyRecord=null;currentFacultyLoading=null;publishPageData()}
+  function clearCurrentFaculty(){currentFacultyRecord=null;currentFacultyLoading=null;currentFacultyLoadingKey='';publishPageData()}
   function ensureCurrentFaculty(){
-    const id=String(currentUser?.profile?.facultyId||'').trim();
-    if(!db||!currentUser||!id){clearCurrentFaculty();return Promise.resolve(null)}
+    const requestedUser=currentUser;
+    const requestedUid=String(requestedUser?.uid||'');
+    const id=String(requestedUser?.profile?.facultyId||'').trim();
+    const key=`${requestedUid}:${id}`;
+    if(!db||!requestedUser||!id){clearCurrentFaculty();return Promise.resolve(null)}
     if(currentFacultyRecord&&String(currentFacultyRecord.id)===id)return Promise.resolve(currentFacultyRecord);
-    if(currentFacultyLoading)return currentFacultyLoading;
-    currentFacultyLoading=db.collection('faculty').doc(id).get().then(doc=>{
+    if(currentFacultyLoading&&currentFacultyLoadingKey===key)return currentFacultyLoading;
+    let load=null;
+    load=db.collection('faculty').doc(id).get().then(doc=>{
+      if(!currentUser||String(currentUser.uid||'')!==requestedUid||String(currentUser.profile?.facultyId||'').trim()!==id)return null;
       currentFacultyRecord=doc.exists?{id:doc.id,...doc.data()}:null;
       publishPageData();return currentFacultyRecord;
-    }).catch(error=>{console.error('[current faculty load]',error);currentFacultyRecord=null;publishPageData();return null}).finally(()=>{currentFacultyLoading=null});
-    return currentFacultyLoading;
+    }).catch(error=>{
+      console.error('[current faculty load]',error);
+      if(currentUser&&String(currentUser.uid||'')===requestedUid&&String(currentUser.profile?.facultyId||'').trim()===id){currentFacultyRecord=null;publishPageData()}
+      return null;
+    }).finally(()=>{if(currentFacultyLoading===load){currentFacultyLoading=null;currentFacultyLoadingKey=''}});
+    currentFacultyLoading=load;
+    currentFacultyLoadingKey=key;
+    return load;
   }
   function scheduleOptionalFacultyEnrichment(user, profile) {
-    Promise.resolve().then(async () => {
-      if (!currentUser || currentUser.uid !== user.uid) return;
+    return Promise.resolve().then(async () => {
+      const expectedCurrentUser=currentUser;
+      if (!expectedCurrentUser || expectedCurrentUser.uid !== user.uid) return;
+      const priorInstructorKey=swapNameKey(expectedCurrentUser.instructorName);
+      const priorFacultyContextId=String(currentFacultyRecord?.id||'');
       if (typeof UCVM.enrichFacultyIdentity === 'function') await UCVM.enrichFacultyIdentity(user, profile);
-      if (!currentUser || currentUser.uid !== user.uid) return;
-      currentUser.instructorName = String(profile.instructor || currentUser.instructorName || authSettings.instructorAlias || 'Faculty 001');
+      if (currentUser !== expectedCurrentUser || currentUser.uid !== user.uid) return;
+      const nextInstructorName=String(profile.instructor || currentUser.instructorName || authSettings.instructorAlias || 'Faculty 001');
+      const instructorChanged=swapNameKey(nextInstructorName)!==priorInstructorKey;
+      currentUser.instructorName=nextInstructorName;
       await ensureCurrentFaculty();
-      if (!currentUser || currentUser.uid !== user.uid) return;
+      if (currentUser !== expectedCurrentUser || currentUser.uid !== user.uid) return;
+      const facultyContextChanged=String(currentFacultyRecord?.id||'')!==priorFacultyContextId;
       publishPageData();
+      if ((instructorChanged || facultyContextChanged) && (sessions.length || sessionCache.size)) render();
     }).catch(error => console.warn('[optional faculty enrichment]', error));
   }
   async function updateDerivedIndexes(changes,options={}){
@@ -1528,7 +1547,8 @@
           const accessReady=await UCVM.ready(user, profile);
           markLoginStage('T5');
           if (!accessReady) {
-            failLoginPerformance(window.__ucvmSessionGuard?.blocked ? 'session-guard' : 'access-routing');
+            const accessFailureKind=profile.mustChangePassword===true?'password-change-required':(window.__ucvmSessionGuard?.blocked?'session-guard':'access-routing');
+            failLoginPerformance(accessFailureKind);
             settleInteractiveLogin(false);
             setLoginProgress('', false);
             return;

@@ -226,6 +226,65 @@ test('31. Phone Send SMS failure restores its control',()=>{
   assert.match(body,/catch[\s\S]*phoneSendInFlight\s*=\s*false/);
   assert.match(body,/catch[\s\S]*disabled\s*=\s*false/);
 });
+
+test('31a. duplicate Send SMS executes exactly one Firebase request and failure restores retry',async()=>{
+  const src=sourceFunction('timetable.js','openPhoneLoginModal');
+  const elements={
+    'phone-back':{disabled:false},
+    'phone-login-form':{},
+    'login-phone':{value:'+14035551234'},
+    'phone-send-submit':{disabled:false},
+    'phone-login-status':{textContent:'',dataset:{}}
+  };
+  let calls=0;
+  const deferred=[];
+  const auth={signInWithPhoneNumber(){
+    calls+=1;
+    let resolve,reject;
+    const promise=new Promise((res,rej)=>{resolve=res;reject=rej});
+    deferred.push({resolve,reject});
+    return promise;
+  }};
+  class RecaptchaVerifier{
+    render(){return Promise.resolve(1)}
+    clear(){}
+  }
+  const sandbox={
+    clearRecaptcha(){sandbox.recaptchaVerifier=null},
+    showModal(){},
+    $:id=>elements[id],
+    openLoginModal(){},
+    openPhoneCodeModal(){},
+    normalizePhoneForFirebase:v=>v,
+    setLoginProgress(message,active){elements['phone-login-status'].textContent=message;elements['phone-login-status'].dataset.active=String(active)},
+    toast(){},
+    setTimeout(){},
+    auth,
+    firebase:{auth:{RecaptchaVerifier}},
+    console:{error(){},warn(){},log(){}}
+  };
+  sandbox.globalThis=sandbox;
+  const context=vm.createContext(sandbox);
+  const open=vm.runInContext(`(()=>{let phoneSendInFlight=false;let phoneConfirmation=null;let recaptchaVerifier=null;const auth=globalThis.auth;const firebase=globalThis.firebase;const $=globalThis.$;const clearRecaptcha=()=>{if(recaptchaVerifier){try{recaptchaVerifier.clear()}catch(_){}recaptchaVerifier=null}};const showModal=globalThis.showModal,openLoginModal=globalThis.openLoginModal,openPhoneCodeModal=globalThis.openPhoneCodeModal,normalizePhoneForFirebase=globalThis.normalizePhoneForFirebase,setLoginProgress=globalThis.setLoginProgress,toast=globalThis.toast,setTimeout=globalThis.setTimeout;${src};return {open:openPhoneLoginModal,state:()=>({phoneSendInFlight,phoneConfirmation,recaptchaVerifier})}})()`,context);
+  open.open();
+  const event={preventDefault(){}};
+  const first=elements['phone-login-form'].onsubmit(event);
+  const duplicate=elements['phone-login-form'].onsubmit(event);
+  await Promise.resolve();
+  assert.equal(calls,1);
+  assert.equal(elements['phone-send-submit'].disabled,true);
+  assert.equal(elements['phone-login-status'].textContent,'Sending SMS code...');
+  deferred[0].reject(Object.assign(new Error('captcha failed'),{code:'auth/captcha-check-failed'}));
+  await Promise.allSettled([first,duplicate]);
+  assert.equal(elements['phone-send-submit'].disabled,false);
+  assert.equal(elements['phone-back'].disabled,false);
+  open.open();
+  const retry=elements['phone-login-form'].onsubmit(event);
+  await Promise.resolve();
+  assert.equal(calls,2,'a settled Send SMS failure permits one new request');
+  deferred[1].resolve({confirm(){}});
+  await retry;
+});
 test('32. Phone verification is single-flight and shows verifying status',()=>{
   const s=timetable();
   assert.match(s,/let phoneVerifyInFlight\s*=\s*false/);
@@ -240,6 +299,57 @@ test('33. Phone verification failure restores its control',()=>{
   const body=s.slice(start,start+2600);
   assert.match(body,/catch[\s\S]*phoneVerifyInFlight\s*=\s*false/);
   assert.match(body,/catch[\s\S]*disabled\s*=\s*false/);
+});
+
+test('33a. duplicate verification submits execute one confirm and failure restores retry',async()=>{
+  const src=sourceFunction('timetable.js','openPhoneCodeModal');
+  const elements={
+    'code-back':{disabled:false},
+    'phone-code-form':{},
+    'phone-code':{value:'123456'},
+    'phone-verify-submit':{disabled:false},
+    'phone-code-status':{textContent:'',dataset:{}}
+  };
+  let calls=0;
+  const deferred=[];
+  const confirmation={confirm(){
+    calls+=1;
+    let resolve,reject;
+    const promise=new Promise((res,rej)=>{resolve=res;reject=rej});
+    deferred.push({resolve,reject});
+    return promise;
+  }};
+  const sandbox={
+    showModal(){},
+    $:id=>elements[id],
+    openPhoneLoginModal(){},
+    escapeHtml:v=>String(v),
+    setLoginProgress(message,active){elements['phone-code-status'].textContent=message;elements['phone-code-status'].dataset.active=String(active)},
+    beginInteractiveLogin(){},
+    failLoginPerformance(){},
+    toast(){},
+    console:{error(){},warn(){},log(){}}
+  };
+  const verifySandbox={...sandbox,confirmation};
+  verifySandbox.globalThis=verifySandbox;
+  const open=vm.runInContext(`(()=>{let phoneVerifyInFlight=false;let phoneConfirmation=globalThis.confirmation;const $=globalThis.$,showModal=globalThis.showModal,openPhoneLoginModal=globalThis.openPhoneLoginModal,escapeHtml=globalThis.escapeHtml,setLoginProgress=globalThis.setLoginProgress,beginInteractiveLogin=globalThis.beginInteractiveLogin,failLoginPerformance=globalThis.failLoginPerformance,toast=globalThis.toast;${src};return openPhoneCodeModal})()`,vm.createContext(verifySandbox));
+  open('+14035551234');
+  const event={preventDefault(){}};
+  const first=elements['phone-code-form'].onsubmit(event);
+  const duplicate=elements['phone-code-form'].onsubmit(event);
+  await Promise.resolve();
+  assert.equal(calls,1);
+  assert.equal(elements['phone-verify-submit'].disabled,true);
+  assert.equal(elements['phone-code-status'].textContent,'Verifying code...');
+  deferred[0].reject(Object.assign(new Error('bad code'),{code:'auth/invalid-verification-code'}));
+  await Promise.allSettled([first,duplicate]);
+  assert.equal(elements['phone-verify-submit'].disabled,false);
+  assert.equal(elements['code-back'].disabled,false);
+  const retry=elements['phone-code-form'].onsubmit(event);
+  await Promise.resolve();
+  assert.equal(calls,2,'a settled verification failure permits one new confirm');
+  deferred[1].resolve({});
+  await retry;
 });
 
 // Critical path / authority.

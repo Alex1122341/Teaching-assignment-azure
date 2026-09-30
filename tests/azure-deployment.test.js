@@ -109,11 +109,18 @@ test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
   const freeze=require('../tools/beta-freeze.js');
   const baseline=require('../tools/beta-baseline.json');
   assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
-  assert.equal(freeze.BASELINE_COMMIT,'5a7f8a535caaf42992598c6fc8fe301818075e67');
+  assert.equal(freeze.BASELINE_COMMIT,'f2d76449a4881cb24196289ebf63fd4cfaaa7d05');
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
   assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
+});
+
+test('static deploy evidence records the promoted B2A trust anchor',()=>{
+  const workflow=read('.github/workflows/azure-beta-static-deploy.yml');
+  const freeze=require('../tools/beta-freeze.js');
+  assert.match(workflow,new RegExp(freeze.BASELINE_COMMIT));
+  assert.doesNotMatch(workflow,/5a7f8a535caaf42992598c6fc8fe301818075e67/);
 });
 
 // G + H. Candidate and main CI contracts: ZERO allowed protected runtime drift.

@@ -5,6 +5,14 @@ window.UCVM=(()=>{
  const role=r=>({owner:'adfa_general',administrator:'adfa_regular',other_office:'other_office',adfa_general:'adfa_general',adfa_regular:'adfa_regular',admin:'adfa_regular',editor:'faculty',viewer:'faculty'}[rawRole(r)]||rawRole(r));
  const admin=p=>['adfa_general','adfa_regular','other_office'].includes(role(p?.role));
  const general=p=>role(p?.role)==='adfa_general';
+ // BETA-R4D-12B2A1: Dashboard navigation capability. Administrators reach the
+ // administrative Dashboard; faculty/hicc/visc reach the same page in its
+ // server-authorized self-service form ("My Faculty Profile"). Server authorization
+ // stays authoritative - this is navigation convenience only.
+ // other_office is retained because UCVM.admin() already granted it Dashboard access;
+ // removing it here would silently revoke an existing capability.
+ const DASHBOARD_ROLES=['adfa_general','adfa_regular','other_office','faculty','hicc','visc'];
+ function canOpenFacultyDashboard(p){return DASHBOARD_ROLES.includes(role(p?.role));}
  const historyAll=p=>['adfa_general','adfa_regular'].includes(role(p?.role));
  const label=r=>({owner:'Owner',adfa_general:'Owner',administrator:'Administrator',adfa_regular:'Administrator',admin:'Administrator',other_office:'Other Office',hicc:'HICC',visc:'VISC',faculty:'Faculty',editor:'Faculty',viewer:'Faculty'}[rawRole(r)]||rawRole(r));
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -99,7 +107,7 @@ window.UCVM=(()=>{
   async function more(){if(loading)return;loading=true;$('audit-more').disabled=true;$('audit-status').textContent='Loading changes…';try{await page('session_change_log','session');if(includeFaculty)await page('faculty_change_log','faculty');await page('account_audit','account');entries.sort((a,b)=>{const at=a.changedAt?.toMillis?a.changedAt.toMillis():0,bt=b.changedAt?.toMillis?b.changedAt.toMillis():0;return bt-at});render();$('audit-more').hidden=exhausted.session&&exhausted.faculty&&exhausted.account;$('audit-status').textContent=`${entries.length} changes loaded · ${canReadAll?'all authorized users':'your changes only'}.` }catch(e){$('audit-status').textContent='Could not load history: '+e.message}finally{loading=false;$('audit-more').disabled=false}}
   $('audit-search').oninput=render;$('audit-kind').onchange=render;$('audit-more').onclick=more;await more()
  }
- return {config,role,admin,general,historyAll,label,esc,number,init,ready,watch,logs};
+ return {config,role,admin,general,historyAll,canOpenFacultyDashboard,label,esc,number,init,ready,watch,logs};
 })();
 
 (()=>{

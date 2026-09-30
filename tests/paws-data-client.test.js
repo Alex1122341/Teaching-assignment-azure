@@ -99,13 +99,22 @@ test('Dashboard detail requires a faculty id, encodes the path segment, and pres
 });
 
 test('Dashboard methods preserve API status, code, and server message without a fallback',async()=>{
-  for(const [status,code] of [[400,'INVALID_ACADEMIC_YEAR'],[401,'UNAUTHENTICATED'],[403,'ROLE_DENIED'],[404,'FACULTY_NOT_FOUND'],[503,'SQL_UNAVAILABLE']]){
+  // B2A1: 401 now triggers one forced token refresh + retry; a second 401 becomes SESSION_REAUTH_REQUIRED.
+  for(const [status,code] of [[400,'INVALID_ACADEMIC_YEAR'],[403,'ROLE_DENIED'],[404,'FACULTY_NOT_FOUND'],[503,'SQL_UNAVAILABLE']]){
     const client=createPawsAzureDataClient({
       tokenProvider:async()=>'t',
       fetchImpl:async()=>({ok:false,status,json:async()=>({error:{code,message:`failure ${status}`}})})
     });
     await assert.rejects(client.dashboardSummary(),error=>error.status===status&&error.code===code&&error.message===`failure ${status}`);
   }
+  // 401 path: first 401 -> refresh -> second 401 -> SESSION_REAUTH_REQUIRED (status preserved).
+  let calls=0;
+  const client401=createPawsAzureDataClient({
+    tokenProvider:async(opts)=>(opts&&opts.forceRefresh?'refreshed':'normal'),
+    fetchImpl:async()=>{calls++;return{ok:false,status:401,json:async()=>({error:{code:'UNAUTHENTICATED',message:'failure 401'}})};}
+  });
+  await assert.rejects(client401.dashboardSummary(),error=>error.status===401&&error.code==='SESSION_REAUTH_REQUIRED');
+  assert.equal(calls,2,'exactly two attempts for double-401');
 });
 
 test('Dashboard aggregate methods use lazy read-only endpoints and preserve response shapes',async()=>{

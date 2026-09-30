@@ -38,6 +38,61 @@
   let authInitialized = false;
   let recaptchaVerifier = null;
   let phoneConfirmation = null;
+  let emailLoginInFlight = false;
+  let phoneSendInFlight = false;
+  let phoneVerifyInFlight = false;
+  let interactiveLoginMethod = null;
+
+  function loginPerformance() {
+    return window.UCVM_LOGIN_PERFORMANCE || null;
+  }
+  function beginInteractiveLogin(method) {
+    interactiveLoginMethod = method;
+    const perf = loginPerformance();
+    if (perf) {
+      perf.begin({ method, flow: 'interactive' });
+      markLoginStage('T1');
+    }
+  }
+  function ensureRestoredLoginPerformance() {
+    const perf = loginPerformance();
+    const current = perf?.snapshot?.();
+    if (!perf || (current && current.status === 'active')) return;
+    perf.begin({ method: 'firebase', flow: 'restored-session' });
+  }
+  function markLoginStage(stage) {
+    const perf = loginPerformance();
+    if (!perf) return;
+    try { perf.mark(stage); } catch (error) { console.warn('[login performance]', error); }
+  }
+  function failLoginPerformance(kind) {
+    const perf = loginPerformance();
+    if (!perf) return;
+    try { perf.fail({ kind: kind || 'unknown' }); } catch (error) { console.warn('[login performance]', error); }
+  }
+  function setLoginProgress(message, active = true) {
+    for (const id of ['email-login-status', 'phone-login-status', 'phone-code-status']) {
+      const status = $(id);
+      if (!status) continue;
+      status.textContent = message || '';
+      status.dataset.active = active ? 'true' : 'false';
+    }
+  }
+  function settleInteractiveLogin(success) {
+    emailLoginInFlight = false;
+    phoneVerifyInFlight = false;
+    const emailSubmit = $('email-login-submit');
+    const phoneVerify = $('phone-verify-submit');
+    if (emailSubmit) emailSubmit.disabled = false;
+    if (phoneVerify) phoneVerify.disabled = false;
+    if (success) {
+      const perf = loginPerformance();
+      if (perf) {
+        try { perf.complete(); } catch (error) { console.warn('[login performance]', error); }
+      }
+    }
+    interactiveLoginMethod = null;
+  }
 
   function loadAuthSettings() {
     try {
@@ -571,6 +626,17 @@
       publishPageData();return currentFacultyRecord;
     }).catch(error=>{console.error('[current faculty load]',error);currentFacultyRecord=null;publishPageData();return null}).finally(()=>{currentFacultyLoading=null});
     return currentFacultyLoading;
+  }
+  function scheduleOptionalFacultyEnrichment(user, profile) {
+    Promise.resolve().then(async () => {
+      if (!currentUser || currentUser.uid !== user.uid) return;
+      if (typeof UCVM.enrichFacultyIdentity === 'function') await UCVM.enrichFacultyIdentity(user, profile);
+      if (!currentUser || currentUser.uid !== user.uid) return;
+      currentUser.instructorName = String(profile.instructor || currentUser.instructorName || authSettings.instructorAlias || 'Faculty 001');
+      await ensureCurrentFaculty();
+      if (!currentUser || currentUser.uid !== user.uid) return;
+      publishPageData();
+    }).catch(error => console.warn('[optional faculty enrichment]', error));
   }
   async function updateDerivedIndexes(changes,options={}){
     try{return await UCVM_INDEX_MAINTENANCE.updateDerivedIndexes(db,changes,currentUser||{})}
@@ -1454,10 +1520,21 @@
         try {
           text.textContent = 'Checking SQL access profile...';
           setAppLocked(true, 'Checking your timetable access...');
+          setLoginProgress('Verifying PAWS access...', true);
+          markLoginStage('T3');
           const profile = await getRoleProfile(user);
+          markLoginStage('T4');
           const sqlFacultyId=profile.facultyId||null;
-          if (!await UCVM.ready(user, profile)) return;
+          const accessReady=await UCVM.ready(user, profile);
+          markLoginStage('T5');
+          if (!accessReady) {
+            failLoginPerformance(window.__ucvmSessionGuard?.blocked ? 'session-guard' : 'access-routing');
+            settleInteractiveLogin(false);
+            setLoginProgress('', false);
+            return;
+          }
           profile.facultyId=sqlFacultyId;
+          setLoginProgress('Loading your timetable...', true);
           const name = String(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
           currentUser = {
             id: user.uid,
@@ -1473,31 +1550,43 @@
             profile
           };
           sessionCache.clear();sessionCacheRanges.length=0;sessionRangeLoads.clear();sessionCacheDates.clear();sessionDateLoads.clear();
-          await ensureCurrentFaculty();
           publishPageData();
           viewMode = roleIsFaculty(currentUser) ? 'day' : 'week';
           setViewButtons();
           myTimetableOnly = roleIsFaculty(currentUser);
-          closeModal();
           updateAuthUI();
           subscribeSessions();
           unsubscribeFacultyDirectory();
+          markLoginStage('T6');
           render();
           setAppLocked(false);
+          markLoginStage('T7');
           setAccessRecovery(null);
           updateScheduleSourceUI();
+          setLoginProgress('', false);
+          settleInteractiveLogin(true);
+          closeModal();
           toast(`Signed in as ${name} (${profile.role}).`);
+          scheduleOptionalFacultyEnrichment(user, profile);
         } catch (err) {
           console.error('[SQL access profile]', err);
           // Classified failure: the Firebase login is preserved. Recovery reruns this
           // same bootstrap for the already-signed-in user; it does not re-authenticate.
-          await applyAccessFailure(err, {
+          const outcome=await applyAccessFailure(err, {
             setLocked: setAppLocked,
             setRecovery: setAccessRecovery,
             toast,
             setStatus: value => { text.textContent = value; },
-            retryAccess: () => bootstrapForUser(user, { email, phone, provider, identity })
+            retryAccess: () => {
+              const perf=loginPerformance();
+              if(perf){perf.begin({method:provider==='phone'?'phone':'email',flow:'restored-session'});markLoginStage('T2');}
+              return bootstrapForUser(user, { email, phone, provider, identity });
+            }
           });
+          failLoginPerformance(outcome.kind);
+          setLoginProgress(outcome.message, false);
+          settleInteractiveLogin(false);
+          closeModal();
         }
       }
 
@@ -1520,6 +1609,10 @@
           return;
         }
 
+        ensureRestoredLoginPerformance();
+        markLoginStage('T2');
+        setLoginProgress('Verifying PAWS access...', true);
+
         const email = String(user.email || '').trim().toLowerCase();
         const phone = String(user.phoneNumber || '').trim();
         let provider = 'firebase';
@@ -1527,23 +1620,38 @@
 
         if (email) {
           if (!isAllowedEmail(email)) {
+            const message='This email is outside the allowed local domain.';
+            failLoginPerformance('identity-policy');
+            settleInteractiveLogin(false);
+            setLoginProgress(message, false);
+            closeModal();
             await auth.signOut().catch(() => {});
-            toast(`Email ${email} is outside the allowed local domain.`, true);
+            toast(message, true);
             return;
           }
           provider = 'email';
           identity = email;
         } else if (phone) {
           if (!isAllowedPhone(phone)) {
+            const message='This phone number is outside the optional local phone list.';
+            failLoginPerformance('identity-policy');
+            settleInteractiveLogin(false);
+            setLoginProgress(message, false);
+            closeModal();
             await auth.signOut().catch(() => {});
-            toast(`Phone ${phone} is not on the optional local phone list.`, true);
+            toast(message, true);
             return;
           }
           provider = 'phone';
           identity = phone;
         } else {
+          const message='This Firebase account has neither an email nor a phone number.';
+          failLoginPerformance('identity-policy');
+          settleInteractiveLogin(false);
+          setLoginProgress(message, false);
+          closeModal();
           await auth.signOut().catch(() => {});
-          toast('This Firebase account has neither an email nor a phone number.', true);
+          toast(message, true);
           return;
         }
 
@@ -1596,12 +1704,21 @@
         <div class="login-cheatsheet">Use the email address registered by ADFA General. New faculty accounts must change their temporary password after signing in.</div>
         <div class="form-field"><label class="form-label">Email</label><input class="form-input" id="login-email" name="email" type="email" placeholder="name@ucalgary.ca" autocomplete="username" required></div>
         <div class="form-field"><label class="form-label">Password</label><input class="form-input" id="login-password" name="password" type="password" autocomplete="current-password" required></div>
-      </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="email-back">Back</button><button class="btn btn-primary" type="submit">Sign in with Email</button></div></form>`);
-    $('email-back').onclick = openLoginModal;
+        <p id="email-login-status" class="form-hint" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
+      </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="email-back">Back</button><button class="btn btn-primary" id="email-login-submit" type="submit">Sign in with Email</button></div></form>`);
+    $('email-back').onclick = () => { if (!emailLoginInFlight) openLoginModal(); };
     $('email-login-form').onsubmit = async e => {
       e.preventDefault();
+      if (emailLoginInFlight) return;
       const email = $('login-email').value.trim();
       const password = $('login-password').value;
+      const submit = $('email-login-submit');
+      const back = $('email-back');
+      emailLoginInFlight = true;
+      submit.disabled = true;
+      back.disabled = true;
+      setLoginProgress('Signing in...', true);
+      beginInteractiveLogin('email');
       try {
         await auth.signInWithEmailAndPassword(email, password);
       } catch (err) {
@@ -1613,6 +1730,11 @@
         else if (code === 'auth/user-disabled') msg = 'This Firebase user is disabled.';
         else if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') msg = 'Email or password is incorrect, or the Firebase user has not been created yet.';
         else if (code === 'auth/too-many-requests') msg = 'Too many failed attempts. Try again later.';
+        failLoginPerformance('firebase-auth');
+        emailLoginInFlight = false;
+        submit.disabled = false;
+        back.disabled = false;
+        setLoginProgress(msg, false);
         toast(msg, true);
       }
     };
@@ -1634,8 +1756,9 @@
         <div class="login-cheatsheet"><strong>Firebase setup:</strong> Authentication > Sign-in method > enable <strong>Phone</strong>.<br>Canadian numbers can be entered as <code>4035551234</code> or <code>+14035551234</code>. For repeated testing, Firebase test phone numbers are recommended.</div>
         <div class="form-field"><label class="form-label">Phone number</label><input class="form-input" id="login-phone" type="tel" placeholder="+14035551234" autocomplete="tel" required></div>
         <div class="form-field"><label class="form-label">reCAPTCHA</label><div id="recaptcha-container" style="min-height:78px;padding-top:4px"></div></div>
-      </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="phone-back">Back</button><button class="btn btn-primary" type="submit">Send SMS Code</button></div></form>`);
-    $('phone-back').onclick = openLoginModal;
+        <p id="phone-login-status" class="form-hint" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
+      </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="phone-back">Back</button><button class="btn btn-primary" id="phone-send-submit" type="submit">Send SMS Code</button></div></form>`);
+    $('phone-back').onclick = () => { if (!phoneSendInFlight) openLoginModal(); };
     try {
       recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', { size: 'normal' });
       recaptchaVerifier.render().catch(err => console.error('[reCAPTCHA render]', err));
@@ -1645,11 +1768,22 @@
     }
     $('phone-login-form').onsubmit = async e => {
       e.preventDefault();
+      if (phoneSendInFlight) return;
       const phone = normalizePhoneForFirebase($('login-phone').value);
       if (!/^\+\d{8,15}$/.test(phone)) { toast('Enter a valid phone number, preferably in +1... format.', true); return; }
+      const submit = $('phone-send-submit');
+      const back = $('phone-back');
+      phoneSendInFlight = true;
+      submit.disabled = true;
+      back.disabled = true;
+      setLoginProgress('Sending SMS code...', true);
       try {
         if (!recaptchaVerifier) throw new Error('reCAPTCHA is not initialized.');
         phoneConfirmation = await auth.signInWithPhoneNumber(phone, recaptchaVerifier);
+        phoneSendInFlight = false;
+        submit.disabled = false;
+        back.disabled = false;
+        setLoginProgress('', false);
         clearRecaptcha();
         openPhoneCodeModal(phone);
       } catch (err) {
@@ -1662,6 +1796,10 @@
         else if (code === 'auth/quota-exceeded') msg = 'Firebase SMS quota has been exceeded. Use a Firebase test phone number or try later.';
         else if (code === 'auth/captcha-check-failed') msg = 'reCAPTCHA verification failed. Reload and try again.';
         else if (code === 'auth/too-many-requests') msg = 'Too many SMS requests. Use a Firebase test phone number or wait before trying again.';
+        phoneSendInFlight = false;
+        submit.disabled = false;
+        back.disabled = false;
+        setLoginProgress(msg, false);
         toast(msg, true);
         clearRecaptcha();
         setTimeout(openPhoneLoginModal, 250);
@@ -1674,11 +1812,20 @@
       <div class="modal-header"><div class="modal-title">Enter SMS Code</div><div class="modal-subtitle">Verification code sent to ${escapeHtml(phone)}.</div></div>
       <form id="phone-code-form"><div class="modal-body">
         <div class="form-field"><label class="form-label">6-digit verification code</label><input class="form-input" id="phone-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" required></div>
-      </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="code-back">Use another number</button><button class="btn btn-primary" type="submit">Verify & Sign In</button></div></form>`);
-    $('code-back').onclick = openPhoneLoginModal;
+        <p id="phone-code-status" class="form-hint" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
+      </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="code-back">Use another number</button><button class="btn btn-primary" id="phone-verify-submit" type="submit">Verify & Sign In</button></div></form>`);
+    $('code-back').onclick = () => { if (!phoneVerifyInFlight) openPhoneLoginModal(); };
     $('phone-code-form').onsubmit = async e => {
       e.preventDefault();
+      if (phoneVerifyInFlight) return;
       const code = $('phone-code').value.trim();
+      const submit = $('phone-verify-submit');
+      const back = $('code-back');
+      phoneVerifyInFlight = true;
+      submit.disabled = true;
+      back.disabled = true;
+      setLoginProgress('Verifying code...', true);
+      beginInteractiveLogin('phone');
       try {
         if (!phoneConfirmation) throw new Error('SMS verification session expired.');
         await phoneConfirmation.confirm(code);
@@ -1689,6 +1836,11 @@
         let msg = err && err.message ? err.message : 'Verification failed.';
         if (codeName === 'auth/invalid-verification-code') msg = 'The SMS code is incorrect.';
         else if (codeName === 'auth/code-expired') msg = 'The SMS code expired. Request a new one.';
+        failLoginPerformance('firebase-auth');
+        phoneVerifyInFlight = false;
+        submit.disabled = false;
+        back.disabled = false;
+        setLoginProgress(msg, false);
         toast(msg, true);
       }
     };
@@ -1696,20 +1848,20 @@
 
   function openAuthSetupModal() {
     showModal(`
-      <div class="modal-header"><div class="modal-title">Local Auth + Firestore Role Setup</div><div class="modal-subtitle">Login is Firebase Auth. Authorization comes from Firestore users/{uid}.</div></div>
+      <div class="modal-header"><div class="modal-title">Local Authentication Preferences</div><div class="modal-subtitle">Firebase Authentication signs users in. PAWS API + Azure SQL paws.UserProfile authorize Beta access.</div></div>
       <form id="auth-setup-form"><div class="modal-body">
         <div class="login-cheatsheet">
           <strong>Firebase test project:</strong> Tester Teaching (<code>tester-teaching</code>)<br><br>
-          <strong>V9.7 UCalgary UI + synchronized workload DOE + Firestore-only authorization + admin SWAP + AFC + timetable availability:</strong><br>
-          1. User signs in with Email/Password or Phone.<br>
-          2. V9.7 reads <code>users/{Firebase UID}</code> from Firestore; after authorization, the timetable loads exclusively from <code>sessions</code>. Admin users also load the faculty directory, Away from Campus records, live timetable conflicts, SWAP tools and instructor selection.<br>
-          3. <code>active: true</code> is required.<br>
-          4. <code>role: "viewer"</code> = view only; <code>role: "editor"</code> = view + add/edit/delete.<br><br>
-          Timetable reads and admin edits are Firestore-only. No Year 1/2/3 bundled schedule files are loaded by this page.
+          <strong>Current Beta access path:</strong><br>
+          1. Firebase Authentication verifies Email/Password or Phone identity.<br>
+          2. PAWS API authorizes the Firebase identity against Azure SQL <code>paws.UserProfile</code>.<br>
+          3. The SQL profile must be active and supplies the current PAWS role and authoritative FacultyId when applicable.<br>
+          4. Timetable session reads use the PAWS API backed by Azure SQL. Optional legacy Firestore enrichment is not authorization authority.<br><br>
+          Local settings below are only client-side convenience checks and display preferences.
         </div>
-        <div class="form-field"><label class="form-label">Allowed email domain</label><input class="form-input" id="auth-domain" value="${escapeHtml(authSettings.allowedDomain)}" placeholder="ucalgary.ca"><div class="form-hint">Optional local pre-check. Firestore users/{uid} is the real authorization list.</div></div>
-        <div class="form-field"><label class="form-label">Allowed phone number(s) - optional</label><textarea class="form-input" id="auth-allowed-phones" rows="3" placeholder="+14035551234, +14035555678">${escapeHtml(authSettings.allowedPhones)}</textarea><div class="form-hint">Leave blank to let Firestore users/{uid} decide whether an authenticated phone user is authorized.</div></div>
-        <div class="form-field"><label class="form-label">Instructor mapping</label><input class="form-input" id="auth-instructor" value="${escapeHtml(authSettings.instructorAlias)}" placeholder="Faculty 001"><div class="form-hint">Used for the My Timetable filter on this test site. You may instead add an optional Firestore field named <code>instructor</code>.</div></div>
+        <div class="form-field"><label class="form-label">Allowed email domain</label><input class="form-input" id="auth-domain" value="${escapeHtml(authSettings.allowedDomain)}" placeholder="ucalgary.ca"><div class="form-hint">Optional local pre-check only. PAWS API + Azure SQL UserProfile remain the authorization authority.</div></div>
+        <div class="form-field"><label class="form-label">Allowed phone number(s) - optional</label><textarea class="form-input" id="auth-allowed-phones" rows="3" placeholder="+14035551234, +14035555678">${escapeHtml(authSettings.allowedPhones)}</textarea><div class="form-hint">Leave blank to skip this local phone pre-check. Server authorization still comes from PAWS API + Azure SQL UserProfile.</div></div>
+        <div class="form-field"><label class="form-label">Instructor mapping</label><input class="form-input" id="auth-instructor" value="${escapeHtml(authSettings.instructorAlias)}" placeholder="Faculty 001"><div class="form-hint">Fallback display mapping for My Timetable. When present, the SQL profile FacultyId remains authoritative.</div></div>
         <div class="login-cheatsheet"><strong>Local test URL:</strong><br><code>http://localhost:8765/</code></div>
       </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="auth-setup-cancel">Cancel</button><button class="btn btn-primary" type="submit">Save Local Settings</button></div></form>`);
     $('auth-setup-cancel').onclick = closeModal;
@@ -1726,7 +1878,7 @@
         updateAuthUI();
         render();
       }
-      toast('Local settings saved. User role still comes from Firestore.');
+      toast('Local settings saved. PAWS role and FacultyId still come from the Azure SQL access profile.');
     };
   }
 
@@ -1738,9 +1890,9 @@
       <div class="modal-body">
         <div class="login-cheatsheet">
           <strong>Authentication:</strong> Firebase ${escapeHtml(currentUser.provider)} sign-in.<br>
-          <strong>Authorization:</strong> Firestore <code>users/${escapeHtml(currentUser.uid)}</code>.<br>
+          <strong>Authorization:</strong> PAWS API + Azure SQL <code>paws.UserProfile</code>.<br>
           <strong>Role:</strong> ${escapeHtml(currentUser.role)} &nbsp; <strong>Active:</strong> ${currentUser.active ? 'true' : 'false'}<br>
-          <strong>Timetable sessions:</strong> ${scheduleSource === 'firestore' ? 'Live Firestore schedule — shared across authorized users.' : 'No synchronized source loaded — import from Faculty Dashboard.'}
+          <strong>Timetable sessions:</strong> Azure SQL via the PAWS API read path.
         </div>
         <div class="form-hint">My Timetable mapping: <strong>${escapeHtml(currentUser.instructorName)}</strong>.</div>
       </div>

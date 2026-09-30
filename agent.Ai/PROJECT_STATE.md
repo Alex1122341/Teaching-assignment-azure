@@ -1,3 +1,33 @@
+# BETA-R4D-12B1G — BASELINE PROMOTION / PR PENDING / NOT LIVE
+
+**Last verified:** 2026-09-29
+**Starting `origin/main`:** `68cd57074bbcf7916da6a031a238175d5530ae0b`
+**Accepted B1 candidate:** `68bda43a71034089a57d3369128e5dafd80f06eb`
+**Feature branch:** `feature/beta-r4d12b1-afc-dashboard-write-foundation`
+**Parent required for governance commit:** `68bda43a71034089a57d3369128e5dafd80f06eb`
+**Status:** B1 IMPLEMENTED / B1R+B1R2 ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE.
+
+B1G promotes exactly the accepted B1 dual-runtime candidate as the single
+static/API freeze trust anchor. `tools/beta-freeze.js` and
+`tools/beta-baseline.json` now reference the candidate; API freeze continues to
+import the static baseline. Static protected count remains 46 with zero drift;
+the API protected set is 17 runtime files plus the ACA Dockerfile with zero
+runtime/build-definition drift. The new AFC write repository is now protected
+by the candidate baseline rather than missing-at-baseline.
+
+The governance diff is restricted to freeze trust-anchor configuration,
+candidate-derived hashes, baseline/governance tests, active static release
+evidence metadata, and continuity docs. Product static bytes, API/runtime
+bytes, SQL artifacts, business tests, Dockerfile, and AFC behavior remain
+unchanged. B1 remains NOT LIVE: migration 007, permissions, deployment, AFC
+create, SQL grants, Firestore/Firebase/Auth/Rules mutations, Azure mutations,
+A2B, Work Queue, B2A, B2B, and DOE changes were not performed.
+
+Current B1G actions: full local validation, one governance-only commit with
+parent exactly the accepted candidate, push, then one PR to `main` using a
+merge commit only. Do not start B1D automatically. B1D, B2A, B2B, B3, and DOE
+remain queued.
+
 # BETA-R4D-12B1R2 — EXACT AFC SQL PERMISSION CONTRACT CORRECTION / NOT LIVE
 
 **Last verified:** 2026-09-29

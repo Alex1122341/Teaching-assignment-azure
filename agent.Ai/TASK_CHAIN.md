@@ -1,3 +1,25 @@
+# BETA-R4D-12B1G — BASELINE PROMOTION / PR INTEGRATION GATE
+
+Status: **B1 IMPLEMENTED / B1R+B1R2 ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
+
+- Accepted B1 candidate and required governance parent:
+  `68bda43a71034089a57d3369128e5dafd80f06eb`.
+- `origin/main` remains `68cd57074bbcf7916da6a031a238175d5530ae0b`; before merge,
+  main must still equal that SHA.
+- `tools/beta-freeze.js` and `tools/beta-baseline.json` use the candidate as
+  the single static/API trust anchor; `beta-api-freeze.js` still imports it.
+- Static protected set remains 46 with zero drift. API protection now includes
+  `server/src/data/sql-afc-write-repository.js`; runtime and Dockerfile drift
+  are zero.
+- Candidate-to-governance product-runtime and SQL/business diffs must be empty.
+- Only governance configuration, derived hashes, baseline/governance tests,
+  active release evidence metadata, and continuity docs are in scope.
+- No SQL apply, permission apply, live AFC, deployment, Azure mutation, PR
+  merge, A2B, Work Queue, B2A, B2B, or DOE change has occurred.
+- After local validation, make one governance commit on this branch, push it,
+  open one PR to `main`, and merge with a merge commit only. B1D must not start
+  automatically; B1D, B2A, B2B, B3, and DOE remain queued.
+
 # BETA-R4D-12B1R2 — EXACT AFC SQL PERMISSION CONTRACT CORRECTION
 
 Status: **CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE**

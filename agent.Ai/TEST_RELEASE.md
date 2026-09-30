@@ -23,15 +23,37 @@ The ACR G1 failure remains historical safe-failure evidence: no image build/push
 
 The deployed release SHA must remain distinct from repository main. A documentation-only main advance is not a deployment. After this closure, the next task is **AWAITING OWNER / ARCHITECT SCOPING**; no R4D-12 is implied.
 
-## 0A. Current BETA-R4D-12B1G governance state
+## 0A. Current BETA-R4D-12B1D-RG governance state
 
-The reviewed B1 dual-runtime candidate
-`68bda43a71034089a57d3369128e5dafd80f06eb` is now the immutable static/API
-freeze trust anchor. B1 is implemented, B1R/B1R2 accepted, baseline-promoted,
+The corrected B1 runtime `5a7f8a535caaf42992598c6fc8fe301818075e67` is now the
+immutable static/API freeze trust anchor. It supersedes
+`68bda43a71034089a57d3369128e5dafd80f06eb`, which is retained as historical
+evidence only.
+
+The correction it carries: an unfiltered AFC list
+(`GET /api/v1/dashboard/afc-records`) answered 503 `SQL_UNAVAILABLE` because
+`listAfcRecords()` emitted a bare `WHERE` clause when no predicates were
+supplied. The corrected runtime omits the clause entirely.
+
+B1 is implemented, B1R/B1R2 accepted, B1D-R corrected, baseline-promoted,
 PR-pending, and **NOT LIVE**. The legacy Firestore Approval/AFC workflow is
 fail-closed unless the explicit compatibility backend is `firestore`; the Azure
-Beta client remains `azure-sql` with writes disabled. B1D is the separate
-controlled SQL apply, full-stack deployment, and authenticated acceptance gate.
+Beta client remains `azure-sql` with writes disabled. B1D-RD (ACR publish of the
+corrected digest plus ACA redeploy) is the separate gate that makes the
+correction live; the static cutover and authenticated acceptance resume follow
+it.
+
+Promotion evidence: static freeze PASS with `protected: 46, drift: []`;
+candidate verifier PASS with static drift `[]` and API drift `[]`. Static
+protected delta between the two anchors is 0; API protected delta is exactly 1
+path (`server/src/data/sql-dashboard-repository.js`).
+
+### Previous governance state (BETA-R4D-12B1G)
+
+The reviewed B1 dual-runtime candidate
+`68bda43a71034089a57d3369128e5dafd80f06eb` was the immutable static/API freeze
+trust anchor before the B1D-R correction. It is superseded but remains readable
+in Git as history.
 
 The older sections below are retained as historical guidance and evidence.
 
@@ -99,11 +121,12 @@ normal merge commit (no squash/rebase).
 
 Frozen application baseline:
 
-`68bda43a71034089a57d3369128e5dafd80f06eb`
+`5a7f8a535caaf42992598c6fc8fe301818075e67`
 
-This is the BETA-R4D-12B1 accepted dual-runtime candidate shared by the static
-and API runtimes. It is the reviewed frozen runtime; the previous B0 baseline
-is historical evidence only.
+This is the BETA-R4D-12B1 corrected dual-runtime runtime shared by the static and
+API runtimes. It is the reviewed frozen runtime; the previous B1 baseline
+`68bda43a71034089a57d3369128e5dafd80f06eb` and the B0 baseline
+`b3458f79a05353ce1255874754e1c6c1ec8ee683` are historical evidence only.
 
 Protected static assets are driven by `tools/static-assets.json` (46 entries; the previous 45-path set plus `dashboard-view-model.js`). Both `pull_request` and `push` to `main` allow zero protected runtime drift.
 

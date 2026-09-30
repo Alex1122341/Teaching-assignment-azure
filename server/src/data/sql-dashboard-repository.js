@@ -348,6 +348,9 @@ function createSqlDashboardRepository(db) {
         predicates.push('u.Active = @active');
         params.active = active;
       }
+      // An unfiltered list has no predicates at all, so the WHERE clause must
+      // be omitted entirely rather than emitted empty.
+      const whereClause = predicates.length ? `WHERE ${predicates.join(' AND ')}` : '';
       const rows = await db.query(
         `SELECT TOP (@limit)
              u.AfcRecordId AS afcRecordId,
@@ -366,7 +369,7 @@ function createSqlDashboardRepository(db) {
              u.RecordKey AS recordKey
          FROM paws.vAfcRecordUnified u
          INNER JOIN paws.Faculty f ON f.FacultyId = u.FacultyId
-         WHERE ${predicates.join(' AND ')}
+         ${whereClause}
          ORDER BY u.StartDate DESC, f.DisplayName, u.AfcRecordId`,
         params
       );

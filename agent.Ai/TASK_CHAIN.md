@@ -1,3 +1,31 @@
+# BETA-R4D-12B1D-RG — CORRECTED API BASELINE PROMOTION / PR INTEGRATION GATE
+
+Status: **B1D-R CORRECTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
+
+- Superseded frozen baseline: `68bda43a71034089a57d3369128e5dafd80f06eb`.
+- Promoted frozen baseline (corrected runtime):
+  `5a7f8a535caaf42992598c6fc8fe301818075e67`.
+- Branch: `feature/beta-r4d12b1d-r-afc-unfiltered-list`.
+- `origin/main` before merge: `c83faeb39ab637ba1fa17ca066c74004d8a9d620`.
+- Reason: the accepted API runtime corrected the unfiltered AFC list query,
+  which had returned 503 `SQL_UNAVAILABLE` because a bare `WHERE` was emitted
+  when no predicates were supplied.
+- `tools/beta-freeze.js` and `tools/beta-baseline.json` now use the corrected
+  runtime as the single static/API trust anchor; `beta-api-freeze.js` still
+  imports it and declares no anchor of its own.
+- Static protected set 46, delta 0. API protected set 17 runtime files plus
+  `deploy/aca/Dockerfile`, delta 1 = `server/src/data/sql-dashboard-repository.js`
+  (the intended correction). All nine recorded static `sha256` values unchanged.
+- Static freeze PASS (`protected: 46, drift: []`); candidate verifier PASS with
+  static drift `[]` and API drift `[]`.
+- Scope is limited to freeze configuration, baseline/governance tests, active
+  static release evidence metadata, and continuity docs.
+- One governance commit is pushed on this branch; one PR goes to `main` and must
+  integrate with a merge commit only.
+- No SQL apply, permission apply, live proof, live AFC creation, ACR publish,
+  ACA deploy, SWA cutover, Azure mutation, A2B, Work Queue, B2A, B2B, or DOE
+  change has occurred. B1D-RD, C10 resume, and C11 must not start automatically.
+
 # BETA-R4D-12B1G — BASELINE PROMOTION / PR INTEGRATION GATE
 
 Status: **B1 IMPLEMENTED / B1R+B1R2 ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**

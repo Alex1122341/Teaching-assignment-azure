@@ -11,10 +11,11 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// BETA-R4D-12B1G: the frozen trust anchor is the accepted B1 dual-runtime
-// candidate. This governance promotion changes only the release trust anchor;
-// it does not deploy B1 or apply its SQL artifacts.
-const BASELINE_COMMIT='68bda43a71034089a57d3369128e5dafd80f06eb';
+// BETA-R4D-12B1D-RG: the frozen trust anchor is the accepted B1 runtime carrying
+// the corrected unfiltered AFC list query. This governance promotion changes
+// only the release trust anchor; it does not publish an image, redeploy the API,
+// or cut over the static site.
+const BASELINE_COMMIT='5a7f8a535caaf42992598c6fc8fe301818075e67';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

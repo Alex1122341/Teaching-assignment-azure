@@ -1,3 +1,36 @@
+# BETA-R4D-12B1D-RG — CORRECTED API BASELINE PROMOTION / PR INTEGRATION GATE
+
+**Last verified:** 2026-09-29
+**Superseded frozen baseline:** `68bda43a71034089a57d3369128e5dafd80f06eb`
+**Promoted frozen baseline (corrected runtime):** `5a7f8a535caaf42992598c6fc8fe301818075e67`
+**Feature branch:** `feature/beta-r4d12b1d-r-afc-unfiltered-list`
+**Origin/main before merge:** `c83faeb39ab637ba1fa17ca066c74004d8a9d620`
+**Status:** B1D-R CORRECTED / BASELINE PROMOTED / PR-PENDING / NOT LIVE.
+
+B1D-R found and fixed a live defect: an unfiltered AFC list
+(`GET /api/v1/dashboard/afc-records`) returned 503 `SQL_UNAVAILABLE` because
+`listAfcRecords()` emitted a bare `WHERE` when no predicates were supplied.
+B1D-RG promotes the corrected runtime as the single static/API freeze trust
+anchor. The superseded anchor `68bda43...` remains readable as history only.
+
+The promotion is exactly scoped and proved: the static protected set is 46
+paths with **zero** delta, and the API protected set (17 runtime files plus
+`deploy/aca/Dockerfile`) has **exactly one** delta —
+`server/src/data/sql-dashboard-repository.js`, the intended correction. All nine
+recorded static `sha256` values are unchanged. `tools/beta-freeze.js` reports
+`protected: 46, drift: []`; `tools/verify-beta-candidate.js` reports static
+drift `[]` and API drift `[]`.
+
+The governance diff is restricted to freeze trust-anchor configuration,
+baseline/governance tests, active static release evidence metadata, and
+continuity docs. No product static bytes, API/runtime bytes beyond the already
+accepted correction, SQL artifacts, business tests, or Dockerfile are in scope.
+
+B1D-RG performs no ACR publish, no ACA deploy, and no SWA cutover. The live API
+still carries the unfiltered-list defect until B1D-RD publishes and activates the
+corrected digest. ACR publish, ACA redeploy, C10 acceptance resume, C11 static
+cutover, B2A, B2B, B3, and DOE remain queued and must not start automatically.
+
 # BETA-R4D-12B1G — BASELINE PROMOTION / PR PENDING / NOT LIVE
 
 **Last verified:** 2026-09-29

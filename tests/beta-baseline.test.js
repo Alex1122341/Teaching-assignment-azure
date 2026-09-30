@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// BETA-R4D-12B1G: static and API runtimes share the accepted B1 candidate baseline.
-const BASELINE_COMMIT='68bda43a71034089a57d3369128e5dafd80f06eb';
-const PREVIOUS_BASELINE_COMMIT='b3458f79a05353ce1255874754e1c6c1ec8ee683';
+// BETA-R4D-12B1D-RG: static and API runtimes share the accepted B1 runtime
+// carrying the corrected unfiltered AFC list query.
+const BASELINE_COMMIT='5a7f8a535caaf42992598c6fc8fe301818075e67';
+const PREVIOUS_BASELINE_COMMIT='68bda43a71034089a57d3369128e5dafd80f06eb';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
@@ -148,4 +149,26 @@ test('API freeze imports the single static baseline constant',()=>{
   const apiFreezeSource=fs.readFileSync(path.join(root,'tools/beta-api-freeze.js'),'utf8');
   assert.doesNotMatch(apiFreezeSource,/const\s+BASELINE_COMMIT\s*=/);
   assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
+});
+
+// H. Corrected runtime anchoring --------------------------------------------
+test('the promoted API anchor carries the corrected unfiltered AFC list query',()=>{
+  const anchored=freeze.readBaselineFile({root,file:'server/src/data/sql-dashboard-repository.js'}).toString('utf8');
+  // BETA-R4D-12B1D-R: an unfiltered AFC list has no predicates at all, so the
+  // WHERE clause must be omitted entirely. The superseded runtime emitted a
+  // bare `WHERE`, which the endpoint surfaced as 503 SQL_UNAVAILABLE.
+  assert.match(anchored,/const whereClause = predicates\.length \? `WHERE \$\{predicates\.join\(' AND '\)\}` : '';/);
+  const afc=anchored.slice(anchored.indexOf('FROM paws.vAfcRecordUnified u'));
+  const statement=afc.slice(0,afc.indexOf('ORDER BY'));
+  assert.ok(statement.length>0);
+  assert.match(statement,/\$\{whereClause\}/);
+  assert.doesNotMatch(statement,/WHERE \$\{predicates\.join/);
+});
+
+test('the superseded anchor is retained as historical evidence only',()=>{
+  assert.notEqual(PREVIOUS_BASELINE_COMMIT,BASELINE_COMMIT);
+  assert.equal(freeze.baselineCommitExists(root,PREVIOUS_BASELINE_COMMIT),true);
+  // The superseded anchor is still an ancestor, so its blobs stay readable as
+  // history while no longer being the verification authority.
+  execFileSync('git',['merge-base','--is-ancestor',PREVIOUS_BASELINE_COMMIT,'HEAD'],{cwd:root});
 });

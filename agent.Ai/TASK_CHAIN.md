@@ -1,3 +1,19 @@
+# B2B-PR — LOGIN UX / PERFORMANCE BASELINE PROMOTION / PR GATE
+
+Status: **B2B ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
+
+- Accepted B2B runtime candidate: `65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`.
+- Previous frozen baseline: `f2d76449a4881cb24196289ebf63fd4cfaaa7d05`.
+- Promoted static/API baseline: `65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`.
+- Static protected set: 48; previous paths missing: 0; only added path:
+  `paws-login-performance.js`.
+- B2A continuity remains protected; B2B adds Email/Phone single-flight login UX,
+  sanitized in-memory T0–T7 timing, post-T7 optional Firestore enrichment,
+  SQL-authoritative FacultyId, safe My Timetable reconciliation, stale-user
+  protection, and precise password-change diagnostics.
+- Governance promotion only. No merge, deployment, SQL, Firebase, Firestore,
+  secret, Azure, B3, or DOE action is authorized by this state.
+
 # B2A-PR — AUTHENTICATION CONTINUITY BASELINE PROMOTION / PR GATE
 
 Status: **B2A ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**

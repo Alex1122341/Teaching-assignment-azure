@@ -23,7 +23,25 @@ The ACR G1 failure remains historical safe-failure evidence: no image build/push
 
 The deployed release SHA must remain distinct from repository main. A documentation-only main advance is not a deployment. After this closure, the next task is **AWAITING OWNER / ARCHITECT SCOPING**; no R4D-12 is implied.
 
-## 0A. Current B2A governance state
+## 0A. Current B2B governance state
+
+**Status: B2B LOGIN UX / PERFORMANCE ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
+
+- Accepted B2B runtime candidate and promoted frozen trust anchor:
+  `65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`.
+- Previous frozen baseline:
+  `f2d76449a4881cb24196289ebf63fd4cfaaa7d05`.
+- Static protected set is 48 paths. All 47 B2A paths remain protected and the
+  only added path is `paws-login-performance.js`.
+- B2A continuity semantics remain unchanged. B2B adds single-flight Email/Phone
+  login UX, sanitized in-memory T0–T7 diagnostics, and removes optional
+  Firestore Faculty enrichment from the blocking login path.
+- SQL FacultyId remains authoritative; late enrichment reconciles My Timetable
+  locally when needed and stale cross-user enrichment is ignored.
+- This is governance promotion only. No merge, deployment, SQL, Firebase,
+  Firestore, secret, Azure, B3, or DOE mutation has occurred.
+
+## 0B. Previous B2A governance state
 
 **Status: B2A AUTHENTICATION CONTINUITY ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
 
@@ -42,7 +60,7 @@ The deployed release SHA must remain distinct from repository main. A documentat
 - This is governance promotion only. No merge, deployment, SQL, Firebase,
   Firestore, secret, or Azure mutation has occurred; B2B has not started.
 
-## 0B. Previous BETA-R4D-12B1D-RG governance state
+## 0C. Previous BETA-R4D-12B1D-RG governance state
 
 The corrected B1 runtime `5a7f8a535caaf42992598c6fc8fe301818075e67` is now the
 immutable static/API freeze trust anchor. It supersedes
@@ -140,18 +158,19 @@ normal merge commit (no squash/rebase).
 
 Frozen application baseline:
 
-`f2d76449a4881cb24196289ebf63fd4cfaaa7d05`
+`65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`
 
-This is the accepted B2A authentication-continuity candidate and the single
-static/API trust anchor. The previous B1 corrected baseline
+This is the accepted B2B login UX/performance candidate and the single
+static/API trust anchor. The previous B2A baseline
+`f2d76449a4881cb24196289ebf63fd4cfaaa7d05`, the B1 corrected baseline
 `5a7f8a535caaf42992598c6fc8fe301818075e67`, the earlier B1 baseline
 `68bda43a71034089a57d3369128e5dafd80f06eb`, and the B0 baseline
 `b3458f79a05353ce1255874754e1c6c1ec8ee683` remain historical evidence only.
 
-Protected static assets are driven by `tools/static-assets.json` (47 entries).
-The prior 46 paths are unchanged and the sole new protected path is
-`paws-auth-continuity.js`. Both `pull_request` and `push` to `main` allow
-zero protected runtime drift.
+Protected static assets are driven by `tools/static-assets.json` (48 entries).
+All 47 B2A paths remain protected and the sole new protected path is
+`paws-login-performance.js`. Both `pull_request` and `push` to `main`
+allow zero protected runtime drift.
 
 `tools/beta-freeze.js` compares against immutable Git blobs from the frozen baseline.
 

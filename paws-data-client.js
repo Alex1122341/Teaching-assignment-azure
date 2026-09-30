@@ -38,14 +38,17 @@
 
     const apiOrigin=validateApiOrigin(API_ORIGIN);
 
-    async function request(path){
+    async function request(path,{method='GET',body:requestBody}={}){
       const token=await tokenProvider();
       if(!token){
         const error=new Error('Authentication required.');
         error.code='UNAUTHENTICATED';
         throw error;
       }
-      const response=await fetchImpl(apiOrigin+path,{method:'GET',headers:{Authorization:'Bearer '+token,Accept:'application/json'},credentials:'omit'});
+      const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+      const init={method,headers,credentials:'omit'};
+      if(requestBody!==undefined){headers['Content-Type']='application/json';init.body=JSON.stringify(requestBody)}
+      const response=await fetchImpl(apiOrigin+path,init);
       const body=await safeJson(response);
       if(!response.ok){
         const error=new Error(body?.error?.message||'The PAWS data service is unavailable.');
@@ -115,6 +118,27 @@
         const suffix=query.toString()?'?'+query.toString():'';
         const body=await request('/api/v1/dashboard/doe-overview'+suffix);
         return body.doeOverview&&typeof body.doeOverview==='object'&&!Array.isArray(body.doeOverview)?body.doeOverview:{};
+      },
+      async dashboardAfcRecords({search=null,reason=null,active=null,limit=null}={}){
+        const query=new URLSearchParams();
+        if(String(search??'').trim())query.set('search',String(search));
+        if(String(reason??'').trim())query.set('reason',String(reason));
+        if(active===true||active===false)query.set('active',String(active));
+        if(String(limit??'').trim())query.set('limit',String(limit));
+        const suffix=query.toString()?'?'+query.toString():'';
+        const body=await request('/api/v1/dashboard/afc-records'+suffix);
+        return Array.isArray(body.afcRecords)?body.afcRecords:[];
+      },
+      async createDashboardAfcRecord(payload={}){
+        const input=payload&&typeof payload==='object'?payload:{};
+        const body=await request('/api/v1/dashboard/afc-records',{method:'POST',body:{
+          facultyId:String(input.facultyId??'').trim(),
+          startDate:String(input.startDate??'').trim(),
+          endDate:String(input.endDate??'').trim(),
+          reasonCode:String(input.reasonCode??'').trim(),
+          notes:input.notes===undefined||input.notes===null?'':String(input.notes)
+        }});
+        return body.afcRecord&&typeof body.afcRecord==='object'?body.afcRecord:{};
       }
     });
   }

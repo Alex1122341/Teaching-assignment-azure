@@ -6,8 +6,8 @@
 // runtime stays untouched. Both wrappers are mounted by the same Functions app.
 //
 // Contract:
-//   * GET only. Every other method on a known Dashboard path returns 405 with an
-//     explicit `Allow: GET` header, never 404.
+//   * Existing Dashboard routes remain GET only. The B1 AFC Records route is
+//     the sole exception and accepts GET + POST.
 //   * Unauthenticated requests return 401; the API layer decides that, this
 //     wrapper only extracts the bearer token.
 //   * Unknown paths return 404.
@@ -31,16 +31,38 @@ function createDashboardFunctions({ api }) {
         return { status: 404, jsonBody: { error: { code: 'NOT_FOUND', message: 'Route not found.' } } };
       }
 
-      if (request.method !== 'GET') {
+      const isAfcRecords = pathname === '/api/v1/dashboard/afc-records';
+      if (request.method !== 'GET' && !(isAfcRecords && request.method === 'POST')) {
         return {
           status: 405,
-          headers: { Allow: 'GET' },
-          jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'GET required.' } }
+          headers: { Allow: isAfcRecords ? 'GET, POST' : 'GET' },
+          jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: isAfcRecords ? 'GET or POST required.' : 'GET required.' } }
         };
       }
 
       const token = bearer(request);
       const academicYear = url.searchParams.get('academicYear');
+
+      if (isAfcRecords) {
+        if (request.method === 'GET') {
+          const active = url.searchParams.get('active');
+          const response = await api.afcRecords(token, {
+            search: url.searchParams.get('search'),
+            reason: url.searchParams.get('reason'),
+            active: active === 'true' ? true : active === 'false' ? false : undefined,
+            limit: url.searchParams.get('limit') === null ? undefined : Number(url.searchParams.get('limit'))
+          });
+          return { status: response.status, jsonBody: response.body };
+        }
+        let payload;
+        try {
+          payload = typeof request.json === 'function' ? await request.json() : request.body;
+        } catch (_) {
+          return { status: 400, jsonBody: { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } } };
+        }
+        const response = await api.createAfcRecord(token, payload);
+        return { status: response.status, jsonBody: response.body };
+      }
 
       if (pathname === '/api/v1/dashboard/summary') {
         const response = await api.summary(token, { academicYear });

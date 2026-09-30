@@ -67,6 +67,9 @@
   let selfMode = false;
   let dashboardSummary = null;
   let activeTab = 'lookup';
+  let afcRecords = [];
+  let afcLoaded = false;
+  let afcSubmitInFlight = false;
   let detailLoadToken = 0;
   const detailCache = new Map();
   const detailPending = new Set();
@@ -89,7 +92,8 @@
       const [summary, rows] = await Promise.all([UCVM_PAWS_DATA.dashboardSummary(), UCVM_PAWS_DATA.dashboardFaculty()]);
       dashboardSummary = summary && typeof summary === 'object' && !Array.isArray(summary) ? summary : {};
       faculty = (Array.isArray(rows) ? rows : []).map(rosterRecord);
-      updateFilters(); updateKpis(); updateStatus(); renderActiveTab();
+      afcLoaded = false;
+      updateFilters(); populateAfcFacultyOptions(); updateKpis(); updateStatus(); renderActiveTab();
       pawsTimingLog('summary+faculty', started);
     } catch (error) { console.error(error); markDashboardUnavailable(dashboardAuthFailureMessage(error)); }
   }
@@ -116,7 +120,7 @@
   async function enterSelfMode(user, profile) {
     selfMode = true; document.body.classList.add('faculty-self-mode'); installSelfModeStyles();
     currentUser = { uid: user.uid, email: user.email || '', name: profile.displayName || profile.name || user.displayName || user.email || 'Faculty', role: profile.role };
-    $('admin-chip').textContent = `${currentUser.name} · ${dashboardRoleLabel(profile.role)}`; $('user-management-link')?.classList.add('hidden');
+    $('admin-chip').textContent = `${currentUser.name} · ${dashboardRoleLabel(profile.role)}`; $('user-management-link')?.classList.add('hidden'); $('afc-records-tab')?.classList.add('hidden');
     const heading = document.querySelector('.headline h1'), copy = document.querySelector('.headline p');
     if (heading) heading.textContent = 'My Faculty Profile';
     if (copy) copy.textContent = 'Your teaching, roles, appointments, availability, and stored DOE evidence.';
@@ -126,7 +130,7 @@
   function enterAdminMode(user, profile) {
     selfMode = false; document.body.classList.remove('faculty-self-mode');
     currentUser = { uid: user.uid, email: user.email || '', name: profile.displayName || profile.name || user.displayName || user.email || 'Administrator', role: profile.role };
-    $('admin-chip').textContent = `${currentUser.name} · ${dashboardRoleLabel(profile.role)}`; $('user-management-link')?.classList.toggle('hidden', !dashboardGeneral(profile));
+    $('admin-chip').textContent = `${currentUser.name} · ${dashboardRoleLabel(profile.role)}`; $('user-management-link')?.classList.toggle('hidden', !dashboardGeneral(profile)); $('afc-records-tab')?.classList.toggle('hidden', !dashboardAdmin(profile));
     unlock(); loadAdminDashboard();
   }
 
@@ -156,13 +160,16 @@
     document.querySelectorAll('.tab').forEach(tab => on(tab, 'click', () => selectTab(tab.dataset.tab)));
     on($('summary-search'), 'input', renderTeachingSummary); on($('roles-search'), 'input', renderRoles);
     on($('role-type-filter'), 'change', renderRoles);
+    on($('afc-search'), 'input', debounce(renderAfcRecords));
+    on($('afc-reason-filter'), 'change', renderAfcRecords); on($('afc-active-filter'), 'change', renderAfcRecords); on($('afc-source-filter'), 'change', renderAfcRecords);
+    on($('afc-record-form'), 'submit', submitAfcRecord);
   }
 
   function selectTab(tabName) {
     if (selfMode) return;
     activeTab = tabName || 'lookup';
     document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.tab === activeTab));
-    ['lookup', 'summary', 'roles', 'doe-overview'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
+    ['lookup', 'summary', 'roles', 'doe-overview', 'afc-records'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
     renderActiveTab();
   }
 
@@ -170,6 +177,7 @@
     if (activeTab === 'summary') return loadTeachingSummary();
     if (activeTab === 'roles') return loadRoles();
     if (activeTab === 'doe-overview') return loadDoeOverview();
+    if (activeTab === 'afc-records') return loadAfcRecords();
     renderLookup();
   }
 
@@ -192,6 +200,92 @@
     const body = $('doe-overview-body'); if (body) body.innerHTML = '<div class="empty">Loading DOE overview…</div>';
     try { aggregateCache.doeOverview = await UCVM_PAWS_DATA.dashboardDoeOverview(); renderDoeOverview(); }
     catch (error) { if (body) body.innerHTML = `<div class="empty">${esc(detailFailureMessage(error))}</div>`; }
+  }
+
+  const AFC_REASON_LABELS = Object.freeze({ university_travel: 'University Travel', vacation: 'Vacation', rsl: 'RSL', medical: 'Medical', mat: 'MAT', special: 'Special', other: 'Other' });
+
+  async function loadAfcRecords(force = false) {
+    const body = $('afc-records-body');
+    if (!force && afcLoaded) { renderAfcRecords(); return; }
+    if (body) body.innerHTML = '<tr><td colspan="7" class="empty">Loading AFC records…</td></tr>';
+    try {
+      afcRecords = await UCVM_PAWS_DATA.dashboardAfcRecords({ limit: 2000 });
+      afcRecords = Array.isArray(afcRecords) ? afcRecords : [];
+      afcLoaded = true;
+      renderAfcRecords();
+      const note = $('afc-load-note'); if (note) note.textContent = `Unified AFC view · ${afcRecords.length} record${afcRecords.length === 1 ? '' : 's'} loaded · maximum 2,000.`;
+    } catch (error) {
+      afcLoaded = false;
+      if (body) body.innerHTML = `<tr><td colspan="7" class="empty">${esc(detailFailureMessage(error))}</td></tr>`;
+    }
+  }
+
+  function populateAfcFacultyOptions() {
+    const element = $('afc-faculty'); if (!element) return;
+    const old = element.value;
+    const rows = faculty.filter(row => row.active !== false).sort((a, b) => String(a.displayName || a.facultyId).localeCompare(String(b.displayName || b.facultyId)));
+    element.innerHTML = '<option value="">Select active faculty…</option>' + rows.map(row => `<option value="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)} · ${esc(row.facultyId)}</option>`).join('');
+    if (rows.some(row => row.facultyId === old)) element.value = old;
+  }
+
+  function fillAfcReasonFilter() {
+    const element = $('afc-reason-filter'); if (!element) return;
+    const old = element.value;
+    element.innerHTML = '<option value="">All reasons</option>' + Object.entries(AFC_REASON_LABELS).map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
+    if (Object.prototype.hasOwnProperty.call(AFC_REASON_LABELS, old)) element.value = old;
+  }
+
+  function renderAfcRecords() {
+    fillAfcReasonFilter();
+    const body = $('afc-records-body'); if (!body) return;
+    const query = norm($('afc-search')?.value);
+    const reason = $('afc-reason-filter')?.value || '';
+    const active = $('afc-active-filter')?.value || '';
+    const source = $('afc-source-filter')?.value || '';
+    const rows = afcRecords.filter(row => {
+      const haystack = norm([row.facultyName, row.facultyId, row.notes, row.legacyPurpose, row.reason, row.reasonCode].filter(present).join(' '));
+      return (!query || haystack.includes(query)) && (!reason || row.reasonCode === reason || (!row.reasonCode && norm(row.reason) === norm(AFC_REASON_LABELS[reason]))) && (!active || String(row.active !== false) === active) && (!source || norm(row.sourceKind || 'manual') === source);
+    });
+    body.innerHTML = rows.map(row => `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(row.facultyName || row.facultyId || '—')}</button><div class="person-meta">${esc(row.facultyId || '')}</div></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${row.active === false ? 'No' : 'Yes'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No AFC records match the current filters.</td></tr>';
+    document.querySelectorAll('[data-afc-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.afcPerson)));
+  }
+
+  function afcFormValues() {
+    return { facultyId: text($('afc-faculty')?.value), startDate: text($('afc-start-date')?.value), endDate: text($('afc-end-date')?.value), reasonCode: text($('afc-reason')?.value), notes: text($('afc-notes')?.value) };
+  }
+
+  function validateAfcForm(values) {
+    if (!values.facultyId) return 'Select an active faculty member.';
+    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+    if (!validDate(values.startDate) || !validDate(values.endDate)) return 'Enter valid start and end dates.';
+    if (values.endDate < values.startDate) return 'End date cannot be before start date.';
+    if (!Object.prototype.hasOwnProperty.call(AFC_REASON_LABELS, values.reasonCode)) return 'Select a recognised AFC reason.';
+    if ((values.reasonCode === 'special' || values.reasonCode === 'other') && !values.notes) return 'Notes are required for Special and Other reasons.';
+    if (values.notes.length > 1000) return 'Notes must be 1,000 characters or fewer.';
+    return '';
+  }
+
+  function setAfcFormStatus(message, error = false) {
+    const status = $('afc-form-status'); if (!status) return;
+    status.textContent = message; status.classList.toggle('error', error);
+  }
+
+  async function submitAfcRecord(event) {
+    event?.preventDefault?.();
+    if (afcSubmitInFlight) return;
+    const values = afcFormValues(); const validation = validateAfcForm(values);
+    if (validation) { setAfcFormStatus(validation, true); return; }
+    const submit = $('afc-submit');
+    afcSubmitInFlight = true; if (submit) { submit.disabled = true; submit.textContent = 'Saving…'; }
+    setAfcFormStatus('Saving AFC record…');
+    try {
+      await UCVM_PAWS_DATA.createDashboardAfcRecord(values);
+      $('afc-record-form')?.reset();
+      setAfcFormStatus('AFC record created.');
+      await loadAdminDashboard();
+      await loadAfcRecords(true);
+    } catch (error) { setAfcFormStatus(error?.message || 'AFC record could not be created.', true); }
+    finally { afcSubmitInFlight = false; if (submit) { submit.disabled = false; submit.textContent = 'Create AFC Record'; } }
   }
 
   function updateFilters() { fillSelect('filter-rank', unique('rank'), 'All ranks'); }
@@ -244,7 +338,7 @@
     const professional = profile ? field('Teaching area', profile.teachingArea, true) + field('Professional category', profile.professionalCategory) + field('Service date', profile.serviceDate) + field('Prior years experience', profile.priorYearsExperience) + field('DVM earned', profile.dvmEarnedDate) + field('DVM type', profile.dvmType) + field('Masters earned', profile.mastersEarnedDate) + field('Masters area', profile.mastersArea, true) + field('PhD earned', profile.phdEarnedDate) + field('PhD area', profile.phdArea, true) + field('Board certification', profile.boardCertification, true) + field('ABVMA member type', profile.abvmaMemberType) : '';
     const joints = (Array.isArray(data.jointAppointments) ? data.jointAppointments : []).map((joint, index) => section(`Joint appointment ${index + 1}`, field('Home faculty', joint.homeFaculty) + field('Joint faculty', joint.jointFaculty) + field('FTE UCVM', joint.fteUcvm) + field('FTE other faculty', joint.fteOtherFaculty) + field('Expiry date', joint.expiryDate) + field('Notes', joint.notes, true))).join('');
     const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Effective', 'Expires', 'Mapped DOE', 'Override DOE', 'Effective DOE', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, role.effectiveDate, role.expirationDate, formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.effective), role.doeOverrideReason, role.specialNotes]; })));
-    const afcHtml = apiSection('Away from Campus', apiTable(['Start', 'End', 'Active', 'Purpose'], (Array.isArray(data.afcRecords) ? data.afcRecords : []).map(record => [record.startDate, record.endDate, record.active === false ? 'No' : 'Yes', record.purpose])));
+    const afcHtml = apiSection('Away from Campus', apiTable(['Start', 'End', 'Active', 'Reason', 'Notes', 'Source'], (Array.isArray(data.afcRecords) ? data.afcRecords : []).map(record => [record.startDate, record.endDate, record.active === false ? 'No' : 'Yes', record.reason || record.reasonCode || record.purpose, record.notes || record.legacyPurpose, record.sourceKind || 'import'])));
     const scope = section('Identity / appointment metadata', field('Academic year', data.academicYear) + field('Teaching assignments', data.sessionCount) + field('Assignments needing time review', data.checkNeededCount), true);
     pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyRecord.displayName || facultyRecord.facultyId || '')}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div></div></div><div class="profile-sections">${renderDoeSummary(doe, data.academicYear, assignments, roles)}${renderTeachingCourses(assignments)}${rolesHtml}${afcHtml}${profile ? section('Professional Profile', professional, true) : ''}${joints}${scope}${section('Identity', identity)}</div>`;
   }

@@ -9,9 +9,9 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// BETA-R4D-12B0G: static and API runtimes share the accepted B0 candidate baseline.
-const BASELINE_COMMIT='b3458f79a05353ce1255874754e1c6c1ec8ee683';
-const PREVIOUS_BASELINE_COMMIT='8b1388f5afe210c761d6dbc3b4240536758f7342';
+// BETA-R4D-12B1G: static and API runtimes share the accepted B1 candidate baseline.
+const BASELINE_COMMIT='68bda43a71034089a57d3369128e5dafd80f06eb';
+const PREVIOUS_BASELINE_COMMIT='b3458f79a05353ce1255874754e1c6c1ec8ee683';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
@@ -139,7 +139,8 @@ test('API freeze shares the promoted static baseline and has zero runtime drift'
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,16);
+  assert.equal(result.runtimeFiles.length,17);
+  assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));
   assert.ok(result.buildDefinitionFiles.includes('deploy/aca/Dockerfile'));
 });
 

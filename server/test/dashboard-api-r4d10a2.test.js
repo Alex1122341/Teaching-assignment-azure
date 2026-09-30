@@ -309,20 +309,22 @@ test('Q: the detail response carries all six required sections as siblings', asy
 });
 
 
-test('R: source / import metadata never appears in a repository projection', () => {
+test('R: source / import metadata stays isolated to the AFC unified projection', () => {
   const source = fs.readFileSync(path.join(root, 'server', 'src', 'data', 'sql-dashboard-repository.js'), 'utf8');
-  const projection = source.slice(source.indexOf('SELECT'));
+  const legacyProjection = source.slice(0, source.indexOf('// ------------------------------------------------------------- AFC list'));
   for (const forbidden of ['SourceImportBatchId', 'SourceRow', 'SourceFacultyName']) {
     assert.equal(
-      new RegExp('AS\\s+' + forbidden, 'i').test(projection),
+      new RegExp('AS\\s+' + forbidden, 'i').test(legacyProjection),
       false,
       forbidden + ' is projected into a DTO field'
     );
   }
-  // And the DTO mapper must not emit those keys either.
+  // Legacy DTO mappers must not emit provenance fields; the isolated AFC
+  // projection is explicitly allowed to carry source/audit metadata.
   for (const forbidden of ["sourceImportBatchId", "sourceRow", "sourceFacultyName", "createdAtUtc", "updatedAtUtc"]) {
-    assert.equal(source.includes(forbidden), false, 'DTO exposes ' + forbidden);
+    assert.equal(legacyProjection.includes(forbidden), false, 'legacy DTO exposes ' + forbidden);
   }
+  assert.match(source.slice(source.indexOf('// ------------------------------------------------------------- AFC list')), /u\.SourceKind AS sourceKind/);
 });
 
 test('S: teaching assignments carry the stored DOE fields', async () => {
@@ -341,7 +343,7 @@ test('T: AFC purpose is detail-only and cannot leak through the roster', async (
   const rosterSource = fs.readFileSync(path.join(root, 'server', 'src', 'data', 'sql-dashboard-repository.js'), 'utf8');
   const facultyMethod = rosterSource.slice(
     rosterSource.indexOf('async faculty('),
-    rosterSource.indexOf('// -------------------------------------------------------------- facultyById')
+    rosterSource.indexOf('// ------------------------------------------------------------- AFC list')
   );
   assert.equal(/Purpose/i.test(facultyMethod), false, 'the roster query references AFC Purpose');
 

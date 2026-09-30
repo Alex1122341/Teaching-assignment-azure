@@ -23,15 +23,15 @@ The ACR G1 failure remains historical safe-failure evidence: no image build/push
 
 The deployed release SHA must remain distinct from repository main. A documentation-only main advance is not a deployment. After this closure, the next task is **AWAITING OWNER / ARCHITECT SCOPING**; no R4D-12 is implied.
 
-## 0A. Current BETA-R4D-12B0G governance state
+## 0A. Current BETA-R4D-12B1G governance state
 
-The reviewed B0 runtime candidate `b3458f79a05353ce1255874754e1c6c1ec8ee683`
-is now the immutable static/API freeze trust anchor. B0 is implemented,
-runtime-accepted, frozen, pending PR/integration, and **NOT LIVE**. The
-legacy Firestore Approval/AFC workflow is fail-closed unless the explicit
-compatibility backend is `firestore`; the Azure Beta client remains
-`azure-sql` with writes disabled. B0D is the separate controlled release and
-live-acceptance gate.
+The reviewed B1 dual-runtime candidate
+`68bda43a71034089a57d3369128e5dafd80f06eb` is now the immutable static/API
+freeze trust anchor. B1 is implemented, B1R/B1R2 accepted, baseline-promoted,
+PR-pending, and **NOT LIVE**. The legacy Firestore Approval/AFC workflow is
+fail-closed unless the explicit compatibility backend is `firestore`; the Azure
+Beta client remains `azure-sql` with writes disabled. B1D is the separate
+controlled SQL apply, full-stack deployment, and authenticated acceptance gate.
 
 The older sections below are retained as historical guidance and evidence.
 
@@ -99,9 +99,11 @@ normal merge commit (no squash/rebase).
 
 Frozen application baseline:
 
-`b3458f79a05353ce1255874754e1c6c1ec8ee683`
+`68bda43a71034089a57d3369128e5dafd80f06eb`
 
-This is the BETA-R4D-11A2 Dashboard DOE presentation runtime candidate shared by the static and API runtimes. It is the reviewed frozen runtime.
+This is the BETA-R4D-12B1 accepted dual-runtime candidate shared by the static
+and API runtimes. It is the reviewed frozen runtime; the previous B0 baseline
+is historical evidence only.
 
 Protected static assets are driven by `tools/static-assets.json` (46 entries; the previous 45-path set plus `dashboard-view-model.js`). Both `pull_request` and `push` to `main` allow zero protected runtime drift.
 

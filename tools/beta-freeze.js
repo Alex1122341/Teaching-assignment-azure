@@ -11,10 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// BETA-R4D-12B0G: the frozen trust anchor is the reviewed B0 static runtime
-// candidate. It contains the fail-closed legacy Firestore Approval/AFC
-// containment; this governance promotion does not deploy it.
-const BASELINE_COMMIT='b3458f79a05353ce1255874754e1c6c1ec8ee683';
+// BETA-R4D-12B1G: the frozen trust anchor is the accepted B1 dual-runtime
+// candidate. This governance promotion changes only the release trust anchor;
+// it does not deploy B1 or apply its SQL artifacts.
+const BASELINE_COMMIT='68bda43a71034089a57d3369128e5dafd80f06eb';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

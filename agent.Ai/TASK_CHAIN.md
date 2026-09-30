@@ -1,3 +1,87 @@
+# BETA-R4D-12B1G — BASELINE PROMOTION / PR INTEGRATION GATE
+
+Status: **B1 IMPLEMENTED / B1R+B1R2 ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
+
+- Accepted B1 candidate and required governance parent:
+  `68bda43a71034089a57d3369128e5dafd80f06eb`.
+- `origin/main` remains `68cd57074bbcf7916da6a031a238175d5530ae0b`; before merge,
+  main must still equal that SHA.
+- `tools/beta-freeze.js` and `tools/beta-baseline.json` use the candidate as
+  the single static/API trust anchor; `beta-api-freeze.js` still imports it.
+- Static protected set remains 46 with zero drift. API protection now includes
+  `server/src/data/sql-afc-write-repository.js`; runtime and Dockerfile drift
+  are zero.
+- Candidate-to-governance product-runtime and SQL/business diffs must be empty.
+- Only governance configuration, derived hashes, baseline/governance tests,
+  active release evidence metadata, and continuity docs are in scope.
+- No SQL apply, permission apply, live AFC, deployment, Azure mutation, PR
+  merge, A2B, Work Queue, B2A, B2B, or DOE change has occurred.
+- After local validation, make one governance commit on this branch, push it,
+  open one PR to `main`, and merge with a merge commit only. B1D must not start
+  automatically; B1D, B2A, B2B, B3, and DOE remain queued.
+
+# BETA-R4D-12B1R2 — EXACT AFC SQL PERMISSION CONTRACT CORRECTION
+
+Status: **CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE**
+
+- Starting B1R2 HEAD: `b38afabeba683f728e751cfca0bfd144e471d5ee`.
+- B1R2 correction commit and remote HEAD: `87026ec216ffbd418e2c61fb2f78d6a4862c2584`.
+- Same branch: `feature/beta-r4d12b1-afc-dashboard-write-foundation`.
+- Frozen baseline remains `b3458f79a05353ce1255874754e1c6c1ec8ee683`.
+- 007 permissions and proof now share the same normalized exact permission
+  contract: CONNECT, reviewed R4D-10A/10A2 reads, four paws DENYs, five staging
+  DENYs, and only the two B1 object grants.
+- Valid preflight states are exact pre-B1 and exact idempotent post-B1. Any
+  unexpected class, permission, state, object, column, grant option, role,
+  ownership, public broadening, missing DENY, or other delta fails before GRANT.
+- Offline fixtures cover valid pre/post contracts, the class=1/class=3 guard
+  regression, all requested invalid permission variants, and public broadening.
+- No runtime/API/UI/auth/data behavior changed. No SQL apply, live permission
+  mutation, proof against live, deployment, PR, baseline promotion, A2B, Work
+  Queue, B2A, B2B, or DOE change occurred.
+- B1R2 correction commit and push succeeded; B1G, B1D, B2A, B2B, B3, and DOE
+  remain queued.
+
+# BETA-R4D-12B1R — AFC WRITE SECURITY + DATA INTEGRITY CORRECTIONS
+
+Status: **CORRECTED / PENDING ARCHITECT FINAL REVIEW / NOT LIVE**
+
+- Starting `origin/main`: `68cd57074bbcf7916da6a031a238175d5530ae0b`.
+- Feature branch: `feature/beta-r4d12b1-afc-dashboard-write-foundation`.
+- Starting B1R HEAD: `59632a1f6c04650fabc177bbb1687ebb904a203f`.
+- Correction commit: `438dba9cce6f0c917614643c13e6e011b6a0b668`.
+- Frozen baseline remains `b3458f79a05353ce1255874754e1c6c1ec8ee683`.
+- B0 remains LIVE ACCEPTED / CLOSED.
+- Migration 007 adds `paws.AfcManualRecord`, `paws.vAfcRecordUnified`, and
+  `paws_api.CreateAfcRecord` as proposal-only artifacts independent of 005/006.
+- Dashboard AFC reads use the unified view and a hard maximum of 2,000 rows;
+  AFC counts and faculty detail use the same source. The write repository is
+  separate and can invoke only the hard-coded stored procedure.
+- The API adds administrator-only GET/POST `/api/v1/dashboard/afc-records`;
+  all existing Dashboard routes remain GET-only. Actor identity and record /
+  request IDs are server-trusted/generated.
+- The admin-only AFC Records tab renders one row per unified record, uses the
+  canonical FacultyId selector, validates the frozen reason vocabulary and
+  notes/date rules, disables Submit while saving, and reloads from the server.
+- B1R corrected exact SQL ReasonCode case, widened procedure validation inputs,
+  made schema/object ownership checks fail closed, hardened permission apply
+  preflight and least-privilege proof, restored inactive-Faculty AFC history,
+  and removed the post-commit response read.
+- Focused B1/B1R tests pass 25/25; server suite passes 140/140. Full root and
+  emulator suites pass all behavioral tests; each reports only the expected
+  three frozen-baseline drift assertions. `git diff --check` and changed-JS
+  syntax checks pass.
+- No SQL apply, permission apply, live AFC creation, Firestore/Firebase/Auth/
+  Rules mutation, Azure mutation, ACR/ACA/SWA deployment, PR, merge, baseline
+  promotion, A2B, Work Queue, B2A, B2B, or DOE change occurred.
+
+- Focused B1/B1R tests pass 25/25; server suite passes 140/140. Root and
+  emulator behavioral tests are green with only the three expected baseline
+  drift assertions.
+
+Next exact action: push the B1R correction commit on the same feature branch,
+then return the B1R report. B1G and B1D remain queued.
+
 # PAWS Task Chain
 
 ## BETA-R4D-12B0G — FROZEN BASELINE PROMOTION / PR-INTEGRATION GATE

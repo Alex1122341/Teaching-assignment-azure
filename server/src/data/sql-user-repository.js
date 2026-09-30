@@ -2,7 +2,7 @@
 
 function createSqlUserRepository(db) {
   return {
-    async findByUid(uid) {
+    async findByUid(uid, timing) {
       const rows = await db.query(
         `SELECT FirebaseUid AS firebaseUid,
                 DisplayName AS displayName,
@@ -12,7 +12,8 @@ function createSqlUserRepository(db) {
                 MustChangePassword AS mustChangePassword
          FROM paws.UserProfile
          WHERE FirebaseUid = @uid`,
-        { uid }
+        { uid },
+        { timing, queryMetric: 'sql_user_query' }
       );
       return rows[0] || null;
     }

@@ -11,7 +11,8 @@ test('data client uses the reviewed ACA origin for profile and sessions',async()
   const source=read('paws-data-client.js');
   assert.match(source,/https:\/\/paws-sql-beta-api-260926\.wonderfulglacier-ff8c7a3b\.eastus2\.azurecontainerapps\.io/);
   assert.match(source,/API_ORIGIN/);
-  assert.match(source,/fetchImpl\(apiOrigin\+path/);
+  assert.match(source,/const url=apiOrigin\+path/);
+  assert.match(source,/fetchImpl\(url,buildInit\(token\)\)/);
   const client=require('../paws-data-client.js').createPawsAzureDataClient({
     fetchImpl:async(url,options)=>{assert.match(url,/^https:\/\/paws-sql-beta-api-260926\.wonderfulglacier-ff8c7a3b\.eastus2\.azurecontainerapps\.io\/api\/v1\//);assert.equal(options.headers.Authorization,'Bearer test-token');return {ok:true,json:async()=>({profile:{role:'adfa_general'},sessions:[]})}},
     tokenProvider:async()=> 'test-token'

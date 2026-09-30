@@ -1,3 +1,19 @@
+# B2A-PR — AUTHENTICATION CONTINUITY BASELINE PROMOTION / PR GATE
+
+Status: **B2A ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
+
+- Accepted B2A candidate: `f2d76449a4881cb24196289ebf63fd4cfaaa7d05`.
+- Previous frozen baseline: `5a7f8a535caaf42992598c6fc8fe301818075e67`.
+- Promoted static/API baseline: `f2d76449a4881cb24196289ebf63fd4cfaaa7d05`.
+- Static protected set: 47; previous paths missing: 0; only added path:
+  `paws-auth-continuity.js`.
+- Authentication continuity is accepted: bounded first-401 refresh/replay,
+  transient API/SQL failures preserve Firebase login, inactive accounts fail closed,
+  and Dashboard self-service capability is explicit for Faculty/HICC/VISC while
+  `other_office` is denied.
+- Governance promotion only. No merge, deployment, SQL, Firebase, Firestore,
+  secret, Azure, B2B, B3, or DOE action is authorized by this state.
+
 # BETA-R4D-12B1D-RG — CORRECTED API BASELINE PROMOTION / PR INTEGRATION GATE
 
 Status: **B1D-R CORRECTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**

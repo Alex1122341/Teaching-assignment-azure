@@ -5,6 +5,14 @@ window.UCVM=(()=>{
  const role=r=>({owner:'adfa_general',administrator:'adfa_regular',other_office:'other_office',adfa_general:'adfa_general',adfa_regular:'adfa_regular',admin:'adfa_regular',editor:'faculty',viewer:'faculty'}[rawRole(r)]||rawRole(r));
  const admin=p=>['adfa_general','adfa_regular','other_office'].includes(role(p?.role));
  const general=p=>role(p?.role)==='adfa_general';
+ // BETA-R4D-12B2A1: Dashboard navigation capability. Administrators reach the
+ // administrative Dashboard; faculty/hicc/visc reach the same page in its
+ // server-authorized self-service form ("My Faculty Profile"). Server authorization
+ // stays authoritative - this is navigation convenience only.
+ // `other_office` is retired in the current PAWS architecture and must fail closed
+ // at this explicit capability boundary even though legacy UCVM.admin() still knows it.
+ const DASHBOARD_ROLES=['adfa_general','adfa_regular','faculty','hicc','visc'];
+ function canOpenFacultyDashboard(p){return DASHBOARD_ROLES.includes(role(p?.role));}
  const historyAll=p=>['adfa_general','adfa_regular'].includes(role(p?.role));
  const label=r=>({owner:'Owner',adfa_general:'Owner',administrator:'Administrator',adfa_regular:'Administrator',admin:'Administrator',other_office:'Other Office',hicc:'HICC',visc:'VISC',faculty:'Faculty',editor:'Faculty',viewer:'Faculty'}[rawRole(r)]||rawRole(r));
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -81,7 +89,7 @@ window.UCVM=(()=>{
  // Retained as a no-op so any stale/session-restored caller cannot schedule a redirect,
  // and to clear legacy sessionStorage left behind by older releases.
  function scheduleAdminLanding(){clearLegacyAdminLanding();return false}
- async function ready(user,p){if(window.__ucvmSessionGuard?.blocked)return false;if(!p?.active)throw Error('This account is inactive.');if(p.mustChangePassword){location.replace('password.html');return false}installLandingReset();await linkFacultyIdentity(user,p);clearLegacyAdminLanding();return true}
+ async function ready(user,p){if(window.__ucvmSessionGuard?.blocked)return false;if(!p?.active){const error=new Error('This account is inactive.');error.code='ACCOUNT_INACTIVE';throw error}if(p.mustChangePassword){location.replace('password.html');return false}installLandingReset();await linkFacultyIdentity(user,p);clearLegacyAdminLanding();return true}
  function watch(user,p){let initial=true;return firebase.firestore().doc(`users/${user.uid}`).onSnapshot(s=>{const n=s.data();if(initial){initial=false;return}if(!n||['role','active','mustChangePassword'].some(k=>n[k]!==p[k]))location.reload()})}
  const value=v=>v===null||v===undefined?'—':Array.isArray(v)?v.map(x=>typeof x==='object'?`${x.name||x.ucid||''}${x.role?' ('+x.role+')':''}`:String(x)).filter(Boolean).join('; '):typeof v==='object'?JSON.stringify(v):String(v);
  const time=e=>e.changedAt?.toDate?e.changedAt.toDate().toLocaleString('en-CA',{timeZone:'America/Edmonton'}):'Pending';
@@ -99,7 +107,7 @@ window.UCVM=(()=>{
   async function more(){if(loading)return;loading=true;$('audit-more').disabled=true;$('audit-status').textContent='Loading changes…';try{await page('session_change_log','session');if(includeFaculty)await page('faculty_change_log','faculty');await page('account_audit','account');entries.sort((a,b)=>{const at=a.changedAt?.toMillis?a.changedAt.toMillis():0,bt=b.changedAt?.toMillis?b.changedAt.toMillis():0;return bt-at});render();$('audit-more').hidden=exhausted.session&&exhausted.faculty&&exhausted.account;$('audit-status').textContent=`${entries.length} changes loaded · ${canReadAll?'all authorized users':'your changes only'}.` }catch(e){$('audit-status').textContent='Could not load history: '+e.message}finally{loading=false;$('audit-more').disabled=false}}
   $('audit-search').oninput=render;$('audit-kind').onchange=render;$('audit-more').onclick=more;await more()
  }
- return {config,role,admin,general,historyAll,label,esc,number,init,ready,watch,logs};
+ return {config,role,admin,general,historyAll,canOpenFacultyDashboard,label,esc,number,init,ready,watch,logs};
 })();
 
 (()=>{

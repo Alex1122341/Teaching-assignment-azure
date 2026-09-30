@@ -23,7 +23,26 @@ The ACR G1 failure remains historical safe-failure evidence: no image build/push
 
 The deployed release SHA must remain distinct from repository main. A documentation-only main advance is not a deployment. After this closure, the next task is **AWAITING OWNER / ARCHITECT SCOPING**; no R4D-12 is implied.
 
-## 0A. Current BETA-R4D-12B1D-RG governance state
+## 0A. Current B2A governance state
+
+**Status: B2A AUTHENTICATION CONTINUITY ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
+
+- Accepted B2A candidate and promoted frozen trust anchor:
+  `f2d76449a4881cb24196289ebf63fd4cfaaa7d05`.
+- Previous frozen baseline:
+  `5a7f8a535caaf42992598c6fc8fe301818075e67`.
+- Static protected set is 47 paths. All 46 prior paths remain protected and the
+  only added path is `paws-auth-continuity.js`.
+- Static and API freezes continue to share one immutable Git baseline.
+- B2A preserves valid Firebase sessions across transient API/SQL failures,
+  performs at most one forced refresh/replay after an explicit first 401, keeps
+  authorization/inactive failures fail-closed without automatic signout, and
+  exposes explicit Faculty/HICC/VISC Dashboard self-service capability while
+  `other_office` fails closed for that capability.
+- This is governance promotion only. No merge, deployment, SQL, Firebase,
+  Firestore, secret, or Azure mutation has occurred; B2B has not started.
+
+## 0B. Previous BETA-R4D-12B1D-RG governance state
 
 The corrected B1 runtime `5a7f8a535caaf42992598c6fc8fe301818075e67` is now the
 immutable static/API freeze trust anchor. It supersedes
@@ -121,14 +140,18 @@ normal merge commit (no squash/rebase).
 
 Frozen application baseline:
 
-`5a7f8a535caaf42992598c6fc8fe301818075e67`
+`f2d76449a4881cb24196289ebf63fd4cfaaa7d05`
 
-This is the BETA-R4D-12B1 corrected dual-runtime runtime shared by the static and
-API runtimes. It is the reviewed frozen runtime; the previous B1 baseline
-`68bda43a71034089a57d3369128e5dafd80f06eb` and the B0 baseline
-`b3458f79a05353ce1255874754e1c6c1ec8ee683` are historical evidence only.
+This is the accepted B2A authentication-continuity candidate and the single
+static/API trust anchor. The previous B1 corrected baseline
+`5a7f8a535caaf42992598c6fc8fe301818075e67`, the earlier B1 baseline
+`68bda43a71034089a57d3369128e5dafd80f06eb`, and the B0 baseline
+`b3458f79a05353ce1255874754e1c6c1ec8ee683` remain historical evidence only.
 
-Protected static assets are driven by `tools/static-assets.json` (46 entries; the previous 45-path set plus `dashboard-view-model.js`). Both `pull_request` and `push` to `main` allow zero protected runtime drift.
+Protected static assets are driven by `tools/static-assets.json` (47 entries).
+The prior 46 paths are unchanged and the sole new protected path is
+`paws-auth-continuity.js`. Both `pull_request` and `push` to `main` allow
+zero protected runtime drift.
 
 `tools/beta-freeze.js` compares against immutable Git blobs from the frozen baseline.
 

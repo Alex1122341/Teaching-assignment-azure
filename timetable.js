@@ -85,6 +85,37 @@
     if (gateStatus && status) gateStatus.textContent = status;
   }
 
+  // BETA-R4D-12B2A1 — bounded recovery affordance. Shows a single "Retry access"
+  // action for recoverable failures. It reruns authorization/bootstrap only; it never
+  // asks for credentials again, never polls, and never forces repeated token refreshes.
+  function setAccessRecovery(action) {
+    const button = $('gate-retry-access');
+    if (!button) return;
+    const enabled = typeof action === 'function';
+    button.classList.toggle('hidden', !enabled);
+    button.onclick = enabled
+      ? async () => { button.disabled = true; try { await action(); } finally { button.disabled = false; } }
+      : null;
+  }
+
+  // BETA-R4D-12B2A1 — a failed access bootstrap is classified, never fatal to the
+  // Firebase session.
+  //
+  // AUTHENTICATION SESSION != API AVAILABILITY, and
+  // AUTHENTICATION SESSION != APPLICATION AUTHORIZATION RESULT.
+  //
+  // So a cold start, a 503/SQL_UNAVAILABLE, a network error or an authorization
+  // denial leaves the Firebase login intact and the protected timetable closed.
+  // Only explicit identity-policy failures (handled before this point) sign out.
+  async function applyAccessFailure(error, hooks) {
+    const outcome = window.UCVM_AUTH_CONTINUITY.classifyAuthError(error);
+    hooks.setLocked(true, outcome.message);
+    hooks.setRecovery(outcome.recoverable ? hooks.retryAccess : null);
+    hooks.toast(outcome.message, true);
+    hooks.setStatus('Firebase Auth + SQL Access Ready');
+    return outcome;
+  }
+
   function canEdit() {
     return UCVM.admin(currentUser);
   }
@@ -795,7 +826,11 @@
     $('selection-cancel-btn').addEventListener('click', cancelSessionSelection);
     $('review-selected-btn').addEventListener('click', reviewSelectedSessions);
     $('manage-users-btn').addEventListener('click', openUserManager);
-    $('faculty-dashboard-btn').addEventListener('click', () => { if (UCVM.admin(currentUser)) window.location.href = 'faculty-admin.html'; });
+    // BETA-R4D-12B2A1: visibility and click share one capability helper so they can
+    // never disagree. Self-service roles reach the Dashboard's self-service view.
+    $('faculty-dashboard-btn').addEventListener('click', () => {
+      if (UCVM.canOpenFacultyDashboard(currentUser)) window.location.href = 'faculty-admin.html';
+    });
     $('my-timetable-btn').addEventListener('click', () => { myTimetableOnly = !myTimetableOnly; $('my-timetable-btn').textContent = myTimetableOnly ? 'Show All Timetable' : 'My Timetable'; render(); });
     $('course-list-btn').addEventListener('click', openCourseList);
     $('export-csv').addEventListener('click', () => openExportDialog('csv'));
@@ -1409,6 +1444,63 @@
       text.textContent = 'Firebase Auth + SQL Access Ready';
       setAppLocked(true, 'Checking saved login...');
 
+      // BETA-R4D-12B2A1 — the access bootstrap is a separate unit so the same routine
+      // can be rerun by the "Retry access" recovery action without re-authenticating.
+      async function bootstrapForUser(user, parts) {
+        const email = String(parts?.email || user.email || '').trim().toLowerCase();
+        const phone = String(parts?.phone || user.phoneNumber || '').trim();
+        const provider = parts?.provider || 'firebase';
+        const identity = parts?.identity || '';
+        try {
+          text.textContent = 'Checking SQL access profile...';
+          setAppLocked(true, 'Checking your timetable access...');
+          const profile = await getRoleProfile(user);
+          const sqlFacultyId=profile.facultyId||null;
+          if (!await UCVM.ready(user, profile)) return;
+          profile.facultyId=sqlFacultyId;
+          const name = String(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
+          currentUser = {
+            id: user.uid,
+            uid: user.uid,
+            name,
+            email,
+            phone,
+            identity,
+            role: profile.role,
+            active: profile.active === true,
+            instructorName: String(profile.instructor || authSettings.instructorAlias || 'Faculty 001'),
+            provider,
+            profile
+          };
+          sessionCache.clear();sessionCacheRanges.length=0;sessionRangeLoads.clear();sessionCacheDates.clear();sessionDateLoads.clear();
+          await ensureCurrentFaculty();
+          publishPageData();
+          viewMode = roleIsFaculty(currentUser) ? 'day' : 'week';
+          setViewButtons();
+          myTimetableOnly = roleIsFaculty(currentUser);
+          closeModal();
+          updateAuthUI();
+          subscribeSessions();
+          unsubscribeFacultyDirectory();
+          render();
+          setAppLocked(false);
+          setAccessRecovery(null);
+          updateScheduleSourceUI();
+          toast(`Signed in as ${name} (${profile.role}).`);
+        } catch (err) {
+          console.error('[SQL access profile]', err);
+          // Classified failure: the Firebase login is preserved. Recovery reruns this
+          // same bootstrap for the already-signed-in user; it does not re-authenticate.
+          await applyAccessFailure(err, {
+            setLocked: setAppLocked,
+            setRecovery: setAccessRecovery,
+            toast,
+            setStatus: value => { text.textContent = value; },
+            retryAccess: () => bootstrapForUser(user, { email, phone, provider, identity })
+          });
+        }
+      }
+
       auth.onAuthStateChanged(async user => {
         if (!user) {
           text.textContent = 'Firebase Auth + SQL Access Ready';
@@ -1455,49 +1547,7 @@
           return;
         }
 
-        try {
-          text.textContent = 'Checking SQL access profile...';
-          setAppLocked(true, 'Checking your timetable access...');
-          const profile = await getRoleProfile(user);
-          const sqlFacultyId=profile.facultyId||null;
-          if (!await UCVM.ready(user, profile)) return;
-          profile.facultyId=sqlFacultyId;
-          const name = String(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
-          currentUser = {
-            id: user.uid,
-            uid: user.uid,
-            name,
-            email,
-            phone,
-            identity,
-            role: profile.role,
-            active: profile.active === true,
-            instructorName: String(profile.instructor || authSettings.instructorAlias || 'Faculty 001'),
-            provider,
-            profile
-          };
-          sessionCache.clear();sessionCacheRanges.length=0;sessionRangeLoads.clear();sessionCacheDates.clear();sessionDateLoads.clear();
-          await ensureCurrentFaculty();
-          publishPageData();
-          viewMode = roleIsFaculty(currentUser) ? 'day' : 'week';
-          setViewButtons();
-          myTimetableOnly = roleIsFaculty(currentUser);
-          closeModal();
-          updateAuthUI();
-          subscribeSessions();
-          unsubscribeFacultyDirectory();
-          render();
-          setAppLocked(false);
-          updateScheduleSourceUI();
-          toast(`Signed in as ${name} (${profile.role}).`);
-        } catch (err) {
-          console.error('[SQL access profile]', err);
-          const msg = err && err.message ? err.message : 'Could not load this account from paws.UserProfile.';
-          setAppLocked(true, 'Access denied. Sign in with an authorized Beta account.');
-          await auth.signOut().catch(() => {});
-          text.textContent = 'Firebase Auth + SQL Access Ready';
-          toast(msg, true);
-        }
+        await bootstrapForUser(user, { email, phone, provider, identity });
       });
     } catch (err) {
       authInitialized = false;
@@ -1712,7 +1762,7 @@
     $('bulk-add-session-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
     $('outlook-invite-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
     $('manage-users-btn').classList.toggle('hidden', !(UCVM.general(currentUser) || currentUser?.role === 'hicc'));
-    $('faculty-dashboard-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
+    $('faculty-dashboard-btn').classList.toggle('hidden', !UCVM.canOpenFacultyDashboard(currentUser));
     $('cal-admin-menu').classList.toggle('hidden',!showAdminTools);
     for(const id of ['my-teaching-btn','afc-request-btn','my-change-history-btn'])$(id).classList.toggle('hidden',!currentUser);
     $('publish-firestore-schedule').classList.toggle('hidden', !UCVM.admin(currentUser));

@@ -20,10 +20,13 @@
     return parsed.origin;
   }
 
-  function defaultTokenProvider(){
+  // BETA-R4D-12B2A1: the caller may ask for a forced refresh. The Firebase SDK stays
+  // responsible for holding and persisting the credential; nothing is cached here.
+  function defaultTokenProvider(options){
     if(typeof firebase==='undefined'||!firebase.auth)return Promise.resolve('');
     const user=firebase.auth().currentUser;
-    return user?user.getIdToken():Promise.resolve('');
+    if(!user)return Promise.resolve('');
+    return user.getIdToken(options&&options.forceRefresh===true);
   }
 
   async function safeJson(response){
@@ -38,17 +41,8 @@
 
     const apiOrigin=validateApiOrigin(API_ORIGIN);
 
-    async function request(path,{method='GET',body:requestBody}={}){
-      const token=await tokenProvider();
-      if(!token){
-        const error=new Error('Authentication required.');
-        error.code='UNAUTHENTICATED';
-        throw error;
-      }
-      const headers={Authorization:'Bearer '+token,Accept:'application/json'};
-      const init={method,headers,credentials:'omit'};
-      if(requestBody!==undefined){headers['Content-Type']='application/json';init.body=JSON.stringify(requestBody)}
-      const response=await fetchImpl(apiOrigin+path,init);
+    // Translates a response into the existing error contract: {status, code, message}.
+    async function settle(response){
       const body=await safeJson(response);
       if(!response.ok){
         const error=new Error(body?.error?.message||'The PAWS data service is unavailable.');
@@ -57,6 +51,56 @@
         throw error;
       }
       return body;
+    }
+
+    async function request(path,{method='GET',body:requestBody}={}){
+      const url=apiOrigin+path;
+      const buildInit=token=>{
+        const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+        const init={method,headers,credentials:'omit'};
+        if(requestBody!==undefined){headers['Content-Type']='application/json';init.body=JSON.stringify(requestBody)}
+        return init;
+      };
+
+      const token=await tokenProvider({forceRefresh:false});
+      if(!token){
+        const error=new Error('Authentication required.');
+        error.code='UNAUTHENTICATED';
+        throw error;
+      }
+      const response=await fetchImpl(url,buildInit(token));
+
+      // BETA-R4D-12B2A1 continuity rule: only an explicit HTTP 401 may trigger a forced
+      // token refresh and exactly one replay of the same request. 403/404/5xx and
+      // transport failures are never replayed, so a non-idempotent write can never be
+      // duplicated after an ambiguous partial success. There is no loop and no timer.
+      if(response.status!==401)return settle(response);
+
+      let refreshed;
+      try{
+        refreshed=await tokenProvider({forceRefresh:true});
+      }catch(cause){
+        const error=new Error('The PAWS session token could not be refreshed.');
+        error.code='TOKEN_REFRESH_FAILED';
+        error.cause=cause;
+        throw error;
+      }
+      if(!refreshed){
+        const error=new Error('The PAWS session could not be re-verified.');
+        error.code='SESSION_REAUTH_REQUIRED';
+        error.status=401;
+        throw error;
+      }
+
+      const retryResponse=await fetchImpl(url,buildInit(refreshed));
+      if(retryResponse.status===401){
+        const body=await safeJson(retryResponse);
+        const error=new Error(body?.error?.message||'The PAWS session could not be re-verified.');
+        error.code='SESSION_REAUTH_REQUIRED';
+        error.status=401;
+        throw error;
+      }
+      return settle(retryResponse);
     }
 
     return Object.freeze({

@@ -221,8 +221,8 @@ test('a viewer profile is denied on both sides', async () => {
 test('the Stage 3C zero-Firestore contract is untouched by this fix', () => {
   const html = read('faculty-admin.html');
   const local = [...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'dashboard-view-model.js', 'faculty-admin.js']);
-  assert.equal([...html.matchAll(/<script[^>]*>/g)].length, 6);
+  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin.js']);
+  assert.equal([...html.matchAll(/<script[^>]*>/g)].length, 7);
   for (const banned of ['firestore', 'faculty-access.js', 'UCVM_PAWS_DASHBOARD_API_ONLY']) {
     assert.equal(html.includes(banned), false, `${banned} must stay absent`);
   }

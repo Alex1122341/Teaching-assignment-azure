@@ -9,10 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// BETA-R4D-12B1D-RG: static and API runtimes share the accepted B1 runtime
-// carrying the corrected unfiltered AFC list query.
-const BASELINE_COMMIT='5a7f8a535caaf42992598c6fc8fe301818075e67';
-const PREVIOUS_BASELINE_COMMIT='68bda43a71034089a57d3369128e5dafd80f06eb';
+// B2A-PR: static and API runtimes share the accepted B2A authentication-
+// continuity candidate. The prior B1 corrected runtime remains historical evidence.
+const BASELINE_COMMIT='f2d76449a4881cb24196289ebf63fd4cfaaa7d05';
+const PREVIOUS_BASELINE_COMMIT='5a7f8a535caaf42992598c6fc8fe301818075e67';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
@@ -37,12 +37,12 @@ test('the promoted frozen runtime reports zero protected drift',()=>{
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,46);
+  assert.equal(result.protected,47);
 });
 
-test('the current static manifest has exactly 46 protected files',()=>{
-  assert.equal(manifest().length,46);
-  assert.equal(freeze.protectedPaths({root}).length,46);
+test('the current static manifest has exactly 47 protected files',()=>{
+  assert.equal(manifest().length,47);
+  assert.equal(freeze.protectedPaths({root}).length,47);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -55,25 +55,38 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-// C. New asset protection ----------------------------------------------------
-test('paws-data-client.js is a protected runtime asset',()=>{
-  assert.ok(manifest().includes('paws-data-client.js'));
-  assert.ok(freeze.protectedPaths({root}).includes('paws-data-client.js'));
-  const result=freeze.verifyFreeze({root,files:['paws-data-client.js']});
-  assert.equal(result.ok,true);
-  assert.deepEqual(result.drift,[]);
+test('all 47 current protected files are byte-identical to immutable B2A candidate blobs',()=>{
+  const protectedFiles=freeze.protectedPaths({root});
+  assert.equal(protectedFiles.length,47);
+  for(const name of protectedFiles){
+    assert.equal(freeze.bytesMatch(
+      freeze.readBaselineFile({root,file:name}),
+      fs.readFileSync(path.join(root,name))
+    ),true,name);
+  }
 });
 
-// D. Baseline manifest continuity (46 -> 46) -------------------------------
-test('the new baseline preserves the previous protected path set',()=>{
+// C. New asset protection ----------------------------------------------------
+test('B2A auth continuity assets are protected runtime assets',()=>{
+  for(const name of ['paws-data-client.js','paws-auth-continuity.js']){
+    assert.ok(manifest().includes(name),name);
+    assert.ok(freeze.protectedPaths({root}).includes(name),name);
+    const result=freeze.verifyFreeze({root,files:[name]});
+    assert.equal(result.ok,true,name);
+    assert.deepEqual(result.drift,[],name);
+  }
+});
+
+// D. Baseline manifest continuity (46 -> 47) -------------------------------
+test('the B2A baseline preserves all prior paths and adds only auth continuity',()=>{
   const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
   const current=baselineJson(BASELINE_COMMIT);
   assert.equal(previous.length,46);
-  assert.equal(current.length,46);
+  assert.equal(current.length,47);
   const missing=previous.filter(name=>!current.includes(name));
   const added=current.filter(name=>!previous.includes(name));
   assert.deepEqual(missing,[]);
-  assert.deepEqual(added,[]);
+  assert.deepEqual(added,['paws-auth-continuity.js']);
 });
 
 test('every previous protected path is still protected under the promoted baseline',()=>{
@@ -98,9 +111,10 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('approval-workflow.js'));
   assert.ok(protectedFiles.includes('scheduling-core.js'));
   assert.ok(protectedFiles.includes('paws-data-client.js'));
+  assert.ok(protectedFiles.includes('paws-auth-continuity.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,46);
+  assert.equal(protectedFiles.length,47);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -126,7 +140,8 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
 
 test('beta-baseline.json remains non-authoritative and records the promoted baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.ok(Object.keys(baseline.sha256).length>0);
+  assert.equal(Object.keys(baseline.sha256).length,10);
+  assert.ok(baseline.sha256['paws-auth-continuity.js']);
   // Verification never reads this file: a drift verdict comes from Git objects only.
   const result=freeze.verifyFreeze({root,files:['timetable.js'],readWorking:()=>Buffer.from('tampered\n')});
   assert.equal(result.ok,false);

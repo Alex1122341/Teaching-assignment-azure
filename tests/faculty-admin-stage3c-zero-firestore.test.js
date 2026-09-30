@@ -20,6 +20,7 @@ const ADMIN_SOURCE = read('faculty-admin.js');
 const ADMIN_HTML = read('faculty-admin.html');
 const ACCESS_SOURCE = read('faculty-access.js');
 const CLIENT_SOURCE = read('paws-data-client.js');
+const CONTINUITY_SOURCE = read('paws-auth-continuity.js');
 const GUARD_SOURCE = read('session-guard.js');
 
 const KPI_IDS = ['kpi-total', 'kpi-sessions', 'kpi-assignments', 'kpi-courses', 'kpi-roles', 'kpi-hicc', 'kpi-visc', 'kpi-afc', 'kpi-grid', 'kpi-check'];
@@ -128,7 +129,7 @@ async function drive(overrides) { const h = createHarness(overrides); await h.si
 // ===========================================================================
 // A–D: final page runtime graph
 // ===========================================================================
-test('A / D. the page loads only the Firebase app+auth CDN and four local scripts', () => {
+test('A / D. the page loads only the Firebase app+auth CDN and five bounded local scripts', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const cdn = srcs.filter(s => /^https?:/.test(s));
   const local = srcs.filter(s => !/^https?:/.test(s));
@@ -136,8 +137,8 @@ test('A / D. the page loads only the Firebase app+auth CDN and four local script
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'dashboard-view-model.js', 'faculty-admin.js']);
-  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 6, '6 script elements total');
+  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin.js']);
+  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 7, '7 script elements total');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
 
@@ -435,9 +436,10 @@ test('33. the page exposes the read-only Lookup experience and nothing retired',
 test('98–101. no local Dashboard runtime script carries a Firestore dependency', () => {
   assert.equal(/\bfirestore\b/i.test(GUARD_SOURCE), false, 'session-guard.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(CLIENT_SOURCE), false, 'paws-data-client.js: no Firestore dependency');
+  assert.equal(/\bfirestore\b/i.test(CONTINUITY_SOURCE), false, 'paws-auth-continuity.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(ADMIN_SOURCE), false, 'faculty-admin.js: no Firestore dependency');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'dashboard-view-model.js', 'faculty-admin.js']);
+  assert.deepEqual(local, ['session-guard.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin.js']);
 });
 
 test('92 / 94 / 96. the controller stays bounded after the isolated AFC admin surface', () => {

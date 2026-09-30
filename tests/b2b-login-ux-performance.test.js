@@ -354,9 +354,7 @@ test('33a. duplicate verification submits execute one confirm and failure restor
 
 // Critical path / authority.
 test('25. /me remains the blocking SQL authorization source',()=>{
-  const s=timetable();
-  const start=s.indexOf('async function getRoleProfile');
-  const body=s.slice(start,start+900);
+  const body=sourceFunction('timetable.js','getRoleProfile');
   assert.match(body,/UCVM_PAWS_DATA\.currentUser\(\)/);
   assert.doesNotMatch(body,/firestore|collection\(['"]users['"]\)/i);
 });

@@ -189,13 +189,13 @@ test('no automatic admin landing remains anywhere in the login path', () => {
 });
 
 // ---------------------------------------------------------------------------
-// K / L: explicit Dashboard navigation is preserved, and gated by UCVM.admin().
+// K / L: explicit Dashboard navigation is preserved, and gated by the B2A Dashboard capability.
 // ---------------------------------------------------------------------------
-test('K. the explicit Faculty Dashboard button still navigates to faculty-admin.html', () => {
+test('K. the explicit Faculty Dashboard button still navigates through the shared B2A capability', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const src = fs.readFileSync(path.resolve(__dirname, '..', 'timetable.js'), 'utf8');
-  assert.match(src, /\$\('faculty-dashboard-btn'\)\.addEventListener\('click',\s*\(\)\s*=>\s*\{\s*if \(UCVM\.admin\(currentUser\)\)\s*window\.location\.href = 'faculty-admin\.html';\s*\}\)/);
+  assert.match(src, /\$\('faculty-dashboard-btn'\)\.addEventListener\('click',[\s\S]{0,180}UCVM\.canOpenFacultyDashboard\(currentUser\)[\s\S]{0,100}faculty-admin\.html/);
 });
 
 test('L. unauthorized users still cannot reach Dashboard', () => {
@@ -212,9 +212,9 @@ test('L. unauthorized users still cannot reach Dashboard', () => {
   assert.doesNotMatch(adminLine, /'visc'/);
 });
 
-test('K. the Dashboard button is only revealed to UCVM.admin() users', () => {
+test('K. the Dashboard button visibility uses the shared B2A capability', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const src = fs.readFileSync(path.resolve(__dirname, '..', 'timetable.js'), 'utf8');
-  assert.match(src, /\$\('faculty-dashboard-btn'\)\.classList\.toggle\('hidden',\s*!UCVM\.admin\(currentUser\)\)/);
+  assert.match(src, /\$\('faculty-dashboard-btn'\)\.classList\.toggle\('hidden',\s*!UCVM\.canOpenFacultyDashboard\(currentUser\)\)/);
 });

@@ -1,4 +1,4 @@
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),sourceFunction=require('../test-support/source-function.js');
 const root=path.resolve(__dirname,'..'),read=n=>fs.readFileSync(path.join(root,n),'utf8');
 test('large pages keep structure while loading cacheable modules',()=>{const main=read('index.html'),admin=read('faculty-admin.html');assert.match(main,/timetable\.css/);assert.match(main,/timetable\.js/);assert.match(admin,/faculty-admin\.css/);assert.match(admin,/faculty-admin\.js/);assert.ok(main.length<50000,`index ${main.length}`);assert.ok(admin.length<40000,`admin ${admin.length}`)});
 test('AFC PDF dependencies load only when an approval needs them',()=>{const html=read('index.html');assert.match(html,/asset-loader\.js/);assert.doesNotMatch(html,/pdf-lib\.min\.js|afc-pdf-browser\.js/);const loader=read('asset-loader.js'),actions=read('afc-actions.js');assert.match(loader,/function loadScriptOnce/);assert.match(loader,/ensureAfcPdf/);assert.match(actions,/await UCVM_ASSETS\.ensureAfcPdf\(\)/)});
@@ -25,21 +25,21 @@ test('Faculty Dashboard keeps administrative tabs while supporting linked facult
  assert.match(nodes.get('.gate-copy').innerHTML,/href="index\.html">Timetable<\/a>/);
 });
 
-test('timetable Faculty Dashboard button supports administrators and faculty self-service',()=>{
+test('timetable Faculty Dashboard button supports current administrators and faculty self-service',()=>{
  const vm=require('node:vm'),source=read('timetable.js'),loader=read('asset-loader.js');
- const ui=source.match(/  function updateAuthUI\(\) \{[\s\S]*?\n  \}/)[0];
- const binding=source.split('\n').find(line=>line.includes("$('faculty-dashboard-btn').addEventListener"));
+ const ui=sourceFunction('timetable.js','updateAuthUI');
+ const allowed=new Set(['adfa_general','adfa_regular','faculty','hicc','visc']);
  for(const role of [null,'faculty','hicc','visc','adfa_general','adfa_regular','other_office']){
   const currentUser=role?{role,name:'Test'}:null,elements=new Map();
   const $=id=>{if(!elements.has(id))elements.set(id,{classList:{toggle(name,value){this[name]=value;},contains(){return true;}},addEventListener(_name,fn){this.click=fn;}});return elements.get(id);};
   const admin=p=>['adfa_general','adfa_regular','other_office'].includes(p?.role);
-  const context={$ ,currentUser,UCVM:{admin,general:p=>p?.role==='adfa_general'},canEdit:()=>admin(currentUser),updateScheduleSourceUI(){},roleIsFaculty:p=>p?.role==='faculty',uiSettings:{showMyTimetable:true},myTimetableOnly:false,window:{location:{href:''}}};
-  vm.runInNewContext(ui+'\nupdateAuthUI();\n'+binding,context);
+  const canOpenFacultyDashboard=p=>allowed.has(p?.role);
+  const context={$ ,currentUser,UCVM:{admin,general:p=>p?.role==='adfa_general',canOpenFacultyDashboard},canEdit:()=>admin(currentUser),updateScheduleSourceUI(){},roleIsFaculty:p=>p?.role==='faculty',uiSettings:{showMyTimetable:true},myTimetableOnly:false};
+  vm.runInNewContext(ui+'\nupdateAuthUI();',context);
   const button=$('faculty-dashboard-btn');
-  assert.equal(button.classList.hidden,!admin(currentUser),String(role));
-  button.click();
-  assert.equal(context.window.location.href,admin(currentUser)?'faculty-admin.html':'',String(role));
+  assert.equal(button.classList.hidden,!canOpenFacultyDashboard(currentUser),String(role));
  }
+ assert.match(source,/\$\('faculty-dashboard-btn'\)\.addEventListener\('click',[\s\S]{0,180}UCVM\.canOpenFacultyDashboard\(currentUser\)[\s\S]{0,100}faculty-admin\.html/);
  assert.match(loader,/\['faculty','hicc','visc'\]\.includes\(UCVM\.role\(profile\?\.role\)\)/);
  assert.match(loader,/button\.classList\.remove\('hidden'\)/);
  assert.match(loader,/window\.location\.href='faculty-admin\.html'/);

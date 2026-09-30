@@ -59,12 +59,13 @@ test('A4 403 authorization denials classify as authorization-denied and are not 
     assert.equal(outcome.kind, 'authorization-denied', code);
     assert.equal(outcome.recoverable, false);
   }
-  const inactive = continuity.classifyAuthError({ status: 403, code: 'ACCOUNT_INACTIVE', message: 'inactive' });
+  const inactive = continuity.classifyAuthError({ code: 'ACCOUNT_INACTIVE', message: 'inactive' });
   assert.equal(inactive.kind, 'authorization-denied');
+  assert.equal(inactive.recoverable, false);
 });
 
 test('A5 401 / UNAUTHENTICATED classifies as reauth-required and never as transient', () => {
-  for (const code of ['UNAUTHENTICATED', 'SESSION_REAUTH_REQUIRED']) {
+  for (const code of ['UNAUTHENTICATED', 'SESSION_REAUTH_REQUIRED', 'TOKEN_REFRESH_FAILED']) {
     const outcome = continuity.classifyAuthError({ status: 401, code, message: 'nope' });
     assert.equal(outcome.kind, 'reauth-required', code);
     assert.equal(outcome.recoverable, false);
@@ -270,7 +271,7 @@ test('C1 transient bootstrap failure does NOT sign out and stays locked with a r
   assert.equal(calls.signOut, 0);
   assert.equal(outcome.kind, 'transient');
   assert.deepEqual(calls.locked, [{ locked: true, message: outcome.message }]);
-  assert.equal(calls.recovery.length, 1, 'offers a bounded recovery action');
+  assert.deepEqual(calls.recovery, ['retry'], 'offers exactly the bounded Retry access action');
 });
 
 test('C2 503 / SQL_UNAVAILABLE does NOT sign out', async () => {
@@ -278,17 +279,74 @@ test('C2 503 / SQL_UNAVAILABLE does NOT sign out', async () => {
   assert.equal(calls.signOut, 0);
 });
 
-test('C3 403 authorization denial does NOT sign out and exposes no recovery through credentials', async () => {
+test('C3 403 authorization denial does NOT sign out and offers no Retry access', async () => {
   const { outcome, calls } = await runApplyAccessFailure({ status: 403, code: 'ROLE_DENIED', message: 'denied' });
   assert.equal(calls.signOut, 0);
   assert.equal(outcome.kind, 'authorization-denied');
+  assert.equal(outcome.recoverable, false);
   assert.equal(calls.locked[0].locked, true, 'fails closed');
+  assert.deepEqual(calls.recovery, [null], 'authorization denial must not offer Retry access');
 });
 
-test('C4 reauth-required does NOT automatically sign out or loop', async () => {
+test('C4 reauth-required does NOT automatically sign out or offer Retry access', async () => {
   const { outcome, calls } = await runApplyAccessFailure({ status: 401, code: 'SESSION_REAUTH_REQUIRED', message: 'verify' });
   assert.equal(calls.signOut, 0);
   assert.equal(outcome.kind, 'reauth-required');
+  assert.equal(outcome.recoverable, false);
+  assert.deepEqual(calls.recovery, [null], 'reauth-required must not offer Retry access');
+});
+
+test('C4a inactive account is a structured authorization denial, stays locked, never signs out and offers no Retry access', async () => {
+  const src = sourceFunction('faculty-access.js', 'ready');
+  const vm = require('node:vm');
+  const sandbox = {
+    window: { __ucvmSessionGuard: { blocked: false } },
+    location: { replace() { throw new Error('inactive account must not redirect to password flow'); } },
+    installLandingReset() {},
+    linkFacultyIdentity: async () => {},
+    clearLegacyAdminLanding() {},
+    Error
+  };
+  sandbox.globalThis = sandbox;
+  const context = vm.createContext(sandbox);
+  const fn = vm.runInContext(`(async profile => { ${src}\n return ready({ uid: 'u1' }, profile); })`, context);
+  let failure;
+  try { await fn({ active: false, mustChangePassword: false }); } catch (error) { failure = error; }
+  assert.ok(failure, 'inactive profile must fail closed');
+  assert.equal(failure.code, 'ACCOUNT_INACTIVE');
+  const { outcome, calls } = await runApplyAccessFailure(failure);
+  assert.equal(outcome.kind, 'authorization-denied');
+  assert.equal(outcome.recoverable, false);
+  assert.equal(calls.signOut, 0);
+  assert.deepEqual(calls.recovery, [null]);
+  assert.deepEqual(calls.locked, [{ locked: true, message: outcome.message }]);
+});
+
+test('C4b active profile behavior remains unchanged', async () => {
+  const src = sourceFunction('faculty-access.js', 'ready');
+  const vm = require('node:vm');
+  const calls = { landing: 0, link: 0, clear: 0 };
+  const sandbox = {
+    window: { __ucvmSessionGuard: { blocked: false } },
+    location: { replace() { throw new Error('active profile must not redirect'); } },
+    installLandingReset() { calls.landing += 1; },
+    async linkFacultyIdentity() { calls.link += 1; },
+    clearLegacyAdminLanding() { calls.clear += 1; },
+    Error
+  };
+  sandbox.globalThis = sandbox;
+  const context = vm.createContext(sandbox);
+  const fn = vm.runInContext(`(async profile => { ${src}\n return ready({ uid: 'u1' }, profile); })`, context);
+  assert.equal(await fn({ active: true, mustChangePassword: false }), true);
+  assert.deepEqual(calls, { landing: 1, link: 1, clear: 1 });
+});
+
+test('C4c password-change-required does not offer Retry access or sign out', async () => {
+  const { outcome, calls } = await runApplyAccessFailure({ status: 403, code: 'PASSWORD_CHANGE_REQUIRED', message: 'change' });
+  assert.equal(outcome.kind, 'password-change-required');
+  assert.equal(outcome.recoverable, false);
+  assert.equal(calls.signOut, 0);
+  assert.deepEqual(calls.recovery, [null]);
 });
 
 test('C5 timetable bootstrap catch contains no automatic signOut', () => {
@@ -330,7 +388,7 @@ function runCanOpenFacultyDashboard(roleValue) {
   // Replicate the role-normalization logic faithfully so the extracted function runs.
   const sandbox = {
     String, Object, Array, Boolean,
-    DASHBOARD_ROLES: ['adfa_general', 'adfa_regular', 'other_office', 'faculty', 'hicc', 'visc'],
+    DASHBOARD_ROLES: ['adfa_general', 'adfa_regular', 'faculty', 'hicc', 'visc'],
     role: (r) => {
       const raw = String((r && typeof r === 'object' ? r.role : r) || '').toLowerCase();
       return ({ owner: 'adfa_general', administrator: 'adfa_regular', other_office: 'other_office', adfa_general: 'adfa_general', adfa_regular: 'adfa_regular', admin: 'adfa_regular', editor: 'faculty', viewer: 'faculty' }[raw] || raw);
@@ -361,12 +419,22 @@ test('D3 legacy role aliases still resolve', () => {
   assert.equal(runCanOpenFacultyDashboard('viewer'), true);
 });
 
-test('D4 unauthorized roles may not open the Faculty Dashboard', () => {
+test('D4 unauthorized and retired roles may not open the Faculty Dashboard', () => {
+  assert.equal(runCanOpenFacultyDashboard('other_office'), false);
   assert.equal(runCanOpenFacultyDashboard('student'), false);
   assert.equal(runCanOpenFacultyDashboard('guest'), false);
   assert.equal(runCanOpenFacultyDashboard(''), false);
   assert.equal(runCanOpenFacultyDashboard(null), false);
   assert.equal(runCanOpenFacultyDashboard(undefined), false);
+});
+
+test('D4a production Dashboard role allowlist excludes retired other_office and preserves current roles', () => {
+  const source = read('faculty-access.js');
+  const match = source.match(/const DASHBOARD_ROLES=\[([^\]]+)\]/);
+  assert.ok(match, 'Dashboard role allowlist must be explicit');
+  const body = match[1];
+  for (const role of ['adfa_general', 'adfa_regular', 'faculty', 'hicc', 'visc']) assert.match(body, new RegExp(`['\"]${role}['\"]`), role);
+  assert.doesNotMatch(body, /['\"]other_office['\"]/);
 });
 
 test('D5 Dashboard navigation capability is no longer driven by UCVM.admin() alone', () => {
@@ -378,6 +446,30 @@ test('D6 button visibility and click behaviour share one capability helper', () 
   const source = read('timetable.js');
   const visibility = source.slice(source.indexOf('faculty-dashboard-btn'), source.indexOf('faculty-dashboard-btn') + 4000);
   assert.match(visibility, /canOpenFacultyDashboard/);
+});
+
+test('D7 static script order keeps Firebase Auth and data/auth helpers ahead of timetable bootstrap', () => {
+  const html = read('index.html');
+  const auth = html.indexOf('firebase-auth-compat.js');
+  const data = html.indexOf('paws-data-client.js');
+  const continuity = html.indexOf('paws-auth-continuity.js');
+  const timetable = html.indexOf('timetable.js');
+  for (const [name, index] of [['firebase auth', auth], ['data client', data], ['continuity helper', continuity], ['timetable', timetable]]) assert.notEqual(index, -1, name);
+  assert.ok(auth < data, 'Firebase Auth must load before data-client auth usage');
+  assert.ok(data < timetable, 'data client must load before timetable bootstrap');
+  assert.ok(continuity < timetable, 'auth-continuity helper must load before timetable bootstrap');
+});
+
+test('D8 Faculty Dashboard loads shared auth/data helpers before its controller', () => {
+  const html = read('faculty-admin.html');
+  const auth = html.indexOf('firebase-auth-compat.js');
+  const data = html.indexOf('paws-data-client.js');
+  const continuity = html.indexOf('paws-auth-continuity.js');
+  const controller = html.indexOf('faculty-admin.js');
+  for (const [name, index] of [['firebase auth', auth], ['data client', data], ['continuity helper', continuity], ['faculty-admin controller', controller]]) assert.notEqual(index, -1, name);
+  assert.ok(auth < data, 'Firebase Auth must load before data client');
+  assert.ok(data < controller, 'data client must load before Faculty Dashboard controller');
+  assert.ok(continuity < controller, 'auth-continuity helper must load before Faculty Dashboard controller');
 });
 
 // ---------------------------------------------------------------------------

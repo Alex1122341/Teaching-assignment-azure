@@ -163,9 +163,13 @@ test('the timetable login path proceeds past UCVM.ready to unlock and render', (
   assert.ok(lockAt > 0, 'the gate must be set to the timetable-access message while checking');
   const start = src.indexOf('const profile = await getRoleProfile(user)');
   assert.ok(start > lockAt, 'the SQL role profile must be fetched while the gate is up');
-  const body = src.slice(start, start + 1400);
-  // ready() must NOT abort the flow for an authorized admin.
-  assert.match(body, /if \(!await UCVM\.ready\(user, profile\)\) return;/);
+  const successEnd = src.indexOf('        } catch (err) {', start);
+  assert.ok(successEnd > start, 'the bootstrap success path must have a bounded catch boundary');
+  const body = src.slice(start, successEnd);
+  // ready() must NOT abort the flow for an authorized admin, and may be timed separately.
+  assert.match(body, /const accessReady=await UCVM\.ready\(user, profile\);/);
+  assert.match(body, /if \(!accessReady\) \{/);
+  assert.match(body, /settleInteractiveLogin\(false\)/);
   // ...and the flow must continue all the way to unlock + Azure SQL session load + render.
   assert.match(body, /currentUser = \{/);
   assert.match(body, /subscribeSessions\(\)/);

@@ -1,3 +1,28 @@
+# B2B-PR — LOGIN UX / PERFORMANCE BASELINE PROMOTION / PR PENDING
+
+**Last verified:** 2026-09-30
+**Accepted B2B runtime candidate:** `65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`
+**Previous frozen baseline:** `f2d76449a4881cb24196289ebf63fd4cfaaa7d05`
+**Promoted frozen baseline:** `65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`
+**Feature branch:** `feature/beta-b2b-login-ux-performance`
+**Origin/main before PR:** `c2a71e8f92a6ced8d080e30dbaf39b9d6fd3725b`
+**Status:** B2B LOGIN UX / PERFORMANCE ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE.
+
+B2B preserves B2A authentication continuity while adding bounded Email/Phone
+single-flight UX, sanitized in-memory T0–T7 timing, and the protected
+`paws-login-performance.js` helper. Optional Firestore Faculty enrichment stays
+after T7, SQL FacultyId remains authoritative, late My Timetable enrichment is
+locally reconciled without refetching auth or sessions, stale cross-user
+enrichment is rejected, and password-change diagnostics use
+`password-change-required`.
+
+The static protected set increases from 47 to 48 paths. All 47 B2A paths remain
+protected; the only added path is `paws-login-performance.js`. Static and API
+freezes share the reviewed B2B candidate as the immutable trust anchor. This
+promotion is governance only: no product runtime bytes changed during promotion,
+and no merge, deployment, SQL, Firebase, Firestore, Azure, B3, or DOE mutation
+has occurred.
+
 # B2A-PR — AUTHENTICATION CONTINUITY BASELINE PROMOTION / PR PENDING
 
 **Last verified:** 2026-09-30

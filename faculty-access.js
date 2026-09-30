@@ -60,20 +60,18 @@ window.UCVM=(()=>{
  // re-arm or re-trigger a redirect. Legacy sessionStorage is cleared directly by
  // clearLegacyAdminLanding() on every ready() call instead.
  function installLandingReset(){}
- async function linkFacultyIdentity(user,p){
-  if(admin(p))return;
-  const emails=[user?.email,p?.email].map(v=>String(v||'').trim()).filter((v,i,a)=>v&&a.indexOf(v)===i);
-  for(const email of emails){
-   try{
-    const q=await firebase.firestore().collection('faculty').where('email','==',email).limit(2).get();
-    if(q.empty)continue;
-    const d=q.docs[0],f=d.data()||{},raw=String(f.preferredFullName||f.hrFullName||f.name||'').trim(),comma=raw.match(/^([^,]+),\s*(.+)$/),firstLast=String(f.hrFirstLast||f.teachingAssignmentName||((f.firstName&&f.lastName)?`${f.firstName} ${f.lastName}`:'')||(comma?`${comma[2]} ${comma[1]}`:'')||raw||p.instructor||p.name||'').trim(),name=firstLast;
-    if(!p.facultyId)p.facultyId=d.id||f.ucid||'';
-    if(name)p.instructor=name;
-    p.facultyDirectoryMatch={id:d.id,email,name};
-    return;
-   }catch(_){/* Keep the account usable even if the optional directory match is unavailable. */}
-  }
+ async function enrichFacultyIdentity(user,p){
+  if(admin(p))return null;
+  const facultyId=String(p?.facultyId||'').trim();
+  if(!facultyId)return null;
+  try{
+   const d=await firebase.firestore().collection('faculty').doc(facultyId).get();
+   if(!d.exists)return null;
+   const f=d.data()||{},raw=String(f.preferredFullName||f.hrFullName||f.name||'').trim(),comma=raw.match(/^([^,]+),\s*(.+)$/),firstLast=String(f.hrFirstLast||f.teachingAssignmentName||((f.firstName&&f.lastName)?`${f.firstName} ${f.lastName}`:'')||(comma?`${comma[2]} ${comma[1]}`:'')||raw||p.instructor||p.name||'').trim(),name=firstLast;
+   if(name)p.instructor=name;
+   p.facultyDirectoryMatch={id:facultyId,email:String(f.email||'').trim(),name};
+   return p.facultyDirectoryMatch;
+  }catch(_){return null}
  }
  function clearLegacyAdminLanding(){
   try{
@@ -89,7 +87,7 @@ window.UCVM=(()=>{
  // Retained as a no-op so any stale/session-restored caller cannot schedule a redirect,
  // and to clear legacy sessionStorage left behind by older releases.
  function scheduleAdminLanding(){clearLegacyAdminLanding();return false}
- async function ready(user,p){if(window.__ucvmSessionGuard?.blocked)return false;if(!p?.active){const error=new Error('This account is inactive.');error.code='ACCOUNT_INACTIVE';throw error}if(p.mustChangePassword){location.replace('password.html');return false}installLandingReset();await linkFacultyIdentity(user,p);clearLegacyAdminLanding();return true}
+ async function ready(user,p){if(window.__ucvmSessionGuard?.blocked)return false;if(!p?.active){const error=new Error('This account is inactive.');error.code='ACCOUNT_INACTIVE';throw error}if(p.mustChangePassword){location.replace('password.html');return false}installLandingReset();clearLegacyAdminLanding();return true}
  function watch(user,p){let initial=true;return firebase.firestore().doc(`users/${user.uid}`).onSnapshot(s=>{const n=s.data();if(initial){initial=false;return}if(!n||['role','active','mustChangePassword'].some(k=>n[k]!==p[k]))location.reload()})}
  const value=v=>v===null||v===undefined?'—':Array.isArray(v)?v.map(x=>typeof x==='object'?`${x.name||x.ucid||''}${x.role?' ('+x.role+')':''}`:String(x)).filter(Boolean).join('; '):typeof v==='object'?JSON.stringify(v):String(v);
  const time=e=>e.changedAt?.toDate?e.changedAt.toDate().toLocaleString('en-CA',{timeZone:'America/Edmonton'}):'Pending';
@@ -107,7 +105,7 @@ window.UCVM=(()=>{
   async function more(){if(loading)return;loading=true;$('audit-more').disabled=true;$('audit-status').textContent='Loading changes…';try{await page('session_change_log','session');if(includeFaculty)await page('faculty_change_log','faculty');await page('account_audit','account');entries.sort((a,b)=>{const at=a.changedAt?.toMillis?a.changedAt.toMillis():0,bt=b.changedAt?.toMillis?b.changedAt.toMillis():0;return bt-at});render();$('audit-more').hidden=exhausted.session&&exhausted.faculty&&exhausted.account;$('audit-status').textContent=`${entries.length} changes loaded · ${canReadAll?'all authorized users':'your changes only'}.` }catch(e){$('audit-status').textContent='Could not load history: '+e.message}finally{loading=false;$('audit-more').disabled=false}}
   $('audit-search').oninput=render;$('audit-kind').onchange=render;$('audit-more').onclick=more;await more()
  }
- return {config,role,admin,general,historyAll,canOpenFacultyDashboard,label,esc,number,init,ready,watch,logs};
+ return {config,role,admin,general,historyAll,canOpenFacultyDashboard,label,esc,number,init,ready,enrichFacultyIdentity,watch,logs};
 })();
 
 (()=>{

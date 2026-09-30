@@ -322,15 +322,15 @@ test('C4a inactive account is a structured authorization denial, stays locked, n
   assert.deepEqual(calls.locked, [{ locked: true, message: outcome.message }]);
 });
 
-test('C4b active profile behavior remains unchanged', async () => {
+test('C4b active profile behavior remains unchanged while optional faculty enrichment is no longer blocking', async () => {
   const src = sourceFunction('faculty-access.js', 'ready');
   const vm = require('node:vm');
-  const calls = { landing: 0, link: 0, clear: 0 };
+  const calls = { landing: 0, enrich: 0, clear: 0 };
   const sandbox = {
     window: { __ucvmSessionGuard: { blocked: false } },
     location: { replace() { throw new Error('active profile must not redirect'); } },
     installLandingReset() { calls.landing += 1; },
-    async linkFacultyIdentity() { calls.link += 1; },
+    async enrichFacultyIdentity() { calls.enrich += 1; },
     clearLegacyAdminLanding() { calls.clear += 1; },
     Error
   };
@@ -338,7 +338,7 @@ test('C4b active profile behavior remains unchanged', async () => {
   const context = vm.createContext(sandbox);
   const fn = vm.runInContext(`(async profile => { ${src}\n return ready({ uid: 'u1' }, profile); })`, context);
   assert.equal(await fn({ active: true, mustChangePassword: false }), true);
-  assert.deepEqual(calls, { landing: 1, link: 1, clear: 1 });
+  assert.deepEqual(calls, { landing: 1, enrich: 0, clear: 1 });
 });
 
 test('C4c password-change-required does not offer Retry access or sign out', async () => {

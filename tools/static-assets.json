@@ -39,6 +39,7 @@
   "signature-capture.js",
   "paws-data-client.js",
   "paws-auth-continuity.js",
+  "paws-login-performance.js",
   "scheduling-core.js",
   "timetable.css",
   "timetable-selection.js",

@@ -11,10 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// B2A-PR: the frozen trust anchor is the accepted B2A authentication-continuity
+// B2B-PR: the frozen trust anchor is the accepted B2B login UX/performance
 // runtime candidate. This governance promotion changes only the release trust
 // anchor; it does not publish an image, redeploy the API, or cut over the static site.
-const BASELINE_COMMIT='f2d76449a4881cb24196289ebf63fd4cfaaa7d05';
+const BASELINE_COMMIT='65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

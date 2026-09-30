@@ -366,7 +366,7 @@ test('65 / 67. the Dashboard controller contains zero Firestore implementation',
 });
 
 test('66. faculty-access.js is unchanged by Stage 3C and keeps its legacy exports for other pages', () => {
-  assert.match(ACCESS_SOURCE, /return \{config,role,admin,general,historyAll,canOpenFacultyDashboard,label,esc,number,init,ready,watch,logs\}/);
+  assert.match(ACCESS_SOURCE, /return \{config,role,admin,general,historyAll,canOpenFacultyDashboard,label,esc,number,init,ready,enrichFacultyIdentity,watch,logs\}/);
   assert.match(ACCESS_SOURCE, /enablePersistence\(\{synchronizeTabs:true\}\)/);
   const runLines = ACCESS_SOURCE.split(/\r?\n/).filter(l => l.includes('const run='));
   assert.equal(runLines.length, 1);

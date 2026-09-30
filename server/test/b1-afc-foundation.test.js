@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createDashboardApi } = require('../src/data/dashboard-api');
 const { createDashboardFunctions } = require('../src/runtime/swa-dashboard-functions');
+const { createSqlDashboardRepository } = require('../src/data/sql-dashboard-repository');
 
 const root = path.join(__dirname, '..', '..');
 const FACULTY_ID = '11111111-1111-4111-8111-111111111111';
@@ -201,4 +202,99 @@ test('B1R procedure response is captured in-transaction and has no post-commit b
   assert.match(afterCommit, /\@FacultyName\s+AS\s+facultyName/i);
   assert.match(afterCommit, /CAST\(N'manual'\s+AS\s+nvarchar\(16\)\)\s+AS\s+sourceKind/i);
   assert.match(procedure, /BEGIN TRANSACTION[\s\S]*SELECT\s+\@FacultyName\s*=\s*f\.DisplayName[\s\S]*AfcManualRecord[\s\S]*AuditEvent[\s\S]*COMMIT TRANSACTION/i);
+});
+
+// ---------------------------------------------------------------------------
+// B1D-R — unfiltered AFC list must not emit an empty WHERE clause.
+//
+// The reviewed acceptance call is GET /api/v1/dashboard/afc-records?limit=2000
+// with no search/reason/active filter. Before the hotfix the repository always
+// interpolated `WHERE ${predicates.join(' AND ')}`, so an unfiltered request
+// produced `WHERE  ORDER BY ...` -> SQL syntax error -> HTTP 503.
+// ---------------------------------------------------------------------------
+
+function afcQueryAdapter(rows = []) {
+  const seen = [];
+  return {
+    seen,
+    db: { query: async (sql, params) => { seen.push({ sql, params }); return rows; } }
+  };
+}
+
+test('B1D-R unfiltered AFC list emits no empty WHERE clause and binds only the limit', async () => {
+  const adapter = afcQueryAdapter([]);
+  const repository = createSqlDashboardRepository(adapter.db);
+  await repository.listAfcRecords({ limit: 2000 });
+
+  assert.equal(adapter.seen.length, 1, 'exactly one statement must be issued');
+  const { sql, params } = adapter.seen[0];
+
+  assert.match(sql, /FROM paws\.vAfcRecordUnified u/);
+  assert.match(sql, /INNER JOIN paws\.Faculty f ON f\.FacultyId = u\.FacultyId/);
+  assert.match(sql, /ORDER BY u\.StartDate DESC, f\.DisplayName, u\.AfcRecordId/);
+  // The defect: the unfiltered statement contained a bare WHERE token.
+  assert.doesNotMatch(sql, /\bWHERE\b/i, 'an unfiltered list must not emit a WHERE clause');
+  assert.doesNotMatch(sql, /WHERE\s+ORDER\s+BY/i);
+  // No fabricated business predicate (historical rows stay readable).
+  assert.doesNotMatch(sql, /u\.Active\s*=\s*1|f\.Active\s*=\s*1/i);
+  assert.deepEqual(params, { limit: 2000 });
+});
+
+test('B1D-R unfiltered AFC list still maps every DTO field from an imported row', async () => {
+  const row = {
+    afcRecordId: 'a-1',
+    facultyId: FACULTY_ID,
+    facultyName: 'Ada One',
+    startDate: '2026-10-01',
+    endDate: '2026-10-05',
+    reasonCode: null,
+    reason: 'Vacation',
+    notes: null,
+    legacyPurpose: 'Vacation',
+    active: true,
+    sourceKind: 'import',
+    createdAtUtc: null,
+    createdByName: null,
+    recordKey: 'import:a-1'
+  };
+  const adapter = afcQueryAdapter([row]);
+  const records = await createSqlDashboardRepository(adapter.db).listAfcRecords({ limit: 2000 });
+
+  assert.equal(records.length, 1);
+  assert.equal(records[0].afcRecordId, 'a-1');
+  assert.equal(records[0].facultyId, FACULTY_ID);
+  assert.equal(records[0].facultyName, 'Ada One');
+  assert.equal(records[0].startDate, '2026-10-01');
+  assert.equal(records[0].endDate, '2026-10-05');
+  assert.equal(records[0].reason, 'Vacation');
+  assert.equal(records[0].active, true);
+  assert.equal(records[0].sourceKind, 'import');
+  assert.equal(records[0].recordKey, 'import:a-1');
+});
+
+test('B1D-R filtered AFC list keeps a parameterized WHERE and the same ORDER BY', async () => {
+  const activeAdapter = afcQueryAdapter([]);
+  await createSqlDashboardRepository(activeAdapter.db).listAfcRecords({ limit: 2000, active: true });
+  const activeQuery = activeAdapter.seen[0];
+  assert.match(activeQuery.sql, /WHERE u\.Active = \@active/);
+  assert.match(activeQuery.sql, /ORDER BY u\.StartDate DESC/);
+  assert.equal(activeQuery.params.active, true);
+  assert.equal(activeQuery.params.limit, 2000);
+
+  const reasonAdapter = afcQueryAdapter([]);
+  await createSqlDashboardRepository(reasonAdapter.db).listAfcRecords({ limit: 10, reason: 'vacation' });
+  const reasonQuery = reasonAdapter.seen[0];
+  assert.match(reasonQuery.sql, /WHERE \(u\.ReasonCode = \@reason OR/);
+  assert.match(reasonQuery.sql, /ORDER BY u\.StartDate DESC/);
+  assert.equal(reasonQuery.params.reason, 'vacation');
+  assert.equal(reasonQuery.params.limit, 10);
+
+  const searchAdapter = afcQueryAdapter([]);
+  await createSqlDashboardRepository(searchAdapter.db).listAfcRecords({ search: '100%' });
+  const searchQuery = searchAdapter.seen[0];
+  assert.match(searchQuery.sql, /WHERE \(f\.DisplayName LIKE \@search/);
+  assert.match(searchQuery.sql, /ORDER BY u\.StartDate DESC/);
+  assert.equal(typeof searchQuery.params.search, 'string', 'search stays parameterized');
+  assert.ok(!searchQuery.sql.includes('100%'), 'user input must never be interpolated into SQL');
+  assert.equal(searchQuery.params.limit, 2000, 'the 2000 bound is unchanged');
 });

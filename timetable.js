@@ -179,6 +179,22 @@
     return new Promise(resolve => setTimeout(resolve, 1500));
   }
 
+  function showSessionRestoreGate(){
+    const copy=$('gate-copy');if(copy)copy.textContent='Restoring your PAWS session…';
+    $('gate-sign-in')?.classList.add('hidden');$('gate-auth-setup')?.classList.add('hidden');
+  }
+  function showSignedOutGate(){
+    const copy=$('gate-copy');if(copy)copy.textContent='Sign in with your authorized UCVM account to continue.';
+    $('gate-sign-in')?.classList.remove('hidden');$('gate-auth-setup')?.classList.remove('hidden');
+  }
+  function prefetchDashboardShell(){
+    const assets=[['faculty-admin.html','document'],['faculty-admin.css','style'],['faculty-admin.js','script'],['dashboard-view-model.js','script']];
+    for(const [href,as] of assets){
+      if([...document.querySelectorAll('link[data-paws-prefetch]')].some(x=>x.dataset.pawsPrefetch===href))continue;
+      const link=document.createElement('link');link.rel='prefetch';link.href=href;link.as=as;link.dataset.pawsPrefetch=href;document.head.appendChild(link);
+    }
+  }
+
   function canEdit() {
     return UCVM.admin(currentUser);
   }
@@ -1577,6 +1593,7 @@
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
       dot.classList.add('online');
       text.textContent = 'Firebase Auth + SQL Access Ready';
+      showSessionRestoreGate();
       setAppLocked(true, 'Checking saved login...');
 
       // BETA-R4D-12B2A1 — the access bootstrap is a separate unit so the same routine
@@ -1632,6 +1649,7 @@
           render();
           setAppLocked(false);
           markLoginStage('T7');
+          prefetchDashboardShell();
           setAccessRecovery(null);
           updateScheduleSourceUI();
           setLoginProgress('', false);
@@ -1688,6 +1706,7 @@
           scheduleSource = 'signed-out';
           sessions = [];
           updateAuthUI();
+          showSignedOutGate();
           setAppLocked(true, 'Sign in required to view the timetable.');
           return;
         }

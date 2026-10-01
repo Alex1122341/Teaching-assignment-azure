@@ -1,3 +1,41 @@
+# B2B-PERF-PR — SERVER TIMING BASELINE PROMOTION / PR GATE
+
+**Last verified:** 2026-09-30
+**Accepted B2B-PERF runtime candidate:** `6bfd637af57955ded38e6a39d2c055bec67a0aa0`
+**Previous frozen baseline:** `65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`
+**Promoted frozen baseline:** `6bfd637af57955ded38e6a39d2c055bec67a0aa0`
+**Feature branch:** `feature/beta-b2b-perf-server-timing`
+**Origin/main before PR:** `742b624584b9fabcc853cdcf34812ea1862204e7`
+**Status:** B2B-PERF ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE.
+
+B2B-PERF adds opt-in `Server-Timing` instrumentation to `GET /api/v1/me` with the
+fixed metric allowlist `firebase_verify`, `sql_connect`, `sql_user_query`,
+`profile_validate`, `me_total`. Durations come from monotonic `performance.now()`
+and live only in request-local state; there is no persistence, telemetry backend,
+logging sink, or token/UID/FacultyId/email/name exposure. Anonymous and invalid
+Firebase token requests receive no detailed `Server-Timing`.
+
+`sql_connect;desc="cold"` means only that the current Node runtime had no reusable
+SQL pool and executed a new `ConnectionPool.connect()`; `desc="warm"` means only
+that the process already had a reusable pool. `me_total` is application-side timing
+beginning inside the `/me` application path, not full browser-visible latency. The
+derived remainder after subtracting the four phase metrics may be described only as
+`in-process unattributed remainder` — never as ACA cold start, network time, SQL
+resume time, or Functions startup time.
+
+The static protected set remains 48 paths: zero added, zero removed, zero content
+drift, and all 11 recorded `sha256` values are unchanged. `tools/static-assets.json`
+is unchanged. The API runtime set grows from 17 to 18: the only new protected path
+is `server/src/perf/request-timing.js`, and the accepted modified set is exactly
+`server/src/data/data-api.js`, `server/src/data/sql-connection.js`,
+`server/src/data/sql-user-repository.js`, and `server/src/runtime/swa-functions.js`.
+Dockerfile delta is zero. Static and API freezes share the reviewed B2B-PERF
+candidate as one immutable trust anchor.
+
+This promotion is governance only: no product runtime bytes changed during
+promotion, no deployment was performed, no Azure scaling change occurred, and no
+SQL, Firebase, Firestore, secret, merge, B3, or DOE action has occurred.
+
 # B2B-PR — LOGIN UX / PERFORMANCE BASELINE PROMOTION / PR PENDING
 
 **Last verified:** 2026-09-30

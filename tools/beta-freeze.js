@@ -11,10 +11,12 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// B2B-PR: the frozen trust anchor is the accepted B2B login UX/performance
+// B2B-PERF-PR: the frozen trust anchor is the accepted B2B-PERF /me server-timing
 // runtime candidate. This governance promotion changes only the release trust
 // anchor; it does not publish an image, redeploy the API, or cut over the static site.
-const BASELINE_COMMIT='65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be';
+// The previous B2B anchor 65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be is retained as
+// historical evidence only.
+const BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

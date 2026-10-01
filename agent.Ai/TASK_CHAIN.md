@@ -1,3 +1,26 @@
+# B2B-PERF-PR — SERVER TIMING BASELINE PROMOTION / PR GATE
+
+Status: **B2B-PERF ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
+
+- Accepted B2B-PERF runtime candidate: `6bfd637af57955ded38e6a39d2c055bec67a0aa0`.
+- Previous frozen baseline: `65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`.
+- Promoted static/API baseline: `6bfd637af57955ded38e6a39d2c055bec67a0aa0`.
+- Static protected set: 48; added paths 0; removed paths 0; content drift 0; the 11
+  recorded `sha256` values are unchanged and `tools/static-assets.json` is unchanged.
+- API runtime count becomes 18. The only new protected API runtime path is
+  `server/src/perf/request-timing.js`. The accepted previous→new API delta is exactly
+  `server/src/data/data-api.js`, `server/src/data/sql-connection.js`,
+  `server/src/data/sql-user-repository.js`, `server/src/runtime/swa-functions.js`
+  (modified) plus `server/src/perf/request-timing.js` (added).
+- `deploy/aca/Dockerfile` delta is zero; `swa-api/*` delta is zero.
+- B2B-PERF adds the fixed `/me` `Server-Timing` allowlist `firebase_verify`,
+  `sql_connect`, `sql_user_query`, `profile_validate`, `me_total` with monotonic
+  request-local timing only — no persistence, telemetry backend, logging sink, or
+  identity exposure. Anonymous/invalid-token requests receive no detailed timing.
+- B2A and B2B behavior is preserved. B2B-PERF is NOT LIVE.
+- Governance promotion only. No merge, deployment, Azure scaling change, SQL,
+  Firebase, Firestore, secret, B3, or DOE action is authorized by this state.
+
 # B2B-PR — LOGIN UX / PERFORMANCE BASELINE PROMOTION / PR GATE
 
 Status: **B2B ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**

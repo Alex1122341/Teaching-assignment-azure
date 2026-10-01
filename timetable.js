@@ -277,10 +277,27 @@
   const sessionDateLoads = new Map();
   const pageDataSubscribers = new Set();
   let allSessionsCache = null;
+  let allSessionsOwnerUid = '';
   let allSessionsLoading = null;
+  let allSessionsLoadingUid = '';
+  let allSessionsLoadGeneration = 0;
+  function sessionsFromAllCache(rows,range){
+    if(!Array.isArray(rows))return null;
+    if(!range)return rows.slice();
+    const start=String(range.start||'').slice(0,10),end=String(range.end||'').slice(0,10);
+    if(!start||!end)return rows.slice();
+    return rows.filter(row=>row.date>=start&&row.date<=end);
+  }
   const profileSnapshots=new Map();
   function pageProfile(){return currentUser?{...currentUser.profile,name:currentUser.name,email:currentUser.email,role:currentUser.role,facultyId:currentUser.profile?.facultyId||''}:null}
   function pageSessions(){return[...sessionCache.values()]}
+  function fullSessionCacheForUser(user){
+    const uid=String(user?.uid||'');
+    return uid&&allSessionsOwnerUid===uid&&Array.isArray(allSessionsCache)?allSessionsCache:null;
+  }
+  function cachedSessionsForRange(user,range){
+    return sessionsFromAllCache(fullSessionCacheForUser(user),range);
+  }
   function publishPageData(){for(const callback of pageDataSubscribers){try{callback()}catch(error){console.error('[page data subscriber]',error)}}}
   function cacheSessionRange(range,rows){
     for(const [id,row] of sessionCache)if(row.date>=range.start&&row.date<=range.end)sessionCache.delete(id);
@@ -319,6 +336,8 @@
   async function ensureSessionsForRange(start,end){
     const range={start:String(start||'').slice(0,10),end:String(end||'').slice(0,10)};
     if(!currentUser||!range.start||!range.end||range.start>range.end)return[];
+    const cachedAll=cachedSessionsForRange(currentUser,range);
+    if(cachedAll)return cachedAll;
     const covered=sessionCacheRanges.some(item=>item.start<=range.start&&item.end>=range.end);
     if(covered)return pageSessions().filter(row=>row.date>=range.start&&row.date<=range.end);
     const key=`${range.start}:${range.end}`;
@@ -502,7 +521,8 @@
     sessionUnsubscribe=()=>{cancelled=true};
     try{
       const requestRange=viewMode==='list'?{}:{start:range.start,end:ymd(addDays(parseYmd(range.end),1))};
-      const rows=await fetchAzureSessions(requestRange);
+      const cachedAll=cachedSessionsForRange(currentUser,viewMode==='list'?null:range);
+      const rows=cachedAll||await fetchAzureSessions(requestRange);
       if(cancelled)return;
       sessions=rows;
       cacheSessionRange(range,rows);
@@ -526,17 +546,39 @@
 
   function refreshSessionScope(){if(currentUser)subscribeSessions();else render()}
   async function ensureAllSessions(){
-    if(allSessionsCache)return allSessionsCache.slice();
-    if(allSessionsLoading)return allSessionsLoading;
-    allSessionsLoading=fetchAzureSessions().then(rows=>{
+    const ownerUid=String(currentUser?.uid||'');
+    if(!ownerUid)return[];
+    const cached=fullSessionCacheForUser(currentUser);
+    if(cached)return cached.slice();
+    if(allSessionsLoading&&allSessionsLoadingUid===ownerUid)return allSessionsLoading;
+    const generation=++allSessionsLoadGeneration;
+    allSessionsLoadingUid=ownerUid;
+    const load=fetchAzureSessions().then(rows=>{
+      if(generation!==allSessionsLoadGeneration||String(currentUser?.uid||'')!==ownerUid)return[];
       allSessionsCache=rows.slice();
+      allSessionsOwnerUid=ownerUid;
       for(const row of rows)sessionCache.set(row.id,row);
       publishPageData();
       return rows.slice();
-    }).finally(()=>{allSessionsLoading=null});
-    return allSessionsLoading;
+    }).finally(()=>{
+      if(generation===allSessionsLoadGeneration){allSessionsLoading=null;allSessionsLoadingUid='';}
+    });
+    allSessionsLoading=load;
+    return load;
   }
-  function invalidateAllSessions(){allSessionsCache=null;sessionCacheRanges.length=0;sessionCacheDates.clear()}
+  function scheduleAllSessionsPrefetch(user,after){
+    const ownerUid=String(user?.uid||'');
+    if(!ownerUid)return;
+    Promise.resolve(after).catch(()=>null).then(()=>{
+      if(String(currentUser?.uid||'')!==ownerUid)return[];
+      return ensureAllSessions();
+    }).catch(error=>{if(String(currentUser?.uid||'')===ownerUid)console.warn('[Azure SQL session prefetch]',error)});
+  }
+  function invalidateAllSessions(){
+    allSessionsLoadGeneration+=1;
+    allSessionsCache=null;allSessionsOwnerUid='';allSessionsLoading=null;allSessionsLoadingUid='';
+    sessionCacheRanges.length=0;sessionCacheDates.clear();
+  }
   function swapNumeric(v){ if(v===undefined||v===null||v==='') return null; const n=Number(v); return Number.isFinite(n)?n:null; }
   function swapNameKey(v){ return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' '); }
   function swapFacultyName(f){ return String(f?.preferredFullName||f?.hrFirstLast||f?.hrFullName||f?.facultySummary2026_27?.displayName||f?.__id||''); }
@@ -1577,13 +1619,14 @@
             provider,
             profile
           };
-          sessionCache.clear();sessionCacheRanges.length=0;sessionRangeLoads.clear();sessionCacheDates.clear();sessionDateLoads.clear();
+          invalidateAllSessions();
+          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
           publishPageData();
           viewMode = roleIsFaculty(currentUser) ? 'day' : 'week';
           setViewButtons();
           myTimetableOnly = roleIsFaculty(currentUser);
           updateAuthUI();
-          subscribeSessions();
+          const initialSessionLoad=subscribeSessions();
           unsubscribeFacultyDirectory();
           markLoginStage('T6');
           render();
@@ -1595,6 +1638,7 @@
           settleInteractiveLogin(true);
           closeModal();
           toast(`Signed in as ${name} (${profile.role}).`);
+          scheduleAllSessionsPrefetch(user,initialSessionLoad);
           scheduleOptionalFacultyEnrichment(user, profile);
         } catch (err) {
           console.error('[SQL access profile]', err);
@@ -1637,8 +1681,8 @@
           myTimetableOnly = false;
           if (sessionUnsubscribe) { try { sessionUnsubscribe(); } catch (_) {} sessionUnsubscribe = null; }
           sessionRangeKey='';
-          sessionCache.clear();sessionCacheRanges.length=0;sessionRangeLoads.clear();sessionCacheDates.clear();sessionDateLoads.clear();
-          allSessionsCache=null;
+          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
+          invalidateAllSessions();
           clearCurrentFaculty();
           unsubscribeFacultyDirectory();
           scheduleSource = 'signed-out';

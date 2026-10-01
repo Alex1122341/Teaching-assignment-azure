@@ -171,6 +171,14 @@
     return outcome;
   }
 
+  function shouldAutoRetryAccess(outcome, attempt, sameUser) {
+    return Boolean(outcome?.recoverable && attempt === 0 && sameUser === true);
+  }
+
+  function waitForAccessRetry() {
+    return new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
   function canEdit() {
     return UCVM.admin(currentUser);
   }
@@ -1531,7 +1539,7 @@
 
       // BETA-R4D-12B2A1 — the access bootstrap is a separate unit so the same routine
       // can be rerun by the "Retry access" recovery action without re-authenticating.
-      async function bootstrapForUser(user, parts) {
+      async function bootstrapForUser(user, parts, recoveryAttempt = 0) {
         const email = String(parts?.email || user.email || '').trim().toLowerCase();
         const phone = String(parts?.phone || user.phoneNumber || '').trim();
         const provider = parts?.provider || 'firebase';
@@ -1590,8 +1598,19 @@
           scheduleOptionalFacultyEnrichment(user, profile);
         } catch (err) {
           console.error('[SQL access profile]', err);
-          // Classified failure: the Firebase login is preserved. Recovery reruns this
-          // same bootstrap for the already-signed-in user; it does not re-authenticate.
+          const preliminaryOutcome=window.UCVM_AUTH_CONTINUITY.classifyAuthError(err);
+          const sameUser=Boolean(auth?.currentUser && auth.currentUser.uid===user.uid);
+          if(shouldAutoRetryAccess(preliminaryOutcome,recoveryAttempt,sameUser)){
+            text.textContent='Retrying SQL access profile...';
+            setAppLocked(true,'Still connecting to PAWS...');
+            setLoginProgress('Retrying PAWS access...',true);
+            await waitForAccessRetry();
+            const retrySameUser=Boolean(auth?.currentUser && auth.currentUser.uid===user.uid);
+            if(!retrySameUser)return;
+            return bootstrapForUser(user,{email,phone,provider,identity},recoveryAttempt+1);
+          }
+          // Terminal classified failure: preserve Firebase login and expose the existing
+          // bounded Retry access action. This does not re-authenticate or reload the page.
           const outcome=await applyAccessFailure(err, {
             setLocked: setAppLocked,
             setRecovery: setAccessRecovery,

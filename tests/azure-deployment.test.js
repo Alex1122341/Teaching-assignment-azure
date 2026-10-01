@@ -109,17 +109,19 @@ test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
   const freeze=require('../tools/beta-freeze.js');
   const baseline=require('../tools/beta-baseline.json');
   assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
-  assert.equal(freeze.BASELINE_COMMIT,'65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be');
+  assert.equal(freeze.BASELINE_COMMIT,'6bfd637af57955ded38e6a39d2c055bec67a0aa0');
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
   assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
 });
 
-test('static deploy evidence records the promoted B2B trust anchor',()=>{
+test('static deploy evidence records the promoted B2B-PERF trust anchor',()=>{
   const workflow=read('.github/workflows/azure-beta-static-deploy.yml');
   const freeze=require('../tools/beta-freeze.js');
   assert.match(workflow,new RegExp(freeze.BASELINE_COMMIT));
+  // The active evidence must advance with the promotion, not lag on the superseded anchor.
+  assert.doesNotMatch(workflow,/65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be/);
   assert.doesNotMatch(workflow,/f2d76449a4881cb24196289ebf63fd4cfaaa7d05/);
   assert.doesNotMatch(workflow,/5a7f8a535caaf42992598c6fc8fe301818075e67/);
 });

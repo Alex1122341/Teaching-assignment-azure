@@ -53,22 +53,32 @@ function normalizedRange(range = {}) {
 }
 
 function createDataApi({ verifyToken, findUser, listSessions, health = async () => true }) {
-  async function authorize(token) {
+  async function authorize(token, timing) {
     let decoded;
+    const verifyStarted = timing ? timing.start('firebase_verify') : null;
     try {
       decoded = await verifyToken(token);
     } catch (_) {
       return result(401, { error: { code: 'UNAUTHENTICATED', message: 'Authentication required.' } });
+    } finally {
+      if (timing) timing.end('firebase_verify', verifyStarted);
     }
+    if (timing) timing.markEligible();
 
     let profile;
     try {
-      profile = await findUser(decoded.uid);
+      profile = await findUser(decoded.uid, timing);
     } catch (_) {
       return result(503, { error: { code: 'SERVICE_UNAVAILABLE', message: 'The SQL read service is temporarily unavailable.' } });
     }
 
-    const validated = validateAuthorizedProfile(profile);
+    let validated;
+    const validationStarted = timing ? timing.start('profile_validate') : null;
+    try {
+      validated = validateAuthorizedProfile(profile);
+    } finally {
+      if (timing) timing.end('profile_validate', validationStarted);
+    }
     if (validated.status) return validated;
     return { decoded, ...validated };
   }
@@ -83,18 +93,23 @@ function createDataApi({ verifyToken, findUser, listSessions, health = async () 
       }
     },
 
-    async currentUser(token) {
-      const auth = await authorize(token);
-      if (auth.status) return auth;
-      return result(200, {
-        profile: {
-          displayName: auth.profile.displayName,
-          role: auth.profile.baseRole,
-          facultyId: auth.profile.facultyId || null,
-          active: true,
-          mustChangePassword: false
-        }
-      });
+    async currentUser(token, timing) {
+      const totalStarted = timing ? timing.start('me_total') : null;
+      try {
+        const auth = await authorize(token, timing);
+        if (auth.status) return auth;
+        return result(200, {
+          profile: {
+            displayName: auth.profile.displayName,
+            role: auth.profile.baseRole,
+            facultyId: auth.profile.facultyId || null,
+            active: true,
+            mustChangePassword: false
+          }
+        });
+      } finally {
+        if (timing) timing.end('me_total', totalStarted);
+      }
     },
 
     async sessions(token, range) {

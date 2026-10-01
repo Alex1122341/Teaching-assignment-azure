@@ -23,7 +23,37 @@ The ACR G1 failure remains historical safe-failure evidence: no image build/push
 
 The deployed release SHA must remain distinct from repository main. A documentation-only main advance is not a deployment. After this closure, the next task is **AWAITING OWNER / ARCHITECT SCOPING**; no R4D-12 is implied.
 
-## 0A. Current B2B governance state
+## 0A. Current B2B-PERF governance state
+
+**Status: B2B-PERF ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
+
+- Accepted B2B-PERF runtime candidate and promoted frozen trust anchor:
+  `6bfd637af57955ded38e6a39d2c055bec67a0aa0`.
+- Previous frozen baseline:
+  `65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`.
+- Static protected set is 48 paths — added 0, removed 0, content drift 0. The 11
+  recorded `sha256` values are byte-for-byte unchanged and `tools/static-assets.json`
+  is unchanged.
+- API runtime set grows 17 → 18. The only new protected path is
+  `server/src/perf/request-timing.js`; the accepted modified set is exactly
+  `server/src/data/data-api.js`, `server/src/data/sql-connection.js`,
+  `server/src/data/sql-user-repository.js`, `server/src/runtime/swa-functions.js`.
+  `deploy/aca/Dockerfile` delta is zero.
+- B2B-PERF instruments `GET /api/v1/me` with the fixed metric allowlist
+  `firebase_verify`, `sql_connect`, `sql_user_query`, `profile_validate`,
+  `me_total`. Timing is monotonic and request-local only: no persistence, no
+  telemetry backend, no logging sink, no token/UID/FacultyId/email/name.
+  Anonymous and invalid-token requests receive no detailed `Server-Timing`.
+- `sql_connect;desc="cold"` means only a new `ConnectionPool.connect()` in the
+  current Node runtime; `desc="warm"` means only that a reusable pool already
+  existed. `me_total` is application-side `/me` timing, not browser-visible
+  latency; the derived remainder is described only as `in-process unattributed
+  remainder`.
+- B2A/B2B behavior is preserved and B2B-PERF is NOT LIVE.
+- This is governance promotion only. No merge, deployment, Azure scaling change,
+  SQL, Firebase, Firestore, secret, B3, or DOE mutation has occurred.
+
+## 0B. Previous B2B governance state
 
 **Status: B2B LOGIN UX / PERFORMANCE ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
 
@@ -41,7 +71,7 @@ The deployed release SHA must remain distinct from repository main. A documentat
 - This is governance promotion only. No merge, deployment, SQL, Firebase,
   Firestore, secret, Azure, B3, or DOE mutation has occurred.
 
-## 0B. Previous B2A governance state
+## 0C. Previous B2A governance state
 
 **Status: B2A AUTHENTICATION CONTINUITY ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**
 
@@ -60,7 +90,7 @@ The deployed release SHA must remain distinct from repository main. A documentat
 - This is governance promotion only. No merge, deployment, SQL, Firebase,
   Firestore, secret, or Azure mutation has occurred; B2B has not started.
 
-## 0C. Previous BETA-R4D-12B1D-RG governance state
+## 0D. Previous BETA-R4D-12B1D-RG governance state
 
 The corrected B1 runtime `5a7f8a535caaf42992598c6fc8fe301818075e67` is now the
 immutable static/API freeze trust anchor. It supersedes
@@ -158,19 +188,25 @@ normal merge commit (no squash/rebase).
 
 Frozen application baseline:
 
-`65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`
+`6bfd637af57955ded38e6a39d2c055bec67a0aa0`
 
-This is the accepted B2B login UX/performance candidate and the single
-static/API trust anchor. The previous B2A baseline
+This is the accepted B2B-PERF `/me` server-timing candidate and the single
+static/API trust anchor. The previous B2B baseline
+`65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be`, the B2A baseline
 `f2d76449a4881cb24196289ebf63fd4cfaaa7d05`, the B1 corrected baseline
 `5a7f8a535caaf42992598c6fc8fe301818075e67`, the earlier B1 baseline
 `68bda43a71034089a57d3369128e5dafd80f06eb`, and the B0 baseline
 `b3458f79a05353ce1255874754e1c6c1ec8ee683` remain historical evidence only.
 
-Protected static assets are driven by `tools/static-assets.json` (48 entries).
-All 47 B2A paths remain protected and the sole new protected path is
-`paws-login-performance.js`. Both `pull_request` and `push` to `main`
-allow zero protected runtime drift.
+Protected static assets are driven by `tools/static-assets.json` (48 entries,
+unchanged). The promotion adds 0, removes 0, and changes 0 static protected
+paths; all 11 recorded `sha256` values are unchanged. The API runtime protected
+set grows from 17 to 18 runtime files: the only new path is
+`server/src/perf/request-timing.js`, and the accepted modified set is exactly
+`server/src/data/data-api.js`, `server/src/data/sql-connection.js`,
+`server/src/data/sql-user-repository.js`, and
+`server/src/runtime/swa-functions.js`. `deploy/aca/Dockerfile` is unchanged.
+Both `pull_request` and `push` to `main` allow zero protected runtime drift.
 
 `tools/beta-freeze.js` compares against immutable Git blobs from the frozen baseline.
 

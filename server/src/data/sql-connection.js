@@ -78,8 +78,19 @@ function createSqlConnection({ connectionString, miClientId, sql }) {
   const config = buildSqlConnectionConfig({ connectionString, miClientId });
   let pool;
   return {
-    async query(text, params = {}) {
-      pool = pool || await new sql.ConnectionPool(config).connect();
+    async query(text, params = {}, options = {}) {
+      const timing = options && options.timing;
+      const queryMetric = options && options.queryMetric;
+      if (pool) {
+        if (timing) timing.record('sql_connect', 0, 'warm');
+      } else {
+        const connectStarted = timing ? timing.start('sql_connect') : null;
+        try {
+          pool = pool || await new sql.ConnectionPool(config).connect();
+        } finally {
+          if (timing) timing.end('sql_connect', connectStarted, 'cold');
+        }
+      }
       const request = pool.request();
       for (const [name, value] of Object.entries(params)) {
         // An explicitly supplied `null` is a real SQL NULL and must be bound:
@@ -89,8 +100,13 @@ function createSqlConnection({ connectionString, miClientId, sql }) {
         // undeclared.
         if (value !== undefined) request.input(name, value === null ? null : value);
       }
-      const result = await request.query(text);
-      return result.recordset || [];
+      const queryStarted = timing && queryMetric ? timing.start(queryMetric) : null;
+      try {
+        const result = await request.query(text);
+        return result.recordset || [];
+      } finally {
+        if (timing && queryMetric) timing.end(queryMetric, queryStarted);
+      }
     },
     async health() {
       await this.query('SELECT TOP (1) FirebaseUid AS ok FROM paws.UserProfile');

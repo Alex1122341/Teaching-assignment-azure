@@ -9,10 +9,11 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// B2B-PR: static and API runtimes share the accepted B2B login UX/performance
-// candidate. The prior B2A runtime remains immutable historical evidence.
-const BASELINE_COMMIT='65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be';
-const PREVIOUS_BASELINE_COMMIT='f2d76449a4881cb24196289ebf63fd4cfaaa7d05';
+// B2B-PERF-PR: static and API runtimes share the accepted B2B-PERF server-timing
+// candidate. The prior B2B login UX/performance baseline remains immutable
+// historical evidence.
+const BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
+const PREVIOUS_BASELINE_COMMIT='65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
@@ -55,7 +56,7 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 48 current protected files are byte-identical to immutable B2B candidate blobs',()=>{
+test('all 48 current protected files are byte-identical to immutable B2B-PERF candidate blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
   assert.equal(protectedFiles.length,48);
   for(const name of protectedFiles){
@@ -77,16 +78,38 @@ test('B2B login/auth helper assets are protected runtime assets',()=>{
   }
 });
 
-// D. Baseline manifest continuity (47 -> 48) -------------------------------
-test('the B2B baseline preserves all prior paths and adds only login performance',()=>{
+// D. Baseline manifest continuity (48 -> 48) -------------------------------
+test('the B2B-PERF baseline preserves every prior static path and adds none',()=>{
   const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
   const current=baselineJson(BASELINE_COMMIT);
-  assert.equal(previous.length,47);
+  assert.equal(previous.length,48);
   assert.equal(current.length,48);
   const missing=previous.filter(name=>!current.includes(name));
   const added=current.filter(name=>!previous.includes(name));
   assert.deepEqual(missing,[]);
-  assert.deepEqual(added,['paws-login-performance.js']);
+  assert.deepEqual(added,[]);
+});
+
+test('the promoted baseline introduces zero static content drift from the previous baseline',()=>{
+  const previousPaths=freeze.protectedPaths({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
+  const currentPaths=freeze.protectedPaths({root,baselineCommit:BASELINE_COMMIT});
+  const union=[...new Set([...previousPaths,...currentPaths])].sort();
+  assert.equal(previousPaths.length,48);
+  assert.equal(currentPaths.length,48);
+  assert.equal(union.length,48);
+  for(const name of union){
+    assert.equal(freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
+    ),true,`${name} must be byte-identical across the promotion`);
+  }
+});
+
+test('tools/static-assets.json is unchanged by the B2B-PERF promotion',()=>{
+  assert.equal(freeze.bytesMatch(
+    freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:'tools/static-assets.json'}),
+    freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:'tools/static-assets.json'})
+  ),true);
 });
 
 test('every previous protected path is still protected under the promoted baseline',()=>{
@@ -157,7 +180,7 @@ test('API freeze shares the promoted static baseline and has zero runtime drift'
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,17);
+  assert.equal(result.runtimeFiles.length,18);
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));
   assert.ok(result.buildDefinitionFiles.includes('deploy/aca/Dockerfile'));
 });
@@ -166,6 +189,75 @@ test('API freeze imports the single static baseline constant',()=>{
   const apiFreezeSource=fs.readFileSync(path.join(root,'tools/beta-api-freeze.js'),'utf8');
   assert.doesNotMatch(apiFreezeSource,/const\s+BASELINE_COMMIT\s*=/);
   assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
+});
+
+test('the B2B-PERF promotion adds exactly one protected API runtime path',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
+  const current=apiFreeze.baselineRuntimeFiles({root,baselineCommit:BASELINE_COMMIT});
+  assert.equal(previous.length,17);
+  assert.equal(current.length,18);
+  assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),['server/src/perf/request-timing.js']);
+  // Every previous protected API runtime path remains protected under the promoted baseline.
+  for(const name of previous)assert.ok(current.includes(name),`${name} must remain protected`);
+});
+
+test('every previous protected API runtime path is byte-identical under the promoted baseline',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
+  const accepted=[
+    'server/src/data/data-api.js',
+    'server/src/data/sql-connection.js',
+    'server/src/data/sql-user-repository.js',
+    'server/src/runtime/swa-functions.js'
+  ];
+  const changed=[];
+  for(const name of previous){
+    const same=freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
+    );
+    if(!same)changed.push(name);
+  }
+  assert.deepEqual(changed,accepted);
+});
+
+test('the B2B-PERF promotion leaves swa-api and the ACA Dockerfile untouched',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  const unchanged=[...apiFreeze.API_SOURCE_ROOTS,...apiFreeze.BUILD_DEFINITION_FILES];
+  for(const name of unchanged){
+    assert.equal(freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
+    ),true,`${name} must be unchanged by the promotion`);
+  }
+});
+
+test('the promoted API anchor carries the accepted request-timing allowlist',()=>{
+  const anchored=freeze.readBaselineFile({root,file:'server/src/perf/request-timing.js'}).toString('utf8');
+  assert.match(anchored,/const METRIC_NAMES = Object\.freeze\(\[/);
+  for(const metric of ['firebase_verify','sql_connect','sql_user_query','profile_validate','me_total']){
+    assert.match(anchored,new RegExp(`'${metric}'`),metric);
+  }
+  assert.match(anchored,/new Set\(\['cold', 'warm'\]\)/);
+  // No persistence, logging sink, or identity material may appear in the timing module.
+  assert.doesNotMatch(anchored,/require\('node:fs'\)/);
+  assert.doesNotMatch(anchored,/console\./);
+  assert.doesNotMatch(anchored,/token|uid|facultyId|email/i);
+});
+
+test('the timing module only emits Server-Timing for eligible authenticated requests',()=>{
+  const timing=freeze.readBaselineFile({root,file:'server/src/perf/request-timing.js'}).toString('utf8');
+  assert.match(timing,/if \(!eligible\) return '';/);
+  const api=freeze.readBaselineFile({root,file:'server/src/data/data-api.js'}).toString('utf8');
+  // Eligibility is granted only after a successful token verification.
+  assert.match(api,/if \(timing\) timing\.markEligible\(\);/);
+  const runtime=freeze.readBaselineFile({root,file:'server/src/runtime/swa-functions.js'}).toString('utf8');
+  // The header is attached only when a non-empty Server-Timing value exists.
+  assert.match(runtime,/const value = timing && timing\.serverTiming\(\);/);
+  assert.match(runtime,/if \(!value\) return \{ status, jsonBody: body \};/);
+  assert.match(runtime,/'Access-Control-Expose-Headers': 'Server-Timing'/);
 });
 
 // H. Corrected runtime anchoring --------------------------------------------

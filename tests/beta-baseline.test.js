@@ -9,11 +9,11 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// B2B-PERF-PR: static and API runtimes share the accepted B2B-PERF server-timing
-// candidate. The prior B2B login UX/performance baseline remains immutable
-// historical evidence.
-const BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
-const PREVIOUS_BASELINE_COMMIT='65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be';
+// PAWS Windows Auth: static and API runtimes share the accepted opt-in
+// Windows Integrated Authentication source candidate. The previous B2B-PERF
+// baseline remains immutable historical evidence.
+const BASELINE_COMMIT='e80d73558c137f9d2cb6de316e2179e4ad073353';
+const PREVIOUS_BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
@@ -78,8 +78,8 @@ test('B2B login/auth helper assets are protected runtime assets',()=>{
   }
 });
 
-// D. Baseline manifest continuity (48 -> 48) -------------------------------
-test('the B2B-PERF baseline preserves every prior static path and adds none',()=>{
+// D. Static baseline continuity (48 -> 48) ----------------------------------
+test('the Windows Auth baseline preserves every prior static path and adds none',()=>{
   const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
   const current=baselineJson(BASELINE_COMMIT);
   assert.equal(previous.length,48);
@@ -90,7 +90,7 @@ test('the B2B-PERF baseline preserves every prior static path and adds none',()=
   assert.deepEqual(added,[]);
 });
 
-test('the promoted baseline introduces zero static content drift from the previous baseline',()=>{
+test('the Windows Auth baseline introduces zero static content drift from the previous baseline',()=>{
   const previousPaths=freeze.protectedPaths({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
   const currentPaths=freeze.protectedPaths({root,baselineCommit:BASELINE_COMMIT});
   const union=[...new Set([...previousPaths,...currentPaths])].sort();
@@ -105,7 +105,7 @@ test('the promoted baseline introduces zero static content drift from the previo
   }
 });
 
-test('tools/static-assets.json is unchanged by the B2B-PERF promotion',()=>{
+test('tools/static-assets.json is unchanged by the Windows Auth promotion',()=>{
   assert.equal(freeze.bytesMatch(
     freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:'tools/static-assets.json'}),
     freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:'tools/static-assets.json'})
@@ -191,26 +191,23 @@ test('API freeze imports the single static baseline constant',()=>{
   assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
 });
 
-test('the B2B-PERF promotion adds exactly one protected API runtime path',()=>{
+test('the Windows Auth promotion preserves the protected API runtime path set',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
   const current=apiFreeze.baselineRuntimeFiles({root,baselineCommit:BASELINE_COMMIT});
-  assert.equal(previous.length,17);
+  assert.equal(previous.length,18);
   assert.equal(current.length,18);
   assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
-  assert.deepEqual(current.filter(name=>!previous.includes(name)),['server/src/perf/request-timing.js']);
-  // Every previous protected API runtime path remains protected under the promoted baseline.
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),[]);
   for(const name of previous)assert.ok(current.includes(name),`${name} must remain protected`);
 });
 
-test('every previous protected API runtime path is byte-identical under the promoted baseline',()=>{
+test('the previous API baseline differs only in the Windows Auth runtime selector',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
   const accepted=[
-    'server/src/data/data-api.js',
     'server/src/data/sql-connection.js',
-    'server/src/data/sql-user-repository.js',
-    'server/src/runtime/swa-functions.js'
+    'server/src/runtime/swa-sql-runtime.js'
   ];
   const changed=[];
   for(const name of previous){
@@ -223,7 +220,7 @@ test('every previous protected API runtime path is byte-identical under the prom
   assert.deepEqual(changed,accepted);
 });
 
-test('the B2B-PERF promotion leaves swa-api and the ACA Dockerfile untouched',()=>{
+test('the Windows Auth promotion leaves swa-api and the ACA Dockerfile untouched',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const unchanged=[...apiFreeze.API_SOURCE_ROOTS,...apiFreeze.BUILD_DEFINITION_FILES];
   for(const name of unchanged){

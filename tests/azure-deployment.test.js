@@ -109,14 +109,14 @@ test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
   const freeze=require('../tools/beta-freeze.js');
   const baseline=require('../tools/beta-baseline.json');
   assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
-  assert.equal(freeze.BASELINE_COMMIT,'6bfd637af57955ded38e6a39d2c055bec67a0aa0');
+  assert.equal(freeze.BASELINE_COMMIT,'e80d73558c137f9d2cb6de316e2179e4ad073353');
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
   assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
 });
 
-test('static deploy evidence records the promoted B2B-PERF trust anchor',()=>{
+test('static deploy evidence records the promoted Windows Auth trust anchor',()=>{
   const workflow=read('.github/workflows/azure-beta-static-deploy.yml');
   const freeze=require('../tools/beta-freeze.js');
   assert.match(workflow,new RegExp(freeze.BASELINE_COMMIT));

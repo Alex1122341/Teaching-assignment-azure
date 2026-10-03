@@ -127,8 +127,12 @@ test('runtime rejects an unknown driver selector before loading a driver', () =>
 test('runtime loads the Windows SQL module only for explicit Windows mode', () => {
   const originalLoad = Module._load;
   const loaded = [];
+  const fakeSql = { ConnectionPool: class {} };
   Module._load = function(request, parent, isMain) {
-    if (request === 'mssql' || request === 'mssql/msnodesqlv8') loaded.push(request);
+    if (request === 'mssql' || request === 'mssql/msnodesqlv8') {
+      loaded.push(request);
+      return fakeSql;
+    }
     return originalLoad.call(this, request, parent, isMain);
   };
   try {

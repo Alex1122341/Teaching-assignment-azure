@@ -11,12 +11,11 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS Windows Auth: the frozen trust anchor is the accepted opt-in Windows
-// Integrated Authentication runtime candidate. This governance promotion only
-// advances the source-verification anchor; it does not deploy or cut over PAWS.
-// The previous B2B-PERF anchor 6bfd637af57955ded38e6a39d2c055bec67a0aa0 is retained
-// as historical evidence only.
-const BASELINE_COMMIT='e80d73558c137f9d2cb6de316e2179e4ad073353';
+// PAWS B3B: the frozen trust anchor includes the reviewed Windows Integrated
+// Authentication runtime and loopback-only University HTTP host. This governance
+// promotion advances source verification only; it does not activate the service,
+// cut over PAWS, or deploy to Azure.
+const BASELINE_COMMIT='b85d6420a66ddb24513d8c9fa4aa838906012074';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

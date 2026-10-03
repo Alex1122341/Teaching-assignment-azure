@@ -12,7 +12,7 @@ const freeze=require('../tools/beta-freeze.js');
 // PAWS Windows Auth: static and API runtimes share the accepted opt-in
 // Windows Integrated Authentication source candidate. The previous B2B-PERF
 // baseline remains immutable historical evidence.
-const BASELINE_COMMIT='e80d73558c137f9d2cb6de316e2179e4ad073353';
+const BASELINE_COMMIT='b85d6420a66ddb24513d8c9fa4aa838906012074';
 const PREVIOUS_BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
@@ -180,7 +180,7 @@ test('API freeze shares the promoted static baseline and has zero runtime drift'
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,18);
+  assert.equal(result.runtimeFiles.length,20);
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));
   assert.ok(result.buildDefinitionFiles.includes('deploy/aca/Dockerfile'));
 });
@@ -191,15 +191,17 @@ test('API freeze imports the single static baseline constant',()=>{
   assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
 });
 
-test('the Windows Auth promotion preserves the protected API runtime path set',()=>{
+test('B3B adds only the approved University HTTP host paths to the protected API runtime',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
   const current=apiFreeze.baselineRuntimeFiles({root,baselineCommit:BASELINE_COMMIT});
   assert.equal(previous.length,18);
-  assert.equal(current.length,18);
+  assert.equal(current.length,20);
   assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
-  assert.deepEqual(current.filter(name=>!previous.includes(name)),[]);
-  for(const name of previous)assert.ok(current.includes(name),`${name} must remain protected`);
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),[
+    'server/src/runtime/university-api.js',
+    'server/src/runtime/university-http-server.js'
+  ]);
 });
 
 test('the previous API baseline differs only in the Windows Auth runtime selector',()=>{

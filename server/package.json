@@ -1,1 +1,1 @@
-{"name":"paws-beta-sql-runtime","version":"1.0.0","private":true,"type":"commonjs","engines":{"node":"22.x"},"dependencies":{"firebase-admin":"13.4.0","msnodesqlv8":"5.5.0","mssql":"11.0.1"},"scripts":{"test":"node --test test/*.test.js"}}
+{"name":"paws-beta-sql-runtime","version":"1.0.0","private":true,"type":"commonjs","engines":{"node":"22.x"},"dependencies":{"firebase-admin":"13.4.0","msnodesqlv8":"5.5.0","mssql":"11.0.1"},"scripts":{"start:university":"node src/runtime/university-api.js","test":"node --test test/*.test.js"}}

@@ -1,4 +1,19 @@
-# PAWS VETMED-OPS WINDOWS AUTH — PR #44 / CI GREEN / NOT MERGED
+# PAWS B3B — UNIVERSITY API HOST / INFRASTRUCTURE PARTIAL
+
+Status: **LOCAL UNIVERSITY API VERIFIED / INFRASTRUCTURE PARTIAL / NOT ACTIVATED / NOT CUT OVER**
+
+- Accepted main base: `e52b55b57136dbe5690c1ffdf8bfec610c254819` (PR #44 merged).
+- Branch: `feature/vetmedops-university-api-host`; runtime candidate: `b85d6420a66ddb24513d8c9fa4aa838906012074`.
+- Server tests 184/184; root tests 623 passed / 29 skipped / 0 failed; focused freeze/deployment tests 49/49.
+- Static freeze 48 protected paths and API freeze 20 protected runtime files both pass with zero drift.
+- Actual loopback HTTP adapter + PAWS SQL runtime check (temporary process-local TLS bypass): SQL health 200; anonymous `/api/v1/me` and Dashboard summary 401. This did not activate the service.
+- Exact blockers: `SERVICE_IDENTITY_SQL_LOGIN_ADMIN_REQUIRED` (DBA must provision/review the dedicated Windows SQL login) and `SHARED_SQL_RESTART_DEFERRED` (SQL Agent workload inventory is unavailable, so restart safety is unproven).
+- `PAWSApi` remains STOPPED/DISABLED with inert placeholder. Strict TLS, authenticated service runtime, complete data transfer, and cutover are pending.
+- No SQL login, database permission/data/schema write, SQL restart, service activation, external bind, Azure/Firebase change, deployment, or main mutation occurred.
+
+## Historical task chain
+
+# Historical checkpoint — PAWS VETMED-OPS WINDOWS AUTH / PR #44
 
 Status: **IMPLEMENTED / LIVE READ + ROLLBACK PROOF COMPLETE / PR #44 OPEN / CI GREEN / NOT MERGED / NOT DEPLOYED**
 

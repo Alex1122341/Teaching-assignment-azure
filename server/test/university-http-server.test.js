@@ -146,3 +146,68 @@ test('local HTTP acceptance mounts the existing SQL health route and closes its 
   await runtime.close();
   assert.equal(poolClosed, true);
 });
+
+test('OPTIONS preflight permits only an exact allowlisted origin and headers', async t => {
+  const server = createUniversityHttpServer({
+    runtime: async () => ({ status: 200, jsonBody: {} }),
+    env: { PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu' }
+  });
+  t.after(() => server.close());
+  const port = await listen(server);
+  const allowed = await get(port, '/api/v1/dashboard/afc-records', {
+    method: 'OPTIONS',
+    headers: {
+      origin: 'https://paws.example.edu',
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'authorization,content-type'
+    }
+  });
+  assert.equal(allowed.status, 204);
+  assert.equal(allowed.headers['access-control-allow-methods'], 'GET, POST, OPTIONS');
+  assert.equal(allowed.headers['access-control-allow-headers'], 'Authorization, Content-Type');
+  const denied = await get(port, '/api/v1/me', {
+    method: 'OPTIONS',
+    headers: {
+      origin: 'https://paws.example.edu',
+      'access-control-request-method': 'DELETE',
+      'access-control-request-headers': 'authorization'
+    }
+  });
+  assert.equal(denied.status, 403);
+});
+
+test('actual PAWS runtime keeps anonymous /me and Dashboard requests unauthorized without SQL access', async t => {
+  const { createSwaSqlRuntime } = require('../src/runtime/swa-sql-runtime');
+  const env = {
+    FIREBASE_PROJECT_ID: 'test-project',
+    PAWS_SQL_CONNECTION_STRING: 'Server=localhost;Database=VetMed-Ops;Encrypt=true;',
+    PAWS_SQL_DRIVER: 'tedious'
+  };
+  let sqlQueries = 0;
+  class FakePool {
+    async connect() { return this; }
+    request() { return { input() { return this; }, async query() { sqlQueries++; return { recordset: [] }; } }; }
+    async close() {}
+  }
+  const runtime = createSwaSqlRuntime({ env, admin: {}, sql: { ConnectionPool: FakePool } });
+  const server = createUniversityHttpServer({ runtime, env: {} });
+  t.after(async () => {
+    await new Promise(resolve => server.close(resolve));
+    await runtime.close();
+  });
+  const port = await listen(server);
+  const me = await get(port, '/api/v1/me');
+  const dashboard = await get(port, '/api/v1/dashboard/summary');
+  assert.equal(me.status, 401);
+  assert.equal(dashboard.status, 401);
+  assert.equal(sqlQueries, 0);
+});
+
+test('service port configuration fails closed outside the valid TCP range', () => {
+  const { listenPort } = require('../src/runtime/university-api');
+  assert.equal(listenPort({}), 8787);
+  assert.equal(listenPort({ PAWS_API_PORT: '49152' }), 49152);
+  for (const value of ['0', '65536', 'NaN', '-1', '']) {
+    assert.throws(() => listenPort({ PAWS_API_PORT: value }), /PAWS_API_PORT/);
+  }
+});

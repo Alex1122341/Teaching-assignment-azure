@@ -1,4 +1,22 @@
-# PAWS — VETMED-OPS WINDOWS AUTH RUNTIME / PR #44 OPEN / NOT MERGED
+# PAWS B3B — UNIVERSITY API HOST / INFRASTRUCTURE PARTIAL
+
+**Last verified:** 2026-10-03
+**Accepted main base:** `e52b55b57136dbe5690c1ffdf8bfec610c254819` (PR #44 merged)
+**Feature branch:** `feature/vetmedops-university-api-host`
+**Runtime candidate:** `b85d6420a66ddb24513d8c9fa4aa838906012074`
+**Status:** LOCAL UNIVERSITY API VERIFIED / INFRASTRUCTURE PARTIAL / NOT ACTIVATED / NOT CUT OVER.
+
+The new Node HTTP API uses the existing PAWS SQL/Firebase runtime and is constrained to loopback. Actual local runtime check with the task-authorized temporary test-only self-signed TLS bypass returned SQL health 200; anonymous `/api/v1/me` and Dashboard summary returned 401. The bypass was process-local and not installed as a service setting.
+
+Verification: server suite 184/184; root suite 623 passed / 29 skipped / 0 failed; freeze/deployment focused tests 49/49; static freeze 48 paths and API freeze 20 paths, both with no drift.
+
+Exact blockers:
+- `SERVICE_IDENTITY_SQL_LOGIN_ADMIN_REQUIRED`: current account lacks server login administration; `NT SERVICE\PAWSApi` has no SQL login. DBA review/provisioning is required.
+- `SHARED_SQL_RESTART_DEFERRED`: SQL Agent workload inventory is unavailable, so restart safety is unproven. No SQL restart.
+
+`PAWSApi` remains STOPPED and DISABLED with an inert placeholder path. Strict TLS, authenticated service runtime, complete data transfer, and PAWS cutover acceptance are pending. No SQL login/permission/data/schema mutation, SQL restart, service activation, Azure/Firebase change, merge of this PR, or deployment occurred.
+
+# Historical checkpoint — PAWS VETMED-OPS WINDOWS AUTH / PR #44
 
 **Last verified:** 2026-10-03
 **Accepted main base:** `c99b064002d0cf07a9ef44b7914321f3921777ad`

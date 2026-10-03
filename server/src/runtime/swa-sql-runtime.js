@@ -1,5 +1,5 @@
 'use strict';
-const { createSqlConnection } = require('../data/sql-connection');
+const { resolveSqlDriver, parseBooleanFlag, buildSqlConnectionConfig, createSqlConnection } = require('../data/sql-connection');
 const { createSqlUserRepository } = require('../data/sql-user-repository');
 const { createSqlSessionRepository } = require('../data/sql-session-repository');
 const { createSqlDashboardRepository } = require('../data/sql-dashboard-repository');
@@ -11,8 +11,17 @@ const { createDashboardFunctions } = require('./swa-dashboard-functions');
 const { createFirebaseVerifier } = require('../auth/firebase-admin');
 const { createFirebaseSqlAuth } = require('../auth/firebase-sql-auth');
 
-function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql = require('mssql') } = {}) {
-  const db = createSqlConnection({ connectionString: env.PAWS_SQL_CONNECTION_STRING, miClientId: env.PAWS_SQL_MI_CLIENT_ID, sql });
+function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
+  const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
+  const allowSelfSigned = parseBooleanFlag(env.PAWS_SQL_ALLOW_SELF_SIGNED, 'PAWS_SQL_ALLOW_SELF_SIGNED');
+  const connectionConfig = buildSqlConnectionConfig({
+    connectionString: env.PAWS_SQL_CONNECTION_STRING,
+    miClientId: env.PAWS_SQL_MI_CLIENT_ID,
+    driver,
+    allowSelfSigned
+  });
+  const sqlClient = sql || require(driver === 'msnodesqlv8' ? 'mssql/msnodesqlv8' : 'mssql');
+  const db = createSqlConnection({ config: connectionConfig, sql: sqlClient });
   const users = createSqlUserRepository(db);
   const sessions = createSqlSessionRepository(db);
   const dashboard = createSqlDashboardRepository(db);

@@ -7,6 +7,7 @@ const ALLOWED_KEYS = new Map([
   ['address', 'server'],
   ['addr', 'server'],
   ['networkaddress', 'server'],
+  ['port', 'port'],
   ['database', 'database'],
   ['initialcatalog', 'database'],
   ['encrypt', 'encrypt'],
@@ -15,6 +16,21 @@ const ALLOWED_KEYS = new Map([
 
 function normalizeKey(key) {
   return key.toLowerCase().replace(/\s+/g, '');
+}
+
+function resolveSqlDriver(value) {
+  const driver = value === undefined || value === null ? '' : String(value).trim().toLowerCase();
+  if (!driver || driver === 'tedious') return 'tedious';
+  if (driver === 'msnodesqlv8') return 'msnodesqlv8';
+  throw Error('Unsupported PAWS_SQL_DRIVER: choose empty, tedious, or msnodesqlv8');
+}
+
+function parseBooleanFlag(value, name) {
+  if (value === undefined) return false;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  throw Error(`${name} must be true or false`);
 }
 
 function parseConnectionString(connectionString) {
@@ -26,7 +42,7 @@ function parseConnectionString(connectionString) {
     const key = segment.slice(0, separator).trim();
     const value = segment.slice(separator + 1).trim();
     const logicalKey = ALLOWED_KEYS.get(normalizeKey(key));
-    if (!logicalKey) throw Error(`Managed identity connection option is not allowed: ${key}`);
+    if (!logicalKey) throw Error(`SQL connection option is not allowed: ${key}`);
     if (values[logicalKey] !== undefined && values[logicalKey] !== value) {
       throw Error(`Conflicting values supplied for ${logicalKey}`);
     }
@@ -44,8 +60,73 @@ function parseServer(serverValue) {
   return { server };
 }
 
-function buildSqlConnectionConfig({ connectionString, miClientId } = {}) {
+function buildWindowsConnectionConfig({ connectionString, allowSelfSigned }) {
+  const values = parseConnectionString(connectionString);
+  const serverValue = values.server;
+  const database = values.database;
+  if (!serverValue || !database) throw Error('Windows SQL configuration requires server and database');
+
+  if (values.encrypt !== undefined && values.encrypt.toLowerCase() !== 'true') {
+    throw Error('Encrypt must be true in Windows SQL mode');
+  }
+  if (values.trustServerCertificate !== undefined && !['true', 'false'].includes(values.trustServerCertificate.toLowerCase())) {
+    throw Error('TrustServerCertificate must be true or false');
+  }
+  const trustServerCertificate = values.trustServerCertificate === undefined
+    ? false
+    : values.trustServerCertificate.toLowerCase() === 'true';
+  if (trustServerCertificate && !allowSelfSigned) {
+    throw Error('TrustServerCertificate=true requires PAWS_SQL_ALLOW_SELF_SIGNED=true for test-only use');
+  }
+
+  const endpoint = parseServer(serverValue);
+  if (values.port !== undefined) {
+    if (!/^\d+$/.test(values.port) || Number(values.port) < 1 || Number(values.port) > 65535) {
+      throw Error('SQL port must be an integer from 1 to 65535');
+    }
+    if (endpoint.port !== undefined && endpoint.port !== Number(values.port)) {
+      throw Error('Conflicting values supplied for port');
+    }
+    endpoint.port = Number(values.port);
+  }
+  if (endpoint.port !== undefined && (endpoint.port < 1 || endpoint.port > 65535)) {
+    throw Error('SQL port must be an integer from 1 to 65535');
+  }
+  const odbcValue = value => String(value).replace(/}/g, '}}');
+  const server = endpoint.port === undefined ? endpoint.server : endpoint.server + ',' + endpoint.port;
+  const odbcConnectionString = [
+    'Driver={ODBC Driver 18 for SQL Server}',
+    'Server={' + odbcValue(server) + '}',
+    'Database={' + odbcValue(database) + '}',
+    'Trusted_Connection=Yes',
+    'Encrypt=Yes',
+    'TrustServerCertificate=' + (trustServerCertificate ? 'Yes' : 'No')
+  ].join(';') + ';';
+  return {
+    ...endpoint,
+    database,
+    connectionString: odbcConnectionString,
+    options: {
+      encrypt: true,
+      trustServerCertificate,
+      trustedConnection: true
+    }
+  };
+}
+
+function buildSqlConnectionConfig({ connectionString, miClientId, driver, allowSelfSigned = false } = {}) {
+  const selectedDriver = resolveSqlDriver(driver);
   if (!connectionString) throw Error('PAWS_SQL_CONNECTION_STRING is required');
+  if (typeof allowSelfSigned !== 'boolean') throw Error('allowSelfSigned must be a boolean');
+  if (allowSelfSigned && selectedDriver !== 'msnodesqlv8') {
+    throw Error('PAWS_SQL_ALLOW_SELF_SIGNED is only valid in msnodesqlv8 test mode');
+  }
+  if (selectedDriver === 'msnodesqlv8' && miClientId) {
+    throw Error('PAWS_SQL_DRIVER=msnodesqlv8 cannot be combined with PAWS_SQL_MI_CLIENT_ID');
+  }
+  if (selectedDriver === 'msnodesqlv8') {
+    return buildWindowsConnectionConfig({ connectionString, allowSelfSigned });
+  }
   if (!miClientId) return connectionString;
   if (!UUID.test(miClientId)) throw Error('PAWS_SQL_MI_CLIENT_ID must be a UUID');
 
@@ -74,8 +155,8 @@ function buildSqlConnectionConfig({ connectionString, miClientId } = {}) {
   };
 }
 
-function createSqlConnection({ connectionString, miClientId, sql }) {
-  const config = buildSqlConnectionConfig({ connectionString, miClientId });
+function createSqlConnection({ connectionString, miClientId, driver, allowSelfSigned = false, config, sql }) {
+  const connectionConfig = config || buildSqlConnectionConfig({ connectionString, miClientId, driver, allowSelfSigned });
   let pool;
   return {
     async query(text, params = {}, options = {}) {
@@ -86,7 +167,7 @@ function createSqlConnection({ connectionString, miClientId, sql }) {
       } else {
         const connectStarted = timing ? timing.start('sql_connect') : null;
         try {
-          pool = pool || await new sql.ConnectionPool(config).connect();
+          pool = pool || await new sql.ConnectionPool(connectionConfig).connect();
         } finally {
           if (timing) timing.end('sql_connect', connectStarted, 'cold');
         }
@@ -96,8 +177,7 @@ function createSqlConnection({ connectionString, miClientId, sql }) {
         // An explicitly supplied `null` is a real SQL NULL and must be bound:
         // a statement may reference the parameter in an
         // `@p IS NULL OR ...` guard. Only `undefined` (meaning "not supplied")
-        // is skipped, so a caller can never leave a referenced variable
-        // undeclared.
+        // is skipped, so a caller can never leave a referenced variable undeclared.
         if (value !== undefined) request.input(name, value === null ? null : value);
       }
       const queryStarted = timing && queryMetric ? timing.start(queryMetric) : null;
@@ -115,4 +195,9 @@ function createSqlConnection({ connectionString, miClientId, sql }) {
   };
 }
 
-module.exports = { buildSqlConnectionConfig, createSqlConnection };
+module.exports = {
+  resolveSqlDriver,
+  parseBooleanFlag,
+  buildSqlConnectionConfig,
+  createSqlConnection
+};

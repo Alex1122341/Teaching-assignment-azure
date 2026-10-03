@@ -1,3 +1,23 @@
+# PAWS — VETMED-OPS WINDOWS AUTH RUNTIME / PR #44 OPEN / NOT MERGED
+
+**Last verified:** 2026-10-03
+**Accepted main base:** `c99b064002d0cf07a9ef44b7914321f3921777ad`
+**Windows Auth source candidate:** `e80d73558c137f9d2cb6de316e2179e4ad073353`
+**Current implementation/test head before continuity sync:** `37bb5a6b28a1ee18000ccbce85423c694c4de626`
+**Feature branch:** `feature/vetmedops-windows-auth-runtime`
+**PR:** #44 — https://github.com/Alex1122341/Teaching-assignment-azure/pull/44
+**Status:** WINDOWS AUTH + LIVE READ + CONTROLLED ROLLBACK PROOF COMPLETE / PR OPEN / CI GREEN / NOT MERGED / NOT DEPLOYED.
+
+The opt-in `PAWS_SQL_DRIVER=msnodesqlv8` path is pinned to `msnodesqlv8@5.5.0` in the server workspace. Default Tedious and Azure Managed Identity behavior remain covered and unchanged. ODBC Driver 18.6.1.1 is installed on ITAPPVETOPSDB01. Windows authentication uses the current process identity, with no SQL password.
+
+Local verification: server suite 174/174; root suite 623 passed, 29 skipped, 0 failed. Static freeze protects 48 files with zero drift; API freeze protects 18 runtime files with zero path-set drift. CI run `37138852302` passed for code head `37bb5a6b28a1ee18000ccbce85423c694c4de626`. This run validates the implementation/test head; the continuity documentation records that verified checkpoint.
+
+The actual PAWS runtime `GET /api/health/sql` returned 200 and the identity/read query selected VetMed-Ops. Strict TLS correctly fails against the current untrusted self-signed certificate and remains classified `EXPECTED_PRODUCTION_TLS_BLOCKER`. The AFC procedure was exercised through its repository path inside an outer transaction; both the test row and audit event were rolled back and no residue remains.
+
+No permanent test data, SQL schema/permissions/configuration/certificate, Firebase, Azure, deployment, or main-branch mutation occurred. The temporary migration principal is NOT approved as the production runtime identity. A dedicated least-privilege Windows service identity requires server-level login administration; the current principal lacks `ALTER ANY LOGIN` and `CREATE LOGIN`.
+
+Next stage: Architect review of PR #44, then service identity and trusted certificate provisioning. Do not merge or deploy this PR as part of the current task.
+
 # B2B-PERF-PR — SERVER TIMING BASELINE PROMOTION / PR GATE
 
 **Last verified:** 2026-09-30

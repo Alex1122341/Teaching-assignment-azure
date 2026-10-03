@@ -1,3 +1,25 @@
+# PAWS VETMED-OPS WINDOWS AUTH — PR #44 / CI GREEN / NOT MERGED
+
+Status: **IMPLEMENTED / LIVE READ + ROLLBACK PROOF COMPLETE / PR #44 OPEN / CI GREEN / NOT MERGED / NOT DEPLOYED**
+
+- Base: `main` at `c99b064002d0cf07a9ef44b7914321f3921777ad`.
+- Branch: `feature/vetmedops-windows-auth-runtime`.
+- Runtime candidate: `e80d73558c137f9d2cb6de316e2179e4ad073353`.
+- Governance baseline commit: `a79810b1d3f476193fa8c928730bd6b65de490c0`.
+- CI test isolation fix: `37bb5a6b28a1ee18000ccbce85423c694c4de626`.
+- PR: #44, https://github.com/Alex1122341/Teaching-assignment-azure/pull/44.
+- GitHub Actions run `37138852302` passed for code head `37bb5a6b28a1ee18000ccbce85423c694c4de626`. This run validates the implementation/test head; the continuity documentation records that verified checkpoint.
+- Server tests: 174/174. Root tests: 623 passed / 29 skipped / 0 failed.
+- Static freeze: 48 protected paths, zero drift. API freeze: 18 protected runtime paths, zero path-set drift.
+- Actual PAWS runtime health/read passed against VetMed-Ops. Strict certificate validation failed on the server's untrusted self-signed certificate as expected; production TLS remains blocked.
+- AFC `paws_api.CreateAfcRecord` repository-path proof completed within an outer transaction; test row and audit event were removed by rollback, with no residue.
+- No permanent test data, SQL schema, permissions, SQL configuration/certificate, Azure, Firebase, deployment, or main mutation. PR remains unmerged.
+- The temporary migration identity is not approved as the production runtime identity. A dedicated least-privilege Windows service identity needs server-level SQL login administration; current server scope lacks `ALTER ANY LOGIN` and `CREATE LOGIN`.
+
+**Exact next action:** Architect review of PR #44, then continue service-identity and trusted-certificate readiness work. Do not merge or deploy in this stage.
+
+## Historical task chain
+
 # B2B-PERF-PR — SERVER TIMING BASELINE PROMOTION / PR GATE
 
 Status: **B2B-PERF ACCEPTED / BASELINE PROMOTED / PR PENDING / NOT LIVE**

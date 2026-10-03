@@ -1,0 +1,13 @@
+<service>
+  <id>PAWSApi</id>
+  <name>PAWS API (University Runtime)</name>
+  <description>Loopback-only PAWS API service</description>
+  <executable>C:\Program Files\nodejs\node.exe</executable>
+  <arguments>"C:\PAWS\Teaching-assignment-azure\server\src\runtime\university-api.js"</arguments>
+  <workingdirectory>C:\PAWS\Teaching-assignment-azure\server</workingdirectory>
+  <stoptimeout>15 sec</stoptimeout>
+  <log mode="roll-by-size">
+    <sizeThreshold>10485760</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+</service>

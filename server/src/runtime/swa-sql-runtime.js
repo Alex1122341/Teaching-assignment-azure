@@ -1,4 +1,5 @@
 'use strict';
+
 const { resolveSqlDriver, parseBooleanFlag, buildSqlConnectionConfig, createSqlConnection } = require('../data/sql-connection');
 const { createSqlUserRepository } = require('../data/sql-user-repository');
 const { createSqlSessionRepository } = require('../data/sql-session-repository');
@@ -34,9 +35,11 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const dashboardRoutes = createDashboardFunctions({
     api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: afcWrite })
   });
-  return async request => {
+  const handler = async request => {
     const url = new URL(request.url);
     return url.pathname.startsWith('/api/v1/dashboard/') ? dashboardRoutes(request) : timetable(request);
   };
+  handler.close = () => db.close();
+  return handler;
 }
 module.exports={createSwaSqlRuntime};

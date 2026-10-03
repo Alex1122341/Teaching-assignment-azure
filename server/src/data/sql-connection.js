@@ -191,6 +191,13 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
     async health() {
       await this.query('SELECT TOP (1) FirebaseUid AS ok FROM paws.UserProfile');
       return true;
+    },
+    async close() {
+      if (pool) {
+        const current = pool;
+        pool = undefined;
+        await current.close();
+      }
     }
   };
 }

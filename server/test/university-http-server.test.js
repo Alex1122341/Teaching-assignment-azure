@@ -1,0 +1,148 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const http = require('node:http');
+const { createUniversityHttpServer } = require('../src/runtime/university-http-server');
+
+function listen(server) {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      server.removeListener('error', reject);
+      resolve(server.address().port);
+    });
+  });
+}
+
+function get(port, path, options = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path, method: options.method || 'GET', headers: options.headers || {} }, res => {
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
+    });
+    req.on('error', reject);
+    if (options.body) req.write(options.body);
+    req.end();
+  });
+}
+
+test('loopback adapter preserves runtime route response and Firebase bearer header', async t => {
+  const calls = [];
+  const server = createUniversityHttpServer({
+    runtime: async request => {
+      calls.push(request);
+      return { status: 200, jsonBody: { path: new URL(request.url).pathname, authorization: request.headers.get('authorization') } };
+    },
+    env: {}
+  });
+  t.after(() => server.close());
+  const port = await listen(server);
+  const response = await get(port, '/api/v1/me', { headers: { authorization: 'Bearer firebase-token' } });
+  assert.equal(response.status, 200);
+  assert.deepEqual(JSON.parse(response.body), { path: '/api/v1/me', authorization: 'Bearer firebase-token' });
+  assert.equal(calls.length, 1);
+});
+
+test('unset CORS allowlist denies browser cross-origin requests', async t => {
+  const server = createUniversityHttpServer({ runtime: async () => ({ status: 200, jsonBody: {} }), env: {} });
+  t.after(() => server.close());
+  const port = await listen(server);
+  const response = await get(port, '/api/v1/me', { headers: { origin: 'https://evil.example' } });
+  assert.equal(response.status, 403);
+  assert.equal(response.headers['access-control-allow-origin'], undefined);
+});
+
+test('exact allowlist permits origin and rejects substring lookalikes', async t => {
+  const server = createUniversityHttpServer({
+    runtime: async () => ({ status: 200, jsonBody: {} }),
+    env: { PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu' }
+  });
+  t.after(() => server.close());
+  const port = await listen(server);
+  const allowed = await get(port, '/api/v1/me', { headers: { origin: 'https://paws.example.edu' } });
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.headers['access-control-allow-origin'], 'https://paws.example.edu');
+  const denied = await get(port, '/api/v1/me', { headers: { origin: 'https://paws.example.edu.evil.test' } });
+  assert.equal(denied.status, 403);
+});
+
+test('bounded JSON POST reaches existing AFC route with parsed payload', async t => {
+  let received;
+  const server = createUniversityHttpServer({
+    runtime: async request => { received = await request.json(); return { status: 201, jsonBody: { ok: true } }; },
+    env: { PAWS_API_MAX_BODY_BYTES: '64' }
+  });
+  t.after(() => server.close());
+  const port = await listen(server);
+  const response = await get(port, '/api/v1/dashboard/afc-records', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ a: 1 })
+  });
+  assert.equal(response.status, 201);
+  assert.deepEqual(received, { a: 1 });
+});
+
+test('malformed and oversized JSON fail before the runtime', async t => {
+  let calls = 0;
+  const server = createUniversityHttpServer({
+    runtime: async () => { calls++; return { status: 200, jsonBody: {} }; },
+    env: { PAWS_API_MAX_BODY_BYTES: '8' }
+  });
+  t.after(() => server.close());
+  const port = await listen(server);
+  const malformed = await get(port, '/api/v1/dashboard/afc-records', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: '{'
+  });
+  assert.equal(malformed.status, 400);
+  const oversized = await get(port, '/api/v1/dashboard/afc-records', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'content-length': '9' }, body: '123456789'
+  });
+  assert.equal(oversized.status, 413);
+  assert.equal(calls, 0);
+});
+
+test('non-loopback binding is rejected and runtime exceptions fail closed', async t => {
+  assert.throws(() => createUniversityHttpServer({ runtime: async () => ({}), env: {}, host: '0.0.0.0' }), /loopback/i);
+  const server = createUniversityHttpServer({ runtime: async () => { throw new Error('secret detail'); }, env: {}, logger: { error() {} } });
+  t.after(() => server.close());
+  const port = await listen(server);
+  const response = await get(port, '/api/v1/me');
+  assert.equal(response.status, 503);
+  assert.equal(response.body.includes('secret detail'), false);
+});
+
+test('local HTTP acceptance mounts the existing SQL health route and closes its pool', async t => {
+  const { createSwaSqlRuntime } = require('../src/runtime/swa-sql-runtime');
+  let queryText;
+  let poolClosed = false;
+  class FakePool {
+    async connect() { return this; }
+    request() {
+      return {
+        input() { return this; },
+        async query(text) { queryText = text; return { recordset: [{ ok: 'VetMed-Ops' }] }; }
+      };
+    }
+    async close() { poolClosed = true; }
+  }
+  const env = {
+    FIREBASE_PROJECT_ID: 'test-project',
+    PAWS_SQL_CONNECTION_STRING: 'Server=localhost;Database=VetMed-Ops;Encrypt=true;',
+    PAWS_SQL_DRIVER: 'tedious'
+  };
+  const runtime = createSwaSqlRuntime({ env, admin: {}, sql: { ConnectionPool: FakePool } });
+  const server = createUniversityHttpServer({ runtime, env: {} });
+  t.after(async () => {
+    await new Promise(resolve => server.close(resolve));
+    await runtime.close();
+  });
+  const port = await listen(server);
+  const response = await get(port, '/api/health/sql');
+  assert.equal(response.status, 200);
+  assert.deepEqual(JSON.parse(response.body), { status: 'ok', service: 'paws-beta-sql-runtime' });
+  assert.match(queryText, /paws\.UserProfile/);
+  await runtime.close();
+  assert.equal(poolClosed, true);
+});

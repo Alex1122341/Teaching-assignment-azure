@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "1224fc5fb5f19a410f18c4f6d966c374498039b4",
+  "sourceCommit": "1608577e474d58a2949c1a504bd9368f79d629ee",
   "siteUrl": "https://red-cliff-04871ca0f.5.azurestaticapps.net",
   "sha256": {
     "index.html": "f6756dc809b2c065fb462c0a174fb68122e51a7787c1778a7a3a170cd2962077",
@@ -10,7 +10,7 @@
     "faculty-admin.css": "20652166523c32a1c31a6f8a001c6899a4f9ee656659c1062cfd0a5eef99f0e9",
     "dashboard-view-model.js": "124c26e724754dda49b68c2a9c1fb19918989b9b300e93e73a724f7db3e9c328",
     "faculty-access.js": "f435d5de30c54bcf6000e8a03d11805b5aff7c7ada50c26b0297634629b5ed0b",
-    "paws-data-client.js": "9eaecf8f234564cc1b3f9df68f43c1d274738fa9f28d54730b9d102c3faabba1",
+    "paws-data-client.js": "169c197ff3459cd51523fdb3ed1aeb2000d2d4c30fbf534f587b5438936c758d",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
     "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170"
   }

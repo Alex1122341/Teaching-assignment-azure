@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// PAWS P2A branch candidate: static and API runtimes share a proposed reviewed
+// PAWS B3B-FC1 candidate: static and API runtimes share a proposed reviewed
 // source anchor. The prior B3B Windows Auth baseline remains historical evidence.
-const BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
+const BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
+const PREVIOUS_STATIC_BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
 const PREVIOUS_BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
@@ -20,7 +21,7 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the P2A branch candidate dual-runtime baseline',()=>{
+test('beta identity is pinned to the FC1 candidate dual-runtime baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -32,7 +33,7 @@ test('the promoted dual-runtime baseline exists as a Git commit and is an ancest
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the P2A candidate frozen runtime reports zero protected drift',()=>{
+test('the FC1 candidate frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
@@ -78,8 +79,8 @@ test('B2B login/auth helper assets are protected runtime assets',()=>{
 });
 
 // D. Static baseline continuity (48 -> 48) ----------------------------------
-test('the Windows Auth baseline preserves every prior static path and adds none',()=>{
-  const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
+test('the FC1 baseline preserves every P2A static path and adds none',()=>{
+  const previous=baselineJson(PREVIOUS_STATIC_BASELINE_COMMIT);
   const current=baselineJson(BASELINE_COMMIT);
   assert.equal(previous.length,48);
   assert.equal(current.length,48);
@@ -89,30 +90,33 @@ test('the Windows Auth baseline preserves every prior static path and adds none'
   assert.deepEqual(added,[]);
 });
 
-test('the Windows Auth baseline introduces zero static content drift from the previous baseline',()=>{
-  const previousPaths=freeze.protectedPaths({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
+test('the FC1 baseline changes only the reviewed PAWS data client from P2A',()=>{
+  const previousPaths=freeze.protectedPaths({root,baselineCommit:PREVIOUS_STATIC_BASELINE_COMMIT});
   const currentPaths=freeze.protectedPaths({root,baselineCommit:BASELINE_COMMIT});
   const union=[...new Set([...previousPaths,...currentPaths])].sort();
   assert.equal(previousPaths.length,48);
   assert.equal(currentPaths.length,48);
   assert.equal(union.length,48);
+  const changed=[];
   for(const name of union){
-    assert.equal(freeze.bytesMatch(
-      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:name}),
+    const same=freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_STATIC_BASELINE_COMMIT,file:name}),
       freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
-    ),true,`${name} must be byte-identical across the promotion`);
+    );
+    if(!same)changed.push(name);
   }
+  assert.deepEqual(changed,['paws-data-client.js']);
 });
 
-test('tools/static-assets.json is unchanged by the Windows Auth promotion',()=>{
+test('tools/static-assets.json is unchanged by the FC1 promotion',()=>{
   assert.equal(freeze.bytesMatch(
-    freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:'tools/static-assets.json'}),
+    freeze.readBaselineFile({root,baselineCommit:PREVIOUS_STATIC_BASELINE_COMMIT,file:'tools/static-assets.json'}),
     freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:'tools/static-assets.json'})
   ),true);
 });
 
-test('every previous protected path is still protected under the promoted baseline',()=>{
-  const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
+test('every P2A protected path is still protected under the FC1 baseline',()=>{
+  const previous=baselineJson(PREVIOUS_STATIC_BASELINE_COMMIT);
   const protectedFiles=freeze.protectedPaths({root});
   for(const name of previous)assert.ok(protectedFiles.includes(name),`${name} must remain protected`);
 });

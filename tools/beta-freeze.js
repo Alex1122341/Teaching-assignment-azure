@@ -11,10 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS P2A branch candidate: extends the B3B Windows Auth/loopback API runtime
+// PAWS B3B-FC1 candidate: routes the frozen frontend data client to the UCalgary VetMed-Ops API while preserving the B3B/P2A API runtime
 // with the admin-only, read-only DOE target foundation. This proposed trust-anchor
 // promotion is for review only; it does not activate, cut over, merge, or deploy.
-const BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
+const BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

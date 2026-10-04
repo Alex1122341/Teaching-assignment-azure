@@ -109,14 +109,14 @@ test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
   const freeze=require('../tools/beta-freeze.js');
   const baseline=require('../tools/beta-baseline.json');
   assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
-  assert.equal(freeze.BASELINE_COMMIT,'1224fc5fb5f19a410f18c4f6d966c374498039b4');
+  assert.equal(freeze.BASELINE_COMMIT,'1608577e474d58a2949c1a504bd9368f79d629ee');
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
   assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
 });
 
-test('static deploy evidence records the P2A branch candidate trust anchor',()=>{
+test('static deploy evidence records the FC1 VetMed-Ops cutover candidate trust anchor',()=>{
   const workflow=read('.github/workflows/azure-beta-static-deploy.yml');
   const freeze=require('../tools/beta-freeze.js');
   assert.match(workflow,new RegExp(freeze.BASELINE_COMMIT));

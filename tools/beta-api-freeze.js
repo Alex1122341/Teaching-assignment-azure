@@ -16,6 +16,13 @@ const API_SOURCE_ROOTS = Object.freeze([
   'swa-api/package-lock.json'
 ]);
 const BUILD_DEFINITION_FILES = Object.freeze(['deploy/aca/Dockerfile']);
+// The Windows-hosted University API resolves runtime dependencies from the
+// server workspace. Protect its package graph as repository inputs without
+// requiring the separate SWA artifact to contain a second nested package.
+const REPOSITORY_INPUT_FILES = Object.freeze([
+  'server/package.json',
+  'server/package-lock.json'
+]);
 
 function defaultRoot() { return path.resolve(__dirname, '..'); }
 
@@ -188,12 +195,23 @@ function verifyFreeze(options = {}) {
     catch (_) { drift.push({ surface: 'buildDefinition', file, reason: 'missing-in-verified-copy' }); continue; }
     if (!bytesMatch(baseline, actual)) drift.push({ surface: 'buildDefinition', file, reason: 'content-drift' });
   }
+  const repositoryInputFiles = options.repositoryInputFiles || [...REPOSITORY_INPUT_FILES];
+  for (const file of repositoryInputFiles) {
+    let baseline;
+    try { baseline = readBaseline({ root, baselineCommit, file }); }
+    catch (_) { drift.push({ surface: 'repositoryInput', file, reason: 'missing-at-baseline' }); continue; }
+    let actual;
+    try { actual = readWorking({ root, baselineCommit, file }); }
+    catch (_) { drift.push({ surface: 'repositoryInput', file, reason: 'missing-in-verified-copy' }); continue; }
+    if (!bytesMatch(baseline, actual)) drift.push({ surface: 'repositoryInput', file, reason: 'content-drift' });
+  }
   const result = {
     baselineCommit,
     runtimeFiles: files,
     buildDefinitionFiles,
-    protected: files.length + buildDefinitionFiles.length,
-    checked: files.length + buildDefinitionFiles.length,
+    repositoryInputFiles,
+    protected: files.length + buildDefinitionFiles.length + repositoryInputFiles.length,
+    checked: files.length + buildDefinitionFiles.length + repositoryInputFiles.length,
     drift,
     ok: drift.length === 0
   };
@@ -223,6 +241,7 @@ module.exports = {
   BASELINE_COMMIT,
   API_SOURCE_ROOTS,
   BUILD_DEFINITION_FILES,
+  REPOSITORY_INPUT_FILES,
   normalize,
   bytesMatch,
   sha256Canonical,
@@ -255,5 +274,5 @@ if (require.main === module) {
     console.error(JSON.stringify(result, null, 2));
     process.exit(1);
   }
-  console.log(JSON.stringify({ ok: true, baselineCommit: result.baselineCommit, runtimeFiles: result.runtimeFiles, buildDefinitionFiles: result.buildDefinitionFiles }));
+  console.log(JSON.stringify({ ok: true, baselineCommit: result.baselineCommit, runtimeFiles: result.runtimeFiles, buildDefinitionFiles: result.buildDefinitionFiles, repositoryInputFiles: result.repositoryInputFiles }));
 }

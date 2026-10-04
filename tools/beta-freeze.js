@@ -11,10 +11,11 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS P3B3 duplicate-submit fix candidate: preserves the reviewed 49-file
-// static runtime and 27-file API runtime; only the AFC form concurrency guard changes.
-// This review-only anchor does not apply SQL, activate grants, merge, or deploy.
-const BASELINE_COMMIT='adb943ccadff8851ba9de47bfc6b1d226916b89b';
+// PAWS P3B4 approved AFC artifact product candidate. It preserves the reviewed
+// 49-file static runtime and anchors the 32-file SWA API runtime. The product
+// commit is the immutable trust anchor; this governance promotion does not
+// apply SQL, activate grants, merge, or deploy.
+const BASELINE_COMMIT='b7b9ed45bcc88ea774fb2c64bbca8c753da41393';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

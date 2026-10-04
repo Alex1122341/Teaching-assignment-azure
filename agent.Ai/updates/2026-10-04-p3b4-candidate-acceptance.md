@@ -3,7 +3,8 @@
 **Date:** 2026-10-04
 **Repository:** Alex1122341/Teaching-assignment-azure
 **Branch:** `feature/p3b4-afc-approved-artifact`
-**Current head:** `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e` (remote tip verified equal)
+**CI-validated candidate head:** `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e` (run `37227596042` succeeded on this exact SHA)
+**Final branch tip:** a docs-only closeout commit on top of the CI-validated candidate; confirm the exact SHA with Git.
 **PR:** none
 
 ## Candidate commits
@@ -40,3 +41,7 @@ The remediation documents that SQL hashes `CONVERT(varbinary(max), @SourceSnapsh
 ## Scope and activation boundary
 
 Migration 011 remains branch-only and unapplied; migrations 009/010 were not applied; live grants remain none. No live SQL/VetMed-Ops mutation, Firebase mutation, Cloudflare change, deployment, main merge, or Remote Desktop Commander use occurred. Live AFC activation remains a separate controlled task. The CI candidate is accepted; this does not authorize live activation.
+
+## Final gate state
+
+P3B4 code: **ACCEPTED**. P3B4 CI: **ACCEPTED**. Live activation: **BLOCKED pending a separate controlled activation task** covering migrations 009/010/011, least-privilege grants, University runtime deployment, authenticated AFC lifecycle/artifact acceptance, and cleanup/rollback evidence. No activation work has started.

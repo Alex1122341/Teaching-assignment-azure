@@ -2,10 +2,11 @@
 
 **Last verified:** 2026-10-04
 **Branch:** `feature/p3b4-afc-approved-artifact`
-**Current branch head:** `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`
+**CI-validated candidate head:** `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e` (Azure Beta Build `37227596042` succeeded on this exact SHA).
+**Current branch tip:** docs-only closeout commit(s) on top of the CI-validated candidate; verify exact tip with Git before use.
 **Status:** PRODUCT + GOVERNANCE + REMEDIATION COMMITS PUSHED / AZURE BETA BUILD SUCCESS / BRANCH-ONLY / NOT MERGED / NOT DEPLOYED.
 
-P3B4 product commit: `b7b9ed45bcc88ea774fb2c64bbca8c753da41393`. Original governance anchor: `7ff3b50d8bcd73b75b8e0a12005fda6371548164`; the immutable product freeze anchor remains the product commit. Remediation commits: `46b93dbf3825bd891f595dc644862ec042cc9c3b` and `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`. Remote branch tip was verified equal to the current head.
+P3B4 product commit: `b7b9ed45bcc88ea774fb2c64bbca8c753da41393`. Original governance anchor: `7ff3b50d8bcd73b75b8e0a12005fda6371548164`; the immutable product freeze anchor remains the product commit. Remediation commits: `46b93dbf3825bd891f595dc644862ec042cc9c3b` and `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`. The remote matched `5caecdd` before documentation closure; the final docs-only tip is verified in the closeout report.
 
 Azure Beta Build run `37227596042` completed **success** for exact head `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`. Earlier failed runs remain part of the record: `37226440192` failed because CI lacked server workspace dependencies and the pushed spec omitted the SQL NVARCHAR/UTF-16LE hash contract; `37226741275` failed the UTF-16LE specification assertion. The remediation installs dependencies in root → server → swa-api order, states that SQL NVARCHAR bytes and Node `Buffer.from(sourceSnapshotJson, 'utf16le')` use the same UTF-16LE encoding, prohibits UTF-8 substitution, and adds a known-hash regression fixture.
 

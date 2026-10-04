@@ -2,7 +2,7 @@
 
 Status: PRODUCT + GOVERNANCE + REMEDIATION COMMITS PUSHED / AZURE BETA BUILD SUCCESS / BRANCH-ONLY / NOT MERGED / NOT DEPLOYED.
 
-- Branch: `feature/p3b4-afc-approved-artifact`; exact head `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e` (remote verified equal).
+- Branch: `feature/p3b4-afc-approved-artifact`; CI-validated candidate head `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e` (run `37227596042` succeeded on this exact SHA). The current tip advances with docs-only closeout commit(s).
 - Product commit: `b7b9ed45bcc88ea774fb2c64bbca8c753da41393`; product commit unchanged. Original governance commit: `7ff3b50d8bcd73b75b8e0a12005fda6371548164`; remediation commits: `46b93dbf3825bd891f595dc644862ec042cc9c3b` and `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`.
 - Azure Beta Build `37227596042` succeeded on the exact head. Failed runs `37226440192` and `37226741275` and their causes are recorded in `agent.Ai/updates/2026-10-04-p3b4-candidate-acceptance.md`.
 - Node 22.23.3 root suite: 679 total / 650 passed / 29 skipped / 0 failed. Server suite: 270/270. Focused P3B4: 45/45; runtime regression group: 38/38; workflow governance test: 11/11.

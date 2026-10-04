@@ -1,8 +1,8 @@
 {
-  "sourceCommit": "9d15cb7cd28cdda0eb56a34ccb99777c1d488569",
+  "sourceCommit": "2adafc731d3eaeec10ca08e058c1272ca2a463fb",
   "siteUrl": "https://red-cliff-04871ca0f.5.azurestaticapps.net",
   "sha256": {
-    "index.html": "f6756dc809b2c065fb462c0a174fb68122e51a7787c1778a7a3a170cd2962077",
+    "index.html": "6a978a446b6a67e3661cd06f241cac2b8df3a979da998d2883dbdd6b4381b311",
     "timetable.js": "adfcc29644f9e573ded94249bd5cdf80f2b75dcd080a81eac256728dd906e637",
     "timetable.css": "edb890254b208559906da74479fd42b5a23f54e035bf21c6bbfd39e019f3250d",
     "faculty-admin.html": "836be0ea714342389d35225f3db00f63410481d5455543d275b6229c2b101c46",
@@ -10,8 +10,10 @@
     "faculty-admin.css": "20652166523c32a1c31a6f8a001c6899a4f9ee656659c1062cfd0a5eef99f0e9",
     "dashboard-view-model.js": "124c26e724754dda49b68c2a9c1fb19918989b9b300e93e73a724f7db3e9c328",
     "faculty-access.js": "f435d5de30c54bcf6000e8a03d11805b5aff7c7ada50c26b0297634629b5ed0b",
-    "paws-data-client.js": "b9c39f7e9b3ac12c01739201d3edc71c3deb6c5bd91a5d41ca223077bd209f10",
+    "paws-data-client.js": "04e3b173c1ac1b6fd6c5af7064a5fd4cf7aafc4092f52c8d6e6b2b75010ecc8e",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
-    "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170"
+    "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170",
+    "afc-workflow.js": "4a4229dba5b6e1f457fbc6786eb1c1305525e34130e0494f8cbeb8e715ba2e60",
+    "afc-workflow-sql.js": "0b5500e5cd4b81ed28cb8b6f20539b544433c04fe0c4c0aed1bc84f8e3bc72b9"
   }
 }

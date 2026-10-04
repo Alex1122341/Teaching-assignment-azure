@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// PAWS P3B2 candidate: static and API runtimes share one reviewed immutable
-// source anchor. FC1 remains the prior static/API runtime baseline for delta proof.
-const BASELINE_COMMIT='9d15cb7cd28cdda0eb56a34ccb99777c1d488569';
+// PAWS P3B3 candidate: static and API runtimes share one reviewed immutable
+// source anchor. P3B2 remains the prior checkpoint for exact frontend delta proof.
+const BASELINE_COMMIT='2adafc731d3eaeec10ca08e058c1272ca2a463fb';
+const PREVIOUS_P3B2_BASELINE_COMMIT='9d15cb7cd28cdda0eb56a34ccb99777c1d488569';
 const PREVIOUS_API_BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
 const PREVIOUS_STATIC_BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
 const PREVIOUS_BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
@@ -22,7 +23,7 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the P3B2 candidate dual-runtime baseline',()=>{
+test('beta identity is pinned to the P3B3 candidate dual-runtime baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -34,17 +35,17 @@ test('the promoted dual-runtime baseline exists as a Git commit and is an ancest
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the P3B2 candidate frozen runtime reports zero protected drift',()=>{
+test('the P3B3 candidate frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,48);
+  assert.equal(result.protected,49);
 });
 
-test('the current static manifest has exactly 48 protected files',()=>{
-  assert.equal(manifest().length,48);
-  assert.equal(freeze.protectedPaths({root}).length,48);
+test('the current static manifest has exactly 49 protected files',()=>{
+  assert.equal(manifest().length,49);
+  assert.equal(freeze.protectedPaths({root}).length,49);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -57,9 +58,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 48 current protected files are byte-identical to immutable B2B-PERF candidate blobs',()=>{
+test('all 49 current protected files are byte-identical to the immutable P3B3 candidate blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,48);
+  assert.equal(protectedFiles.length,49);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -79,47 +80,61 @@ test('B2B login/auth helper assets are protected runtime assets',()=>{
   }
 });
 
-// D. Static baseline continuity (48 -> 48) ----------------------------------
-test('the FC1 baseline preserves every P2A static path and adds none',()=>{
-  const previous=baselineJson(PREVIOUS_STATIC_BASELINE_COMMIT);
+// D. Historical static baseline continuity and exact P3B3 delta ------------
+test('P3B3 preserves all P3B2 static paths and adds only the SQL AFC workflow module',()=>{
+  const previous=baselineJson(PREVIOUS_P3B2_BASELINE_COMMIT);
   const current=baselineJson(BASELINE_COMMIT);
   assert.equal(previous.length,48);
-  assert.equal(current.length,48);
-  const missing=previous.filter(name=>!current.includes(name));
-  const added=current.filter(name=>!previous.includes(name));
-  assert.deepEqual(missing,[]);
-  assert.deepEqual(added,[]);
+  assert.equal(current.length,49);
+  assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),['afc-workflow-sql.js']);
 });
 
-test('the FC1 baseline changes only the reviewed PAWS data client from P2A',()=>{
-  const previousPaths=freeze.protectedPaths({root,baselineCommit:PREVIOUS_STATIC_BASELINE_COMMIT});
-  const currentPaths=freeze.protectedPaths({root,baselineCommit:BASELINE_COMMIT});
+test('P3B3 changes only the reviewed AFC frontend assets from P3B2',()=>{
+  const previousPaths=baselineJson(PREVIOUS_P3B2_BASELINE_COMMIT);
+  const currentPaths=baselineJson(BASELINE_COMMIT);
   const union=[...new Set([...previousPaths,...currentPaths])].sort();
   assert.equal(previousPaths.length,48);
-  assert.equal(currentPaths.length,48);
-  assert.equal(union.length,48);
+  assert.equal(currentPaths.length,49);
+  assert.equal(union.length,49);
   const changed=[];
   for(const name of union){
-    const same=freeze.bytesMatch(
+    let before=null,after=null;
+    try{before=freeze.readBaselineFile({root,baselineCommit:PREVIOUS_P3B2_BASELINE_COMMIT,file:name});}catch{}
+    try{after=freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name});}catch{}
+    if(!before||!after||!freeze.bytesMatch(before,after))changed.push(name);
+  }
+  assert.deepEqual(changed,['afc-workflow-sql.js','afc-workflow.js','index.html','paws-data-client.js']);
+});
+
+test('the P3B2 frontend preserved all P2A static paths and changed only the PAWS data client',()=>{
+  const previous=baselineJson(PREVIOUS_STATIC_BASELINE_COMMIT);
+  const p3b2=baselineJson(PREVIOUS_P3B2_BASELINE_COMMIT);
+  assert.equal(previous.length,48);
+  assert.equal(p3b2.length,48);
+  assert.deepEqual(previous.filter(name=>!p3b2.includes(name)),[]);
+  assert.deepEqual(p3b2.filter(name=>!previous.includes(name)),[]);
+  const changed=[];
+  for(const name of previous){
+    if(!freeze.bytesMatch(
       freeze.readBaselineFile({root,baselineCommit:PREVIOUS_STATIC_BASELINE_COMMIT,file:name}),
-      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
-    );
-    if(!same)changed.push(name);
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_P3B2_BASELINE_COMMIT,file:name})
+    ))changed.push(name);
   }
   assert.deepEqual(changed,['paws-data-client.js']);
 });
 
-test('tools/static-assets.json is unchanged by the FC1 promotion',()=>{
+test('the P3B3 static manifest preserves the frozen P2A-to-P3B2 manifest',()=>{
   assert.equal(freeze.bytesMatch(
     freeze.readBaselineFile({root,baselineCommit:PREVIOUS_STATIC_BASELINE_COMMIT,file:'tools/static-assets.json'}),
-    freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:'tools/static-assets.json'})
+    freeze.readBaselineFile({root,baselineCommit:PREVIOUS_P3B2_BASELINE_COMMIT,file:'tools/static-assets.json'})
   ),true);
 });
 
-test('every P2A protected path is still protected under the FC1 baseline',()=>{
+test('every P2A protected path is still protected under the P3B3 baseline',()=>{
   const previous=baselineJson(PREVIOUS_STATIC_BASELINE_COMMIT);
   const protectedFiles=freeze.protectedPaths({root});
-  for(const name of previous)assert.ok(protectedFiles.includes(name),`${name} must remain protected`);
+  for(const name of previous)assert.ok(protectedFiles.includes(name),name+' must remain protected');
 });
 
 test('B0 runtime candidate files are protected and byte-identical to the promoted baseline',()=>{
@@ -142,7 +157,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,48);
+  assert.equal(protectedFiles.length,49);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -166,9 +181,11 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
   }
 });
 
-test('beta-baseline.json remains non-authoritative and records the promoted baseline',()=>{
+test('beta-baseline.json remains non-authoritative and records the promoted P3B3 baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,11);
+  assert.equal(Object.keys(baseline.sha256).length,13);
+  assert.ok(baseline.sha256['afc-workflow.js']);
+  assert.ok(baseline.sha256['afc-workflow-sql.js']);
   assert.ok(baseline.sha256['paws-auth-continuity.js']);
   assert.ok(baseline.sha256['paws-login-performance.js']);
   // Verification never reads this file: a drift verdict comes from Git objects only.

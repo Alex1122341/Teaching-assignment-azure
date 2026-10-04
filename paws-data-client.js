@@ -1,15 +1,18 @@
 (function(root,factory){
   'use strict';
-  const api=factory();
+  const api=factory(root);
   if(typeof module==='object'&&module.exports)module.exports=api;
   if(root){
     root.createPawsAzureDataClient=api.createPawsAzureDataClient;
     root.UCVM_PAWS_DATA=api.createPawsAzureDataClient();
   }
-})(typeof window==='undefined'?globalThis:window,function(){
+})(typeof window==='undefined'?globalThis:window,function(root){
   'use strict';
 
-  const API_ORIGIN='https://itappvetopsdb01.uc.ucalgary.ca';
+  const originConfig=root&&root.PAWS_API_ORIGIN_CONFIG
+    ?root.PAWS_API_ORIGIN_CONFIG
+    :typeof module==='object'&&module.exports?require('./paws-api-origin.js'):null;
+  const API_ORIGIN=originConfig&&originConfig.apiOrigin;
 
   function validateApiOrigin(origin){
     let parsed;

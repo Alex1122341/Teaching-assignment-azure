@@ -37,6 +37,7 @@
   "password.html",
   "password.js",
   "session-guard.js",
+  "paws-api-origin.js",
   "signature-capture.js",
   "paws-data-client.js",
   "paws-auth-continuity.js",

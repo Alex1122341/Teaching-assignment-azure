@@ -269,7 +269,7 @@ test('M. the default loader still loads the timetable approval workflow in order
 test('28 / 29. the final local script set includes the modular view model', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const local = srcs.filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'session-guard.js'].sort());
+  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'session-guard.js'].sort());
   assert.equal(srcs.filter(s => /gstatic\.com\/firebasejs/.test(s)).length, 2, 'only the app and auth compat SDKs remain');
   const inline = [...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].map(m => m[1].trim());
   assert.deepEqual(inline, [], 'no inline script remains');
@@ -341,9 +341,9 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 test('58–63. the Dashboard page runtime surface is bounded and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 7, 'script elements: 2 Firebase CDN + 5 local');
+  assert.equal(srcs, 8, 'script elements: 2 Firebase CDN + 6 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 5);
+  assert.equal(local.length, 6);
   assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });

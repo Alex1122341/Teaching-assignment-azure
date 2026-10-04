@@ -2,6 +2,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const API_ORIGIN=require('../paws-api-origin.js').apiOrigin;
 const {createPawsAzureDataClient}=require('../paws-data-client.js');
 
 test('PAWS client is fixed to VetMed-Ops mode and exposes no backend selector or session write path',()=>{
@@ -15,7 +16,7 @@ test('PAWS client is fixed to VetMed-Ops mode and exposes no backend selector or
 
 test('current user and sessions use the University-origin bearer GET requests',async()=>{
   const calls=[];
-  const origin='https://itappvetopsdb01.uc.ucalgary.ca';
+  const origin=API_ORIGIN;
   const client=createPawsAzureDataClient({
     tokenProvider:async()=>'firebase-id-token',
     fetchImpl:async(url,init)=>{
@@ -55,7 +56,7 @@ test('Dashboard summary uses the bearer GET endpoint and returns a deterministic
     fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({summary:{activeFacultyCount:120,hiccCount:64,viscCount:35}})}}
   });
   assert.deepEqual(await client.dashboardSummary(),{activeFacultyCount:120,hiccCount:64,viscCount:35});
-  assert.equal(calls[0].url,'https://itappvetopsdb01.uc.ucalgary.ca/api/v1/dashboard/summary');
+  assert.equal(calls[0].url,`${API_ORIGIN}/api/v1/dashboard/summary`);
   assert.equal(calls[0].init.method,'GET');
   assert.equal(calls[0].init.headers.Authorization,'Bearer dashboard-token');
   assert.equal(calls[0].init.credentials,'omit');
@@ -69,8 +70,8 @@ test('Dashboard summary omits blank academic year and query-encodes a supplied y
   });
   assert.deepEqual(await client.dashboardSummary({academicYear:'  '}),{});
   assert.deepEqual(await client.dashboardSummary({academicYear:'2026-27'}),{});
-  assert.equal(urls[0],'https://itappvetopsdb01.uc.ucalgary.ca/api/v1/dashboard/summary');
-  assert.equal(urls[1],'https://itappvetopsdb01.uc.ucalgary.ca/api/v1/dashboard/summary?academicYear=2026-27');
+  assert.equal(urls[0],`${API_ORIGIN}/api/v1/dashboard/summary`);
+  assert.equal(urls[1],`${API_ORIGIN}/api/v1/dashboard/summary?academicYear=2026-27`);
 });
 
 test('Dashboard faculty query safely encodes reserved search characters and returns only the roster array',async()=>{
@@ -80,7 +81,7 @@ test('Dashboard faculty query safely encodes reserved search characters and retu
     fetchImpl:async(url,init)=>{request={url,init};return{ok:true,json:async()=>({faculty:[{facultyId:'F1'}],ignored:true})}}
   });
   assert.deepEqual(await client.dashboardFaculty({academicYear:'2026-27',search:'A% &= B',limit:25}),[{facultyId:'F1'}]);
-  assert.equal(request.url,'https://itappvetopsdb01.uc.ucalgary.ca/api/v1/dashboard/faculty?academicYear=2026-27&search=A%25+%26%3D+B&limit=25');
+  assert.equal(request.url,`${API_ORIGIN}/api/v1/dashboard/faculty?academicYear=2026-27&search=A%25+%26%3D+B&limit=25`);
   assert.equal(request.init.method,'GET');
 });
 
@@ -95,7 +96,7 @@ test('Dashboard detail requires a faculty id, encodes the path segment, and pres
   const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async value=>{url=value;return{ok:true,json:async()=>response}}});
   await assert.rejects(client.dashboardFacultyById('  '),/facultyId is required/i);
   assert.equal(await client.dashboardFacultyById('F/1 ?',{academicYear:'2026/27'}),response);
-  assert.equal(url,'https://itappvetopsdb01.uc.ucalgary.ca/api/v1/dashboard/faculty/F%2F1%20%3F?academicYear=2026%2F27');
+  assert.equal(url,`${API_ORIGIN}/api/v1/dashboard/faculty/F%2F1%20%3F?academicYear=2026%2F27`);
 });
 
 test('Dashboard methods preserve API status, code, and server message without a fallback',async()=>{
@@ -132,9 +133,9 @@ test('Dashboard aggregate methods use lazy read-only endpoints and preserve resp
   assert.deepEqual(await client.dashboardRoles({academicYear:'2026-27'}),[{roleType:'VISC'}]);
   assert.deepEqual(await client.dashboardDoeOverview({academicYear:'2026-27'}),{partial:true});
   assert.deepEqual(calls.map(call=>call.url),[
-    'https://itappvetopsdb01.uc.ucalgary.ca/api/v1/dashboard/teaching-summary?academicYear=2026-27',
-    'https://itappvetopsdb01.uc.ucalgary.ca/api/v1/dashboard/roles?academicYear=2026-27',
-    'https://itappvetopsdb01.uc.ucalgary.ca/api/v1/dashboard/doe-overview?academicYear=2026-27'
+    `${API_ORIGIN}/api/v1/dashboard/teaching-summary?academicYear=2026-27`,
+    `${API_ORIGIN}/api/v1/dashboard/roles?academicYear=2026-27`,
+    `${API_ORIGIN}/api/v1/dashboard/doe-overview?academicYear=2026-27`
   ]);
   for(const call of calls){
     assert.equal(call.init.method,'GET');
@@ -199,12 +200,12 @@ test('P3B3 AFC request and decision methods use the University API with bounded 
   await client.approveAfcRequest('r/1',{signature,status:'approved'});
 
   assert.deepEqual(calls.map(x=>[x.init.method,x.url]),[
-    ['GET','https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests'],
-    ['POST','https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests'],
-    ['POST','https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests/r%2F1/withdraw'],
-    ['POST','https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests/r%2F1/recommend'],
-    ['POST','https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests/r%2F1/reject'],
-    ['POST','https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests/r%2F1/approve']
+    ['GET',`${API_ORIGIN}/api/v1/afc-requests`],
+    ['POST',`${API_ORIGIN}/api/v1/afc-requests`],
+    ['POST',`${API_ORIGIN}/api/v1/afc-requests/r%2F1/withdraw`],
+    ['POST',`${API_ORIGIN}/api/v1/afc-requests/r%2F1/recommend`],
+    ['POST',`${API_ORIGIN}/api/v1/afc-requests/r%2F1/reject`],
+    ['POST',`${API_ORIGIN}/api/v1/afc-requests/r%2F1/approve`]
   ]);
   assert.deepEqual(JSON.parse(calls[1].init.body),{
     startDate:'2026-11-02',endDate:'2026-11-04',reason:'vacation',
@@ -281,8 +282,8 @@ test('P3B4 approved-artifact GET and POST preserve exact PDF bytes and response 
   assert.equal(existing.contentType,'application/pdf');
   assert.equal(existing.contentDisposition,'attachment; filename="afc-approved-11111111-2222-4333-8444-555555555555.pdf"');
   assert.deepEqual(calls.map(({url,init})=>[url,init.method]),[
-    ['https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests/11111111-2222-4333-8444-555555555555/approved-artifact','GET'],
-    ['https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests/11111111-2222-4333-8444-555555555555/approved-artifact','POST']
+    [`${API_ORIGIN}/api/v1/afc-requests/11111111-2222-4333-8444-555555555555/approved-artifact`,'GET'],
+    [`${API_ORIGIN}/api/v1/afc-requests/11111111-2222-4333-8444-555555555555/approved-artifact`,'POST']
   ]);
   for(const {init} of calls){
     assert.equal(init.headers.Authorization,'Bearer artifact-token');

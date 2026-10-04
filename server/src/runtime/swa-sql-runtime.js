@@ -4,6 +4,7 @@ const { resolveSqlDriver, parseBooleanFlag, buildSqlConnectionConfig, createSqlC
 const { createSqlUserRepository } = require('../data/sql-user-repository');
 const { createSqlSessionRepository } = require('../data/sql-session-repository');
 const { createSqlDashboardRepository } = require('../data/sql-dashboard-repository');
+const { createSqlDoeTargetRepository } = require('../data/sql-doe-target-repository');
 const { createSqlAfcWriteRepository } = require('../data/sql-afc-write-repository');
 const { createDataApi } = require('../data/data-api');
 const { createDashboardApi } = require('../data/dashboard-api');
@@ -25,7 +26,10 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const db = createSqlConnection({ config: connectionConfig, sql: sqlClient });
   const users = createSqlUserRepository(db);
   const sessions = createSqlSessionRepository(db);
-  const dashboard = createSqlDashboardRepository(db);
+  const dashboard = {
+    ...createSqlDashboardRepository(db),
+    ...createSqlDoeTargetRepository(db)
+  };
   const afcWrite = createSqlAfcWriteRepository(db);
   const verify = createFirebaseSqlAuth({
     verifyIdToken: createFirebaseVerifier({ admin, projectId: env.FIREBASE_PROJECT_ID, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }),

@@ -87,13 +87,13 @@
 - Modify: `agent.Ai/PROJECT_STATE.md`, `agent.Ai/TASK_CHAIN.md`.
 - Create: `agent.Ai/updates/YYYY-MM-DD-HHMM-p3b3-afc-frontend-api.md`.
 
-- [ ] Verify the changed frontend assets are included in the protected static manifest.
-- [ ] Record the P3B3 product candidate as the frozen review candidate without implying deployment.
-- [ ] Run Node syntax checks for changed JavaScript.
-- [ ] Run `npm test` at repository root and `npm test` in `server/`; read and record exact totals.
-- [ ] Run static/API freeze verification; expected zero drift at the exact candidate commit.
-- [ ] Record no SQL, Firebase, Azure, or live deployment mutation; commit the governance/docs update separately.
-- [ ] Review the final branch diff against `a45d63a986e18808b02cd36599e35a6479ec574c`; do not merge or deploy.
+- [x] Verify the changed frontend assets are included in the protected static manifest.
+- [x] Record the P3B3 product candidate as the frozen review candidate without implying deployment.
+- [x] Run Node syntax checks for changed JavaScript.
+- [x] Run `npm test` at repository root and `npm test` in `server/`; read and record exact totals.
+- [x] Run static/API freeze verification; expected zero drift at the exact candidate commit.
+- [x] Record no SQL, Firebase, Azure, or live deployment mutation; commit the governance/docs update separately.
+- [x] Review the final branch diff against `a45d63a986e18808b02cd36599e35a6479ec574c`; do not merge or deploy.
 
 ## Review Boundary
 

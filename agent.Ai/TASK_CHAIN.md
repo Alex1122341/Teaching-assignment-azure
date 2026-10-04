@@ -1,15 +1,17 @@
-# PAWS B3B — UNIVERSITY API HOST / INFRASTRUCTURE PARTIAL
+# P3B3 — AFC FRONTEND/API MIGRATION (IMPLEMENTED; REVIEW ONLY; NOT LIVE)
 
-Status: **LOCAL UNIVERSITY API VERIFIED / INFRASTRUCTURE PARTIAL / NOT ACTIVATED / NOT CUT OVER**
+Status: **P3B3 IMPLEMENTED / REVIEW BASELINE PROMOTED / BRANCH PUSHED / PR NOT OPENED / NOT MERGED / NOT DEPLOYED**
 
-- Accepted main base: `e52b55b57136dbe5690c1ffdf8bfec610c254819` (PR #44 merged).
-- Branch: `feature/vetmedops-university-api-host`; runtime candidate: `b85d6420a66ddb24513d8c9fa4aa838906012074`.
-- Server tests 184/184; root tests 623 passed / 29 skipped / 0 failed; focused freeze/deployment tests 49/49.
-- Static freeze 48 protected paths and API freeze 20 protected runtime files both pass with zero drift.
-- Actual loopback HTTP adapter + PAWS SQL runtime check (temporary process-local TLS bypass): SQL health 200; anonymous `/api/v1/me` and Dashboard summary 401. This did not activate the service.
-- Exact blockers: `SERVICE_IDENTITY_SQL_LOGIN_ADMIN_REQUIRED` (DBA must provision/review the dedicated Windows SQL login) and `SHARED_SQL_RESTART_DEFERRED` (SQL Agent workload inventory is unavailable, so restart safety is unproven).
-- `PAWSApi` remains STOPPED/DISABLED with inert placeholder. Strict TLS, authenticated service runtime, complete data transfer, and cutover are pending.
-- No SQL login, database permission/data/schema write, SQL restart, service activation, external bind, Azure/Firebase change, deployment, or main mutation occurred.
+- Base P3B2 branch head: `a45d63a986e18808b02cd36599e35a6479ec574c`.
+- Feature branch: `feature/p3b3-afc-frontend-api`.
+- Product candidate: `2adafc731d3eaeec10ca08e058c1272ca2a463fb`; baseline governance commit: `0d16194cac6e9c9c5ac052db2b6465712035b3cd`.
+- Remote branch head was verified as the governance commit before continuity docs were added.
+- AFC browser list/submit/withdraw/recommend/reject/approve use University API in SQL mode; Firestore behavior remains backend-guarded. Client omits server-derived identity/workflow fields. Approved-PDF transport is pending.
+- Static freeze grows 48 → 49 solely by adding `afc-workflow-sql.js`; static and API freeze checks pass at the exact candidate.
+- Root suite: 662 total / 633 passed / 29 skipped / 0 failed. Server suite: 224/224. P3B3/client/legacy focused: 29/29. Baseline suite after correction: 26/26. GitHub CI not verified (`gh` absent on target; Actions page fetch returned 404).
+- Multi-user ingress still has the tested `10.58.160.21/32` restriction; PDF artifact API is undefined. DOE source and IAM cleanup are deferred blockers.
+- No SQL/database, Firebase, Azure, firewall, IAM, service, certificate, deployment, merge, or live PAWS mutation. No PR opened.
+- Exact next action: provide Architect #5 the checkpoint and await review; keep the candidate unmerged and undeployed.
 
 ## Historical task chain
 

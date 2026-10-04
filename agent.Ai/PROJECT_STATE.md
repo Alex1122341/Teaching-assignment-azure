@@ -1,4 +1,24 @@
-# PAWS B3B — UNIVERSITY API HOST / INFRASTRUCTURE PARTIAL
+# P3B3 — AFC FRONTEND/API MIGRATION (IMPLEMENTED; REVIEW ONLY; NOT LIVE)
+
+**Last verified:** 2026-10-04
+**Starting branch/base:** `feature/p3b2-afc-approval-foundation` at `a45d63a986e18808b02cd36599e35a6479ec574c`
+**Feature branch:** `feature/p3b3-afc-frontend-api`
+**Product candidate:** `2adafc731d3eaeec10ca08e058c1272ca2a463fb`
+**Governance baseline commit:** `0d16194cac6e9c9c5ac052db2b6465712035b3cd`
+**Remote branch head verified before continuity sync:** `0d16194cac6e9c9c5ac052db2b6465712035b3cd`
+**Status:** P3B3 IMPLEMENTED / REVIEW BASELINE PROMOTED / BRANCH PUSHED / PR NOT OPENED / NOT MERGED / NOT DEPLOYED.
+
+The AFC browser workflow now uses the authenticated University API for request listing, submission, withdrawal, Reports-To decisions, and administrator decisions when VetMed-Ops is the selected backend. The existing Firestore backend path remains behind its existing backend guard. Browser payloads omit server-derived identity, role, status, workday, teaching-evidence, and audit fields. Approved-PDF delivery remains pending until a documented artifact API exists.
+
+Static protection grows from 48 to 49 paths by adding only `afc-workflow-sql.js`. The P3B3 product candidate is the immutable static/API trust anchor. Governance commit `0d16194...` changes only the baseline references, hashes, tests, deployment evidence label, and freeze comments; it does not change runtime product bytes.
+
+Verification on the candidate and governance working tree: root `npm.cmd test` — 662 tests, 633 passed, 29 skipped, 0 failed; server `npm.cmd test` — 224/224 passed; P3B3/client/legacy focused tests — 29/29 passed; baseline suite after correction — 26/26 passed; JS syntax checks passed; `node tools/beta-freeze.js` reported 49 protected paths with zero drift; `node tools/beta-api-freeze.js` reported 27 runtime files with zero drift. Remote GitHub CI was not verified: `gh` is not installed on the target and the Actions page fetch returned 404.
+
+Unresolved gates: multi-user University API ingress is still restricted to the tested `10.58.160.21/32`; approved-PDF artifact API/transport is not defined; the DOE source blocker and deferred IAM cleanup remain outside P3B3. No PR was opened.
+
+No SQL/database, Firebase, Azure, firewall, IAM, service, certificate, deployment, merge, or live PAWS mutation occurred. Next: send the factual checkpoint to Architect #5 and await review/instructions; do not merge or deploy this candidate.
+
+# Historical checkpoint — PAWS B3B — University API Host / Infrastructure Partial
 
 **Last verified:** 2026-10-03
 **Accepted main base:** `e52b55b57136dbe5690c1ffdf8bfec610c254819` (PR #44 merged)
@@ -6,15 +26,13 @@
 **Runtime candidate:** `b85d6420a66ddb24513d8c9fa4aa838906012074`
 **Status:** LOCAL UNIVERSITY API VERIFIED / INFRASTRUCTURE PARTIAL / NOT ACTIVATED / NOT CUT OVER.
 
-The new Node HTTP API uses the existing PAWS SQL/Firebase runtime and is constrained to loopback. Actual local runtime check with the task-authorized temporary test-only self-signed TLS bypass returned SQL health 200; anonymous `/api/v1/me` and Dashboard summary returned 401. The bypass was process-local and not installed as a service setting.
+The Node HTTP API is constrained to loopback. A process-local test-only TLS bypass verified SQL health 200; anonymous `/api/v1/me` and Dashboard summary returned 401. `PAWSApi` remained STOPPED/DISABLED with an inert placeholder path.
 
-Verification: server suite 184/184; root suite 623 passed / 29 skipped / 0 failed; freeze/deployment focused tests 49/49; static freeze 48 paths and API freeze 20 paths, both with no drift.
+Verification: server suite 184/184; root suite 623 passed / 29 skipped / 0 failed; freeze/deployment focused tests 49/49; static freeze 48 paths and API freeze 20 paths, with zero drift.
 
-Exact blockers:
-- `SERVICE_IDENTITY_SQL_LOGIN_ADMIN_REQUIRED`: current account lacks server login administration; `NT SERVICE\PAWSApi` has no SQL login. DBA review/provisioning is required.
-- `SHARED_SQL_RESTART_DEFERRED`: SQL Agent workload inventory is unavailable, so restart safety is unproven. No SQL restart.
+Blockers: `SERVICE_IDENTITY_SQL_LOGIN_ADMIN_REQUIRED` (DBA review/provisioning required) and `SHARED_SQL_RESTART_DEFERRED` (SQL Agent inventory/restart safety unproven). Strict TLS, authenticated service runtime, complete data transfer, and cutover remain pending.
 
-`PAWSApi` remains STOPPED and DISABLED with an inert placeholder path. Strict TLS, authenticated service runtime, complete data transfer, and PAWS cutover acceptance are pending. No SQL login/permission/data/schema mutation, SQL restart, service activation, Azure/Firebase change, merge of this PR, or deployment occurred.
+No SQL login/permission/data/schema mutation, SQL restart, service activation, external bind, Azure/Firebase change, merge of the new PR, or deployment occurred.
 
 # Historical checkpoint — PAWS VETMED-OPS WINDOWS AUTH / PR #44
 

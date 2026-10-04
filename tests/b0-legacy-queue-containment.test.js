@@ -274,7 +274,7 @@ test('Azure SQL AFC facade keeps panel navigation but exposes no legacy request 
 
 test('Azure SQL data client remains read-only and exposes the existing read surfaces', () => {
   const source = read('paws-data-client.js');
-  assert.match(source, /sessionBackend:\(\)=> 'azure-sql'/);
+  assert.match(source, /sessionBackend:\(\)=> 'vetmed-ops'/);
   assert.match(source, /sessionWritesEnabled:\(\)=> false/);
   for (const route of ['/api/v1/sessions', '/api/v1/dashboard\/summary', '/api/v1/dashboard\/faculty']) assert.match(source, new RegExp(route));
 });

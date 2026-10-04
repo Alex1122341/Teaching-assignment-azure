@@ -16,7 +16,7 @@ const sourceFunction = require('../test-support/source-function.js');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const ORIGIN = 'https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io';
+const ORIGIN = 'https://itappvetopsdb01.uc.ucalgary.ca';
 
 // A fake response shape matching what the data client expects.
 function response({ status, body = {}, ok = null }) {

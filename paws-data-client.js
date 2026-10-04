@@ -9,7 +9,7 @@
 })(typeof window==='undefined'?globalThis:window,function(){
   'use strict';
 
-  const API_ORIGIN='https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io';
+  const API_ORIGIN='https://itappvetopsdb01.uc.ucalgary.ca';
 
   function validateApiOrigin(origin){
     let parsed;
@@ -104,7 +104,7 @@
     }
 
     return Object.freeze({
-      sessionBackend:()=> 'azure-sql',
+      sessionBackend:()=> 'vetmed-ops',
       sessionWritesEnabled:()=> false,
       async currentUser(){
         const body=await request('/api/v1/me');

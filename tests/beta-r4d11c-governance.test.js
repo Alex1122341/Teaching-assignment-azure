@@ -42,7 +42,7 @@ test('dual-runtime candidate verifier checks static and API surfaces', () => {
 });
 
 test('Azure Beta Build verifies repository and artifact freezes for both runtimes', () => {
-  const workflow = read('.github/workflows/azure-beta-build.yml');
+  const workflow = read('.github/workflows/azure-beta-build.yml').replace(/\r\n/g, '\n');
   assert.match(workflow, /node tools\/verify-beta-candidate\.js/);
   assert.match(workflow, /node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.match(workflow, /node tools\/beta-api-freeze\.js/);
@@ -51,7 +51,7 @@ test('Azure Beta Build verifies repository and artifact freezes for both runtime
 });
 
 test('Azure Beta Build installs the locked server dependencies before server tests', () => {
-  const workflow = read('.github/workflows/azure-beta-build.yml');
+  const workflow = read('.github/workflows/azure-beta-build.yml').replace(/\r\n/g, '\n');
   const rootInstall = workflow.indexOf('- run: npm ci\n');
   const serverInstall = workflow.indexOf('npm ci --prefix server');
   const swaInstall = workflow.indexOf('npm ci --prefix swa-api');

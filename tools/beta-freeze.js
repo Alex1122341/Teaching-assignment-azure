@@ -11,11 +11,11 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS P3B4 approved AFC artifact product candidate. It preserves the reviewed
-// 49-file static runtime and anchors the 32-file SWA API runtime. The product
-// commit is the immutable trust anchor; this governance promotion does not
-// apply SQL, activate grants, merge, or deploy.
-const BASELINE_COMMIT='b7b9ed45bcc88ea774fb2c64bbca8c753da41393';
+// PAWS P3 Beta integration product candidate. It adds one centralized temporary
+// University API origin and updates the client/index integration while retaining
+// the accepted 32-file SWA API runtime. The product commit is the immutable trust
+// anchor; this governance promotion does not apply SQL, merge, or deploy.
+const BASELINE_COMMIT='6fc77fb94e0de3aa116c9c4d5743d4aec45da61c';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

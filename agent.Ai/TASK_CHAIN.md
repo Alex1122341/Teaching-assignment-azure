@@ -1,5 +1,23 @@
 # P3B4 — APPROVED AFC ARTIFACT / CANDIDATE ACCEPTED BY CI
 
+# P3 BETA END-TO-END CONNECTION — CURRENT
+
+**Branch:** `feature/p3-beta-end-to-end-cutover`
+**Base:** `feature/p3-stage-a-activation-prep` @ `45d06cfc5e528409e820fea05a7d8205317b30eb`
+**Product commit:** `6fc77fb94e0de3aa116c9c4d5743d4aec45da61c`
+**Status:** product candidate implemented; governance promotion under validation; local suites/build/freezes pass; no push/PR/merge/deployment yet.
+
+- P3B3/P3B4 approved feature work and the Stage A lineage were combined from the exact Stage A head.
+- A single `paws-api-origin.js` now owns the clearly marked temporary Quick Tunnel API origin; page load order, data client, protected manifest, tests, and release verification are updated.
+- Live read-only checks matched the accepted migrations/tables/procedures/counts. No migrations were repeated and no authenticated AFC rows/artifacts were created.
+- Quick Tunnel maps only to `127.0.0.1:18787`; external health/auth boundary and exact Beta SWA CORS checks passed. SQL/RDP/SMB remain private.
+- Root suite: 686 total / 657 passed / 29 skipped / 0 failed. Emulator root suite: 686/686. Server suite: 270/270. Release build, repository freeze, API freeze, static artifact freeze, and API artifact freeze passed with zero drift (50 static files / 32 API files).
+- Local Node is 24.19.0. Node 22.23.x exact-candidate proof must come from hosted Azure Beta Build.
+- Do not deploy the frontend or run the business-data lifecycle until authenticated backend E2E passes. If no authorized Firebase session exists, owner login in the prepared Beta UI is the required human handoff; never collect credentials in chat.
+- Next: complete governance+continuity commit, push non-force, open the focused PR, inspect and run CI for the exact resulting HEAD. Then request native owner login in the Beta browser and resume the authorized authenticated acceptance. Deployment remains behind backend E2E gate.
+
+# Historical P3B4 — APPROVED AFC ARTIFACT
+
 Status: PRODUCT + GOVERNANCE + REMEDIATION COMMITS PUSHED / AZURE BETA BUILD SUCCESS / BRANCH-ONLY / NOT MERGED / NOT DEPLOYED.
 
 - Branch: `feature/p3b4-afc-approved-artifact`; CI-validated candidate head `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e` (run `37227596042` succeeded on this exact SHA). The current tip advances with docs-only closeout commit(s).

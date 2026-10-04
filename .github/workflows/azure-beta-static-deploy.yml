@@ -213,7 +213,7 @@ jobs:
           COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          files=(index.html asset-loader.js approval-workflow.js afc-workflow.js paws-data-client.js)
+          files=(index.html asset-loader.js approval-workflow.js afc-workflow.js paws-api-origin.js paws-data-client.js)
           mkdir -p public-static
           passed=false
           for attempt in $(seq 1 12); do
@@ -330,7 +330,7 @@ jobs:
             --arg staticDeployRunId "$GITHUB_RUN_ID" \
             --arg staticDeployRunNumber "$GITHUB_RUN_NUMBER" \
             --arg siteUrl "$SWA_URL" \
-            --arg baseline "b7b9ed45bcc88ea774fb2c64bbca8c753da41393" \
+            --arg baseline "6fc77fb94e0de3aa116c9c4d5743d4aec45da61c" \
             --arg artifactName "azure-beta-$COMMIT_SHA" \
             --arg expectedRevision "$EXPECTED_REVISION" \
             --arg observedRevision "${{ steps.postdeploy_aca.outputs.revision }}" \

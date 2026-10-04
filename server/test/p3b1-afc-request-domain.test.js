@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, '..', '..');
 const migration = fs.readFileSync(path.join(root, 'database', 'azure-sql', '009_afc_request_foundation.sql'), 'utf8');
 const rollback = fs.readFileSync(path.join(root, 'database', 'azure-sql', 'rollback_009_afc_request_foundation.sql'), 'utf8');
 const { createAfcRequestApi } = require('../src/afc/afc-request-api');
+const { createSqlAfcRequestRepository, SUBMIT_PROCEDURE, WITHDRAW_PROCEDURE } = require('../src/data/sql-afc-request-repository');
 
 const FACULTY_ID = '11111111-1111-4111-8111-111111111111';
 const REQUEST_ID = '22222222-2222-4222-8222-222222222222';
@@ -169,4 +170,57 @@ test('migration creates request/approval tables and trusted submit/withdraw proc
   assert.match(rollback, /refus/i);
   assert.match(rollback, /DROP TABLE paws\.AfcApproval/);
   assert.match(rollback, /DROP TABLE paws\.AfcRequest/);
+});
+
+
+test('SQL AFC request repository exposes only scoped list and exact stored-procedure writes', async () => {
+  const calls = [];
+  const db = {
+    query: async (sql, params) => {
+      calls.push({ sql, params });
+      return [];
+    }
+  };
+  const repository = createSqlAfcRequestRepository(db);
+
+  await repository.listRequests({ actorFirebaseUid: 'uid-faculty', administrator: false });
+  await repository.submitRequest({
+    afcRequestId: REQUEST_ID,
+    startDate: '2026-10-05',
+    endDate: '2026-10-06',
+    workDays: 2,
+    reason: 'vacation',
+    purposeDestination: null,
+    coverage: null,
+    contactAddress: '2500 University Drive NW',
+    contactPhone: '403-555-1212',
+    termsVersion: 'ucvm-afc-terms-page2-v1',
+    termsSource: 'absence-from-campus-app.pdf#page=2',
+    signatureMode: 'typed',
+    signatureName: 'Faculty Example',
+    signatureSignedAt: '2026-10-04T07:00:00.000Z',
+    signatureFingerprint: 'a'.repeat(64),
+    signatureImageDataUrl: null,
+    actorFirebaseUid: 'uid-faculty'
+  });
+  await repository.withdrawRequest({
+    afcRequestId: REQUEST_ID,
+    actorFirebaseUid: 'uid-faculty',
+    auditRequestId: '33333333-3333-4333-8333-333333333333'
+  });
+
+  assert.equal(calls.length, 3);
+  assert.match(calls[0].sql, /FROM paws\.AfcRequest/);
+  assert.match(calls[0].sql, /RequesterFirebaseUid = @actorFirebaseUid/);
+  assert.match(calls[0].sql, /ReportToFirebaseUid = @actorFirebaseUid/);
+  assert.equal(calls[0].params.administrator, 0);
+
+  assert.equal(SUBMIT_PROCEDURE, 'paws_api.SubmitAfcRequest');
+  assert.equal(WITHDRAW_PROCEDURE, 'paws_api.WithdrawAfcRequest');
+  assert.match(calls[1].sql, /EXEC paws_api\.SubmitAfcRequest/);
+  assert.match(calls[2].sql, /EXEC paws_api\.WithdrawAfcRequest/);
+
+  for (const call of calls.slice(1)) {
+    assert.doesNotMatch(call.sql, /\b(?:INSERT|UPDATE|DELETE|MERGE)\b/i);
+  }
 });

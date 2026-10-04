@@ -7,7 +7,7 @@ function createSqlAfcRequestRepository(db) {
   return {
     async listRequests({ actorFirebaseUid, administrator = false } = {}) {
       return db.query(
-        \`SELECT
+        `SELECT
            ar.AfcRequestId AS afcRequestId,
            ar.FacultyId AS facultyId,
            ar.FacultyName AS facultyName,
@@ -26,14 +26,14 @@ function createSqlAfcRequestRepository(db) {
          WHERE @administrator = 1
             OR ar.RequesterFirebaseUid = @actorFirebaseUid
             OR ar.ReportToFirebaseUid = @actorFirebaseUid
-         ORDER BY ar.SubmittedAtUtc DESC, ar.AfcRequestId\`,
+         ORDER BY ar.SubmittedAtUtc DESC, ar.AfcRequestId`,
         { actorFirebaseUid, administrator: administrator ? 1 : 0 }
       );
     },
 
     async submitRequest(input = {}) {
       const rows = await db.query(
-        \`EXEC \${SUBMIT_PROCEDURE}
+        `EXEC ${SUBMIT_PROCEDURE}
           @AfcRequestId = @afcRequestId,
           @StartDate = @startDate,
           @EndDate = @endDate,
@@ -50,7 +50,7 @@ function createSqlAfcRequestRepository(db) {
           @SignatureSignedAt = @signatureSignedAt,
           @SignatureFingerprint = @signatureFingerprint,
           @SignatureImageDataUrl = @signatureImageDataUrl,
-          @ActorFirebaseUid = @actorFirebaseUid\`,
+          @ActorFirebaseUid = @actorFirebaseUid`,
         input
       );
       return rows[0] || null;
@@ -58,10 +58,10 @@ function createSqlAfcRequestRepository(db) {
 
     async withdrawRequest({ afcRequestId, actorFirebaseUid, auditRequestId } = {}) {
       const rows = await db.query(
-        \`EXEC \${WITHDRAW_PROCEDURE}
+        `EXEC ${WITHDRAW_PROCEDURE}
           @AfcRequestId = @afcRequestId,
           @ActorFirebaseUid = @actorFirebaseUid,
-          @AuditRequestId = @auditRequestId\`,
+          @AuditRequestId = @auditRequestId`,
         { afcRequestId, actorFirebaseUid, auditRequestId }
       );
       return rows[0] || null;

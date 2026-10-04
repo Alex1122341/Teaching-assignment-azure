@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
@@ -91,6 +92,20 @@ test('authoritative snapshot JSON is deterministic and hashes the UTF-16LE NVARC
   const specPath = path.join(__dirname, '..', '..', 'docs', 'superpowers', 'specs', '2026-10-04-p3b4-afc-approved-artifact.md');
   const spec = readSql(specPath, 'approved specification');
   assert.match(spec, /UTF-16LE/i, 'Node must use Buffer.from(snapshotJson, \'utf16le\') to match SQL CONVERT(varbinary(max), nvarchar)');
+  assert.match(spec, /Buffer\.from\(sourceSnapshotJson,\s*['"]utf16le['"]\)/, 'specification names the exact Node encoding');
+  assert.match(spec, /UTF-8 must not be substituted/i, 'specification rules out a different hash encoding');
+});
+
+test('known snapshot hash fixture matches SQL NVARCHAR UTF-16LE bytes and differs from UTF-8', () => {
+  const sourceSnapshotJson = '{"facultyName":"Zoë Faculty 🐾","approvals":[]}';
+  const hash = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
+  const sqlNvarcharBytes = Buffer.from(sourceSnapshotJson, 'utf16le');
+
+  assert.equal(hash(sqlNvarcharBytes), 'ef8758574c4644671cb99d2d107ad53cb618bfccf9ddf436595d329d6cd51f76');
+  assert.notEqual(hash(Buffer.from(sourceSnapshotJson, 'utf8')), hash(sqlNvarcharBytes));
+
+  const sql = readSql(migrationPath, 'forward migration');
+  assert.match(sql, /HASHBYTES\s*\(\s*'SHA2_256'\s*,\s*CONVERT\s*\(\s*varbinary\s*\(\s*max\s*\)\s*,\s*@SourceSnapshotJson\s*\)\s*\)/i);
 });
 
 test('create-if-absent validates binary integrity, serializes requests, inserts once, and audits without PDF or signature PII', () => {

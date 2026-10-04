@@ -52,9 +52,15 @@ test('Azure Beta Build verifies repository and artifact freezes for both runtime
 
 test('Azure Beta Build installs the locked server dependencies before server tests', () => {
   const workflow = read('.github/workflows/azure-beta-build.yml');
+  const rootInstall = workflow.indexOf('- run: npm ci\n');
   const serverInstall = workflow.indexOf('npm ci --prefix server');
+  const swaInstall = workflow.indexOf('npm ci --prefix swa-api');
+  const rootTests = workflow.indexOf('- run: npm test\n');
   const serverTests = workflow.indexOf('npm test --prefix server');
+  assert.ok(rootInstall >= 0 && rootInstall < serverInstall, 'root dependencies must be installed first');
   assert.ok(serverInstall >= 0, 'server dependencies must be installed from server/package-lock.json');
+  assert.ok(serverInstall < swaInstall, 'server dependencies must be installed before SWA dependencies');
+  assert.ok(swaInstall < rootTests, 'all workspace dependencies must be installed before root tests');
   assert.ok(serverInstall < serverTests, 'server dependencies must be installed before server tests run');
 });
 

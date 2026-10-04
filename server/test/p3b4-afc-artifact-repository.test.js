@@ -103,6 +103,7 @@ test('repository uses only the three approved stored procedures with exact param
 test('source snapshot hash is checked against the exact UTF-16LE SQL NVARCHAR bytes', async () => {
   const sourceSnapshotJson = '{"facultyName":"Zoë Faculty 🐾","approvals":[]}';
   const sourceHash = digest(Buffer.from(sourceSnapshotJson, 'utf16le'));
+  assert.equal(sourceHash.toString('hex'), 'ef8758574c4644671cb99d2d107ad53cb618bfccf9ddf436595d329d6cd51f76');
   let called = false;
   const repository = createSqlAfcArtifactRepository({
     async query() {

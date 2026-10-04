@@ -27,6 +27,18 @@ function get(port, path, options = {}) {
   });
 }
 
+function getRaw(port, path, options = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path, method: options.method || 'GET', headers: options.headers || {} }, res => {
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 test('loopback adapter preserves runtime route response and Firebase bearer header', async t => {
   const calls = [];
   const server = createUniversityHttpServer({
@@ -82,6 +94,37 @@ test('bounded JSON POST reaches existing AFC route with parsed payload', async t
   });
   assert.equal(response.status, 201);
   assert.deepEqual(received, { a: 1 });
+});
+
+test('binary runtime responses preserve exact PDF bytes and private download headers', async t => {
+  const bytes = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x25]);
+  const server = createUniversityHttpServer({
+    runtime: async () => ({
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Disposition': 'attachment; filename="afc-approved-22222222-2222-4222-8222-222222222222.pdf"'
+      },
+      binaryBody: bytes
+    }),
+    env: { PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu' }
+  });
+  t.after(() => server.close());
+  const port = await listen(server);
+  const response = await getRaw(port, '/api/v1/afc-requests/22222222-2222-4222-8222-222222222222/approved-artifact', {
+    headers: { origin: 'https://paws.example.edu' }
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, bytes);
+  assert.equal(response.headers['content-type'], 'application/pdf');
+  assert.equal(response.headers['content-length'], String(bytes.length));
+  assert.equal(response.headers['cache-control'], 'private, no-store');
+  assert.equal(response.headers['x-content-type-options'], 'nosniff');
+  assert.equal(response.headers['content-disposition'], 'attachment; filename="afc-approved-22222222-2222-4222-8222-222222222222.pdf"');
+  assert.match(response.headers['access-control-expose-headers'], /Content-Disposition/i);
 });
 
 test('malformed and oversized JSON fail before the runtime', async t => {

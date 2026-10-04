@@ -35,7 +35,8 @@ test('SQL AFC workflow lists scoped API rows, escapes content, and never referen
   assert.equal(calls.filter(x=>x[0]==='list').length,1);
   assert.match(panel.innerHTML,/A &lt;B&gt;/);
   assert.doesNotMatch(panel.innerHTML,/A <B>/);
-  assert.match(panel.innerHTML,/PDF delivery is pending/);
+  assert.match(panel.innerHTML,/Approved\./);
+  assert.doesNotMatch(panel.innerHTML,/PDF delivery is pending/);
   const source=fs.readFileSync('afc-workflow-sql.js','utf8');
   assert.doesNotMatch(source,/db\\.collection|pdf_chunks|afc_audit/i);
 });

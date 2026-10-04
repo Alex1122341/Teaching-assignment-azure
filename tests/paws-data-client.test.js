@@ -147,7 +147,7 @@ test('Dashboard client exposes explicit AFC methods without Firestore fallback',
   const source=fs.readFileSync('paws-data-client.js','utf8');
   const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
-    'approveAfcRequest','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','listAfcRequests','listSessions','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
+    'approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
   ]);
   assert.doesNotMatch(source,/firestore/i);
 });
@@ -256,4 +256,82 @@ test('P3B3 AFC POST retries once only after explicit 401 and never after other f
   await assert.rejects(transport.submitAfcRequest({startDate:'2026-11-02'}),/offline/);
   assert.equal(fetchCalls,1);
   assert.equal(tokenCalls,1);
+});
+
+function binaryResponse(bytes,{status=200,contentType='application/pdf',contentDisposition='attachment; filename="afc-approved-11111111-2222-4333-8444-555555555555.pdf"'}={}){
+  return{
+    ok:status>=200&&status<300,
+    status,
+    headers:{get(name){return name.toLowerCase()==='content-type'?contentType:name.toLowerCase()==='content-disposition'?contentDisposition:null}},
+    async arrayBuffer(){return Uint8Array.from(bytes).buffer},
+    async json(){throw Error('Successful PDF responses must not be parsed as JSON')}
+  };
+}
+
+test('P3B4 approved-artifact GET and POST preserve exact PDF bytes and response metadata',async()=>{
+  const calls=[],pdf=[0x25,0x50,0x44,0x46,0x00,0xff,0x0a];
+  const client=createPawsAzureDataClient({
+    tokenProvider:async()=>'artifact-token',
+    fetchImpl:async(url,init)=>{calls.push({url,init});return binaryResponse(pdf)}
+  });
+  const existing=await client.getApprovedAfcArtifact('11111111-2222-4333-8444-555555555555');
+  const created=await client.createApprovedAfcArtifact('11111111-2222-4333-8444-555555555555');
+  assert.deepEqual(Array.from(existing.bytes),pdf);
+  assert.deepEqual(Array.from(created.bytes),pdf);
+  assert.equal(existing.contentType,'application/pdf');
+  assert.equal(existing.contentDisposition,'attachment; filename="afc-approved-11111111-2222-4333-8444-555555555555.pdf"');
+  assert.deepEqual(calls.map(({url,init})=>[url,init.method]),[
+    ['https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests/11111111-2222-4333-8444-555555555555/approved-artifact','GET'],
+    ['https://itappvetopsdb01.uc.ucalgary.ca/api/v1/afc-requests/11111111-2222-4333-8444-555555555555/approved-artifact','POST']
+  ]);
+  for(const {init} of calls){
+    assert.equal(init.headers.Authorization,'Bearer artifact-token');
+    assert.equal(init.headers.Accept,'application/pdf');
+    assert.equal(init.credentials,'omit');
+    assert.equal(init.body,undefined,'artifact POST has an empty body');
+    assert.equal(init.headers['Content-Type'],undefined);
+  }
+});
+
+test('P3B4 artifact calls force-refresh and replay exactly once only after HTTP 401',async()=>{
+  for(const method of ['getApprovedAfcArtifact','createApprovedAfcArtifact']){
+    const tokens=[],requests=[];
+    const client=createPawsAzureDataClient({
+      tokenProvider:async options=>{tokens.push(options?.forceRefresh===true);return options?.forceRefresh?'fresh-token':'initial-token'},
+      fetchImpl:async(_url,init)=>{
+        requests.push(init);
+        if(requests.length===1)return{ok:false,status:401,async json(){return{error:{code:'UNAUTHENTICATED',message:'refresh required'}}}};
+        return binaryResponse([1,2,3]);
+      }
+    });
+    const result=await client[method]('11111111-2222-4333-8444-555555555555');
+    assert.deepEqual(Array.from(result.bytes),[1,2,3]);
+    assert.deepEqual(tokens,[false,true]);
+    assert.equal(requests.length,2);
+    assert.equal(requests[1].method,method==='getApprovedAfcArtifact'?'GET':'POST');
+    assert.equal(requests[1].headers.Authorization,'Bearer fresh-token');
+    assert.equal(requests[1].body,undefined);
+  }
+});
+
+test('P3B4 artifact POST parses fixed JSON errors and never replays non-401 or transport failures',async()=>{
+  for(const [status,code] of [[403,'ROLE_DENIED'],[404,'REQUEST_NOT_FOUND'],[409,'ARTIFACT_CONFLICT'],[500,'SQL_UNAVAILABLE'],[503,'SQL_UNAVAILABLE']]){
+    let tokenCalls=0,fetchCalls=0;
+    const client=createPawsAzureDataClient({
+      tokenProvider:async()=>{tokenCalls++;return't'},
+      fetchImpl:async()=>{fetchCalls++;return{ok:false,status,async json(){return{error:{code,message:'bounded failure'}}}}}
+    });
+    await assert.rejects(client.createApprovedAfcArtifact('11111111-2222-4333-8444-555555555555'),error=>
+      error.status===status&&error.code===code&&error.message==='bounded failure');
+    assert.equal(fetchCalls,1,`${status} is not replayed`);
+    assert.equal(tokenCalls,1,`${status} does not force-refresh`);
+  }
+  let transportCalls=0,transportTokens=0;
+  const transport=createPawsAzureDataClient({
+    tokenProvider:async()=>{transportTokens++;return't'},
+    fetchImpl:async()=>{transportCalls++;throw Error('network unavailable')}
+  });
+  await assert.rejects(transport.createApprovedAfcArtifact('11111111-2222-4333-8444-555555555555'),/network unavailable/);
+  assert.equal(transportCalls,1);
+  assert.equal(transportTokens,1);
 });

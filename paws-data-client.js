@@ -53,10 +53,10 @@
       return body;
     }
 
-    async function request(path,{method='GET',body:requestBody}={}){
+    async function authenticatedResponse(path,{method='GET',body:requestBody,accept='application/json'}={}){
       const url=apiOrigin+path;
       const buildInit=token=>{
-        const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+        const headers={Authorization:'Bearer '+token,Accept:accept};
         const init={method,headers,credentials:'omit'};
         if(requestBody!==undefined){headers['Content-Type']='application/json';init.body=JSON.stringify(requestBody)}
         return init;
@@ -74,7 +74,7 @@
       // token refresh and exactly one replay of the same request. 403/404/5xx and
       // transport failures are never replayed, so a non-idempotent write can never be
       // duplicated after an ambiguous partial success. There is no loop and no timer.
-      if(response.status!==401)return settle(response);
+      if(response.status!==401)return response;
 
       let refreshed;
       try{
@@ -100,7 +100,30 @@
         error.status=401;
         throw error;
       }
-      return settle(retryResponse);
+      return retryResponse;
+    }
+
+    async function request(path,options={}){
+      return settle(await authenticatedResponse(path,options));
+    }
+
+    async function requestBinary(path,options={}){
+      const response=await authenticatedResponse(path,{...options,accept:'application/pdf'});
+      if(!response.ok)return settle(response);
+      const contentType=String(response.headers?.get?.('content-type')||'').split(';',1)[0].trim().toLowerCase();
+      if(contentType!=='application/pdf'){
+        const error=Error('The PAWS data service returned an invalid artifact response.');
+        error.code='INVALID_ARTIFACT_RESPONSE';error.status=response.status;throw error;
+      }
+      if(typeof response.arrayBuffer!=='function'){
+        const error=Error('The PAWS data service returned an invalid artifact response.');
+        error.code='INVALID_ARTIFACT_RESPONSE';error.status=response.status;throw error;
+      }
+      return{
+        bytes:new Uint8Array(await response.arrayBuffer()),
+        contentType:'application/pdf',
+        contentDisposition:String(response.headers?.get?.('content-disposition')||'')
+      };
     }
 
     function requestPath(id,action=''){
@@ -229,6 +252,12 @@
       async approveAfcRequest(afcRequestId,payload={}){
         const body=pickFields(payload,['signature']);
         return afcRequestResult(requestPath(afcRequestId,'approve'),{method:'POST',body});
+      },
+      async getApprovedAfcArtifact(afcRequestId){
+        return requestBinary(requestPath(afcRequestId,'approved-artifact'));
+      },
+      async createApprovedAfcArtifact(afcRequestId){
+        return requestBinary(requestPath(afcRequestId,'approved-artifact'),{method:'POST'});
       }
     });
   }

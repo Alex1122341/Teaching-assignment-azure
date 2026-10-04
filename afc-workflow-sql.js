@@ -6,6 +6,7 @@
 })(typeof window==='undefined'?globalThis:window,function(){
   const TERMS_VERSION='ucvm-afc-terms-page2-v1';
   const TERMS_SOURCE='absence-from-campus-app.pdf#page=2';
+  const AFC_REQUEST_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const SELF_ROLES=new Set(['faculty','hicc','visc']);
   const ADMIN_ROLES=new Set(['owner','administrator','adfa_general','adfa_regular','admin']);
 
@@ -38,6 +39,7 @@
     const FormDataCtor=options.FormData||root.FormData||globalThis.FormData;
     const escape=options.escapeHtml||((value)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     let requests=[],loaded=false,busy=false,panelId='afc-panel',applicantSignature=null,submitInFlight=false,submitOutcomeUnconfirmed=false;
+    const downloadInFlight=new Map();
     const panel=()=>doc?.getElementById?.(panelId)||null;
     function syncSubmitButton(){const currentForm=doc?.getElementById?.('afc-sql-form'),button=currentForm?.querySelector?.('button[type="submit"]');if(button)button.disabled=submitInFlight||submitOutcomeUnconfirmed;}
     const profile=()=>getProfile()||{};
@@ -73,15 +75,17 @@
       if(request.purposeDestination)details.push('<p><b>Purpose/destination:</b> '+e(request.purposeDestination)+'</p>');
       if(request.coverage)details.push('<p><b>Coverage:</b> '+e(request.coverage)+'</p>');
       if(request.rejectionReason)details.push('<p class="error"><b>Rejected:</b> '+e(request.rejectionReason)+'</p>');
-      if(status==='approved')details.push('<p class="afc-note" role="status">Approved. PDF delivery is pending the separate secure artifact service.</p>');
+      if(status==='approved')details.push('<p class="afc-note" role="status">Approved.</p>');
       const controls=[];
       if(a.canWithdraw)controls.push('<button type="button" data-afc-withdraw="'+e(id)+'">Withdraw request</button>');
       if(a.canRecommend)controls.push('<button type="button" data-afc-action="recommend" data-afc-id="'+e(id)+'">Sign &amp; recommend</button>');
       if(a.canApprove)controls.push('<button type="button" data-afc-action="approve" data-afc-id="'+e(id)+'">Sign &amp; approve</button>');
       if(a.canReject)controls.push('<button type="button" data-afc-action="reject" data-afc-id="'+e(id)+'">Sign &amp; reject</button>');
+      if(status==='approved'&&AFC_REQUEST_UUID.test(id))controls.push('<button type="button" data-afc-download="'+e(id)+'">Download Approved PDF</button>');
       if(a.canRecommend&&ADMIN_ROLES.has(actorRole()))details.push('<p class="afc-note">An administrator may sign on behalf of Reports To; the server remains authoritative.</p>');
       return '<article class="afc-card"><header><strong>'+e(request.facultyName)+'</strong><span class="afc-status '+e(status)+'">'+e(statusLabel(status))+'</span></header>'+
-        details.join('')+(controls.length?'<div class="afc-review">'+controls.join('')+'</div>':'')+'</article>';
+        details.join('')+(status==='approved'?'<p class="afc-note" role="status" id="afc-download-status-'+e(id)+'"></p>':'')+
+        (controls.length?'<div class="afc-review">'+controls.join('')+'</div>':'')+'</article>';
     }
 
     function render(){
@@ -154,6 +158,62 @@
       return performWrite(()=>client()[method](id,payload),action);
     }
 
+    function artifactFilename(id,contentDisposition){
+      const expected='afc-approved-'+id.toLowerCase()+'.pdf';
+      const match=String(contentDisposition??'').match(/(?:^|;)\s*filename\s*=\s*"?([^";]+)"?\s*(?:;|$)/i);
+      const supplied=String(match?.[1]??'');
+      return supplied.toLowerCase()===expected?supplied:expected;
+    }
+
+    function saveApprovedPdf(id,artifact){
+      if(String(artifact?.contentType??'').split(';',1)[0].trim().toLowerCase()!=='application/pdf'||!artifact?.bytes)
+        throw Error('The approved PDF response was invalid.');
+      const BlobCtor=root.Blob||globalThis.Blob,URLApi=root.URL||globalThis.URL;
+      if(typeof BlobCtor!=='function'||typeof URLApi?.createObjectURL!=='function'||typeof URLApi?.revokeObjectURL!=='function'||typeof doc?.createElement!=='function')
+        throw Error('This browser cannot download the approved PDF.');
+      const blob=new BlobCtor([artifact.bytes],{type:'application/pdf'}),url=URLApi.createObjectURL(blob),anchor=doc.createElement('a');
+      anchor.href=url;anchor.download=artifactFilename(id,artifact.contentDisposition);anchor.rel='noopener';
+      try{doc.body?.appendChild?.(anchor);anchor.click()}
+      finally{
+        anchor.remove?.();
+        const revoke=()=>URLApi.revokeObjectURL(url);
+        if(typeof root.setTimeout==='function')root.setTimeout(revoke,0);else revoke();
+      }
+      return{filename:anchor.download,bytes:artifact.bytes};
+    }
+
+    function setDownloadStatus(id,message){
+      const status=doc?.getElementById?.('afc-download-status-'+id);
+      if(status)status.textContent=String(message??'');
+    }
+
+    function downloadApprovedArtifact(id){
+      const row=findRequest(id);
+      if(!row||String(row.status??'')!=='approved')throw Error('Only a finally approved request in the current server list can be downloaded.');
+      const requestId=String(row.afcRequestId??'').trim();
+      if(!AFC_REQUEST_UUID.test(requestId))throw Error('The approved request identifier is invalid.');
+      if(downloadInFlight.has(requestId))return downloadInFlight.get(requestId);
+      const operation=Promise.resolve().then(async()=>{
+        setDownloadStatus(requestId,'Preparing approved PDF…');
+        try{
+          let artifact;
+          try{artifact=await client().getApprovedAfcArtifact(requestId)}
+          catch(error){
+            if(error?.code!=='ARTIFACT_NOT_FOUND')throw error;
+            artifact=await client().createApprovedAfcArtifact(requestId);
+          }
+          const saved=saveApprovedPdf(requestId,artifact);
+          setDownloadStatus(requestId,'Approved PDF downloaded.');
+          return saved;
+        }catch(error){
+          setDownloadStatus(requestId,error?.message||'The approved PDF could not be downloaded.');
+          throw error;
+        }finally{downloadInFlight.delete(requestId)}
+      });
+      downloadInFlight.set(requestId,operation);
+      return operation;
+    }
+
     async function captureDecision(id,action){
       requireAction(id,action);
       const activeUser=user(),signer=profile().displayName||activeUser?.displayName||activeUser?.email||uid();
@@ -215,6 +275,12 @@
       const refresh=doc.getElementById('afc-sql-refresh');if(refresh)refresh.onclick=()=>load(true);
       target.querySelectorAll('[data-afc-withdraw]').forEach(button=>button.onclick=()=>withdraw(button.dataset.afcWithdraw).catch(error=>root.alert?.(error.message)));
       target.querySelectorAll('[data-afc-action]').forEach(button=>button.onclick=()=>captureDecision(button.dataset.afcId,button.dataset.afcAction).catch(error=>root.alert?.(error.message)));
+      target.querySelectorAll('[data-afc-download]').forEach(button=>button.onclick=async()=>{
+        button.disabled=true;
+        try{await downloadApprovedArtifact(button.dataset.afcDownload)}
+        catch(error){root.alert?.(error?.message||'The approved PDF could not be downloaded.')}
+        finally{button.disabled=false}
+      });
     }
 
     function mount(configuration={}){
@@ -223,7 +289,7 @@
       panelId=nextPanel;mode=nextMode;return api;
     }
 
-    const api={mount,load,submit,withdraw,recommend:(id,signature)=>decide(id,'recommend',signature),reject:(id,signature,reason)=>decide(id,'reject',signature,reason),approve:(id,signature)=>decide(id,'approve',signature),decide,actionsFor,formPayload,getRequests:()=>[...requests],teachingListHtml:()=>'',unavailable:false};
+    const api={mount,load,submit,withdraw,recommend:(id,signature)=>decide(id,'recommend',signature),reject:(id,signature,reason)=>decide(id,'reject',signature,reason),approve:(id,signature)=>decide(id,'approve',signature),downloadApprovedArtifact,decide,actionsFor,formPayload,getRequests:()=>[...requests],teachingListHtml:()=>'',unavailable:false};
     return api;
   }
 

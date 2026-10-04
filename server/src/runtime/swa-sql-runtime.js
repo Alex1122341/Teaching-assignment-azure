@@ -8,13 +8,16 @@ const { createSqlDoeTargetRepository } = require('../data/sql-doe-target-reposit
 const { createSqlAfcWriteRepository } = require('../data/sql-afc-write-repository');
 const { createSqlAfcRequestRepository } = require('../data/sql-afc-request-repository');
 const { createSqlAfcApprovalRepository } = require('../data/sql-afc-approval-repository');
+const { createSqlAfcArtifactRepository } = require('../data/sql-afc-artifact-repository');
 const { createAfcRequestApi } = require('../afc/afc-request-api');
 const { createAfcApprovalApi } = require('../afc/afc-approval-api');
+const { createAfcApprovedArtifactApi } = require('../afc/afc-approved-artifact-api');
 const { createDataApi } = require('../data/data-api');
 const { createDashboardApi } = require('../data/dashboard-api');
 const { createSwaFunctions } = require('./swa-functions');
 const { createDashboardFunctions } = require('./swa-dashboard-functions');
 const { createAfcRequestFunctions } = require('./swa-afc-request-functions');
+const { createSwaAfcArtifactFunctions } = require('./swa-afc-artifact-functions');
 const { createFirebaseVerifier } = require('../auth/firebase-admin');
 const { createFirebaseSqlAuth } = require('../auth/firebase-sql-auth');
 
@@ -57,9 +60,17 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const afcRequests = createAfcRequestFunctions({
     api: { ...afcRequestApi, ...afcApprovalApi }
   });
+  const afcArtifactRoutes = createSwaAfcArtifactFunctions({
+    api: createAfcApprovedArtifactApi({
+      verifyToken: verify,
+      findUser: users.findByUid,
+      repository: createSqlAfcArtifactRepository(db)
+    })
+  });
   const handler = async request => {
     const pathname = new URL(request.url).pathname;
     if (pathname.startsWith('/api/v1/dashboard/')) return dashboardRoutes(request);
+    if (/^\/api\/v1\/afc-requests\/[^/]+\/approved-artifact\/?$/.test(pathname)) return afcArtifactRoutes(request);
     if (pathname === '/api/v1/afc-requests' || pathname.startsWith('/api/v1/afc-requests/')) return afcRequests(request);
     return timetable(request);
   };

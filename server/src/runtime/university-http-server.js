@@ -88,7 +88,7 @@ function createUniversityHttpServer({
       }
       corsHeaders['Access-Control-Allow-Origin'] = origin;
       corsHeaders.Vary = 'Origin';
-      corsHeaders['Access-Control-Expose-Headers'] = 'Server-Timing';
+      corsHeaders['Access-Control-Expose-Headers'] = 'Server-Timing, Content-Disposition';
     }
 
     if (incoming.method === 'OPTIONS') {
@@ -137,6 +137,28 @@ function createUniversityHttpServer({
         for (const [name, value] of Object.entries(suppliedHeaders)) {
           if (value !== undefined && value !== null) responseHeaders[name] = String(value);
         }
+      }
+      if (result && Object.prototype.hasOwnProperty.call(result, 'binaryBody')) {
+        const pdfBytes = Buffer.isBuffer(result.binaryBody)
+          ? result.binaryBody
+          : result.binaryBody instanceof Uint8Array ? Buffer.from(result.binaryBody) : null;
+        const match = /^\/api\/v1\/afc-requests\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/approved-artifact\/?$/i.exec(new URL(incoming.url || '/', 'http://127.0.0.1').pathname);
+        if (!pdfBytes || ![200, 201].includes(status) || !match || pdfBytes.length < 1 || pdfBytes.length > 8_388_608) {
+          outgoing.writeHead(500, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(FIXED_ERROR) });
+          outgoing.end(FIXED_ERROR);
+          return;
+        }
+        const binaryHeaders = {
+          ...corsHeaders,
+          'Content-Type': 'application/pdf',
+          'Content-Length': String(pdfBytes.length),
+          'Cache-Control': 'private, no-store',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Disposition': `attachment; filename="afc-approved-${match[1]}.pdf"`
+        };
+        outgoing.writeHead(status, binaryHeaders);
+        outgoing.end(incoming.method === 'HEAD' ? undefined : pdfBytes);
+        return;
       }
       let payload = '';
       if (result && Object.prototype.hasOwnProperty.call(result, 'jsonBody') && result.jsonBody !== undefined && status !== 204 && status !== 304) {

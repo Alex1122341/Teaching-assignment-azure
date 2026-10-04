@@ -9,10 +9,14 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// PAWS Windows Auth: static and API runtimes share the accepted opt-in
-// Windows Integrated Authentication source candidate. The previous B2B-PERF
-// baseline remains immutable historical evidence.
-const BASELINE_COMMIT='b85d6420a66ddb24513d8c9fa4aa838906012074';
+// P3 Beta integration is active; P3B4 remains a historical product anchor.
+const BASELINE_COMMIT='6fc77fb94e0de3aa116c9c4d5743d4aec45da61c';
+const P3B4_BASELINE_COMMIT='b7b9ed45bcc88ea774fb2c64bbca8c753da41393';
+const P3B3_BASELINE_COMMIT='adb943ccadff8851ba9de47bfc6b1d226916b89b';
+const PREVIOUS_P3B3_BASELINE_COMMIT='2adafc731d3eaeec10ca08e058c1272ca2a463fb';
+const PREVIOUS_P3B2_BASELINE_COMMIT='9d15cb7cd28cdda0eb56a34ccb99777c1d488569';
+const PREVIOUS_API_BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
+const PREVIOUS_STATIC_BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
 const PREVIOUS_BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
@@ -21,7 +25,7 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the promoted dual-runtime baseline',()=>{
+test('beta identity is pinned to the P3 Beta integration dual-runtime baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -33,17 +37,17 @@ test('the promoted dual-runtime baseline exists as a Git commit and is an ancest
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the promoted frozen runtime reports zero protected drift',()=>{
+test('the P3 Beta integration product frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,48);
+  assert.equal(result.protected,50);
 });
 
-test('the current static manifest has exactly 48 protected files',()=>{
-  assert.equal(manifest().length,48);
-  assert.equal(freeze.protectedPaths({root}).length,48);
+test('the current static manifest has exactly 50 protected files',()=>{
+  assert.equal(manifest().length,50);
+  assert.equal(freeze.protectedPaths({root}).length,50);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -56,9 +60,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 48 current protected files are byte-identical to immutable B2B-PERF candidate blobs',()=>{
+test('all 50 current protected files are byte-identical to the immutable P3 Beta integration product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,48);
+  assert.equal(protectedFiles.length,50);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -78,44 +82,72 @@ test('B2B login/auth helper assets are protected runtime assets',()=>{
   }
 });
 
-// D. Static baseline continuity (48 -> 48) ----------------------------------
-test('the Windows Auth baseline preserves every prior static path and adds none',()=>{
-  const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
-  const current=baselineJson(BASELINE_COMMIT);
+// D. Historical static baseline continuity and exact P3B3 delta ------------
+test('P3B3 preserves all P3B2 static paths and adds only the SQL AFC workflow module',()=>{
+  const previous=baselineJson(PREVIOUS_P3B2_BASELINE_COMMIT);
+  const current=baselineJson(P3B3_BASELINE_COMMIT);
   assert.equal(previous.length,48);
-  assert.equal(current.length,48);
-  const missing=previous.filter(name=>!current.includes(name));
-  const added=current.filter(name=>!previous.includes(name));
-  assert.deepEqual(missing,[]);
-  assert.deepEqual(added,[]);
+  assert.equal(current.length,49);
+  assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),['afc-workflow-sql.js']);
 });
 
-test('the Windows Auth baseline introduces zero static content drift from the previous baseline',()=>{
-  const previousPaths=freeze.protectedPaths({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
-  const currentPaths=freeze.protectedPaths({root,baselineCommit:BASELINE_COMMIT});
+test('the P3B3 duplicate-submit fix changes only afc-workflow-sql.js from its previous candidate',()=>{
+  const changed=[];
+  for(const name of baselineJson(P3B3_BASELINE_COMMIT)){
+    if(!freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_P3B3_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:P3B3_BASELINE_COMMIT,file:name})
+    ))changed.push(name);
+  }
+  assert.deepEqual(changed,['afc-workflow-sql.js']);
+});
+
+test('P3B3 changes only the reviewed AFC frontend assets from P3B2',()=>{
+  const previousPaths=baselineJson(PREVIOUS_P3B2_BASELINE_COMMIT);
+  const currentPaths=baselineJson(P3B3_BASELINE_COMMIT);
   const union=[...new Set([...previousPaths,...currentPaths])].sort();
   assert.equal(previousPaths.length,48);
-  assert.equal(currentPaths.length,48);
-  assert.equal(union.length,48);
+  assert.equal(currentPaths.length,49);
+  assert.equal(union.length,49);
+  const changed=[];
   for(const name of union){
-    assert.equal(freeze.bytesMatch(
-      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:name}),
-      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
-    ),true,`${name} must be byte-identical across the promotion`);
+    let before=null,after=null;
+    try{before=freeze.readBaselineFile({root,baselineCommit:PREVIOUS_P3B2_BASELINE_COMMIT,file:name});}catch{}
+    try{after=freeze.readBaselineFile({root,baselineCommit:P3B3_BASELINE_COMMIT,file:name});}catch{}
+    if(!before||!after||!freeze.bytesMatch(before,after))changed.push(name);
   }
+  assert.deepEqual(changed,['afc-workflow-sql.js','afc-workflow.js','index.html','paws-data-client.js']);
 });
 
-test('tools/static-assets.json is unchanged by the Windows Auth promotion',()=>{
+test('the P3B2 frontend preserved all P2A static paths and changed only the PAWS data client',()=>{
+  const previous=baselineJson(PREVIOUS_STATIC_BASELINE_COMMIT);
+  const p3b2=baselineJson(PREVIOUS_P3B2_BASELINE_COMMIT);
+  assert.equal(previous.length,48);
+  assert.equal(p3b2.length,48);
+  assert.deepEqual(previous.filter(name=>!p3b2.includes(name)),[]);
+  assert.deepEqual(p3b2.filter(name=>!previous.includes(name)),[]);
+  const changed=[];
+  for(const name of previous){
+    if(!freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_STATIC_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_P3B2_BASELINE_COMMIT,file:name})
+    ))changed.push(name);
+  }
+  assert.deepEqual(changed,['paws-data-client.js']);
+});
+
+test('the P3B3 static manifest preserves the frozen P2A-to-P3B2 manifest',()=>{
   assert.equal(freeze.bytesMatch(
-    freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:'tools/static-assets.json'}),
-    freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:'tools/static-assets.json'})
+    freeze.readBaselineFile({root,baselineCommit:PREVIOUS_STATIC_BASELINE_COMMIT,file:'tools/static-assets.json'}),
+    freeze.readBaselineFile({root,baselineCommit:PREVIOUS_P3B2_BASELINE_COMMIT,file:'tools/static-assets.json'})
   ),true);
 });
 
-test('every previous protected path is still protected under the promoted baseline',()=>{
-  const previous=baselineJson(PREVIOUS_BASELINE_COMMIT);
+test('every P2A protected path is still protected under the P3B4 baseline',()=>{
+  const previous=baselineJson(PREVIOUS_STATIC_BASELINE_COMMIT);
   const protectedFiles=freeze.protectedPaths({root});
-  for(const name of previous)assert.ok(protectedFiles.includes(name),`${name} must remain protected`);
+  for(const name of previous)assert.ok(protectedFiles.includes(name),name+' must remain protected');
 });
 
 test('B0 runtime candidate files are protected and byte-identical to the promoted baseline',()=>{
@@ -138,7 +170,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,48);
+  assert.equal(protectedFiles.length,50);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -162,9 +194,11 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
   }
 });
 
-test('beta-baseline.json remains non-authoritative and records the promoted baseline',()=>{
+test('beta-baseline.json remains non-authoritative and records the promoted P3 Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,11);
+  assert.equal(Object.keys(baseline.sha256).length,14);
+  assert.ok(baseline.sha256['afc-workflow.js']);
+  assert.ok(baseline.sha256['afc-workflow-sql.js']);
   assert.ok(baseline.sha256['paws-auth-continuity.js']);
   assert.ok(baseline.sha256['paws-login-performance.js']);
   // Verification never reads this file: a drift verdict comes from Git objects only.
@@ -180,8 +214,20 @@ test('API freeze shares the promoted static baseline and has zero runtime drift'
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,20);
+  assert.equal(result.runtimeFiles.length,32);
+  assert.equal(result.buildDefinitionFiles.length,1);
+  assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
+  assert.equal(result.protected,35);
+  assert.ok(result.runtimeFiles.includes('server/src/data/sql-doe-target-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/afc/afc-request-api.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/afc/afc-approval-api.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/runtime/swa-afc-request-functions.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/afc/afc-approved-artifact-api.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/afc/afc-approved-artifact-renderer.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/afc/assets/absence-from-campus-app.pdf'));
+  assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-artifact-repository.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/runtime/swa-afc-artifact-functions.js'));
   assert.ok(result.buildDefinitionFiles.includes('deploy/aca/Dockerfile'));
 });
 
@@ -191,46 +237,106 @@ test('API freeze imports the single static baseline constant',()=>{
   assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
 });
 
-test('B3B adds only the approved University HTTP host paths to the protected API runtime',()=>{
+test('P3B3 preserves the FC1 API runtime and adds only the reviewed AFC workflow files',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
-  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
-  const current=apiFreeze.baselineRuntimeFiles({root,baselineCommit:BASELINE_COMMIT});
-  assert.equal(previous.length,18);
-  assert.equal(current.length,20);
+  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_API_BASELINE_COMMIT});
+  const current=apiFreeze.baselineRuntimeFiles({root,baselineCommit:P3B3_BASELINE_COMMIT});
+  assert.equal(previous.length,21);
+  assert.equal(current.length,27);
   assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
   assert.deepEqual(current.filter(name=>!previous.includes(name)),[
-    'server/src/runtime/university-api.js',
-    'server/src/runtime/university-http-server.js'
+    'server/src/afc/afc-approval-api.js',
+    'server/src/afc/afc-policy.js',
+    'server/src/afc/afc-request-api.js',
+    'server/src/data/sql-afc-approval-repository.js',
+    'server/src/data/sql-afc-request-repository.js',
+    'server/src/runtime/swa-afc-request-functions.js'
   ]);
 });
 
-test('the previous API baseline differs only in the Windows Auth runtime selector',()=>{
+test('P3B3 changes only the reviewed shared SQL runtime mount among pre-existing FC1 API files',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
-  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
-  const accepted=[
-    'server/src/data/sql-connection.js',
-    'server/src/runtime/swa-sql-runtime.js'
-  ];
+  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_API_BASELINE_COMMIT});
   const changed=[];
   for(const name of previous){
     const same=freeze.bytesMatch(
-      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:name}),
-      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_API_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:P3B3_BASELINE_COMMIT,file:name})
     );
     if(!same)changed.push(name);
   }
-  assert.deepEqual(changed,accepted);
+  assert.deepEqual(changed,['server/src/runtime/swa-sql-runtime.js']);
 });
 
-test('the Windows Auth promotion leaves swa-api and the ACA Dockerfile untouched',()=>{
+test('P3B3 leaves swa-api and the ACA Dockerfile untouched from FC1',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const unchanged=[...apiFreeze.API_SOURCE_ROOTS,...apiFreeze.BUILD_DEFINITION_FILES];
   for(const name of unchanged){
     assert.equal(freeze.bytesMatch(
-      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:name}),
-      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
-    ),true,`${name} must be unchanged by the promotion`);
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_API_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:P3B3_BASELINE_COMMIT,file:name})
+    ),true,`${name} must be unchanged by the P3B promotion`);
   }
+});
+
+test('P3B4 preserves the P3B3 API paths and adds exactly the approved-artifact runtime delta',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:P3B3_BASELINE_COMMIT});
+  const current=apiFreeze.baselineRuntimeFiles({root,baselineCommit:P3B4_BASELINE_COMMIT});
+  assert.equal(previous.length,27);
+  assert.equal(current.length,32);
+  assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),[
+    'server/src/afc/afc-approved-artifact-api.js',
+    'server/src/afc/afc-approved-artifact-renderer.js',
+    'server/src/afc/assets/absence-from-campus-app.pdf',
+    'server/src/data/sql-afc-artifact-repository.js',
+    'server/src/runtime/swa-afc-artifact-functions.js'
+  ]);
+  assert.deepEqual(apiFreeze.REPOSITORY_INPUT_FILES,['server/package.json','server/package-lock.json']);
+  for(const name of apiFreeze.REPOSITORY_INPUT_FILES){
+    assert.equal(freeze.readBaselineFile({root,baselineCommit:P3B4_BASELINE_COMMIT,file:name}).length>0,true,name);
+  }
+});
+
+test('P3B4 changes only the reviewed AFC download UI and binary client among protected static files',()=>{
+  const previous=baselineJson(P3B3_BASELINE_COMMIT);
+  const current=baselineJson(P3B4_BASELINE_COMMIT);
+  assert.equal(previous.length,49);
+  assert.equal(current.length,49);
+  assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),[]);
+  const changed=[];
+  for(const name of current){
+    if(!freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:P3B3_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:P3B4_BASELINE_COMMIT,file:name})
+    ))changed.push(name);
+  }
+  assert.deepEqual(changed,['afc-workflow-sql.js','paws-data-client.js']);
+});
+
+test('P3 Beta adds only the centralized origin asset and reviewed origin wiring to P3B4',()=>{
+  const previous=baselineJson(P3B4_BASELINE_COMMIT);
+  const current=manifest();
+  assert.equal(previous.length,49);
+  assert.equal(current.length,50);
+  assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
+  assert.deepEqual(current.filter(name=>!previous.includes(name)),['paws-api-origin.js']);
+  const changed=[];
+  for(const name of previous){
+    if(!freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:P3B4_BASELINE_COMMIT,file:name}),
+      fs.readFileSync(path.join(root,name))
+    ))changed.push(name);
+  }
+  assert.deepEqual(changed,['faculty-admin.html','index.html','paws-data-client.js']);
+  const origin=fs.readFileSync(path.join(root,'paws-api-origin.js'),'utf8');
+  assert.match(origin,/TEMPORARY BETA INGRESS/);
+  assert.match(origin,/radar-languages-shopper-corporate\.trycloudflare\.com/);
+  const result=freeze.verifyFreeze({root});
+  assert.equal(result.ok,true);
+  assert.deepEqual(result.drift,[]);
 });
 
 test('the promoted API anchor carries the accepted request-timing allowlist',()=>{

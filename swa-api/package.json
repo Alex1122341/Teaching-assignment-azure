@@ -8,6 +8,7 @@
   "dependencies": {
     "@azure/functions": "4.7.2",
     "firebase-admin": "13.4.0",
-    "mssql": "11.0.1"
+    "mssql": "11.0.1",
+    "pdf-lib": "1.17.1"
   }
 }

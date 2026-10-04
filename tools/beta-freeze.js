@@ -11,11 +11,11 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS B3B: the frozen trust anchor includes the reviewed Windows Integrated
-// Authentication runtime and loopback-only University HTTP host. This governance
-// promotion advances source verification only; it does not activate the service,
-// cut over PAWS, or deploy to Azure.
-const BASELINE_COMMIT='b85d6420a66ddb24513d8c9fa4aa838906012074';
+// PAWS P3 Beta integration product candidate. It adds one centralized temporary
+// University API origin and updates the client/index integration while retaining
+// the accepted 32-file SWA API runtime. The product commit is the immutable trust
+// anchor; this governance promotion does not apply SQL, merge, or deploy.
+const BASELINE_COMMIT='6fc77fb94e0de3aa116c9c4d5743d4aec45da61c';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

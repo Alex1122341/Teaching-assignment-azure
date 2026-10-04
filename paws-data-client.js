@@ -1,15 +1,18 @@
 (function(root,factory){
   'use strict';
-  const api=factory();
+  const api=factory(root);
   if(typeof module==='object'&&module.exports)module.exports=api;
   if(root){
     root.createPawsAzureDataClient=api.createPawsAzureDataClient;
     root.UCVM_PAWS_DATA=api.createPawsAzureDataClient();
   }
-})(typeof window==='undefined'?globalThis:window,function(){
+})(typeof window==='undefined'?globalThis:window,function(root){
   'use strict';
 
-  const API_ORIGIN='https://paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io';
+  const originConfig=root&&root.PAWS_API_ORIGIN_CONFIG
+    ?root.PAWS_API_ORIGIN_CONFIG
+    :typeof module==='object'&&module.exports?require('./paws-api-origin.js'):null;
+  const API_ORIGIN=originConfig&&originConfig.apiOrigin;
 
   function validateApiOrigin(origin){
     let parsed;
@@ -53,10 +56,10 @@
       return body;
     }
 
-    async function request(path,{method='GET',body:requestBody}={}){
+    async function authenticatedResponse(path,{method='GET',body:requestBody,accept='application/json'}={}){
       const url=apiOrigin+path;
       const buildInit=token=>{
-        const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+        const headers={Authorization:'Bearer '+token,Accept:accept};
         const init={method,headers,credentials:'omit'};
         if(requestBody!==undefined){headers['Content-Type']='application/json';init.body=JSON.stringify(requestBody)}
         return init;
@@ -74,7 +77,7 @@
       // token refresh and exactly one replay of the same request. 403/404/5xx and
       // transport failures are never replayed, so a non-idempotent write can never be
       // duplicated after an ambiguous partial success. There is no loop and no timer.
-      if(response.status!==401)return settle(response);
+      if(response.status!==401)return response;
 
       let refreshed;
       try{
@@ -100,11 +103,54 @@
         error.status=401;
         throw error;
       }
-      return settle(retryResponse);
+      return retryResponse;
+    }
+
+    async function request(path,options={}){
+      return settle(await authenticatedResponse(path,options));
+    }
+
+    async function requestBinary(path,options={}){
+      const response=await authenticatedResponse(path,{...options,accept:'application/pdf'});
+      if(!response.ok)return settle(response);
+      const contentType=String(response.headers?.get?.('content-type')||'').split(';',1)[0].trim().toLowerCase();
+      if(contentType!=='application/pdf'){
+        const error=Error('The PAWS data service returned an invalid artifact response.');
+        error.code='INVALID_ARTIFACT_RESPONSE';error.status=response.status;throw error;
+      }
+      if(typeof response.arrayBuffer!=='function'){
+        const error=Error('The PAWS data service returned an invalid artifact response.');
+        error.code='INVALID_ARTIFACT_RESPONSE';error.status=response.status;throw error;
+      }
+      return{
+        bytes:new Uint8Array(await response.arrayBuffer()),
+        contentType:'application/pdf',
+        contentDisposition:String(response.headers?.get?.('content-disposition')||'')
+      };
+    }
+
+    function requestPath(id,action=''){
+      const value=String(id??'').trim();
+      if(!value)throw new Error('afcRequestId is required.');
+      return '/api/v1/afc-requests/'+encodeURIComponent(value)+(action?'/'+action:'');
+    }
+
+    function pickFields(value,allowed){
+      const input=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+      const output={};
+      for(const key of allowed){
+        if(Object.prototype.hasOwnProperty.call(input,key))output[key]=input[key];
+      }
+      return output;
+    }
+
+    async function afcRequestResult(path,options){
+      const body=await request(path,options);
+      return body.afcRequest&&typeof body.afcRequest==='object'&&!Array.isArray(body.afcRequest)?body.afcRequest:{};
     }
 
     return Object.freeze({
-      sessionBackend:()=> 'azure-sql',
+      sessionBackend:()=> 'vetmed-ops',
       sessionWritesEnabled:()=> false,
       async currentUser(){
         const body=await request('/api/v1/me');
@@ -183,6 +229,38 @@
           notes:input.notes===undefined||input.notes===null?'':String(input.notes)
         }});
         return body.afcRecord&&typeof body.afcRecord==='object'?body.afcRecord:{};
+      },
+      async listAfcRequests(){
+        const body=await request('/api/v1/afc-requests');
+        return Array.isArray(body.afcRequests)?body.afcRequests:[];
+      },
+      async submitAfcRequest(payload={}){
+        const body=pickFields(payload,[
+          'startDate','endDate','reason','purposeDestination','coverage','contactAddress','contactPhone',
+          'termsAccepted','termsVersion','termsSource','applicantSignature'
+        ]);
+        return afcRequestResult('/api/v1/afc-requests',{method:'POST',body});
+      },
+      async withdrawAfcRequest(afcRequestId){
+        return afcRequestResult(requestPath(afcRequestId,'withdraw'),{method:'POST'});
+      },
+      async recommendAfcRequest(afcRequestId,payload={}){
+        const body=pickFields(payload,['signature']);
+        return afcRequestResult(requestPath(afcRequestId,'recommend'),{method:'POST',body});
+      },
+      async rejectAfcRequest(afcRequestId,payload={}){
+        const body=pickFields(payload,['signature','rejectionReason']);
+        return afcRequestResult(requestPath(afcRequestId,'reject'),{method:'POST',body});
+      },
+      async approveAfcRequest(afcRequestId,payload={}){
+        const body=pickFields(payload,['signature']);
+        return afcRequestResult(requestPath(afcRequestId,'approve'),{method:'POST',body});
+      },
+      async getApprovedAfcArtifact(afcRequestId){
+        return requestBinary(requestPath(afcRequestId,'approved-artifact'));
+      },
+      async createApprovedAfcArtifact(afcRequestId){
+        return requestBinary(requestPath(afcRequestId,'approved-artifact'),{method:'POST'});
       }
     });
   }

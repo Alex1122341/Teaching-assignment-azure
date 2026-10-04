@@ -109,14 +109,14 @@ test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
   const freeze=require('../tools/beta-freeze.js');
   const baseline=require('../tools/beta-baseline.json');
   assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
-  assert.equal(freeze.BASELINE_COMMIT,'b85d6420a66ddb24513d8c9fa4aa838906012074');
+  assert.equal(freeze.BASELINE_COMMIT,'6fc77fb94e0de3aa116c9c4d5743d4aec45da61c');
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
   assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
 });
 
-test('static deploy evidence records the promoted Windows Auth trust anchor',()=>{
+test('static deploy evidence records the promoted P3 Beta integration product trust anchor',()=>{
   const workflow=read('.github/workflows/azure-beta-static-deploy.yml');
   const freeze=require('../tools/beta-freeze.js');
   assert.match(workflow,new RegExp(freeze.BASELINE_COMMIT));
@@ -124,6 +124,7 @@ test('static deploy evidence records the promoted Windows Auth trust anchor',()=
   assert.doesNotMatch(workflow,/65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be/);
   assert.doesNotMatch(workflow,/f2d76449a4881cb24196289ebf63fd4cfaaa7d05/);
   assert.doesNotMatch(workflow,/5a7f8a535caaf42992598c6fc8fe301818075e67/);
+  assert.match(workflow,/paws-api-origin\.js/);
 });
 
 // G + H. Candidate and main CI contracts: ZERO allowed protected runtime drift.

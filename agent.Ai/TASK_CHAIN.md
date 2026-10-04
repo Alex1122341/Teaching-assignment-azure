@@ -1,15 +1,47 @@
-# PAWS B3B — UNIVERSITY API HOST / INFRASTRUCTURE PARTIAL
+# P3B4 — APPROVED AFC ARTIFACT / CANDIDATE ACCEPTED BY CI
 
-Status: **LOCAL UNIVERSITY API VERIFIED / INFRASTRUCTURE PARTIAL / NOT ACTIVATED / NOT CUT OVER**
+# P3 BETA END-TO-END CONNECTION — CURRENT
 
-- Accepted main base: `e52b55b57136dbe5690c1ffdf8bfec610c254819` (PR #44 merged).
-- Branch: `feature/vetmedops-university-api-host`; runtime candidate: `b85d6420a66ddb24513d8c9fa4aa838906012074`.
-- Server tests 184/184; root tests 623 passed / 29 skipped / 0 failed; focused freeze/deployment tests 49/49.
-- Static freeze 48 protected paths and API freeze 20 protected runtime files both pass with zero drift.
-- Actual loopback HTTP adapter + PAWS SQL runtime check (temporary process-local TLS bypass): SQL health 200; anonymous `/api/v1/me` and Dashboard summary 401. This did not activate the service.
-- Exact blockers: `SERVICE_IDENTITY_SQL_LOGIN_ADMIN_REQUIRED` (DBA must provision/review the dedicated Windows SQL login) and `SHARED_SQL_RESTART_DEFERRED` (SQL Agent workload inventory is unavailable, so restart safety is unproven).
-- `PAWSApi` remains STOPPED/DISABLED with inert placeholder. Strict TLS, authenticated service runtime, complete data transfer, and cutover are pending.
-- No SQL login, database permission/data/schema write, SQL restart, service activation, external bind, Azure/Firebase change, deployment, or main mutation occurred.
+**Branch:** `feature/p3-beta-end-to-end-cutover`
+**Base:** `feature/p3-stage-a-activation-prep` @ `45d06cfc5e528409e820fea05a7d8205317b30eb`
+**Product commit:** `6fc77fb94e0de3aa116c9c4d5743d4aec45da61c`
+**Status:** product and governance commits pushed; PR #47 open; exact-head Azure Beta Build green; not merged or deployed.
+
+- P3B3/P3B4 approved feature work and the Stage A lineage were combined from the exact Stage A head.
+- A single `paws-api-origin.js` now owns the clearly marked temporary Quick Tunnel API origin; page load order, data client, protected manifest, tests, and release verification are updated.
+- Live read-only checks matched the accepted migrations/tables/procedures/counts. No migrations were repeated and no authenticated AFC rows/artifacts were created.
+- Quick Tunnel maps only to `127.0.0.1:18787`; external health/auth boundary and exact Beta SWA CORS checks passed. SQL/RDP/SMB remain private.
+- Root suite: 686 total / 657 passed / 29 skipped / 0 failed. Emulator root suite: 686/686. Server suite: 270/270. Release build, repository freeze, API freeze, static artifact freeze, and API artifact freeze passed with zero drift (50 static files / 32 API files).
+- Local Node is 24.19.0. Hosted Azure Beta Build run `37240070237` passed on exact SHA `6a197270d7bd65f61871fe55c54476cf1c51f277` using Node 22.
+- The open Beta site shows an authorized admin-role session, but the deployed static page lacks both `paws-api-origin.js` and `afc-workflow-sql.js`. It cannot exercise the new AFC lifecycle. No credential/token was inspected.
+- Do not merge/deploy before authenticated backend E2E passes. This creates a current gate cycle because the old deployed UI has no AFC API workflow. Next: ask Architect #5/owner for a safe pre-deployment authenticated test route or other approved client. Do not bypass the E2E deployment gate.
+
+# Historical P3B4 — APPROVED AFC ARTIFACT
+
+Status: PRODUCT + GOVERNANCE + REMEDIATION COMMITS PUSHED / AZURE BETA BUILD SUCCESS / BRANCH-ONLY / NOT MERGED / NOT DEPLOYED.
+
+- Branch: `feature/p3b4-afc-approved-artifact`; CI-validated candidate head `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e` (run `37227596042` succeeded on this exact SHA). The current tip advances with docs-only closeout commit(s).
+- Product commit: `b7b9ed45bcc88ea774fb2c64bbca8c753da41393`; product commit unchanged. Original governance commit: `7ff3b50d8bcd73b75b8e0a12005fda6371548164`; remediation commits: `46b93dbf3825bd891f595dc644862ec042cc9c3b` and `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`.
+- Azure Beta Build `37227596042` succeeded on the exact head. Failed runs `37226440192` and `37226741275` and their causes are recorded in `agent.Ai/updates/2026-10-04-p3b4-candidate-acceptance.md`.
+- Node 22.23.3 root suite: 679 total / 650 passed / 29 skipped / 0 failed. Server suite: 270/270. Focused P3B4: 45/45; runtime regression group: 38/38; workflow governance test: 11/11.
+- Static freeze: 49 protected paths, zero drift in repository and artifact. API freeze: 32 runtime files + Dockerfile + 2 repository-only package inputs, zero drift in repository and artifact. SWA production artifact build passed and package verification found the approved-artifact route, repository, renderer, PDF template, and `pdf-lib@1.17.1`.
+- SQL migrations 009–011 were not applied. Migration 011/rollback static review and contract tests passed; no local SQL Server parser was available. No live SQL/grants, Firebase, Cloudflare, deployment, main merge, or Remote Desktop Commander action. PR: none.
+- Current breakpoint: P3B4 code and CI acceptance are complete. Live AFC activation remains out of scope and requires its own controlled task.
+
+# P3B3 — AFC FRONTEND/API MIGRATION (IMPLEMENTED; REVIEW ONLY; NOT LIVE)
+
+Status: **P3B3 IMPLEMENTED / REVIEW BASELINE PROMOTED / BRANCH PUSHED / PR NOT OPENED / NOT MERGED / NOT DEPLOYED**
+
+- Base P3B2 branch head: `a45d63a986e18808b02cd36599e35a6479ec574c`.
+- Feature branch: `feature/p3b3-afc-frontend-api`.
+- Product candidate: `2adafc731d3eaeec10ca08e058c1272ca2a463fb`; baseline governance commit: `0d16194cac6e9c9c5ac052db2b6465712035b3cd`.
+- Remote branch head was verified as the governance commit before continuity docs were added.
+- AFC browser list/submit/withdraw/recommend/reject/approve use University API in SQL mode; Firestore behavior remains backend-guarded. Client omits server-derived identity/workflow fields. Approved-PDF transport is pending.
+- Static freeze grows 48 → 49 solely by adding `afc-workflow-sql.js`; static and API freeze checks pass at the exact candidate.
+- Root suite: 662 total / 633 passed / 29 skipped / 0 failed. Server suite: 224/224. P3B3/client/legacy focused: 29/29. Baseline suite after correction: 26/26. GitHub CI not verified (`gh` absent on target; Actions page fetch returned 404).
+- Multi-user ingress still has the tested `10.58.160.21/32` restriction; PDF artifact API is undefined. DOE source and IAM cleanup are deferred blockers.
+- No SQL/database, Firebase, Azure, firewall, IAM, service, certificate, deployment, merge, or live PAWS mutation. No PR opened.
+- Exact next action: provide Architect #5 the checkpoint and await review; keep the candidate unmerged and undeployed.
 
 ## Historical task chain
 
@@ -660,3 +692,46 @@ Current owner decision:
 - DOE SQL port
 - complete Firestore retirement
 - production hardening/hosting redesign if owner chooses it
+
+
+# Historical checkpoint — P3B4 AFC artifact specification (superseded 2026-10-04)
+
+This planning-only checkpoint is superseded by the current Tasks 1–7 implementation status at the top of this file.
+
+## P3B3 AFC frontend/API candidate
+
+Status: **CI ACCEPTED FOR EXACT HEAD / REVIEW-ONLY / NOT MERGED / NOT DEPLOYED**
+
+- Branch: `feature/p3b3-afc-frontend-api`.
+- Exact head tested: `1454934473d2e1431402f22c8b02d9584b8be4d0`.
+- GitHub Actions `Azure Beta Build` run `37214972330` (run 170): SUCCESS.
+- Existing test/freeze evidence: root 662 total / 633 passed / 29 skipped / 0 failed; server 224/224; focused 29/29; static freeze 49 paths and API freeze 27 paths, no drift.
+- Code review found rapid repeat submits may create duplicate AFC requests because there is no single-flight lock and each attempt gets a new request ID.
+- The separate owner question for the narrow P3B3 fix remains unanswered. Do not implement it until answered.
+- No PR, merge, or deployment is recorded for this checkpoint.
+
+## Cloudflare named endpoint
+
+Status: **BLOCKED_EXTERNAL_ACCOUNT_OR_DOMAIN**
+
+Read-only account inspection found an authenticated Cloudflare account, no DNS zones/domains, and no named tunnels. Do not create a tunnel or change DNS without a concrete authorized domain/zone and explicit task.
+
+## P3B4 approved AFC artifact
+
+Status: **OWNER DESIGN APPROVED / SPECIFICATION DRAFTED / OWNER SPEC REVIEW PENDING / NO IMPLEMENTATION / NOT LIVE**
+
+- Branch: `feature/p3b4-afc-approved-artifact`, based on P3B3 exact head `1454934473d2e1431402f22c8b02d9584b8be4d0`.
+- Specification: `docs/superpowers/specs/2026-10-04-p3b4-afc-approved-artifact.md`.
+- Proposed contract: immutable SQL `varbinary(max)` PDF artifact, server-rendered from SQL-authoritative approved data, authenticated and idempotent retrieval/creation, integrity metadata, no public URL.
+- No code, SQL migration, table/procedure/grant, live SQL write, Firebase/Firestore change, deployment, merge, or frontend cutover.
+- Next gate: owner reviews the saved specification. After approval, write a concrete implementation plan and obtain separate plan approval before coding.
+- P3B2 run `37205085774` and P3B3 run `37214972330` are already verified successful; do not repeat without a change.
+
+**Next action:** Commit and push the docs-only spec/checkpoint on the feature branch, present the saved spec to the owner for review, and wait before implementation planning.
+## 2026-10-04 — P3B3 duplicate-submit closure
+- Fixed the AFC SQL-mode frontend single-flight defect and added regression coverage.
+- Product commit `adb943ccadff8851ba9de47bfc6b1d226916b89b`; baseline/governance commit `c818f3937b4fca6372312c41a484ae541a7aa6ae`.
+- Exact-head Azure Beta Build run `37216988289` SUCCESS.
+- Root suite 666/637 passed/29 skipped; server 224/224; focused client+legacy 50/50; baseline/governance 27/27; static 49 and API 27 protected files, no drift.
+- No live SQL/Firebase/cloud/network/deployment changes. Branch remains unmerged and undeployed.
+- Stable Cloudflare hostname blocked by unavailable authorized DNS zone/domain. P3B4 remains design-only per owner approval.

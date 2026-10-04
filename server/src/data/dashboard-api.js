@@ -271,6 +271,21 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
       });
     },
 
+    // GET /api/v1/dashboard/doe-targets — administrator-only contract DOE data.
+    async doeTargets(token, { academicYear: year } = {}) {
+      const resolved = resolveYear(year);
+      if (resolved.error) return resolved.error;
+      return guarded(token, scope => {
+        if (!scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot read DOE target data.');
+        return repository.doeTargets({ academicYear: resolved.year })
+          .then(doeTargets => result(200, {
+            academicYear: resolved.year,
+            doeTargets,
+            count: doeTargets.length
+          }));
+      });
+    },
+
     // GET /api/v1/dashboard/afc-records — administrators only. Imported and
     // manual rows are returned one-for-one from the unified SQL view.
     async afcRecords(token, { search, reason, active, limit } = {}) {

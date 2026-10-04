@@ -6,6 +6,11 @@
    return typeof value==='string'?value.trim():'';
   }catch(_){return ''}
  }
+ if(businessBackend()==='vetmed-ops'&&window.UCVM_AFC_SQL){
+  window.UCVM_AFC=window.UCVM_AFC_SQL;
+  if(typeof addEventListener==='function')addEventListener('ucvm:afc-open',event=>window.UCVM_AFC_SQL.load(event.ucvmForce===true).catch(()=>{}));
+  return;
+ }
  if(businessBackend()!=='firestore'){
   const message='AFC request entry is being moved to the Azure SQL Beta workflow. Existing teaching and change-history views remain available.';
   let panelId='afc-panel';

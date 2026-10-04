@@ -6,20 +6,21 @@ const path=require('node:path');
 
 const root=path.resolve(__dirname,'..');
 const read=relative=>fs.readFileSync(path.join(root,relative),'utf8');
+const originConfig=require('../paws-api-origin.js');
 
-test('data client uses the reviewed ACA origin for profile and sessions',async()=>{
+test('data client uses the centralized temporary University API origin for profile and sessions',async()=>{
   const source=read('paws-data-client.js');
-  assert.match(source,/https:\/\/paws-sql-beta-api-260926\.wonderfulglacier-ff8c7a3b\.eastus2\.azurecontainerapps\.io/);
   assert.match(source,/API_ORIGIN/);
+  assert.match(source,/PAWS_API_ORIGIN_CONFIG/);
   assert.match(source,/const url=apiOrigin\+path/);
   assert.match(source,/fetchImpl\(url,buildInit\(token\)\)/);
   const client=require('../paws-data-client.js').createPawsAzureDataClient({
-    fetchImpl:async(url,options)=>{assert.match(url,/^https:\/\/paws-sql-beta-api-260926\.wonderfulglacier-ff8c7a3b\.eastus2\.azurecontainerapps\.io\/api\/v1\//);assert.equal(options.headers.Authorization,'Bearer test-token');return {ok:true,json:async()=>({profile:{role:'adfa_general'},sessions:[]})}},
+    fetchImpl:async(url,options)=>{assert.equal(new URL(url).origin,originConfig.apiOrigin);assert.match(url,/\/api\/v1\//);assert.equal(options.headers.Authorization,'Bearer test-token');return {ok:true,json:async()=>({profile:{role:'adfa_general'},sessions:[]})}},
     tokenProvider:async()=> 'test-token'
   });
   await client.currentUser();
   await client.listSessions();
-  assert.equal(client.sessionBackend(),'azure-sql');
+  assert.equal(client.sessionBackend(),'vetmed-ops');
   assert.equal(client.sessionWritesEnabled(),false);
 });
 

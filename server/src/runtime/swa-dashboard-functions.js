@@ -89,6 +89,11 @@ function createDashboardFunctions({ api }) {
         return { status: response.status, jsonBody: response.body };
       }
 
+      if (pathname === '/api/v1/dashboard/doe-targets') {
+        const response = await api.doeTargets(token, { academicYear });
+        return { status: response.status, jsonBody: response.body };
+      }
+
       if (pathname === '/api/v1/dashboard/doe-overview') {
         const response = await api.doeOverview(token, { academicYear });
         return { status: response.status, jsonBody: response.body };

@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// PAWS B3B-FC1 candidate: static and API runtimes share a proposed reviewed
-// source anchor. The prior B3B Windows Auth baseline remains historical evidence.
-const BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
+// PAWS P3B2 candidate: static and API runtimes share one reviewed immutable
+// source anchor. FC1 remains the prior static/API runtime baseline for delta proof.
+const BASELINE_COMMIT='9d15cb7cd28cdda0eb56a34ccb99777c1d488569';
+const PREVIOUS_API_BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
 const PREVIOUS_STATIC_BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
 const PREVIOUS_BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
@@ -21,7 +22,7 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the FC1 candidate dual-runtime baseline',()=>{
+test('beta identity is pinned to the P3B2 candidate dual-runtime baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -33,7 +34,7 @@ test('the promoted dual-runtime baseline exists as a Git commit and is an ancest
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the FC1 candidate frozen runtime reports zero protected drift',()=>{
+test('the P3B2 candidate frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
@@ -183,9 +184,12 @@ test('API freeze shares the promoted static baseline and has zero runtime drift'
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,21);
+  assert.equal(result.runtimeFiles.length,27);
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-doe-target-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/afc/afc-request-api.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/afc/afc-approval-api.js'));
+  assert.ok(result.runtimeFiles.includes('server/src/runtime/swa-afc-request-functions.js'));
   assert.ok(result.buildDefinitionFiles.includes('deploy/aca/Dockerfile'));
 });
 
@@ -195,48 +199,45 @@ test('API freeze imports the single static baseline constant',()=>{
   assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
 });
 
-test('P2A preserves the University API paths and adds the DOE target repository',()=>{
+test('P3B preserves the FC1 API runtime and adds only the reviewed AFC workflow files',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
-  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
+  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_API_BASELINE_COMMIT});
   const current=apiFreeze.baselineRuntimeFiles({root,baselineCommit:BASELINE_COMMIT});
-  assert.equal(previous.length,18);
-  assert.equal(current.length,21);
+  assert.equal(previous.length,21);
+  assert.equal(current.length,27);
   assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
   assert.deepEqual(current.filter(name=>!previous.includes(name)),[
-    'server/src/data/sql-doe-target-repository.js',
-    'server/src/runtime/university-api.js',
-    'server/src/runtime/university-http-server.js'
+    'server/src/afc/afc-approval-api.js',
+    'server/src/afc/afc-policy.js',
+    'server/src/afc/afc-request-api.js',
+    'server/src/data/sql-afc-approval-repository.js',
+    'server/src/data/sql-afc-request-repository.js',
+    'server/src/runtime/swa-afc-request-functions.js'
   ]);
 });
 
-test('the P2A baseline adds only the reviewed DOE foundation to the prior Windows Auth runtime',()=>{
+test('P3B changes only the reviewed shared SQL runtime mount among pre-existing FC1 API files',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
-  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
-  const accepted=[
-    'server/src/data/dashboard-api.js',
-    'server/src/data/sql-connection.js',
-    'server/src/runtime/swa-dashboard-functions.js',
-    'server/src/runtime/swa-sql-runtime.js'
-  ];
+  const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_API_BASELINE_COMMIT});
   const changed=[];
   for(const name of previous){
     const same=freeze.bytesMatch(
-      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_API_BASELINE_COMMIT,file:name}),
       freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
     );
     if(!same)changed.push(name);
   }
-  assert.deepEqual(changed,accepted);
+  assert.deepEqual(changed,['server/src/runtime/swa-sql-runtime.js']);
 });
 
-test('the Windows Auth promotion leaves swa-api and the ACA Dockerfile untouched',()=>{
+test('P3B leaves swa-api and the ACA Dockerfile untouched from FC1',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const unchanged=[...apiFreeze.API_SOURCE_ROOTS,...apiFreeze.BUILD_DEFINITION_FILES];
   for(const name of unchanged){
     assert.equal(freeze.bytesMatch(
-      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_API_BASELINE_COMMIT,file:name}),
       freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
-    ),true,`${name} must be unchanged by the promotion`);
+    ),true,`${name} must be unchanged by the P3B promotion`);
   }
 });
 

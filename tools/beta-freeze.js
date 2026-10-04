@@ -11,10 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS B3B-FC1 candidate: routes the frozen frontend data client to the UCalgary VetMed-Ops API while preserving the B3B/P2A API runtime
-// with the admin-only, read-only DOE target foundation. This proposed trust-anchor
-// promotion is for review only; it does not activate, cut over, merge, or deploy.
-const BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
+// PAWS P3B2 candidate: preserves the reviewed FC1 static frontend while promoting
+// the reviewed AFC request/approval University API runtime. This trust-anchor
+// promotion is review-only; it does not apply SQL, activate grants, merge, or deploy.
+const BASELINE_COMMIT='9d15cb7cd28cdda0eb56a34ccb99777c1d488569';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "2adafc731d3eaeec10ca08e058c1272ca2a463fb",
+  "sourceCommit": "adb943ccadff8851ba9de47bfc6b1d226916b89b",
   "siteUrl": "https://red-cliff-04871ca0f.5.azurestaticapps.net",
   "sha256": {
     "index.html": "6a978a446b6a67e3661cd06f241cac2b8df3a979da998d2883dbdd6b4381b311",
@@ -14,6 +14,6 @@
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
     "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170",
     "afc-workflow.js": "4a4229dba5b6e1f457fbc6786eb1c1305525e34130e0494f8cbeb8e715ba2e60",
-    "afc-workflow-sql.js": "0b5500e5cd4b81ed28cb8b6f20539b544433c04fe0c4c0aed1bc84f8e3bc72b9"
+    "afc-workflow-sql.js": "0eddff97c0d120e2a9a1c7d65070e266b729983abbb01eabcf6eebc4c6d5d51f"
   }
 }

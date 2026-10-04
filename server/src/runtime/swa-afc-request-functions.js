@@ -40,12 +40,12 @@ function createAfcRequestFunctions({ api }) {
       }
 
       const segments = pathname.split('/');
-      const isWithdraw = segments.length === 6
+      const isRequestAction = segments.length === 6
         && segments[1] === 'api'
         && segments[2] === 'v1'
         && segments[3] === 'afc-requests'
-        && segments[5] === 'withdraw';
-      if (isWithdraw) {
+        && ['withdraw', 'recommend', 'reject', 'approve'].includes(segments[5]);
+      if (isRequestAction) {
         if (request.method !== 'POST') {
           return {
             status: 405,
@@ -59,7 +59,17 @@ function createAfcRequestFunctions({ api }) {
         } catch (_) {
           return { status: 400, jsonBody: { error: { code: 'INVALID_REQUEST_ID', message: 'AFC request id is not a valid identifier.' } } };
         }
-        return toHttp(await api.withdraw(token, afcRequestId));
+
+        const action = segments[5];
+        if (action === 'withdraw') return toHttp(await api.withdraw(token, afcRequestId));
+
+        let payload;
+        try {
+          payload = typeof request.json === 'function' ? await request.json() : request.body;
+        } catch (_) {
+          return { status: 400, jsonBody: { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } } };
+        }
+        return toHttp(await api[action](token, afcRequestId, payload));
       }
 
       return { status: 404, jsonBody: { error: { code: 'NOT_FOUND', message: 'Route not found.' } } };

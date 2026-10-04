@@ -7,7 +7,9 @@ const { createSqlDashboardRepository } = require('../data/sql-dashboard-reposito
 const { createSqlDoeTargetRepository } = require('../data/sql-doe-target-repository');
 const { createSqlAfcWriteRepository } = require('../data/sql-afc-write-repository');
 const { createSqlAfcRequestRepository } = require('../data/sql-afc-request-repository');
+const { createSqlAfcApprovalRepository } = require('../data/sql-afc-approval-repository');
 const { createAfcRequestApi } = require('../afc/afc-request-api');
+const { createAfcApprovalApi } = require('../afc/afc-approval-api');
 const { createDataApi } = require('../data/data-api');
 const { createDashboardApi } = require('../data/dashboard-api');
 const { createSwaFunctions } = require('./swa-functions');
@@ -42,12 +44,18 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const dashboardRoutes = createDashboardFunctions({
     api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: afcWrite })
   });
+  const afcRequestApi = createAfcRequestApi({
+    verifyToken: verify,
+    findUser: users.findByUid,
+    repository: createSqlAfcRequestRepository(db)
+  });
+  const afcApprovalApi = createAfcApprovalApi({
+    verifyToken: verify,
+    findUser: users.findByUid,
+    repository: createSqlAfcApprovalRepository(db)
+  });
   const afcRequests = createAfcRequestFunctions({
-    api: createAfcRequestApi({
-      verifyToken: verify,
-      findUser: users.findByUid,
-      repository: createSqlAfcRequestRepository(db)
-    })
+    api: { ...afcRequestApi, ...afcApprovalApi }
   });
   const handler = async request => {
     const pathname = new URL(request.url).pathname;

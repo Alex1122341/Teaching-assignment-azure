@@ -1,12 +1,19 @@
-# P3B4 — APPROVED AFC ARTIFACT / IMPLEMENTATION PLAN AWAITING OWNER APPROVAL
+# P3B4 — APPROVED AFC ARTIFACT / CANDIDATE ACCEPTED BY CI
 
 **Last verified:** 2026-10-04
-**Working branch:** feature/p3b4-afc-approved-artifact
-**Starting branch SHA:** 3a4bfb8566c4e904cf013c9f2c4fefb0dc953b95
-**Latest P3B3 source:** 7eb0514976e0c09caa070dd7455266b541b1984a
-**Status:** DESIGN APPROVED / PLAN PREPARED / AWAITING SEPARATE PLAN APPROVAL / NO IMPLEMENTATION / NOT LIVE.
+**Branch:** `feature/p3b4-afc-approved-artifact`
+**Current branch head:** `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`
+**Status:** PRODUCT + GOVERNANCE + REMEDIATION COMMITS PUSHED / AZURE BETA BUILD SUCCESS / BRANCH-ONLY / NOT MERGED / NOT DEPLOYED.
 
-The implementation plan is docs/superpowers/plans/2026-10-04-p3b4-approved-afc-artifact.md. Runtime code, dependency changes, tests, and migration 011 have not been created. After owner approval, first merge the latest P3B3 branch into P3B4 without rewriting history, verify the baseline, then follow the plan in test-first order. No live SQL, Firebase, Azure, Cloudflare, deployment, merge-to-main, or frontend cutover operation is authorized.
+P3B4 product commit: `b7b9ed45bcc88ea774fb2c64bbca8c753da41393`. Original governance anchor: `7ff3b50d8bcd73b75b8e0a12005fda6371548164`; the immutable product freeze anchor remains the product commit. Remediation commits: `46b93dbf3825bd891f595dc644862ec042cc9c3b` and `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`. Remote branch tip was verified equal to the current head.
+
+Azure Beta Build run `37227596042` completed **success** for exact head `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`. Earlier failed runs remain part of the record: `37226440192` failed because CI lacked server workspace dependencies and the pushed spec omitted the SQL NVARCHAR/UTF-16LE hash contract; `37226741275` failed the UTF-16LE specification assertion. The remediation installs dependencies in root → server → swa-api order, states that SQL NVARCHAR bytes and Node `Buffer.from(sourceSnapshotJson, 'utf16le')` use the same UTF-16LE encoding, prohibits UTF-8 substitution, and adds a known-hash regression fixture.
+
+Authoritative local validation used Node `22.23.3`: root tests 679 total / 650 passed / 29 skipped / 0 failed; server tests 270/270 passed. Focused P3B4 suite passed 45/45; runtime regression group passed 38/38; workflow governance test passed 11/11. Static freeze: 49 protected paths, zero drift in repository and built artifact. API freeze: 32 runtime files plus Dockerfile and 2 repository-only package inputs, zero drift in repository and built artifact. SWA production artifact build passed and contains the route, repository, renderer, PDF template, and pinned `pdf-lib@1.17.1` runtime dependency.
+
+SQL migration 011 and rollback received static review and contract-test PASS; a local SQL Server parser was unavailable, so no SQL execution or live semantic parse was performed. Migration 011 remains branch-only and unapplied. No live SQL grants/mutation, Firebase mutation, Cloudflare change, deployment, main merge, or Remote Desktop Commander action occurred. PR: none. Server audit remains 9 findings (7 moderate, 2 high); SWA API audit remains 12 (8 moderate, 4 high); neither lists `pdf-lib@1.17.1`, so no new dependency advisory was identified.
+
+**Current breakpoint:** Candidate and CI acceptance are complete. Live AFC activation remains a separate task and must not start from this checkpoint.
 
 # P3B3 — AFC FRONTEND/API MIGRATION (IMPLEMENTED; REVIEW ONLY; NOT LIVE)
 
@@ -869,7 +876,9 @@ The next safe work is **BETA-R2 activation preview**, not more feature developme
 Only after an explicit owner-approved live activation step should profiles, principal/grants, settings or deployment be changed.
 
 
-## Current checkpoint — P3B4 approved AFC artifact specification (2026-10-04)
+## Historical checkpoint — P3B4 approved AFC artifact specification (superseded 2026-10-04)
+
+This planning-only checkpoint is superseded by the current Tasks 1–7 implementation status at the top of this file.
 
 - P3B3 branch `feature/p3b3-afc-frontend-api` exact head tested: `1454934473d2e1431402f22c8b02d9584b8be4d0`.
 - GitHub Actions `Azure Beta Build` run `37214972330` (run 170) completed SUCCESS for that exact head. It is not a merge or deployment.

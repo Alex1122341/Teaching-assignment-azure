@@ -1,13 +1,14 @@
-# P3B4 — APPROVED AFC ARTIFACT / IMPLEMENTATION PLAN AWAITING OWNER APPROVAL
+# P3B4 — APPROVED AFC ARTIFACT / CANDIDATE ACCEPTED BY CI
 
-Status: DESIGN APPROVED / PLAN PREPARED / AWAITING SEPARATE PLAN APPROVAL / NO IMPLEMENTATION / NOT LIVE.
+Status: PRODUCT + GOVERNANCE + REMEDIATION COMMITS PUSHED / AZURE BETA BUILD SUCCESS / BRANCH-ONLY / NOT MERGED / NOT DEPLOYED.
 
-- Branch: feature/p3b4-afc-approved-artifact; starting head 3a4bfb8566c4e904cf013c9f2c4fefb0dc953b95.
-- Latest P3B3 source head: 7eb0514976e0c09caa070dd7455266b541b1984a.
-- Plan: docs/superpowers/plans/2026-10-04-p3b4-approved-afc-artifact.md.
-- No runtime code, dependency update, test, migration, live database/cloud operation, merge, or deployment was performed in this planning step.
-- Next action after explicit plan approval: history-preserving merge of the latest P3B3 branch into P3B4, baseline checks, then execute the saved test-first plan.
-- Do not implement or apply migration 011 before separate plan approval. Keep the branch unmerged and undeployed.
+- Branch: `feature/p3b4-afc-approved-artifact`; exact head `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e` (remote verified equal).
+- Product commit: `b7b9ed45bcc88ea774fb2c64bbca8c753da41393`; product commit unchanged. Original governance commit: `7ff3b50d8bcd73b75b8e0a12005fda6371548164`; remediation commits: `46b93dbf3825bd891f595dc644862ec042cc9c3b` and `5caecdda95786ce24a3fcdbbb2fdda7f93dbbd7e`.
+- Azure Beta Build `37227596042` succeeded on the exact head. Failed runs `37226440192` and `37226741275` and their causes are recorded in `agent.Ai/updates/2026-10-04-p3b4-candidate-acceptance.md`.
+- Node 22.23.3 root suite: 679 total / 650 passed / 29 skipped / 0 failed. Server suite: 270/270. Focused P3B4: 45/45; runtime regression group: 38/38; workflow governance test: 11/11.
+- Static freeze: 49 protected paths, zero drift in repository and artifact. API freeze: 32 runtime files + Dockerfile + 2 repository-only package inputs, zero drift in repository and artifact. SWA production artifact build passed and package verification found the approved-artifact route, repository, renderer, PDF template, and `pdf-lib@1.17.1`.
+- SQL migrations 009–011 were not applied. Migration 011/rollback static review and contract tests passed; no local SQL Server parser was available. No live SQL/grants, Firebase, Cloudflare, deployment, main merge, or Remote Desktop Commander action. PR: none.
+- Current breakpoint: P3B4 code and CI acceptance are complete. Live AFC activation remains out of scope and requires its own controlled task.
 
 # P3B3 — AFC FRONTEND/API MIGRATION (IMPLEMENTED; REVIEW ONLY; NOT LIVE)
 
@@ -675,7 +676,9 @@ Current owner decision:
 - production hardening/hosting redesign if owner chooses it
 
 
-# Current task chain — P3B4 AFC artifact specification (2026-10-04)
+# Historical checkpoint — P3B4 AFC artifact specification (superseded 2026-10-04)
+
+This planning-only checkpoint is superseded by the current Tasks 1–7 implementation status at the top of this file.
 
 ## P3B3 AFC frontend/API candidate
 

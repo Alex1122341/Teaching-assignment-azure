@@ -1,6 +1,6 @@
 # P3B4 — Approved AFC PDF Artifact Implementation Plan
 
-**Status:** Owner-approved implementation plan; branch-only implementation in progress.
+**Status:** Owner-approved candidate implemented; local validation and Azure Beta Build accepted; branch-only, unmerged, and undeployed.
 **Specification:** docs/superpowers/specs/2026-10-04-p3b4-afc-approved-artifact.md
 **Branch:** feature/p3b4-afc-approved-artifact
 **Plan commit before P3B3 integration:** 730f01fbec0b1634267ef6d8142a99b04761392c

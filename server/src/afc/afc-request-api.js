@@ -124,7 +124,8 @@ function mapRepositoryError(caught) {
     51505: [422, 'COVERAGE_REQUIRED', 'Coverage is required because teaching assignments occur during this absence.'],
     51506: [409, 'REQUEST_CONFLICT', 'The AFC request could not be created because its identifier already exists.'],
     51507: [404, 'REQUEST_NOT_FOUND', 'A pending AFC request was not found for this requester.'],
-    51508: [409, 'INVALID_STATE', 'This AFC request can no longer be withdrawn.']
+    51508: [409, 'INVALID_STATE', 'This AFC request can no longer be withdrawn.'],
+    51509: [409, 'REPORT_TO_UNAVAILABLE', 'The assigned Reports-To account is unavailable and must be corrected before submission.']
   }[number];
   return known ? error(known[0], known[1], known[2]) : error(503, 'SQL_UNAVAILABLE', 'The AFC request service is temporarily unavailable.');
 }
@@ -157,9 +158,15 @@ function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = ra
       return error(401, 'UNAUTHENTICATED', 'Authentication required.');
     }
 
+    const uid = decoded && typeof decoded.uid === 'string' ? decoded.uid.trim() : '';
+    if (!uid || uid.length > 256) {
+      return error(401, 'UNAUTHENTICATED', 'Authentication required.');
+    }
+    decoded = { ...decoded, uid };
+
     let profile;
     try {
-      profile = await findUser(decoded.uid);
+      profile = await findUser(uid);
     } catch (_) {
       return error(503, 'SERVICE_UNAVAILABLE', 'The SQL profile service is temporarily unavailable.');
     }

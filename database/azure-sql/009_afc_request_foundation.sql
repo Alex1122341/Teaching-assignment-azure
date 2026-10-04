@@ -242,6 +242,9 @@ BEGIN
             @ReportToMatches = COUNT(*),
             @ReportToFirebaseUid = MIN(up.FirebaseUid)
         FROM paws.UserProfile AS up
+        INNER JOIN paws.Faculty AS reportToFaculty
+            ON reportToFaculty.FacultyId = up.FacultyId
+           AND reportToFaculty.Active = 1
         WHERE @ReportsToFacultyId IS NOT NULL
           AND up.FacultyId = @ReportsToFacultyId
           AND up.Active = 1
@@ -250,6 +253,8 @@ BEGIN
 
         IF @ReportToMatches > 1
             THROW 51503, 'Reports-To account mapping is ambiguous.', 1;
+        IF @ReportsToFacultyId IS NOT NULL AND @ReportToMatches = 0
+            THROW 51509, 'The assigned Reports-To Faculty has no active eligible approval account.', 1;
 
         SET @Status = CASE WHEN @ReportToMatches = 1 THEN N'pending_report_to' ELSE N'pending_admin' END;
 

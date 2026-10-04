@@ -224,3 +224,22 @@ test('SQL AFC request repository exposes only scoped list and exact stored-proce
     assert.doesNotMatch(call.sql, /\b(?:INSERT|UPDATE|DELETE|MERGE)\b/i);
   }
 });
+
+
+test('malformed Firebase verifier result fails closed before profile lookup', async () => {
+  let profileLookups = 0;
+  const api = createAfcRequestApi({
+    verifyToken: async () => ({}),
+    findUser: async () => { profileLookups++; return { active: true, baseRole: 'administrator' }; },
+    repository: { listRequests: async () => [] }
+  });
+  const response = await api.list('token');
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error.code, 'UNAUTHENTICATED');
+  assert.equal(profileLookups, 0);
+});
+
+test('non-null Reports-To Faculty with no active eligible account is not routed around to Admin', () => {
+  assert.match(migration, /IF\s+@ReportsToFacultyId\s+IS\s+NOT\s+NULL[\s\S]*?@ReportToMatches\s*=\s*0[\s\S]*?THROW\s+51509/i);
+  assert.match(migration, /ReportToFirebaseUid|ReportToAccount/i);
+});

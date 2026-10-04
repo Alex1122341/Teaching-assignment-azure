@@ -5,16 +5,16 @@
 **Branch:** `feature/p3-beta-end-to-end-cutover`
 **Base:** `feature/p3-stage-a-activation-prep` @ `45d06cfc5e528409e820fea05a7d8205317b30eb`
 **Product commit:** `6fc77fb94e0de3aa116c9c4d5743d4aec45da61c`
-**Status:** product candidate implemented; governance promotion under validation; local suites/build/freezes pass; no push/PR/merge/deployment yet.
+**Status:** product and governance commits pushed; PR #47 open; exact-head Azure Beta Build green; not merged or deployed.
 
 - P3B3/P3B4 approved feature work and the Stage A lineage were combined from the exact Stage A head.
 - A single `paws-api-origin.js` now owns the clearly marked temporary Quick Tunnel API origin; page load order, data client, protected manifest, tests, and release verification are updated.
 - Live read-only checks matched the accepted migrations/tables/procedures/counts. No migrations were repeated and no authenticated AFC rows/artifacts were created.
 - Quick Tunnel maps only to `127.0.0.1:18787`; external health/auth boundary and exact Beta SWA CORS checks passed. SQL/RDP/SMB remain private.
 - Root suite: 686 total / 657 passed / 29 skipped / 0 failed. Emulator root suite: 686/686. Server suite: 270/270. Release build, repository freeze, API freeze, static artifact freeze, and API artifact freeze passed with zero drift (50 static files / 32 API files).
-- Local Node is 24.19.0. Node 22.23.x exact-candidate proof must come from hosted Azure Beta Build.
-- Do not deploy the frontend or run the business-data lifecycle until authenticated backend E2E passes. If no authorized Firebase session exists, owner login in the prepared Beta UI is the required human handoff; never collect credentials in chat.
-- Next: complete governance+continuity commit, push non-force, open the focused PR, inspect and run CI for the exact resulting HEAD. Then request native owner login in the Beta browser and resume the authorized authenticated acceptance. Deployment remains behind backend E2E gate.
+- Local Node is 24.19.0. Hosted Azure Beta Build run `37240070237` passed on exact SHA `6a197270d7bd65f61871fe55c54476cf1c51f277` using Node 22.
+- The open Beta site shows an authorized admin-role session, but the deployed static page lacks both `paws-api-origin.js` and `afc-workflow-sql.js`. It cannot exercise the new AFC lifecycle. No credential/token was inspected.
+- Do not merge/deploy before authenticated backend E2E passes. This creates a current gate cycle because the old deployed UI has no AFC API workflow. Next: ask Architect #5/owner for a safe pre-deployment authenticated test route or other approved client. Do not bypass the E2E deployment gate.
 
 # Historical P3B4 — APPROVED AFC ARTIFACT
 

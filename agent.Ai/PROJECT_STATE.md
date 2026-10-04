@@ -1,21 +1,23 @@
-# P3 BETA END-TO-END CONNECTION — CANDIDATE READY FOR EXACT-HEAD CI
+# P3 BETA END-TO-END CONNECTION — CI ACCEPTED / LIVE E2E GATE PENDING
 
 **Last verified:** 2026-10-04 21:42 UTC
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 **Base:** `feature/p3-stage-a-activation-prep` @ `45d06cfc5e528409e820fea05a7d8205317b30eb`
 **Branch:** `feature/p3-beta-end-to-end-cutover`
 **Product commit:** `6fc77fb94e0de3aa116c9c4d5743d4aec45da61c`
-**Status:** PRODUCT IMPLEMENTED / GOVERNANCE UPDATE IN PROGRESS / LOCAL TESTS PASS / NOT PUSHED / NOT MERGED / NOT DEPLOYED.
+**Status:** PRODUCT + GOVERNANCE PUSHED / PR #47 OPEN / EXACT-HEAD AZURE BETA BUILD SUCCESS / NOT MERGED / NOT DEPLOYED.
 
 The candidate combines the accepted P3B3 SQL AFC workflow and duplicate-submit protection, P3B4 immutable approved-PDF UI/client, Firebase continuity, and a centralized temporary University API origin. The temporary origin is configured only in `paws-api-origin.js`; it targets the public HTTPS Cloudflare Quick Tunnel whose server-side origin is exactly `http://127.0.0.1:18787`. No SQL/RDP/SMB endpoint is exposed. The dashboard and faculty pages load the shared origin config before the shared client. VetMed-Ops mode remains SQL-authoritative with no Firestore AFC fallback; 401-only one-refresh/replay and binary PDF behavior are preserved.
 
 Live read-only reconciliation reconfirmed the required AFC tables/procedures, aggregate counts `AfcRecord=791`, `AfcManualRecord=0`, `AfcRequest=0`, `AfcApproval=0`, `AfcArtifact=0`; migration 009/010/011 state is accepted as applied and was not re-run. University runtime health is 200, anonymous protected routes are 401, and exact Beta SWA CORS preflight is 204. The external Quick Tunnel returned the same expected health/auth boundary responses. No authenticated Firebase session was available during this checkpoint; no AFC test request or artifact was created.
 
-Local validation on Node 24.19.0: root suite 686 total / 657 passed / 29 skipped / 0 failed; root suite under Firebase Auth/Firestore emulators 686/686 passed; server suite 270/270 passed; release build passed; static/API candidate verification and both built-artifact freeze checks passed with 50 static paths and 32 API runtime files, zero drift. Exact Node 22 validation remains delegated to the hosted Azure Beta Build workflow.
+Local validation on Node 24.19.0: root suite 686 total / 657 passed / 29 skipped / 0 failed; root suite under Firebase Auth/Firestore emulators 686/686 passed; server suite 270/270 passed; release build passed; static/API candidate verification and both built-artifact freeze checks passed with 50 static paths and 32 API runtime files, zero drift. Hosted Azure Beta Build run `37240070237` passed on exact SHA `6a197270d7bd65f61871fe55c54476cf1c51f277` using Node 22.
+
+The current public Beta page displays an authorized admin-role session, but a read-only static asset check confirms the deployed page does not contain `paws-api-origin.js` or `afc-workflow-sql.js`; it is an older frontend and cannot exercise the new AFC lifecycle. No credentials or tokens were inspected. Thus this browser session does not yet provide a safe UI path for authenticated P3 submit/approval/artifact acceptance.
 
 The active deployment workflow requires an exact successful `main` build and a narrow reviewed release path; public frontend deployment is additionally gated on authenticated University backend E2E (including AFC submit/approval/artifact integrity and idempotence). Do not deploy, merge, or perform an authenticated AFC write before the backend gate is proven. The owner must complete Firebase login in the prepared Beta browser when requested. Separate UCalgary IT hardening requests are drafted in `docs/PAWS-UCalgary-IT-Production-Hardening-Requests.md` and are not transmitted to IT.
 
-**Current breakpoint:** finish and commit the exact freeze/governance delta, push the feature branch non-force, create a focused PR, and run hosted Node 22 CI on the exact candidate. Then leave the Beta login page ready and request native owner login if no authenticated session exists. After login, continue backend acceptance; deploy only after the explicit backend E2E gate passes.
+**Current breakpoint:** PR #47 is open and exact-head CI is green. Do not merge or deploy because authenticated backend E2E has not passed. The live UI is authenticated but predates P3B3/P3B4 and lacks the candidate routes, creating a release-gate cycle: the prompt requires backend E2E before frontend deployment, while the deployed UI cannot exercise that API lifecycle. Continue only if an already-approved non-production preview route or another safe authenticated client exists; otherwise report this concrete gate to Architect #5/owner for direction. Do not bypass the backend gate.
 
 # Historical accepted checkpoint — P3B4 AFC artifact candidate
 

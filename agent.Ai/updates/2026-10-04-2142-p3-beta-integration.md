@@ -3,7 +3,7 @@
 **Date:** 2026-10-04
 **Agent/model:** Codex GPT-6
 **Repository:** `Alex1122341/Teaching-assignment-azure`
-**Task status:** PARTIAL — local candidate validated; hosted CI and authenticated acceptance pending
+**Task status:** PARTIAL — exact-head CI passed; authenticated backend acceptance remains blocked by the old deployed frontend
 
 ## 1. Goal
 
@@ -15,8 +15,8 @@ Combine accepted P3B3/P3B4 front-end work with the temporary University API ingr
 - Base SHA: `45d06cfc5e528409e820fea05a7d8205317b30eb`
 - Working branch: `feature/p3-beta-end-to-end-cutover`
 - Product commit: `6fc77fb94e0de3aa116c9c4d5743d4aec45da61c`
-- Governance commit: in progress at time of this update
-- PR: none yet
+- Governance commit: `6a197270d7bd65f61871fe55c54476cf1c51f277`
+- PR: #47 — `https://github.com/Alex1122341/Teaching-assignment-azure/pull/47` (open, not merged)
 - Live baseline: migrations 009/010/011 previously applied; read-only reconciliation matched tables, procedures, and aggregate counts; no authenticated AFC records created
 
 ## 3. Work performed
@@ -54,6 +54,7 @@ No schema, workflow, identity-matching, authorization, or data changes. No live 
 - `node tools/beta-freeze.js --artifact .azure-production/app`: passed, 50 protected files, zero drift.
 - `node tools/beta-api-freeze.js --artifact .azure-production/api`: passed, 32 runtime files, zero drift.
 - Node available locally is 24.19.0. Hosted Azure Beta Build on Node 22 must validate the exact pushed candidate; run ID not yet available.
+- Azure Beta Build run `37240070237` passed on exact SHA `6a197270d7bd65f61871fe55c54476cf1c51f277`; root/server/emulator tests, container build, static/API freezes, governance tests, and artifact upload all passed.
 - `git diff --check`: passed. Secret-pattern scan found only expected auth/token-related test files; no credential values were emitted by the scan.
 
 ## 8. Live operations
@@ -66,16 +67,17 @@ No schema, workflow, identity-matching, authorization, or data changes. No live 
 ### Explicitly NOT performed
 
 - No SQL writes, migration reruns, Firebase changes, Azure config changes, deployment, merge, or permissions changes.
+- Public Beta read-only check shows the current deployed frontend lacks the new centralized-origin and P3B3 AFC SQL assets. The page has an authorized admin-role UI session, but no credentials or tokens were inspected.
 
 ## 9. Blockers and unresolved questions
 
-- An authenticated Firebase session is required for `/me`, AFC submit/approval, and immutable artifact acceptance. No session was available in the authorized browser context; owner login must happen in the Beta UI without sharing credentials in chat.
+- Authenticated backend E2E is not proven. The live Beta session is on the old frontend, which cannot exercise AFC submit/approval/artifact endpoints.
 - Public frontend deployment remains gated on backend E2E proof; do not bypass that gate.
-- Hosted Node 22 CI and the branch/PR state remain pending.
+- A safe pre-deployment authenticated client/preview route is currently unresolved.
 
 ## 10. Exact current breakpoint
 
-Finish governance commit and push non-force, open the focused PR, run exact-head Azure Beta Build, then leave the Beta page ready for native owner login. Continue authenticated backend acceptance only after that login; deploy only after backend E2E passes.
+PR #47 is open and exact-head Azure Beta Build is green. Resolve the pre-deployment authenticated test-client gate with Architect #5/owner. Do not merge/deploy or create AFC business data until the backend E2E gate can be satisfied safely.
 
 ## 11. Things the next agent must not redo
 

@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// PAWS P3B3 candidate: static and API runtimes share one reviewed immutable
-// source anchor. P3B2 remains the prior checkpoint for exact frontend delta proof.
-const BASELINE_COMMIT='2adafc731d3eaeec10ca08e058c1272ca2a463fb';
+// PAWS P3B3 duplicate-submit fix candidate: static and API runtimes share one
+// reviewed immutable source anchor. Earlier candidates remain historical proof.
+const BASELINE_COMMIT='adb943ccadff8851ba9de47bfc6b1d226916b89b';
+const PREVIOUS_P3B3_BASELINE_COMMIT='2adafc731d3eaeec10ca08e058c1272ca2a463fb';
 const PREVIOUS_P3B2_BASELINE_COMMIT='9d15cb7cd28cdda0eb56a34ccb99777c1d488569';
 const PREVIOUS_API_BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
 const PREVIOUS_STATIC_BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
@@ -88,6 +89,17 @@ test('P3B3 preserves all P3B2 static paths and adds only the SQL AFC workflow mo
   assert.equal(current.length,49);
   assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
   assert.deepEqual(current.filter(name=>!previous.includes(name)),['afc-workflow-sql.js']);
+});
+
+test('the P3B3 duplicate-submit fix changes only afc-workflow-sql.js from its previous candidate',()=>{
+  const changed=[];
+  for(const name of manifest()){
+    if(!freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS_P3B3_BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
+    ))changed.push(name);
+  }
+  assert.deepEqual(changed,['afc-workflow-sql.js']);
 });
 
 test('P3B3 changes only the reviewed AFC frontend assets from P3B2',()=>{

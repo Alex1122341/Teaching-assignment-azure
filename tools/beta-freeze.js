@@ -11,10 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS P3B3 frontend/API candidate: preserves the P3B2 University API runtime
-// while moving AFC requests and decisions through the authenticated University API.
+// PAWS P3B3 duplicate-submit fix candidate: preserves the reviewed 49-file
+// static runtime and 27-file API runtime; only the AFC form concurrency guard changes.
 // This review-only anchor does not apply SQL, activate grants, merge, or deploy.
-const BASELINE_COMMIT='2adafc731d3eaeec10ca08e058c1272ca2a463fb';
+const BASELINE_COMMIT='adb943ccadff8851ba9de47bfc6b1d226916b89b';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

@@ -9,10 +9,9 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// PAWS Windows Auth: static and API runtimes share the accepted opt-in
-// Windows Integrated Authentication source candidate. The previous B2B-PERF
-// baseline remains immutable historical evidence.
-const BASELINE_COMMIT='b85d6420a66ddb24513d8c9fa4aa838906012074';
+// PAWS P2A branch candidate: static and API runtimes share a proposed reviewed
+// source anchor. The prior B3B Windows Auth baseline remains historical evidence.
+const BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
 const PREVIOUS_BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
 const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
 
@@ -21,7 +20,7 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the promoted dual-runtime baseline',()=>{
+test('beta identity is pinned to the P2A branch candidate dual-runtime baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -33,7 +32,7 @@ test('the promoted dual-runtime baseline exists as a Git commit and is an ancest
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the promoted frozen runtime reports zero protected drift',()=>{
+test('the P2A candidate frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
@@ -180,7 +179,8 @@ test('API freeze shares the promoted static baseline and has zero runtime drift'
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,20);
+  assert.equal(result.runtimeFiles.length,21);
+  assert.ok(result.runtimeFiles.includes('server/src/data/sql-doe-target-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));
   assert.ok(result.buildDefinitionFiles.includes('deploy/aca/Dockerfile'));
 });
@@ -191,24 +191,27 @@ test('API freeze imports the single static baseline constant',()=>{
   assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
 });
 
-test('B3B adds only the approved University HTTP host paths to the protected API runtime',()=>{
+test('P2A preserves the University API paths and adds the DOE target repository',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
   const current=apiFreeze.baselineRuntimeFiles({root,baselineCommit:BASELINE_COMMIT});
   assert.equal(previous.length,18);
-  assert.equal(current.length,20);
+  assert.equal(current.length,21);
   assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
   assert.deepEqual(current.filter(name=>!previous.includes(name)),[
+    'server/src/data/sql-doe-target-repository.js',
     'server/src/runtime/university-api.js',
     'server/src/runtime/university-http-server.js'
   ]);
 });
 
-test('the previous API baseline differs only in the Windows Auth runtime selector',()=>{
+test('the P2A baseline adds only the reviewed DOE foundation to the prior Windows Auth runtime',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const previous=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PREVIOUS_BASELINE_COMMIT});
   const accepted=[
+    'server/src/data/dashboard-api.js',
     'server/src/data/sql-connection.js',
+    'server/src/runtime/swa-dashboard-functions.js',
     'server/src/runtime/swa-sql-runtime.js'
   ];
   const changed=[];

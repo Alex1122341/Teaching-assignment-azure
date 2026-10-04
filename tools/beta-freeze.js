@@ -11,11 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS B3B: the frozen trust anchor includes the reviewed Windows Integrated
-// Authentication runtime and loopback-only University HTTP host. This governance
-// promotion advances source verification only; it does not activate the service,
-// cut over PAWS, or deploy to Azure.
-const BASELINE_COMMIT='b85d6420a66ddb24513d8c9fa4aa838906012074';
+// PAWS P2A branch candidate: extends the B3B Windows Auth/loopback API runtime
+// with the admin-only, read-only DOE target foundation. This proposed trust-anchor
+// promotion is for review only; it does not activate, cut over, merge, or deploy.
+const BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

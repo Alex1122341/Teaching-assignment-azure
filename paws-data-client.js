@@ -103,6 +103,26 @@
       return settle(retryResponse);
     }
 
+    function requestPath(id,action=''){
+      const value=String(id??'').trim();
+      if(!value)throw new Error('afcRequestId is required.');
+      return '/api/v1/afc-requests/'+encodeURIComponent(value)+(action?'/'+action:'');
+    }
+
+    function pickFields(value,allowed){
+      const input=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+      const output={};
+      for(const key of allowed){
+        if(Object.prototype.hasOwnProperty.call(input,key))output[key]=input[key];
+      }
+      return output;
+    }
+
+    async function afcRequestResult(path,options){
+      const body=await request(path,options);
+      return body.afcRequest&&typeof body.afcRequest==='object'&&!Array.isArray(body.afcRequest)?body.afcRequest:{};
+    }
+
     return Object.freeze({
       sessionBackend:()=> 'vetmed-ops',
       sessionWritesEnabled:()=> false,
@@ -183,6 +203,32 @@
           notes:input.notes===undefined||input.notes===null?'':String(input.notes)
         }});
         return body.afcRecord&&typeof body.afcRecord==='object'?body.afcRecord:{};
+      },
+      async listAfcRequests(){
+        const body=await request('/api/v1/afc-requests');
+        return Array.isArray(body.afcRequests)?body.afcRequests:[];
+      },
+      async submitAfcRequest(payload={}){
+        const body=pickFields(payload,[
+          'startDate','endDate','reason','purposeDestination','coverage','contactAddress','contactPhone',
+          'termsAccepted','termsVersion','termsSource','applicantSignature'
+        ]);
+        return afcRequestResult('/api/v1/afc-requests',{method:'POST',body});
+      },
+      async withdrawAfcRequest(afcRequestId){
+        return afcRequestResult(requestPath(afcRequestId,'withdraw'),{method:'POST'});
+      },
+      async recommendAfcRequest(afcRequestId,payload={}){
+        const body=pickFields(payload,['signature']);
+        return afcRequestResult(requestPath(afcRequestId,'recommend'),{method:'POST',body});
+      },
+      async rejectAfcRequest(afcRequestId,payload={}){
+        const body=pickFields(payload,['signature','rejectionReason']);
+        return afcRequestResult(requestPath(afcRequestId,'reject'),{method:'POST',body});
+      },
+      async approveAfcRequest(afcRequestId,payload={}){
+        const body=pickFields(payload,['signature']);
+        return afcRequestResult(requestPath(afcRequestId,'approve'),{method:'POST',body});
       }
     });
   }

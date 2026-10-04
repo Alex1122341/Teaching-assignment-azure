@@ -1,3 +1,13 @@
+# P3B4 — APPROVED AFC ARTIFACT / IMPLEMENTATION PLAN AWAITING OWNER APPROVAL
+
+**Last verified:** 2026-10-04
+**Working branch:** feature/p3b4-afc-approved-artifact
+**Starting branch SHA:** 3a4bfb8566c4e904cf013c9f2c4fefb0dc953b95
+**Latest P3B3 source:** 7eb0514976e0c09caa070dd7455266b541b1984a
+**Status:** DESIGN APPROVED / PLAN PREPARED / AWAITING SEPARATE PLAN APPROVAL / NO IMPLEMENTATION / NOT LIVE.
+
+The implementation plan is docs/superpowers/plans/2026-10-04-p3b4-approved-afc-artifact.md. Runtime code, dependency changes, tests, and migration 011 have not been created. After owner approval, first merge the latest P3B3 branch into P3B4 without rewriting history, verify the baseline, then follow the plan in test-first order. No live SQL, Firebase, Azure, Cloudflare, deployment, merge-to-main, or frontend cutover operation is authorized.
+
 # P3B3 — AFC FRONTEND/API MIGRATION (IMPLEMENTED; REVIEW ONLY; NOT LIVE)
 
 **Last verified:** 2026-10-04

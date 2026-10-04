@@ -1,3 +1,14 @@
+# P3B4 — APPROVED AFC ARTIFACT / IMPLEMENTATION PLAN AWAITING OWNER APPROVAL
+
+Status: DESIGN APPROVED / PLAN PREPARED / AWAITING SEPARATE PLAN APPROVAL / NO IMPLEMENTATION / NOT LIVE.
+
+- Branch: feature/p3b4-afc-approved-artifact; starting head 3a4bfb8566c4e904cf013c9f2c4fefb0dc953b95.
+- Latest P3B3 source head: 7eb0514976e0c09caa070dd7455266b541b1984a.
+- Plan: docs/superpowers/plans/2026-10-04-p3b4-approved-afc-artifact.md.
+- No runtime code, dependency update, test, migration, live database/cloud operation, merge, or deployment was performed in this planning step.
+- Next action after explicit plan approval: history-preserving merge of the latest P3B3 branch into P3B4, baseline checks, then execute the saved test-first plan.
+- Do not implement or apply migration 011 before separate plan approval. Keep the branch unmerged and undeployed.
+
 # P3B3 — AFC FRONTEND/API MIGRATION (IMPLEMENTED; REVIEW ONLY; NOT LIVE)
 
 Status: **P3B3 IMPLEMENTED / REVIEW BASELINE PROMOTED / BRANCH PUSHED / PR NOT OPENED / NOT MERGED / NOT DEPLOYED**

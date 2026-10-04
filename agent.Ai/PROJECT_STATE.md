@@ -857,3 +857,16 @@ The next safe work is **BETA-R2 activation preview**, not more feature developme
 - stop before every live mutation.
 
 Only after an explicit owner-approved live activation step should profiles, principal/grants, settings or deployment be changed.
+
+
+## Current checkpoint — P3B4 approved AFC artifact specification (2026-10-04)
+
+- P3B3 branch `feature/p3b3-afc-frontend-api` exact head tested: `1454934473d2e1431402f22c8b02d9584b8be4d0`.
+- GitHub Actions `Azure Beta Build` run `37214972330` (run 170) completed SUCCESS for that exact head. It is not a merge or deployment.
+- Existing P3B3 evidence remains: root 662 total / 633 passed / 29 skipped / 0 failed; server 224/224; focused 29/29; static freeze 49 and API freeze 27 paths, no drift.
+- Review finding: P3B3 submit lacks a single-flight lock and assigns a new request ID per attempt, so rapid repeated submission may create duplicate requests. A separate narrow-fix approval question is still pending; do not implement until answered.
+- P3B4 design approved by owner. Specification drafted at `docs/superpowers/specs/2026-10-04-p3b4-afc-approved-artifact.md` on branch `feature/p3b4-afc-approved-artifact`, based on P3B3 head above. No P3B4 code or live changes yet. Owner review of the saved specification is the next gate; a separately approved implementation plan is required before code.
+- Cloudflare account is authenticated, but read-only inspection found no DNS zone/domain and no named tunnel. Stable hostname/tunnel work is blocked on an authorized domain/zone and later explicit setup.
+- No live VetMed-Ops writes, migrations, grants, Firebase/Firestore changes, Azure/Cloudflare config, deployment, merge, or frontend cutover occurred.
+
+**Current breakpoint:** Review the written P3B4 specification with the owner. If approved, prepare a specific implementation plan and wait for its separate approval. Keep both P3B3 and P3B4 candidates unmerged and undeployed.

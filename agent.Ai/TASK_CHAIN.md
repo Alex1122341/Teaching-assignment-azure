@@ -662,3 +662,37 @@ Current owner decision:
 - DOE SQL port
 - complete Firestore retirement
 - production hardening/hosting redesign if owner chooses it
+
+
+# Current task chain — P3B4 AFC artifact specification (2026-10-04)
+
+## P3B3 AFC frontend/API candidate
+
+Status: **CI ACCEPTED FOR EXACT HEAD / REVIEW-ONLY / NOT MERGED / NOT DEPLOYED**
+
+- Branch: `feature/p3b3-afc-frontend-api`.
+- Exact head tested: `1454934473d2e1431402f22c8b02d9584b8be4d0`.
+- GitHub Actions `Azure Beta Build` run `37214972330` (run 170): SUCCESS.
+- Existing test/freeze evidence: root 662 total / 633 passed / 29 skipped / 0 failed; server 224/224; focused 29/29; static freeze 49 paths and API freeze 27 paths, no drift.
+- Code review found rapid repeat submits may create duplicate AFC requests because there is no single-flight lock and each attempt gets a new request ID.
+- The separate owner question for the narrow P3B3 fix remains unanswered. Do not implement it until answered.
+- No PR, merge, or deployment is recorded for this checkpoint.
+
+## Cloudflare named endpoint
+
+Status: **BLOCKED_EXTERNAL_ACCOUNT_OR_DOMAIN**
+
+Read-only account inspection found an authenticated Cloudflare account, no DNS zones/domains, and no named tunnels. Do not create a tunnel or change DNS without a concrete authorized domain/zone and explicit task.
+
+## P3B4 approved AFC artifact
+
+Status: **OWNER DESIGN APPROVED / SPECIFICATION DRAFTED / OWNER SPEC REVIEW PENDING / NO IMPLEMENTATION / NOT LIVE**
+
+- Branch: `feature/p3b4-afc-approved-artifact`, based on P3B3 exact head `1454934473d2e1431402f22c8b02d9584b8be4d0`.
+- Specification: `docs/superpowers/specs/2026-10-04-p3b4-afc-approved-artifact.md`.
+- Proposed contract: immutable SQL `varbinary(max)` PDF artifact, server-rendered from SQL-authoritative approved data, authenticated and idempotent retrieval/creation, integrity metadata, no public URL.
+- No code, SQL migration, table/procedure/grant, live SQL write, Firebase/Firestore change, deployment, merge, or frontend cutover.
+- Next gate: owner reviews the saved specification. After approval, write a concrete implementation plan and obtain separate plan approval before coding.
+- P3B2 run `37205085774` and P3B3 run `37214972330` are already verified successful; do not repeat without a change.
+
+**Next action:** Commit and push the docs-only spec/checkpoint on the feature branch, present the saved spec to the owner for review, and wait before implementation planning.

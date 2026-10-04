@@ -50,6 +50,14 @@ test('Azure Beta Build verifies repository and artifact freezes for both runtime
   assert.match(workflow, /name: azure-beta-\$\{\{ github\.sha \}\}/);
 });
 
+test('Azure Beta Build installs the locked server dependencies before server tests', () => {
+  const workflow = read('.github/workflows/azure-beta-build.yml');
+  const serverInstall = workflow.indexOf('npm ci --prefix server');
+  const serverTests = workflow.indexOf('npm test --prefix server');
+  assert.ok(serverInstall >= 0, 'server dependencies must be installed from server/package-lock.json');
+  assert.ok(serverInstall < serverTests, 'server dependencies must be installed before server tests run');
+});
+
 test('ACR Publish consumes the tested artifact and remains publish-only', () => {
   const workflow = read('.github/workflows/azure-beta-acr-publish.yml');
   assert.match(workflow, /source_run_id:/);

@@ -33,6 +33,7 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix swa-api
       - run: npm test
+      - run: npm ci --prefix server
       - name: Run server SQL runtime authorization tests
         run: npm test --prefix server
       - run: npm run test:emulator

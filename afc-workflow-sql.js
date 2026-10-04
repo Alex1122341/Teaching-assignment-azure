@@ -37,8 +37,9 @@
     const ask=options.prompt||((message)=>root.prompt?.(message));
     const FormDataCtor=options.FormData||root.FormData||globalThis.FormData;
     const escape=options.escapeHtml||((value)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
-    let requests=[],loaded=false,busy=false,panelId='afc-panel',applicantSignature=null;
+    let requests=[],loaded=false,busy=false,panelId='afc-panel',applicantSignature=null,submitInFlight=false,submitOutcomeUnconfirmed=false;
     const panel=()=>doc?.getElementById?.(panelId)||null;
+    function syncSubmitButton(){const currentForm=doc?.getElementById?.('afc-sql-form'),button=currentForm?.querySelector?.('button[type="submit"]');if(button)button.disabled=submitInFlight||submitOutcomeUnconfirmed;}
     const profile=()=>getProfile()||{};
     const actorRole=()=>normalizeRole(roleResolver(profile().role??profile().baseRole??''));
     const user=()=>getAuth()?.currentUser||null;
@@ -106,7 +107,7 @@
     async function load(force=false){
       if((loaded&&!force)||busy)return requests;
       busy=true;const target=panel();if(target)target.innerHTML='<p class="afc-loading">Loading AFC requests…</p>';
-      try{const rows=await client().listAfcRequests();requests=Array.isArray(rows)?rows:[];loaded=true;render();return requests}
+      try{const rows=await client().listAfcRequests();requests=Array.isArray(rows)?rows:[];loaded=true;if(force&&submitOutcomeUnconfirmed)submitOutcomeUnconfirmed=false;render();return requests}
       catch(error){if(target)target.innerHTML='<p class="error">'+e(error?.message||'AFC requests could not be loaded.')+'</p>';throw error}
       finally{busy=false}
     }
@@ -192,7 +193,21 @@
       const form=doc?.getElementById?.('afc-sql-form');
       if(form){
         form.onchange=updateForm;
-        form.onsubmit=async event=>{event.preventDefault();const status=doc.getElementById('afc-sql-submit-status');if(status)status.textContent='Submitting…';try{await submit(formPayload(form));form.reset();const current=doc.getElementById('afc-sql-submit-status');if(current)current.textContent='Request submitted.'}catch(error){const current=doc.getElementById('afc-sql-submit-status');if(current)current.textContent=error?.message||'The request could not be submitted.'}};
+        syncSubmitButton();
+        form.onsubmit=async event=>{
+          event.preventDefault();
+          if(submitInFlight||submitOutcomeUnconfirmed)return;
+          submitInFlight=true;syncSubmitButton();
+          const status=doc.getElementById('afc-sql-submit-status');if(status)status.textContent='Submitting…';
+          try{
+            await submit(formPayload(form));form.reset();
+            const signatureStatus=doc.getElementById('afc-sql-signature-status');if(signatureStatus)signatureStatus.textContent='Not signed';
+            const current=doc.getElementById('afc-sql-submit-status');if(current)current.textContent='Request submitted.';
+          }catch(error){
+            if(error?.code==='OUTCOME_UNCONFIRMED')submitOutcomeUnconfirmed=true;
+            const current=doc.getElementById('afc-sql-submit-status');if(current)current.textContent=error?.message||'The request could not be submitted.';
+          }finally{submitInFlight=false;syncSubmitButton()}
+        };
         const sign=doc.getElementById('afc-sql-sign');
         if(sign)sign.onclick=async()=>{const status=doc.getElementById('afc-sql-signature-status'),activeUser=user();try{if(typeof signatureCapture!=='function')throw Error('The signature chooser did not load.');applicantSignature=await signatureCapture({name:profile().displayName||activeUser?.displayName||activeUser?.email||'',email:activeUser?.email||'',uid:uid(),title:'Sign AFC request'});if(status)status.textContent=applicantSignature?applicantSignature.mode+' signature ready · '+new Date(applicantSignature.signedAt).toLocaleString('en-CA'):'Not signed'}catch(error){if(status)status.textContent=error?.message||'Signature capture failed.'}};
       }

@@ -133,3 +133,99 @@ test('ambiguous AFC write transport failure tells the user to refresh before ret
   await assert.rejects(workflow.submit({startDate:'2026-11-02'}),error=>error.code==='OUTCOME_UNCONFIRMED'&&/Refresh the request list before trying again/.test(error.message));
   assert.equal(submissions,1);
 });
+
+
+async function submitUiHarness({submitAfcRequest,listAfcRequests}={}){
+  const values={
+    startDate:'2026-11-02',endDate:'2026-11-02',reason:'vacation',
+    purposeDestination:'',coverage:'Coverage',contactAddress:'Address',
+    contactPhone:'403',termsAccepted:'on'
+  };
+  class FakeFormData{constructor(){}get(key){return values[key]??''}}
+  const submitButton={disabled:false};
+  const form={onsubmit:null,resetCount:0,querySelector(selector){return selector==='button[type="submit"]'?submitButton:null},reset(){this.resetCount++}};
+  const panel={innerHTML:'',querySelectorAll(){return[]}};
+  const sign={onclick:null};
+  const status={textContent:''};
+  const signatureStatus={textContent:''};
+  const refresh={onclick:null};
+  const nodes={
+    'afc-panel-content':panel,
+    'afc-sql-form':form,
+    'afc-sql-sign':sign,
+    'afc-sql-submit-status':status,
+    'afc-sql-signature-status':signatureStatus,
+    'afc-sql-refresh':refresh
+  };
+  const calls={submissions:0,lists:0};
+  const dataClient={
+    async listAfcRequests(){
+      calls.lists++;
+      return listAfcRequests?listAfcRequests(calls.lists):[];
+    },
+    async submitAfcRequest(payload){
+      calls.submissions++;
+      return submitAfcRequest?submitAfcRequest(payload,calls.submissions):{afcRequestId:'created',status:'pending_report_to'};
+    }
+  };
+  const signature={mode:'typed',name:'Test User',uid:'u1',signedAt:'2026-10-04T12:00:00Z',fingerprint:'c'.repeat(64)};
+  const workflow=createSqlAfcWorkflow({
+    dataClient,document:{getElementById(id){return nodes[id]||null}},
+    auth:{currentUser:{uid:'u1',email:'test@example.org'}},
+    profile:()=>({role:'faculty',displayName:'Test User'}),
+    FormData:FakeFormData,signatureCapture:async()=>signature
+  });
+  workflow.mount({panelId:'afc-panel-content'});
+  await workflow.load(true);
+  await sign.onclick();
+  return{workflow,calls,panel,form,submitButton,status,refresh};
+}
+
+test('SQL AFC form submit is single-flight, disables submit while pending, and resets after success',async()=>{
+  let finishSubmission;
+  const pending=new Promise(resolve=>{finishSubmission=resolve});
+  const h=await submitUiHarness({submitAfcRequest:()=>pending});
+  const event={preventDefault(){}};
+  const first=h.form.onsubmit(event);
+  assert.equal(h.submitButton.disabled,true,'submit is disabled immediately');
+  const second=h.form.onsubmit(event);
+  await second;
+  assert.equal(h.calls.submissions,1,'the second pending submit does not call the API');
+  assert.equal(h.submitButton.disabled,true,'submit remains disabled until the first outcome');
+  finishSubmission({afcRequestId:'created',status:'pending_report_to'});
+  await first;
+  assert.equal(h.form.resetCount,1,'success resets the form once');
+  assert.equal(h.submitButton.disabled,false,'success releases the submit guard');
+  assert.equal(h.status.textContent,'Request submitted.');
+});
+
+test('SQL AFC form releases its guard after a definite failure and permits a manual retry',async()=>{
+  const h=await submitUiHarness({
+    submitAfcRequest:(_payload,attempt)=>{
+      if(attempt===1)throw Object.assign(Error('Invalid request'),{status:400});
+      return{afcRequestId:'created-after-retry',status:'pending_report_to'};
+    }
+  });
+  const event={preventDefault(){}};
+  await h.form.onsubmit(event);
+  assert.equal(h.calls.submissions,1,'a failed submission is not automatically replayed');
+  assert.equal(h.submitButton.disabled,false,'a definite failure restores the submit button');
+  const retry=h.form.onsubmit(event);
+  assert.equal(h.calls.submissions,2,'the user can manually retry after a definite failure');
+  await retry;
+  assert.equal(h.form.resetCount,1);
+});
+
+test('SQL AFC form keeps submit locked after an ambiguous transport outcome until a successful list refresh',async()=>{
+  const h=await submitUiHarness({
+    submitAfcRequest:()=>{throw TypeError('network unavailable')}
+  });
+  const event={preventDefault(){}};
+  await h.form.onsubmit(event);
+  assert.equal(h.calls.submissions,1,'an ambiguous failure does not trigger another POST');
+  assert.equal(h.submitButton.disabled,true,'the user must resolve the outcome by refreshing');
+  assert.match(h.status.textContent,/Refresh the request list before trying again/);
+  await h.refresh.onclick();
+  assert.equal(h.submitButton.disabled,false,'a successful refresh resolves the pending outcome');
+  assert.equal(h.calls.submissions,1);
+});

@@ -857,3 +857,14 @@ The next safe work is **BETA-R2 activation preview**, not more feature developme
 - stop before every live mutation.
 
 Only after an explicit owner-approved live activation step should profiles, principal/grants, settings or deployment be changed.
+
+
+## PAWS checkpoint — 2026-10-04 16:33 UTC
+- P3B3 AFC duplicate-submit guard is implemented and pushed on `feature/p3b3-afc-frontend-api`.
+- Product commit: `adb943ccadff8851ba9de47bfc6b1d226916b89b`; governance commit/current CI-validated HEAD: `c818f3937b4fca6372312c41a484ae541a7aa6ae`.
+- Exact-head Azure Beta Build run `37216988289` completed SUCCESS.
+- Verification: root 666 total / 637 pass / 29 skipped; server 224/224; focused P3B3/client/legacy 50/50; baseline/governance 27/27; static freeze 49 and API freeze 27 with no drift.
+- No live SQL, Firebase, Cloudflare, firewall/IIS, deployment, merge, or frontend cutover mutation.
+- Cloudflare account is authenticated, but prior dashboard inspection found no available DNS zone/domain or named tunnel; stable hostname remains blocked externally.
+- P3B4 design spec is on separate branch `feature/p3b4-afc-approved-artifact` at `3a4bfb8566c4e904cf013c9f2c4fefb0dc953b95`; owner approved specification/planning only. No implementation/live SQL work.
+- Pre-existing untracked P3B3 scratch folder remains uncommitted.

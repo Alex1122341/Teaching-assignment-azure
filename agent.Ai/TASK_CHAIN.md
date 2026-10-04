@@ -662,3 +662,12 @@ Current owner decision:
 - DOE SQL port
 - complete Firestore retirement
 - production hardening/hosting redesign if owner chooses it
+
+
+## 2026-10-04 — P3B3 duplicate-submit closure
+- Fixed the AFC SQL-mode frontend single-flight defect and added regression coverage.
+- Product commit `adb943ccadff8851ba9de47bfc6b1d226916b89b`; baseline/governance commit `c818f3937b4fca6372312c41a484ae541a7aa6ae`.
+- Exact-head Azure Beta Build run `37216988289` SUCCESS.
+- Root suite 666/637 passed/29 skipped; server 224/224; focused client+legacy 50/50; baseline/governance 27/27; static 49 and API 27 protected files, no drift.
+- No live SQL/Firebase/cloud/network/deployment changes. Branch remains unmerged and undeployed.
+- Stable Cloudflare hostname blocked by unavailable authorized DNS zone/domain. P3B4 remains design-only per owner approval.

@@ -1,3 +1,22 @@
+# Current checkpoint — P0 W1C containment ready for Architect #6 review
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` @ `1dca1037f61e8dbb054cc53b119d2b73982ab810`
+**Branch:** `feature/beta-w1c-write-containment`
+**Implementation commit:** `08633276663b71d7a6fc995e9be2d20c7cba4065` (pushed; no PR)
+**Status:** W1C implementation and requested local verification complete; P0 write readiness remains PARTIAL / activation NO-GO.
+
+- AFC single, AFC batch and Session PATCH have independent fail-closed server gates; only exact lowercase `true` enables a gate. Client capabilities are false. Migration 016 is a local-only, exact-hash-guarded artifact; it was not executed.
+- Focused W1C 70/70; migration 3/3; gates 1/1; AFC single 15/15; batch 21/21; Session PATCH 10/10; authorization/authority 21/21; server 318/318. Root 771 total / 738 pass / 4 expected immutable-freeze failures / 29 skipped. No unrelated protected drift; do not weaken freeze checks.
+- Live Beta path is configured through temporary Cloudflare ingress to the University Node API and VetMed-Ops; exact main/build identity is not attested. Runtime SQL identity `UC\\sa-xinyu.zhu1` has `db_owner` and `CONTROL DATABASE`, so it is unsafe for write activation.
+- Deployed Firestore rules match repository rules by normalized SHA-256 `315f494e4692968a8dea92a29ba35aed4df412d37cd4b2ffe6539c8eb45b353a`. `settings/system_state` was absent; legacy client paths therefore remain reachable and allowed. This is a P0 SQL-authority bypass.
+- Read-only Azure/VetMed fingerprints show drift in Faculty, Session, RoleAssignment, AFC, and DOE seed; SessionAssignment matches. Target-only DOE/API objects are preserved. See `agent.Ai/updates/2026-10-05-1702-paws-w1c-write-containment.md` and `docs/superpowers/specs/2026-10-05-paws-w1c-runtime-and-firestore-audit.md`.
+
+**Next:** Architect #6 reviews the pushed branch and evidence. Do not create a PR, merge, activate writes, change permissions/rules, execute migration 016, or deploy without a new explicit instruction.
+
+---
+
 # Current checkpoint — AFC Multi Input date paste normalization in progress
 
 **Last verified:** 2026-10-05

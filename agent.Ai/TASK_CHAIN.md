@@ -1,3 +1,13 @@
+# Current task — P0 W1C containment ready for Architect #6 review
+
+- Implementation commit `08633276663b71d7a6fc995e9be2d20c7cba4065` is pushed on `feature/beta-w1c-write-containment`; no PR/deployment.
+- Independent server gates for AFC single, AFC batch, and Session PATCH are default-disabled; client capability is false. Migration 016 is local-only.
+- Focused 70/70; server 318/318; root 771 total / 738 pass / 4 expected immutable-freeze failures / 29 skipped. Four failures correspond only to W1C static/API drift; no unrelated protected drift.
+- P0 readiness remains PARTIAL / write activation NO-GO: legacy Firestore business writers remain allowed while the maintenance lock doc is absent; current University SQL identity has `db_owner` and `CONTROL DATABASE`.
+- Next: Architect #6 reviews the branch and audit. Keep no PR, merge, permission/rules change, migration apply, gate activation, or deployment until separately instructed.
+
+---
+
 # Current task — AFC Multi Input date paste normalization
 
 - Status: product commit complete; separate freeze/documentation promotion prepared; root and server suites pass; emulator suite requires CI verification.

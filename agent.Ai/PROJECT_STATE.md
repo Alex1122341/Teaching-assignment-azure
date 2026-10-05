@@ -1,4 +1,23 @@
-# Latest checkpoint — migration 015 applied; live AFC/session acceptance partial
+# Latest checkpoint — local DOE/AFC/Session candidate frozen; public Beta sign-in pending
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / start `340f599e13de98847b2e41a057be32517e79fee7`
+**Branch:** `feature/beta-doe-afc-data-completion`
+**Product head:** `36837c893a09dda88a31b12fca645ce9c0b010be` (local commit)
+**Working tree:** freeze promotion and continuity updates are local and uncommitted. No push, PR, merge, or deployment.
+
+- DOE/FTE + 33 rule references, accepted AFC source reconciliation (803 imported/active; 799/799 valid source rows represented), AFC Multi Input, and admin-only scalar Session Edit are locally implemented. Do not rerun the source import or migration 015.
+- Migration 015 is already applied and verified on VetMed-Ops. Runtime identity remains the pre-existing `UC\\sa-xinyu.zhu1` `db_owner`; no role/grant widening or redundant grant was added. Keep this as temporary Beta security debt, not target architecture.
+- The immutable static/API freeze now points to product commit `36837c893a09dda88a31b12fca645ce9c0b010be`; coverage is 52 static files and 33 API runtime files. `SETUP.md`, `AGENTS.md`, workflow evidence, baseline metadata, and tests agree. No freeze gate was relaxed.
+- Verification: freeze-focused tests 55/55; static freeze protects 52 files with zero drift; API freeze protects 33 runtime files plus build/repository inputs with zero drift; candidate verifier reports zero static/API drift; root `npm test` 764 total / 735 passed / 29 skipped / 0 failed; `git diff --check` passed (line-ending warnings only).
+- Public Beta sign-in UI is accepted. The current Codex IAB page now shows `Signed in as adfa (adfa_general)` and has loaded the timetable. `/api/v1/me` has not yet been independently recorded for this resumed session, so authenticated API acceptance remains pending. No live AFC/session test writes have been made.
+- No synthetic AFC/session rows or AuditEvents were created; no deployment, push, PR, or merge occurred. Product code is committed locally; freeze-governance promotion and continuity notes remain uncommitted.
+
+**Next:** complete the authorized read-only `/api/v1/me` check, then verify the live API supports the exact acceptance routes before any synthetic writes. Continue AFC and Session Edit acceptance only with proven canonical identities and controlled cleanup. Do not push, merge, or release while live acceptance is incomplete.
+
+---
+# Superseded checkpoint — migration 015 applied; live AFC/session acceptance partial
 
 **Last verified:** 2026-10-05
 **Repository:** `Alex1122341/Teaching-assignment-azure`

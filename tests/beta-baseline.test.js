@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // The stabilization candidate is immutable at the release freeze parent.
 // The P3 integration remains a separately named historical product anchor.
-const BASELINE_COMMIT='6cd77eb53d532b1f2279777452d45e55182b49ee';
+const BASELINE_COMMIT='36837c893a09dda88a31b12fca645ce9c0b010be';
 const P3_INTEGRATION_COMMIT='6fc77fb94e0de3aa116c9c4d5743d4aec45da61c';
 const P3B4_BASELINE_COMMIT='b7b9ed45bcc88ea774fb2c64bbca8c753da41393';
 const P3B3_BASELINE_COMMIT='adb943ccadff8851ba9de47bfc6b1d226916b89b';
@@ -172,7 +172,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,50);
+  assert.equal(protectedFiles.length,52);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------

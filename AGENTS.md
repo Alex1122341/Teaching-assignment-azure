@@ -22,9 +22,9 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 ## Frozen runtime contract
 
-- The stabilization candidate freezes both static and API files at immutable product commit `6cd77eb53d532b1f2279777452d45e55182b49ee`; the live website is changed only after exact-main CI and the manual release workflow succeed.
+- The DOE/AFC/Session feature candidate freezes both static and API files at immutable product commit `36837c893a09dda88a31b12fca645ce9c0b010be`; the live website is changed only after exact-main CI and the manual release workflow succeed.
 - The deployed Beta architecture is Firebase Authentication (identity) → temporary Cloudflare HTTPS ingress → University Node API → `ITAPPVETOPSDB01` / `VetMed-Ops`. SQL is the business-data authority; do not restore Firestore business reads or writes.
-- **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (50 entries); the API freeze currently protects 32 API runtime files plus its build definition and repository inputs.
+- **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (52 entries); the API freeze currently protects 33 API runtime files plus its build definition and repository inputs.
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.
 - `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .azure-production/app` to validate a built or downloaded artifact.
 - `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.

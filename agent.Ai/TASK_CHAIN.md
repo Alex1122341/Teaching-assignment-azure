@@ -1,20 +1,18 @@
-# Latest checkpoint — local DOE/AFC/Session candidate frozen; public Beta sign-in pending
+# Latest checkpoint — AFC batch route fix committed locally; release acceptance pending
 
 **Last verified:** 2026-10-05
 **Repository:** `Alex1122341/Teaching-assignment-azure`
-**Base:** `main` / start `340f599e13de98847b2e41a057be32517e79fee7`
-**Branch:** `feature/beta-doe-afc-data-completion`
-**Product head:** `36837c893a09dda88a31b12fca645ce9c0b010be` (local commit)
-**Working tree:** freeze promotion and continuity updates are local and uncommitted. No push, PR, merge, or deployment.
+**Base:** `main` / current deployed ancestor includes `ee225505d74165d0b9231dbaebb7a50cf981aa9a`
+**Branch:** `fix/afc-batch-function-registration`
+**Product head:** `b25150f3ddf2cf2e90c1318cf84a7eea72a352ad` (local commit)
+**Working tree:** freeze-governance promotion is locally verified and ready to commit. No push, PR, merge, or deployment yet.
 
-- DOE/FTE + 33 rule references, accepted AFC source reconciliation (803 imported/active; 799/799 valid source rows represented), AFC Multi Input, and admin-only scalar Session Edit are locally implemented. Do not rerun the source import or migration 015.
-- Migration 015 is already applied and verified on VetMed-Ops. Runtime identity remains the pre-existing `UC\\sa-xinyu.zhu1` `db_owner`; no role/grant widening or redundant grant was added. Keep this as temporary Beta security debt, not target architecture.
-- The immutable static/API freeze now points to product commit `36837c893a09dda88a31b12fca645ce9c0b010be`; coverage is 52 static files and 33 API runtime files. `SETUP.md`, `AGENTS.md`, workflow evidence, baseline metadata, and tests agree. No freeze gate was relaxed.
-- Verification: freeze-focused tests 55/55; static freeze protects 52 files with zero drift; API freeze protects 33 runtime files plus build/repository inputs with zero drift; candidate verifier reports zero static/API drift; root `npm test` 764 total / 735 passed / 29 skipped / 0 failed; `git diff --check` passed (line-ending warnings only).
-- Public Beta is unauthenticated in a fresh browser context. The actual Sign in click handler ran once and opened the login-choice modal; an email/password form is open and blank for owner sign-in. The old Chrome tab event failure remains unclassified. No credentials were entered by the agent.
-- No synthetic AFC/session rows or AuditEvents were created; no deployment, push, PR, or merge occurred. Product code is committed locally; freeze-governance promotion and continuity notes remain uncommitted.
+- The existing AFC batch runtime was missing Azure Functions registration. Commit `23ec481` registers the exact POST batch route; commit `b25150f` makes its method restriction explicit and adds regression coverage. The existing AFC single-record route is unchanged.
+- Migration 015 is already applied and verified on VetMed-Ops. Do not rerun migration 015 or the accepted AFC source import. This route fix does not modify database schema/data, SQL permissions, or roles.
+- Focused AFC/dashboard tests pass 40/40; server suite passes 309/309; root suite passes 735/735 with 29 skipped. Static freeze protects all 52 assets; API freeze protects 33 runtime files plus build/repository inputs; candidate verifier reports zero drift. No static asset changed and no freeze exception was added.
+- No synthetic AFC/session rows or AuditEvents were created. The live deployment predates this route fix and must be rechecked after exact-main release.
 
-**Next:** wait only for owner sign-in in the existing Beta form. After sign-in is confirmed, continue the previously authorized synthetic AFC and Session Edit API acceptance, verify audit/denial/no-Firestore invariants, and safely clean up only generated synthetic records. Do not push, merge, or release while live acceptance is incomplete or Architect#5 has not directed it.
+**Next:** commit the verified freeze-governance promotion, then push the feature branch and follow Architect#5’s authorized PR, exact-main CI/release and live route acceptance sequence. Keep synthetic writes gated on a verified narrow cleanup path.
 
 ---
 # Superseded checkpoint — migration 015 applied; live AFC/session acceptance partial

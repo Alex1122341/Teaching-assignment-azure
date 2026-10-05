@@ -22,7 +22,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 ## Frozen runtime contract
 
-- The DOE/AFC/Session feature candidate freezes both static and API files at immutable product commit `36837c893a09dda88a31b12fca645ce9c0b010be`; the live website is changed only after exact-main CI and the manual release workflow succeed.
+- The DOE/AFC/Session plus AFC batch-route candidate freezes both static and API files at immutable product commit `b25150f3ddf2cf2e90c1318cf84a7eea72a352ad`; the live website is changed only after exact-main CI and the manual release workflow succeed. The narrow route fix adds the missing Azure Function registration and rejects non-POST batch requests; all 52 static assets remain unchanged.
 - The deployed Beta architecture is Firebase Authentication (identity) → temporary Cloudflare HTTPS ingress → University Node API → `ITAPPVETOPSDB01` / `VetMed-Ops`. SQL is the business-data authority; do not restore Firestore business reads or writes.
 - **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (52 entries); the API freeze currently protects 33 API runtime files plus its build definition and repository inputs.
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.

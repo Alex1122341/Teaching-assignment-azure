@@ -11,10 +11,11 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS DOE/AFC/Session feature candidate. This immutable product commit anchors
-// the reviewed 52-file static manifest and 33-file API runtime. This governance
-// promotion does not apply SQL, merge, or deploy.
-const BASELINE_COMMIT='36837c893a09dda88a31b12fca645ce9c0b010be';
+// PAWS DOE/AFC/Session + AFC batch route candidate. This immutable product commit
+// anchors the reviewed 52-file static manifest and 33-file API runtime. The
+// narrow route fix changes API files only; no static asset or freeze gate is
+// relaxed by this governance promotion.
+const BASELINE_COMMIT='b25150f3ddf2cf2e90c1318cf84a7eea72a352ad';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

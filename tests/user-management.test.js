@@ -47,10 +47,11 @@ test('provisioned accounts receive a readable Change History action label',()=>{
  assert.match(read('faculty-access.js'),/account_provisioned:'Account provisioned'/);
 });
 
-test('setup guide documents reviewed profile-first provisioning without storing a shared password',()=>{
+test('setup guide distinguishes the SQL-backed Beta from legacy Firebase/Firestore setup',()=>{
  const setup=read('SETUP.md');
- assert.match(setup,/Preview changes/);
- assert.match(setup,/faculty profile/);
- assert.match(setup,/Require password change on next dashboard sign-in/);
+ assert.match(setup,/Firebase Authentication supplies identity only/);
+ assert.match(setup,/`VetMed-Ops`/);
+ assert.match(setup,/Legacy Spark \/ Firestore setup \(historical\)/);
+ assert.match(setup,/not instructions for this Azure Beta repository/);
  assert.doesNotMatch(setup,/ucvm2026/i);
 });

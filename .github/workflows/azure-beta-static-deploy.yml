@@ -330,7 +330,7 @@ jobs:
             --arg staticDeployRunId "$GITHUB_RUN_ID" \
             --arg staticDeployRunNumber "$GITHUB_RUN_NUMBER" \
             --arg siteUrl "$SWA_URL" \
-            --arg baseline "6fc77fb94e0de3aa116c9c4d5743d4aec45da61c" \
+            --arg baseline "6cd77eb53d532b1f2279777452d45e55182b49ee" \
             --arg artifactName "azure-beta-$COMMIT_SHA" \
             --arg expectedRevision "$EXPECTED_REVISION" \
             --arg observedRevision "${{ steps.postdeploy_aca.outputs.revision }}" \

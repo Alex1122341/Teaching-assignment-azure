@@ -1,4 +1,23 @@
-# P3 BETA END-TO-END CONNECTION — CI ACCEPTED / LIVE E2E GATE PENDING
+# PAWS POST-P3 STABILIZATION — REVIEW FIXES VERIFIED / RELEASE GATES PENDING
+
+**Last verified:** 2026-10-04
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` @ `783777f2dd0693cbc521ebc625817872514c2ada`
+**Branch:** `feature/beta-post-p3-stabilization`
+**Candidate commits:** implementation `a224b26d0d7d2f27410f6b94260c09233fbaccea`; navigation-continuity merge `6cd77eb53d532b1f2279777452d45e55182b49ee`; freeze promotion `2be44d8a8adc14486411e88b1aef35efac302b48`.
+**Status:** PR #48 OPEN / ORIGINAL HOSTED CI GREEN / SELF-REVIEW FOUND AND FIXED THREE SAFETY GAPS LOCALLY / FIX COMMIT AND FRESH CI PENDING / LIVE ROLLOUT AND BETA ACCEPTANCE PENDING.
+
+The stabilization work adds the narrow authenticated SQL-backed scalar session edit endpoint and audit path; leaves assignment, DOE, add, and bulk mutation controls disabled; fixes timeout-notice cleanup after successful PAWS bootstrap; adds full-academic-year ALL/GRID-READY/CHECK NEEDED list modes; and prepares a source-driven DOE target/allocation domain without inventing values. Navigation/login recovery work from the audited unique B2B branches is merged locally. The immutable candidate runtime anchor is `6cd77eb53d532b1f2279777452d45e55182b49ee`. Local self-review found and fixed: session edit dates must be within May 1–April 30 of the stored academic year; DOE Apply must reject any no-match/inactive source row; and the DOE import script must execute only on the SQL host over local shared memory rather than bypass TLS certificate validation.
+
+Live read-only audit found no deterministic data normalization safe to apply. The DOE workbook dry run had 115 rows, 0 parser validation errors, 112 UCID/name mismatches, and 3 no-match rows; the zero-conflict import gate therefore prevented data import. Live `DoePolicyVersion`, `DoeFacultyTarget`, and `DoeFacultyAllocation` remain empty; migrations 012 and 013 are present, but the candidate API runtime has not yet been activated. The database migration objects were applied during the earlier authorized phase; no DOE import or session edit has occurred.
+
+Verification after review fixes: root suite 734 total / 705 pass / 29 skip / 0 fail; server suite 283/283; focused importer/session-edit tests 9/9; PowerShell parser passed; release build and candidate verification passed; static/API repository and artifact freezes passed with 50/32 protected files and zero drift. The root test runner emits a `git show` fatal line from a negative fixture while all TAP cases pass. Docker is not installed locally; fresh hosted CI must verify the container build. The latest successful PR CI run `37253643982` covered the prior PR head `ddb4cbf4e2b33586a9ca9d57aa085f0071ec0a89`, not the uncommitted review fixes. Remote repository at audit start had 56 branches and 9 draft PRs; see `docs/PAWS-Beta-Repo-Hygiene.md` for exact classification and heads.
+
+**Current breakpoint:** PR #48 is open on remote head `ddb4cbf`; three review fixes and current continuity updates are still local. The Beta page login succeeded with the authorized ADFA General account after one network retry, but the visible Beta is still the old main release. The authorized admin test login's saved credential was rejected; no secret was read or recorded. Read-only SQL search found no synthetic sentinel session, so no real course session has been edited. The DOE source dry-run remains 0 exact active UCID+name matches, 112 name mismatches, and 3 no-match; no import was applied. Next: commit review fixes/state, push PR #48, verify fresh exact-head CI, finish the diff review record, merge with a merge commit only after gates, release via exact-main workflow, then continue authorized acceptance and repository cleanup. Do not import ambiguous DOE rows or edit a real course as a test.
+
+---
+
+# Historical checkpoint — P3 BETA END-TO-END CONNECTION — CI ACCEPTED / LIVE E2E GATE PENDING
 
 **Last verified:** 2026-10-04 21:42 UTC
 **Repository:** `Alex1122341/Teaching-assignment-azure`

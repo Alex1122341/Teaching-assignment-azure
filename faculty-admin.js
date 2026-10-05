@@ -139,6 +139,7 @@
       if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       auth = firebase.auth(); if (window.UCVMSessionGuard) window.UCVMSessionGuard.start(auth);
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {}); bindUI();
+      if(cameFromTimetable())lock('Opening Dashboard…');
       auth.onAuthStateChanged(async user => {
         if (!user) { currentUser = null; lock('You are not signed in. Return to the timetable and sign in.'); return; }
         try {
@@ -146,8 +147,8 @@
           if (!profile || profile.active !== true) { lock('This Dashboard requires an active UCVM account.'); return; }
           if (profile.mustChangePassword === true) { location.replace('password.html'); return; }
           if (isSelfServiceProfile(profile) && !profile.facultyId) { lock('Your account requires a linked faculty profile. Please contact ADFA.'); return; }
-          if (isSelfServiceProfile(profile)) { await enterSelfMode(user, profile); return; }
-          if (dashboardAdmin(profile)) { enterAdminMode(user, profile); return; }
+          if (isSelfServiceProfile(profile)) { window.UCVMSessionGuard?.clearNotice?.(); await enterSelfMode(user, profile); return; }
+          if (dashboardAdmin(profile)) { window.UCVMSessionGuard?.clearNotice?.(); enterAdminMode(user, profile); return; }
           lock('This account does not have Faculty Dashboard access.');
         } catch (error) { console.error(error); if (error?.code === 'PASSWORD_CHANGE_REQUIRED') location.replace('password.html'); else lock(dashboardAuthFailureMessage(error)); }
       });
@@ -324,8 +325,18 @@
   }
 
   function renderDoeOverview() {
-    const overview = aggregateCache.doeOverview || {}; const cards = $('doe-overview-cards'); if (cards) cards.innerHTML = [['Teaching DOE', overview.teachingDoe], ['Role / Appointment DOE', overview.roleDoe], ['Recorded DOE Total', overview.recordedDoeTotal], ['Teaching lines', overview.teachingLineCount], ['Role lines', overview.roleLineCount], ['Overrides', overview.overrideCount]].map(([label, value]) => `<div class="doe-summary-card"><div class="doe-summary-label">${esc(label)}</div><div class="doe-summary-value">${label.includes('DOE') ? formatDoe(value) : display(value)}</div></div>`).join('');
-    const body = $('doe-overview-body'); if (body) body.innerHTML = `<div class="doe-note ${overview.partial ? 'warn-box' : ''}">${overview.partial ? 'PARTIAL / NEEDS REVIEW: one or more stored DOE lines are missing.' : 'Stored DOE lines are complete for the current aggregate.'}</div><div class="recon-grid"><div class="recon-card"><div class="recon-label">Missing teaching DOE lines</div><div class="recon-value">${display(overview.teachingMissingCount)}</div></div><div class="recon-card"><div class="recon-label">Missing role DOE lines</div><div class="recon-value">${display(overview.roleMissingCount)}</div></div><div class="recon-card"><div class="recon-label">Zero overrides preserved</div><div class="recon-value">${display(overview.overrideZeroCount)}</div></div><div class="recon-card"><div class="recon-label">Negative overrides preserved</div><div class="recon-value">${display(overview.overrideNegativeCount)}</div></div></div>`; }
+    const overview = aggregateCache.doeOverview || {}; const coverage = overview.contractTargetCoverage || {}; const cards = $('doe-overview-cards');
+    if (cards) cards.innerHTML = [
+      ['Contract Teaching target coverage', `${display(coverage.teachingTargetCount)} / ${display(coverage.activeFacultyCount)}`],
+      ['Contract Teaching targets missing', coverage.missingTeachingTargetCount],
+      ['Contract target coverage', coverage.coveragePercent === null || coverage.coveragePercent === undefined ? '—' : `${Number(coverage.coveragePercent).toFixed(1)}%`],
+      ['Assigned Teaching DOE', formatDoe(overview.teachingDoe)],
+      ['Role DOE', formatDoe(overview.roleDoe)]
+    ].map(([label, value]) => `<div class="doe-summary-card"><div class="doe-summary-label">${esc(label)}</div><div class="doe-summary-value">${esc(value)}</div></div>`).join('');
+    const categories = Array.isArray(coverage.allocationCategories) ? coverage.allocationCategories : [];
+    const categoryRows = categories.map(row => `<tr><td>${esc(row.categoryCode)}</td><td>${display(row.facultyCount)}</td><td>${display(row.allocationRowCount)}</td></tr>`).join('');
+    const body = $('doe-overview-body'); if (body) body.innerHTML = `<div class="doe-note ${overview.partial ? 'warn-box' : ''}">Contract targets come from the Faculty source snapshot. Assigned Teaching DOE comes from SessionAssignment, and Role DOE comes from RoleAssignment; coverage is reported separately.</div><div class="recon-grid"><div class="recon-card"><div class="recon-label">Assigned Teaching DOE lines missing</div><div class="recon-value">${display(overview.teachingMissingCount)}</div><div>${display(overview.teachingRecordedCount)} / ${display(overview.teachingLineCount)} recorded</div></div><div class="recon-card"><div class="recon-label">Role DOE lines missing</div><div class="recon-value">${display(overview.roleMissingCount)}</div><div>${display(overview.roleRecordedCount)} / ${display(overview.roleLineCount)} recorded</div></div><div class="recon-card"><div class="recon-label">Zero overrides preserved</div><div class="recon-value">${display(overview.overrideZeroCount)}</div></div><div class="recon-card"><div class="recon-label">Negative overrides preserved</div><div class="recon-value">${display(overview.overrideNegativeCount)}</div></div></div>${categoryRows ? `<div class="section-title">Non-Teaching Contract DOE category coverage</div><div class="table-wrap"><table class="data-table"><thead><tr><th>Category</th><th>Faculty with source</th><th>Allocation rows</th></tr></thead><tbody>${categoryRows}</tbody></table></div>` : '<div class="empty">No non-Teaching contract DOE allocations are recorded for this academic year.</div>'}`;
+  }
 
   function renderApiDetail(detail) {
     const pane = $('profile-pane'); if (!pane) return; const data = detail && typeof detail === 'object' ? detail : null; const facultyRecord = data?.faculty && typeof data.faculty === 'object' ? data.faculty : null;
@@ -340,7 +351,35 @@
     const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Effective', 'Expires', 'Mapped DOE', 'Override DOE', 'Effective DOE', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, role.effectiveDate, role.expirationDate, formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.effective), role.doeOverrideReason, role.specialNotes]; })));
     const afcHtml = apiSection('Away from Campus', apiTable(['Start', 'End', 'Active', 'Reason', 'Notes', 'Source'], (Array.isArray(data.afcRecords) ? data.afcRecords : []).map(record => [record.startDate, record.endDate, record.active === false ? 'No' : 'Yes', record.reason || record.reasonCode || record.purpose, record.notes || record.legacyPurpose, record.sourceKind || 'import'])));
     const scope = section('Identity / appointment metadata', field('Academic year', data.academicYear) + field('Teaching assignments', data.sessionCount) + field('Assignments needing time review', data.checkNeededCount), true);
-    pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyRecord.displayName || facultyRecord.facultyId || '')}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div></div></div><div class="profile-sections">${renderDoeSummary(doe, data.academicYear, assignments, roles)}${renderTeachingCourses(assignments)}${rolesHtml}${afcHtml}${profile ? section('Professional Profile', professional, true) : ''}${joints}${scope}${section('Identity', identity)}</div>`;
+    pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyRecord.displayName || facultyRecord.facultyId || '')}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div></div></div><div class="profile-sections">${renderContractDoe(data.contractDoe)}${renderDoeSummary(doe, data.academicYear, assignments, roles)}${renderTeachingCourses(assignments)}${rolesHtml}${afcHtml}${profile ? section('Professional Profile', professional, true) : ''}${joints}${scope}${section('Identity', identity)}</div>`;
+  }
+
+  function renderContractDoe(contractDoe) {
+    const data = contractDoe && typeof contractDoe === 'object' ? contractDoe : {};
+    const categoryLabels = {
+      scholarly_activity: 'Scholarly Activity', ppvm_cost_share: 'PPVM Cost Share',
+      clinical_unsorted: 'Clinical - To Be Sorted', clinical_teaching: 'Clinical Teaching',
+      clinical_activity_ppvm: 'Clinical Activity / PPVM', research: 'Research',
+      contract_admin: 'Contract Admin', service_admin: 'Service / Admin',
+      other: 'Other', onboarding: 'Onboarding'
+    };
+    const teaching = number(data.teachingDoe);
+    const supplied = [];
+    const rows = [`<tr><th scope="row">Teaching</th><td>${teaching === null ? 'Teaching DOE unavailable' : formatDoe(teaching)}</td></tr>`];
+    if (teaching !== null) supplied.push(teaching);
+    const allocations = Array.isArray(data.allocations) ? data.allocations : [];
+    for (const [categoryCode, label] of Object.entries(categoryLabels)) {
+      const allocation = allocations.find(item => item && item.categoryCode === categoryCode);
+      const value = allocation ? number(allocation.allocationDoe) : null;
+      if (value === null) continue;
+      supplied.push(value);
+      rows.push(`<tr><th scope="row">${esc(label)}</th><td>${formatDoe(value)}</td></tr>`);
+    }
+    const total = supplied.length ? supplied.reduce((sum, value) => sum + value, 0) : null;
+    const source = data.policyVersionLabel || data.source || 'Faculty Master List DOE snapshot';
+    const sourceLine = `Source: ${source}${data.sourceReference ? ` · ${data.sourceReference}` : ''}`;
+    const totalLine = total === null ? 'DOE unavailable' : formatDoe(total);
+    return `<section class="section wide contract-doe-allocation"><div class="section-title">Contract DOE Allocation · ${esc(data.academicYear || 'Academic year unavailable')}</div><div class="doe-profile-source">${esc(sourceLine)}</div><div class="table-wrap"><table class="data-table"><tbody>${rows.join('')}<tr class="contract-doe-total"><th scope="row">Total Contract DOE</th><td>${esc(totalLine)}</td></tr></tbody></table></div>${teaching === null ? '<div class="doe-note warn-box">Teaching contract target is unavailable; displayed total includes only supplied allocations.</div>' : ''}</section>`;
   }
 
   function doeEvidenceStatus(summary) {
@@ -382,6 +421,13 @@
   function field(label, value, full = false) { return present(value) ? `<div class="field ${full ? 'full' : ''}"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(display(value))}</div></div>` : ''; }
   function section(title, body, wide = false) { return body.trim() ? `<section class="section ${wide ? 'wide' : ''}"><div class="section-title">${esc(title)}</div><div class="field-grid">${body}</div></section>` : ''; }
   function detailFailureMessage(error) { const status = Number(error?.status) || 0, code = String(error?.code || ''); if (status === 404 || code === 'FACULTY_NOT_FOUND') return 'This faculty record was not found in the Dashboard data source.'; if (status === 401 || code === 'UNAUTHENTICATED') return 'Your Dashboard session could not be verified. Your sign-in is still active.'; if (status === 403 || ['ROLE_DENIED', 'PROFILE_REQUIRED', 'FACULTY_LINK_REQUIRED'].includes(code)) return error?.message || 'This account cannot read that faculty record.'; if (status === 503 || code === 'SQL_UNAVAILABLE' || status === 0) return 'Faculty data is temporarily unavailable. Your sign-in is still active.'; return error?.message || 'Faculty detail could not be loaded.'; }
+  function cameFromTimetable(){
+    try{const ref=new URL(document.referrer||'',location.href);return ref.origin===location.origin&&(ref.pathname.endsWith('/')||ref.pathname.endsWith('/index.html'))}catch(_){return false}
+  }
+  function returnToTimetable(){
+    if(cameFromTimetable()&&history.length>1){history.back();return}
+    location.href='index.html';
+  }
   function dashboardAuthFailureMessage(error) { const status = Number(error?.status) || 0, code = String(error?.code || ''); if (status === 503 || code === 'SQL_UNAVAILABLE' || status === 0) return 'Faculty Dashboard is temporarily unavailable. Your sign-in is still active. Refresh this page to retry.'; if (status === 401 || code === 'UNAUTHENTICATED') return 'Your Dashboard session could not be verified. Your sign-in is still active. Refresh this page to retry.'; if (status === 403) return error?.message || 'This account does not have Faculty Dashboard access.'; return error?.message || 'Could not verify Faculty Dashboard access.'; }
   function setDashboardLoading(loading) { if (!loading) return; const status = $('sync-status'); if (status) status.textContent = 'Loading Dashboard…'; document.querySelectorAll('.kpi-value').forEach(node => { node.textContent = '…'; }); const list = $('result-list'); if (list) list.innerHTML = '<div class="empty">Loading faculty…</div>'; }
   function markDashboardUnavailable(message) { const status = $('sync-status'); if (status) status.textContent = message; document.querySelectorAll('.kpi-value').forEach(node => { node.textContent = '—'; }); const list = $('result-list'); if (list) list.innerHTML = `<div class="empty">${esc(message)}</div>`; const pane = $('profile-pane'); if (pane) pane.innerHTML = '<div class="empty">Faculty data is currently unavailable.</div>'; }
@@ -394,7 +440,7 @@
   function unlock() { $('auth-gate').classList.add('hidden'); }
   function debounce(fn, wait = 160) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; }
 
-  $('gate-back').onclick = $('back-btn').onclick = () => { location.href = 'index.html'; };
+  $('gate-back').onclick = $('back-btn').onclick = returnToTimetable;
   $('signout-btn').onclick = async () => { if (auth) await auth.signOut(); location.href = 'index.html'; };
   init();
 })();

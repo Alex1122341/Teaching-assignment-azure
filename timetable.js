@@ -12,6 +12,7 @@
   const WEEK_COUNT = 17;
   const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
   const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const SQL_SESSION_EDIT_ROLES = new Set(['owner','administrator','adfa_general','adfa_regular','admin']);
 
 
   // Firebase Web configuration is public by design. This local harness uses the
@@ -171,14 +172,42 @@
     return outcome;
   }
 
+  function shouldAutoRetryAccess(outcome, attempt, sameUser) {
+    return Boolean(outcome?.recoverable && attempt === 0 && sameUser === true);
+  }
+
+  function waitForAccessRetry() {
+    return new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
+  function showSessionRestoreGate(){
+    const copy=$('gate-copy');if(copy)copy.textContent='Restoring your PAWS session…';
+    $('gate-sign-in')?.classList.add('hidden');$('gate-auth-setup')?.classList.add('hidden');
+  }
+  function showSignedOutGate(){
+    const copy=$('gate-copy');if(copy)copy.textContent='Sign in with your authorized UCVM account to continue.';
+    $('gate-sign-in')?.classList.remove('hidden');$('gate-auth-setup')?.classList.remove('hidden');
+  }
+  function prefetchDashboardShell(){
+    const assets=[['faculty-admin.html','document'],['faculty-admin.css','style'],['faculty-admin.js','script'],['dashboard-view-model.js','script']];
+    for(const [href,as] of assets){
+      if([...document.querySelectorAll('link[data-paws-prefetch]')].some(x=>x.dataset.pawsPrefetch===href))continue;
+      const link=document.createElement('link');link.rel='prefetch';link.href=href;link.as=as;link.dataset.pawsPrefetch=href;document.head.appendChild(link);
+    }
+  }
+
   function canEdit() {
     return UCVM.admin(currentUser);
+  }
+
+  function canEditExistingSqlSession() {
+    return SQL_SESSION_EDIT_ROLES.has(String(currentUser?.role||'').trim().toLowerCase());
   }
 
   function requireSessionWrites() {
     const enabled = Boolean(window.UCVM_PAWS_DATA && window.UCVM_PAWS_DATA.sessionWritesEnabled());
     if (enabled) return true;
-    const error = new Error('Azure SQL timetable writes are not enabled in Beta-R1.');
+    const error = new Error('This timetable action is not available on the current VetMed-Ops API.');
     error.code = 'SQL_SESSION_WRITES_NOT_READY';
     toast(error.message, true);
     return false;
@@ -269,10 +298,27 @@
   const sessionDateLoads = new Map();
   const pageDataSubscribers = new Set();
   let allSessionsCache = null;
+  let allSessionsOwnerUid = '';
   let allSessionsLoading = null;
+  let allSessionsLoadingUid = '';
+  let allSessionsLoadGeneration = 0;
+  function sessionsFromAllCache(rows,range){
+    if(!Array.isArray(rows))return null;
+    if(!range)return rows.slice();
+    const start=String(range.start||'').slice(0,10),end=String(range.end||'').slice(0,10);
+    if(!start||!end)return rows.slice();
+    return rows.filter(row=>row.date>=start&&row.date<=end);
+  }
   const profileSnapshots=new Map();
   function pageProfile(){return currentUser?{...currentUser.profile,name:currentUser.name,email:currentUser.email,role:currentUser.role,facultyId:currentUser.profile?.facultyId||''}:null}
   function pageSessions(){return[...sessionCache.values()]}
+  function fullSessionCacheForUser(user){
+    const uid=String(user?.uid||'');
+    return uid&&allSessionsOwnerUid===uid&&Array.isArray(allSessionsCache)?allSessionsCache:null;
+  }
+  function cachedSessionsForRange(user,range){
+    return sessionsFromAllCache(fullSessionCacheForUser(user),range);
+  }
   function publishPageData(){for(const callback of pageDataSubscribers){try{callback()}catch(error){console.error('[page data subscriber]',error)}}}
   function cacheSessionRange(range,rows){
     for(const [id,row] of sessionCache)if(row.date>=range.start&&row.date<=range.end)sessionCache.delete(id);
@@ -287,6 +333,7 @@
     const position=date?academicPositionForDate(parseYmd(date)):{semester:'',week:null};
     return {
       id:String(row?.id||''),
+      academicYear,
       date,
       year:curriculumYear,
       semester:position.semester,
@@ -297,6 +344,7 @@
       type:String(row?.sessionType||''),
       start:String(row?.startTime||'').slice(0,5),
       end:String(row?.endTime||'').slice(0,5),
+      timeUnknown:!row?.startTime||!row?.endTime,
       room:String(row?.room||''),
       instructor,
       assignments:instructor ? splitInstructorNames(instructor).map(name=>({name})) : [],
@@ -306,11 +354,13 @@
   async function fetchAzureSessions(range={}){
     if(!window.UCVM_PAWS_DATA)throw new Error('The PAWS Azure data client is unavailable.');
     const rows=await window.UCVM_PAWS_DATA.listSessions(range);
-    return rows.map(azureSessionRow).filter(row=>row.id&&row.date);
+    return rows.map(azureSessionRow).filter(row=>row.id);
   }
   async function ensureSessionsForRange(start,end){
     const range={start:String(start||'').slice(0,10),end:String(end||'').slice(0,10)};
     if(!currentUser||!range.start||!range.end||range.start>range.end)return[];
+    const cachedAll=cachedSessionsForRange(currentUser,range);
+    if(cachedAll)return cachedAll;
     const covered=sessionCacheRanges.some(item=>item.start<=range.start&&item.end>=range.end);
     if(covered)return pageSessions().filter(row=>row.date>=range.start&&row.date<=range.end);
     const key=`${range.start}:${range.end}`;
@@ -351,6 +401,8 @@
   let selectedYear = 'all';
   let selectedSemester = 'fall';
   let viewMode = 'week';
+  let listSessionMode = 'ALL';
+  let listAcademicYear = '';
   let lastFacultyTeachingView = 'day';
   let selectedDayIndex = 0;
   let selectedCourses = new Set();
@@ -494,7 +546,8 @@
     sessionUnsubscribe=()=>{cancelled=true};
     try{
       const requestRange=viewMode==='list'?{}:{start:range.start,end:ymd(addDays(parseYmd(range.end),1))};
-      const rows=await fetchAzureSessions(requestRange);
+      const cachedAll=cachedSessionsForRange(currentUser,viewMode==='list'?null:range);
+      const rows=cachedAll||await fetchAzureSessions(requestRange);
       if(cancelled)return;
       sessions=rows;
       cacheSessionRange(range,rows);
@@ -518,17 +571,39 @@
 
   function refreshSessionScope(){if(currentUser)subscribeSessions();else render()}
   async function ensureAllSessions(){
-    if(allSessionsCache)return allSessionsCache.slice();
-    if(allSessionsLoading)return allSessionsLoading;
-    allSessionsLoading=fetchAzureSessions().then(rows=>{
+    const ownerUid=String(currentUser?.uid||'');
+    if(!ownerUid)return[];
+    const cached=fullSessionCacheForUser(currentUser);
+    if(cached)return cached.slice();
+    if(allSessionsLoading&&allSessionsLoadingUid===ownerUid)return allSessionsLoading;
+    const generation=++allSessionsLoadGeneration;
+    allSessionsLoadingUid=ownerUid;
+    const load=fetchAzureSessions().then(rows=>{
+      if(generation!==allSessionsLoadGeneration||String(currentUser?.uid||'')!==ownerUid)return[];
       allSessionsCache=rows.slice();
+      allSessionsOwnerUid=ownerUid;
       for(const row of rows)sessionCache.set(row.id,row);
       publishPageData();
       return rows.slice();
-    }).finally(()=>{allSessionsLoading=null});
-    return allSessionsLoading;
+    }).finally(()=>{
+      if(generation===allSessionsLoadGeneration){allSessionsLoading=null;allSessionsLoadingUid='';}
+    });
+    allSessionsLoading=load;
+    return load;
   }
-  function invalidateAllSessions(){allSessionsCache=null;sessionCacheRanges.length=0;sessionCacheDates.clear()}
+  function scheduleAllSessionsPrefetch(user,after){
+    const ownerUid=String(user?.uid||'');
+    if(!ownerUid)return;
+    Promise.resolve(after).catch(()=>null).then(()=>{
+      if(String(currentUser?.uid||'')!==ownerUid)return[];
+      return ensureAllSessions();
+    }).catch(error=>{if(String(currentUser?.uid||'')===ownerUid)console.warn('[Azure SQL session prefetch]',error)});
+  }
+  function invalidateAllSessions(){
+    allSessionsLoadGeneration+=1;
+    allSessionsCache=null;allSessionsOwnerUid='';allSessionsLoading=null;allSessionsLoadingUid='';
+    sessionCacheRanges.length=0;sessionCacheDates.clear();
+  }
   function swapNumeric(v){ if(v===undefined||v===null||v==='') return null; const n=Number(v); return Number.isFinite(n)?n:null; }
   function swapNameKey(v){ return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' '); }
   function swapFacultyName(f){ return String(f?.preferredFullName||f?.hrFirstLast||f?.hrFullName||f?.facultySummary2026_27?.displayName||f?.__id||''); }
@@ -897,6 +972,8 @@
     $('cal-week-btn').addEventListener('click', () => switchCalendarView('week'));
     $('cal-month-btn').addEventListener('click', () => switchCalendarView('month'));
     $('cal-list-btn').addEventListener('click', () => switchCalendarView('list'));
+    $('list-academic-year').addEventListener('change',event=>{listAcademicYear=event.target.value;renderList()});
+    $('list-session-mode').addEventListener('change',event=>{listSessionMode=event.target.value;renderList()});
     $('show-ccc').addEventListener('change', async e=>{showCcc=e.target.checked;if(showCcc){try{await loadCccEvents()}catch{e.target.checked=false;showCcc=false}}populateCourseFilter();render()});
     $('color-toggle').addEventListener('click', () => { colorsOn = !colorsOn; $('color-toggle').textContent = `Colors: ${colorsOn ? 'On' : 'Off'}`; render(); });
     $('dark-toggle').addEventListener('click', () => { document.documentElement.classList.toggle('dark'); $('dark-toggle').textContent = document.documentElement.classList.contains('dark') ? 'Light' : 'Moon'; });
@@ -946,6 +1023,7 @@
     $('cal-week-btn').classList.toggle('active', viewMode === 'week');
     $('cal-month-btn').classList.toggle('active', viewMode === 'month');
     $('cal-list-btn').classList.toggle('active', viewMode === 'list');
+    $('list-global-controls').classList.toggle('hidden', viewMode !== 'list');
     $('cal-prev').disabled=viewMode==='list'; $('cal-next').disabled=viewMode==='list';
   }
 
@@ -1025,6 +1103,9 @@
   function calendarTimingDisposition(session){
     const dayStart=450, dayEnd=1020;
     const core=(typeof scheduling!=='undefined'&&scheduling)?scheduling:window.UCVM_SCHEDULING;
+    const date=String(session?.date||'');
+    const parsedDate=new Date(date+'T00:00:00Z');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(parsedDate.getTime())||parsedDate.toISOString().slice(0,10)!==date||!core.normalizeDate(date))return{timing:{status:'invalid-date'},disposition:'invalid-date',startMinutes:null,endMinutes:null};
     const timing=core.validateInterval(session.start,session.end,{timeUnknown:session.timeUnknown===true});
     if(timing.status!=='valid')return{timing,disposition:'invalid',startMinutes:null,endMinutes:null};
     if(timing.endMinutes<=dayStart)return{timing,disposition:'before',startMinutes:timing.startMinutes,endMinutes:timing.endMinutes};
@@ -1035,6 +1116,7 @@
   function isGridPositionable(session){ return calendarTimingDisposition(session).disposition==='grid'; }
 
   function unpositionedReason(session,disposition){
+    if(disposition==='invalid-date')return 'Date unknown or invalid';
     if(session.timeUnknown===true)return 'Time unknown';
     if(disposition==='invalid')return 'Invalid time interval';
     if(disposition==='before')return 'Outside calendar hours - before grid';
@@ -1152,12 +1234,25 @@
 
   function renderList(){
     if(reviewingSelection){renderSelectionEditor();return}
-    const start=ymd(new Date()),end='9999-12-31';
-    $('cal-label').textContent=`${formatLongDate(parseYmd(start))} onward`;
-    const data=filteredSessions(sessionsWithCcc(sessions,start,end),{ignorePeriod:true}).filter(s=>s.date>=start).sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.start||'').localeCompare(String(b.start||''))||String(a.course||'').localeCompare(String(b.course||'')));
+    const years=[...new Set(sessions.map(session=>String(session.academicYear||'').trim()).filter(Boolean))].sort((a,b)=>b.localeCompare(a,undefined,{numeric:true}));
+    if(!years.includes(listAcademicYear))listAcademicYear=years[0]||'';
+    const yearSelect=$('list-academic-year');
+    if(yearSelect){const options=years.map(year=>`<option value="${escapeHtml(year)}" ${year===listAcademicYear?'selected':''}>${escapeHtml(year)}</option>`).join('');if(yearSelect.innerHTML!==options)yearSelect.innerHTML=options;yearSelect.value=listAcademicYear}
+    $('list-session-mode').value=listSessionMode;
+    const yearSessions=sessions.filter(session=>String(session.academicYear||'')===listAcademicYear);
+    const classified=filteredSessions(yearSessions,{ignorePeriod:true}).map(session=>({session,check:calendarTimingDisposition(session)}));
+    const checkRows=classified.filter(row=>row.check.disposition!=='grid');
+    const gridRows=classified.filter(row=>row.check.disposition==='grid');
+    const selected=listSessionMode==='CHECK NEEDED'?checkRows:listSessionMode==='GRID-READY'?gridRows:classified;
+    const data=selected.map(row=>row.session).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.start||'').localeCompare(String(b.start||''))||String(a.course||'').localeCompare(String(b.course||''))||String(a.id||'').localeCompare(String(b.id||'')));
+    const reasonCounts=new Map();
+    for(const {session,check} of checkRows){const reason=unpositionedReason(session,check.disposition);reasonCounts.set(reason,(reasonCounts.get(reason)||0)+1)}
+    const reasonSummary=[...reasonCounts].sort((a,b)=>a[0].localeCompare(b[0])).map(([reason,count])=>`${reason}: ${count}`).join(' · ');
+    $('cal-label').textContent=`${listAcademicYear||'No academic year'} · ${selected.length} sessions`;
     renderedSessions=data;
-    const rows=data.map(s=>`<tr data-session-id="${escapeHtml(s.id)}"><td>${escapeHtml(s.date)}</td><td>${escapeHtml(s.timeUnknown?'Time TBD':`${s.start||''}-${s.end||''}`)}</td><td><strong>${escapeHtml(s.course)}</strong></td><td>${escapeHtml(s.type)}</td><td>${escapeHtml(s.topic)}</td><td>${escapeHtml(s.instructor||'TBD')}</td><td>${escapeHtml(s.room||'')}</td></tr>`).join('');
-    $('calendar-body').innerHTML=`<div class="schedule-list-wrap"><table class="schedule-list"><thead><tr><th>Date</th><th>Time</th><th>Course</th><th>Type</th><th>Topic</th><th>Faculty</th><th>Room</th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="empty-cell">No future sessions match the selected filters.</td></tr>'}</tbody></table></div>`;
+    const rows=data.map(s=>{const disposition=calendarTimingDisposition(s),reason=disposition.disposition==='grid'?'Grid ready':unpositionedReason(s,disposition.disposition);return `<tr data-session-id="${escapeHtml(s.id)}"><td>${escapeHtml(s.date||'Date unknown')}</td><td>${escapeHtml(s.timeUnknown?'Time TBD':`${s.start||''}-${s.end||''}`)}</td><td>${escapeHtml(reason)}</td><td><strong>${escapeHtml(s.course)}</strong></td><td>${escapeHtml(s.type)}</td><td>${escapeHtml(s.topic)}</td><td>${escapeHtml(s.instructor||'TBD')}</td><td>${escapeHtml(s.room||'')}</td></tr>`}).join('');
+    const partition=`<p class="list-partition-summary">${gridRows.length} grid ready · ${checkRows.length} check needed${reasonSummary?` · ${escapeHtml(reasonSummary)}`:''}</p>`;
+    $('calendar-body').innerHTML=`${partition}<div class="schedule-list-wrap"><table class="schedule-list"><thead><tr><th>Date</th><th>Time</th><th>Grid status</th><th>Course</th><th>Type</th><th>Topic</th><th>Faculty</th><th>Room</th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="empty-cell">No sessions match this academic year and filter.</td></tr>'}</tbody></table></div>`;
     bindSessionBlocks();
   }
 
@@ -1271,8 +1366,8 @@
 
   function openSessionDetail(id) {
     const s = renderedSessions.find(x => x.id === id) || sessions.find(x => x.id === id); if (!s) return;
-    const edit = !s.isCcc&&canEdit() ? `<button class="btn btn-primary" id="detail-edit">Edit Session</button>` : '';
-    const swap = !s.isCcc&&isAdmin() ? `<button class="btn btn-primary" id="detail-swap">SWAP Faculty</button>` : '';
+    const edit = !s.isCcc&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-primary" id="detail-edit">Edit Session</button>` : '';
+    const swap = !s.isCcc&&isAdmin()&&window.UCVM_PAWS_DATA?.sessionWritesEnabled?.() ? `<button class="btn btn-primary" id="detail-swap">SWAP Faculty</button>` : '';
     const labDetails = Array.isArray(s.labDetails) && s.labDetails.length > 1
       ? `<div class="login-cheatsheet"><strong>Lab stations / activities</strong><br><br>${s.labDetails.map(d => `<div style="margin-bottom:8px"><strong>${escapeHtml(d.topic)}</strong>${d.instructor ? `<br>${escapeHtml(d.instructor)}` : ''}${d.room ? `<br><span style="color:var(--text-3)">${escapeHtml(d.room)}</span>` : ''}</div>`).join('')}</div>`
       : '';
@@ -1288,7 +1383,43 @@
       <div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button><div>${swap}${edit}</div></div>`);
     $('detail-close').onclick = closeModal;
     if ($('detail-swap')) $('detail-swap').onclick = () => openSwapModal(s.id);
-    if ($('detail-edit')) $('detail-edit').onclick = () => openSessionForm(s);
+    if ($('detail-edit')) $('detail-edit').onclick = () => openSqlSessionEditForm(s);
+  }
+
+  function openSqlSessionEditForm(session) {
+    if(!canEditExistingSqlSession()||!window.UCVM_PAWS_DATA?.sessionEditEnabled?.()){toast('Administrator permission is required to edit this session.',true);return}
+    if(!session?.id||session.isCcc){toast('Only an existing VetMed-Ops session can be edited here.',true);return}
+    showModal(`<div class="modal-header"><div class="modal-title">Edit VetMed-Ops Session</div><div class="modal-subtitle">Only session fields are editable. Faculty assignments and DOE values remain unchanged.</div></div>
+      <form id="sql-session-edit-form"><div class="modal-body"><div class="form-grid">
+        ${input('sql-edit-date','Date','date',session.date)}
+        ${input('sql-edit-course','Course code','text',session.course)}
+        ${select('sql-edit-type','Session type',['LEC','LAB','SRL','Quiz/Midterm','OSCE','Exam'],session.type)}
+        ${input('sql-edit-start','Start','time',session.start,'',false)}
+        ${input('sql-edit-end','End','time',session.end,'',false)}
+        ${input('sql-edit-topic','Topic','text',session.topic,'full',false)}
+        ${input('sql-edit-room','Room','text',session.room,'',false)}
+        <div class="form-hint full">Clearing both times keeps the session unpositioned for review. One blank time is invalid. The server records an AuditEvent for every successful change.</div>
+      </div><div id="sql-session-edit-error" class="hidden"></div></div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-session-edit-cancel">Cancel</button><button class="btn btn-primary" type="submit">Save session</button></div></form>`);
+    $('sql-session-edit-cancel').onclick=closeModal;
+    $('sql-session-edit-form').onsubmit=async event=>{
+      event.preventDefault();
+      const form=new FormData(event.currentTarget),start=String(form.get('sql-edit-start')||''),end=String(form.get('sql-edit-end')||'');
+      const error=$('sql-session-edit-error'),button=event.submitter;
+      error.classList.add('hidden');
+      if(!scheduling.normalizeDate(String(form.get('sql-edit-date')||''))||Boolean(start)!==Boolean(end)||start&&scheduling.validateInterval(start,end).status!=='valid'){
+        error.textContent='Enter a valid date and either a valid start/end pair or leave both times blank.';error.classList.remove('hidden');return;
+      }
+      const patch={date:String(form.get('sql-edit-date')),courseCode:String(form.get('sql-edit-course')||'').trim(),sessionType:String(form.get('sql-edit-type')||''),startTime:start||null,endTime:end||null,topic:String(form.get('sql-edit-topic')||'').trim()||null,room:String(form.get('sql-edit-room')||'').trim()||null};
+      if(!patch.courseCode){error.textContent='Course code is required.';error.classList.remove('hidden');return}
+      button.disabled=true;button.textContent='Saving...';
+      try{
+        await window.UCVM_PAWS_DATA.patchSession(session.id,patch);
+        invalidateAllSessions();closeModal();refreshSessionScope();toast('VetMed-Ops session updated and audited.');
+      }catch(failure){
+        error.textContent=failure?.message||'The session was not saved. Review the values or contact an administrator.';error.classList.remove('hidden');button.disabled=false;button.textContent='Save session';
+      }
+    };
   }
 
   function detailField(label, value) {
@@ -1527,11 +1658,12 @@
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
       dot.classList.add('online');
       text.textContent = 'Firebase Auth + SQL Access Ready';
+      showSessionRestoreGate();
       setAppLocked(true, 'Checking saved login...');
 
       // BETA-R4D-12B2A1 — the access bootstrap is a separate unit so the same routine
       // can be rerun by the "Retry access" recovery action without re-authenticating.
-      async function bootstrapForUser(user, parts) {
+      async function bootstrapForUser(user, parts, recoveryAttempt = 0) {
         const email = String(parts?.email || user.email || '').trim().toLowerCase();
         const phone = String(parts?.phone || user.phoneNumber || '').trim();
         const provider = parts?.provider || 'firebase';
@@ -1553,6 +1685,7 @@
             setLoginProgress('', false);
             return;
           }
+          window.UCVMSessionGuard?.clearNotice?.(window.sessionStorage, window.document);
           profile.facultyId=sqlFacultyId;
           setLoginProgress('Loading your timetable...', true);
           const name = String(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
@@ -1569,29 +1702,43 @@
             provider,
             profile
           };
-          sessionCache.clear();sessionCacheRanges.length=0;sessionRangeLoads.clear();sessionCacheDates.clear();sessionDateLoads.clear();
+          invalidateAllSessions();
+          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
           publishPageData();
           viewMode = roleIsFaculty(currentUser) ? 'day' : 'week';
           setViewButtons();
           myTimetableOnly = roleIsFaculty(currentUser);
           updateAuthUI();
-          subscribeSessions();
+          const initialSessionLoad=subscribeSessions();
           unsubscribeFacultyDirectory();
           markLoginStage('T6');
           render();
           setAppLocked(false);
           markLoginStage('T7');
+          prefetchDashboardShell();
           setAccessRecovery(null);
           updateScheduleSourceUI();
           setLoginProgress('', false);
           settleInteractiveLogin(true);
           closeModal();
           toast(`Signed in as ${name} (${profile.role}).`);
+          scheduleAllSessionsPrefetch(user,initialSessionLoad);
           scheduleOptionalFacultyEnrichment(user, profile);
         } catch (err) {
           console.error('[SQL access profile]', err);
-          // Classified failure: the Firebase login is preserved. Recovery reruns this
-          // same bootstrap for the already-signed-in user; it does not re-authenticate.
+          const preliminaryOutcome=window.UCVM_AUTH_CONTINUITY.classifyAuthError(err);
+          const sameUser=Boolean(auth?.currentUser && auth.currentUser.uid===user.uid);
+          if(shouldAutoRetryAccess(preliminaryOutcome,recoveryAttempt,sameUser)){
+            text.textContent='Retrying SQL access profile...';
+            setAppLocked(true,'Still connecting to PAWS...');
+            setLoginProgress('Retrying PAWS access...',true);
+            await waitForAccessRetry();
+            const retrySameUser=Boolean(auth?.currentUser && auth.currentUser.uid===user.uid);
+            if(!retrySameUser)return;
+            return bootstrapForUser(user,{email,phone,provider,identity},recoveryAttempt+1);
+          }
+          // Terminal classified failure: preserve Firebase login and expose the existing
+          // bounded Retry access action. This does not re-authenticate or reload the page.
           const outcome=await applyAccessFailure(err, {
             setLocked: setAppLocked,
             setRecovery: setAccessRecovery,
@@ -1618,13 +1765,14 @@
           myTimetableOnly = false;
           if (sessionUnsubscribe) { try { sessionUnsubscribe(); } catch (_) {} sessionUnsubscribe = null; }
           sessionRangeKey='';
-          sessionCache.clear();sessionCacheRanges.length=0;sessionRangeLoads.clear();sessionCacheDates.clear();sessionDateLoads.clear();
-          allSessionsCache=null;
+          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
+          invalidateAllSessions();
           clearCurrentFaculty();
           unsubscribeFacultyDirectory();
           scheduleSource = 'signed-out';
           sessions = [];
           updateAuthUI();
+          showSignedOutGate();
           setAppLocked(true, 'Sign in required to view the timetable.');
           return;
         }
@@ -1927,11 +2075,12 @@
   function updateAuthUI() {
     const b = $('account-toggle');
     const showAdminTools=canEdit()||UCVM.general(currentUser)||currentUser?.role==='hicc';
+    const sessionWritesEnabled=Boolean(window.UCVM_PAWS_DATA&&window.UCVM_PAWS_DATA.sessionWritesEnabled());
     b.textContent = currentUser ? `${currentUser.name} - ${currentUser.role}` : 'Sign in';
     b.classList.toggle('is-admin', canEdit());
-    $('add-session-btn').classList.toggle('hidden', !canEdit());
-    $('selection-controls').classList.toggle('hidden', !canEdit());
-    $('bulk-add-session-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
+    $('add-session-btn').classList.toggle('hidden', !canEdit() || !sessionWritesEnabled);
+    $('selection-controls').classList.toggle('hidden', !canEdit() || !sessionWritesEnabled);
+    $('bulk-add-session-btn').classList.toggle('hidden', !UCVM.admin(currentUser) || !sessionWritesEnabled);
     $('outlook-invite-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
     $('manage-users-btn').classList.toggle('hidden', !(UCVM.general(currentUser) || currentUser?.role === 'hicc'));
     $('faculty-dashboard-btn').classList.toggle('hidden', !UCVM.canOpenFacultyDashboard(currentUser));

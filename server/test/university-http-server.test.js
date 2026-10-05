@@ -206,7 +206,7 @@ test('OPTIONS preflight permits only an exact allowlisted origin and headers', a
     }
   });
   assert.equal(allowed.status, 204);
-  assert.equal(allowed.headers['access-control-allow-methods'], 'GET, POST, OPTIONS');
+  assert.equal(allowed.headers['access-control-allow-methods'], 'GET, POST, PATCH, OPTIONS');
   assert.equal(allowed.headers['access-control-allow-headers'], 'Authorization, Content-Type');
   const denied = await get(port, '/api/v1/me', {
     method: 'OPTIONS',

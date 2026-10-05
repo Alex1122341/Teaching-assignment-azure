@@ -638,11 +638,49 @@ test('E6: facultyById assembles the six sections and honours the inactive rule',
   for (const section of ['faculty', 'professionalProfile', 'jointAppointments', 'roles', 'afcRecords', 'teachingAssignments']) {
     assert.ok(Object.prototype.hasOwnProperty.call(detail, section), section);
   }
+  assert.ok(Object.prototype.hasOwnProperty.call(detail, 'contractDoe'));
+  assert.equal(detail.contractDoe.academicYear, AY);
+  assert.equal(detail.contractDoe.teachingDoe, null);
+  assert.deepEqual(detail.contractDoe.allocations, []);
   assert.equal(detail.professionalProfile, null, 'no profile row means null');
   assert.deepEqual(detail.jointAppointments, []);
 
   const inactive = createSqlDashboardRepository({ query: async () => [] });
   assert.equal(await inactive.facultyById({ facultyId: FACULTY_ID }), null);
+});
+
+test('E7: faculty detail reads versioned contract DOE separately and binds FacultyId/year for both domains', async () => {
+  const calls = [];
+  const repository = createSqlDashboardRepository({
+    query: async (sql, params = {}) => {
+      calls.push({ sql, params });
+      if (/FROM paws\.Faculty f/.test(sql)) return [{ facultyId: FACULTY_ID, displayName: 'A', active: true }];
+      if (/FROM paws\.DoeFacultyTarget/.test(sql)) return [{
+        teachingDoe: 0, source: 'snapshot', policyVersionId: 'policy-id',
+        policyVersionLabel: 'DOE snapshot', sourceReference: 'private source reference'
+      }];
+      if (/FROM paws\.DoeFacultyAllocation/.test(sql)) return [
+        { categoryCode: 'research', allocationDoe: 45, sourceReference: 'private source reference', policyVersionId: 'policy-id' },
+        { categoryCode: 'service_admin', allocationDoe: 0, sourceReference: 'private source reference', policyVersionId: 'policy-id' }
+      ];
+      return [];
+    }
+  });
+  const detail = await repository.facultyById({ facultyId: FACULTY_ID, academicYear: AY });
+  const targetQuery = calls.find(entry => /FROM paws\.DoeFacultyTarget/.test(entry.sql));
+  const allocationQuery = calls.find(entry => /FROM paws\.DoeFacultyAllocation/.test(entry.sql));
+  for (const query of [targetQuery, allocationQuery]) {
+    assert.equal(query.params.facultyId, FACULTY_ID);
+    assert.equal(query.params.academicYear, AY);
+    assert.match(query.sql, /t?\.FacultyId\s*=\s*@facultyId|a\.FacultyId\s*=\s*@facultyId/i);
+    assert.match(query.sql, /AcademicYear\s*=\s*@academicYear/i);
+    assert.doesNotMatch(query.sql, /\b(INSERT|UPDATE|DELETE|MERGE|EXEC)\b/i);
+  }
+  assert.equal(detail.contractDoe.teachingDoe, 0, 'explicit zero remains present');
+  assert.equal(detail.contractDoe.policyVersionLabel, 'DOE snapshot');
+  assert.deepEqual(detail.contractDoe.allocations.map(row => [row.categoryCode, row.allocationDoe]), [
+    ['research', 45], ['service_admin', 0]
+  ]);
 });
 
 // ---------------------------------------------------------------------------

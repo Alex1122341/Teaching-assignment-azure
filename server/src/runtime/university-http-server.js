@@ -96,7 +96,7 @@ function createUniversityHttpServer({
       const requestedHeaders = String(incoming.headers['access-control-request-headers'] || '')
         .split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
       const allowedHeaders = new Set(['authorization', 'content-type']);
-      if (!origin || !origins.has(origin) || !['GET', 'POST'].includes(requestedMethod) ||
+      if (!origin || !origins.has(origin) || !['GET', 'POST', 'PATCH'].includes(requestedMethod) ||
           requestedHeaders.some(value => !allowedHeaders.has(value))) {
         outgoing.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8', Vary: 'Origin' });
         outgoing.end(JSON.stringify({ error: { code: 'CORS_PREFLIGHT_DENIED', message: 'Preflight request is not allowed.' } }));
@@ -104,7 +104,7 @@ function createUniversityHttpServer({
       }
       outgoing.writeHead(204, {
         ...corsHeaders,
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
         'Access-Control-Allow-Headers': 'Authorization, Content-Type',
         'Access-Control-Max-Age': '600'
       });

@@ -23,11 +23,11 @@
     <div class="auth-gate-card">
       <div class="auth-gate-brand">UCVM</div>
       <div class="auth-gate-title">2026-2027 Timetable</div>
-      <div class="auth-gate-copy">Sign in with your authorized UCVM account to continue.</div>
-      <div class="auth-gate-status"><span class="gate-dot"></span><span id="gate-status">Connecting to Firebase...</span></div>
+      <div class="auth-gate-copy" id="gate-copy">Restoring your PAWS session…</div>
+      <div class="auth-gate-status"><span class="gate-dot"></span><span id="gate-status">Checking saved session…</span></div>
       <div class="auth-gate-actions">
-        <button class="auth-gate-signin" id="gate-sign-in">Sign in</button>
-        <button class="auth-gate-setup" id="gate-auth-setup">Local Auth Setup</button>
+        <button class="auth-gate-signin hidden" id="gate-sign-in">Sign in</button>
+        <button class="auth-gate-setup hidden" id="gate-auth-setup">Local Auth Setup</button>
         <button class="auth-gate-retry hidden" id="gate-retry-access">Retry access</button>
       </div>
       <div class="auth-gate-note">Your account role determines the timetable and faculty tools you can access.</div>
@@ -153,6 +153,10 @@
             <button class="btn-cal-nav" id="cal-next">&gt;</button>
           </div>
           <div class="cal-toolbar-right">
+            <div id="list-global-controls" class="list-global-controls hidden" aria-label="Academic year session list">
+              <label>Academic year <select id="list-academic-year"></select></label>
+              <label>Show <select id="list-session-mode"><option value="ALL">All sessions</option><option value="GRID-READY">Grid ready</option><option value="CHECK NEEDED">Check needed</option></select></label>
+            </div>
             <div class="faculty-workflow-nav" aria-label="Faculty workflow">
               <button class="fbar-reset hidden" id="my-teaching-btn">My Teaching</button>
               <button class="fbar-reset hidden" id="afc-request-btn">AFC Request</button>

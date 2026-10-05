@@ -9,8 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// P3 Beta integration is active; P3B4 remains a historical product anchor.
-const BASELINE_COMMIT='6fc77fb94e0de3aa116c9c4d5743d4aec45da61c';
+// The stabilization candidate is immutable at the release freeze parent.
+// The P3 integration remains a separately named historical product anchor.
+const BASELINE_COMMIT='6cd77eb53d532b1f2279777452d45e55182b49ee';
+const P3_INTEGRATION_COMMIT='6fc77fb94e0de3aa116c9c4d5743d4aec45da61c';
 const P3B4_BASELINE_COMMIT='b7b9ed45bcc88ea774fb2c64bbca8c753da41393';
 const P3B3_BASELINE_COMMIT='adb943ccadff8851ba9de47bfc6b1d226916b89b';
 const PREVIOUS_P3B3_BASELINE_COMMIT='2adafc731d3eaeec10ca08e058c1272ca2a463fb';
@@ -25,7 +27,7 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the P3 Beta integration dual-runtime baseline',()=>{
+test('beta identity is pinned to the stabilization dual-runtime baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -37,7 +39,7 @@ test('the promoted dual-runtime baseline exists as a Git commit and is an ancest
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the P3 Beta integration product frozen runtime reports zero protected drift',()=>{
+test('the stabilization candidate frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
@@ -60,7 +62,7 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 50 current protected files are byte-identical to the immutable P3 Beta integration product blobs',()=>{
+test('all 50 current protected files are byte-identical to the immutable stabilization candidate blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
   assert.equal(protectedFiles.length,50);
   for(const name of protectedFiles){
@@ -194,7 +196,7 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
   }
 });
 
-test('beta-baseline.json remains non-authoritative and records the promoted P3 Beta product baseline',()=>{
+test('beta-baseline.json remains non-authoritative and records the stabilized Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
   assert.equal(Object.keys(baseline.sha256).length,14);
   assert.ok(baseline.sha256['afc-workflow.js']);
@@ -316,9 +318,9 @@ test('P3B4 changes only the reviewed AFC download UI and binary client among pro
   assert.deepEqual(changed,['afc-workflow-sql.js','paws-data-client.js']);
 });
 
-test('P3 Beta adds only the centralized origin asset and reviewed origin wiring to P3B4',()=>{
+test('historical P3 Beta integration added only its centralized origin asset and reviewed origin wiring to P3B4',()=>{
   const previous=baselineJson(P3B4_BASELINE_COMMIT);
-  const current=manifest();
+  const current=baselineJson(P3_INTEGRATION_COMMIT);
   assert.equal(previous.length,49);
   assert.equal(current.length,50);
   assert.deepEqual(previous.filter(name=>!current.includes(name)),[]);
@@ -327,16 +329,13 @@ test('P3 Beta adds only the centralized origin asset and reviewed origin wiring 
   for(const name of previous){
     if(!freeze.bytesMatch(
       freeze.readBaselineFile({root,baselineCommit:P3B4_BASELINE_COMMIT,file:name}),
-      fs.readFileSync(path.join(root,name))
+      freeze.readBaselineFile({root,baselineCommit:P3_INTEGRATION_COMMIT,file:name})
     ))changed.push(name);
   }
   assert.deepEqual(changed,['faculty-admin.html','index.html','paws-data-client.js']);
-  const origin=fs.readFileSync(path.join(root,'paws-api-origin.js'),'utf8');
+  const origin=freeze.readBaselineFile({root,baselineCommit:P3_INTEGRATION_COMMIT,file:'paws-api-origin.js'}).toString('utf8');
   assert.match(origin,/TEMPORARY BETA INGRESS/);
   assert.match(origin,/radar-languages-shopper-corporate\.trycloudflare\.com/);
-  const result=freeze.verifyFreeze({root});
-  assert.equal(result.ok,true);
-  assert.deepEqual(result.drift,[]);
 });
 
 test('the promoted API anchor carries the accepted request-timing allowlist',()=>{

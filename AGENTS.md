@@ -13,8 +13,8 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 ## Repository and deployment source of truth
 
 - Beta repository: `Alex1122341/Teaching-assignment-azure`.
-- This repository is the frozen Azure beta line; `main` is deployable only through the manual exact-SHA beta release workflow.
-- The application baseline is `45e0e93` (Runtime Commit I, the reviewed BETA-R4D-9H admin timetable access fix); do not merge or automatically synchronize the test repository.
+- This repository is the controlled Azure Beta line; `main` is deployable only through the manual exact-SHA beta release workflow.
+- At the 2026-10-04 stabilization start, `main` was `783777f2dd0693cbc521ebc625817872514c2ada`; do not merge or automatically synchronize the Experimental/Demo repository.
 - The beta URL is `https://red-cliff-04871ca0f.5.azurestaticapps.net`.
 - Do not commit feature work directly to `main`; use a feature branch / worktree and open a PR.
 - Build the static bundle with `node tools/build-static.js`.
@@ -22,25 +22,25 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 ## Frozen runtime contract
 
-- The Azure beta application is frozen at reviewed B0 runtime candidate commit `b3458f79a05353ce1255874754e1c6c1ec8ee683`. That immutable commit is the dual-runtime content trust anchor; it is not live until the separately gated B0D release.
-- This baseline represents the **BETA-R4D-11A2 Dashboard DOE presentation runtime** shared by the static site and the API runtime. It is the reviewed frozen runtime, but it is **NOT YET DEPLOYED** — the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
-- **All** shipped static runtime assets are protected, not just a five-file subset. The authoritative shipped-file list is `tools/static-assets.json` (46 entries; the previous 45-path set plus `dashboard-view-model.js`).
+- The stabilization candidate freezes both static and API files at immutable product commit `6cd77eb53d532b1f2279777452d45e55182b49ee`; the live website is changed only after exact-main CI and the manual release workflow succeed.
+- The deployed Beta architecture is Firebase Authentication (identity) → temporary Cloudflare HTTPS ingress → University Node API → `ITAPPVETOPSDB01` / `VetMed-Ops`. SQL is the business-data authority; do not restore Firestore business reads or writes.
+- **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (50 entries); the API freeze currently protects 32 API runtime files plus its build definition and repository inputs.
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.
 - `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .azure-production/app` to validate a built or downloaded artifact.
 - `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.
 - Normal CI fails if any shipped runtime asset drifts from the baseline. `Azure Beta Build` runs the freeze check for both the repository and the built artifact; `Azure Beta Deploy` revalidates the requested SHA and the downloaded artifact independently before any Azure upload.
 - Changing the baseline is explicit future release work: it requires updating the frozen baseline commit reference, the manifest-derived protection, and the documentation together, in a reviewed change. It is never an implicit side effect of a feature commit.
-- Task 6 (Azure authorization, deployment-token configuration and the first gated release) is separate and has NOT been completed.
+- The stabilization feature branch is not live until its pull request is merged and the exact-main release workflow passes. Never treat a candidate build as a deployment.
 
 ## Application architecture
 
 - Frontend: vanilla HTML, CSS and JavaScript.
 - Authentication: Firebase Authentication.
-- **Current deployed Beta runtime:** still uses Firestore project `tester-teaching` for existing business data until an approved Azure SQL candidate is actually deployed.
-- **Current BETA-R4D-9B candidate (PR #16):** Firebase Auth -> ACA-direct PAWS API -> Azure SQL for profile/session reads; session writes fail closed; not yet merged/deployed at the continuity baseline.
-- Azure hosting alone does not prove Azure SQL persistence.
-- DOE remains in the Experimental/Firebase demo track for now and must not block the immediate Beta database-connection work.
-- Do not weaken Firestore rules merely to make a UI feature work in the still-Firestore runtime.
+- **Current deployed Beta path:** Firebase Auth -> Cloudflare temporary ingress -> University PAWS API -> Azure SQL / `VetMed-Ops`.
+- Database identity, role checks, and faculty scope are resolved server-side; no public SQL/RDP/SMB access is supported.
+- The stabilization candidate adds only bounded scalar session edits through the authenticated API. Assignment/DOE edits and unsupported Firestore mutation controls remain disabled.
+- DOE source readiness is in scope for this stabilization, but unknown contract DOE, role DOE, identity, FTE, rank, and stream are never inferred.
+- Do not weaken Firestore rules to make a Beta UI feature work; Beta business authorization belongs in the University API and SQL.
 - Do not add Firestore fallback to a Beta read path that has been explicitly activated on Azure SQL.
 
 ## Roles

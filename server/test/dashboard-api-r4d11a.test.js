@@ -120,3 +120,33 @@ test('repository DOE overview preserves legitimate zero when no lines exist', as
   assert.equal(overview.recordedDoeTotal, 0);
   assert.equal(overview.doeStatus, 'none');
 });
+
+test('DOE overview keeps contract target coverage separate from assigned teaching and role DOE', async () => {
+  const repository = createSqlDashboardRepository({ query: async sql => {
+    if (/AS teachingLineCount/.test(sql)) return [{
+      teachingLineCount: 4970, teachingMissingCount: 91, teachingDoe: 0, teachingRecordedCount: 4879,
+      roleLineCount: 162, roleMissingCount: 78, roleDoe: 12, roleRecordedCount: 84,
+      overrideCount: 0, overrideZeroCount: 0, overrideNegativeCount: 0
+    }];
+    if (/AS activeFacultyCount/.test(sql)) return [{ activeFacultyCount: 120, teachingTargetCount: 112 }];
+    if (/FROM paws\.DoeFacultyAllocation/.test(sql)) return [
+      { categoryCode: 'research', allocationRowCount: 76, facultyCount: 76 },
+      { categoryCode: 'service_admin', allocationRowCount: 111, facultyCount: 111 }
+    ];
+    return [];
+  } });
+  const result = await repository.doeOverview({ academicYear: '2026-27' });
+  assert.deepEqual(result.contractTargetCoverage, {
+    activeFacultyCount: 120,
+    teachingTargetCount: 112,
+    missingTeachingTargetCount: 8,
+    coveragePercent: 93.33333333333333,
+    allocationCategories: [
+      { categoryCode: 'research', allocationRowCount: 76, facultyCount: 76 },
+      { categoryCode: 'service_admin', allocationRowCount: 111, facultyCount: 111 }
+    ]
+  });
+  assert.equal(result.teachingMissingCount, 91);
+  assert.equal(result.roleMissingCount, 78);
+  assert.equal(result.recordedDoeTotal, 12);
+});

@@ -51,3 +51,44 @@ test('one hour without activity is idle', () => {
   assert.equal(isIdle(1_000, 3_600_999), false);
   assert.equal(isIdle(1_000, 3_601_000), true);
 });
+
+test('successful authenticated bootstrap can clear the stored and visible timeout notice',()=>{
+  const {clearNotice}=loadGuard(),storage=memoryStorage();
+  let removed=0;
+  const notice={remove(){removed++}};
+  storage.setItem('ucvm_session_notice_v1','You were signed out after one hour without activity.');
+  const documentObject={getElementById:id=>id==='ucvm-session-guard-notice'?notice:null};
+  assert.equal(clearNotice(storage,documentObject),true);
+  assert.equal(storage.getItem('ucvm_session_notice_v1'),null);
+  assert.equal(removed,1);
+});
+
+test('page-default cleanup clears the timeout notice after authentication without dashboard storage access',()=>{
+  const storage=memoryStorage();
+  let removed=0;
+  const notice={remove(){removed++}};
+  const priorWindow=global.window;
+  global.window={sessionStorage:storage,document:{getElementById:id=>id==='ucvm-session-guard-notice'?notice:null}};
+  try {
+    delete require.cache[modulePath];
+    const guard=require(modulePath);
+    storage.setItem('ucvm_session_notice_v1','You were signed out after one hour without activity.');
+    assert.equal(guard.clearNotice(),true);
+    assert.equal(storage.getItem('ucvm_session_notice_v1'),null);
+    assert.equal(removed,1);
+  } finally {
+    delete require.cache[modulePath];
+    if(priorWindow===undefined)delete global.window;
+    else global.window=priorWindow;
+  }
+});
+
+test('successful timetable authorization clears notice only after access bootstrap succeeds',()=>{
+  const source=require('node:fs').readFileSync(require('node:path').resolve(__dirname,'..','timetable.js'),'utf8');
+  const start=source.indexOf('async function bootstrapForUser');
+  const end=source.indexOf('auth.onAuthStateChanged',start);
+  const body=source.slice(start,end);
+  const accepted=body.indexOf('if (!accessReady)');
+  const cleared=body.indexOf('UCVMSessionGuard?.clearNotice');
+  assert.ok(accepted>=0&&cleared>accepted,'timeout notice clears only after PAWS access is ready');
+});

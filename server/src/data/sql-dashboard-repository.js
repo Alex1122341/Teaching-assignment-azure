@@ -426,7 +426,7 @@ function createSqlDashboardRepository(db) {
       const record = rows[0];
       if (!record) return null;
 
-      const [profileRows, jointRows, roleRows, afcRows, assignmentRows] = await Promise.all([
+      const [profileRows, jointRows, roleRows, afcRows, assignmentRows, contractTargetRows, contractAllocationRows] = await Promise.all([
         // ---------------------------------------------------- professional profile
         db.query(
           `SELECT
@@ -535,6 +535,35 @@ function createSqlDashboardRepository(db) {
            WHERE sa.FacultyId = @facultyId
              AND c.AcademicYear = @academicYear
            ORDER BY c.SessionDate, c.StartTime, c.SessionId, sa.SessionAssignmentId`,
+          { facultyId, academicYear: resolvedYear }
+        ),
+        // Contract targets are kept separate from assigned teaching DOE and
+        // role DOE. The FacultyId and academic-year predicate is server-side.
+        db.query(
+          `SELECT t.ContractTeachingDoe AS teachingDoe,
+                  t.Source AS source,
+                  t.PolicyVersionId AS policyVersionId,
+                  p.VersionLabel AS policyVersionLabel,
+                  p.SourceReference AS sourceReference
+             FROM paws.DoeFacultyTarget t
+             LEFT JOIN paws.DoePolicyVersion p
+               ON p.PolicyVersionId = t.PolicyVersionId
+              AND p.AcademicYear = t.AcademicYear
+            WHERE t.FacultyId = @facultyId
+              AND t.AcademicYear = @academicYear
+              AND t.Active = 1`,
+          { facultyId, academicYear: resolvedYear }
+        ),
+        db.query(
+          `SELECT a.CategoryCode AS categoryCode,
+                  a.AllocationDoe AS allocationDoe,
+                  a.SourceReference AS sourceReference,
+                  a.PolicyVersionId AS policyVersionId
+             FROM paws.DoeFacultyAllocation a
+            WHERE a.FacultyId = @facultyId
+              AND a.AcademicYear = @academicYear
+              AND a.Active = 1
+            ORDER BY a.CategoryCode, a.DoeFacultyAllocationId`,
           { facultyId, academicYear: resolvedYear }
         )
       ]);
@@ -648,6 +677,19 @@ function createSqlDashboardRepository(db) {
           createdByName: toText(row.createdByName),
           recordKey: toText(row.recordKey)
         })),
+        contractDoe: {
+          academicYear: resolvedYear,
+          teachingDoe: contractTargetRows.length ? toNumber(contractTargetRows[0].teachingDoe) : null,
+          source: toText(contractTargetRows[0]?.source),
+          policyVersionId: toText(contractTargetRows[0]?.policyVersionId || contractAllocationRows[0]?.policyVersionId),
+          policyVersionLabel: toText(contractTargetRows[0]?.policyVersionLabel),
+          sourceReference: toText(contractTargetRows[0]?.sourceReference || contractAllocationRows[0]?.sourceReference),
+          allocations: contractAllocationRows.map(row => ({
+            categoryCode: toText(row.categoryCode),
+            allocationDoe: toNumber(row.allocationDoe),
+            sourceReference: toText(row.sourceReference)
+          }))
+        },
         teachingAssignments,
         sessionCount: teachingAssignments.length,
         checkNeededCount: checkNeeded
@@ -793,7 +835,7 @@ function createSqlDashboardRepository(db) {
     // ---------------------------------------------------------- DOE overview
     async doeOverview({ academicYear: year } = {}) {
       const resolvedYear = resolveAcademicYear(year);
-      const rows = await db.query(
+      const [rows, contractRows, allocationRows] = await Promise.all([db.query(
         `WITH teaching AS (
            SELECT sa.DoeCredit
              FROM paws.SessionAssignment sa
@@ -817,8 +859,32 @@ function createSqlDashboardRepository(db) {
            (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue = 0) AS overrideZeroCount,
            (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue < 0) AS overrideNegativeCount`,
         { academicYear: resolvedYear }
-      );
+      ), db.query(
+        `SELECT COUNT(f.FacultyId) AS activeFacultyCount,
+                COUNT(t.DoeFacultyTargetId) AS teachingTargetCount
+           FROM paws.Faculty f
+           LEFT JOIN paws.DoeFacultyTarget t
+             ON t.FacultyId = f.FacultyId
+            AND t.AcademicYear = @academicYear
+            AND t.Active = 1
+            AND t.ContractTeachingDoe IS NOT NULL
+          WHERE f.Active = 1`,
+        { academicYear: resolvedYear }
+      ), db.query(
+        `SELECT a.CategoryCode AS categoryCode,
+                COUNT(a.DoeFacultyAllocationId) AS allocationRowCount,
+                COUNT(DISTINCT a.FacultyId) AS facultyCount
+           FROM paws.DoeFacultyAllocation a
+          WHERE a.AcademicYear = @academicYear
+            AND a.Active = 1
+          GROUP BY a.CategoryCode
+          ORDER BY a.CategoryCode`,
+        { academicYear: resolvedYear }
+      )]);
       const row = rows[0] || {};
+      const contractCoverageRow = contractRows[0] || {};
+      const activeFacultyCount = toInt(contractCoverageRow.activeFacultyCount);
+      const teachingTargetCount = toInt(contractCoverageRow.teachingTargetCount);
       const teachingMissingCount = toInt(row.teachingMissingCount);
       const roleMissingCount = toInt(row.roleMissingCount);
       const teachingLineCount = toInt(row.teachingLineCount);
@@ -834,6 +900,17 @@ function createSqlDashboardRepository(db) {
           : (teachingDoe || 0) + (roleDoe || 0);
       return {
         academicYear: resolvedYear,
+        contractTargetCoverage: {
+          activeFacultyCount,
+          teachingTargetCount,
+          missingTeachingTargetCount: Math.max(0, activeFacultyCount - teachingTargetCount),
+          coveragePercent: activeFacultyCount ? (teachingTargetCount / activeFacultyCount) * 100 : null,
+          allocationCategories: allocationRows.map(category => ({
+            categoryCode: toText(category.categoryCode),
+            allocationRowCount: toInt(category.allocationRowCount),
+            facultyCount: toInt(category.facultyCount)
+          }))
+        },
         teachingLineCount,
         teachingRecordedCount,
         teachingMissingCount,

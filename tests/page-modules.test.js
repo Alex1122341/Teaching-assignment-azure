@@ -12,8 +12,12 @@ test('Faculty Dashboard keeps administrative tabs while supporting linked facult
   assert.match(html,/href="index\.html#approvals">AFC Requests<\/a>/);
  assert.doesNotMatch(html,/Faculty Admin Dashboard|Faculty Directory|Faculty Administration/);
  assert.match(source,/function isSelfServiceProfile\(p\)/);
-  assert.match(source,/if \(isSelfServiceProfile\(profile\)\) \{ await enterSelfMode\(user, profile\); return; \}/);
- assert.match(source,/if \(dashboardAdmin\(profile\)\) \{ enterAdminMode\(user, profile\); return; \}/);
+ assert.match(source,/if \(isSelfServiceProfile\(profile\)\) \{ window\.UCVMSessionGuard\?\.clearNotice\?\.\(\); await enterSelfMode\(user, profile\); return; \}/);
+ assert.match(source,/if \(dashboardAdmin\(profile\)\) \{ window\.UCVMSessionGuard\?\.clearNotice\?\.\(\); enterAdminMode\(user, profile\); return; \}/);
+ assert.doesNotMatch(source,/sessionStorage|localStorage/,'the dashboard delegates notice cleanup without reading storage');
+ const auth=source.slice(source.indexOf('auth.onAuthStateChanged'),source.indexOf('\n      });',source.indexOf('auth.onAuthStateChanged')));
+ assert.match(auth,/if \(isSelfServiceProfile\(profile\)\) \{ window\.UCVMSessionGuard\?\.clearNotice\?\.\(\); await enterSelfMode\(user, profile\); return; \}/,'clear only after an authorized linked faculty profile is resolved');
+ assert.match(auth,/if \(dashboardAdmin\(profile\)\) \{ window\.UCVMSessionGuard\?\.clearNotice\?\.\(\); enterAdminMode\(user, profile\); return; \}/,'clear only after an authorized admin profile is resolved');
  assert.match(source,/\$\('user-management-link'\)\??\.classList\.toggle\('hidden',\s*!dashboardGeneral\(profile\)\)/);
  const rename=enhancements.match(/ function renameDashboard\(\)\{[\s\S]*?\n \}/)?.[0];
  assert.ok(rename,'renameDashboard should remain independently executable');
@@ -34,7 +38,7 @@ test('timetable Faculty Dashboard button supports current administrators and fac
   const $=id=>{if(!elements.has(id))elements.set(id,{classList:{toggle(name,value){this[name]=value;},contains(){return true;}},addEventListener(_name,fn){this.click=fn;}});return elements.get(id);};
   const admin=p=>['adfa_general','adfa_regular','other_office'].includes(p?.role);
   const canOpenFacultyDashboard=p=>allowed.has(p?.role);
-  const context={$ ,currentUser,UCVM:{admin,general:p=>p?.role==='adfa_general',canOpenFacultyDashboard},canEdit:()=>admin(currentUser),updateScheduleSourceUI(){},roleIsFaculty:p=>p?.role==='faculty',uiSettings:{showMyTimetable:true},myTimetableOnly:false};
+  const context={$ ,currentUser,window:{UCVM_PAWS_DATA:{sessionWritesEnabled:()=>false}},UCVM:{admin,general:p=>p?.role==='adfa_general',canOpenFacultyDashboard},canEdit:()=>admin(currentUser),updateScheduleSourceUI(){},roleIsFaculty:p=>p?.role==='faculty',uiSettings:{showMyTimetable:true},myTimetableOnly:false};
   vm.runInNewContext(ui+'\nupdateAuthUI();',context);
   const button=$('faculty-dashboard-btn');
   assert.equal(button.classList.hidden,!canOpenFacultyDashboard(currentUser),String(role));

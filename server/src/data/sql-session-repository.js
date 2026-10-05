@@ -36,6 +36,18 @@ function createSqlSessionRepository(db) {
          ORDER BY c.SessionDate, c.StartTime, c.SessionId`,
         params
       );
+    },
+
+    async updateExisting({ sessionId, patch, actorFirebaseUid, actorName = null } = {}) {
+      const rows = await db.query(
+        `EXEC paws_api.UpdateCalendarSession
+          @SessionId = @sessionId,
+          @PatchJson = @patchJson,
+          @ActorFirebaseUid = @actorFirebaseUid,
+          @ActorName = @actorName`,
+        { sessionId, patchJson: JSON.stringify(patch), actorFirebaseUid, actorName }
+      );
+      return rows[0] || null;
     }
   };
 }

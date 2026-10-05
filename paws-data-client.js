@@ -152,6 +152,7 @@
     return Object.freeze({
       sessionBackend:()=> 'vetmed-ops',
       sessionWritesEnabled:()=> false,
+      sessionEditEnabled:()=> true,
       async currentUser(){
         const body=await request('/api/v1/me');
         return body.profile;
@@ -163,6 +164,12 @@
         const suffix=query.toString()?'?'+query.toString():'';
         const body=await request('/api/v1/sessions'+suffix);
         return Array.isArray(body.sessions)?body.sessions:[];
+      },
+      async patchSession(sessionId, patch){
+        const id=String(sessionId??'').trim();
+        if(!id)throw new Error('sessionId is required.');
+        const body=await request('/api/v1/sessions/'+encodeURIComponent(id),{method:'PATCH',body:pickFields(patch,['date','startTime','endTime','courseCode','sessionType','topic','room'])});
+        return body.session&&typeof body.session==='object'&&!Array.isArray(body.session)?body.session:{};
       },
       async dashboardSummary({academicYear=null}={}){
         const query=new URLSearchParams();

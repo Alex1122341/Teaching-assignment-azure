@@ -27,7 +27,19 @@ function createSwaFunctions({ api, createTiming = createRequestTiming }) {
       const url = new URL(request.url);
       const token = bearer(request);
       let r;
-      if (request.method !== 'GET') {
+      if (/^\/api\/v1\/sessions\/[^/]+\/?$/.test(url.pathname)) {
+        if (request.method !== 'PATCH') {
+          r = { status: 405, body: { error: { code: 'METHOD_NOT_ALLOWED', message: 'PATCH required.' } }, headers: { Allow: 'PATCH' } };
+        } else {
+          let sessionId;
+          try { sessionId = decodeURIComponent(url.pathname.replace(/\/$/, '').split('/').pop()); }
+          catch (_) { return response(400, { error: { code: 'INVALID_SESSION_ID', message: 'The session id is invalid.' } }, timing); }
+          let patch;
+          try { patch = typeof request.json === 'function' ? await request.json() : request.body; }
+          catch (_) { return response(400, { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } }, timing); }
+          r = await api.updateExistingSession(token, sessionId, patch);
+        }
+      } else if (request.method !== 'GET') {
         r = { status: 405, body: { error: { code: 'METHOD_NOT_ALLOWED', message: 'GET required.' } } };
       } else if (url.pathname === '/api/health/sql') {
         r = await api.health();
@@ -39,7 +51,9 @@ function createSwaFunctions({ api, createTiming = createRequestTiming }) {
       } else {
         r = { status: 404, body: { error: { code: 'NOT_FOUND', message: 'Route not found.' } } };
       }
-      return response(r.status, r.body, timing);
+      const outgoing = response(r.status, r.body, timing);
+      if (r.headers) outgoing.headers = { ...(outgoing.headers || {}), ...r.headers };
+      return outgoing;
     } catch (_) {
       return response(503, { error: { code: 'SERVICE_UNAVAILABLE', message: 'The service is temporarily unavailable.' } }, timing);
     }

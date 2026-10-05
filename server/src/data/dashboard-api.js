@@ -23,6 +23,7 @@ const { randomUUID } = require('node:crypto');
 // server-side predicate, never by hiding fields in the UI.
 
 const { InvalidAcademicYearError, resolveAcademicYear } = require('./academic-year');
+const { writeDisabled } = require('./write-gates');
 
 const ADMIN_ROLES = new Set(['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin']);
 const SELF_SERVICE_ROLES = new Set(['faculty', 'hicc', 'visc']);
@@ -208,7 +209,7 @@ function resolveYear(value) {
   }
 }
 
-function createDashboardApi({ verifyToken, findUser, repository, writeRepository = repository }) {
+function createDashboardApi({ verifyToken, findUser, repository, writeRepository = repository, writeGates = {} }) {
   async function authorize(token) {
     let decoded;
     try {
@@ -351,6 +352,7 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
       const auth = await authorize(token);
       if (auth.status) return auth;
       if (!auth.scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot create AFC records.');
+      if (writeGates.afcSingle !== true) return writeDisabled();
       const input = validateAfcInput(payload);
       if (input.status) return input;
       try {
@@ -373,6 +375,7 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
       const auth = await authorize(token);
       if (auth.status) return auth;
       if (!auth.scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot create AFC records.');
+      if (writeGates.afcBatch !== true) return writeDisabled();
       const input = validateAfcBatchInput(payload);
       if (input.status) return input;
       try {

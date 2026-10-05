@@ -148,7 +148,7 @@ test('Dashboard client exposes explicit AFC methods without Firestore fallback',
   const source=fs.readFileSync('paws-data-client.js','utf8');
   const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
-    'approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcManualBatch','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','patchSession','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
+    'afcBatchWriteEnabled','afcSingleWriteEnabled','approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcManualBatch','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','patchSession','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
   ]);
   assert.doesNotMatch(source,/firestore/i);
 });
@@ -159,7 +159,9 @@ test('existing-session scalar edits use the authenticated University API PATCH r
     tokenProvider:async()=>'session-edit-token',
     fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({session:{id:'s1',topic:'Updated'}})}}
   });
-  assert.equal(client.sessionEditEnabled(),true);
+  assert.equal(client.sessionEditEnabled(),false);
+  assert.equal(client.afcSingleWriteEnabled(),false);
+  assert.equal(client.afcBatchWriteEnabled(),false);
   assert.deepEqual(await client.patchSession('session/1',{topic:'Updated',room:'VET 123'}),{id:'s1',topic:'Updated'});
   assert.equal(calls[0].url,`${API_ORIGIN}/api/v1/sessions/session%2F1`);
   assert.equal(calls[0].init.method,'PATCH');

@@ -21,6 +21,7 @@ const SESSION_EDIT_ROLES = new Set(['owner', 'administrator', 'adfa_general', 'a
 const SESSION_TYPES = new Set(['LEC', 'LAB', 'SRL', 'Quiz/Midterm', 'OSCE', 'Exam']);
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SESSION_EDIT_FIELDS = new Set(['date', 'startTime', 'endTime', 'courseCode', 'sessionType', 'topic', 'room']);
+const { writeDisabled } = require('./write-gates');
 
 const result = (status, body) => ({ status, body });
 const text = value => (value === null || value === undefined ? '' : String(value).trim());
@@ -92,7 +93,7 @@ function normalizedRange(range = {}) {
   return { start, end };
 }
 
-function createDataApi({ verifyToken, findUser, listSessions, updateSession = async () => null, health = async () => true }) {
+function createDataApi({ verifyToken, findUser, listSessions, updateSession = async () => null, health = async () => true, writeGates = {} }) {
   async function authorize(token, timing) {
     let decoded;
     const verifyStarted = timing ? timing.start('firebase_verify') : null;
@@ -179,6 +180,7 @@ function createDataApi({ verifyToken, findUser, listSessions, updateSession = as
       if (!SESSION_EDIT_ROLES.has(auth.role)) {
         return result(403, { error: { code: 'ROLE_DENIED', message: 'This role cannot edit canonical timetable sessions.' } });
       }
+      if (writeGates.sessionEdit !== true) return writeDisabled();
       const invalid = validateSessionEdit(sessionId, patch);
       if (invalid) return result(400, { error: { code: invalid, message: 'The session edit is invalid.' } });
       try {

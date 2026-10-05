@@ -24,12 +24,13 @@ function request(url, { method = 'GET', body, token = 'token' } = {}) {
   };
 }
 
-function harness({ role = 'administrator', repository = {} } = {}) {
+function harness({ role = 'administrator', repository = {}, writeGates = { afcSingle: true, afcBatch: true } } = {}) {
   const calls = [];
   const profile = { active: true, mustChangePassword: false, baseRole: role, displayName: 'Trusted Admin', facultyId: null };
   const api = createDashboardApi({
     verifyToken: async () => ({ uid: 'firebase-uid' }),
     findUser: async () => profile,
+    writeGates,
     repository: {
       summary: async () => ({}),
       faculty: async () => [],
@@ -41,6 +42,22 @@ function harness({ role = 'administrator', repository = {} } = {}) {
   });
   return { app: createDashboardFunctions({ api }), calls };
 }
+
+test('B1 AFC single POST fails closed by default before invoking its write repository', async () => {
+  let writes = 0;
+  const api = createDashboardApi({
+    verifyToken: async () => ({ uid: 'firebase-uid' }),
+    findUser: async () => ({ active: true, mustChangePassword: false, baseRole: 'administrator' }),
+    repository: { createAfcRecord: async () => { writes++; } }
+  });
+  const response = await createDashboardFunctions({ api })(request('/api/v1/dashboard/afc-records', {
+    method: 'POST',
+    body: { facultyId: FACULTY_ID, startDate: '2026-10-01', endDate: '2026-10-01', reasonCode: 'vacation' }
+  }));
+  assert.equal(response.status, 503);
+  assert.equal(response.jsonBody.error.code, 'WRITE_DISABLED');
+  assert.equal(writes, 0);
+});
 
 test('B1 migration 007 creates isolated manual AFC storage, unified view, and trusted procedure', () => {
   const source = fs.readFileSync(path.join(root, 'database', 'azure-sql', '007_afc_manual_write_foundation.sql'), 'utf8');

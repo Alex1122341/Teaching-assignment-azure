@@ -153,7 +153,9 @@
     return Object.freeze({
       sessionBackend:()=> 'vetmed-ops',
       sessionWritesEnabled:()=> false,
-      sessionEditEnabled:()=> true,
+      sessionEditEnabled:()=> false,
+      afcSingleWriteEnabled:()=> false,
+      afcBatchWriteEnabled:()=> false,
       async currentUser(){
         const body=await request('/api/v1/me');
         return body.profile;

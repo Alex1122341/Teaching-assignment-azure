@@ -177,6 +177,16 @@
     on($('afc-batch-clear'), 'click', () => { afcBatchRows = [{ facultyId: '', facultyEntry: '', startDate: '', endDate: '', purpose: '', dateErrors: {}, errors: [], status: 'EDIT' }]; $('afc-batch-paste').value = ''; invalidateAfcBatch(); renderAfcBatchRows(); setAfcBatchStatus('Batch cleared.'); });
     on($('afc-batch-validate'), 'click', () => { reviewAfcBatch(); renderAfcBatchRows(); });
     on($('afc-batch-submit'), 'click', submitAfcBatch);
+    const singleWriteEnabled = UCVM_PAWS_DATA.afcSingleWriteEnabled?.() === true;
+    const batchWriteEnabled = UCVM_PAWS_DATA.afcBatchWriteEnabled?.() === true;
+    if (!singleWriteEnabled) {
+      const submit = $('afc-submit'); if (submit) submit.disabled = true;
+      const status = $('afc-form-status'); if (status) status.textContent = 'AFC single-record writes are disabled until the server write gate is explicitly enabled.';
+    }
+    if (!batchWriteEnabled) {
+      const submit = $('afc-batch-submit'); if (submit) submit.disabled = true;
+      const status = $('afc-batch-status'); if (status) status.textContent = 'AFC batch writes are disabled until the server write gate is explicitly enabled.';
+    }
   }
 
   function selectTab(tabName) {

@@ -1,19 +1,21 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$InputPath,
-    [ValidateSet('DryRun', 'Apply')][string]$Mode = 'DryRun',
-    [string]$Server = 'ITAPPVETOPSDB01.uc.ucalgary.ca',
-    [string]$Database = 'VetMed-Ops'
+    [ValidateSet('DryRun', 'Apply')][string]$Mode = 'DryRun'
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$TargetHost = 'ITAPPVETOPSDB01'
+$Database = 'VetMed-Ops'
 $AcademicYear = '2026-27'
 $VersionLabel = 'Faculty Master List DOE snapshot 2026-10-04'
 $AcceptedWorkbookName = 'PAWS_DOE_Import_2026-27.xlsx'
 $AcceptedWorkbookSha256 = '07D6E48F86D2F5213D14CE4964A765C90A6C4175486F074D18855BD4D810D90A'
 $SourceReference = 'Faculty Master List.xlsx / DOE Summary / 2026-27 current DOE snapshot / PAWS_DOE_Import_2026-27.xlsx SHA256 07D6E48F86D2F5213D14CE4964A765C90A6C4175486F074D18855BD4D810D90A'
 $CategoryCodes = @('scholarly_activity', 'ppvm_cost_share', 'clinical_unsorted', 'clinical_teaching', 'clinical_activity_ppvm', 'research', 'contract_admin', 'service_admin', 'other', 'onboarding')
+
+if ($env:COMPUTERNAME -ne $TargetHost) { throw 'The DOE import must run locally on ITAPPVETOPSDB01.' }
 
 function Normalize-Ucid([object]$Value) {
     if ($null -eq $Value) { return '' }
@@ -39,7 +41,7 @@ function Reverse-CommaName([object]$Value) {
 }
 
 function New-Connection {
-    $connection = [System.Data.SqlClient.SqlConnection]::new("Server=tcp:$Server,1433;Initial Catalog=$Database;Integrated Security=SSPI;Encrypt=True;TrustServerCertificate=True;Connect Timeout=20;Application Name=PAWS-DOE-Snapshot-Import;")
+    $connection = [System.Data.SqlClient.SqlConnection]::new("Server=lpc:$TargetHost;Initial Catalog=$Database;Integrated Security=SSPI;Encrypt=False;Connect Timeout=20;Application Name=PAWS-DOE-Snapshot-Import;")
     $connection.Open()
     return $connection
 }
@@ -162,7 +164,9 @@ try {
     [pscustomobject]$summary | ConvertTo-Json -Compress
 
     if ($Mode -eq 'DryRun') { return }
-    if ($conflicts -ne 0 -or $inputErrors -ne 0) { throw 'DOE import refused: identity conflicts or source validation errors must be zero.' }
+    if ($conflicts -ne 0 -or $inputErrors -ne 0 -or $noMatch -ne 0 -or $exactInactive -ne 0 -or $exactActive -ne @($payload.sourceRows).Count) {
+        throw 'DOE import refused: every source row must have one exact active Faculty match with no conflicts or validation errors.'
+    }
 
     $tables = Invoke-Query $connection "SELECT OBJECT_ID(N'paws.DoeFacultyAllocation', N'U') AS AllocationTableId, OBJECT_ID(N'paws.DoePolicyVersion', N'U') AS PolicyTableId, OBJECT_ID(N'paws.DoeFacultyTarget', N'U') AS TargetTableId;"
     if ($null -eq $tables[0].AllocationTableId -or $null -eq $tables[0].PolicyTableId -or $null -eq $tables[0].TargetTableId) { throw 'Required DOE schema migrations have not been applied.' }

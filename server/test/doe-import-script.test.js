@@ -21,13 +21,20 @@ test('DOE importer reconciles exact UCID and treats name only as a mismatch guar
   assert.match(script, /NAME_MISMATCH/);
   assert.match(script, /NAME_COMMA_ORDER_VARIANT/);
   assert.match(script, /NAME_PUNCTUATION_VARIANT/);
+  assert.match(script, /COMPUTERNAME.*ITAPPVETOPSDB01/s);
+  assert.match(script, /\$TargetHost\s*=\s*'ITAPPVETOPSDB01'/i);
+  assert.match(script, /Server=lpc:\$TargetHost/i);
+  assert.doesNotMatch(script, /TrustServerCertificate\s*=\s*True|Server=tcp:/i);
   assert.match(script, /DOE_SOURCE_PRESENT/);
   assert.match(script, /DOE_SOURCE_MISSING/);
+  assert.match(script, /\$noMatch\s*-ne\s*0/);
+  assert.match(script, /\$exactInactive\s*-ne\s*0/);
+  assert.match(script, /\$exactActive\s*-ne\s*@\(\$payload\.sourceRows\)\.Count/);
   assert.doesNotMatch(script, /Write-Host|Write-Output\s+\$faculty|ConvertTo-Json\s+-Depth\s+10/);
 });
 
 test('DOE importer permits Apply only after zero-conflict validation and uses one parameterized transaction', () => {
-  const gate = script.indexOf("if ($conflicts -ne 0 -or $inputErrors -ne 0)");
+  const gate = script.indexOf("if ($conflicts -ne 0 -or $inputErrors -ne 0 -or $noMatch -ne 0");
   const transaction = script.indexOf('BEGIN TRANSACTION;', gate);
   assert.ok(gate >= 0 && transaction > gate);
   assert.match(script, /BEGIN TRANSACTION;[\s\S]*?COMMIT TRANSACTION;[\s\S]*?ROLLBACK TRANSACTION;/);

@@ -1,15 +1,16 @@
 # Current workstream — PAWS post-P3 stabilization
 
-Status: **LOCAL IMPLEMENTATION AND REGRESSION TESTS COMPLETE / HOSTED RELEASE GATES PENDING**
+Status: **PR #48 OPEN / ORIGINAL HEAD CI GREEN / THREE SELF-REVIEW FIXES VERIFIED LOCALLY / PUSH AND FRESH CI PENDING**
 
 1. **Complete:** aggregate VetMed-Ops audit; safe/reversible schema migration 012 for bounded scalar session edits and migration 013 for DOE target allocations; rollback scripts; DOE source audit and no-import decision because 112 identity mismatches and 3 no-match rows remain.
 2. **Complete:** Firebase-verified SQL scalar session edit endpoint with server-resolved role, transaction, and AuditEvent. Assignment/DOE edits and unsupported add/bulk/swap writers remain unavailable.
 3. **Complete:** timeout notice lifecycle fix and academic-year-wide ALL / GRID-READY / CHECK NEEDED list with canonical reasons and coverage tests.
 4. **Complete:** merge reviewed B2B login retry, prefetch, and navigation continuity work into the candidate branch.
 5. **Complete:** promote immutable static/API freeze to `6cd77eb53d532b1f2279777452d45e55182b49ee`; repository and built artifacts have zero drift.
-6. **In progress:** update Beta setup/agent continuity/hygiene records; commit, push, open one PR, verify hosted CI; stage controlled University API runtime update with rollback evidence; release static frontend through exact-main workflow; run authenticated Beta acceptance; close stale PRs and delete documented merged/superseded remote refs.
+6. **In progress:** PR #48 (`ddb4cbf`) is open with its original exact-head CI green; local review fixes now enforce May–April academic-year bounds, block DOE Apply on any unmatched/inactive source row, and restrict importer SQL access to local shared memory on ITAPPVETOPSDB01. Focused tests, full local suites, PowerShell parsing, release build, and freezes pass; these fixes are not pushed yet. The current Beta login worked for ADFA General after one network retry. The admin test credential autofill was rejected. No synthetic sentinel session exists in live data, and no real course row was edited.
+7. **Next:** commit and push the review fixes/state update, verify fresh exact-head CI, then use the authorized exact-main API/static release flow. Complete only acceptance that can use a confirmed test target and valid authorized login. Close stale PRs and delete documented merged/superseded refs after their disposition is verified.
 
-**Do not redo:** do not reapply migrations 012/013; do not rerun the DOE import (it was not applied and remains blocked by identity conflicts); do not infer Faculty FTE, contract DOE, HICC/CCC role DOE, identity, or session times; do not directly edit assignments or Firestore timetable data.
+**Do not redo:** do not reapply migrations 012/013; do not apply the DOE import (it was not applied and remains blocked by identity conflicts); do not infer Faculty FTE, contract DOE, HICC/CCC role DOE, identity, or session times; do not edit a real timetable session as a test; do not directly edit assignments or Firestore timetable data.
 
 ---
 

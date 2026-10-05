@@ -113,6 +113,7 @@ test('session edit SQL migration is transactional, audited, scalar-only, and sep
   assert.match(migration, /BEGIN TRANSACTION[\s\S]*INSERT paws\.AuditEvent[\s\S]*COMMIT TRANSACTION/i);
   assert.match(migration, /WITH \(UPDLOCK, HOLDLOCK\)/i);
   assert.match(migration, /Unsupported or duplicate session edit fields/i);
+  assert.match(migration, /@NextDate\s*<\s*DATEFROMPARTS\([\s\S]*,\s*5,\s*1\)[\s\S]*@NextDate\s*>=\s*DATEFROMPARTS\([\s\S]*\+\s*1,\s*5,\s*1\)/i);
   assert.doesNotMatch(migration, /(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+)?paws\.SessionAssignment/i);
   assert.match(rollback, /DROP PROCEDURE paws_api\.UpdateCalendarSession/i);
   assert.doesNotMatch(rollback, /DROP TABLE|DELETE FROM/i);

@@ -107,8 +107,9 @@ BEGIN
                @NextTopic = CASE WHEN @HasTopic = 1 THEN @Topic ELSE Topic END
         FROM paws.Session WHERE SessionId = @SessionId;
 
-        IF @HasDate = 1 AND YEAR(@NextDate) NOT IN (
-            TRY_CONVERT(int, LEFT(@AcademicYear, 4)), TRY_CONVERT(int, LEFT(@AcademicYear, 4)) + 1
+        IF @HasDate = 1 AND (
+            @NextDate < DATEFROMPARTS(TRY_CONVERT(int, LEFT(@AcademicYear, 4)), 5, 1)
+            OR @NextDate >= DATEFROMPARTS(TRY_CONVERT(int, LEFT(@AcademicYear, 4)) + 1, 5, 1)
         ) THROW 51245, 'The date does not match the stored academic year.', 1;
 
         IF EXISTS (

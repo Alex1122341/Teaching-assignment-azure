@@ -172,6 +172,30 @@
     return outcome;
   }
 
+  function shouldAutoRetryAccess(outcome, attempt, sameUser) {
+    return Boolean(outcome?.recoverable && attempt === 0 && sameUser === true);
+  }
+
+  function waitForAccessRetry() {
+    return new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
+  function showSessionRestoreGate(){
+    const copy=$('gate-copy');if(copy)copy.textContent='Restoring your PAWS session…';
+    $('gate-sign-in')?.classList.add('hidden');$('gate-auth-setup')?.classList.add('hidden');
+  }
+  function showSignedOutGate(){
+    const copy=$('gate-copy');if(copy)copy.textContent='Sign in with your authorized UCVM account to continue.';
+    $('gate-sign-in')?.classList.remove('hidden');$('gate-auth-setup')?.classList.remove('hidden');
+  }
+  function prefetchDashboardShell(){
+    const assets=[['faculty-admin.html','document'],['faculty-admin.css','style'],['faculty-admin.js','script'],['dashboard-view-model.js','script']];
+    for(const [href,as] of assets){
+      if([...document.querySelectorAll('link[data-paws-prefetch]')].some(x=>x.dataset.pawsPrefetch===href))continue;
+      const link=document.createElement('link');link.rel='prefetch';link.href=href;link.as=as;link.dataset.pawsPrefetch=href;document.head.appendChild(link);
+    }
+  }
+
   function canEdit() {
     return UCVM.admin(currentUser);
   }
@@ -274,10 +298,27 @@
   const sessionDateLoads = new Map();
   const pageDataSubscribers = new Set();
   let allSessionsCache = null;
+  let allSessionsOwnerUid = '';
   let allSessionsLoading = null;
+  let allSessionsLoadingUid = '';
+  let allSessionsLoadGeneration = 0;
+  function sessionsFromAllCache(rows,range){
+    if(!Array.isArray(rows))return null;
+    if(!range)return rows.slice();
+    const start=String(range.start||'').slice(0,10),end=String(range.end||'').slice(0,10);
+    if(!start||!end)return rows.slice();
+    return rows.filter(row=>row.date>=start&&row.date<=end);
+  }
   const profileSnapshots=new Map();
   function pageProfile(){return currentUser?{...currentUser.profile,name:currentUser.name,email:currentUser.email,role:currentUser.role,facultyId:currentUser.profile?.facultyId||''}:null}
   function pageSessions(){return[...sessionCache.values()]}
+  function fullSessionCacheForUser(user){
+    const uid=String(user?.uid||'');
+    return uid&&allSessionsOwnerUid===uid&&Array.isArray(allSessionsCache)?allSessionsCache:null;
+  }
+  function cachedSessionsForRange(user,range){
+    return sessionsFromAllCache(fullSessionCacheForUser(user),range);
+  }
   function publishPageData(){for(const callback of pageDataSubscribers){try{callback()}catch(error){console.error('[page data subscriber]',error)}}}
   function cacheSessionRange(range,rows){
     for(const [id,row] of sessionCache)if(row.date>=range.start&&row.date<=range.end)sessionCache.delete(id);
@@ -318,6 +359,8 @@
   async function ensureSessionsForRange(start,end){
     const range={start:String(start||'').slice(0,10),end:String(end||'').slice(0,10)};
     if(!currentUser||!range.start||!range.end||range.start>range.end)return[];
+    const cachedAll=cachedSessionsForRange(currentUser,range);
+    if(cachedAll)return cachedAll;
     const covered=sessionCacheRanges.some(item=>item.start<=range.start&&item.end>=range.end);
     if(covered)return pageSessions().filter(row=>row.date>=range.start&&row.date<=range.end);
     const key=`${range.start}:${range.end}`;
@@ -503,7 +546,8 @@
     sessionUnsubscribe=()=>{cancelled=true};
     try{
       const requestRange=viewMode==='list'?{}:{start:range.start,end:ymd(addDays(parseYmd(range.end),1))};
-      const rows=await fetchAzureSessions(requestRange);
+      const cachedAll=cachedSessionsForRange(currentUser,viewMode==='list'?null:range);
+      const rows=cachedAll||await fetchAzureSessions(requestRange);
       if(cancelled)return;
       sessions=rows;
       cacheSessionRange(range,rows);
@@ -527,17 +571,39 @@
 
   function refreshSessionScope(){if(currentUser)subscribeSessions();else render()}
   async function ensureAllSessions(){
-    if(allSessionsCache)return allSessionsCache.slice();
-    if(allSessionsLoading)return allSessionsLoading;
-    allSessionsLoading=fetchAzureSessions().then(rows=>{
+    const ownerUid=String(currentUser?.uid||'');
+    if(!ownerUid)return[];
+    const cached=fullSessionCacheForUser(currentUser);
+    if(cached)return cached.slice();
+    if(allSessionsLoading&&allSessionsLoadingUid===ownerUid)return allSessionsLoading;
+    const generation=++allSessionsLoadGeneration;
+    allSessionsLoadingUid=ownerUid;
+    const load=fetchAzureSessions().then(rows=>{
+      if(generation!==allSessionsLoadGeneration||String(currentUser?.uid||'')!==ownerUid)return[];
       allSessionsCache=rows.slice();
+      allSessionsOwnerUid=ownerUid;
       for(const row of rows)sessionCache.set(row.id,row);
       publishPageData();
       return rows.slice();
-    }).finally(()=>{allSessionsLoading=null});
-    return allSessionsLoading;
+    }).finally(()=>{
+      if(generation===allSessionsLoadGeneration){allSessionsLoading=null;allSessionsLoadingUid='';}
+    });
+    allSessionsLoading=load;
+    return load;
   }
-  function invalidateAllSessions(){allSessionsCache=null;sessionCacheRanges.length=0;sessionCacheDates.clear()}
+  function scheduleAllSessionsPrefetch(user,after){
+    const ownerUid=String(user?.uid||'');
+    if(!ownerUid)return;
+    Promise.resolve(after).catch(()=>null).then(()=>{
+      if(String(currentUser?.uid||'')!==ownerUid)return[];
+      return ensureAllSessions();
+    }).catch(error=>{if(String(currentUser?.uid||'')===ownerUid)console.warn('[Azure SQL session prefetch]',error)});
+  }
+  function invalidateAllSessions(){
+    allSessionsLoadGeneration+=1;
+    allSessionsCache=null;allSessionsOwnerUid='';allSessionsLoading=null;allSessionsLoadingUid='';
+    sessionCacheRanges.length=0;sessionCacheDates.clear();
+  }
   function swapNumeric(v){ if(v===undefined||v===null||v==='') return null; const n=Number(v); return Number.isFinite(n)?n:null; }
   function swapNameKey(v){ return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' '); }
   function swapFacultyName(f){ return String(f?.preferredFullName||f?.hrFirstLast||f?.hrFullName||f?.facultySummary2026_27?.displayName||f?.__id||''); }
@@ -1592,11 +1658,12 @@
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
       dot.classList.add('online');
       text.textContent = 'Firebase Auth + SQL Access Ready';
+      showSessionRestoreGate();
       setAppLocked(true, 'Checking saved login...');
 
       // BETA-R4D-12B2A1 — the access bootstrap is a separate unit so the same routine
       // can be rerun by the "Retry access" recovery action without re-authenticating.
-      async function bootstrapForUser(user, parts) {
+      async function bootstrapForUser(user, parts, recoveryAttempt = 0) {
         const email = String(parts?.email || user.email || '').trim().toLowerCase();
         const phone = String(parts?.phone || user.phoneNumber || '').trim();
         const provider = parts?.provider || 'firebase';
@@ -1635,29 +1702,43 @@
             provider,
             profile
           };
-          sessionCache.clear();sessionCacheRanges.length=0;sessionRangeLoads.clear();sessionCacheDates.clear();sessionDateLoads.clear();
+          invalidateAllSessions();
+          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
           publishPageData();
           viewMode = roleIsFaculty(currentUser) ? 'day' : 'week';
           setViewButtons();
           myTimetableOnly = roleIsFaculty(currentUser);
           updateAuthUI();
-          subscribeSessions();
+          const initialSessionLoad=subscribeSessions();
           unsubscribeFacultyDirectory();
           markLoginStage('T6');
           render();
           setAppLocked(false);
           markLoginStage('T7');
+          prefetchDashboardShell();
           setAccessRecovery(null);
           updateScheduleSourceUI();
           setLoginProgress('', false);
           settleInteractiveLogin(true);
           closeModal();
           toast(`Signed in as ${name} (${profile.role}).`);
+          scheduleAllSessionsPrefetch(user,initialSessionLoad);
           scheduleOptionalFacultyEnrichment(user, profile);
         } catch (err) {
           console.error('[SQL access profile]', err);
-          // Classified failure: the Firebase login is preserved. Recovery reruns this
-          // same bootstrap for the already-signed-in user; it does not re-authenticate.
+          const preliminaryOutcome=window.UCVM_AUTH_CONTINUITY.classifyAuthError(err);
+          const sameUser=Boolean(auth?.currentUser && auth.currentUser.uid===user.uid);
+          if(shouldAutoRetryAccess(preliminaryOutcome,recoveryAttempt,sameUser)){
+            text.textContent='Retrying SQL access profile...';
+            setAppLocked(true,'Still connecting to PAWS...');
+            setLoginProgress('Retrying PAWS access...',true);
+            await waitForAccessRetry();
+            const retrySameUser=Boolean(auth?.currentUser && auth.currentUser.uid===user.uid);
+            if(!retrySameUser)return;
+            return bootstrapForUser(user,{email,phone,provider,identity},recoveryAttempt+1);
+          }
+          // Terminal classified failure: preserve Firebase login and expose the existing
+          // bounded Retry access action. This does not re-authenticate or reload the page.
           const outcome=await applyAccessFailure(err, {
             setLocked: setAppLocked,
             setRecovery: setAccessRecovery,
@@ -1684,13 +1765,14 @@
           myTimetableOnly = false;
           if (sessionUnsubscribe) { try { sessionUnsubscribe(); } catch (_) {} sessionUnsubscribe = null; }
           sessionRangeKey='';
-          sessionCache.clear();sessionCacheRanges.length=0;sessionRangeLoads.clear();sessionCacheDates.clear();sessionDateLoads.clear();
-          allSessionsCache=null;
+          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
+          invalidateAllSessions();
           clearCurrentFaculty();
           unsubscribeFacultyDirectory();
           scheduleSource = 'signed-out';
           sessions = [];
           updateAuthUI();
+          showSignedOutGate();
           setAppLocked(true, 'Sign in required to view the timetable.');
           return;
         }

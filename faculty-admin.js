@@ -139,6 +139,7 @@
       if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       auth = firebase.auth(); if (window.UCVMSessionGuard) window.UCVMSessionGuard.start(auth);
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {}); bindUI();
+      if(cameFromTimetable())lock('Opening Dashboard…');
       auth.onAuthStateChanged(async user => {
         if (!user) { currentUser = null; lock('You are not signed in. Return to the timetable and sign in.'); return; }
         try {
@@ -420,6 +421,13 @@
   function field(label, value, full = false) { return present(value) ? `<div class="field ${full ? 'full' : ''}"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(display(value))}</div></div>` : ''; }
   function section(title, body, wide = false) { return body.trim() ? `<section class="section ${wide ? 'wide' : ''}"><div class="section-title">${esc(title)}</div><div class="field-grid">${body}</div></section>` : ''; }
   function detailFailureMessage(error) { const status = Number(error?.status) || 0, code = String(error?.code || ''); if (status === 404 || code === 'FACULTY_NOT_FOUND') return 'This faculty record was not found in the Dashboard data source.'; if (status === 401 || code === 'UNAUTHENTICATED') return 'Your Dashboard session could not be verified. Your sign-in is still active.'; if (status === 403 || ['ROLE_DENIED', 'PROFILE_REQUIRED', 'FACULTY_LINK_REQUIRED'].includes(code)) return error?.message || 'This account cannot read that faculty record.'; if (status === 503 || code === 'SQL_UNAVAILABLE' || status === 0) return 'Faculty data is temporarily unavailable. Your sign-in is still active.'; return error?.message || 'Faculty detail could not be loaded.'; }
+  function cameFromTimetable(){
+    try{const ref=new URL(document.referrer||'',location.href);return ref.origin===location.origin&&(ref.pathname.endsWith('/')||ref.pathname.endsWith('/index.html'))}catch(_){return false}
+  }
+  function returnToTimetable(){
+    if(cameFromTimetable()&&history.length>1){history.back();return}
+    location.href='index.html';
+  }
   function dashboardAuthFailureMessage(error) { const status = Number(error?.status) || 0, code = String(error?.code || ''); if (status === 503 || code === 'SQL_UNAVAILABLE' || status === 0) return 'Faculty Dashboard is temporarily unavailable. Your sign-in is still active. Refresh this page to retry.'; if (status === 401 || code === 'UNAUTHENTICATED') return 'Your Dashboard session could not be verified. Your sign-in is still active. Refresh this page to retry.'; if (status === 403) return error?.message || 'This account does not have Faculty Dashboard access.'; return error?.message || 'Could not verify Faculty Dashboard access.'; }
   function setDashboardLoading(loading) { if (!loading) return; const status = $('sync-status'); if (status) status.textContent = 'Loading Dashboard…'; document.querySelectorAll('.kpi-value').forEach(node => { node.textContent = '…'; }); const list = $('result-list'); if (list) list.innerHTML = '<div class="empty">Loading faculty…</div>'; }
   function markDashboardUnavailable(message) { const status = $('sync-status'); if (status) status.textContent = message; document.querySelectorAll('.kpi-value').forEach(node => { node.textContent = '—'; }); const list = $('result-list'); if (list) list.innerHTML = `<div class="empty">${esc(message)}</div>`; const pane = $('profile-pane'); if (pane) pane.innerHTML = '<div class="empty">Faculty data is currently unavailable.</div>'; }
@@ -432,7 +440,7 @@
   function unlock() { $('auth-gate').classList.add('hidden'); }
   function debounce(fn, wait = 160) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; }
 
-  $('gate-back').onclick = $('back-btn').onclick = () => { location.href = 'index.html'; };
+  $('gate-back').onclick = $('back-btn').onclick = returnToTimetable;
   $('signout-btn').onclick = async () => { if (auth) await auth.signOut(); location.href = 'index.html'; };
   init();
 })();

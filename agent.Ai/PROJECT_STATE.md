@@ -1,4 +1,25 @@
-# Latest checkpoint — Firebase Admin security patch locally verified; PR pending
+# Current checkpoint — AFC Multi Input date paste normalization in progress
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` @ `1a6e04b895650718cdd4bc41ddfaa9c7014a05a1` (confirmed current `origin/main`)
+**Branch:** `fix/beta-afc-paste-date-normalization`
+**Product commit:** `51ed5f7aa0851aac5f20133ea213666028e018a3`
+**Freeze candidate:** product commit above; governance promotion prepared as a separate commit.
+**Status:** implementation and local governance changes ready; no PR/push/merge/deployment/live acceptance yet.
+
+- Strict parser accepts `YYYY-MM-DD` and year-first `YYYY/M/D`, validates Gregorian dates, and stores canonical ISO values before rendering native date inputs.
+- Invalid non-empty paste tokens retain field-specific row errors; blanks remain distinct and existing batch requiredness is unchanged. Whole-batch submit is blocked while any row is invalid.
+- Focused UI/parser + AFC API contract tests: 31/31 pass. Root `npm test` after baseline promotion: 771 total / 742 pass / 29 skipped / 0 failed. Server suite: 309/309 pass.
+- `node tools/verify-beta-candidate.js`: static 52 protected / zero drift and API zero drift. Static and API artifact checks pass; `node tools/build-beta-release.js` succeeds. `git diff --check` passes; working-diff secret-pattern scan has no matches (gitleaks is not installed).
+- Emulator suite remains local-environment limited: default startup crashed the Firestore JVM on native memory allocation; a serial/low-memory retry started emulators but encountered a Windows child-process access violation (`git show`, exit 3221225477) and a hosting-boundary test failure. No code changes were made in response; standard GitHub CI must verify this step.
+- No backend/SQL/API/auth/Firebase or business-data changes. No synthetic AFC rows or deployment.
+- The product commit changes `faculty-admin-afc-batch.js`, `faculty-admin.js`, `faculty-admin.html`, and its UI regression test. No manifest paths were added or removed; `tools/static-assets.json` remains 52 entries.
+
+**Next:** commit the separate freeze/documentation promotion, inspect the final diff, push/open one focused PR, and let the standard Linux Node 22/Java 21 CI verify the emulator suite. Then continue through green CI and the authorized exact-main Beta release. Do not create synthetic business rows for live UI acceptance. Experimental and PR #76 remain untouched.
+
+---
+# Superseded checkpoint — Firebase Admin security patch locally verified; PR pending
 
 **Last verified:** 2026-10-05
 **Repository:** `Alex1122341/Teaching-assignment-azure`

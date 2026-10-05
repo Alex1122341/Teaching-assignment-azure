@@ -1,4 +1,14 @@
-# Latest checkpoint — Firebase Admin security patch locally verified; PR pending
+# Current task — AFC Multi Input date paste normalization
+
+- Status: product commit complete; separate freeze/documentation promotion prepared; root and server suites pass; emulator suite requires CI verification.
+- Base `main`: `1a6e04b895650718cdd4bc41ddfaa9c7014a05a1`; product commit `51ed5f7aa0851aac5f20133ea213666028e018a3`; branch `fix/beta-afc-paste-date-normalization`.
+- Scope: frontend-only strict year-first pasted-date normalization and visible row errors. Keep SQL/API/auth/Firebase/data unchanged, and do not start unrelated queued UI work.
+- Local evidence: root 771 total / 742 pass / 29 skipped / 0 failed; server 309/309; static/API candidate and artifact checks pass; release build succeeds. Emulator tests encounter local Windows Java native-memory failure and child-process crash; do not change product code or weaken gates for this host issue.
+- Next: commit separate freeze/doc promotion, inspect diff, push/open PR, wait for Node 22/Java 21 CI (including emulator tests), merge under owner authorization, then use exact-main static release workflow and attempt live UI acceptance without submitting rows.
+- Experimental repository, password workflow, and PR #76 remain parked and untouched.
+
+---
+# Superseded checkpoint — Firebase Admin security patch locally verified; PR pending
 
 **Last verified:** 2026-10-05
 **Repository:** `Alex1122341/Teaching-assignment-azure`

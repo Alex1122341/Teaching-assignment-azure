@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // The stabilization candidate is immutable at the release freeze parent.
 // The P3 integration remains a separately named historical product anchor.
-const BASELINE_COMMIT='ae45597cc1bd9da38bccdb1807ba763c9f763ca8';
+const BASELINE_COMMIT='51ed5f7aa0851aac5f20133ea213666028e018a3';
 const P3_INTEGRATION_COMMIT='6fc77fb94e0de3aa116c9c4d5743d4aec45da61c';
 const P3B4_BASELINE_COMMIT='b7b9ed45bcc88ea774fb2c64bbca8c753da41393';
 const P3B3_BASELINE_COMMIT='adb943ccadff8851ba9de47bfc6b1d226916b89b';

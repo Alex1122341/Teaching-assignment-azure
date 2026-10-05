@@ -11,11 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// PAWS Beta Firebase Admin security candidate. This immutable product commit
-// anchors the reviewed 52-file static manifest and 33-file API runtime. The
-// patched server dependency graph. No static assets or freeze gates were
-// changed by this governance promotion.
-const BASELINE_COMMIT='ae45597cc1bd9da38bccdb1807ba763c9f763ca8';
+// PAWS Beta AFC paste-date normalization candidate. This immutable product
+// commit anchors the reviewed 52-file static manifest and 33-file API runtime.
+// It includes the AFC frontend date fix and retains the Firebase Admin patch.
+const BASELINE_COMMIT='51ed5f7aa0851aac5f20133ea213666028e018a3';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

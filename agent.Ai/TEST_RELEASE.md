@@ -1,5 +1,19 @@
 # PAWS Test and Release Guide
 
+## Current — AFC Multi Input paste-date normalization
+
+**Status: IMPLEMENTED LOCALLY / FREEZE PROMOTION PREPARED / NOT LIVE**
+
+- Base `main` and `origin/main` verified at `1a6e04b895650718cdd4bc41ddfaa9c7014a05a1`.
+- Product commit `51ed5f7aa0851aac5f20133ea213666028e018a3` on `fix/beta-afc-paste-date-normalization`.
+- Strict year-first paste normalization, visible field-specific invalid-date errors, whole-batch submit gating, and 1–20 row regressions are implemented.
+- Focused UI/parser and AFC API contract tests passed 31/31; server suite 309/309. Root `npm test` after promoting the reviewed product SHA: 771 total / 742 pass / 29 skipped / 0 failed. Candidate and API freezes pass with zero drift; the static manifest remains 52 files. Release bundle build and static/API artifact checks pass.
+- Emulator suite is not locally verified: Firestore JVM failed native memory allocation; serial/low-memory retry later hit a Windows child-process access violation (`git show`, exit 3221225477) and one hosting-boundary test failure. Standard GitHub CI on Node 22/Java 21 remains the required acceptance evidence.
+- Static manifest remains at 52 paths, with no path additions/removals. API protected source is unchanged. No SQL/API/auth/Firebase/data mutation, deployment, or synthetic AFC business record.
+- Next: rerun full suite/build against the promoted baseline; then PR/CI, merge, exact-main frontend deployment, and no-write live UI acceptance.
+
+---
+
 ## 0. Current BETA-R4D-11 release evidence
 
 **Status: LIVE DEPLOYED / AUTHENTICATED ACCEPTANCE PASSED / RELEASE CLOSED**

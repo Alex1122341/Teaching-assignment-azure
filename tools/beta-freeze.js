@@ -15,7 +15,7 @@ const {execFileSync}=require('node:child_process');
 // University API origin and updates the client/index integration while retaining
 // the accepted 32-file SWA API runtime. The product commit is the immutable trust
 // anchor; this governance promotion does not apply SQL, merge, or deploy.
-const BASELINE_COMMIT='6fc77fb94e0de3aa116c9c4d5743d4aec45da61c';
+const BASELINE_COMMIT='6cd77eb53d532b1f2279777452d45e55182b49ee';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

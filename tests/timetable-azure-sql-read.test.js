@@ -47,3 +47,13 @@ test('all session mutation entrypoints fail closed before legacy Firestore write
   }
   assert.match(src,/sessionWritesEnabled\(\)/);
 });
+
+test('existing-session edits use the server API and keep legacy Firestore mutations disabled',()=>{
+ const detail=functionBody('function openSessionDetail','function openSqlSessionEditForm');
+ const edit=functionBody('function openSqlSessionEditForm','function detailField');
+ assert.match(detail,/sessionEditEnabled/);
+ assert.match(detail,/openSqlSessionEditForm\(s\)/);
+ assert.match(edit,/UCVM_PAWS_DATA\.patchSession\(session\.id,patch\)/);
+ assert.doesNotMatch(edit,/db\.batch|collection\(SESSION_COLLECTION\)|firebase\.firestore/);
+ assert.match(functionBody('async function openSessionForm','function input'),/requireSessionWrites\(\)/);
+});

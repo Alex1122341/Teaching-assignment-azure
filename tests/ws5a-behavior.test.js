@@ -10,7 +10,7 @@ test('unknown target timing remains check_needed even with plausible stored time
 test('a row without an id is not excluded when no exclusion is requested',()=>{assert.equal(loadCore().findFacultyConflicts({date:'2026-10-01',start:'09:00',end:'10:00',sessions:[{date:'2026-10-01',start:'09:30',end:'10:30'}],isAssigned:()=>true}).status,'conflict');});
 test('calendar layout never positions unknown, reversed, or malformed intervals',()=>{
  const api=timetable(['timeToMinutes','calendarTimingDisposition','layoutDaySessions']);
- const rows=api.layoutDaySessions([{id:'valid',start:'09:00',end:'10:00'},{id:'adjacent',start:'10:00',end:'11:00'},{id:'unknown',start:'09:00',end:'10:00',timeUnknown:true},{id:'bad',start:'bad',end:'10:00'},{id:'reverse',start:'11:00',end:'10:00'}]);
+ const rows=api.layoutDaySessions([{id:'valid',date:'2026-10-01',start:'09:00',end:'10:00'},{id:'adjacent',date:'2026-10-01',start:'10:00',end:'11:00'},{id:'unknown',date:'2026-10-01',start:'09:00',end:'10:00',timeUnknown:true},{id:'bad',date:'2026-10-01',start:'bad',end:'10:00'},{id:'reverse',date:'2026-10-01',start:'11:00',end:'10:00'}]);
  assert.deepEqual(Array.from(rows,r=>r.session.id),['valid','adjacent']);assert.ok(rows.every(row=>row.laneCount===1&&Number.isFinite(row.startM)&&Number.isFinite(row.endM)));
 });
 test('duration fallback preserves null and explicit credited hours including zero',()=>{

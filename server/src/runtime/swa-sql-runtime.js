@@ -43,7 +43,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     verifyIdToken: createFirebaseVerifier({ admin, projectId: env.FIREBASE_PROJECT_ID, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }),
     expectedProjectId: env.FIREBASE_PROJECT_ID
   });
-  const timetable = createSwaFunctions({ api: createDataApi({ verifyToken: verify, findUser: users.findByUid, listSessions: sessions.list, health: () => db.health() }) });
+  const timetable = createSwaFunctions({ api: createDataApi({ verifyToken: verify, findUser: users.findByUid, listSessions: sessions.list, updateSession: sessions.updateExisting, health: () => db.health() }) });
   const dashboardRoutes = createDashboardFunctions({
     api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: afcWrite })
   });

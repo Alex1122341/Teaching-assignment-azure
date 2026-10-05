@@ -11,7 +11,7 @@ test('timetable loads selection before its controller and exposes admin selectio
  assert.ok(html.indexOf('timetable-selection.js')<html.indexOf('timetable.js'));
  assert.ok(html.indexOf('faculty-doe.js')<html.indexOf('timetable.js'));
  for(const id of ['select-sessions-btn','selection-cancel-btn','review-selected-btn','selection-count'])assert.match(html,new RegExp(`id=["']${id}["']`));
- assert.match(js,/selection-controls.*classList\.toggle\('hidden',\s*!canEdit\(\)\)/s);
+ assert.match(js,/selection-controls.*classList\.toggle\('hidden',\s*!canEdit\(\)\s*\|\|\s*!sessionWritesEnabled\)/s);
 });
 
 test('faculty choices use effective DOE and visibly label overrides',()=>{

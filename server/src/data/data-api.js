@@ -17,11 +17,44 @@ const SUPPORTED_ROLES = new Set([
 // deliberately remain non-Faculty; they must not be forced through a fuzzy
 // Faculty match.
 const FACULTY_SCOPED_ROLES = new Set(['faculty', 'hicc', 'visc']);
+const SESSION_EDIT_ROLES = new Set(['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin']);
+const SESSION_TYPES = new Set(['LEC', 'LAB', 'SRL', 'Quiz/Midterm', 'OSCE', 'Exam']);
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SESSION_EDIT_FIELDS = new Set(['date', 'startTime', 'endTime', 'courseCode', 'sessionType', 'topic', 'room']);
 
 const result = (status, body) => ({ status, body });
 const text = value => (value === null || value === undefined ? '' : String(value).trim());
 const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') &&
-  !Number.isNaN(Date.parse(value + 'T00:00:00Z'));
+  !Number.isNaN(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
+
+function validateSessionEdit(sessionId, patch) {
+  if (typeof sessionId !== 'string' || !SESSION_ID.test(sessionId)) return 'INVALID_SESSION_ID';
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return 'INVALID_SESSION_PATCH';
+  const keys = Object.keys(patch);
+  if (!keys.length || keys.some(key => !SESSION_EDIT_FIELDS.has(key))) return 'UNSUPPORTED_SESSION_FIELDS';
+  if (Object.prototype.hasOwnProperty.call(patch, 'date') && !validDate(patch.date)) return 'INVALID_SESSION_DATE';
+  const hasStart = Object.prototype.hasOwnProperty.call(patch, 'startTime');
+  const hasEnd = Object.prototype.hasOwnProperty.call(patch, 'endTime');
+  if (hasStart !== hasEnd) return 'INVALID_SESSION_INTERVAL';
+  if (hasStart) {
+    const { startTime: start, endTime: end } = patch;
+    if (start === null || end === null) {
+      if (start !== null || end !== null) return 'INVALID_SESSION_INTERVAL';
+    } else if (typeof start !== 'string' || typeof end !== 'string' ||
+      !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(start) ||
+      !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(end) || start >= end) {
+      return 'INVALID_SESSION_INTERVAL';
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'courseCode') &&
+      (typeof patch.courseCode !== 'string' || !patch.courseCode.trim() || patch.courseCode.trim().length > 32)) return 'INVALID_COURSE_CODE';
+  if (Object.prototype.hasOwnProperty.call(patch, 'sessionType') && !SESSION_TYPES.has(patch.sessionType)) return 'INVALID_SESSION_TYPE';
+  if (Object.prototype.hasOwnProperty.call(patch, 'topic') && patch.topic !== null && typeof patch.topic !== 'string') return 'INVALID_SESSION_TOPIC';
+  if (Object.prototype.hasOwnProperty.call(patch, 'room') && patch.room !== null && typeof patch.room !== 'string') return 'INVALID_SESSION_ROOM';
+  if (patch.topic != null && patch.topic.length > 4000) return 'INVALID_SESSION_TOPIC';
+  if (patch.room != null && patch.room.length > 256) return 'INVALID_SESSION_ROOM';
+  return null;
+}
 
 function validateAuthorizedProfile(profile) {
   if (!profile || profile.active !== true) {
@@ -52,7 +85,7 @@ function normalizedRange(range = {}) {
   return { start, end };
 }
 
-function createDataApi({ verifyToken, findUser, listSessions, health = async () => true }) {
+function createDataApi({ verifyToken, findUser, listSessions, updateSession = async () => null, health = async () => true }) {
   async function authorize(token, timing) {
     let decoded;
     const verifyStarted = timing ? timing.start('firebase_verify') : null;
@@ -132,6 +165,24 @@ function createDataApi({ verifyToken, findUser, listSessions, health = async () 
         return result(503, { error: { code: 'SQL_UNAVAILABLE', message: 'The SQL read service is unavailable.' } });
       }
     }
+    ,
+    async updateExistingSession(token, sessionId, patch) {
+      const auth = await authorize(token);
+      if (auth.status) return auth;
+      if (!SESSION_EDIT_ROLES.has(auth.role)) {
+        return result(403, { error: { code: 'ROLE_DENIED', message: 'This role cannot edit canonical timetable sessions.' } });
+      }
+      const invalid = validateSessionEdit(sessionId, patch);
+      if (invalid) return result(400, { error: { code: invalid, message: 'The session edit is invalid.' } });
+      try {
+        const session = await updateSession({ sessionId, patch, actorFirebaseUid: auth.decoded.uid, actorName: text(auth.profile.displayName) || null });
+        return session
+          ? result(200, { session })
+          : result(404, { error: { code: 'SESSION_NOT_FOUND', message: 'The timetable session was not found.' } });
+      } catch (_) {
+        return result(503, { error: { code: 'SQL_UNAVAILABLE', message: 'The SQL write service is temporarily unavailable.' } });
+      }
+    }
   };
 }
 
@@ -140,5 +191,7 @@ module.exports = {
   validateAuthorizedProfile,
   SUPPORTED_ROLES,
   FACULTY_SCOPED_ROLES,
-  normalizedRange
+  normalizedRange,
+  validateSessionEdit,
+  SESSION_EDIT_ROLES
 };

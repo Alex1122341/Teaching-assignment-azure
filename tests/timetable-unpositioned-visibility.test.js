@@ -34,6 +34,7 @@ function validateInterval(start,end,{timeUnknown=false}={}){
 
 // Mirrors the shipped calendarTimingDisposition().
 function disposition(session){
+  if(session.date!==undefined){const date=String(session.date||''),parsed=new Date(date+'T00:00:00Z');if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)return{disposition:'invalid-date',startMinutes:null,endMinutes:null}}
   const timing=validateInterval(session.start,session.end,{timeUnknown:session.timeUnknown===true});
   if(timing.status!=='valid')return{disposition:'invalid',startMinutes:null,endMinutes:null};
   if(timing.endMinutes<=CAL_START)return{disposition:'before',startMinutes:timing.startMinutes,endMinutes:timing.endMinutes};
@@ -50,7 +51,7 @@ function gridDraw(session){
   return{startM,endM};
 }
 
-const sess=(start,end,extra={})=>({id:`s-${start}-${end}`,start,end,...extra});
+const sess=(start,end,extra={})=>({id:`s-${start}-${end}`,start,end,date:'2026-10-01',...extra});
 
 test('R4D-9G: 08:30-09:30 is grid-positionable',()=>{
   const s=sess('08:30','09:30');
@@ -123,6 +124,13 @@ test('R4D-9G: unknown-time sessions are surfaced, never grid-positionable',()=>{
   assert.equal(gridDraw(s),null);
 });
 
+test('post-P3: missing or malformed dates are Check Needed even when times look valid',()=>{
+  for(const s of [sess('09:00','10:00',{date:''}),sess('09:00','10:00',{date:null}),sess('09:00','10:00',{date:'2026-02-30'})]){
+    assert.equal(disposition(s).disposition,'invalid-date');
+    assert.equal(gridDraw(s),null);
+  }
+});
+
 test('R4D-9G: real-data early-clock patterns are all surfaced (never silently dropped)',()=>{
   const patterns=[['01:00','02:30'],['01:30','02:30'],['02:30','03:30'],['03:30','04:30'],
                   ['02:45','04:15'],['01:15','02:45'],['03:00','04:30']];
@@ -169,6 +177,22 @@ test('R4D-9G: shipped timetable.js uses the shared disposition helper, not ad-ho
   assert.match(layout,/calendarTimingDisposition\(session\)/);
   assert.match(layout,/item\.timing\.disposition==='grid'/);
   assert.doesNotMatch(layout,/item\.timing\.status==='valid'/);
+});
+
+test('post-P3 Check Needed list covers the selected academic year and partitions by canonical disposition',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  assert.match(html,/id="list-global-controls"/);
+  assert.match(html,/id="list-academic-year"/);
+  assert.match(html,/id="list-session-mode"/);
+  const listStart=src.indexOf('function renderList()');
+  const listEnd=src.indexOf('function bindSessionBlocks()',listStart);
+  const list=src.slice(listStart,listEnd);
+  assert.match(list,/session\.academicYear/);
+  assert.match(list,/listSessionMode==='CHECK NEEDED'\?checkRows:listSessionMode==='GRID-READY'\?gridRows:classified/);
+  assert.match(list,/checkRows=classified\.filter\(row=>row\.check\.disposition!==['"]grid['"]\)/);
+  assert.match(list,/gridRows=classified\.filter\(row=>row\.check\.disposition===['"]grid['"]\)/);
+  assert.doesNotMatch(list,/date>=start|future sessions/);
+  assert.match(src,/invalid-date/);
 });
 
 test('R4D-9G: no session is dropped by a window-based early return',()=>{

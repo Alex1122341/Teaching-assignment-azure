@@ -1,8 +1,8 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(root);
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.UCVMSessionGuard = api;
-})(typeof window !== 'undefined' ? window : globalThis, function () {
+})(typeof window !== 'undefined' ? window : globalThis, function (root) {
   'use strict';
 
   const RELOAD_KEY = 'ucvm_reload_timestamps_v1';
@@ -61,9 +61,28 @@
         ? 'position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:32px;background:#0f172acc;color:#fff;font:600 16px/1.5 Segoe UI,Arial,sans-serif;text-align:center;'
         : 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100000;max-width:720px;padding:12px 18px;border-radius:8px;background:#7f1d1d;color:#fff;font:600 14px/1.4 Segoe UI,Arial,sans-serif;box-shadow:0 8px 28px #0004;text-align:center;';
       documentObject.body.appendChild(notice);
+      if (!blocking) {
+        const dismiss = documentObject.createElement('button');
+        dismiss.type = 'button';
+        dismiss.setAttribute('aria-label', 'Dismiss session notice');
+        dismiss.textContent = 'Dismiss';
+        dismiss.style.cssText = 'margin-left:12px;border:0;border-radius:4px;padding:5px 9px;background:#fff;color:#7f1d1d;font:600 12px Segoe UI,Arial,sans-serif;cursor:pointer;';
+        dismiss.addEventListener('click', () => notice.remove());
+        notice.appendChild(dismiss);
+        const schedule = documentObject.defaultView?.setTimeout || setTimeout;
+        schedule(() => notice.remove(), 15_000);
+      }
     };
     if (documentObject.body) render();
     else documentObject.addEventListener('DOMContentLoaded', render, { once: true });
+  }
+
+  function clearNotice(storage = root?.sessionStorage, documentObject = root?.document) {
+    try { storage?.removeItem(NOTICE_KEY); } catch (_) {}
+    const notice = documentObject?.getElementById?.('ucvm-session-guard-notice');
+    if (!notice) return false;
+    try { notice.remove(); } catch (_) { try { notice.parentNode?.removeChild(notice); } catch (_) {} }
+    return true;
   }
 
   function start(auth, environment = {}) {
@@ -127,5 +146,5 @@
     return controller;
   }
 
-  return { recordReload, isIdle, isReloadNavigation, start, constants: { RELOAD_WINDOW_MS, MAX_RELOADS, IDLE_TIMEOUT_MS } };
+  return { recordReload, isIdle, isReloadNavigation, clearNotice, start, constants: { RELOAD_WINDOW_MS, MAX_RELOADS, IDLE_TIMEOUT_MS } };
 });

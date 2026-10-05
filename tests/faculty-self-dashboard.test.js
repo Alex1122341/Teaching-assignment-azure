@@ -27,8 +27,8 @@ test('faculty dashboard has a linked self-profile mode that does not subscribe t
  assert.match(selfBody,/UCVM_PAWS_DATA\.dashboardFaculty\(\)/);
  assert.match(selfBody,/UCVM_PAWS_DATA\.dashboardFacultyById\(facultyId\)/);
  assert.doesNotMatch(selfBody,/listenFacultySessions\(|db\.collection\(/,'self-service must not start a Firestore listener or read Firestore');
-  assert.match(src,/if \(isSelfServiceProfile\(profile\)\) \{ await enterSelfMode\(user, profile\); return; \}/);
-  assert.match(src,/if \(dashboardAdmin\(profile\)\) \{ enterAdminMode\(user, profile\); return; \}/);
+  assert.match(src,/if\s*\(isSelfServiceProfile\(profile\)\)\s*\{\s*window\.UCVMSessionGuard\?\.clearNotice\?\.\(\);\s*await enterSelfMode\(user, profile\);\s*return;\s*\}/);
+  assert.match(src,/if\s*\(dashboardAdmin\(profile\)\)\s*\{\s*window\.UCVMSessionGuard\?\.clearNotice\?\.\(\);\s*enterAdminMode\(user, profile\);\s*return;\s*\}/);
   const start=src.indexOf('async function enterSelfMode(user, profile)');
  const end=src.indexOf('\n  function enterAdminMode',start);
  assert.ok(start>=0&&end>start,'enterSelfMode must exist');

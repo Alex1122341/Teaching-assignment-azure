@@ -1,18 +1,20 @@
-# Latest checkpoint — AFC batch route fix committed locally; release acceptance pending
+# Latest checkpoint — Firebase Admin security patch locally verified; PR pending
 
 **Last verified:** 2026-10-05
 **Repository:** `Alex1122341/Teaching-assignment-azure`
-**Base:** `main` / current deployed ancestor includes `ee225505d74165d0b9231dbaebb7a50cf981aa9a`
-**Branch:** `fix/afc-batch-function-registration`
-**Product head:** `b25150f3ddf2cf2e90c1318cf84a7eea72a352ad` (local commit)
-**Working tree:** freeze-governance promotion is locally verified and ready to commit. No push, PR, merge, or deployment yet.
+**Base:** `main` @ `99906c6b9abb29ae5e0932368ccb352798e111d0`
+**Branch:** `fix/beta-firebase-admin-security`
+**Product commit:** `ae45597cc1bd9da38bccdb1807ba763c9f763ca8`
+**Freeze/governance commit:** `810873d672a4ea04720ac105667faf56641a8bc6`
+**Status:** local checks accepted; push/PR/hosted CI and any runtime activation are pending.
 
-- The existing AFC batch runtime was missing Azure Functions registration. Commit `23ec481` registers the exact POST batch route; commit `b25150f` makes its method restriction explicit and adds regression coverage. The existing AFC single-record route is unchanged.
-- Migration 015 is already applied and verified on VetMed-Ops. Do not rerun migration 015 or the accepted AFC source import. This route fix does not modify database schema/data, SQL permissions, or roles.
-- Focused AFC/dashboard tests pass 40/40; server suite passes 309/309; root suite passes 735/735 with 29 skipped. Static freeze protects all 52 assets; API freeze protects 33 runtime files plus build/repository inputs; candidate verifier reports zero drift. No static asset changed and no freeze exception was added.
-- No synthetic AFC/session rows or AuditEvents were created. The live deployment predates this route fix and must be rechecked after exact-main release.
+- Product diff changes only `server/package.json` and `server/package-lock.json`; Firebase Admin is exact-pinned at 13.10.0. Top-level msnodesqlv8, mssql, and pdf-lib remain unchanged.
+- Before production audit: 9 findings (2 HIGH, 7 MODERATE, 0 CRITICAL). After: 8 MODERATE, 0 HIGH, 0 CRITICAL. Remaining grouped moderate findings are in the Firebase Admin production dependency tree; see `agent.Ai/updates/2026-10-05-firebase-admin-security.md` for packages, paths, advisory and fix classification.
+- Node 22.23.2 verification: focused 40/40; server 309/309; root 764 total / 735 passed / 29 skipped / 0 failed. Static freeze 52 protected / zero drift; API freeze and candidate verifier zero drift; secret scan no matches; diff check passes.
+- Freeze anchor is the immutable product commit above. Governance was committed separately; zero-drift assertions remain strict.
+- The previously staged vulnerable runtime remains preserved and inactive. No SQL/Firebase/Azure/Cloudflare/service/configuration/data mutation, migration replay, deployment, or synthetic-record work occurred.
 
-**Next:** commit the verified freeze-governance promotion, then push the feature branch and follow Architect#5’s authorized PR, exact-main CI/release and live route acceptance sequence. Keep synthetic writes gated on a verified narrow cleanup path.
+**Next:** review the final branch diff, push `fix/beta-firebase-admin-security`, open the focused PR, and wait for required hosted CI. Do not activate/deploy until the exact-main release process is authorized and the production audit still has HIGH=0 and CRITICAL=0. Do not start Work Queue or touch the Experimental repository.
 
 ---
 # Superseded checkpoint — migration 015 applied; live AFC/session acceptance partial

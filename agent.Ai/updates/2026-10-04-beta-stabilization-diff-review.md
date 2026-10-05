@@ -1,8 +1,8 @@
 # Agent Update — PAWS stabilization diff review and safety fixes
 
-**Date:** 2026-10-04  
-**Agent/model:** Codex  
-**Repository:** `Alex1122341/Teaching-assignment-azure`  
+**Date:** 2026-10-04
+**Agent/model:** Codex
+**Repository:** `Alex1122341/Teaching-assignment-azure`
 **Task status:** PARTIAL — fixes locally verified; fresh PR CI and release gates pending
 
 ## 1. Goal

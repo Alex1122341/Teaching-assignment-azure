@@ -18,3 +18,4 @@ app.http('paws-dashboard-teaching-summary',{methods:DASHBOARD_METHODS,authLevel:
 app.http('paws-dashboard-roles',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/roles',handler:handle});
 app.http('paws-dashboard-doe-overview',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/doe-overview',handler:handle});
 app.http('paws-dashboard-afc-records',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/afc-records',handler:handle});
+app.http('paws-dashboard-afc-records-batch',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/afc-records/batch',handler:handle});

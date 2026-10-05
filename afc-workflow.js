@@ -12,7 +12,7 @@
   return;
  }
  if(businessBackend()!=='firestore'){
-  const message='AFC request entry is being moved to the Azure SQL Beta workflow. Existing teaching and change-history views remain available.';
+  const message='AFC requests are handled through the PAWS University API and VetMed-Ops workflow. Existing teaching and change-history views remain available.';
   let panelId='afc-panel';
   function renderUnavailable(){
    const target=window.document?.getElementById?.(panelId);

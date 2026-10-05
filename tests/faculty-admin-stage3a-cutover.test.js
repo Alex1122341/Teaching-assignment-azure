@@ -242,6 +242,7 @@ function createHarness(overrides = {}) {
   };
   context.globalThis = context;
 
+  vm.runInNewContext(read('faculty-admin-doe-renderer.js'), context, { filename: 'faculty-admin-doe-renderer.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   assert.equal(typeof authCallback, 'function', 'faculty-admin.js must register an auth callback :: ' + errors.join(' | '));
 
@@ -444,7 +445,7 @@ test('DOE values are displayed exactly as stored, with no client-side recomputat
   assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/, 'the stored DOE unit, credit and status render verbatim');
   assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/, 'the DOE credit must not be recomputed from rate x quantity');
 
-  const detail = ADMIN_SOURCE;
+  const detail = `${ADMIN_SOURCE}\n${read('faculty-admin-doe-renderer.js')}`;
   for (const field of ['doeRate', 'doeQuantity', 'doeUnit', 'doeCredit', 'doeStatus', 'doeMappedValue', 'doeOverrideValue']) {
     assert.match(detail, new RegExp(field), `DOE field ${field} must be rendered`);
   }

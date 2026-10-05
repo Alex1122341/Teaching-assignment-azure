@@ -43,6 +43,12 @@ test('account table shows all faculty-facing roles while preserving one primary 
  assert.match(source,/UCVM_ACCOUNT_PLANNER\.primaryRole/);
 });
 
+test('account role options use current display names and retain compatible role values',()=>{
+ const html=read('user-management.html');
+ assert.match(html,/<option value="administrator">ADFAD Admin<\/option>/);
+ assert.match(html,/<option value="owner">ADFAD Owner<\/option>/);
+});
+
 test('provisioned accounts receive a readable Change History action label',()=>{
  assert.match(read('faculty-access.js'),/account_provisioned:'Account provisioned'/);
 });

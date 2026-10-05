@@ -6,6 +6,8 @@ const fs = require('node:fs');
 
 const html = fs.readFileSync('faculty-admin.html', 'utf8');
 const source = fs.readFileSync('faculty-admin.js', 'utf8');
+const doeRenderer = fs.readFileSync('faculty-admin-doe-renderer.js', 'utf8');
+const profileSource = `${source}\n${doeRenderer}`;
 const client = fs.readFileSync('paws-data-client.js', 'utf8');
 
 test('admin exposes only the four read-only parity tabs and no legacy mutation surfaces', () => {
@@ -21,15 +23,15 @@ test('admin exposes only the four read-only parity tabs and no legacy mutation s
 
 test('rich profile uses the API view model for DOE and year/course/session expansion', () => {
   assert.match(html, /dashboard-view-model\.js/);
-  assert.match(source, /groupTeachingAssignments\(/);
+  assert.match(profileSource, /groupTeachingAssignments\(/);
   assert.match(source, /summarizeDoe\(/);
-  assert.match(source, /<details class="course-group"/);
+  assert.match(profileSource, /<details class="course-group"/);
   for (const label of ['DOE Summary', 'Teaching \/ Courses', 'Roles & Appointments', 'Away from Campus', 'Professional Profile']) {
-    assert.match(source, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(profileSource, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
-  assert.match(source, /Joint appointment/);
+  assert.match(profileSource, /Joint appointment/);
   for (const field of ['DOE Rate', 'DOE Quantity', 'DOE Unit', 'DOE Credit', 'DOE Status', 'Teaching Role', 'Topic', 'Room']) {
-    assert.match(source, new RegExp(field));
+    assert.match(profileSource, new RegExp(field));
   }
 });
 
@@ -52,15 +54,15 @@ test('Dashboard runtime remains zero-Firestore and self-service stays scoped', (
   assert.match(source, /body\.faculty-self-mode/);
 });
 
-test('11A2 worksheet cards and evidence groups are honest about Azure coverage', () => {
-  for (const label of ['Recorded Assigned DOE', 'Scheduled Teaching', 'Roles / Appointments', 'Applied Supervision', 'Effective Target', 'Remaining / Over', 'Policy Version', 'Reserve', 'AVAILABLE NOW', 'NOT YET AVAILABLE', 'DOE Evidence', 'Teaching evidence', 'Role evidence']) {
-    assert.match(source, new RegExp(label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')), label);
+test('11A2 worksheet cards and evidence groups are honest about VetMed-Ops coverage', () => {
+  for (const label of ['Recorded Role / Service DOE', 'Teaching / Courses', 'Roles & Appointments', 'Applied Supervision', 'Teaching Remaining / Variance', 'DOE Rule Reference', 'Policy:', 'Reserve', 'AVAILABLE NOW', 'NOT YET AVAILABLE', 'DOE Evidence', 'Teaching evidence', 'Role evidence']) {
+    assert.match(profileSource, new RegExp(label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')), label);
   }
-  assert.match(source, /Azure recorded evidence/);
-  assert.match(source, /Not available in Azure Beta/);
-  assert.match(source, /no rate × quantity/);
-  assert.match(source, /DOE unavailable \/ Needs Review/);
-  assert.match(source, /Partial \/ Needs Review/);
+  assert.match(profileSource, /VetMed-Ops recorded evidence/);
+  assert.match(profileSource, /Not available in current PAWS data/);
+  assert.match(profileSource, /no client-side recalculation/);
+  assert.match(profileSource, /DOE unavailable \/ Needs Review/);
+  assert.match(profileSource, /Partial \/ Needs Review/);
 });
 
 test('11A2 aggregate faculty names navigate to cached Lookup detail without fanout', () => {

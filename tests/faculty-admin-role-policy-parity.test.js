@@ -15,6 +15,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
+const ACCESS_SOURCE = read('faculty-access.js');
 const SERVER_SOURCE = read('server/src/data/dashboard-api.js');
 
 const ADMIN_PROFILE = { displayName: 'Admin User', role: 'adfa_general', facultyId: null, active: true, mustChangePassword: false };
@@ -48,6 +49,11 @@ function frontendPolicy() {
   return vm.runInNewContext(`${src}\n({dashboardRole,dashboardAdmin,dashboardGeneral,dashboardRoleLabel,isSelfServiceProfile});`);
 }
 const FE = frontendPolicy();
+const SHARED_ROLE_LABEL = (() => {
+  const match = /const label=r=>([^\n]+);/.exec(ACCESS_SOURCE);
+  assert.ok(match, 'the shared faculty access helper must expose its display-label mapping');
+  return vm.runInNewContext(`(r=>{const rawRole=r=>String((r&&typeof r==='object'?r.role:r)||'').toLowerCase();return ${match[1]};})`);
+})();
 
 // ------------------------------------------------------------ vm harness
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)); };
@@ -90,6 +96,7 @@ function createHarness(currentUser) {
     setTimeout, clearTimeout, Map, Set, Date, JSON, String, Number, Boolean, Array, Object, Math, Promise, RegExp, Error, TypeError, isNaN, parseInt, parseFloat
   };
   context.globalThis = context;
+  vm.runInNewContext(read('faculty-admin-doe-renderer.js'), context, { filename: 'faculty-admin-doe-renderer.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
     calls, errors, byId,
@@ -168,6 +175,14 @@ test('I–P. the full role parity table is preserved', () => {
 });
 
 test('display helpers still normalize and label the retired role harmlessly', () => {
+  assert.equal(FE.dashboardRoleLabel('adfa_general'), 'ADFAD Owner');
+  assert.equal(FE.dashboardRoleLabel('adfa_regular'), 'ADFAD Admin');
+  assert.equal(FE.dashboardRoleLabel('owner'), 'ADFAD Owner');
+  assert.equal(FE.dashboardRoleLabel('administrator'), 'ADFAD Admin');
+  assert.equal(SHARED_ROLE_LABEL('adfa_general'), 'ADFAD Owner');
+  assert.equal(SHARED_ROLE_LABEL('adfa_regular'), 'ADFAD Admin');
+  assert.equal(SHARED_ROLE_LABEL('owner'), 'ADFAD Owner');
+  assert.equal(SHARED_ROLE_LABEL('administrator'), 'ADFAD Admin');
   assert.equal(FE.dashboardRole('other_office'), 'other_office');
   assert.equal(FE.dashboardRoleLabel('other_office'), 'Other Office');
   assert.equal(FE.dashboardGeneral({ role: 'other_office' }), false);
@@ -221,8 +236,8 @@ test('a viewer profile is denied on both sides', async () => {
 test('the Stage 3C zero-Firestore contract is untouched by this fix', () => {
   const html = read('faculty-admin.html');
   const local = [...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin.js']);
-  assert.equal([...html.matchAll(/<script[^>]*>/g)].length, 8);
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin.js']);
+  assert.equal([...html.matchAll(/<script[^>]*>/g)].length, 10);
   for (const banned of ['firestore', 'faculty-access.js', 'UCVM_PAWS_DASHBOARD_API_ONLY']) {
     assert.equal(html.includes(banned), false, `${banned} must stay absent`);
   }

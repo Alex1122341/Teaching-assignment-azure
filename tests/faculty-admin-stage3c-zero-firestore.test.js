@@ -17,6 +17,8 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
+const DOE_RENDERER_SOURCE = read('faculty-admin-doe-renderer.js');
+const AFC_BATCH_SOURCE = read('faculty-admin-afc-batch.js');
 const ADMIN_HTML = read('faculty-admin.html');
 const ACCESS_SOURCE = read('faculty-access.js');
 const CLIENT_SOURCE = read('paws-data-client.js');
@@ -113,6 +115,7 @@ function createHarness(overrides = {}) {
   };
   context.globalThis = context;
   // NOTE: context.UCVM is deliberately absent.
+  vm.runInNewContext(DOE_RENDERER_SOURCE, context, { filename: 'faculty-admin-doe-renderer.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
     calls, errors, byId,
@@ -129,7 +132,7 @@ async function drive(overrides) { const h = createHarness(overrides); await h.si
 // ===========================================================================
 // A–D: final page runtime graph
 // ===========================================================================
-test('A / D. the page loads only the Firebase app+auth CDN and five bounded local scripts', () => {
+test('A / D. the page loads only the Firebase app+auth CDN and eight bounded local scripts', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const cdn = srcs.filter(s => /^https?:/.test(s));
   const local = srcs.filter(s => !/^https?:/.test(s));
@@ -137,8 +140,8 @@ test('A / D. the page loads only the Firebase app+auth CDN and five bounded loca
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin.js']);
-  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 8, '8 script elements total');
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin.js']);
+  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 10, '10 script elements total');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
 
@@ -326,11 +329,11 @@ function loadHelpers() {
 test('AE. the local access helpers match the locked server role policy', () => {
   const h = loadHelpers();
   const cases = [
-    ['owner', 'adfa_general', true, true, 'Owner'],
-    ['adfa_general', 'adfa_general', true, true, 'Owner'],
-    ['administrator', 'adfa_regular', true, false, 'Administrator'],
-    ['adfa_regular', 'adfa_regular', true, false, 'Administrator'],
-    ['admin', 'adfa_regular', true, false, 'Administrator'],
+    ['owner', 'adfa_general', true, true, 'ADFAD Owner'],
+    ['adfa_general', 'adfa_general', true, true, 'ADFAD Owner'],
+    ['administrator', 'adfa_regular', true, false, 'ADFAD Admin'],
+    ['adfa_regular', 'adfa_regular', true, false, 'ADFAD Admin'],
+    ['admin', 'adfa_regular', true, false, 'ADFAD Admin'],
     ['other_office', 'other_office', false, false, 'Other Office'],
     ['faculty', 'faculty', false, false, 'Faculty'],
     ['hicc', 'hicc', false, false, 'HICC'],
@@ -422,7 +425,7 @@ test('AN. the opt-in timing hooks are preserved', () => {
 // 33: static page acceptance
 // ===========================================================================
 test('33. the page exposes the read-only Lookup experience and nothing retired', () => {
-  for (const present of ['Faculty Dashboard', 'PAWS Azure SQL Beta API', 'read-only', 'id="kpi-total"', 'id="lookup-search"', 'id="filter-rank"', 'id="profile-pane"', 'index.html#approvals', 'user-management.html', 'password.html', 'id="signout-btn"']) {
+  for (const present of ['Faculty Dashboard', 'PAWS University API', 'VetMed-Ops teaching data', 'read-only', 'id="kpi-total"', 'id="lookup-search"', 'id="filter-rank"', 'id="profile-pane"', 'index.html#approvals', 'user-management.html', 'password.html', 'id="signout-btn"']) {
     assert.equal(ADMIN_HTML.includes(present), true, `${present} must be present`);
   }
   for (const absent of ['firestore', 'xlsx', 'V9.7', 'data-general-only', 'edit-modal', 'derived-index', 'history-view', 'database-view', 'sessional-view']) {
@@ -438,8 +441,10 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
   assert.equal(/\bfirestore\b/i.test(CLIENT_SOURCE), false, 'paws-data-client.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(CONTINUITY_SOURCE), false, 'paws-auth-continuity.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(ADMIN_SOURCE), false, 'faculty-admin.js: no Firestore dependency');
+  assert.equal(/\bfirestore\b/i.test(DOE_RENDERER_SOURCE), false, 'faculty-admin-doe-renderer.js: no Firestore dependency');
+  assert.equal(/\bfirestore\b/i.test(AFC_BATCH_SOURCE), false, 'faculty-admin-afc-batch.js: no Firestore dependency');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin.js']);
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin.js']);
 });
 
 test('92 / 94 / 96. the controller stays bounded with contract DOE detail and overview', () => {

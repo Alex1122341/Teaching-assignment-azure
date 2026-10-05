@@ -159,9 +159,9 @@ test('AFC uses the same safe unavailable facade for missing and unknown backends
     assert.equal(result.initCalls, 0, label);
     assert.equal(result.firestoreTouches, 0, label);
     assert.equal(result.decisionCalls, 0, label);
-    assert.match(result.panel.innerHTML, /moved to the Azure SQL Beta workflow/, label);
+    assert.match(result.panel.innerHTML, /PAWS University API and VetMed-Ops workflow/, label);
     assert.doesNotMatch(result.panel.innerHTML, /Submit AFC request|afc-form/i, label);
-    await assert.rejects(result.context.window.UCVM_AFC.submit({}), /moved to the Azure SQL Beta workflow/);
+    await assert.rejects(result.context.window.UCVM_AFC.submit({}), /PAWS University API and VetMed-Ops workflow/);
   }
 });
 
@@ -250,11 +250,11 @@ test('Azure SQL AFC facade keeps panel navigation but exposes no legacy request 
   const h = azureAfcPanelHarness();
   assert.equal(h.context.window.UCVM_AFC.unavailable, true);
   h.context.window.UCVM_AFC.mount({ panelId: 'afc-panel-content', mode: 'timetable' });
-  await assert.rejects(h.context.window.UCVM_AFC.submit({}), /moved to the Azure SQL Beta workflow/);
+  await assert.rejects(h.context.window.UCVM_AFC.submit({}), /PAWS University API and VetMed-Ops workflow/);
 
   h.request.onclick();
   assert.equal(h.panel.hidden, false);
-  assert.match(h.elements.get('afc-panel-content').innerHTML, /moved to the Azure SQL Beta workflow/);
+  assert.match(h.elements.get('afc-panel-content').innerHTML, /PAWS University API and VetMed-Ops workflow/);
   assert.doesNotMatch(h.elements.get('afc-panel-content').innerHTML, /afc-form|Submit AFC request/i);
   assert.equal(h.context.decideCalls, 0);
 

@@ -4,6 +4,7 @@ const ExcelJS = require('exceljs');
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { DOE_RULES, SOURCE_REFERENCE: DOE_RULE_SOURCE_REFERENCE } = require('../server/src/domain/doe-rule-book');
 
 const ACADEMIC_YEAR = '2026-27';
 const TOTAL_TOLERANCE = 0.01;
@@ -11,7 +12,7 @@ const WORKSHEET_NAME = 'DOE Import';
 const EXPECTED_HEADERS = Object.freeze([
   'FullName', 'UCID', 'Teaching', 'ScholarlyActivity', 'PPVMCostShare',
   'ClinicalUnsorted', 'ClinicalTeaching', 'ClinicalActivityPPVM', 'Research',
-  'ContractAdmin', 'ServiceAdmin', 'Other', 'Onboarding', 'TotalContractPctFTE'
+  'ContractAdmin', 'ServiceAdmin', 'Other', 'Onboarding', 'TotalContractPctFTE', 'FTE'
 ]);
 const CATEGORY_COLUMNS = Object.freeze([
   { column: 4, categoryCode: 'scholarly_activity' },
@@ -66,6 +67,17 @@ function readPercentage(cell, rowNumber, errors, code) {
   return number;
 }
 
+function readFte(cell, rowNumber, errors) {
+  const value = readCellValue(cell);
+  if (value === null || value === '') return null;
+  const number = typeof value === 'number' ? value : (typeof value === 'string' && value.trim() ? Number(value.trim()) : NaN);
+  if (!Number.isFinite(number) || number < 0 || number > 1) {
+    errors.push(error('INVALID_FTE_VALUE', rowNumber));
+    return null;
+  }
+  return number;
+}
+
 function parseDoeWorksheet(worksheet) {
   if (!worksheet || typeof worksheet.eachRow !== 'function') throw Object.assign(new Error(`${WORKSHEET_NAME} sheet is required.`), { code: 'DOE_IMPORT_SHEET_REQUIRED' });
   const actualHeaders = EXPECTED_HEADERS.map((_, index) => {
@@ -83,9 +95,10 @@ function parseDoeWorksheet(worksheet) {
     const sourceName = sourceNameValue === null ? '' : String(sourceNameValue).normalize('NFKC').trim().replace(/\s+/g, ' ');
     const ucid = readUcid(row.getCell(2));
     if (!sourceName && !ucid) return;
-    const hasDoeValues = [3, ...CATEGORY_COLUMNS.map(item => item.column), 14]
+    const hasDoeValues = [3, ...CATEGORY_COLUMNS.map(item => item.column), 14, 15]
       .some(column => readCellValue(row.getCell(column)) !== null && readCellValue(row.getCell(column)) !== '');
     if (!ucid && !hasDoeValues) return;
+    const errorOffset = errors.length;
     if (!ucid) errors.push(error('UCID_REQUIRED', rowNumber));
 
     const rowErrors = errors.length;
@@ -96,17 +109,25 @@ function parseDoeWorksheet(worksheet) {
       if (allocationDoe !== null) allocations.push({ categoryCode, allocationDoe });
     }
     const total = readPercentage(row.getCell(14), rowNumber, errors, 'INVALID_TOTAL_VALUE');
+    const fte = readFte(row.getCell(15), rowNumber, errors);
     if (total !== null && errors.length === rowErrors) {
       const suppliedTotal = [teachingDoe, ...allocations.map(item => item.allocationDoe)]
         .filter(value => value !== null)
         .reduce((sum, value) => sum + value, 0);
       if (Math.abs(suppliedTotal - total) > TOTAL_TOLERANCE) errors.push(error('TOTAL_MISMATCH', rowNumber));
     }
-    sourceRows.push({ rowNumber, sourceName, ucid, academicYear: ACADEMIC_YEAR, teachingDoe, allocations });
+    sourceRows.push({
+      rowNumber, sourceName, ucid, academicYear: ACADEMIC_YEAR,
+      teachingDoe, totalContractPctFte: total, fte, allocations,
+      validationErrors: errors.slice(errorOffset).map(item => item.code)
+    });
   });
   const sourceUcidCounts = new Map();
   for (const row of sourceRows) if (row.ucid) sourceUcidCounts.set(row.ucid, (sourceUcidCounts.get(row.ucid) || 0) + 1);
-  for (const row of sourceRows) if (row.ucid && sourceUcidCounts.get(row.ucid) > 1) errors.push(error('DUPLICATE_SOURCE_UCID', row.rowNumber));
+  for (const row of sourceRows) if (row.ucid && sourceUcidCounts.get(row.ucid) > 1) {
+    errors.push(error('DUPLICATE_SOURCE_UCID', row.rowNumber));
+    row.validationErrors.push('DUPLICATE_SOURCE_UCID');
+  }
   return { sourceRows, errors };
 }
 
@@ -116,6 +137,53 @@ async function readDoeWorkbook(filePath) {
   const worksheet = workbook.getWorksheet(WORKSHEET_NAME);
   if (!worksheet) throw Object.assign(new Error(`${WORKSHEET_NAME} sheet is required.`), { code: 'DOE_IMPORT_SHEET_REQUIRED' });
   return parseDoeWorksheet(worksheet);
+}
+
+function parseDoeCsv(text) {
+  const input = String(text ?? '').replace(/^\uFEFF/, '');
+  const records = [];
+  let record = [], field = '', quoted = false;
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input[i];
+    if (quoted) {
+      if (ch === '"' && input[i + 1] === '"') { field += '"'; i += 1; }
+      else if (ch === '"') quoted = false;
+      else field += ch;
+    } else if (ch === '"' && field === '') quoted = true;
+    else if (ch === ',') { record.push(field); field = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && input[i + 1] === '\n') i += 1;
+      record.push(field); field = '';
+      if (record.some(value => value !== '')) records.push(record);
+      record = [];
+    } else field += ch;
+  }
+  if (quoted) throw Object.assign(new Error('DOE CSV contains an unclosed quoted field.'), { code: 'DOE_IMPORT_CSV_INVALID' });
+  record.push(field);
+  if (record.some(value => value !== '')) records.push(record);
+  if (!records.length || records[0].length !== EXPECTED_HEADERS.length || records[0].some((header, index) => String(header).trim() !== EXPECTED_HEADERS[index])) {
+    throw Object.assign(new Error('DOE CSV headers do not match the approved import contract.'), { code: 'DOE_IMPORT_HEADERS_INVALID' });
+  }
+  const worksheet = {
+    getRow(rowNumber) {
+      const cells = records[rowNumber - 1] || [];
+      return { getCell(column) { return { value: cells[column - 1] ?? null }; } };
+    },
+    eachRow(callback) {
+      for (let rowNumber = 1; rowNumber < records.length; rowNumber += 1) {
+        const cells = records[rowNumber];
+        callback({ getCell(column) { return { value: cells[column - 1] ?? null }; } }, rowNumber + 1);
+      }
+    }
+  };
+  return parseDoeWorksheet(worksheet);
+}
+
+async function readDoeSource(filePath) {
+  if (path.extname(filePath).toLowerCase() === '.csv') {
+    return parseDoeCsv(await fs.readFile(filePath, 'utf8'));
+  }
+  return readDoeWorkbook(filePath);
 }
 
 function normalizedName(value) {
@@ -142,6 +210,7 @@ function reconcileDoeRows(sourceRows, facultyRows, { validationErrors = 0 } = {}
   let exactInactiveMatches = 0;
   let noMatch = 0;
   let conflicts = 0;
+  let nameWarnings = 0;
   let teachingTargetRows = 0;
   let nonTeachingAllocationRows = 0;
   const issues = [];
@@ -149,25 +218,34 @@ function reconcileDoeRows(sourceRows, facultyRows, { validationErrors = 0 } = {}
 
   for (const source of sourceRows) {
     const ucid = normalizeUcid(source.ucid);
-    const rowIssues = [];
+    const rowIssues = [...(source.validationErrors || [])];
     if (!ucid) rowIssues.push('UCID_REQUIRED');
-    else if (sourceCounts.get(ucid) > 1) rowIssues.push('DUPLICATE_SOURCE_UCID');
+    else if (sourceCounts.get(ucid) > 1 && !rowIssues.includes('DUPLICATE_SOURCE_UCID')) rowIssues.push('DUPLICATE_SOURCE_UCID');
     const candidates = ucid ? (databaseByUcid.get(ucid) || []) : [];
     if (ucid && !candidates.length && !rowIssues.length) {
       noMatch += 1;
-      issues.push({ rowNumber: source.rowNumber, code: 'NO_MATCH' });
+      issues.push({ rowNumber: source.rowNumber, code: 'NO_UCID_MATCH' });
+      continue;
+    }
+    if (rowIssues.some(code => code !== 'DUPLICATE_SOURCE_UCID' && code !== 'DUPLICATE_DATABASE_UCID')) {
+      for (const code of new Set(rowIssues)) issues.push({ rowNumber: source.rowNumber, code });
       continue;
     }
     if (candidates.length > 1) rowIssues.push('DUPLICATE_DATABASE_UCID');
     const match = candidates.length === 1 ? candidates[0] : null;
-    if (match && normalizedName(source.sourceName) && normalizedName(match.displayName) && normalizedName(source.sourceName) !== normalizedName(match.displayName)) {
-      rowIssues.push('NAME_MISMATCH');
-    }
-
     if (rowIssues.length) {
       conflicts += 1;
-      for (const code of rowIssues) issues.push({ rowNumber: source.rowNumber, code });
+      const code = rowIssues.some(value => value === 'DUPLICATE_SOURCE_UCID' || value === 'DUPLICATE_DATABASE_UCID')
+        ? 'UCID_CONFLICT'
+        : rowIssues[0];
+      issues.push({ rowNumber: source.rowNumber, code });
       continue;
+    }
+    const hasNameWarning = Boolean(match && normalizedName(source.sourceName) && normalizedName(match.displayName) && normalizedName(source.sourceName) !== normalizedName(match.displayName));
+    const matchClass = hasNameWarning ? 'EXACT_UCID_NAME_WARNING' : 'EXACT_UNIQUE_UCID_MATCH';
+    if (hasNameWarning) {
+      nameWarnings += 1;
+      issues.push({ rowNumber: source.rowNumber, code: matchClass });
     }
     if (match.active === false || match.active === 0 || match.active === '0') {
       exactInactiveMatches += 1;
@@ -182,22 +260,37 @@ function reconcileDoeRows(sourceRows, facultyRows, { validationErrors = 0 } = {}
       facultyId: String(match.facultyId),
       academicYear: ACADEMIC_YEAR,
       teachingDoe: source.teachingDoe,
-      allocations: source.allocations.map(item => ({ ...item }))
+      fte: source.fte ?? null,
+      allocations: source.allocations.map(item => ({ ...item })),
+      matchClass
     });
   }
 
   const activeFaculty = facultyRows.filter(faculty => faculty.active === true || faculty.active === 1 || faculty.active === '1').length;
   const activeFacultyWithTeachingTarget = importRows.filter(row => row.teachingDoe !== null).length;
+  const activeFacultyRows = facultyRows.filter(faculty => faculty.active === true || faculty.active === 1 || faculty.active === '1');
+  const importedById = new Map(importRows.map(row => [row.facultyId, row]));
+  const ftePopulatedBefore = activeFacultyRows.filter(faculty => faculty.fte !== null && faculty.fte !== undefined && faculty.fte !== '').length;
+  const ftePopulatedAfter = activeFacultyRows.filter(faculty => {
+    const source = importedById.get(String(faculty.facultyId));
+    return source && source.fte !== null ? true : faculty.fte !== null && faculty.fte !== undefined && faculty.fte !== '';
+  }).length;
   const summary = {
     sourceRows: sourceRows.length,
     exactActiveMatches,
     exactInactiveMatches,
     noMatch,
     conflicts,
+    nameWarnings,
     teachingTargetRows,
     nonTeachingAllocationRows,
     validationErrors: Number(validationErrors) || 0,
     activeFaculty,
+    sourceMatchedFaculty: exactActiveMatches,
+    ftePopulatedBefore,
+    ftePopulatedAfter,
+    fteNullAfter: Math.max(0, activeFaculty - ftePopulatedAfter),
+    explicitZeroFteValues: importRows.filter(row => row.fte === 0).length,
     activeFacultyWithTeachingTarget,
     activeFacultyMissingTeachingTarget: Math.max(0, activeFaculty - activeFacultyWithTeachingTarget)
   };
@@ -210,11 +303,24 @@ function buildDoeImportPayload(sourceRows, errors = [], { sourceFileName = null,
     sourceFileName,
     sourceFileSha256,
     validationErrors: errors.length,
+    doeRuleBook: {
+      sourceReference: DOE_RULE_SOURCE_REFERENCE,
+      rules: DOE_RULES.map(rule => ({
+        ...rule,
+        rawJson: JSON.stringify({
+          ruleCode: rule.ruleCode,
+          category: rule.category,
+          policyReferenceOnly: true
+        })
+      }))
+    },
     sourceRows: sourceRows.map(row => ({
       rowNumber: row.rowNumber,
       sourceName: row.sourceName,
       ucid: normalizeUcid(row.ucid),
       teachingDoe: row.teachingDoe,
+      fte: row.fte ?? null,
+      validationErrors: [...new Set(row.validationErrors || errors.filter(item => item.rowNumber === row.rowNumber).map(item => item.code))],
       allocations: row.allocations.map(item => ({
         categoryCode: item.categoryCode,
         allocationDoe: item.allocationDoe
@@ -231,7 +337,9 @@ module.exports = {
   TOTAL_TOLERANCE,
   WORKSHEET_NAME,
   normalizeUcid,
+  parseDoeCsv,
   parseDoeWorksheet,
+  readDoeSource,
   readDoeWorkbook,
   reconcileDoeRows
 };
@@ -242,14 +350,13 @@ async function cli(args) {
   if (!['--summary', '--write-payload'].includes(mode) || !workbookPath) {
     throw new Error('Usage: doe-faculty-import.js --summary <workbook.xlsx> | --write-payload <workbook.xlsx> <private-output.json>');
   }
-  const parsed = await readDoeWorkbook(workbookPath);
+  const parsed = await readDoeSource(workbookPath);
   const coverage = { Teaching: parsed.sourceRows.filter(row => row.teachingDoe !== null).length };
   for (const { categoryCode } of CATEGORY_COLUMNS) {
     coverage[categoryCode] = parsed.sourceRows.filter(row => row.allocations.some(item => item.categoryCode === categoryCode)).length;
   }
   if (mode === '--summary') {
-    process.stdout.write(`${JSON.stringify({ sourceRows: parsed.sourceRows.length, uniqueUcids: new Set(parsed.sourceRows.map(row => row.ucid)).size, validationErrors: parsed.errors.length, coverage })}\n`);
-    if (parsed.errors.length) process.exitCode = 2;
+    process.stdout.write(`${JSON.stringify({ sourceRows: parsed.sourceRows.length, uniqueUcids: new Set(parsed.sourceRows.map(row => row.ucid)).size, validationErrorCount: parsed.errors.length, validationErrors: parsed.errors.map(({ rowNumber, code }) => ({ rowNumber, code })), coverage })}\n`);
     return;
   }
   const outputPath = args[2];
@@ -265,8 +372,7 @@ async function cli(args) {
     sourceFileSha256: crypto.createHash('sha256').update(sourceBytes).digest('hex').toUpperCase()
   });
   await fs.writeFile(resolvedOutput, JSON.stringify(payload), { encoding: 'utf8', flag: 'wx' });
-  process.stdout.write(`${JSON.stringify({ payloadRows: parsed.sourceRows.length, validationErrors: parsed.errors.length })}\n`);
-  if (parsed.errors.length) process.exitCode = 2;
+  process.stdout.write(`${JSON.stringify({ payloadRows: parsed.sourceRows.length, validationErrorCount: parsed.errors.length, validationErrors: parsed.errors.map(({ rowNumber, code }) => ({ rowNumber, code }))})}\n`);
 }
 
 if (require.main === module) {

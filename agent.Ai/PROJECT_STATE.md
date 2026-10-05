@@ -1,3 +1,41 @@
+# Latest checkpoint — local DOE/AFC/Session candidate frozen; public Beta sign-in pending
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / start `340f599e13de98847b2e41a057be32517e79fee7`
+**Branch:** `feature/beta-doe-afc-data-completion`
+**Product head:** `36837c893a09dda88a31b12fca645ce9c0b010be` (local commit)
+**Working tree:** freeze promotion and continuity updates are local and uncommitted. No push, PR, merge, or deployment.
+
+- DOE/FTE + 33 rule references, accepted AFC source reconciliation (803 imported/active; 799/799 valid source rows represented), AFC Multi Input, and admin-only scalar Session Edit are locally implemented. Do not rerun the source import or migration 015.
+- Migration 015 is already applied and verified on VetMed-Ops. Runtime identity remains the pre-existing `UC\\sa-xinyu.zhu1` `db_owner`; no role/grant widening or redundant grant was added. Keep this as temporary Beta security debt, not target architecture.
+- The immutable static/API freeze now points to product commit `36837c893a09dda88a31b12fca645ce9c0b010be`; coverage is 52 static files and 33 API runtime files. `SETUP.md`, `AGENTS.md`, workflow evidence, baseline metadata, and tests agree. No freeze gate was relaxed.
+- Verification: freeze-focused tests 55/55; static freeze protects 52 files with zero drift; API freeze protects 33 runtime files plus build/repository inputs with zero drift; candidate verifier reports zero static/API drift; root `npm test` 764 total / 735 passed / 29 skipped / 0 failed; `git diff --check` passed (line-ending warnings only).
+- Public Beta sign-in UI is accepted. The current Codex IAB page now shows `Signed in as adfa (adfa_general)` and has loaded the timetable. `/api/v1/me` has not yet been independently recorded for this resumed session, so authenticated API acceptance remains pending. No live AFC/session test writes have been made.
+- No synthetic AFC/session rows or AuditEvents were created; no deployment, push, PR, or merge occurred. Product code is committed locally; freeze-governance promotion and continuity notes remain uncommitted.
+
+**Next:** complete the authorized read-only `/api/v1/me` check, then verify the live API supports the exact acceptance routes before any synthetic writes. Continue AFC and Session Edit acceptance only with proven canonical identities and controlled cleanup. Do not push, merge, or release while live acceptance is incomplete.
+
+---
+# Superseded checkpoint — migration 015 applied; live AFC/session acceptance partial
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / start `340f599e13de98847b2e41a057be32517e79fee7`
+**Branch:** `feature/beta-doe-afc-data-completion`
+**Working head:** still base SHA; milestone changes remain uncommitted. No PR, push, merge, or deployment.
+
+- Prior Architect-accepted work: role/source terminology, DOE/FTE + 33 rule references, latest AFC source reconciliation (803 imported/active baseline, 799/799 valid rows represented), and AFC Multi Input are recorded in the SDD ledger. Do not rerun the AFC source import.
+- Session-edit frontend remains locally complete and role-gated; no Firestore write path exists. Migration 015 guard now records pre-existing temporary `db_owner` debt, avoids a redundant grant, and uses dynamic DDL for newly-added column references plus required filtered-index SET options.
+- Verification after the migration fix: AFC Multi Input/migration tests 19/19; full server suite 309/309; root `npm test` 762 total / 726 pass / 29 skipped / 7 fail (all immutable freeze-baseline drift checks); `git diff --check` passes with line-ending warnings. No freeze gates were changed.
+- Live runtime SQL identity was proven through the deployed API factory as the same exact Windows/SQL principal already present in `db_owner`; migration 015 applied successfully to VetMed-Ops. `ManualPurpose nvarchar(1000) NULL`, legacy `ReasonCode nvarchar(32) NULL`, batch columns, two trusted constraints, filtered unique index, unified view projection, and batch procedure exist. Procedure definition hash matches local source after SQL Server header/line-ending normalization. Imported active AFC remains 803; manual AFC remains 0; the only explicit permission row remains CONNECT; effective procedure EXECUTE is true through the unchanged pre-existing role. No role/grant widening or business rows were created.
+- The first two migration attempts rolled back cleanly: attempt one exposed SQL batch name-resolution behavior for columns added and referenced within one batch; attempt two exposed required filtered-index SET options. The script was corrected and re-tested before successful apply. Current schema is post-migration; do not rerun 015.
+- Live Beta remains at “Sign in required.” New local real-browser probe of frozen `6cd77eb` and current feature source shows one click listener, one callback invocation, stable button node, and a visible login-choice modal. The same fresh click on live Beta still produces no modal/toast/navigation and no console error. The public HTML GET does not statically reference `approval-workflow.js`, but the live DOM contains that script with an app-specific marker and the timetable alignment style; the extra script node's origin is not established. Do not infer causality or guess at a fix. See `agent.Ai/updates/2026-10-05-0954-signin-reproduction.md`.
+- Root baseline drift remains unresolved; no gates were weakened. No synthetic AFC/session rows, audit events, deployment, commit, push, PR, or merge. See `agent.Ai/updates/2026-10-05-0931-afc-migration-and-signin.md` for evidence.
+
+**Next:** ask Architect#5 to direct a supported check for the live listener/callback and the extra DOM node's source. Treat the sign-in root cause as unisolated and do not change auth code. After normal sign-in is restored, continue the previously authorized synthetic AFC and Session Edit API acceptance and cleanup. Reconcile each intentional static/API difference through the normal freeze review, rerun `npm test`, and keep the branch uncommitted/unreleased until acceptance and gates are complete.
+
+---
 # PAWS POST-P3 STABILIZATION — RELEASED / ACCEPTANCE PARTIAL
 
 **Last verified:** 2026-10-04 (Beta release workflows completed 2026-10-05 UTC)

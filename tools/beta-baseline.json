@@ -1,20 +1,20 @@
 {
-  "sourceCommit": "6cd77eb53d532b1f2279777452d45e55182b49ee",
+  "sourceCommit": "36837c893a09dda88a31b12fca645ce9c0b010be",
   "siteUrl": "https://red-cliff-04871ca0f.5.azurestaticapps.net",
   "sha256": {
     "index.html": "0fa06154378153a3966490961850efebad8d00360279edf468a5bd0d45333c3a",
-    "timetable.js": "641bd31b4e845181111be52e1b9e8d99f6d5149bf0cfe0935ee39eb8b85426b8",
+    "timetable.js": "64c4792478fe793448fe1ca7b90fc448d0b14f102570ac2889f5451a7df7117a",
     "timetable.css": "c63af5fe18a0f7001c1903829775bcb4c432111fc2b6d57e756f4649133c5c39",
-    "faculty-admin.html": "45ae358917cea06ffce86305a4f1c9feb0ef8b981bf19a6518e0d9cee2562801",
-    "faculty-admin.js": "d0f98b9825cec8ebdb43b53699c5f6da4f1e93bcf49e78e56e9491966f8193fd",
+    "faculty-admin.html": "a231da13247e08af69ded2efda8d08b03fc2316c807f5d94a1b17ed07c71c9f4",
+    "faculty-admin.js": "67960d78ac8bf154c5dc661f99b8a71211abe39361206981400a5d8b910730f6",
     "faculty-admin.css": "20652166523c32a1c31a6f8a001c6899a4f9ee656659c1062cfd0a5eef99f0e9",
     "dashboard-view-model.js": "124c26e724754dda49b68c2a9c1fb19918989b9b300e93e73a724f7db3e9c328",
-    "faculty-access.js": "f435d5de30c54bcf6000e8a03d11805b5aff7c7ada50c26b0297634629b5ed0b",
+    "faculty-access.js": "2acb1e2718f08403fb5f6df8ef49b4d132ed478b872cf0bd90790e48a4ea9417",
     "paws-api-origin.js": "e0b8546a6f973a9bd11d02aaf67739a44b7603d078aed3e9efc315549df06708",
-    "paws-data-client.js": "5e5cc66a288c44d7a146d76e4e654762a08317eb859148c1e4128d67a42abfcf",
+    "paws-data-client.js": "20fd59c4ae64843072e60cd25e6ccc232ac1e28b1346242055a0215f70dd0b77",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
     "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170",
-    "afc-workflow.js": "4a4229dba5b6e1f457fbc6786eb1c1305525e34130e0494f8cbeb8e715ba2e60",
+    "afc-workflow.js": "6aa5cb6765ce0d444806ab87e82108b52641d9eb29f3d06f1b56b7142907bf56",
     "afc-workflow-sql.js": "de874c4ee90f740cc35c8cd1157801c193cec77ddb5b96963d97e337c50666ee"
   }
 }

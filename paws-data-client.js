@@ -51,6 +51,7 @@
         const error=new Error(body?.error?.message||'The PAWS data service is unavailable.');
         error.code=body?.error?.code||('HTTP_'+response.status);
         error.status=response.status;
+        if(Array.isArray(body?.rows))error.rows=body.rows;
         throw error;
       }
       return body;
@@ -236,6 +237,20 @@
           notes:input.notes===undefined||input.notes===null?'':String(input.notes)
         }});
         return body.afcRecord&&typeof body.afcRecord==='object'?body.afcRecord:{};
+      },
+      async createDashboardAfcManualBatch(payload={}){
+        const input=payload&&typeof payload==='object'?payload:{};
+        const rows=Array.isArray(input.rows)?input.rows.map(row=>({
+          facultyId:String(row?.facultyId??'').trim(),
+          startDate:String(row?.startDate??'').trim(),
+          endDate:String(row?.endDate??'').trim(),
+          purpose:typeof row?.purpose==='string'?row.purpose:''
+        })):[];
+        const body=await request('/api/v1/dashboard/afc-records/batch',{method:'POST',body:{
+          requestId:String(input.requestId??'').trim(),
+          rows
+        }});
+        return {requestId:body.requestId||String(input.requestId??''),idempotentReplay:body.idempotentReplay===true,rows:Array.isArray(body.rows)?body.rows:[]};
       },
       async listAfcRequests(){
         const body=await request('/api/v1/afc-requests');

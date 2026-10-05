@@ -1,3 +1,40 @@
+# Latest checkpoint — local DOE/AFC/Session candidate frozen; public Beta sign-in pending
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / start `340f599e13de98847b2e41a057be32517e79fee7`
+**Branch:** `feature/beta-doe-afc-data-completion`
+**Product head:** `36837c893a09dda88a31b12fca645ce9c0b010be` (local commit)
+**Working tree:** freeze promotion and continuity updates are local and uncommitted. No push, PR, merge, or deployment.
+
+- DOE/FTE + 33 rule references, accepted AFC source reconciliation (803 imported/active; 799/799 valid source rows represented), AFC Multi Input, and admin-only scalar Session Edit are locally implemented. Do not rerun the source import or migration 015.
+- Migration 015 is already applied and verified on VetMed-Ops. Runtime identity remains the pre-existing `UC\\sa-xinyu.zhu1` `db_owner`; no role/grant widening or redundant grant was added. Keep this as temporary Beta security debt, not target architecture.
+- The immutable static/API freeze now points to product commit `36837c893a09dda88a31b12fca645ce9c0b010be`; coverage is 52 static files and 33 API runtime files. `SETUP.md`, `AGENTS.md`, workflow evidence, baseline metadata, and tests agree. No freeze gate was relaxed.
+- Verification: freeze-focused tests 55/55; static freeze protects 52 files with zero drift; API freeze protects 33 runtime files plus build/repository inputs with zero drift; candidate verifier reports zero static/API drift; root `npm test` 764 total / 735 passed / 29 skipped / 0 failed; `git diff --check` passed (line-ending warnings only).
+- Public Beta is unauthenticated in a fresh browser context. The actual Sign in click handler ran once and opened the login-choice modal; an email/password form is open and blank for owner sign-in. The old Chrome tab event failure remains unclassified. No credentials were entered by the agent.
+- No synthetic AFC/session rows or AuditEvents were created; no deployment, push, PR, or merge occurred. Product code is committed locally; freeze-governance promotion and continuity notes remain uncommitted.
+
+**Next:** wait only for owner sign-in in the existing Beta form. After sign-in is confirmed, continue the previously authorized synthetic AFC and Session Edit API acceptance, verify audit/denial/no-Firestore invariants, and safely clean up only generated synthetic records. Do not push, merge, or release while live acceptance is incomplete or Architect#5 has not directed it.
+
+---
+# Superseded checkpoint — migration 015 applied; live AFC/session acceptance partial
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / start `340f599e13de98847b2e41a057be32517e79fee7`
+**Branch:** `feature/beta-doe-afc-data-completion`
+**Working head:** still base SHA; milestone changes remain uncommitted. No PR, push, merge, or deployment.
+
+- Do not rerun the accepted AFC source import: imported active count 803; 799/799 valid source rows represented.
+- Local DOE/FTE, AFC Multi Input, and Session Edit feature implementation remains on `feature/beta-doe-afc-data-completion`; no commit/PR/push/merge/deployment.
+- Migration 015 was applied successfully to VetMed-Ops after two rolled-back attempts uncovered SQL Server batch-compilation and filtered-index SET-option issues. Post-state verified: nullable `ManualPurpose nvarchar(1000)` and legacy `ReasonCode`; batch procedure + unified view; required constraints/index; 803 imported active AFC; 0 manual rows; procedure hash matches reviewed local procedure; runtime role unchanged and no new explicit grant (effective EXECUTE via existing db_owner). Do not rerun migration 015.
+- Focused migration/AFC tests 19/19; full server suite 309/309; root suite 762 total / 726 passed / 29 skipped / 7 immutable freeze-baseline drift failures; `git diff --check` passed. Gates remain unchanged.
+- Public Beta sign-in remains unresponsive. A temporary local real-browser probe proves both frozen and feature-branch sources bind one Sign in click handler and open the modal. Live Beta has no visible response and no console error. The raw public HTML has no static `approval-workflow.js` reference, while the loaded DOM includes that script with an app-specific marker; its origin is unproven. Do not guess at a fix or alter auth architecture; no credentials entered. Details: `agent.Ai/updates/2026-10-05-0954-signin-reproduction.md`.
+- No synthetic AFC/session rows or AuditEvents, no deployment, commit, push, PR, or merge.
+
+**Next:** ask Architect#5 to direct a supported check for the live click listener/callback and the extra DOM node's source. The sign-in root cause remains unisolated; do not change auth code. Once sign-in works, run the authorized synthetic AFC + session sentinel API acceptance and safe cleanup. Reconcile deliberate runtime drift through the normal frozen-baseline review and rerun full root tests; do not relax freeze gates or release before acceptance.
+
+---
 # Latest checkpoint — PAWS post-P3 stabilization released / acceptance partial
 
 **Released application main:** `e03fd867c4b5af36a2d980e7a515bd13af2d34d3`, PR #48 merged. Exact-main Build `37255508927`, SQL Migration Tests `37255508911`, ACR Publish `37255826375`, ACA Deploy `37255946409`, and Static Deploy `37256161825` succeeded.

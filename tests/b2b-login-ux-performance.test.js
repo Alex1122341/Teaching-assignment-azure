@@ -411,10 +411,10 @@ test('35. B2A classified PAWS failures never sign out the Firebase session',()=>
 test('36. Firebase persistence remains LOCAL',()=>{
   assert.match(timetable(),/setPersistence\(firebase\.auth\.Auth\.Persistence\.LOCAL\)/);
 });
-test('37. auth copy identifies Firebase authentication and PAWS API + Azure SQL authorization',()=>{
+test('37. auth copy identifies Firebase authentication and PAWS University API + VetMed-Ops authorization',()=>{
   const s=timetable();
   assert.match(s,/Authentication:<\/strong>\s*Firebase/i);
-  assert.match(s,/Authorization:<\/strong>\s*PAWS API \+ Azure SQL/i);
+  assert.match(s,/Authorization:<\/strong>\s*PAWS University API \+ VetMed-Ops/i);
   assert.doesNotMatch(s,/Authorization:<\/strong>\s*Firestore/i);
 });
 test('38. new performance asset is loaded before timetable bootstrap and protected by static manifest',()=>{

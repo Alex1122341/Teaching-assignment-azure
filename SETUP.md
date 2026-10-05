@@ -66,9 +66,9 @@ The Azure beta URL is publicly reachable and is not a security boundary. Firebas
 
 ### Frozen runtime contract
 
-The post-P3 stabilization candidate freezes both static and API runtime files at immutable product commit `6cd77eb53d532b1f2279777452d45e55182b49ee`. This is the candidate branch trust anchor; it is not live until the pull request is merged and the separately gated exact-main release succeeds.
+The DOE/AFC/Session feature candidate freezes both static and API runtime files at immutable product commit `36837c893a09dda88a31b12fca645ce9c0b010be`. This is the candidate branch trust anchor; it is not live until the pull request is merged and the separately gated exact-main release succeeds.
 
-1. The authoritative list of shipped application files is `tools/static-assets.json` (50 entries). All are protected, not a small subset.
+1. The authoritative list of shipped application files is `tools/static-assets.json` (52 entries). All are protected, not a small subset.
 2. The protected set is the union of the paths named by the current manifest and by the manifest stored in the frozen baseline commit. Deleting a path from the mutable manifest does not remove it from the freeze.
 3. Protection is enforced by `tools/beta-freeze.js`, which compares each protected file with the blob stored in the frozen baseline commit using `git cat-file`. It never compares against a hash file in the working tree.
 4. `tools/beta-baseline.json` is documentation and live-site reporting only. Editing a runtime file and that JSON together still fails CI, because verification reads the baseline Git objects.

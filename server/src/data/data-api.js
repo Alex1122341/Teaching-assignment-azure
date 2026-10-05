@@ -24,6 +24,13 @@ const SESSION_EDIT_FIELDS = new Set(['date', 'startTime', 'endTime', 'courseCode
 
 const result = (status, body) => ({ status, body });
 const text = value => (value === null || value === undefined ? '' : String(value).trim());
+const SESSION_EDIT_SQL_ERRORS = new Map([
+  [51242, { status: 400, code: 'INVALID_SESSION_VALUES', message: 'The session values are invalid.' }],
+  [51243, { status: 400, code: 'COURSE_NOT_FOUND', message: 'The course code was not found.' }],
+  [51244, { status: 409, code: 'SESSION_ACADEMIC_YEAR_INVALID', message: 'The session academic year is invalid.' }],
+  [51245, { status: 400, code: 'SESSION_DATE_OUTSIDE_ACADEMIC_YEAR', message: 'The date does not match the session academic year.' }],
+  [51246, { status: 409, code: 'DUPLICATE_SESSION_CONFLICT', message: 'The edit conflicts with an existing session.' }]
+]);
 const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') &&
   !Number.isNaN(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
 
@@ -179,7 +186,10 @@ function createDataApi({ verifyToken, findUser, listSessions, updateSession = as
         return session
           ? result(200, { session })
           : result(404, { error: { code: 'SESSION_NOT_FOUND', message: 'The timetable session was not found.' } });
-      } catch (_) {
+      } catch (error) {
+        const sqlNumber = Number(error?.number ?? error?.originalError?.info?.number);
+        const known = SESSION_EDIT_SQL_ERRORS.get(sqlNumber);
+        if (known) return result(known.status, { error: { code: known.code, message: known.message } });
         return result(503, { error: { code: 'SQL_UNAVAILABLE', message: 'The SQL write service is temporarily unavailable.' } });
       }
     }

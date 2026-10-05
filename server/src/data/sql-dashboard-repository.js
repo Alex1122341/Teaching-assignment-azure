@@ -358,8 +358,9 @@ function createSqlDashboardRepository(db) {
              f.DisplayName AS facultyName,
              CONVERT(varchar(10), u.StartDate, 23) AS startDate,
              CONVERT(varchar(10), u.EndDate, 23) AS endDate,
-             u.ReasonCode AS reasonCode,
-             u.ReasonDisplay AS reason,
+               u.ReasonCode AS reasonCode,
+               u.Purpose AS purpose,
+               u.ReasonDisplay AS reason,
              u.Notes AS notes,
              u.LegacyPurpose AS legacyPurpose,
              u.Active AS active,
@@ -413,6 +414,9 @@ function createSqlDashboardRepository(db) {
              f.Stream AS stream,
              f.Rank AS rank,
              f.Fte AS fte,
+             f.FteSourceReference AS fteSourceReference,
+             f.FteSourceRow AS fteSourceRow,
+             f.FteSourceUpdatedAtUtc AS fteSourceUpdatedAtUtc,
              f.ReportsToFacultyId AS reportsToFacultyId,
              manager.DisplayName AS reportsToName,
              f.Active AS active
@@ -426,7 +430,7 @@ function createSqlDashboardRepository(db) {
       const record = rows[0];
       if (!record) return null;
 
-      const [profileRows, jointRows, roleRows, afcRows, assignmentRows, contractTargetRows, contractAllocationRows] = await Promise.all([
+      const [profileRows, jointRows, roleRows, afcRows, assignmentRows, contractTargetRows, contractAllocationRows, doeRuleRows] = await Promise.all([
         // ---------------------------------------------------- professional profile
         db.query(
           `SELECT
@@ -565,6 +569,27 @@ function createSqlDashboardRepository(db) {
               AND a.Active = 1
             ORDER BY a.CategoryCode, a.DoeFacultyAllocationId`,
           { facultyId, academicYear: resolvedYear }
+        ),
+        db.query(
+          `SELECT r.DoeRuleSeedId AS doeRuleId,
+                  JSON_VALUE(r.RawJson, '$.ruleCode') AS ruleCode,
+                  r.Category AS category,
+                  r.RuleLabel AS ruleLabel,
+                  r.AcademicYearOrStage AS academicYearOrStage,
+                  r.RateOrTierPct AS rateOrTierPct,
+                  r.Basis AS basis,
+                  r.RequiredInput AS requiredInput,
+                  r.CalculationOrNote AS calculationOrNote,
+                  COALESCE(NULLIF(r.SourceUrl, N''), p.SourceReference) AS sourceReference,
+                  r.PolicyVersionId AS policyVersionId,
+                  p.AcademicYear AS academicYear,
+                  p.VersionLabel AS policyVersionLabel
+             FROM paws.DoeRuleSeed r
+             INNER JOIN paws.DoePolicyVersion p ON p.PolicyVersionId = r.PolicyVersionId
+            WHERE p.AcademicYear = @academicYear
+              AND p.Active = 1
+            ORDER BY r.Category, r.SourceRow, r.DoeRuleSeedId`,
+          { academicYear: resolvedYear }
         )
       ]);
 
@@ -612,6 +637,9 @@ function createSqlDashboardRepository(db) {
           stream: toText(record.stream),
           rank: toText(record.rank),
           fte: toNumber(record.fte),
+          fteSourceReference: toText(record.fteSourceReference),
+          fteSourceRow: toNumber(record.fteSourceRow),
+          fteSourceUpdatedAtUtc: record.fteSourceUpdatedAtUtc || null,
           reportsToFacultyId: toText(record.reportsToFacultyId),
           reportsToName: toText(record.reportsToName),
           active: toBool(record.active)
@@ -667,6 +695,7 @@ function createSqlDashboardRepository(db) {
           startDate: toText(row.startDate),
           endDate: toText(row.endDate),
           reasonCode: toText(row.reasonCode),
+          purpose: toText(row.purpose),
           reason: toText(row.reason),
           notes: toText(row.notes),
           legacyPurpose: toText(row.legacyPurpose),
@@ -687,6 +716,24 @@ function createSqlDashboardRepository(db) {
           allocations: contractAllocationRows.map(row => ({
             categoryCode: toText(row.categoryCode),
             allocationDoe: toNumber(row.allocationDoe),
+            sourceReference: toText(row.sourceReference)
+          }))
+        },
+        doeRuleBook: {
+          academicYear: toText(doeRuleRows[0]?.academicYear || resolvedYear),
+          policyVersionId: toText(doeRuleRows[0]?.policyVersionId),
+          policyVersionLabel: toText(doeRuleRows[0]?.policyVersionLabel),
+          sourceReference: toText(doeRuleRows[0]?.sourceReference),
+          rules: doeRuleRows.map(row => ({
+            doeRuleId: toText(row.doeRuleId),
+            ruleCode: toText(row.ruleCode),
+            category: toText(row.category),
+            ruleLabel: toText(row.ruleLabel),
+            academicYearOrStage: toText(row.academicYearOrStage),
+            rateOrTierPct: toText(row.rateOrTierPct),
+            basis: toText(row.basis),
+            requiredInput: toText(row.requiredInput),
+            calculationOrNote: toText(row.calculationOrNote),
             sourceReference: toText(row.sourceReference)
           }))
         },

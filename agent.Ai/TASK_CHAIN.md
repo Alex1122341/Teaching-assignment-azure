@@ -1,3 +1,21 @@
+# Latest checkpoint — migration 015 applied; live AFC/session acceptance partial
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / start `340f599e13de98847b2e41a057be32517e79fee7`
+**Branch:** `feature/beta-doe-afc-data-completion`
+**Working head:** still base SHA; milestone changes remain uncommitted. No PR, push, merge, or deployment.
+
+- Do not rerun the accepted AFC source import: imported active count 803; 799/799 valid source rows represented.
+- Local DOE/FTE, AFC Multi Input, and Session Edit feature implementation remains on `feature/beta-doe-afc-data-completion`; no commit/PR/push/merge/deployment.
+- Migration 015 was applied successfully to VetMed-Ops after two rolled-back attempts uncovered SQL Server batch-compilation and filtered-index SET-option issues. Post-state verified: nullable `ManualPurpose nvarchar(1000)` and legacy `ReasonCode`; batch procedure + unified view; required constraints/index; 803 imported active AFC; 0 manual rows; procedure hash matches reviewed local procedure; runtime role unchanged and no new explicit grant (effective EXECUTE via existing db_owner). Do not rerun migration 015.
+- Focused migration/AFC tests 19/19; full server suite 309/309; root suite 762 total / 726 passed / 29 skipped / 7 immutable freeze-baseline drift failures; `git diff --check` passed. Gates remain unchanged.
+- Public Beta sign-in remains unresponsive. A temporary local real-browser probe proves both frozen and feature-branch sources bind one Sign in click handler and open the modal. Live Beta has no visible response and no console error. The raw public HTML has no static `approval-workflow.js` reference, while the loaded DOM includes that script with an app-specific marker; its origin is unproven. Do not guess at a fix or alter auth architecture; no credentials entered. Details: `agent.Ai/updates/2026-10-05-0954-signin-reproduction.md`.
+- No synthetic AFC/session rows or AuditEvents, no deployment, commit, push, PR, or merge.
+
+**Next:** ask Architect#5 to direct a supported check for the live click listener/callback and the extra DOM node's source. The sign-in root cause remains unisolated; do not change auth code. Once sign-in works, run the authorized synthetic AFC + session sentinel API acceptance and safe cleanup. Reconcile deliberate runtime drift through the normal frozen-baseline review and rerun full root tests; do not relax freeze gates or release before acceptance.
+
+---
 # Latest checkpoint — PAWS post-P3 stabilization released / acceptance partial
 
 **Released application main:** `e03fd867c4b5af36a2d980e7a515bd13af2d34d3`, PR #48 merged. Exact-main Build `37255508927`, SQL Migration Tests `37255508911`, ACR Publish `37255826375`, ACA Deploy `37255946409`, and Static Deploy `37256161825` succeeded.

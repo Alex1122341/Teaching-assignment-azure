@@ -14,7 +14,7 @@ window.UCVM=(()=>{
  const DASHBOARD_ROLES=['adfa_general','adfa_regular','faculty','hicc','visc'];
  function canOpenFacultyDashboard(p){return DASHBOARD_ROLES.includes(role(p?.role));}
  const historyAll=p=>['adfa_general','adfa_regular'].includes(role(p?.role));
- const label=r=>({owner:'Owner',adfa_general:'Owner',administrator:'Administrator',adfa_regular:'Administrator',admin:'Administrator',other_office:'Other Office',hicc:'HICC',visc:'VISC',faculty:'Faculty',editor:'Faculty',viewer:'Faculty'}[rawRole(r)]||rawRole(r));
+ const label=r=>({owner:'ADFAD Owner',adfa_general:'ADFAD Owner',administrator:'ADFAD Admin',adfa_regular:'ADFAD Admin',admin:'ADFAD Admin',other_office:'Other Office',hicc:'HICC',visc:'VISC',faculty:'Faculty',editor:'Faculty',viewer:'Faculty'}[rawRole(r)]||rawRole(r));
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const number=v=>{if(v===undefined||v===null||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null};
  function installWeekTimeAlignmentFix(){if(document.getElementById('ucvm-week-time-alignment-fix'))return;const style=document.createElement('style');style.id='ucvm-week-time-alignment-fix';style.textContent='.tg-track{top:0!important;bottom:0!important}.tg-block{position:absolute!important}';document.head.appendChild(style)}

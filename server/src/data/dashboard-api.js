@@ -38,6 +38,7 @@ const AFC_REASON_LABELS = Object.freeze({
 });
 const AFC_REASON_CODES = new Set(Object.keys(AFC_REASON_LABELS));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const AFC_BATCH_MAX_ROWS = 20;
 
 const result = (status, body) => ({ status, body });
 const error = (status, code, message) => result(status, { error: { code, message } });
@@ -86,6 +87,53 @@ function validateAfcInput(payload) {
   return { facultyId, startDate, endDate, reasonCode, notes: notes || null };
 }
 
+function validateAfcBatchInput(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return error(400, 'INVALID_JSON', 'AFC batch JSON must be an object.');
+  }
+  const requestId = text(payload.requestId);
+  if (!validUuid(requestId)) return error(400, 'INVALID_REQUEST_ID', 'AFC batch request id must be a UUID.');
+  if (!Array.isArray(payload.rows) || payload.rows.length === 0) {
+    return error(400, 'AFC_BATCH_EMPTY', 'Add at least one AFC row.');
+  }
+  if (payload.rows.length > AFC_BATCH_MAX_ROWS) {
+    return error(400, 'AFC_BATCH_TOO_LARGE', `AFC batches may contain at most ${AFC_BATCH_MAX_ROWS} rows.`);
+  }
+  const rows = [];
+  const invalid = [];
+  const seen = new Set();
+  const duplicates = [];
+  payload.rows.forEach((item, rowIndex) => {
+    const row = item && typeof item === 'object' && !Array.isArray(item) ? item : {};
+    const facultyId = text(row.facultyId);
+    const startDate = strictDate(row.startDate);
+    const endDate = strictDate(row.endDate);
+    const purpose = typeof row.purpose === 'string' ? row.purpose : '';
+    const errors = [];
+    if (!validUuid(facultyId)) errors.push('FACULTY_REQUIRED');
+    if (!startDate || !endDate) errors.push('INVALID_DATE');
+    else if (endDate < startDate) errors.push('END_BEFORE_START');
+    if (!purpose.trim()) errors.push('PURPOSE_REQUIRED');
+    else if (purpose.length > 1000) errors.push('PURPOSE_TOO_LONG');
+    if (errors.length) {
+      invalid.push({ rowIndex, status: 'INVALID', errors });
+      return;
+    }
+    const normalized = { rowIndex, facultyId, startDate, endDate, purpose };
+    const identity = JSON.stringify([facultyId, startDate, endDate, purpose]);
+    if (seen.has(identity)) duplicates.push({ rowIndex, status: 'CONFLICT', errors: ['DUPLICATE_IN_BATCH'] });
+    else seen.add(identity);
+    rows.push(normalized);
+  });
+  if (invalid.length) {
+    return { status: 400, body: { error: { code: 'AFC_BATCH_INVALID', message: 'Review the row errors before submitting.' }, rows: invalid } };
+  }
+  if (duplicates.length) {
+    return { status: 409, body: { error: { code: 'AFC_BATCH_DUPLICATE', message: 'Remove duplicate rows before submitting.' }, rows: duplicates } };
+  }
+  return { requestId, rows };
+}
+
 function normalizeAfcRecord(row = {}) {
   const reasonCode = text(row.reasonCode);
   return {
@@ -95,6 +143,7 @@ function normalizeAfcRecord(row = {}) {
     startDate: text(row.startDate),
     endDate: text(row.endDate),
     reasonCode: reasonCode || null,
+    purpose: row.purpose === null || row.purpose === undefined ? null : String(row.purpose),
     reason: text(row.reason) || (reasonCode ? AFC_REASON_LABELS[reasonCode] || null : null),
     notes: row.notes === null || row.notes === undefined ? null : text(row.notes),
     legacyPurpose: row.legacyPurpose === null || row.legacyPurpose === undefined ? null : text(row.legacyPurpose),
@@ -317,6 +366,33 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
       } catch (caught) {
         return mapAfcWriteError(caught);
       }
+    },
+    // POST /api/v1/dashboard/afc-records/batch. Validate and authorize before
+    // the single stored-procedure call; identity always comes from SQL profile.
+    async createAfcManualBatch(token, payload) {
+      const auth = await authorize(token);
+      if (auth.status) return auth;
+      if (!auth.scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot create AFC records.');
+      const input = validateAfcBatchInput(payload);
+      if (input.status) return input;
+      try {
+        const batch = await writeRepository.createAfcManualBatch({
+          ...input,
+          actorFirebaseUid: auth.decoded.uid,
+          actorName: auth.profile.displayName
+        });
+        if (!batch) return error(503, 'SQL_UNAVAILABLE', 'The SQL write service is unavailable.');
+        const replay = batch.status === 'ALREADY_APPLIED';
+        const conflict = batch.status === 'CONFLICT';
+        return result(conflict ? 409 : replay ? 200 : 201, {
+          requestId: input.requestId,
+          idempotentReplay: replay,
+          rows: batch.rows || []
+        });
+      } catch (_) {
+        if (Number(_ && _.number) === 51517) return error(404, 'FACULTY_NOT_FOUND', 'An active Faculty record was not found.');
+        return error(503, 'SQL_UNAVAILABLE', 'The SQL write service is unavailable.');
+      }
     }
   };
 }
@@ -331,6 +407,7 @@ module.exports = {
   AFC_REASON_LABELS,
   AFC_REASON_CODES,
   validateAfcInput,
+  validateAfcBatchInput,
   normalizeAfcRecord,
   strictDate
 };

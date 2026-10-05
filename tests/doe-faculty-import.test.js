@@ -9,7 +9,9 @@ const ExcelJS = require('exceljs');
 const {
   CATEGORY_COLUMNS,
   buildDoeImportPayload,
+  parseDoeCsv,
   parseDoeWorksheet,
+  readDoeSource,
   readDoeWorkbook,
   reconcileDoeRows
 } = require('../tools/doe-faculty-import');
@@ -17,7 +19,7 @@ const {
 const HEADERS = [
   'FullName', 'UCID', 'Teaching', 'ScholarlyActivity', 'PPVMCostShare',
   'ClinicalUnsorted', 'ClinicalTeaching', 'ClinicalActivityPPVM', 'Research',
-  'ContractAdmin', 'ServiceAdmin', 'Other', 'Onboarding', 'TotalContractPctFTE'
+  'ContractAdmin', 'ServiceAdmin', 'Other', 'Onboarding', 'TotalContractPctFTE', 'FTE'
 ];
 
 function workbookWith(rows, sheetName = 'DOE Import') {
@@ -36,11 +38,11 @@ function sourceRow({ name = 'Faculty One', ucid = '0001234', ...values } = {}) {
   return row;
 }
 
-test('sanitized DOE Import worksheet maps only A:N fields and preserves blanks versus numeric zero', () => {
+test('sanitized DOE Import worksheet maps only approved fields and preserves blanks versus numeric zero', () => {
   assert.deepEqual(CATEGORY_COLUMNS.map(item => item.column), [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
   const sheet = workbookWith([
     sourceRow({ Teaching: 40, ScholarlyActivity: 10, ServiceAdmin: 20, TotalContractPctFTE: 70 }),
-    sourceRow({ name: 'Faculty Two', ucid: '0001235', Teaching: 0, PPVMCostShare: 0, TotalContractPctFTE: 0 })
+    sourceRow({ name: 'Faculty Two', ucid: '0001235', Teaching: 0, PPVMCostShare: 0, TotalContractPctFTE: 0, FTE: 0 })
   ]).getWorksheet('DOE Import');
   const parsed = parseDoeWorksheet(sheet);
   assert.equal(parsed.sourceRows.length, 2);
@@ -52,6 +54,7 @@ test('sanitized DOE Import worksheet maps only A:N fields and preserves blanks v
     { categoryCode: 'service_admin', allocationDoe: 20 }
   ]);
   assert.equal(parsed.sourceRows[1].teachingDoe, 0);
+  assert.equal(parsed.sourceRows[1].fte, 0);
   assert.deepEqual(parsed.sourceRows[1].allocations, [{ categoryCode: 'ppvm_cost_share', allocationDoe: 0 }]);
 });
 
@@ -89,36 +92,69 @@ test('DOE reconciliation authorizes exact UCID matches only and distinguishes ac
     { rowNumber: 2, sourceName: 'Same Name', ucid: '0001', teachingDoe: 40, allocations: [] },
     { rowNumber: 3, sourceName: 'Inactive', ucid: '0002', teachingDoe: 25, allocations: [] },
     { rowNumber: 4, sourceName: 'Missing', ucid: '0003', teachingDoe: 10, allocations: [] },
-    { rowNumber: 5, sourceName: 'Name conflict', ucid: '0004', teachingDoe: 20, allocations: [] },
+    { rowNumber: 5, sourceName: 'Name warning', ucid: '0004', teachingDoe: 20, fte: 0.75, allocations: [] },
     { rowNumber: 6, sourceName: 'Duplicate A', ucid: '0005', teachingDoe: 15, allocations: [] },
     { rowNumber: 7, sourceName: 'Duplicate B', ucid: '0005', teachingDoe: 15, allocations: [] }
   ];
   const facultyRows = [
     { facultyId: 'f-active', ucid: '0001', displayName: 'Same Name', active: true },
     { facultyId: 'f-inactive', ucid: '0002', displayName: 'Inactive', active: false },
-    { facultyId: 'f-conflict', ucid: '0004', displayName: 'Different Name', active: true },
+    { facultyId: 'f-name-warning', ucid: '0004', displayName: 'Different Name', active: true, fte: null },
     { facultyId: 'f-duplicate-a', ucid: '0005', displayName: 'Duplicate A', active: true },
     { facultyId: 'f-duplicate-b', ucid: '0005', displayName: 'Duplicate B', active: true }
   ];
   const result = reconcileDoeRows(sourceRows, facultyRows);
   assert.deepEqual(result.summary, {
     sourceRows: 6,
-    exactActiveMatches: 1,
+    exactActiveMatches: 2,
     exactInactiveMatches: 1,
     noMatch: 1,
-    conflicts: 3,
-    teachingTargetRows: 1,
+    conflicts: 2,
+    nameWarnings: 1,
+    teachingTargetRows: 2,
     nonTeachingAllocationRows: 0,
     validationErrors: 0,
     activeFaculty: 4,
-    activeFacultyWithTeachingTarget: 1,
-    activeFacultyMissingTeachingTarget: 3
+    sourceMatchedFaculty: 2,
+    ftePopulatedBefore: 0,
+    ftePopulatedAfter: 1,
+    fteNullAfter: 3,
+    explicitZeroFteValues: 0,
+    activeFacultyWithTeachingTarget: 2,
+    activeFacultyMissingTeachingTarget: 2
   });
-  assert.deepEqual(result.issues.map(issue => issue.code), ['NO_MATCH', 'NAME_MISMATCH', 'DUPLICATE_SOURCE_UCID', 'DUPLICATE_DATABASE_UCID', 'DUPLICATE_SOURCE_UCID', 'DUPLICATE_DATABASE_UCID']);
-  assert.equal(result.importRows.length, 1);
+  assert.deepEqual(result.issues.map(issue => issue.code), ['NO_UCID_MATCH', 'EXACT_UCID_NAME_WARNING', 'UCID_CONFLICT', 'UCID_CONFLICT']);
+  assert.equal(result.importRows.length, 2);
   assert.equal(result.importRows[0].facultyId, 'f-active');
   assert.equal(result.importRows[0].teachingDoe, 40);
+  assert.equal(result.importRows[1].facultyId, 'f-name-warning');
+  assert.equal(result.importRows[1].fte, 0.75);
+  assert.equal(result.importRows[1].matchClass, 'EXACT_UCID_NAME_WARNING');
   assert.doesNotMatch(JSON.stringify(result), /0001|Same Name|Different Name/);
+});
+
+test('DOE CSV parser accepts the authorized source contract and preserves blank FTE versus numeric zero', () => {
+  const headers = HEADERS.join(',');
+  const rowA = ['Faculty, One', '0000123', '40', '10', '', '', '', '', '5', '', '20', '', '', '75', '0.75'].map(value => `"${value.replaceAll('"', '""')}"`).join(',');
+  const rowB = ['Faculty Two', '0000124', '0', '', '', '', '', '', '', '', '', '', '', '0', '0'].join(',');
+  const rowC = ['Faculty Three', '0000125', '', '', '', '', '', '', '', '', '', '', '', '', ''].join(',');
+  const parsed = parseDoeCsv(`${headers}\r\n${rowA}\r\n${rowB}\r\n${rowC}\r\n`);
+  assert.equal(parsed.sourceRows.length, 3);
+  assert.equal(parsed.errors.length, 0);
+  assert.equal(parsed.sourceRows[0].sourceName, 'Faculty, One');
+  assert.equal(parsed.sourceRows[0].fte, 0.75);
+  assert.equal(parsed.sourceRows[1].fte, 0);
+  assert.equal(parsed.sourceRows[2].fte, null);
+});
+
+test('DOE FTE parser rejects nonnumeric and out-of-range values without coercing blanks', () => {
+  const rows = [
+    sourceRow({ ucid: '0001', FTE: 'not numeric' }),
+    sourceRow({ ucid: '0002', FTE: 1.01 })
+  ];
+  const parsed = parseDoeWorksheet(workbookWith(rows).getWorksheet('DOE Import'));
+  assert.deepEqual(parsed.errors.map(error => error.code), ['INVALID_FTE_VALUE', 'INVALID_FTE_VALUE']);
+  assert.equal(parsed.sourceRows[0].fte, null);
 });
 
 test('DOE reconciliation imports blank Teaching as absent and explicit zero as a target', () => {
@@ -135,13 +171,29 @@ test('DOE reconciliation imports blank Teaching as absent and explicit zero as a
   assert.equal(result.importRows[1].teachingDoe, 0);
 });
 
+test('DOE reconciliation isolates a total-validation failure and keeps independently valid exact UCID rows', () => {
+  const result = reconcileDoeRows([
+    { rowNumber: 2, sourceName: 'Invalid', ucid: '1', teachingDoe: 20, totalContractPctFte: 90, fte: 0.5, validationErrors: ['TOTAL_MISMATCH'], allocations: [] },
+    { rowNumber: 3, sourceName: 'Valid', ucid: '2', teachingDoe: 30, fte: 0.75, allocations: [] }
+  ], [
+    { facultyId: 'invalid', ucid: '1', displayName: 'Invalid', active: true, fte: null },
+    { facultyId: 'valid', ucid: '2', displayName: 'Valid', active: true, fte: null }
+  ], { validationErrors: 1 });
+  assert.deepEqual(result.importRows.map(row => row.facultyId), ['valid']);
+  assert.deepEqual(result.issues, [{ rowNumber: 2, code: 'TOTAL_MISMATCH' }]);
+  assert.equal(result.summary.validationErrors, 1);
+});
+
 test('DOE import payload contains only approved identity and DOE fields', () => {
   const payload = buildDoeImportPayload([{
     rowNumber: 2, sourceName: 'Faculty One', ucid: '0001234', academicYear: '2026-27',
-    teachingDoe: 0, totalContractPctFte: 90, fte: 1, allocations: [{ categoryCode: 'research', allocationDoe: 90 }]
+    teachingDoe: 0, totalContractPctFte: 90, fte: 0, allocations: [{ categoryCode: 'research', allocationDoe: 90 }]
   }], [], { sourceFileName: 'PAWS_DOE_Import_2026-27.xlsx', sourceFileSha256: 'A'.repeat(64) });
-  assert.deepEqual(Object.keys(payload), ['academicYear', 'sourceFileName', 'sourceFileSha256', 'validationErrors', 'sourceRows']);
-  assert.deepEqual(Object.keys(payload.sourceRows[0]), ['rowNumber', 'sourceName', 'ucid', 'teachingDoe', 'allocations']);
+  assert.deepEqual(Object.keys(payload), ['academicYear', 'sourceFileName', 'sourceFileSha256', 'validationErrors', 'doeRuleBook', 'sourceRows']);
+  assert.deepEqual(Object.keys(payload.sourceRows[0]), ['rowNumber', 'sourceName', 'ucid', 'teachingDoe', 'fte', 'validationErrors', 'allocations']);
   assert.equal(payload.sourceRows[0].teachingDoe, 0);
-  assert.doesNotMatch(JSON.stringify(payload), /totalContractPctFte|\"fte\"/i);
+  assert.equal(payload.sourceRows[0].fte, 0);
+  assert.ok(payload.doeRuleBook.rules.length > 25);
+  assert.equal(payload.doeRuleBook.rules.find(rule => rule.ruleCode === 'lecture').rateOrTierPct, '0.30%');
+  assert.doesNotMatch(JSON.stringify(payload), /totalContractPctFte/i);
 });

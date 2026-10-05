@@ -78,6 +78,23 @@ test('SQL session edit returns not found and contains repository failures', asyn
   assert.doesNotMatch(JSON.stringify(failed), /private SQL detail/);
 });
 
+test('SQL session edit exposes only reviewed validation/conflict categories from its stored procedure', async () => {
+  const profile = { active: true, mustChangePassword: false, baseRole: 'owner' };
+  for (const [number, status, code] of [
+    [51242, 400, 'INVALID_SESSION_VALUES'],
+    [51243, 400, 'COURSE_NOT_FOUND'],
+    [51244, 409, 'SESSION_ACADEMIC_YEAR_INVALID'],
+    [51245, 400, 'SESSION_DATE_OUTSIDE_ACADEMIC_YEAR'],
+    [51246, 409, 'DUPLICATE_SESSION_CONFLICT']
+  ]) {
+    const { api } = apiFor(profile, { updateSession: async () => { throw Object.assign(new Error('private SQL details'), { number }); } });
+    const response = await api.updateExistingSession('valid', SESSION_ID, PATCH);
+    assert.equal(response.status, status);
+    assert.equal(response.body.error.code, code);
+    assert.doesNotMatch(JSON.stringify(response), /private SQL details/);
+  }
+});
+
 test('SQL session repository uses one fixed procedure call and never writes assignments', async () => {
   let seen;
   const repository = createSqlSessionRepository({ query: async (query, params) => { seen = { query, params }; return [{ id: SESSION_ID }]; } });

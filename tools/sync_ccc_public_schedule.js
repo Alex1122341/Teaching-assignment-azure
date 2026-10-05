@@ -13,7 +13,7 @@ const mv=fields=>({mapValue:{fields}}),av=values=>({arrayValue:{values}});
 (async()=>{
   const [faculty,users]=await Promise.all([list('faculty'),list('users')]);
   const owner=users.find(user=>['adfa_general','owner'].includes(String(field(user,'role')||'').toLowerCase())&&field(user,'active')===true);
-  if(!owner)throw Error('No active ADFA General or owner profile found.');
+  if(!owner)throw Error('No active ADFAD Owner profile found.');
   const actorUid=owner.name.split('/').pop(),actorName=field(owner,'name')||field(owner,'email')||actorUid;
   const events=[];
   for(const document of faculty){

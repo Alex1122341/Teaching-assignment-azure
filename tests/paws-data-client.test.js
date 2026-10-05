@@ -148,7 +148,7 @@ test('Dashboard client exposes explicit AFC methods without Firestore fallback',
   const source=fs.readFileSync('paws-data-client.js','utf8');
   const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
-    'approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','patchSession','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
+    'approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcManualBatch','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','patchSession','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
   ]);
   assert.doesNotMatch(source,/firestore/i);
 });
@@ -168,6 +168,35 @@ test('existing-session scalar edits use the authenticated University API PATCH r
   assert.deepEqual(JSON.parse(calls[0].init.body),{topic:'Updated',room:'VET 123'});
 });
 
+test('session PATCH replays once only after explicit 401 and never on other failures', async () => {
+  const requests = [];
+  const tokenOptions = [];
+  const client = createPawsAzureDataClient({
+    tokenProvider: async options => { tokenOptions.push(options?.forceRefresh === true); return options?.forceRefresh ? 'fresh' : 'initial'; },
+    fetchImpl: async (url, init) => {
+      requests.push({ url, init });
+      return requests.length === 1
+        ? { ok: false, status: 401, json: async () => ({ error: { code: 'UNAUTHENTICATED' } }) }
+        : { ok: true, status: 200, json: async () => ({ session: { id: 's1' } }) };
+    }
+  });
+  await client.patchSession('s1', { topic: 'Updated' });
+  assert.deepEqual(tokenOptions, [false, true]);
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests.map(request => JSON.parse(request.init.body)), [{ topic: 'Updated' }, { topic: 'Updated' }]);
+
+  for (const status of [403, 409, 500, 503]) {
+    let calls = 0, tokens = 0;
+    const failing = createPawsAzureDataClient({
+      tokenProvider: async options => { tokens++; return options?.forceRefresh ? 'fresh' : 'initial'; },
+      fetchImpl: async () => { calls++; return { ok: false, status, json: async () => ({ error: { code: 'NO_REPLAY' } }) }; }
+    });
+    await assert.rejects(failing.patchSession('s1', { topic: 'Updated' }), error => error.code === 'NO_REPLAY');
+    assert.equal(calls, 1, `PATCH must not replay after ${status}`);
+    assert.equal(tokens, 1, `PATCH must not force-refresh after ${status}`);
+  }
+});
+
 test('B1 client uses explicit AFC GET and POST methods with business fields only', async () => {
   const calls = [];
   const client = createPawsAzureDataClient({
@@ -184,6 +213,22 @@ test('B1 client uses explicit AFC GET and POST methods with business fields only
   assert.equal(calls[1].init.method, 'POST');
   assert.equal(calls[1].init.headers['Content-Type'], 'application/json');
   assert.deepEqual(JSON.parse(calls[1].init.body), { facultyId: 'f1', startDate: '2026-10-01', endDate: '2026-10-01', reasonCode: 'vacation', notes: '' });
+});
+
+test('AFC multi-input client sends exact purposes only to the authenticated SQL batch route', async () => {
+  const calls = [];
+  const client = createPawsAzureDataClient({
+    tokenProvider: async () => 't',
+    fetchImpl: async (url, init) => { calls.push({ url, init }); return { ok: true, json: async () => ({ requestId: 'r1', rows: [{ rowIndex: 0 }] }) }; }
+  });
+  const purpose = ' CCC   Day ';
+  const result = await client.createDashboardAfcManualBatch({ requestId: 'r1', rows: [{ facultyId: 'f1', startDate: '2026-10-01', endDate: '2026-10-02', purpose, actorName: 'ignored' }] });
+  assert.deepEqual(result, { requestId: 'r1', idempotentReplay: false, rows: [{ rowIndex: 0 }] });
+  assert.equal(calls[0].url, API_ORIGIN + '/api/v1/dashboard/afc-records/batch');
+  assert.equal(calls[0].init.method, 'POST');
+  assert.equal(calls[0].init.credentials, 'omit');
+  assert.equal(calls[0].init.headers.Authorization, 'Bearer t');
+  assert.deepEqual(JSON.parse(calls[0].init.body), { requestId: 'r1', rows: [{ facultyId: 'f1', startDate: '2026-10-01', endDate: '2026-10-02', purpose }] });
 });
 
 

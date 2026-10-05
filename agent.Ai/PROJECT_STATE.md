@@ -1,3 +1,22 @@
+# Latest checkpoint — migration 015 applied; live AFC/session acceptance partial
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / start `340f599e13de98847b2e41a057be32517e79fee7`
+**Branch:** `feature/beta-doe-afc-data-completion`
+**Working head:** still base SHA; milestone changes remain uncommitted. No PR, push, merge, or deployment.
+
+- Prior Architect-accepted work: role/source terminology, DOE/FTE + 33 rule references, latest AFC source reconciliation (803 imported/active baseline, 799/799 valid rows represented), and AFC Multi Input are recorded in the SDD ledger. Do not rerun the AFC source import.
+- Session-edit frontend remains locally complete and role-gated; no Firestore write path exists. Migration 015 guard now records pre-existing temporary `db_owner` debt, avoids a redundant grant, and uses dynamic DDL for newly-added column references plus required filtered-index SET options.
+- Verification after the migration fix: AFC Multi Input/migration tests 19/19; full server suite 309/309; root `npm test` 762 total / 726 pass / 29 skipped / 7 fail (all immutable freeze-baseline drift checks); `git diff --check` passes with line-ending warnings. No freeze gates were changed.
+- Live runtime SQL identity was proven through the deployed API factory as the same exact Windows/SQL principal already present in `db_owner`; migration 015 applied successfully to VetMed-Ops. `ManualPurpose nvarchar(1000) NULL`, legacy `ReasonCode nvarchar(32) NULL`, batch columns, two trusted constraints, filtered unique index, unified view projection, and batch procedure exist. Procedure definition hash matches local source after SQL Server header/line-ending normalization. Imported active AFC remains 803; manual AFC remains 0; the only explicit permission row remains CONNECT; effective procedure EXECUTE is true through the unchanged pre-existing role. No role/grant widening or business rows were created.
+- The first two migration attempts rolled back cleanly: attempt one exposed SQL batch name-resolution behavior for columns added and referenced within one batch; attempt two exposed required filtered-index SET options. The script was corrected and re-tested before successful apply. Current schema is post-migration; do not rerun 015.
+- Live Beta remains at “Sign in required.” New local real-browser probe of frozen `6cd77eb` and current feature source shows one click listener, one callback invocation, stable button node, and a visible login-choice modal. The same fresh click on live Beta still produces no modal/toast/navigation and no console error. The public HTML GET does not statically reference `approval-workflow.js`, but the live DOM contains that script with an app-specific marker and the timetable alignment style; the extra script node's origin is not established. Do not infer causality or guess at a fix. See `agent.Ai/updates/2026-10-05-0954-signin-reproduction.md`.
+- Root baseline drift remains unresolved; no gates were weakened. No synthetic AFC/session rows, audit events, deployment, commit, push, PR, or merge. See `agent.Ai/updates/2026-10-05-0931-afc-migration-and-signin.md` for evidence.
+
+**Next:** ask Architect#5 to direct a supported check for the live listener/callback and the extra DOM node's source. Treat the sign-in root cause as unisolated and do not change auth code. After normal sign-in is restored, continue the previously authorized synthetic AFC and Session Edit API acceptance and cleanup. Reconcile each intentional static/API difference through the normal freeze review, rerun `npm test`, and keep the branch uncommitted/unreleased until acceptance and gates are complete.
+
+---
 # PAWS POST-P3 STABILIZATION — RELEASED / ACCEPTANCE PARTIAL
 
 **Last verified:** 2026-10-04 (Beta release workflows completed 2026-10-05 UTC)

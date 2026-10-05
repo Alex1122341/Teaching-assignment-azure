@@ -17,7 +17,7 @@
 
   // Firebase Web configuration is public by design. This local harness uses the
   // separate Tester Teaching project for REAL Authentication and REAL role lookup.
-  // Firebase Authentication remains live. Timetable session reads come from the same-origin PAWS API backed by Azure SQL; no bundled timetable data is shipped with this page.
+  // Firebase Authentication remains live. Timetable session reads come from the same-origin PAWS University API backed by VetMed-Ops; no bundled timetable data is shipped with this page.
   const FIREBASE_CONFIG = {
     apiKey: "AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY",
     authDomain: "tester-teaching.firebaseapp.com",
@@ -348,7 +348,7 @@
       room:String(row?.room||''),
       instructor,
       assignments:instructor ? splitInstructorNames(instructor).map(name=>({name})) : [],
-      sourceSystem:'Azure SQL'
+      sourceSystem:'VetMed-Ops'
     };
   }
   async function fetchAzureSessions(range={}){
@@ -503,18 +503,20 @@
 
   function updateScheduleSourceUI() {
     const live = scheduleSource === 'azure-sql';
+    const sqlEditEnabled = Boolean(window.UCVM_PAWS_DATA && window.UCVM_PAWS_DATA.sessionEditEnabled?.());
+    const canEditLiveSession = canEditExistingSqlSession() && sqlEditEnabled;
     const text = $('conn-text');
     if (text && currentUser) {
-      if (live) text.textContent = `Authorized: ${currentUser.role} · Azure SQL timetable (read only)`;
-      else if (scheduleSource === 'azure-sql-empty') text.textContent = `Authorized: ${currentUser.role} · No Azure SQL timetable sessions`;
-      else if (scheduleSource === 'azure-sql-error') text.textContent = `Authorized: ${currentUser.role} · Azure SQL timetable unavailable`;
-      else text.textContent = `Authorized: ${currentUser.role} · Connecting to Azure SQL timetable`;
+      if (live) text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · VetMed-Ops timetable${canEditLiveSession ? '' : ' (read only)'}`;
+      else if (scheduleSource === 'azure-sql-empty') text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · No VetMed-Ops timetable sessions`;
+      else if (scheduleSource === 'azure-sql-error') text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · VetMed-Ops timetable unavailable`;
+      else text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · Connecting to VetMed-Ops timetable`;
     }
     const publish = $('publish-firestore-schedule');
     if (publish) {
       const writesEnabled=Boolean(window.UCVM_PAWS_DATA&&window.UCVM_PAWS_DATA.sessionWritesEnabled());
       publish.classList.toggle('hidden', !UCVM.admin(currentUser) || !writesEnabled);
-      publish.textContent = writesEnabled ? 'Timetable write path ready' : 'Azure SQL timetable (read only)';
+      publish.textContent = writesEnabled ? 'VetMed-Ops timetable edit path ready' : 'VetMed-Ops timetable (read only)';
       publish.disabled = !writesEnabled;
     }
   }
@@ -537,9 +539,9 @@
   }
 
   async function subscribeSessions() {
-    if (!currentUser) return;
+    if (!currentUser) return false;
     const range=visibleSessionRange(), key=`${viewMode}:${range.start}:${range.end}`;
-    if(sessionUnsubscribe&&sessionRangeKey===key)return;
+    if(sessionUnsubscribe&&sessionRangeKey===key)return true;
     if (sessionUnsubscribe) { try { sessionUnsubscribe(); } catch (_) {} }
     sessionRangeKey=key;
     let cancelled=false;
@@ -548,7 +550,7 @@
       const requestRange=viewMode==='list'?{}:{start:range.start,end:ymd(addDays(parseYmd(range.end),1))};
       const cachedAll=cachedSessionsForRange(currentUser,viewMode==='list'?null:range);
       const rows=cachedAll||await fetchAzureSessions(requestRange);
-      if(cancelled)return;
+      if(cancelled)return false;
       sessions=rows;
       cacheSessionRange(range,rows);
       publishPageData();
@@ -557,19 +559,21 @@
       populateCourseFilter();
       updateScheduleSourceUI();
       render();
+      return true;
     }catch(err){
-      if(cancelled)return;
-      console.error('[Azure SQL sessions]',err);
+      if(cancelled)return false;
+      console.error('[VetMed-Ops timetable sessions]',err);
       sessions=[];
       scheduleSource='azure-sql-error';
       populateCourseFilter();
       updateScheduleSourceUI();
-      toast('The Azure SQL timetable could not be read.',true);
+      toast('VetMed-Ops timetable data could not be loaded from the PAWS University API.',true);
       render();
+      return false;
     }
   }
 
-  function refreshSessionScope(){if(currentUser)subscribeSessions();else render()}
+  function refreshSessionScope(){if(currentUser)return subscribeSessions();render();return Promise.resolve(true)}
   async function ensureAllSessions(){
     const ownerUid=String(currentUser?.uid||'');
     if(!ownerUid)return[];
@@ -597,9 +601,11 @@
     Promise.resolve(after).catch(()=>null).then(()=>{
       if(String(currentUser?.uid||'')!==ownerUid)return[];
       return ensureAllSessions();
-    }).catch(error=>{if(String(currentUser?.uid||'')===ownerUid)console.warn('[Azure SQL session prefetch]',error)});
+    }).catch(error=>{if(String(currentUser?.uid||'')===ownerUid)console.warn('[VetMed-Ops session prefetch]',error)});
   }
   function invalidateAllSessions(){
+    if(sessionUnsubscribe){try{sessionUnsubscribe()}catch(_){}sessionUnsubscribe=null}
+    sessionRangeKey='';
     allSessionsLoadGeneration+=1;
     allSessionsCache=null;allSessionsOwnerUid='';allSessionsLoading=null;allSessionsLoadingUid='';
     sessionCacheRanges.length=0;sessionCacheDates.clear();
@@ -1410,16 +1416,72 @@
       if(!scheduling.normalizeDate(String(form.get('sql-edit-date')||''))||Boolean(start)!==Boolean(end)||start&&scheduling.validateInterval(start,end).status!=='valid'){
         error.textContent='Enter a valid date and either a valid start/end pair or leave both times blank.';error.classList.remove('hidden');return;
       }
-      const patch={date:String(form.get('sql-edit-date')),courseCode:String(form.get('sql-edit-course')||'').trim(),sessionType:String(form.get('sql-edit-type')||''),startTime:start||null,endTime:end||null,topic:String(form.get('sql-edit-topic')||'').trim()||null,room:String(form.get('sql-edit-room')||'').trim()||null};
-      if(!patch.courseCode){error.textContent='Course code is required.';error.classList.remove('hidden');return}
+      const patch=buildSqlSessionEditPatch(session,{
+        date:String(form.get('sql-edit-date')||''),course:String(form.get('sql-edit-course')||''),
+        type:String(form.get('sql-edit-type')||''),start,end,
+        topic:String(form.get('sql-edit-topic')||''),room:String(form.get('sql-edit-room')||'')
+      });
+      if(Object.keys(patch).length===0){error.textContent='No changes to save.';error.classList.remove('hidden');return}
+      if(Object.prototype.hasOwnProperty.call(patch,'courseCode')&&!patch.courseCode){error.textContent='Course code is required.';error.classList.remove('hidden');return}
       button.disabled=true;button.textContent='Saving...';
       try{
         await window.UCVM_PAWS_DATA.patchSession(session.id,patch);
-        invalidateAllSessions();closeModal();refreshSessionScope();toast('VetMed-Ops session updated and audited.');
+        invalidateAllSessions();
+        const refreshed=await refreshSessionScope();
+        closeModal();
+        if(refreshed)toast('VetMed-Ops session updated and audited.');
+        else toast('The session was saved, but the timetable refresh failed. Reload the timetable to verify the saved values.',true);
       }catch(failure){
-        error.textContent=failure?.message||'The session was not saved. Review the values or contact an administrator.';error.classList.remove('hidden');button.disabled=false;button.textContent='Save session';
+        error.textContent=sessionEditErrorMessage(failure);error.classList.remove('hidden');button.disabled=false;button.textContent='Save session';
       }
     };
+  }
+
+  function buildSqlSessionEditPatch(session, values) {
+    const normalized = {
+      date: String(values?.date ?? ''),
+      courseCode: String(values?.course ?? '').trim(),
+      sessionType: String(values?.type ?? ''),
+      startTime: String(values?.start ?? '') || null,
+      endTime: String(values?.end ?? '') || null,
+      topic: String(values?.topic ?? '').trim() || null,
+      room: String(values?.room ?? '').trim() || null
+    };
+    const current = {
+      date: String(session?.date ?? ''),
+      courseCode: String(session?.course ?? '').trim(),
+      sessionType: String(session?.type ?? ''),
+      startTime: String(session?.start ?? '') || null,
+      endTime: String(session?.end ?? '') || null,
+      topic: String(session?.topic ?? '').trim() || null,
+      room: String(session?.room ?? '').trim() || null
+    };
+    return Object.fromEntries(Object.entries(normalized).filter(([key, value]) => value !== current[key]));
+  }
+
+  function sessionEditErrorMessage(error) {
+    const messages = {
+      INVALID_SESSION_ID: 'This session identifier is invalid. Reload the timetable and try again.',
+      INVALID_SESSION_PATCH: 'No valid session fields were supplied.',
+      UNSUPPORTED_SESSION_FIELDS: 'Only date, time, course code, type, topic, and room can be edited.',
+      INVALID_SESSION_DATE: 'Enter a valid session date.',
+      SESSION_DATE_OUTSIDE_ACADEMIC_YEAR: 'The date must remain inside this session’s stored academic year.',
+      INVALID_SESSION_INTERVAL: 'Enter a valid interval with an end time after its start time, or clear both times.',
+      INVALID_SESSION_VALUES: 'Review the session values and correct the invalid field.',
+      INVALID_COURSE_CODE: 'Enter a valid course code.',
+      COURSE_NOT_FOUND: 'Enter a valid course code that exists in VetMed-Ops.',
+      INVALID_SESSION_TYPE: 'Choose a supported session type.',
+      DUPLICATE_SESSION_CONFLICT: 'These values conflict with another session. Review the course, date, and time.',
+      SESSION_ACADEMIC_YEAR_INVALID: 'This session has an invalid academic-year value in VetMed-Ops. No changes were saved; contact an administrator.',
+      ROLE_DENIED: 'This account is not authorized to edit the timetable.',
+      PROFILE_REQUIRED: 'An active VetMed-Ops user profile is required to edit the timetable.',
+      UNAUTHENTICATED: 'Your sign-in has expired. Sign in again before editing.',
+      SESSION_REAUTH_REQUIRED: 'Your sign-in could not be refreshed. Sign in again before editing.',
+      TOKEN_REFRESH_FAILED: 'Your sign-in could not be refreshed. Sign in again before editing.',
+      SESSION_NOT_FOUND: 'This session no longer exists. Reload the timetable before trying again.',
+      SQL_UNAVAILABLE: 'The session was not saved because the VetMed-Ops service is unavailable. Try again later.'
+    };
+    return messages[String(error?.code || '')] || 'The session was not saved. Review the values or contact an administrator.';
   }
 
   function detailField(label, value) {
@@ -1852,7 +1914,7 @@
     showModal(`
       <div class="modal-header"><div class="modal-title">Sign in to UCVM Timetable</div><div class="modal-subtitle">Sign in with your authorized account to view the live timetable.</div></div>
       <div class="modal-body">
-        <div class="login-cheatsheet"><strong>Firebase project:</strong> Tester Teaching (<code>tester-teaching</code>)<br>Enable the matching provider in Firebase Authentication. Your Firebase UID must also have an active reviewed row in Azure SQL <code>paws.UserProfile</code>.</div>
+        <div class="login-cheatsheet"><strong>Firebase project:</strong> Tester Teaching (<code>tester-teaching</code>)<br>Enable the matching provider in Firebase Authentication. Your Firebase UID must also have an active reviewed row in VetMed-Ops <code>paws.UserProfile</code>, authorized by the PAWS University API.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
           <button type="button" class="btn btn-primary" id="choose-email" style="padding:16px">Email + Password</button>
           <button type="button" class="btn btn-primary" id="choose-phone" style="padding:16px">Phone + SMS Code</button>
@@ -1869,7 +1931,7 @@
     showModal(`
       <div class="modal-header"><div class="modal-title">Email Sign In</div><div class="modal-subtitle">Uses Firebase Email/Password authentication.</div></div>
       <form id="email-login-form"><div class="modal-body">
-        <div class="login-cheatsheet">Use the email address registered by ADFA General. New faculty accounts must change their temporary password after signing in.</div>
+        <div class="login-cheatsheet">Use the email address registered by the ADFAD Owner. New faculty accounts must change their temporary password after signing in.</div>
         <div class="form-field"><label class="form-label">Email</label><input class="form-input" id="login-email" name="email" type="email" placeholder="name@ucalgary.ca" autocomplete="username" required></div>
         <div class="form-field"><label class="form-label">Password</label><input class="form-input" id="login-password" name="password" type="password" autocomplete="current-password" required></div>
         <p id="email-login-status" class="form-hint" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
@@ -2016,19 +2078,19 @@
 
   function openAuthSetupModal() {
     showModal(`
-      <div class="modal-header"><div class="modal-title">Local Authentication Preferences</div><div class="modal-subtitle">Firebase Authentication signs users in. PAWS API + Azure SQL paws.UserProfile authorize Beta access.</div></div>
+      <div class="modal-header"><div class="modal-title">Local Authentication Preferences</div><div class="modal-subtitle">Firebase Authentication signs users in. The PAWS University API checks the VetMed-Ops paws.UserProfile to authorize Beta access.</div></div>
       <form id="auth-setup-form"><div class="modal-body">
         <div class="login-cheatsheet">
           <strong>Firebase test project:</strong> Tester Teaching (<code>tester-teaching</code>)<br><br>
           <strong>Current Beta access path:</strong><br>
           1. Firebase Authentication verifies Email/Password or Phone identity.<br>
-          2. PAWS API authorizes the Firebase identity against Azure SQL <code>paws.UserProfile</code>.<br>
+          2. PAWS University API authorizes the Firebase identity against the VetMed-Ops <code>paws.UserProfile</code>.<br>
           3. The SQL profile must be active and supplies the current PAWS role and authoritative FacultyId when applicable.<br>
-          4. Timetable session reads use the PAWS API backed by Azure SQL. Optional legacy Firestore enrichment is not authorization authority.<br><br>
+          4. Timetable session reads use the PAWS University API backed by VetMed-Ops. Optional legacy Firestore enrichment is not authorization authority.<br><br>
           Local settings below are only client-side convenience checks and display preferences.
         </div>
-        <div class="form-field"><label class="form-label">Allowed email domain</label><input class="form-input" id="auth-domain" value="${escapeHtml(authSettings.allowedDomain)}" placeholder="ucalgary.ca"><div class="form-hint">Optional local pre-check only. PAWS API + Azure SQL UserProfile remain the authorization authority.</div></div>
-        <div class="form-field"><label class="form-label">Allowed phone number(s) - optional</label><textarea class="form-input" id="auth-allowed-phones" rows="3" placeholder="+14035551234, +14035555678">${escapeHtml(authSettings.allowedPhones)}</textarea><div class="form-hint">Leave blank to skip this local phone pre-check. Server authorization still comes from PAWS API + Azure SQL UserProfile.</div></div>
+        <div class="form-field"><label class="form-label">Allowed email domain</label><input class="form-input" id="auth-domain" value="${escapeHtml(authSettings.allowedDomain)}" placeholder="ucalgary.ca"><div class="form-hint">Optional local pre-check only. Server authorization remains with the PAWS University API and VetMed-Ops UserProfile.</div></div>
+        <div class="form-field"><label class="form-label">Allowed phone number(s) - optional</label><textarea class="form-input" id="auth-allowed-phones" rows="3" placeholder="+14035551234, +14035555678">${escapeHtml(authSettings.allowedPhones)}</textarea><div class="form-hint">Leave blank to skip this local phone pre-check. Server authorization remains with the PAWS University API and VetMed-Ops UserProfile.</div></div>
         <div class="form-field"><label class="form-label">Instructor mapping</label><input class="form-input" id="auth-instructor" value="${escapeHtml(authSettings.instructorAlias)}" placeholder="Faculty 001"><div class="form-hint">Fallback display mapping for My Timetable. When present, the SQL profile FacultyId remains authoritative.</div></div>
         <div class="login-cheatsheet"><strong>Local test URL:</strong><br><code>http://localhost:8765/</code></div>
       </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="auth-setup-cancel">Cancel</button><button class="btn btn-primary" type="submit">Save Local Settings</button></div></form>`);
@@ -2046,7 +2108,7 @@
         updateAuthUI();
         render();
       }
-      toast('Local settings saved. PAWS role and FacultyId still come from the Azure SQL access profile.');
+      toast('Local settings saved. PAWS role and FacultyId still come from the VetMed-Ops access profile through the University API.');
     };
   }
 
@@ -2058,9 +2120,9 @@
       <div class="modal-body">
         <div class="login-cheatsheet">
           <strong>Authentication:</strong> Firebase ${escapeHtml(currentUser.provider)} sign-in.<br>
-          <strong>Authorization:</strong> PAWS API + Azure SQL <code>paws.UserProfile</code>.<br>
+          <strong>Authorization:</strong> PAWS University API + VetMed-Ops <code>paws.UserProfile</code>.<br>
           <strong>Role:</strong> ${escapeHtml(currentUser.role)} &nbsp; <strong>Active:</strong> ${currentUser.active ? 'true' : 'false'}<br>
-          <strong>Timetable sessions:</strong> Azure SQL via the PAWS API read path.
+          <strong>Timetable sessions:</strong> VetMed-Ops via the PAWS University API.
         </div>
         <div class="form-hint">My Timetable mapping: <strong>${escapeHtml(currentUser.instructorName)}</strong>.</div>
       </div>

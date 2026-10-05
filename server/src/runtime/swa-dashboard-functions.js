@@ -32,18 +32,29 @@ function createDashboardFunctions({ api }) {
       }
 
       const isAfcRecords = pathname === '/api/v1/dashboard/afc-records';
-      if (request.method !== 'GET' && !(isAfcRecords && request.method === 'POST')) {
+      const isAfcBatch = pathname === '/api/v1/dashboard/afc-records/batch';
+      if (request.method !== 'GET' && !(isAfcRecords && request.method === 'POST') && !(isAfcBatch && request.method === 'POST')) {
         return {
           status: 405,
-          headers: { Allow: isAfcRecords ? 'GET, POST' : 'GET' },
-          jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: isAfcRecords ? 'GET or POST required.' : 'GET required.' } }
+          headers: { Allow: isAfcBatch ? 'POST' : isAfcRecords ? 'GET, POST' : 'GET' },
+          jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: isAfcBatch ? 'POST required.' : isAfcRecords ? 'GET or POST required.' : 'GET required.' } }
         };
       }
 
       const token = bearer(request);
       const academicYear = url.searchParams.get('academicYear');
 
-      if (isAfcRecords) {
+      if (isAfcBatch || isAfcRecords) {
+        if (isAfcBatch) {
+          let payload;
+          try {
+            payload = typeof request.json === 'function' ? await request.json() : request.body;
+          } catch (_) {
+            return { status: 400, jsonBody: { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } } };
+          }
+          const response = await api.createAfcManualBatch(token, payload);
+          return { status: response.status, jsonBody: response.body };
+        }
         if (request.method === 'GET') {
           const active = url.searchParams.get('active');
           const response = await api.afcRecords(token, {

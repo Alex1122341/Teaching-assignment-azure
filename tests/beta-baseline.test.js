@@ -44,12 +44,12 @@ test('the stabilization candidate frozen runtime reports zero protected drift',(
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,50);
+  assert.equal(result.protected,52);
 });
 
-test('the current static manifest has exactly 50 protected files',()=>{
-  assert.equal(manifest().length,50);
-  assert.equal(freeze.protectedPaths({root}).length,50);
+test('the current static manifest has exactly 52 protected files',()=>{
+  assert.equal(manifest().length,52);
+  assert.equal(freeze.protectedPaths({root}).length,52);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -62,9 +62,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 50 current protected files are byte-identical to the immutable stabilization candidate blobs',()=>{
+test('all 52 current protected files are byte-identical to the immutable stabilization candidate blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,50);
+  assert.equal(protectedFiles.length,52);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -216,10 +216,10 @@ test('API freeze shares the promoted static baseline and has zero runtime drift'
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,32);
+  assert.equal(result.runtimeFiles.length,33);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,35);
+  assert.equal(result.protected,36);
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-doe-target-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/afc/afc-request-api.js'));

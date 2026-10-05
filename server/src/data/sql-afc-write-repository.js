@@ -5,6 +5,7 @@
 // helper belongs on the Dashboard path.
 
 const CREATE_AFC_PROCEDURE = 'paws_api.CreateAfcRecord';
+const CREATE_AFC_BATCH_PROCEDURE = 'paws_api.CreateAfcManualBatch';
 
 function createSqlAfcWriteRepository(db) {
   return {
@@ -43,8 +44,39 @@ function createSqlAfcWriteRepository(db) {
         }
       );
       return rows[0] || null;
+    },
+
+    async createAfcManualBatch({ requestId, rows: inputRows, actorFirebaseUid, actorName = null } = {}) {
+      const rowsJson = JSON.stringify((inputRows || []).map(row => ({
+        rowIndex: row.rowIndex,
+        facultyId: row.facultyId,
+        startDate: row.startDate,
+        endDate: row.endDate,
+        purpose: row.purpose
+      })));
+      const rows = await db.query(
+        `EXEC ${CREATE_AFC_BATCH_PROCEDURE}
+          @RequestId = @requestId,
+          @RowsJson = @rowsJson,
+          @ActorFirebaseUid = @actorFirebaseUid,
+          @ActorName = @actorName`,
+        { requestId, rowsJson, actorFirebaseUid, actorName }
+      );
+      const batchStatus = rows[0] && rows[0].batchStatus ? rows[0].batchStatus : 'CREATED';
+      return {
+        status: batchStatus,
+        rows: rows.map(row => ({
+          rowIndex: Number(row.rowIndex),
+          afcRecordId: row.afcRecordId,
+          facultyId: row.facultyId,
+          startDate: row.startDate,
+          endDate: row.endDate,
+          purpose: row.purpose,
+          status: row.rowStatus || batchStatus
+        }))
+      };
     }
   };
 }
 
-module.exports = { createSqlAfcWriteRepository, CREATE_AFC_PROCEDURE };
+module.exports = { createSqlAfcWriteRepository, CREATE_AFC_PROCEDURE, CREATE_AFC_BATCH_PROCEDURE };

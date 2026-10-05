@@ -7,41 +7,41 @@ const path = require('node:path');
 
 const script = fs.readFileSync(path.join(__dirname, '..', '..', 'tools', 'import-doe-faculty-snapshot.ps1'), 'utf8');
 
-test('DOE importer reconciles exact UCID and treats name only as a mismatch guard without emitting identities', () => {
-  assert.match(script, /Normalize-Ucid/);
-  assert.match(script, /Normalize-Name/);
-  assert.match(script, /databaseByUcid/);
-  assert.match(script, /\$candidates\s*=\s*\[object\[\]\]/);
-  assert.match(script, /sourceName -and \$databaseName -and \$sourceName -ne \$databaseName/);
-  assert.match(script, /EXACT_ACTIVE_MATCHES/);
-  assert.match(script, /EXACT_INACTIVE_MATCHES/);
-  assert.match(script, /NO_MATCH/);
-  assert.match(script, /CONFLICTS/);
-  assert.match(script, /DUPLICATE_DATABASE_UCID/);
-  assert.match(script, /NAME_MISMATCH/);
-  assert.match(script, /NAME_COMMA_ORDER_VARIANT/);
-  assert.match(script, /NAME_PUNCTUATION_VARIANT/);
-  assert.match(script, /COMPUTERNAME.*ITAPPVETOPSDB01/s);
-  assert.match(script, /\$TargetHost\s*=\s*'ITAPPVETOPSDB01'/i);
-  assert.match(script, /Server=lpc:\$TargetHost/i);
-  assert.doesNotMatch(script, /TrustServerCertificate\s*=\s*True|Server=tcp:/i);
-  assert.match(script, /DOE_SOURCE_PRESENT/);
-  assert.match(script, /DOE_SOURCE_MISSING/);
-  assert.match(script, /\$noMatch\s*-ne\s*0/);
-  assert.match(script, /\$exactInactive\s*-ne\s*0/);
-  assert.match(script, /\$exactActive\s*-ne\s*@\(\$payload\.sourceRows\)\.Count/);
-  assert.doesNotMatch(script, /Write-Host|Write-Output\s+\$faculty|ConvertTo-Json\s+-Depth\s+10/);
+test('DOE importer is bound to the approved CSV hash and uses strict TLS to VetMed-Ops', () => {
+  assert.match(script, /PAWS_DOE_FTE_Import_2026-27\.csv/);
+  assert.match(script, /0FA2FC2F9A9BEEB071AD7ADDA918292183ACBA83656B4C3C16DA6722B70C3EA2/);
+  assert.match(script, /Server=tcp:ITAPPVETOPSDB01\.uc\.ucalgary\.ca,1433/i);
+  assert.match(script, /Encrypt=True/i);
+  assert.match(script, /TrustServerCertificate=False/i);
+  assert.doesNotMatch(script, /Encrypt=False|TrustServerCertificate=True|Server=lpc:/i);
+  assert.match(script, /Required DOE migrations 008, 013, and 014/);
+  assert.match(script, /\[System\.Net\.Dns\]::GetHostName\(\).*ITAPPVETOPSDB01/s);
 });
 
-test('DOE importer permits Apply only after zero-conflict validation and uses one parameterized transaction', () => {
-  const gate = script.indexOf("if ($conflicts -ne 0 -or $inputErrors -ne 0 -or $noMatch -ne 0");
-  const transaction = script.indexOf('BEGIN TRANSACTION;', gate);
-  assert.ok(gate >= 0 && transaction > gate);
+test('DOE importer treats exact unique UCID as authoritative and name differences as warnings', () => {
+  assert.match(script, /databaseByUcid/);
+  assert.match(script, /EXACT_UCID_NAME_WARNING/);
+  assert.match(script, /nameWarnings\+\+/);
+  assert.doesNotMatch(script, /nameWarnings\+\+;\s*\$conflicts\+\+/);
+  assert.match(script, /NO_UCID_MATCH\s*=\s*\$noMatch/);
+  assert.match(script, /DOE import refused: duplicate source or database UCID conflicts/);
+  assert.doesNotMatch(script, /every source row must have one exact active Faculty match/);
+});
+
+test('DOE import is one transaction, versioned and idempotent, with blank-vs-zero preservation', () => {
   assert.match(script, /BEGIN TRANSACTION;[\s\S]*?COMMIT TRANSACTION;[\s\S]*?ROLLBACK TRANSACTION;/);
   assert.match(script, /Parameters\.Add\(\$spec\.Name, \$spec\.Type, \$spec\.Size\)/);
-  assert.match(script, /OPENJSON\(@ImportJson, '\$\.targets'\)/);
-  assert.match(script, /OPENJSON\(@ImportJson, '\$\.allocations'\)/);
-  assert.match(script, /ActiveTeachingTargets/);
-  assert.match(script, /ActiveAllocations/);
-  assert.match(script, /existing 2026-27 active DOE data requires a reviewed before-state reconciliation/);
+  assert.match(script, /CREATE TABLE #Targets[\s\S]*?Fte decimal\(6,4\) NULL/);
+  assert.match(script, /WHERE source\.Fte IS NOT NULL/);
+  assert.match(script, /FteSourceReference=\@SourceReference/);
+  assert.match(script, /WHERE target\.Active=1 AND source\.TeachingDoe IS NOT NULL/);
+  assert.doesNotMatch(script, /UPDATE allocation SET Active=0/);
+  assert.match(script, /UPDATE allocation SET AllocationDoe=source\.AllocationDoe/);
+  assert.match(script, /NOT EXISTS \(SELECT 1 FROM paws\.DoeFacultyAllocation/);
+  assert.match(script, /paws\.DoeRuleSeed/);
+  assert.match(script, /PolicyVersionId=@PolicyVersionId/);
+  assert.match(script, /VERSIONED_RULE_COUNT/);
+  assert.match(script, /POLICY_VERSIONS_BEFORE/);
+  assert.match(script, /ACTIVE_TEACHING_TARGETS_BEFORE/);
+  assert.match(script, /MIGRATION_014_APPLIED/);
 });

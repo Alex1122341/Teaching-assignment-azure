@@ -33,6 +33,13 @@ function createDashboardFunctions({ api }) {
 
       const isAfcRecords = pathname === '/api/v1/dashboard/afc-records';
       const isAfcBatch = pathname === '/api/v1/dashboard/afc-records/batch';
+      if (isAfcBatch && request.method !== 'POST') {
+        return {
+          status: 405,
+          headers: { Allow: 'POST' },
+          jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'POST required.' } }
+        };
+      }
       if (request.method !== 'GET' && !(isAfcRecords && request.method === 'POST') && !(isAfcBatch && request.method === 'POST')) {
         return {
           status: 405,

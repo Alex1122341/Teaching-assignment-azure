@@ -242,8 +242,13 @@ test('K: unauthenticated requests are 401 and never reach SQL', async () => {
   const { app, calls } = harness(adminProfile('administrator'), {
     verifyToken: async () => { throw new Error('bad token'); }
   });
-  for (const url of ['/api/v1/dashboard/summary', '/api/v1/dashboard/faculty']) {
-    const response = await app(request(url, { token: 'bad' }));
+  const checks = [
+    ['/api/v1/dashboard/summary', 'GET'],
+    ['/api/v1/dashboard/faculty', 'GET'],
+    ['/api/v1/dashboard/afc-records/batch', 'POST']
+  ];
+  for (const [url, method] of checks) {
+    const response = await app(request(url, { method, token: 'bad' }));
     assert.equal(response.status, 401, url);
     assert.equal(response.jsonBody.error.code, 'UNAUTHENTICATED', url);
   }

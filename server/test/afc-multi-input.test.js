@@ -143,13 +143,17 @@ test('AFC batch maps a repeat RequestId to a stable successful replay without ne
 });
 
 test('AFC batch HTTP route is a dedicated POST and does not expose other methods', async () => {
-  const { api } = makeApi();
+  const { api, calls } = makeApi();
   const app = createDashboardFunctions({ api });
   const post = await app({ method: 'POST', url: 'https://local/api/v1/dashboard/afc-records/batch', headers: { get: () => 'Bearer token' }, json: async () => ({ requestId: REQUEST_ID, rows: [ROW] }) });
   assert.equal(post.status, 201);
+  const get = await app({ method: 'GET', url: 'https://local/api/v1/dashboard/afc-records/batch', headers: { get: () => 'Bearer token' } });
+  assert.equal(get.status, 405);
+  assert.equal(get.headers.Allow, 'POST');
   const put = await app({ method: 'PUT', url: 'https://local/api/v1/dashboard/afc-records/batch', headers: { get: () => 'Bearer token' } });
   assert.equal(put.status, 405);
   assert.equal(put.headers.Allow, 'POST');
+  assert.equal(calls.length, 1, 'GET and unsupported verbs must not invoke the write repository');
 });
 
 test('AFC SQL batch repository calls one fixed stored procedure with a bounded JSON payload', async () => {

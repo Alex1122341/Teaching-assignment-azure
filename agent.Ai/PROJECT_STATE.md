@@ -1,4 +1,20 @@
-# PAWS POST-P3 STABILIZATION — REVIEW FIXES VERIFIED / RELEASE GATES PENDING
+# PAWS POST-P3 STABILIZATION — RELEASED / ACCEPTANCE PARTIAL
+
+**Last verified:** 2026-10-04 (Beta release workflows completed 2026-10-05 UTC)
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Released application main:** `e03fd867c4b5af36a2d980e7a515bd13af2d34d3` (PR #48)
+**Release evidence:** exact-main Build `37255508927`, SQL Migration Tests `37255508911`, ACR Publish `37255826375`, ACA Deploy `37255946409`, Static Deploy `37256161825` — all successful.
+**Live ACA revision:** `paws-sql-beta-api-260926--re03fd867c4b5`; deployed digest `sha256:f689c1fb4910c56f94bb52dc348132dbf8c572c46553f14441a1b2d7bf9d3786`.
+**Repository hygiene:** 57 branches / 10 open PRs immediately before cleanup; 3 branches / 0 open PRs after cleanup. PR #48 merged; PRs #2, #4, #5, and #8–#13 closed. Retained: `docs/agent-ai-continuity` and `feature/faculty-enrichment-phase-a`.
+**Task status:** PARTIAL. ADFA General login, timetable/list read, timeout-notice recovery, and DOE dashboard load verified. Full-year list shows 1,902 grid-ready and 35 check-needed unknown-time sessions (1,937 unique session IDs total). No live business rows were changed. Session-edit API code exists, but the client write capability remains fail-closed; no live edit/AuditEvent or Faculty-denial acceptance was performed because the admin test login failed and no test-safe session exists.
+
+DOE/source blockers remain: no deterministic normalization; 91 session assignments lack DOE fields and TeachingRole; 78 role assignments lack effective DOE; all 162 role assignments lack category/effective/expiration dates; FTE is NULL for 108/120 active faculty; policy and faculty-target tables remain empty (0/120 target coverage). The approved DOE workbook dry-run had 0 exact active identity matches, 112 name mismatches, and 3 no-match rows, so no import was applied. See `docs/PAWS-Data-Quality-Needs-Review.md` and `docs/PAWS-DOE-Data-Readiness.md`.
+
+**Next safe action:** obtain an approved test-only session or isolated test path and a working secure admin sign-in, then perform bounded edit/AuditEvent and Faculty-denial acceptance. Obtain authoritative faculty contract DOE, assignment-role/rate, role mapping, and role-date sources before any data import/normalization. Do not reapply migrations 012/013 or edit real timetable rows as tests.
+
+---
+
+# Historical checkpoint — PAWS POST-P3 STABILIZATION BEFORE RELEASE
 
 **Last verified:** 2026-10-04
 **Repository:** `Alex1122341/Teaching-assignment-azure`

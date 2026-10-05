@@ -55,4 +55,11 @@ At audit start all 9 PRs were open and drafts. None is safe to merge as-is. Clos
 
 ## Cleanup result
 
-Fill this section after the stabilization PR, CI, and exact-main release gate complete. Record actual final remote branch and open-PR counts, the merged stabilization PR, closed/superseded PR numbers, and the retained future branches. Delete only refs classified above after the PR closure/merge is confirmed and their exact heads remain documented here or reachable from main.
+The audit began at 56 remote branches and 9 open PRs. The stabilization branch and PR #48 raised the cleanup-time inventory to 57 branches and 10 open PRs. After merge and cleanup, GitHub has 3 branches and 0 open PRs.
+
+- **Merged:** PR #48, `PAWS: post-P3 Beta stabilization`, merged with merge commit `e03fd867c4b5af36a2d980e7a515bd13af2d34d3`.
+- **Closed as superseded, obsolete, or blocked:** PRs #2, #4, #5, and #8–#13. PR #5's branch remains because it contains unique future schema/preview work; its unsafe blank-FTE default is not approved.
+- **Retained branches:** `docs/agent-ai-continuity` for current agent handoff/architecture memory; `feature/faculty-enrichment-phase-a` for unique schema and read-only preview work pending a corrected no-inference contract.
+- **Deleted remote refs:** merged refs, superseded/obsolete refs, and the completed stabilization ref after their heads were documented above or made reachable from `main`.
+
+The deployed stabilization main was `e03fd867c4b5af36a2d980e7a515bd13af2d34d3`. Its exact-main build and SQL migration checks succeeded (runs `37255508927` and `37255508911`); ACR publish, ACA deploy, and Static Deploy succeeded (runs `37255826375`, `37255946409`, and `37256161825`).

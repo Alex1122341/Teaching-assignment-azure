@@ -1,4 +1,19 @@
-# Current workstream — PAWS post-P3 stabilization
+# Latest checkpoint — PAWS post-P3 stabilization released / acceptance partial
+
+**Released application main:** `e03fd867c4b5af36a2d980e7a515bd13af2d34d3`, PR #48 merged. Exact-main Build `37255508927`, SQL Migration Tests `37255508911`, ACR Publish `37255826375`, ACA Deploy `37255946409`, and Static Deploy `37256161825` succeeded.
+
+- Repository cleanup completed: 57 branches / 10 open PRs immediately before cleanup; 3 branches / 0 open PRs after. PR #48 merged; #2, #4, #5, and #8–#13 closed. Keep `docs/agent-ai-continuity` and `feature/faculty-enrichment-phase-a` for documented future work.
+- ADFA General Beta sign-in, read-only timetable/list access, timeout-notice clearing after fresh reload, and Faculty Dashboard/DOE page load verified.
+- Full-year list partition: 1,902 grid-ready + 35 unknown-time check-needed = 1,937 unique sessions; no live session business row changed. The 1,938 accessibility row count includes the table header.
+- SQL scalar edit endpoint and transaction/AuditEvent path are implemented and tested, but `sessionWritesEnabled()` remains false. Admin login failed and no test-safe sentinel exists; therefore no live edit/AuditEvent, Faculty-denial acceptance, or Firestore-negative live test was performed.
+- Live business-data normalization/import: 0 rows. DOE workbook identity conflicts remain 0 exact active matches / 112 name mismatches / 3 no-match. Policy/target tables remain empty; contract DOE, 91 teaching-role/rate gaps, 78 role DOE gaps, and 162 role-date gaps require authoritative sources.
+- Next: resume live write acceptance only with a secure working admin test account and an explicitly test-safe session/isolated target; otherwise continue only source-backed read-only review.
+
+**Do not redo:** do not reapply migrations 012/013; do not apply the DOE workbook; do not infer DOE/identity/FTE/time values; do not edit a real session as a test; do not directly mutate assignments or Firestore timetable data.
+
+---
+
+# Historical checkpoint — PAWS post-P3 stabilization before release
 
 Status: **PR #48 OPEN / ORIGINAL HEAD CI GREEN / THREE SELF-REVIEW FIXES VERIFIED LOCALLY / PUSH AND FRESH CI PENDING**
 

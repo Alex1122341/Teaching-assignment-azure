@@ -1,57 +1,27 @@
-# Faculty Dashboard - Spark Basic Mode
+# PAWS Azure Beta — Operations and Release
 
-This branch runs the UCVM faculty role/group/history features on the Firebase Spark plan without deploying Cloud Functions. Firebase project: `tester-teaching`.
+This repository is the controlled Beta line. Firebase Authentication supplies identity only. Business data flows through the University PAWS API to `VetMed-Ops` on `ITAPPVETOPSDB01`; the temporary public ingress is HTTPS through Cloudflare. Do not follow legacy steps that edit Firestore business records or deploy Firestore business rules for Beta.
 
-## What works without Blaze
+## Current Beta architecture
 
-- Email/password sign-in through Firebase Authentication.
-- ADFA General, ADFA Regular, HICC, VISC and Faculty profiles.
-- ADFA General profile-first account creation and reviewed bulk provisioning from faculty records.
-- HICC group ownership, course scope and membership. HICCs can change members in their own groups.
-- Faculty self-service in Timetable, including Day/List teaching views, AFC requests, and privacy-safe replacement requests.
-- ADFA timetable/session editing and faculty records in Faculty Dashboard.
-- Dashboard-originated history in `session_change_log` and `faculty_change_log`, including before/after details for new edits.
-- Self-service password change and Firebase password-reset email.
+- Azure Static Web Apps serves the browser application.
+- Firebase Authentication provides sign-in; the API validates tokens and resolves authorization from SQL-backed `UserProfile`.
+- Cloudflare HTTPS ingress forwards to the loopback-only University API. SQL/RDP/SMB are not public endpoints.
+- `VetMed-Ops` is the business-data source of truth. The browser has no direct SQL access and no Firestore fallback for migrated business reads.
+- Timetable writes are available only through API capabilities that are implemented and authorized server-side. Unsupported add, assignment, and legacy Firestore mutation controls stay disabled.
+- Release only through the exact-SHA `Azure Beta Build` and manually gated `Azure Beta Deploy` workflows described below.
 
-## Intentional Basic Mode limits
+## Legacy Spark / Firestore setup (historical)
 
-- Account creation uses Firebase Authentication's client API from a temporary secondary session, so the signed-in Owner session stays active. Existing Authentication users that are not linked to a dashboard profile still require individual review.
-- HICC/VISC direct instructor replacement is view-only. ADFA administrators perform live timetable changes.
-- Audit logs are written by the dashboard together with the edit. Direct Firebase Console edits are not automatically audited.
-- `mustChangePassword` is a dashboard workflow control rather than a server-verified password-change claim.
-- No Cloud Functions runtime is included or deployed. The repository contains only the Spark client and local test tooling.
-
-## Activation order
-
-1. Keep the current website and Firebase data backed up.
-2. In Firebase Console > Authentication, confirm Email/Password sign-in is enabled.
-3. Find the existing administrator in Authentication and copy the UID.
-4. In Firestore Console, open `users/{UID}` for that administrator and set:
-   - `role`: `adfa_general`
-   - `active`: `true`
-   - `mustChangePassword`: `false` (unless you intentionally want the password-change page first)
-   Do this before relying on the new User Management page. Legacy `admin` still retains timetable and Faculty Dashboard access but is not ADFA General.
-5. From the repository root deploy **rules and indexes** for initial activation:
-   ```bash
-   npx firebase deploy --project tester-teaching --only firestore:rules,firestore:indexes
-   ```
-   If the local Firebase CLI dependency is unavailable later, any Firebase CLI installation can deploy these rules; Cloud Functions are not required.
-6. Complete the one-time Firebase Authorized Domain and gated Azure beta release setup in **Web deployment** below. Azure beta is released only by running **Azure Beta Deploy** manually against a successful **Azure Beta Build** run for the exact current `main` SHA.
-7. Sign in once as Owner / ADFA General or another administrator and open **Faculty Dashboard**. If the privacy-safe faculty replacement directory does not exist yet, the dashboard creates `settings/faculty_swap_index` and the admin-only `settings/faculty_swap_map` from the current Faculty Database.
-8. Open User Management.
-9. To add one person, choose their faculty profile in **New account**. The profile supplies the name and email; choose the access role and enter a temporary password. Firebase supplies the Authentication UID after creation.
-10. To prepare all faculty accounts, choose **Preview changes** under **Create missing faculty accounts**. Review the proposed creates, access updates, excluded records, and source-role cleanup before entering the temporary password and selecting **Apply reviewed changes**.
-11. Keep **Require password change on next dashboard sign-in** selected for new accounts. The temporary password is sent only to Firebase Authentication and is not stored in Firestore, source code, or audit logs.
-12. Create HICC groups, assign an HICC owner, course numbers and members.
-13. Test with one Administrator, one HICC and one Faculty account before broader rollout.
+The original Faculty Dashboard activation and Firestore rules/index instructions belong to the Experimental/Spark deployment and are not instructions for this Azure Beta repository. Do not use Firebase Console or `firebase deploy` to seed Beta profiles, timetable data, roles, or DOE. If working on the Experimental repository, use that repository's current operating guide instead.
 
 ## Web deployment
 
 This is the **Azure beta repository** `Alex1122341/Teaching-assignment-azure`. Its one browser deployment target is the **Azure beta site** `https://red-cliff-04871ca0f.5.azurestaticapps.net`.
 
-The beta site uses the live Firebase backend, project `tester-teaching`, for Authentication and Firestore. Test data-changing actions deliberately. Firebase Hosting is not used for beta web releases.
+The beta site uses Firebase project `tester-teaching` for Authentication only. Business data is read from `VetMed-Ops` through the University API. Firebase Hosting is not used for Beta web releases.
 
-The application baseline is `45e0e93` (Runtime Commit I, the reviewed BETA-R4D-9H admin timetable access fix). This repository is the frozen Azure beta line. It does not automatically sync from the GitHub Pages test repository `Alex1122341/Teaching-assignment`; a test-site feature is promoted only through a separately reviewed change after its complete test cycle succeeds.
+At the start of the post-P3 stabilization milestone, `main` was `783777f2dd0693cbc521ebc625817872514c2ada`. This repository is the controlled Azure Beta line. It does not automatically sync from `Alex1122341/Teaching-assignment`; a feature is promoted only through a separately reviewed change after its complete test cycle succeeds.
 
 Azure beta release requires successful CI for the exact current `main` SHA. No release happens without a successful **Azure Beta Build** run for that exact SHA, and no release is triggered automatically.
 
@@ -92,15 +62,13 @@ It then downloads the already-built `azure-beta-<SHA>` artifact from that exact 
 
 This beta repository has no pull-request preview environment and no automatic release. A normal push cannot deploy Azure beta.
 
-The Azure beta URL is publicly reachable and is not a security boundary. Firebase Authentication and Firestore Security Rules continue to protect application data.
+The Azure beta URL is publicly reachable and is not a security boundary. Firebase Authentication establishes identity; the University API enforces SQL-backed role and scope authorization.
 
 ### Frozen runtime contract
 
-Azure beta is frozen at reviewed B0 runtime candidate commit `b3458f79a05353ce1255874754e1c6c1ec8ee683`. That immutable commit is the dual-runtime content trust anchor for every shipped file; it is not live until the separately gated B0D release.
+The post-P3 stabilization candidate freezes both static and API runtime files at immutable product commit `6cd77eb53d532b1f2279777452d45e55182b49ee`. This is the candidate branch trust anchor; it is not live until the pull request is merged and the separately gated exact-main release succeeds.
 
-This baseline is the **BETA-R4D-11A2 Dashboard DOE presentation runtime candidate** shared by static and API runtimes. It is the reviewed frozen runtime but it is **NOT YET DEPLOYED**: the deployed Azure beta site still predates this runtime until the later manual deployment task succeeds.
-
-1. The authoritative list of shipped application files is `tools/static-assets.json` (46 entries: the previous 45-path set plus `dashboard-view-model.js`). All of them are protected, not a five-file subset.
+1. The authoritative list of shipped application files is `tools/static-assets.json` (50 entries). All are protected, not a small subset.
 2. The protected set is the union of the paths named by the current manifest and by the manifest stored in the frozen baseline commit. Deleting a path from the mutable manifest does not remove it from the freeze.
 3. Protection is enforced by `tools/beta-freeze.js`, which compares each protected file with the blob stored in the frozen baseline commit using `git cat-file`. It never compares against a hash file in the working tree.
 4. `tools/beta-baseline.json` is documentation and live-site reporting only. Editing a runtime file and that JSON together still fails CI, because verification reads the baseline Git objects.
@@ -108,17 +76,11 @@ This baseline is the **BETA-R4D-11A2 Dashboard DOE presentation runtime candidat
 6. **Azure Beta Deploy** independently revalidates the requested SHA and the downloaded artifact against the same frozen baseline before any Azure upload. It does not rebuild.
 7. Moving the baseline to a new commit is explicit, reviewed release work: the frozen commit reference, the manifest-derived protection and this documentation change together. It never happens implicitly.
 
-Task 6 — Azure authorization, deployment-token configuration and the first gated release — is separate from this contract and has NOT been completed.
+The deployed website remains on the last released `main` version until the current stabilization candidate completes CI, merge, and exact-main deployment.
 
 ### Firestore rule changes
 
-GitHub Actions does not deploy Firestore rules in this workflow. When a pull request changes `firestore.rules`, deploy the rules manually after review:
-
-```bash
-npx firebase deploy --project tester-teaching --only firestore:rules
-```
-
-Deploy indexes separately when a reviewed change actually modifies `firestore.indexes.json`.
+This Azure Beta release workflow does not deploy Firestore business rules or indexes. Firebase is used for Authentication only; do not use `firebase deploy` to change Beta data access. Any separate Firebase change must belong to an explicitly scoped Experimental/Demo task.
 
 ### Emergency/manual fallback
 
@@ -133,7 +95,9 @@ powershell -File .\tools\deploy_azure_static_web.ps1
 
 Routine releases should use **Azure Beta Build** followed by the manual **Azure Beta Deploy** release for the exact current `main` SHA instead of this local fallback.
 
-## Faculty replacement requests
+The following Faculty replacement, teaching-summary import, password, timetable-editing, and AFC notes are retained as **legacy Experimental/Firestore reference**. They do not describe the live Azure Beta path. Do not execute them against Beta.
+
+## Legacy Experimental: Faculty replacement requests
 
 For **Request replacement for me**, the faculty-facing picker is sourced from the complete active Faculty Database through a sanitized derived directory rather than from dashboard login accounts. The browser receives a display name, opaque candidate key, aliases needed for timetable matching, and binary away-from-campus availability dates. It does not receive another faculty member's UCID, email, DOE, AFC purpose/reason, or other Faculty Database fields.
 
@@ -143,7 +107,7 @@ Normal faculty requests store only the opaque candidate key and display name. Du
 
 The sanitized directory is rebuilt whenever the full Faculty Dashboard derived indexes are rebuilt, and approved AFC dates are added to its binary availability projection in the same approval batch.
 
-## Teaching-summary bulk import and recovery
+## Legacy Experimental: Teaching-summary bulk import and recovery
 
 The **Faculty Dashboard > Teaching Summary** synchronization card is restricted to Owner / ADFA General. Selecting a source JSON performs a read-only preflight first. The preflight validates the source, fingerprints the exact raw bytes, compares source/current faculty and session sets, and shows creates, updates, stale sessions, warnings, and blocking errors before any teaching data is changed.
 
@@ -167,7 +131,7 @@ npx firebase deploy --project tester-teaching --only firestore:rules
 
 Do not describe the maintenance lock as production-enforced until that rules deployment has been confirmed.
 
-## Passwords
+## Legacy Experimental: Passwords
 
 The account creation form accepts a temporary password only while creating the Authentication login. It clears that value after the operation and never stores it in the dashboard database. `Send password reset` uses Firebase Authentication's standard reset-email flow. A signed-in user can change their own password on `password.html`.
 
@@ -179,7 +143,7 @@ The Timetable and Faculty Dashboard create `session_change_log` / `faculty_chang
 
 Older log records remain visible but may show `Legacy entry; detailed before/after values were not recorded.` because earlier versions did not store those fields.
 
-## Timetable editing and AFC requests
+## Legacy Experimental: Timetable editing and AFC requests
 
 Use **Faculty Dashboard > Teaching Summary** for the highest-permission workbook replacement and synchronization tools. Timetable administrators can choose **Select Sessions**, select up to 200 writable sessions across Day, Week, Month, or List views, and review them in one spreadsheet-style editor. Saving validates every row before creating one atomic batch containing one session update and one `session_change_log` record per changed session. CCC entries remain read-only.
 

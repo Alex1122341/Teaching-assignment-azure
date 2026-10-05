@@ -1,5 +1,17 @@
 # PAWS Locked Decisions
 
+## Owner-approved post-P3 Beta stabilization scope — 2026-10-04
+
+**LOCKED FOR THIS MILESTONE**
+
+- Keep Firebase Authentication as identity only; `VetMed-Ops` is the business-data authority through the University API.
+- Use only deterministic, source-backed normalization. Unknown identity, FTE, rank, stream, contract DOE, role DOE, date, and time remain unset and reported for review.
+- Do not import the provided DOE workbook while its conflict gate reports mismatches or no-match rows.
+- Permit only authenticated, server-authorized scalar updates to existing SQL sessions. Faculty assignments and their DOE fields remain unchanged until a separate SQL write path exists.
+- Preserve the one-hour timeout and do not restore Firestore timetable writes.
+
+---
+
 Only change this file when the owner/architect explicitly changes a decision.
 
 ## Repository roles

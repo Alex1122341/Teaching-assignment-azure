@@ -1,4 +1,23 @@
-# P3 BETA END-TO-END CONNECTION — CI ACCEPTED / LIVE E2E GATE PENDING
+# PAWS POST-P3 STABILIZATION — LOCAL IMPLEMENTATION VERIFIED / RELEASE GATES PENDING
+
+**Last verified:** 2026-10-04
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` @ `783777f2dd0693cbc521ebc625817872514c2ada`
+**Branch:** `feature/beta-post-p3-stabilization`
+**Candidate commits:** implementation `a224b26d0d7d2f27410f6b94260c09233fbaccea`; navigation-continuity merge `6cd77eb53d532b1f2279777452d45e55182b49ee`; freeze promotion `2be44d8a8adc14486411e88b1aef35efac302b48`.
+**Status:** LOCAL IMPLEMENTATION + REGRESSION SUITES + FREEZE CHECKS PASS / PR, HOSTED CI, SERVER ROLLOUT, BETA ACCEPTANCE, AND REMOTE HYGIENE PENDING.
+
+The stabilization work adds the narrow authenticated SQL-backed scalar session edit endpoint and audit path; leaves assignment, DOE, add, and bulk mutation controls disabled; fixes timeout-notice cleanup after successful PAWS bootstrap; adds full-academic-year ALL/GRID-READY/CHECK NEEDED list modes; and prepares a source-driven DOE target/allocation domain without inventing values. Navigation/login recovery work from the audited unique B2B branches is merged locally. The immutable candidate runtime anchor is `6cd77eb53d532b1f2279777452d45e55182b49ee`.
+
+Live read-only audit found no deterministic data normalization safe to apply. The DOE workbook dry run had 115 rows, 0 parser validation errors, 112 UCID/name mismatches, and 3 no-match rows; the zero-conflict import gate therefore prevented data import. Live `DoePolicyVersion`, `DoeFacultyTarget`, and `DoeFacultyAllocation` remain empty; migrations 012 and 013 are present, but the candidate API runtime has not yet been activated. The database migration objects were applied during the earlier authorized phase; no DOE import or session edit has occurred.
+
+Verification on this candidate: root Auth/Firestore-emulator suite 734/734 passed; server suite 283/283 passed; static and API repository/artifact freezes passed with 50 and 32 files respectively, zero drift. Docker is not installed locally; hosted CI must verify the container build. Remote repository at audit start had 56 branches and 9 draft PRs; see `docs/PAWS-Beta-Repo-Hygiene.md` for exact classification and heads.
+
+**Current breakpoint:** local feature branch is committed through freeze promotion `2be44d8`. Docs/state cleanup remains uncommitted. Next: complete local diff review, commit continuity updates, push the feature branch, open one PR, run hosted CI, then perform the exact gated API/static rollout and acceptance. Do not import ambiguous DOE rows or enable unsupported assignment writes.
+
+---
+
+# Historical checkpoint — P3 BETA END-TO-END CONNECTION — CI ACCEPTED / LIVE E2E GATE PENDING
 
 **Last verified:** 2026-10-04 21:42 UTC
 **Repository:** `Alex1122341/Teaching-assignment-azure`

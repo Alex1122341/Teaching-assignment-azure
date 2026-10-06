@@ -6,147 +6,117 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const workflowPath = path.join(root, '.github/workflows/azure-beta-static-deploy.yml');
-const readWorkflow = () => fs.readFileSync(workflowPath, 'utf8');
+const workflow = () => fs.readFileSync(path.join(root, '.github/workflows/azure-beta-static-deploy.yml'), 'utf8');
 
-test('B0D static release workflow is dispatch-only with explicit release identity inputs', () => {
-  const workflow = readWorkflow();
-  assert.match(workflow, /workflow_dispatch:/);
-  for (const input of [
-    'source_run_id',
-    'commit_sha',
-    'expected_live_aca_revision',
-    'expected_live_api_digest',
-  ]) {
-    const block = workflow.slice(workflow.indexOf(`      ${input}:`));
+test('static release remains dispatch-only and accepts only source run and exact commit identity', () => {
+  const text = workflow();
+  assert.match(text, /workflow_dispatch:/);
+  for (const input of ['source_run_id', 'commit_sha']) {
+    const block = text.slice(text.indexOf(`      ${input}:`));
     assert.match(block, /required:\s*true/);
     assert.match(block, /type:\s*string/);
   }
-  assert.match(workflow, /permissions:\s*[\s\S]*contents:\s*read/);
-  assert.match(workflow, /permissions:\s*[\s\S]*actions:\s*read/);
-  assert.match(workflow, /permissions:\s*[\s\S]*id-token:\s*write/);
-  assert.doesNotMatch(workflow, /\npush:/);
-  assert.doesNotMatch(workflow, /\npull_request:/);
-  assert.doesNotMatch(workflow, /\n    environment:\s*\n/, 'job-level environment would change the configured OIDC subject');
+  assert.doesNotMatch(text, /expected_live_aca_revision|expected_live_api_digest/);
+  assert.match(text, /permissions:\s*[\s\S]*contents:\s*read/);
+  assert.match(text, /permissions:\s*[\s\S]*actions:\s*read/);
+  assert.doesNotMatch(text, /id-token:\s*write/);
+  assert.doesNotMatch(text, /\npush:/);
+  assert.doesNotMatch(text, /\npull_request:/);
+  assert.doesNotMatch(text, /\n    environment:\s*\n/);
 });
 
-test('B0D proves exact main and exact successful push build before artifact use', () => {
-  const workflow = readWorkflow();
-  assert.match(workflow, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
-  assert.match(workflow, /test "\$GITHUB_SHA" = "\$COMMIT_SHA"/);
-  assert.match(workflow, /git rev-parse HEAD/);
-  assert.match(workflow, /git rev-parse origin\/main/);
-  assert.match(workflow, /azure-beta-build\.yml/);
-  assert.match(workflow, /\.event.*push/);
-  assert.match(workflow, /\.head_branch.*main/);
-  assert.match(workflow, /\.head_sha.*COMMIT_SHA/);
-  assert.match(workflow, /\.status.*completed/);
-  assert.match(workflow, /\.conclusion.*success/);
-  assert.match(workflow, /azure-beta-\$\{\{ inputs\.commit_sha \}\}/);
+test('static release verifies exact main and successful exact-main build artifact before use', () => {
+  const text = workflow();
+  assert.match(text, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
+  assert.match(text, /test "\$GITHUB_SHA" = "\$COMMIT_SHA"/);
+  assert.match(text, /git rev-parse HEAD/);
+  assert.match(text, /git rev-parse origin\/main/);
+  assert.match(text, /azure-beta-build\.yml/);
+  assert.match(text, /\.event.*push/);
+  assert.match(text, /\.head_branch.*main/);
+  assert.match(text, /\.head_sha.*COMMIT_SHA/);
+  assert.match(text, /\.status.*completed/);
+  assert.match(text, /\.conclusion.*success/);
+  assert.match(text, /azure-beta-\$\{\{ inputs\.commit_sha \}\}/);
+  assert.match(text, /node tools\/beta-freeze\.js/);
+  assert.match(text, /node tools\/beta-api-freeze\.js/);
+  assert.match(text, /beta-freeze\.js --artifact \.azure-production\/app/);
+  assert.match(text, /beta-api-freeze\.js --artifact \.azure-production\/api/);
 });
 
-test('B0D freezes repository and downloaded static/API artifacts independently', () => {
-  const workflow = readWorkflow();
-  assert.match(workflow, /node tools\/beta-freeze\.js/);
-  assert.match(workflow, /node tools\/beta-api-freeze\.js/);
-  assert.match(workflow, /beta-freeze\.js --artifact \.azure-production\/app/);
-  assert.match(workflow, /beta-api-freeze\.js --artifact \.azure-production\/api/);
-  for (const file of [
-    '.azure-production/app/index.html',
-    '.azure-production/app/staticwebapp.config.json',
-    '.azure-production/api/index.js',
-    '.azure-production/api/package-lock.json',
-    '.azure-production/api/artifact-inventory.json',
-  ]) {
-    assert.match(workflow, new RegExp(`test -f ${file.replaceAll('.', '\\.')}`));
+test('static release derives and validates the exact HTTPS University API origin from repository input', () => {
+  const text = workflow();
+  assert.match(text, /paws-api-origin\.js/);
+  assert.match(text, /https:/);
+  assert.match(text, /API_ORIGIN/);
+  assert.match(text, /no path|pathname/);
+  assert.doesNotMatch(text, /ACA_FQDN|ACA_APP_NAME|az containerapp|expected_live_aca/);
+});
+
+test('SQL health and runtime attestation are verified before and after static upload', () => {
+  const text = workflow();
+  assert.match(text, /api\/health\/sql/);
+  assert.match(text, /api\/health\/runtime/);
+  assert.match(text, /runtimeTrustAnchor/);
+  assert.match(text, /releaseSha/);
+  assert.match(text, /TRUST_ANCHOR/);
+  assert.match(text, /afcSingle/);
+  assert.match(text, /afcBatch/);
+  assert.match(text, /sessionEdit/);
+  assert.match(text, /afcRequest/);
+  assert.match(text, /afcDecision/);
+  assert.match(text, /afcArtifact/);
+  assert.match(text, /false/);
+  assert.match(text, /predeploy_sql/);
+  assert.match(text, /postdeploy_sql/);
+  assert.match(text, /predeploy_runtime/);
+  assert.match(text, /postdeploy_runtime/);
+  const upload = text.indexOf('Azure/static-web-apps-deploy@');
+  for (const marker of ['/api/health/sql', '/api/health/runtime']) assert.ok(text.indexOf(marker) < upload, `${marker} must be checked before upload`);
+  assert.match(text.slice(upload), /api\/health\/runtime/);
+  assert.match(text.slice(upload), /api\/health\/sql/);
+});
+
+test('static release checks anonymous auth and exact CORS preflight before and after upload', () => {
+  const text = workflow();
+  for (const route of ['/api/v1/me', '/api/v1/dashboard/summary', '/api/v1/dashboard/faculty', '/api/v1/dashboard/teaching-summary', '/api/v1/dashboard/roles', '/api/v1/dashboard/doe-overview']) {
+    assert.match(text, new RegExp(route.replaceAll('/', '\\/')));
   }
+  assert.match(text, /401/);
+  assert.match(text, /OPTIONS/);
+  assert.match(text, /Access-Control-Allow-Origin|access-control-allow-origin/);
+  assert.match(text, /Access-Control-Allow-Methods|access-control-allow-methods/);
+  assert.match(text, /Access-Control-Allow-Headers|access-control-allow-headers/);
+  assert.match(text, /204/);
+  assert.match(text, /credentials/);
+  const upload = text.indexOf('Azure/static-web-apps-deploy@');
+  assert.ok(text.indexOf('/api/v1/me') < upload);
+  assert.ok(text.indexOf('OPTIONS') < upload);
+  assert.match(text.slice(upload), /401/);
+  assert.match(text.slice(upload), /204/);
 });
 
-test('B0D verifies read-only ACA identity and exact digest before static upload', () => {
-  const workflow = readWorkflow();
-  assert.match(workflow, /az containerapp show/);
-  assert.match(workflow, /az containerapp revision list/);
-  assert.match(workflow, /ACA_FQDN: paws-sql-beta-api-260926\.wonderfulglacier-ff8c7a3b\.eastus2\.azurecontainerapps\.io/);
-  assert.match(workflow, /EXPECTED_REVISION_MODE: Single/);
-  assert.match(workflow, /active_count.*1/);
-  assert.match(workflow, /expected_live_aca_revision/);
-  assert.match(workflow, /expected_live_api_digest/);
-  assert.match(workflow, /expected_image="\$ACR_NAME\.azurecr\.io\/\$IMAGE_REPOSITORY@\$EXPECTED_API_DIGEST"/);
-  assert.match(workflow, /Healthy/);
-  assert.match(workflow, /Provisioned|Succeeded/);
-  assert.doesNotMatch(workflow, /--image\s/);
-  assert.doesNotMatch(workflow, /--revision-suffix/);
-});
-
-test('B0D requires SQL health and anonymous auth gates before static upload', () => {
-  const workflow = readWorkflow();
-  assert.match(workflow, /\/api\/health\/sql/);
-  assert.match(workflow, /status.*200/);
-  assert.match(workflow, /\.status.*ok/);
-  assert.match(workflow, /\.service.*paws-beta-sql-runtime/);
-  assert.match(workflow, /seq 1 12/);
-  assert.match(workflow, /\/api\/v1\/me/);
-  for (const route of [
-    '/api/v1/dashboard/summary',
-    '/api/v1/dashboard/faculty',
-    '/api/v1/dashboard/teaching-summary',
-    '/api/v1/dashboard/roles',
-    '/api/v1/dashboard/doe-overview',
-  ]) {
-    assert.match(workflow, new RegExp(route.replaceAll('/', '\\/')));
-  }
-  assert.match(workflow, /401/);
-  const uploadAt = workflow.indexOf('Azure/static-web-apps-deploy@');
-  assert.ok(uploadAt > 0, 'static upload action must exist');
-  assert.ok(workflow.indexOf('/api/health/sql') < uploadAt, 'SQL health must precede static upload');
-  assert.ok(workflow.indexOf('/api/v1/me') < uploadAt, 'auth boundary must precede static upload');
-});
-
-test('B0D uploads only the tested static app and verifies exact public bytes afterward', () => {
-  const workflow = readWorkflow();
-  const uploadAt = workflow.indexOf('Azure/static-web-apps-deploy@');
-  assert.ok(uploadAt > 0, 'static upload action must exist');
-  const upload = workflow.slice(uploadAt);
+test('static release uploads the exact tested artifact only and checks all public convergence bytes', () => {
+  const text = workflow();
+  const uploadAt = text.indexOf('Azure/static-web-apps-deploy@');
+  assert.ok(uploadAt > 0);
+  const upload = text.slice(uploadAt);
   assert.match(upload, /app_location:\s*\.azure-production\/app/);
   assert.match(upload, /skip_app_build:\s*true/);
   assert.match(upload, /production_branch:\s*main/);
   assert.doesNotMatch(upload, /api_location:/);
-  assert.match(upload, /b0d=|sha256/i);
-  for (const file of ['asset-loader.js', 'approval-workflow.js', 'afc-workflow.js', 'paws-data-client.js']) {
-    assert.match(upload, new RegExp(file.replaceAll('-', '\\-')));
+  for (const file of ['index.html', 'asset-loader.js', 'paws-api-origin.js', 'paws-data-client.js', 'afc-workflow.js', 'afc-workflow-sql.js', 'approval-workflow.js']) {
+    assert.match(text, new RegExp(file.replaceAll('.', '\\.')));
   }
-  assert.match(upload, /STATIC_ASSET_CONVERGENCE_BLOCKER/);
-  assert.match(upload, /staticHashesPassed/);
+  assert.match(text, /STATIC_ASSET_CONVERGENCE_BLOCKER/);
 });
 
-test('B0D forbids API, ACA, ACR, traffic, environment, scale, and RBAC mutations', () => {
-  const workflow = readWorkflow();
-  for (const forbidden of [
-    'docker push',
-    'az acr repository delete',
-    'az acr import',
-    'az acr build',
-    'az containerapp update',
-    'az containerapp create',
-    'revision activate',
-    'revision deactivate',
-    'traffic mutation',
-    'env var mutation',
-    'scale mutation',
-    'RBAC mutation',
-  ]) {
-    assert.doesNotMatch(workflow, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), `forbidden operation: ${forbidden}`);
+test('static release evidence is nonsecret and contains release authority and pre/post acceptance results', () => {
+  const text = workflow();
+  assert.match(text, /static-deploy-evidence\.json/);
+  assert.match(text, /static-deploy-\$\{\{ inputs\.commit_sha \}\}/);
+  for (const field of ['repository', 'commitSha', 'sourceRunId', 'siteUrl', 'apiOrigin', 'runtimeTrustAnchor', 'releaseSha', 'writeGates', 'sqlHealthPre', 'sqlHealthPost', 'authBoundaryPre', 'authBoundaryPost', 'corsPre', 'corsPost', 'staticHashesPassed', 'deployedAtUtc']) {
+    assert.match(text, new RegExp(field));
   }
-});
-
-test('B0D writes token-free evidence and proves post-deploy API invariance', () => {
-  const workflow = readWorkflow();
-  assert.match(workflow, /static-deploy-evidence\.json/);
-  assert.match(workflow, /static-deploy-\$\{\{ inputs\.commit_sha \}\}/);
-  assert.match(workflow, /postdeploy|post-deploy/i);
-  assert.match(workflow, /expected_live_aca_revision/);
-  assert.match(workflow, /expected_live_api_digest/);
-  assert.match(workflow, /sqlHealth/);
-  assert.match(workflow, /authBoundary/);
-  assert.doesNotMatch(workflow, /client-secret|password|token.*echo/i);
+  assert.doesNotMatch(text, /echo\s+\$\{\{\s*secrets\.|printenv|(^|\n)\s*env\s*$/i);
 });

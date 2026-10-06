@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// P1 is the reviewed DOE/dashboard + controlled Beta-write product anchor.
-// W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='efdedb3d1b62a774e74b859a723e5a7906f86956';
+// P2 is the reviewed teaching-assignment workflow product anchor.
+// P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='e37981f35a3b9954b7b69e98e38fcf69262ec185';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

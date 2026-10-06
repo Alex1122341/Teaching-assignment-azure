@@ -1,4 +1,8 @@
-/* Rollback migration 020 only before any P2 workflow or publication data exists. */
+/*
+  Roll back the P2 workflow extension only before any workflow/publication data
+  exists. The additive authority foundation and staging.ImportBatch are shared
+  prerequisites and intentionally remain after rollback.
+*/
 :ON ERROR EXIT
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

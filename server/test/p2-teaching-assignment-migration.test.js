@@ -46,6 +46,27 @@ test('P2 workflow migration is guarded, transactional, normalized, auditable, an
   assert.doesNotMatch(procedures, /EXEC\s*\(\s*N?'\s*\+/i);
 });
 
+test('migration 020 bootstraps the unapplied authority foundation atomically when it is wholly absent', () => {
+  const sql = fs.readFileSync(migrationPath, 'utf8');
+  for (const table of [
+    'Subject',
+    'TeachingResponsibility',
+    'TeachingResponsibilityScope',
+    'TeachingResponsibilityAssignee',
+    'TeachingAssignmentGroup',
+    'TeachingAssignmentGroupHicc',
+    'TeachingAssignmentPackage',
+    'TeachingSessionOwnership'
+  ]) assert.match(sql, new RegExp(`CREATE\\s+TABLE\\s+paws\\.${table}\\b`, 'i'));
+  assert.match(sql, /CREATE\s+TABLE\s+staging\.ImportBatch\b/i);
+  assert.doesNotMatch(sql, /THROW\s+52001,[\s\S]*requires the accepted Beta SQL foundation and migration 019/i);
+  assert.match(sql, /TeachingResponsibilityAssignee[\s\S]*AssignmentMode[\s\S]*IF\s+EXISTS[\s\S]*THROW/i);
+  assert.match(sql, /BEGIN\s+TRY[\s\S]*BEGIN\s+TRANSACTION[\s\S]*CREATE\s+TABLE\s+paws\.TeachingResponsibility[\s\S]*COMMIT\s+TRANSACTION/i);
+  assert.match(sql, /partial authority foundation[\s\S]*THROW/i);
+  const rollback = fs.readFileSync(rollbackPath, 'utf8');
+  assert.match(rollback, /authority foundation and staging\.ImportBatch are shared[\s\S]*intentionally remain/i);
+});
+
 test('P2 workflow procedures expose only explicit, audited lifecycle operations', () => {
   assert.ok(fs.existsSync(proceduresPath), 'migration 021 must exist');
   const sql = fs.readFileSync(proceduresPath, 'utf8');

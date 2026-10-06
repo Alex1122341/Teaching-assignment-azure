@@ -5,7 +5,7 @@
 - Identity overlap (`users.role` / Firebase `facultyRoles` vs SQL `UserProfile.BaseRole`) remains unresolved for Architect #6. The runtime SQL principal still has previously evidenced broad authority; no permission change is in scope.
 - No live Firestore/SQL/Azure write, rules publish, Firebase configuration mutation, W1C activation, migration 016, deployment, PR, merge, or `main` change.
 - Current local verification and freeze-drift classification are in `agent.Ai/updates/2026-10-05-paws-w1d-firestore-authority-containment.md`.
-- Independent read-only review found no Critical or Important issue; a Minor AFC Firestore read-path description was corrected in the matrix. **Next:** commit and push this feature branch, then send Architect #6 the A–L report. No PR/deploy/rules publication/SQL change is authorized.
+- W1D implementation commit `da21223a1d92572ff72767796229a655d122efb4` is pushed to origin; independent read-only review found no Critical or Important issue; a Minor AFC Firestore read-path description was corrected in the matrix. A–L report sent to Architect #6. **Next:** wait for Architect review; no PR/deploy/rules publication/SQL change is authorized.
 
 ---
 

@@ -82,7 +82,7 @@ All commands ran locally on Node `v24.19.0` (the server package declares Node 22
 
 - final branch: `feature/beta-w1d-firestore-authority-containment`
 - base/start SHA: `916a90cc2e3e9f55c01e26ace6a14f21c7d2cca9`
-- final commit SHA / push status: recorded in the Architect #6 handoff and Git metadata after the final review; no PR created.
+- W1D implementation commit: `da21223a1d92572ff72767796229a655d122efb4`, pushed and verified on the feature branch. The continuity checkpoint was updated after push; current branch HEAD is reported in the final Architect #6 handoff. No PR created.
 - merge/deploy/rules-publish state: none.
 
 ## 10. Blockers / unresolved questions
@@ -95,7 +95,7 @@ All commands ran locally on Node `v24.19.0` (the server package declares Node 22
 
 ## 11. Exact current breakpoint
 
-The reviewed local W1D candidate is on `feature/beta-w1d-firestore-authority-containment`, based on W1C `916a90cc2e3e9f55c01e26ace6a14f21c7d2cca9`. It contains the branch changes and evidence matrix; five immutable static/API freeze checks report drift and are not weakened. The branch commit/push SHA is reported directly to Architect #6. No rules are published and no live write authority is activated.
+The reviewed W1D candidate is on `feature/beta-w1d-firestore-authority-containment`, based on W1C `916a90cc2e3e9f55c01e26ace6a14f21c7d2cca9`. Implementation commit `da21223a1d92572ff72767796229a655d122efb4` and the continuity checkpoint are pushed; the current branch HEAD is given in the final Architect #6 handoff. Five immutable static/API freeze checks report drift and are not weakened. No rules are published and no live write authority is activated.
 
 ## 12. Next safe action
 

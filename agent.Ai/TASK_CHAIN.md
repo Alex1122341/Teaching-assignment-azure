@@ -1,4 +1,15 @@
-# Current task — P0 W1M runtime attestation + static release governance
+# Current task — P0 W1Q0 Static anonymous auth boundary coverage
+
+- `fix/beta-w1q0-static-auth-boundary` is based on `main` at `d81c1e9117bfccb2044724ede72036e994a58a35`. Governance commit `6d334d5953f01191a450169c8b796f529c7c6aed` is open as PR #58 to `main`.
+- Static upload workflow and test enforce the exact same nine anonymous protected routes independently before and after upload; each request requires HTTP 401.
+- PR head `6d334d5` Azure Beta Build `37491345772` / job `112364580460` completed SUCCESS. SQL Migration Tests did not trigger under configured path filters. Local root suite 775 total / 743 pass / 32 skipped / 0 fail; focused static workflow 7/7; governance suite 55/55.
+- Static freeze remains 52 / zero drift; API runtime remains 34 / zero drift; exact product anchor remains `06b517dff59a07e802cb8dff09400532fb195fe4`; ACA deploy workflow is unchanged.
+- No merge, deployment, runtime restart/change, SQL/Azure/Firebase/Firestore mutation, migration, permission change, or gate activation.
+- **Next:** Architect #6 final review. Do not merge PR #58 or deploy Static until separately directed.
+
+---
+
+# Historical checkpoint — P0 W1M runtime attestation + static release governance
 
 **Status:** Product and separate freeze/governance commits are locally accepted. Exact feature branch push follows continuity update. No PR, merge, or deployment.
 **Repository:** `Alex1122341/Teaching-assignment-azure`

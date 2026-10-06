@@ -168,6 +168,9 @@ jobs:
           set -euo pipefail
           routes=(
             /api/v1/me
+            /api/v1/sessions
+            /api/v1/afc-requests
+            /api/v1/afc-requests/write-capabilities
             /api/v1/dashboard/summary
             /api/v1/dashboard/faculty
             /api/v1/dashboard/teaching-summary
@@ -285,6 +288,9 @@ jobs:
           set -euo pipefail
           routes=(
             /api/v1/me
+            /api/v1/sessions
+            /api/v1/afc-requests
+            /api/v1/afc-requests/write-capabilities
             /api/v1/dashboard/summary
             /api/v1/dashboard/faculty
             /api/v1/dashboard/teaching-summary

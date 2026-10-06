@@ -25,9 +25,17 @@ window.UCVM_ASSETS=(()=>{
   button.dataset.facultySelfDashboard='1';
   button.addEventListener('click',()=>{window.location.href='faculty-admin.html'});
  }
+ function enableTeachingAssignmentLink(){
+  const button=document.getElementById('teaching-assignments-btn'),profile=window.UCVM_PAGE_DATA?.profile?.();
+  if(!button||!profile||!['faculty','hicc','visc','owner','administrator','adfa_general','adfa_regular','admin'].includes(UCVM.role(profile?.role)))return;
+  button.classList.remove('hidden');
+  if(button.dataset.teachingAssignments==='1')return;
+  button.dataset.teachingAssignments='1';
+  button.addEventListener('click',()=>{window.location.href='teaching-assignments.html'});
+ }
  function scheduleFacultyDashboardLink(){setTimeout(enableFacultyDashboardLink,0)}
- function loadApprovalWorkflowAfterPage(){ensureApprovalWorkflow().catch(error=>console.error('[approval workflow loader]',error));scheduleFacultyDashboardLink()}
- window.addEventListener('ucvm:sessions-updated',scheduleFacultyDashboardLink);
+ function loadApprovalWorkflowAfterPage(){ensureApprovalWorkflow().catch(error=>console.error('[approval workflow loader]',error));scheduleFacultyDashboardLink();setTimeout(enableTeachingAssignmentLink,0)}
+ window.addEventListener('ucvm:sessions-updated',()=>{scheduleFacultyDashboardLink();enableTeachingAssignmentLink()});
  if(document.readyState==='complete')setTimeout(loadApprovalWorkflowAfterPage,0);else window.addEventListener('load',loadApprovalWorkflowAfterPage,{once:true});
  return{loadScriptOnce,ensureAfcPdf,ensureApprovalWorkflow};
 })();

@@ -21,6 +21,9 @@ const { createSwaAfcArtifactFunctions } = require('./swa-afc-artifact-functions'
 const { createFirebaseVerifier } = require('../auth/firebase-admin');
 const { createFirebaseSqlAuth } = require('../auth/firebase-sql-auth');
 const { createWriteGates } = require('../data/write-gates');
+const { createSqlTeachingAssignmentWorkflowRepository } = require('../data/sql-teaching-assignment-workflow-repository');
+const { createTeachingAssignmentApi } = require('../teaching-assignment/teaching-assignment-api');
+const { createTeachingAssignmentFunctions } = require('./swa-teaching-assignment-functions');
 
 function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
@@ -82,8 +85,12 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
       writeGates
     })
   });
+  const teachingAssignmentRoutes = createTeachingAssignmentFunctions({api:createTeachingAssignmentApi({
+    verifyToken:verify,findUser:users.findByUid,repository:createSqlTeachingAssignmentWorkflowRepository(db),writeGates
+  })});
   const handler = async request => {
     const pathname = new URL(request.url).pathname;
+    if (pathname.startsWith('/api/v1/teaching-assignments/')) return teachingAssignmentRoutes(request);
     if (pathname.startsWith('/api/v1/dashboard/')) return dashboardRoutes(request);
     if (/^\/api\/v1\/afc-requests\/[^/]+\/approved-artifact\/?$/.test(pathname)) return afcArtifactRoutes(request);
     if (pathname === '/api/v1/afc-requests' || pathname.startsWith('/api/v1/afc-requests/')) return afcRequests(request);

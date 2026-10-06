@@ -13,7 +13,11 @@ function createWriteGates(env = {}) {
     sessionCreate: env.PAWS_SESSION_CREATE_WRITE_ENABLED === 'true',
     afcRequest: env.PAWS_AFC_REQUEST_WRITE_ENABLED === 'true',
     afcDecision: env.PAWS_AFC_DECISION_WRITE_ENABLED === 'true',
-    afcArtifact: env.PAWS_AFC_ARTIFACT_WRITE_ENABLED === 'true'
+    afcArtifact: env.PAWS_AFC_ARTIFACT_WRITE_ENABLED === 'true',
+    taDraft: env.PAWS_TA_DRAFT_WRITE_ENABLED === 'true',
+    taReview: env.PAWS_TA_REVIEW_WRITE_ENABLED === 'true',
+    taFinal: env.PAWS_TA_FINAL_WRITE_ENABLED === 'true',
+    taPublish: env.PAWS_TA_PUBLISH_WRITE_ENABLED === 'true'
   });
 }
 

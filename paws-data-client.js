@@ -192,6 +192,59 @@
         const body=await request('/api/v1/me');
         return body.profile;
       },
+      async teachingAssignmentWriteCapabilities(){
+        const body=await request('/api/v1/teaching-assignments/write-capabilities');
+        return body.writeCapabilities&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
+      },
+      async teachingAssignmentWorkQueue({academicYear}={}){
+        const query=new URLSearchParams({academicYear:String(academicYear||'')});
+        const body=await request('/api/v1/teaching-assignments/work-queue?'+query.toString());
+        return Array.isArray(body.workQueue)?body.workQueue:[];
+      },
+      async teachingAssignmentContributionTargets({academicYear}={}){
+        const query=new URLSearchParams({academicYear:String(academicYear||'')});
+        const body=await request('/api/v1/teaching-assignments/contribution-targets?'+query.toString());
+        return Array.isArray(body.targets)?body.targets:[];
+      },
+      async teachingAssignmentPackage(packageId){
+        const id=String(packageId||'').trim();if(!id)throw new Error('packageId is required.');
+        return request('/api/v1/teaching-assignments/packages/'+encodeURIComponent(id));
+      },
+      async teachingAssignmentHistory(packageId){
+        const id=String(packageId||'').trim();if(!id)throw new Error('packageId is required.');
+        return request('/api/v1/teaching-assignments/packages/'+encodeURIComponent(id)+'/history');
+      },
+      async saveTeachingAssignmentDraft(packageId,{expectedWorkingRevision,sessions,revisionNote=null}={}){
+        const id=String(packageId||'').trim();if(!id)throw new Error('packageId is required.');
+        return request('/api/v1/teaching-assignments/packages/'+encodeURIComponent(id)+'/draft',{method:'POST',body:{expectedWorkingRevision,sessions,revisionNote}});
+      },
+      async submitTeachingAssignment(packageId,expectedWorkingRevision){
+        return request('/api/v1/teaching-assignments/packages/'+encodeURIComponent(String(packageId||''))+'/submit',{method:'POST',body:{expectedWorkingRevision}});
+      },
+      async addTeachingAssignmentContribution(packageId,{revisionNumber,sessionId,candidateKey,suggestedDisplayName,note=null}={}){
+        return request('/api/v1/teaching-assignments/packages/'+encodeURIComponent(String(packageId||''))+'/contributions',{method:'POST',body:{revisionNumber,sessionId,candidateKey,suggestedDisplayName,note}});
+      },
+      async reviewTeachingAssignment(packageId,{revisionNumber,decision,comment=null}={}){
+        return request('/api/v1/teaching-assignments/packages/'+encodeURIComponent(String(packageId||''))+'/reviews',{method:'POST',body:{revisionNumber,decision,comment}});
+      },
+      async finalSubmitTeachingAssignment(packageId,expectedWorkingRevision){
+        return request('/api/v1/teaching-assignments/packages/'+encodeURIComponent(String(packageId||''))+'/final-submit',{method:'POST',body:{expectedWorkingRevision}});
+      },
+      async saveTeachingAssignmentFinalization(packageId,{expectedWorkingRevision,assignments,finalNote=null}={}){
+        return request('/api/v1/teaching-assignments/packages/'+encodeURIComponent(String(packageId||''))+'/finalization',{method:'POST',body:{expectedWorkingRevision,assignments,finalNote}});
+      },
+      async publishTeachingAssignmentRelease({academicYear,publicationNote=null}={}){
+        return request('/api/v1/teaching-assignments/publications',{method:'POST',body:{academicYear,publicationNote}});
+      },
+      async teachingAssignmentPublished({academicYear}={}){
+        const query=new URLSearchParams({academicYear:String(academicYear||'')});
+        return request('/api/v1/teaching-assignments/published?'+query.toString());
+      },
+      async teachingAssignmentPublicationHistory({academicYear}={}){
+        const query=new URLSearchParams({academicYear:String(academicYear||'')});
+        const body=await request('/api/v1/teaching-assignments/publications/history?'+query.toString());
+        return Array.isArray(body.releases)?body.releases:[];
+      },
       async listSessions({start=null,end=null}={}){
         const query=new URLSearchParams();
         if(start)query.set('start',String(start));

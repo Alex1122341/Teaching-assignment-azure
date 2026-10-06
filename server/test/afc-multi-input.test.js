@@ -12,18 +12,42 @@ const FACULTY_ID = '11111111-1111-4111-8111-111111111111';
 const REQUEST_ID = '33333333-3333-4333-8333-333333333333';
 const ROW = { facultyId: FACULTY_ID, startDate: '2026-10-01', endDate: '2026-10-02', purpose: 'CCC Day' };
 
-function makeApi({ role = 'adfa_general', batchResult = null } = {}) {
+function makeApi({ role = 'adfa_general', batchResult = null, writeGates = { afcSingle: true, afcBatch: true } } = {}) {
   const calls = [];
   const api = createDashboardApi({
     verifyToken: async () => ({ uid: 'trusted-uid' }),
     findUser: async () => ({ active: true, mustChangePassword: false, baseRole: role, facultyId: ['faculty', 'hicc', 'visc'].includes(role) ? FACULTY_ID : null, displayName: 'Trusted admin' }),
     repository: {},
+    writeGates,
     writeRepository: {
       createAfcManualBatch: async input => { calls.push(input); return batchResult || { status: 'CREATED', rows: [{ rowIndex: 0, afcRecordId: '44444444-4444-4444-8444-444444444444', purpose: ROW.purpose, status: 'CREATED' }] }; }
     }
   });
   return { api, calls };
 }
+
+test('AFC batch fails closed by default before invoking its write repository', async () => {
+  let writes = 0;
+  const api = createDashboardApi({
+    verifyToken: async () => ({ uid: 'trusted-uid' }),
+    findUser: async () => ({ active: true, mustChangePassword: false, baseRole: 'adfa_general' }),
+    repository: {},
+    writeRepository: { createAfcManualBatch: async () => { writes++; } }
+  });
+  const response = await api.createAfcManualBatch('token-secret', { requestId: REQUEST_ID, rows: [ROW] });
+  assert.equal(response.status, 503);
+  assert.equal(response.body.error.code, 'WRITE_DISABLED');
+  assert.equal(writes, 0);
+  assert.doesNotMatch(JSON.stringify(response), /token-secret|trusted-uid/);
+});
+
+test('AFC batch does not let the enabled gate bypass server-side admin authorization', async () => {
+  const { api, calls } = makeApi({ role: 'faculty' });
+  const response = await api.createAfcManualBatch('token', { requestId: REQUEST_ID, rows: [ROW] });
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error.code, 'ROLE_DENIED');
+  assert.equal(calls.length, 0);
+});
 
 test('AFC batch accepts arbitrary exact Purpose without requiring an internal ReasonCode', () => {
   const result = validateAfcBatchInput({ requestId: REQUEST_ID, rows: [ROW] });

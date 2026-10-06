@@ -27,10 +27,36 @@ function apiFor(profile, overrides = {}) {
     findUser: async () => profile,
     listSessions: async () => [],
     updateSession: async input => { calls.push(input); return { id: SESSION_ID, ...PATCH }; },
+    writeGates: { sessionEdit: true },
     ...overrides
   });
   return { api, calls };
 }
+
+test('SQL session PATCH fails closed by default before calling its write repository', async () => {
+  let writes = 0;
+  const api = createDataApi({
+    verifyToken: async () => ({ uid: 'firebase-actor' }),
+    findUser: async () => ({ active: true, mustChangePassword: false, baseRole: 'owner' }),
+    listSessions: async () => [],
+    updateSession: async () => { writes++; }
+  });
+  const response = await api.updateExistingSession('token-secret', SESSION_ID, PATCH);
+  assert.equal(response.status, 503);
+  assert.equal(response.body.error.code, 'WRITE_DISABLED');
+  assert.equal(writes, 0);
+  assert.doesNotMatch(JSON.stringify(response), /token-secret|firebase-actor/);
+});
+
+test('SQL session PATCH keeps authentication and authorization ahead of the disabled gate', async () => {
+  const api = createDataApi({
+    verifyToken: async () => { throw new Error('invalid token'); },
+    findUser: async () => null,
+    listSessions: async () => [],
+    updateSession: async () => { throw new Error('must not write'); }
+  });
+  assert.equal((await api.updateExistingSession('secret', SESSION_ID, PATCH)).status, 401);
+});
 
 test('SQL session edit requires an active server profile and an explicitly allowed admin role', async () => {
   for (const profile of [null, { active: false, baseRole: 'administrator' }, { active: true, baseRole: 'faculty' }, { active: true, baseRole: 'hicc' }]) {

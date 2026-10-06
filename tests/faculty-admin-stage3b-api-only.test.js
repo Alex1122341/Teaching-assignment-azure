@@ -250,21 +250,15 @@ test('G–L. no retired legacy module is loaded by the Dashboard page', () => {
   }
 });
 
-test('25 / 26 / 27. the Dashboard no longer loads faculty-access.js and other pages keep the legacy loader', async () => {
+test('25 / 26 / 27. no Beta page dynamically loads retired Firestore writers', () => {
   assert.equal(ADMIN_HTML.includes('faculty-access.js'), false, 'the Dashboard must not load faculty-access.js');
   assert.equal(ADMIN_HTML.includes('UCVM_PAWS_DASHBOARD_API_ONLY'), false, 'the Stage 3B inline opt-out flag is gone');
-  assert.match(ACCESS_SOURCE, /page==='faculty-admin\.html'&&window\.UCVM_PAWS_DASHBOARD_API_ONLY!==true/, 'the Stage 3B guard stays in the shared file');
-
-  const legacy = await runAccessLoader({ pathname: '/faculty-admin.html', apiOnly: false });
-  assert.deepEqual(legacy.loaded, ['faculty-admin-enhancements.js'], 'a legacy/flag-less Dashboard still loads the enhancement');
-  const timetable = await runAccessLoader({ pathname: '/index.html', apiOnly: true });
-  assert.deepEqual(timetable.loaded, ['approval-workflow.js'], 'other pages are unchanged');
+  assert.doesNotMatch(ACCESS_SOURCE, /load\(['"](?:approval-workflow|faculty-admin-enhancements)\.js['"]/, 'shared loader must not reintroduce dormant Firestore writers');
 });
 
-test('M. the default loader still loads the timetable approval workflow in order', async () => {
-  const result = await runAccessLoader({ pathname: '/index.html', apiOnly: false });
-  assert.deepEqual(result.loaded, ['approval-workflow.js']);
-  assert.equal(result.keys[0], 'data-ucvmApprovalWorkflow');
+test('M. approval workflow remains available as a dormant artifact but is not dynamically loaded', () => {
+  assert.ok(ACCESS_SOURCE.includes('W1D authority containment'));
+  assert.doesNotMatch(ACCESS_SOURCE, /load\(['"]approval-workflow\.js['"]/);
 });
 
 test('28 / 29. the final local script set includes the modular view model', () => {
@@ -367,47 +361,12 @@ test('65 / 67. the Dashboard controller contains zero Firestore implementation',
   assert.equal(/UCVM\./.test(ADMIN_SOURCE), false, 'no UCVM dependency may remain');
 });
 
-test('66. faculty-access.js is unchanged by Stage 3C and keeps its legacy exports for other pages', () => {
+test('66. faculty-access.js retains safe identity exports without its retired writer loader', () => {
   assert.match(ACCESS_SOURCE, /return \{config,role,admin,general,historyAll,canOpenFacultyDashboard,label,esc,number,init,ready,enrichFacultyIdentity,watch,logs\}/);
   assert.match(ACCESS_SOURCE, /enablePersistence\(\{synchronizeTabs:true\}\)/);
-  const runLines = ACCESS_SOURCE.split(/\r?\n/).filter(l => l.includes('const run='));
-  assert.equal(runLines.length, 1);
-  assert.match(runLines[0], /if\(page==='index\.html'\)load\('approval-workflow\.js'/);
+  assert.doesNotMatch(ACCESS_SOURCE, /faculty-admin-enhancements\.js|approval-workflow\.js/);
 });
 
 // ===========================================================================
 // helpers
 // ===========================================================================
-async function runAccessLoader({ pathname, apiOnly }) {
-  const start = ACCESS_SOURCE.lastIndexOf('(()=>{');
-  assert.ok(start > 0, 'the faculty-access loader IIFE must exist');
-  const block = ACCESS_SOURCE.slice(start);
-  const loaded = [];
-  const keys = [];
-  const element = () => ({ dataset: {}, set src(v) { loaded.push(v); }, get src() { return ''; }, async: false });
-  const document = {
-    readyState: 'complete',
-    addEventListener() {},
-    querySelector: () => null,
-    createElement: () => {
-      const el = element();
-      const originalDataset = el.dataset;
-      Object.defineProperty(el, 'dataset', {
-        get() {
-          return new Proxy(originalDataset, {
-            set(target, key, value) { keys.push('data-' + key); return Reflect.set(target, key, value); }
-          });
-        }
-      });
-      return el;
-    },
-    head: { appendChild() {} }
-  };
-  const window = {};
-  if (apiOnly) window.UCVM_PAWS_DASHBOARD_API_ONLY = true;
-  const context = { window, document, location: { pathname }, setTimeout, console: { warn() {}, error() {} } };
-  context.globalThis = context;
-  vm.runInNewContext(block, context, { filename: 'faculty-access-loader.js' });
-  await flush();
-  return { loaded, keys };
-}

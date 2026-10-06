@@ -7,7 +7,8 @@ const read=f=>fs.readFileSync(path.join(root,f),'utf8');
 
 test('main dashboard loads information centre, availability lookup, and lazy AFC approval dependencies',()=>{
  const html=read('index.html');
- for(const file of ['information-center.js','availability-lookup.js','signature-capture.js','afc-actions.js','asset-loader.js'])assert.match(html,new RegExp(file.replace('.','\\.')));
+ for(const file of ['information-center.js','availability-lookup.js','signature-capture.js','asset-loader.js'])assert.match(html,new RegExp(file.replace('.','\\.')));
+ assert.doesNotMatch(html,/afc-actions\.js/);
  assert.doesNotMatch(html,/afc-pdf-browser\.js/);
  assert.match(html,/Information Center/i);
 });
@@ -18,12 +19,13 @@ test('signature chooser supports typed, drawn, and uploaded signatures with evid
  for(const evidence of ['signedAt','email','fingerprint'])assert.match(js,new RegExp(evidence));
 });
 
-test('ADFA queue includes AFC requests and availability lookup cross-checks both sources',()=>{
+test('AFC queue requires the SQL API and the disabled legacy approval module contains no browser request writer',()=>{
  const queue=read('approval-workflow.js'),lookup=read('availability-lookup.js'),admin=read('faculty-admin.html');
- assert.match(queue,/afc_requests/);assert.match(queue,/AFC requests/);assert.match(queue,/UCVM_AFC_ACTIONS/);
- assert.match(queue,/location\.hash==='#approvals'/);assert.match(admin,/href="index\.html#approvals"/);
- assert.match(queue,/requestsReady=false,afcRequestsReady=false/);
- assert.match(queue,/if\(!openApprovalFromHash\|\|!isApprover\(\)\|\|!requestsReady\|\|!afcRequestsReady\)return/);
+ assert.match(queue,/approval application is disabled/);
+ assert.doesNotMatch(read('faculty-access.js'),/approval-workflow\.js/);
+ assert.match(queue,/db\.collection\(['"]afc_requests['"]\)/,'legacy source is retained but is no longer loaded by a Beta page');
+ assert.match(read('paws-data-client.js'),/api\/v1\/afc-requests/);
+ assert.match(admin,/href="index\.html#approvals"/);
  assert.match(lookup,/awayFromCampusRecords/);assert.match(lookup,/sessions/);assert.match(lookup,/Available faculty/);
 });
 

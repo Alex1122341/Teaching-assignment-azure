@@ -1,3 +1,38 @@
+# Current task — P0 W1F integration / freeze reconciliation / hosted CI
+
+- Existing branch: `feature/beta-w1e-identity-runtime-least-privilege`, starting SHA `ef7d925c4393d0d3c5e5d93ebd99e9870bc4d59c`; `origin/main` remains `1dca1037f61e8dbb054cc53b119d2b73982ab810`.
+- Accepted history is main → W1C `0863327` / `916a90c` → W1D product `da21223` / accepted checkpoint `2d40117` → W1E `ef7d925`; the promoted immutable freeze anchor is the W1D product commit `da21223a1d92572ff72767796229a655d122efb4`.
+- W1F local static/API freeze and artifact checks are zero-drift; no whitelist or protected-path removal. Detailed counts, runtime hash equality, test commands, security scan scope, and AFC correction are in the new W1F chronological update.
+- Required root, emulator, server, and focused suites pass; hosted CI has not yet run because the one integration PR is pending.
+- AFC build run `37366171691` attempt 3 and job `112055470521` succeeded; static deploy `37397731687` succeeded. AFC evidence remains PARTIAL only for screenshot, authenticated `/api/v1/me`, and network zero-write capture. The older W1E update remains preserved as historical chronology; current state is corrected in `PROJECT_STATE.md` and the W1F update.
+- Runtime identity remains the previously observed personal identity with `db_owner`, `CONTROL DATABASE`, and `ALTER DATABASE`; live write activation remains NO-GO. SQL migrations 016/017, Firestore rules publication, Firebase configuration, runtime service, deployment, gates, and live data remain untouched.
+- **Next:** commit W1F governance and evidence separately from accepted runtime/product commits, push the same branch, create exactly one PR to `main`, wait for every required workflow/job on the exact PR SHA, report the result to Architect #6, and stop before merge for Architect's deep final review.
+
+---
+
+# Superseded checkpoint — P0 W1E identity authority and runtime least privilege
+
+# Superseded task — P0 W1D Firestore authority containment
+
+- Starting point: W1C accepted at `916a90cc2e3e9f55c01e26ace6a14f21c7d2cca9`; work is isolated on `feature/beta-w1d-firestore-authority-containment`.
+- W1D local changes make SQL-canonical Firestore rules independent of `settings/system_state`, fail-close old reachable client writers, retain separate user/group/announcement behavior, and inventory each path in the authority matrix.
+- Identity overlap (`users.role` / Firebase `facultyRoles` vs SQL `UserProfile.BaseRole`) remains unresolved for Architect #6. The runtime SQL principal still has previously evidenced broad authority; no permission change is in scope.
+- No live Firestore/SQL/Azure write, rules publish, Firebase configuration mutation, W1C activation, migration 016, deployment, PR, merge, or `main` change.
+- Current local verification and freeze-drift classification are in `agent.Ai/updates/2026-10-05-paws-w1d-firestore-authority-containment.md`.
+- W1D implementation commit `da21223a1d92572ff72767796229a655d122efb4` is pushed to origin; independent read-only review found no Critical or Important issue; a Minor AFC Firestore read-path description was corrected in the matrix. A–L report sent to Architect #6. **Next:** wait for Architect review; no PR/deploy/rules publication/SQL change is authorized.
+
+---
+
+# Current task — P0 W1C containment ready for Architect #6 review
+
+- Implementation commit `08633276663b71d7a6fc995e9be2d20c7cba4065` is pushed on `feature/beta-w1c-write-containment`; no PR/deployment.
+- Independent server gates for AFC single, AFC batch, and Session PATCH are default-disabled; client capability is false. Migration 016 is local-only.
+- Focused 70/70; server 318/318; root 771 total / 738 pass / 4 expected immutable-freeze failures / 29 skipped. Four failures correspond only to W1C static/API drift; no unrelated protected drift.
+- P0 readiness remains PARTIAL / write activation NO-GO: legacy Firestore business writers remain allowed while the maintenance lock doc is absent; current University SQL identity has `db_owner` and `CONTROL DATABASE`.
+- Next: Architect #6 reviews the branch and audit. Keep no PR, merge, permission/rules change, migration apply, gate activation, or deployment until separately instructed.
+
+---
+
 # Current task — AFC Multi Input date paste normalization
 
 - Status: product commit complete; separate freeze/documentation promotion prepared; root and server suites pass; emulator suite requires CI verification.

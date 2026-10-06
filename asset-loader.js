@@ -15,8 +15,7 @@ window.UCVM_ASSETS=(()=>{
   }catch(_){return ''}
  }
  async function ensureApprovalWorkflow(){
-  if(businessBackend()!=='firestore')return false;
-  await loadScriptOnce('faculty-swap-safe.js','UCVM_SAFE_SWAP');await loadScriptOnce('faculty-swap-handoff.js');await loadScriptOnce('approval-workflow.js');return true
+  return false;
  }
  function enableFacultyDashboardLink(){
   const button=document.getElementById('faculty-dashboard-btn'),profile=window.UCVM_PAGE_DATA?.profile?.();

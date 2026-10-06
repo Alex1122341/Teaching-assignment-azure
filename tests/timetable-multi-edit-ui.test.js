@@ -21,23 +21,18 @@ test('faculty choices use effective DOE and visibly label overrides',()=>{
  assert.doesNotMatch(js,/Contract Teaching DOE is shown when it exists/);
 });
 
-test('selection mode routes every rendered session through stable IDs and blocks CCC selection',()=>{
+test('selection mode is hidden until an authorized session API capability exists',()=>{
  const js=read('timetable.js');
- assert.match(js,/function bindSessionBlocks[\s\S]*sessionSelection\.toggle/);
- assert.match(js,/if\s*\(s\?\.isCcc\)[\s\S]*return/);
- assert.match(js,/selectedRows\([\s\S]*selection.*ids\(\)/);
- assert.match(js,/selectionViewFlow\.review\(\)/);
+ assert.match(js,/selection-controls.*classList\.toggle\('hidden',\s*!canEdit\(\)\s*\|\|\s*!sessionWritesEnabled/s);
+ assert.match(js,/async function saveSelectedChanges\(\)[\s\S]*?PAWS University API supports this operation[\s\S]*?return false/);
 });
 
-test('spreadsheet editor validates before one atomic commit and applies exact index deltas afterward',()=>{
+test('legacy spreadsheet mutation flow is dormant pending the trusted API',()=>{
  const js=read('timetable.js');
- for(const field of ['date','year','course','type','start','end','topic','room','faculty'])assert.match(js,new RegExp(`data-selection-field=["']${field}["']`));
- assert.match(js,/planChanges\(/);
- assert.match(js,/firestoreSafeSession\(update\.data\)/);
- assert.match(js,/updatedBy:currentUser\.uid[\s\S]*updatedAt:timestamp/);
- assert.match(js,/commitPlan\(/);
- assert.match(js,/plan\.logs\.map\(log=>\(\{before:log\.before,after:log\.after\}\)\)/);
- assert.match(js,/invalidateAllSessions\(\);await updateDerivedIndexes\(changes,\{rethrow:true\}\)/);
+ const writer=js.match(/async function saveSelectedChanges\(\)\{([\s\S]*?)\n  \}/);
+ assert.ok(writer);
+ assert.match(writer[1],/PAWS University API supports this operation/);
+ assert.doesNotMatch(writer[1],/batch|\.set\(|\.update\(|\.delete\(/);
 });
 
 test('back to selection rerenders immediately instead of relying on a subscription change',()=>{

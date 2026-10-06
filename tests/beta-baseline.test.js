@@ -9,9 +9,15 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// The stabilization candidate is immutable at the release freeze parent.
-// The P3 integration remains a separately named historical product anchor.
-const BASELINE_COMMIT='51ed5f7aa0851aac5f20133ea213666028e018a3';
+// The W1F integration candidate freezes the accepted W1C + W1D runtime at the
+// W1D product commit. Historical product anchors remain separately named.
+const BASELINE_COMMIT='da21223a1d92572ff72767796229a655d122efb4';
+const PREVIOUS_FREEZE_COMMIT='51ed5f7aa0851aac5f20133ea213666028e018a3';
+const W1F_MAIN_COMMIT='1dca1037f61e8dbb054cc53b119d2b73982ab810';
+const W1C_PRODUCT_COMMIT='08633276663b71d7a6fc995e9be2d20c7cba4065';
+const W1C_ACCEPTED_TIP='916a90cc2e3e9f55c01e26ace6a14f21c7d2cca9';
+const W1D_ACCEPTED_TIP='2d40117eb34ce309826a0e0d357b694fcf86801a';
+const W1E_ACCEPTED_TIP='ef7d925c4393d0d3c5e5d93ebd99e9870bc4d59c';
 const P3_INTEGRATION_COMMIT='6fc77fb94e0de3aa116c9c4d5743d4aec45da61c';
 const P3B4_BASELINE_COMMIT='b7b9ed45bcc88ea774fb2c64bbca8c753da41393';
 const P3B3_BASELINE_COMMIT='adb943ccadff8851ba9de47bfc6b1d226916b89b';
@@ -27,7 +33,7 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the stabilization dual-runtime baseline',()=>{
+test('beta identity is pinned to the W1F accepted dual-runtime baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -38,8 +44,58 @@ test('the promoted dual-runtime baseline exists as a Git commit and is an ancest
   execFileSync('git',['merge-base','--is-ancestor',BASELINE_COMMIT,'HEAD'],{cwd:root});
 });
 
+test('W1F freeze anchor is the accepted W1D product after W1C and before W1E governance',()=>{
+  const isAncestor=(ancestor,descendant)=>execFileSync('git',['merge-base','--is-ancestor',ancestor,descendant],{cwd:root});
+  assert.equal(BASELINE_COMMIT,'da21223a1d92572ff72767796229a655d122efb4');
+  for(const [ancestor,descendant] of [
+    [PREVIOUS_FREEZE_COMMIT,W1C_PRODUCT_COMMIT],
+    [W1C_PRODUCT_COMMIT,W1C_ACCEPTED_TIP],
+    [W1C_ACCEPTED_TIP,BASELINE_COMMIT],
+    [BASELINE_COMMIT,W1D_ACCEPTED_TIP],
+    [W1D_ACCEPTED_TIP,W1E_ACCEPTED_TIP],
+    [W1E_ACCEPTED_TIP,'HEAD']
+  ])assert.doesNotThrow(()=>isAncestor(ancestor,descendant),`${ancestor} must precede ${descendant}`);
+  const integrationCommits=execFileSync('git',['rev-list','--reverse',`${W1F_MAIN_COMMIT}..${BASELINE_COMMIT}`],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+  assert.deepEqual(integrationCommits,[W1C_PRODUCT_COMMIT,W1C_ACCEPTED_TIP,BASELINE_COMMIT],
+    'the promoted anchor must contain only the accepted W1C/W1D product chain, without unrelated commits');
+});
+
+test('W1F promoted protected static and API paths remain monotonic and hash-equal to W1E',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  const currentStatic=manifest();
+  const oldStatic=baselineJson(PREVIOUS_FREEZE_COMMIT);
+  const w1cStatic=baselineJson(W1C_ACCEPTED_TIP);
+  const w1dStatic=baselineJson(W1D_ACCEPTED_TIP);
+  const promotedStatic=freeze.protectedPaths({root});
+  const allStatic=new Set([...currentStatic,...oldStatic,...w1cStatic,...w1dStatic]);
+  assert.equal(promotedStatic.length,52);
+  for(const name of allStatic)assert.ok(promotedStatic.includes(name),`${name} must remain protected`);
+  for(const name of promotedStatic){
+    assert.equal(freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:W1E_ACCEPTED_TIP,file:name})
+    ),true,`static bytes must match at W1F anchor and W1E head: ${name}`);
+  }
+
+  const promotedApi=apiFreeze.runtimeFiles({root,baselineCommit:BASELINE_COMMIT});
+  const priorApi=apiFreeze.runtimeFiles({root,baselineCommit:PREVIOUS_FREEZE_COMMIT});
+  const w1cApi=apiFreeze.runtimeFiles({root,baselineCommit:W1C_ACCEPTED_TIP});
+  const w1dApi=apiFreeze.runtimeFiles({root,baselineCommit:W1D_ACCEPTED_TIP});
+  const currentApi=apiFreeze.currentRuntimeFiles({root});
+  assert.equal(promotedApi.length,34);
+  for(const name of new Set([...priorApi,...w1cApi,...w1dApi,...currentApi])){
+    assert.ok(promotedApi.includes(name),`API protected path must remain protected: ${name}`);
+  }
+  for(const name of promotedApi){
+    assert.equal(freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:W1E_ACCEPTED_TIP,file:name})
+    ),true,`API bytes must match at W1F anchor and W1E head: ${name}`);
+  }
+});
+
 // B. Zero drift --------------------------------------------------------------
-test('the stabilization candidate frozen runtime reports zero protected drift',()=>{
+test('the W1F integration candidate frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
@@ -62,7 +118,7 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 52 current protected files are byte-identical to the immutable stabilization candidate blobs',()=>{
+test('all 52 current protected files are byte-identical to the immutable W1F candidate blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
   assert.equal(protectedFiles.length,52);
   for(const name of protectedFiles){
@@ -216,10 +272,10 @@ test('API freeze shares the promoted static baseline and has zero runtime drift'
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,33);
+  assert.equal(result.runtimeFiles.length,34);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,36);
+  assert.equal(result.protected,37);
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-doe-target-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/afc/afc-request-api.js'));

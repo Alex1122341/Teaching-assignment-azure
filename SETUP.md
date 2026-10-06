@@ -66,7 +66,7 @@ The Azure beta URL is publicly reachable and is not a security boundary. Firebas
 
 ### Frozen runtime contract
 
-The current Beta AFC date-paste candidate freezes static and API runtime files at immutable product commit `51ed5f7aa0851aac5f20133ea213666028e018a3`. It adds the AFC Multi Input date normalization fix, retains `firebase-admin` 13.10.0, and intentionally changes three files within the existing 52-file static manifest. It remains branch-only until reviewed PR CI and the separately gated exact-main release succeed; API runtime files are unchanged.
+The W1F integration candidate freezes static and API runtime files at immutable W1D product commit `da21223a1d92572ff72767796229a655d122efb4`, which contains accepted W1C and W1D runtime changes. W1E and W1F governance commits do not change protected runtime bytes. It remains branch-only until Architect review, required PR CI, merge, and the separately gated exact-main release.
 
 1. The authoritative list of shipped application files is `tools/static-assets.json` (52 entries). All are protected, not a small subset.
 2. The protected set is the union of the paths named by the current manifest and by the manifest stored in the frozen baseline commit. Deleting a path from the mutable manifest does not remove it from the freeze.

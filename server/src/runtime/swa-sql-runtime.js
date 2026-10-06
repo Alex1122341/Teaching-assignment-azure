@@ -20,6 +20,7 @@ const { createAfcRequestFunctions } = require('./swa-afc-request-functions');
 const { createSwaAfcArtifactFunctions } = require('./swa-afc-artifact-functions');
 const { createFirebaseVerifier } = require('../auth/firebase-admin');
 const { createFirebaseSqlAuth } = require('../auth/firebase-sql-auth');
+const { createWriteGates } = require('../data/write-gates');
 
 function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
@@ -39,13 +40,14 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     ...createSqlDoeTargetRepository(db)
   };
   const afcWrite = createSqlAfcWriteRepository(db);
+  const writeGates = createWriteGates(env);
   const verify = createFirebaseSqlAuth({
     verifyIdToken: createFirebaseVerifier({ admin, projectId: env.FIREBASE_PROJECT_ID, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }),
     expectedProjectId: env.FIREBASE_PROJECT_ID
   });
-  const timetable = createSwaFunctions({ api: createDataApi({ verifyToken: verify, findUser: users.findByUid, listSessions: sessions.list, updateSession: sessions.updateExisting, health: () => db.health() }) });
+  const timetable = createSwaFunctions({ api: createDataApi({ verifyToken: verify, findUser: users.findByUid, listSessions: sessions.list, updateSession: sessions.updateExisting, health: () => db.health(), writeGates }) });
   const dashboardRoutes = createDashboardFunctions({
-    api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: afcWrite })
+    api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: afcWrite, writeGates })
   });
   const afcRequestApi = createAfcRequestApi({
     verifyToken: verify,

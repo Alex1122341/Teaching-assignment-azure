@@ -389,7 +389,6 @@
     subscribe:callback=>{pageDataSubscribers.add(callback);return()=>pageDataSubscribers.delete(callback)},
     facultyDirectory:()=>facultyDirectory.slice(),
     allSessions:()=>ensureAllSessions(),
-    updateDerivedIndexes:changes=>updateDerivedIndexes(changes),
     profileSnapshot:uid=>{
       if(!profileSnapshots.has(uid))profileSnapshots.set(uid,db.collection('users').doc(uid).get());
       return profileSnapshots.get(uid);
@@ -493,12 +492,6 @@
     if (normalized === 'osce') return 'tg-type-osce';
     if (normalized === 'exam') return 'tg-type-exam';
     return 'tg-type-other';
-  }
-
-  function firestoreSafeSession(s) {
-    const clean = JSON.parse(JSON.stringify(UCVM_INDEX_MAINTENANCE.sessionForWrite(s)));
-    delete clean.__id;
-    return clean;
   }
 
   function updateScheduleSourceUI() {
@@ -738,10 +731,6 @@
       if ((instructorChanged || facultyContextChanged) && (sessions.length || sessionCache.size)) render();
     }).catch(error => console.warn('[optional faculty enrichment]', error));
   }
-  async function updateDerivedIndexes(changes,options={}){
-    try{return await UCVM_INDEX_MAINTENANCE.updateDerivedIndexes(db,changes,currentUser||{})}
-    catch(error){console.error('[derived index update]',error);toast('The schedule was saved, but its lookup index could not be refreshed.',true);if(options.rethrow){error.committed=true;throw error}return null}
-  }
   function ensureFacultyDirectory(){
     if(!db||!UCVM.admin(currentUser))return Promise.resolve([]);
     if(facultyDirectory.length)return Promise.resolve(facultyDirectory.slice());
@@ -838,25 +827,9 @@
     renderSwap();
   }
 
-  async function performFacultySwap(session,assignments,outIndex,newFacultyId,doeState){
-    if(!requireSessionWrites())return false;
-    if(!UCVM.admin(currentUser))return;
-    const replacement=facultyDirectory.find(f=>String(f.__id)===String(newFacultyId)); if(!replacement)return;
-    const outgoing=assignments[outIndex]; if(!outgoing)return;
-    const oldFaculty=facultyForAssignment(outgoing); const oldName=outgoing.name||swapFacultyName(oldFaculty)||'Unknown'; const newName=swapFacultyName(replacement);
-    const credit=swapAssignmentCredit(outgoing), currentNew=doeState.get(String(replacement.__id))?.current??null, projectedNew=(currentNew!==null&&credit!==null)?currentNew+credit:null, av=facultyAssignmentAvailability(replacement,session.date,session.start,session.end,session.id);
-    const availabilityWarning=av.available===false?`\n\nWARNING: ${newName} is not available for ${session.date} ${session.start||''}-${session.end||''}:\n${assignmentAvailabilityDetail(av,session.date,session.start,session.end)}\n\nAdmin override?`:av.available===null?`\n\nCHECK NEEDED before assigning ${newName}:\n${assignmentAvailabilityDetail(av,session.date,session.start,session.end)}\n\nContinue as admin?`:'';
-    if(!confirm(`Swap ${oldName} to ${newName} for ${session.course} - ${session.topic}?\n\n${credit===null?'DOE impact: this activity is unrated.':`DOE credit transferred: ${credit.toFixed(2)}%\n${newName}: ${currentNew===null?'current DOE unavailable':currentNew.toFixed(2)+'%'} → ${projectedNew===null?'projected unavailable':projectedNew.toFixed(2)+'%'}`}${availabilityWarning}`))return;
-    const nextAssignments=assignments.map((a,i)=>i===outIndex?{...a,ucid:String(replacement.__id),name:newName,category:'Faculty',source:'Admin SWAP',swappedFrom:{ucid:String(outgoing.ucid||oldFaculty?.__id||''),name:oldName},swappedAt:new Date().toISOString()}:a);
-    const next={...session,assignments:nextAssignments,instructor:nextAssignments.map(a=>a.name).filter(Boolean).join('; '),labDetails:labDetailsFromAssignments(session.type,nextAssignments,session.topic),sourceSystem:'Synchronized live timetable'};
-    await ensureSessionsForDates([next.date],true);
-    const overrides=confirmSchedulingChanges([next]);if(overrides===null)return;
-    try{
-      const batch=db.batch(),ref=db.collection(SESSION_COLLECTION).doc(session.id),logRef=db.collection(SESSION_LOG_COLLECTION).doc();
-      batch.set(ref,{...firestoreSafeSession(next),updatedBy:currentUser.uid,updatedByName:currentUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-      batch.set(logRef,{action:'swap_faculty',override:overrides.get(String(session.id))||null,sessionId:session.id,course:session.course,date:session.date,topic:session.topic,role:outgoing.role||session.type||'',doeCredit:credit,fromFaculty:{ucid:String(outgoing.ucid||oldFaculty?.__id||''),name:oldName},toFaculty:{ucid:String(replacement.__id),name:newName},toFacultyCurrentAssignedDOE:currentNew,toFacultyProjectedAssignedDOE:projectedNew,changedBy:currentUser.uid,changedByName:currentUser.name,changedAt:firebase.firestore.FieldValue.serverTimestamp()});
-      await batch.commit(); invalidateAllSessions(); await updateDerivedIndexes([{before:session,after:next}]); closeModal(); toast(`SWAP complete: ${oldName} → ${newName}. Faculty DOE will update automatically.`);
-    }catch(err){console.error('[faculty swap]',err);toast('SWAP failed. Check Firestore session write permissions.',true)}
+  async function performFacultySwap(){
+    toast('Faculty swaps must be completed through the PAWS University API.',true);
+    return false;
   }
 
   async function initializeLiveSchedule() {
@@ -1353,21 +1326,8 @@
     });
   }
   async function saveSelectedChanges(){
-    if(!requireSessionWrites())return;
-    if(!canEdit()){toast('Admin permission is required.',true);return}
-    const button=$('selection-save-btn'),errorBox=$('selection-errors'),originals=window.UCVM_TIMETABLE_SELECTION.selectedRows([...selectedSessionOriginals.values()],sessionSelection.ids()),rows=readSelectionRows(),facultyById=new Map(facultyDirectory.map(f=>[String(f.__id),f])),timestamp=firebase.firestore.FieldValue.serverTimestamp();
-    await ensureSessionsForDates(rows.map(row=>row.date),true);
-    const plan=window.UCVM_TIMETABLE_SELECTION.planChanges(originals,rows,currentUser,timestamp,facultyById);
-    if(plan.errors.length){errorBox.innerHTML=plan.errors.map(error=>`<div>${escapeHtml(error)}</div>`).join('');errorBox.classList.remove('hidden');return}
-    if(!plan.updates.length){toast('No selected session values changed.');return}
-    const overrides=confirmSchedulingChanges(plan.logs.map(log=>({id:log.sessionId,...log.after})));if(overrides===null)return;
-    for(const log of plan.logs)log.override=overrides.get(String(log.sessionId))||null;
-    plan.updates=plan.updates.map(update=>({...update,data:{...firestoreSafeSession(update.data),updatedBy:currentUser.uid,updatedByName:currentUser.name,updatedAt:timestamp}}));
-    button.disabled=true;button.textContent='Saving...';
-    try{
-      const changes=plan.logs.map(log=>({before:log.before,after:log.after})),result=await window.UCVM_TIMETABLE_SELECTION.commitPlan(plan,{batch:()=>db.batch(),sessionRef:id=>db.collection(SESSION_COLLECTION).doc(id),logRef:()=>db.collection(SESSION_LOG_COLLECTION).doc(),afterCommit:async()=>{invalidateAllSessions();await updateDerivedIndexes(changes,{rethrow:true})}});
-      const count=result.operations/2;cancelSessionSelection();toast(`${count} session${count===1?'':'s'} updated with audit history.`);
-    }catch(error){console.error('[multi-session save]',error);errorBox.textContent=error.committed?'Sessions were saved, but the derived lookup index could not be refreshed. Keep this review open and ask an administrator to refresh the indexes.':'Nothing was saved. Check your connection and permissions, then try again.';errorBox.classList.remove('hidden');button.disabled=false;button.textContent='Save selected changes'}
+    toast('Multi-session edits are unavailable until the PAWS University API supports this operation.',true);
+    return false;
   }
 
   function openSessionDetail(id) {
@@ -1556,23 +1516,11 @@
     });
     return {errors,warnings,sessions:prepared};
   }
-  async function saveBulkSessions(rows){
-    if(!requireSessionWrites())return false;
-    await ensureSessionsForDates(rows.map(row=>row.date),true);
-    const result=validateBulkRows(rows),errorBox=$('bulk-errors');
-    if(result.errors.length){errorBox.textContent=result.errors.join('\n');errorBox.classList.remove('hidden');document.querySelectorAll('[data-bulk-row]').forEach((tr,index)=>tr.classList.toggle('bulk-row-error',result.errors.some(message=>message.startsWith(`Row ${index+1}:`))));return false}
-    const prepared=result.sessions.map(session=>({id:db.collection(SESSION_COLLECTION).doc().id,...session}));
-    const overrides=confirmSchedulingChanges(prepared);if(overrides===null)return false;
-    const batch=db.batch(),created=[];
-    for(const next of prepared){
-      const ref=db.collection(SESSION_COLLECTION).doc(next.id);
-      created.push(next);
-      batch.set(ref,{...firestoreSafeSession(next),updatedBy:currentUser.uid,updatedByName:currentUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-      const logRef=db.collection(SESSION_LOG_COLLECTION).doc();
-      batch.set(logRef,{action:'create',override:overrides.get(String(next.id))||null,sessionId:next.id,course:next.course,date:next.date,topic:next.topic,instructors:next.assignments.map(a=>({ucid:a.ucid||null,name:a.name,role:a.role,doeCredit:a.doeCredit??null})),changes:[{field:'session',label:'Session',before:null,after:[next.course,next.date,next.start+'-'+next.end,next.topic].filter(Boolean).join(' · ')}],changedBy:currentUser.uid,changedByName:currentUser.name,changedAt:firebase.firestore.FieldValue.serverTimestamp()});
-    }
-    await batch.commit();invalidateAllSessions();await updateDerivedIndexes(created.map(after=>({before:null,after})));closeModal();toast(`${result.sessions.length} live sessions added.`);return true;
+  async function saveBulkSessions(){
+    toast('Bulk session changes must use a future PAWS University API operation.',true);
+    return false;
   }
+
   async function openBulkSessionForm(){
     if(!requireSessionWrites())return;
     if(!UCVM.admin(currentUser)){toast('ADFA permission is required.',true);return}
@@ -1652,37 +1600,9 @@
     };
     $('cancel-session').onclick = closeModal;
     if ($('delete-session')) $('delete-session').onclick = () => deleteSession(existing.id);
-    $('session-form').onsubmit = async e => {
-      e.preventDefault();
-      const form = new FormData(e.target), date=String(form.get('date')||'');
-      const topic=String(form.get('topic')||'').trim(), type=String(form.get('type')||'').trim(), start=String(form.get('start')||''), end=String(form.get('end')||'');
-      const timeUnknown=existing?.timeUnknown===true&&start===String(existing.start||'')&&end===String(existing.end||'');
-      if(!scheduling.normalizeDate(date)||!String(form.get('course')||'').trim()||!type||!topic||scheduling.validateInterval(start,end,{timeUnknown}).status==='invalid'){toast('Enter a valid date, course, type, topic and time range.',true);return;}
-      await ensureSessionsForDates([date],true);
-      const pos = academicPositionForDate(parseYmd(date));
-      const assignments=finalizeInstructorAssignments(editorAssignments,type,start,end,topic,{timeUnknown});
-      const next = {
-        id: existing?.id || `S${Date.now()}`,
-        ...(existing?.auditEventId ? {auditEventId: existing.auditEventId} : {}),
-        date, week:pos.week, semester:pos.semester, year:Number(form.get('year')),
-        course:form.get('course'), courseName:(COURSES.find(c=>String(c.code)===String(form.get('course')))||{}).name||existing?.courseName||'', type, topic, instructor:assignments.map(a=>a.name).join('; '), room:form.get('room'),
-        start, end, timeUnknown, assignments, labDetails:labDetailsFromAssignments(type,assignments,topic), sourceSystem:'Synchronized live timetable'
-      };
-      const overrides=confirmSchedulingChanges([next]);if(overrides===null)return;
-      try {
-        const ref=db.collection(SESSION_COLLECTION).doc(next.id);
-        const batch=db.batch();
-        batch.set(ref,{...firestoreSafeSession(next),updatedBy:currentUser.uid,updatedByName:currentUser.name,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-        const logRef=db.collection(SESSION_LOG_COLLECTION).doc();
-        batch.set(logRef,{action:existing?'update':'create',override:overrides.get(String(next.id))||null,sessionId:next.id,course:next.course,date:next.date,topic:next.topic,instructors:assignments.map(a=>({ucid:a.ucid||null,name:a.name,role:a.role,doeCredit:a.doeCredit??null})),changes:UCVM_AUDIT_DETAILS.diff(existing,next,'session'),changedBy:currentUser.uid,changedByName:currentUser.name,changedByEmail:currentUser.email||'',changedAt:firebase.firestore.FieldValue.serverTimestamp()});
-        await batch.commit();
-        invalidateAllSessions();
-        await updateDerivedIndexes([{before:existing||null,after:next}]);
-        closeModal();
-        toast(existing?'Live session updated.':'Live session added.');
-      } catch(err) {
-        console.error(err); toast('Session save failed. Check Firestore session write rules.',true);
-      }
+    $('session-form').onsubmit = event => {
+      event.preventDefault();
+      toast('Session changes must use the PAWS University API.',true);
     };
   }
 
@@ -1693,19 +1613,9 @@
     return `<div class="form-field"><label class="form-label" for="${name}">${label}</label><select class="form-select" id="${name}" name="${name}">${options.map(o => `<option value="${escapeHtml(o)}" ${String(o)===String(value)?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select></div>`;
   }
 
-  async function deleteSession(id) {
-    if(!requireSessionWrites())return;
-    if (!UCVM.admin(currentUser)) { toast('ADFA permission is required.', true); return; }
-    const s = sessions.find(x => x.id === id); if (!s) return;
-    if (scheduleSource !== 'firestore') { toast('Live Schedule is not initialized.', true); return; }
-    if (!confirm(`Delete ${s.course} - ${s.topic} from the live schedule?`)) return;
-    try {
-      const batch=db.batch();
-      batch.delete(db.collection(SESSION_COLLECTION).doc(id));
-      const logRef=db.collection(SESSION_LOG_COLLECTION).doc();
-      batch.set(logRef,{action:'delete',sessionId:id,course:s.course,date:s.date,topic:s.topic,changes:UCVM_AUDIT_DETAILS.diff(s,null,'session'),changedBy:currentUser.uid,changedByName:currentUser.name,changedByEmail:currentUser.email||'',changedAt:firebase.firestore.FieldValue.serverTimestamp()});
-      await batch.commit(); invalidateAllSessions(); await updateDerivedIndexes([{before:s,after:null}]); closeModal(); toast('Live session deleted.');
-    } catch(err) { console.error(err); toast('Delete failed. Check Firestore session write rules.', true); }
+  async function deleteSession(){
+    toast('Session deletion must be handled by the PAWS University API.',true);
+    return false;
   }
 
   function initFirebaseAuth() {

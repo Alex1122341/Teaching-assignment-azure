@@ -55,35 +55,27 @@ test('approval resolves opaque candidate keys through admin-only mapping and sup
  assert.match(src,/liveIncomingWarnings/);
 });
 
-test('Firestore rules expose only sanitized swap index and require notes for special targets',()=>{
+test('Firestore swap indexes are readable only for the sanitized view and browser writes are denied',()=>{
  const rules=read('firestore.rules');
  assert.match(rules,/id == 'faculty_swap_index'/);
  assert.match(rules,/allow read: if ready\(\) && id == 'faculty_swap_index'/);
- assert.match(rules,/faculty_swap_map/);
- assert.match(rules,/specialReplacement/);
- assert.match(rules,/reason\.size\(\) > 0/);
+ assert.match(rules,/allow write: if false/);
 });
 
-test('AFC approval refreshes the sanitized availability projection through index maintenance',()=>{
+test('AFC decisions and derived availability projections have no browser writer',()=>{
  const actions=read('afc-actions.js'),maintenanceSrc=read('index-maintenance.js');
- assert.match(actions,/prepareFacultySwapAfcUpdate/);
- assert.match(actions,/swapIndexUpdate/);
- assert.match(maintenanceSrc,/faculty_swap_index/);
- assert.match(maintenanceSrc,/faculty_swap_map/);
- assert.match(maintenanceSrc,/addFacultySwapUnavailableRange/);
+ assert.match(actions,/direct Firestore mutation is disabled/);
+ assert.match(maintenanceSrc,/function writeDerivedIndexes/);
+ assert.match(read('firestore.rules'),/allow write: if false/);
 });
 
-test('shared static build includes safe swap and loads it for timetable and admin initialization',()=>{
+test('legacy swap artifacts may remain packaged but are not loaded by the Beta runtime',()=>{
  const manifest=JSON.parse(read('tools/static-assets.json')),loader=read('asset-loader.js'),admin=read('faculty-admin.html'),safeSrc=read('faculty-swap-safe.js');
  assert.ok(manifest.includes('faculty-swap-safe.js'));
  assert.ok(manifest.includes('faculty-swap-handoff.js'));
  assert.ok(manifest.includes('approval-workflow.js'));
- const safe=loader.indexOf("loadScriptOnce('faculty-swap-safe.js'");
- const handoff=loader.indexOf("loadScriptOnce('faculty-swap-handoff.js'");
- const legacy=loader.indexOf("loadScriptOnce('approval-workflow.js'");
- assert.ok(safe>=0&&handoff>safe&&legacy>handoff,'safe swap compatibility asset must load after safe picker and before approval-workflow.js');
- assert.match(loader,/ensureApprovalWorkflow/);
+ assert.match(loader,/function ensureApprovalWorkflow\(\)\{[\s\S]*?return false/);
+ assert.doesNotMatch(loader,/loadScriptOnce\('(approval-workflow|faculty-swap-safe|faculty-swap-handoff)\.js'/);
  assert.equal(admin.includes('src="faculty-swap-safe.js"'),false,'the API-only Dashboard must not load the swap runtime');
  assert.match(safeSrc,/faculty-admin\.html/);
- assert.match(safeSrc,/maybeInitializeSwapDirectory/);
 });

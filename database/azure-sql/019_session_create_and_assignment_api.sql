@@ -34,6 +34,9 @@ IF OBJECT_ID(N'paws_api.ValidateCalendarSessionJson', N'P') IS NOT NULL
     THROW 51902, 'Migration 019 objects already exist; inspect their exact definitions before proceeding.', 1;
 GO
 
+BEGIN TRANSACTION;
+GO
+
 CREATE TABLE paws_api.SessionBatchRequest (
     RequestId uniqueidentifier NOT NULL CONSTRAINT PK_SessionBatchRequest PRIMARY KEY,
     ActorFirebaseUid nvarchar(128) NOT NULL,
@@ -316,7 +319,7 @@ BEGIN
         SET @ImportBatchId = NEWID();
         INSERT staging.ImportBatch (ImportBatchId, StartedAtUtc, CompletedAtUtc, Status, SourceManifestSha256, ImporterVersion, ActorUpn, ValidationSummaryJson)
         VALUES (@ImportBatchId, SYSUTCDATETIME(), SYSUTCDATETIME(), N'Completed', CONVERT(char(64), @PayloadHash, 2), N'paws-api-p1-019-batch', NULL,
-                (SELECT COUNT(*) AS rowCount, CAST(1 AS bit) AS validated FROM @Rows FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
+                (SELECT COUNT(*) AS [rowCount], CAST(1 AS bit) AS validated FROM @Rows FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
 
         INSERT paws_api.SessionBatchRequest (RequestId, ActorFirebaseUid, PayloadSha256, ResponseJson, CreatedAtUtc)
         VALUES (@RequestId, @ActorFirebaseUid, @PayloadHash, N'[]', SYSUTCDATETIME());
@@ -494,3 +497,4 @@ GO
 -- No direct INSERT/UPDATE/DELETE grants are created. The current temporary Beta
 -- runtime is overprivileged; stored-procedure-only identity grants remain a
 -- separately governed production prerequisite.
+COMMIT TRANSACTION;

@@ -11,26 +11,31 @@ SET XACT_ABORT ON;
 
 IF DB_NAME() <> N'VetMed-Ops'
     THROW 51910, 'Rollback 019 must run in VetMed-Ops.', 1;
-
-IF OBJECT_ID(N'paws_api.ValidateCalendarSessionJson', N'P') IS NULL
-   OR OBJECT_ID(N'paws_api.CreateCalendarSession', N'P') IS NULL
-   OR OBJECT_ID(N'paws_api.CreateCalendarSessionBatch', N'P') IS NULL
-   OR OBJECT_ID(N'paws_api.ReplaceCalendarSessionAssignments', N'P') IS NULL
-   OR OBJECT_ID(N'paws_api.SessionBatchRequest', N'U') IS NULL
-    THROW 51911, 'Rollback 019 requires the complete migration object set; inspect manually.', 1;
+IF OBJECT_ID(N'paws_api.SessionBatchRequest', N'U') IS NULL
+    THROW 51911, 'Rollback 019 requires its migration-created receipt table; inspect manually.', 1;
+GO
 
 IF EXISTS (
        SELECT 1 FROM staging.ImportBatch
        WHERE ImporterVersion IN (N'paws-api-p1-019', N'paws-api-p1-019-batch', N'paws-api-p1-019-assignments')
    )
-   OR EXISTS (SELECT 1 FROM paws_api.SessionBatchRequest)
     THROW 51912, 'Rollback 019 refused because P1 session writes or idempotency receipts exist; preserve data and use a forward repair.', 1;
+IF OBJECT_ID(N'paws_api.SessionBatchRequest', N'U') IS NOT NULL
+   AND EXISTS (SELECT 1 FROM paws_api.SessionBatchRequest)
+    THROW 51912, 'Rollback 019 refused because P1 idempotency receipts exist; preserve data and use a forward repair.', 1;
+GO
 
 BEGIN TRANSACTION;
-DROP PROCEDURE paws_api.ReplaceCalendarSessionAssignments;
-DROP PROCEDURE paws_api.CreateCalendarSessionBatch;
-DROP PROCEDURE paws_api.CreateCalendarSession;
-DROP PROCEDURE paws_api.ValidateCalendarSessionJson;
-DROP TABLE paws_api.SessionBatchRequest;
+IF OBJECT_ID(N'paws_api.ReplaceCalendarSessionAssignments', N'P') IS NOT NULL
+    DROP PROCEDURE paws_api.ReplaceCalendarSessionAssignments;
+IF OBJECT_ID(N'paws_api.CreateCalendarSessionBatch', N'P') IS NOT NULL
+    DROP PROCEDURE paws_api.CreateCalendarSessionBatch;
+IF OBJECT_ID(N'paws_api.CreateCalendarSession', N'P') IS NOT NULL
+    DROP PROCEDURE paws_api.CreateCalendarSession;
+IF OBJECT_ID(N'paws_api.ValidateCalendarSessionJson', N'P') IS NOT NULL
+    DROP PROCEDURE paws_api.ValidateCalendarSessionJson;
+IF OBJECT_ID(N'paws_api.SessionBatchRequest', N'U') IS NOT NULL
+    DROP TABLE paws_api.SessionBatchRequest;
 COMMIT TRANSACTION;
+PRINT 'ROLLBACK_019_SESSION_CREATE_AND_ASSIGNMENT_OK';
 GO

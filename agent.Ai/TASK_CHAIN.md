@@ -1,11 +1,14 @@
 # Current task — PAWS P1 DOE + Faculty Dashboard + controlled Beta writes
 
-- Latest authoritative instruction: Architect #6's `PAWS BETA — P1 DOE + FACULTY DASHBOARD + CONTROLLED BETA WRITE ENABLEMENT`; no newer scope change observed at 2026-10-06 20:38 UTC.
-- `feature/p1-doe-dashboard-write-beta` is based on exact `main` start SHA `23e681a41e32fedf92ef062bac76cb3d8f494311`; current HEAD remains that SHA with local uncommitted implementation. No PR.
-- Local implementation and server suite are in progress; no migration, live API/business write, gate enablement, deployment, PR, or merge has occurred. Live read-only check confirms migration 016's expected weaker procedure hash and AFC procedure presence.
-- P1 freezes: preserve one coherent PR and strict freeze; promote baseline only in a separate governance commit after product commit. Do not use generic SQL, Firestore timetable writes, session delete, DOE edits, AFC decision/artifact writes, or any gate outside the stated P1 target set.
-- Most recent checks in the preceding execution checkpoint: P1 focused server tests 22/22, full server 358/358, static build 52 files, and diff check pass. Full root suite has four expected old-W1M freeze-anchor failures pending the explicit P1 baseline promotion. Firebase emulator suite and custom secret scan remain outstanding.
-- **Next:** complete local/emulator/security verification, create separate product and governance commits, then continue the single PR/CI/merge/release/public-acceptance sequence authorized by Architect #6. Do not start a following product task after the P1 report.
+- Latest instruction: continue Architect #6's P1 end-to-end task; both live guarded SQL migrations are applied and verified.
+- Branch `feature/p1-doe-dashboard-write-beta`, based on `23e681a41e32fedf92ef062bac76cb3d8f494311`; commits so far are product `efdedb3d1b62a774e74b859a723e5a7906f86956` and freeze `be2403f9188504e5384427f5169dd13d83519e7a`. Migration/test/docs changes are pending commit; no PR.
+- Migration 016 final raw SHA `BEBE89D62AA2716390BBB606D8A43E937DCE8F582BE1839C06123DE35FC9BAB3`; canonical SHA `F09724E9BF3BD9A2D5286B9F00FF1B88049FFD9173103CE162FA2D7571A9AFB0`.
+- Migration 019 is committed after one failed syntax attempt, verified read-only cleanup of its partial DDL, and safe corrected rerun. Expected procedures and receipt table exist; no receipts, P1 import batches, or business data are present.
+- Root 748 pass / 32 skipped, emulator 780/780, server 361/361, focused baseline/API/deploy 60/60; freezes/candidate/static build/diff/secret scan pass. Hosted CI, PR, merge, exact-main CI, releases, write-gate activation, and authenticated acceptance are outstanding.
+- No API release, Hosting deploy, or write-gate activation has occurred. Live gates need fresh runtime attestation before any activation.
+- Detailed evidence: `agent.Ai/updates/2026-10-06-2207-paws-p1-live-migrations-and-verification.md`.
+
+**Next action:** review and commit the local correction/checkpoint on the existing branch, push and open the single P1 PR, then continue through hosted CI, merge, exact-main CI, controlled API and Hosting rollout, and authenticated acceptance. Keep each gate closed until its domain passes acceptance.
 
 ---
 

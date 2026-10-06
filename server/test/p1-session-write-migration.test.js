@@ -40,6 +40,12 @@ test('batch procedure avoids nested resultsets and returns an index for canonica
   assert.match(migration, /@ReturnSession = 0/i);
   assert.match(migration, /CONCAT\(N'Batch row ',\s*@ConflictRow/i);
   assert.match(migration, /ORDER BY row\.RowNumber/i);
+  assert.match(migration, /AS \[rowCount\]/i);
+});
+
+test('migration DDL is atomic across SQLCMD batch separators', () => {
+  assert.match(migration, /BEGIN TRANSACTION;[\s\S]*?CREATE TABLE paws_api\.SessionBatchRequest/i);
+  assert.match(migration, /CREATE PROCEDURE paws_api\.ReplaceCalendarSessionAssignments[\s\S]*?GO\s*\n(?:\s*--[^\n]*\n)*\s*COMMIT TRANSACTION;/i);
 });
 
 test('rollback 019 refuses to remove objects after P1 data or idempotency receipts exist', () => {
@@ -47,8 +53,16 @@ test('rollback 019 refuses to remove objects after P1 data or idempotency receip
   assert.match(rollback, /ImporterVersion IN \(N'paws-api-p1-019'/);
   assert.match(rollback, /EXISTS \(SELECT 1 FROM paws_api\.SessionBatchRequest\)/i);
   assert.match(rollback, /THROW 51912/i);
-  assert.match(rollback, /DROP PROCEDURE paws_api\.ReplaceCalendarSessionAssignments/i);
-  assert.match(rollback, /DROP TABLE paws_api\.SessionBatchRequest/i);
+  assert.match(rollback, /IF OBJECT_ID\(N'paws_api\.ReplaceCalendarSessionAssignments', N'P'\) IS NOT NULL\s+DROP PROCEDURE/i);
+  assert.match(rollback, /IF OBJECT_ID\(N'paws_api\.SessionBatchRequest', N'U'\) IS NOT NULL\s+DROP TABLE/i);
   assert.doesNotMatch(rollback, /\bDELETE\s+FROM\s+paws\.(?:Session|SessionAssignment|AuditEvent)/i);
   assert.doesNotMatch(rollback, /\bDROP\s+(?:TABLE|PROCEDURE)\s+(?:paws\.|staging\.)/i);
+});
+
+test('rollback 019 can recover an empty partial DDL migration without touching business data', () => {
+  assert.doesNotMatch(rollback, /requires the complete migration object set/i);
+  assert.match(rollback, /OBJECT_ID\(N'paws_api\.SessionBatchRequest', N'U'\) IS NOT NULL[\s\S]*?EXISTS \(SELECT 1 FROM paws_api\.SessionBatchRequest\)/i);
+  assert.match(rollback, /BEGIN TRANSACTION[\s\S]*?COMMIT TRANSACTION/i);
+  assert.match(rollback, /paws-api-p1-019-assignments/i);
+  assert.match(migration, /AS \[rowCount\]/i);
 });

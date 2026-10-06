@@ -18,6 +18,47 @@
     "paws_api.GetApprovedAfcArtifact",
     "paws_api.GetApprovedAfcArtifactSource"
   ],
+  "p2ReadObjects": [
+    "paws.TeachingAssignmentPackage",
+    "paws.TeachingAssignmentGroup",
+    "paws.TeachingResponsibility",
+    "paws.TeachingResponsibilityAssignee",
+    "paws.TeachingAssignmentRevision",
+    "paws.TeachingAssignmentRevisionSession",
+    "paws.TeachingAssignmentRevisionInstructor",
+    "paws.Session",
+    "paws.TeachingSessionOwnership",
+    "paws.TeachingAssignmentReview",
+    "paws.TeachingAssignmentCurrentFinalization",
+    "paws.TeachingAssignmentFinalization",
+    "paws.TeachingAssignmentFinalizationLine",
+    "paws.TeachingAssignmentContribution",
+    "paws.AuditEvent",
+    "paws.TeachingAssignmentPublicationState",
+    "paws.TeachingAssignmentPublicationRelease",
+    "paws.TeachingAssignmentPublishedSession",
+    "paws.TeachingAssignmentPublishedInstructor"
+  ],
+  "p2ReadProcedures": [
+    "paws_api.CanActOnTeachingAssignmentPackage"
+  ],
+  "p2WriteSets": {
+    "taDraft": [
+      "paws_api.SaveTeachingAssignmentDraft",
+      "paws_api.AddTeachingAssignmentContribution",
+      "paws_api.SubmitTeachingAssignmentRevision",
+      "paws_api.FinalSubmitTeachingAssignment"
+    ],
+    "taReview": [
+      "paws_api.RecordTeachingAssignmentReview"
+    ],
+    "taFinal": [
+      "paws_api.SaveTeachingAssignmentFinalization"
+    ],
+    "taPublish": [
+      "paws_api.PublishTeachingAssignmentRelease"
+    ]
+  },
   "writeSets": {
     "afcSingle": ["paws_api.CreateAfcRecord"],
     "afcBatch": ["paws_api.CreateAfcManualBatch"],

@@ -46,7 +46,7 @@ test('University server refuses missing or malformed release SHA and trust ancho
   assert.throws(() => createUniversityHttpServer({ runtime, env: { ...identity, PAWS_RUNTIME_TRUST_ANCHOR: 'not-a-sha' } }), /PAWS_RUNTIME_TRUST_ANCHOR/);
 });
 
-test('runtime attestation is direct, read-only, no-store, and reports all seven write gates', async t => {
+test('runtime attestation is direct, read-only, no-store, and reports all P1/P2 write gates', async t => {
   let runtimeCalls = 0;
   const server = createUniversityHttpServer({ runtime: async () => { runtimeCalls++; return { status: 500 }; }, env: identity });
   t.after(() => server.close());
@@ -69,7 +69,11 @@ test('runtime attestation is direct, read-only, no-store, and reports all seven 
     sessionCreate: false,
     afcRequest: false,
     afcDecision: false,
-    afcArtifact: false
+    afcArtifact: false,
+    taDraft: false,
+    taReview: false,
+    taFinal: false,
+    taPublish: false
   });
   assert.equal(runtimeCalls, 0);
 });

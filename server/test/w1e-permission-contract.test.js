@@ -8,6 +8,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
 const contract = require('./fixtures/w1e-runtime-permission-contract.json');
 const migration = fs.readFileSync(path.join(root, 'database/azure-sql/017_w1e_runtime_least_privilege.sql'), 'utf8');
+const p2Migration = fs.readFileSync(path.join(root, 'database/azure-sql/022_teaching_assignment_workflow_permissions.sql'), 'utf8');
 
 test('W1E permission contract covers every SQL repository object and stored procedure', () => {
   const repositoryDir = path.join(root, 'server/src/data');
@@ -19,8 +20,17 @@ test('W1E permission contract covers every SQL repository object and stored proc
     .map(match => match[1]);
   const procedures = [...sources.matchAll(/(paws_api\.[A-Za-z0-9_]+)/g)]
     .map(match => match[1]);
-  const expectedObjects = [...contract.readObjects, ...contract.readProcedures, ...Object.values(contract.writeSets).flat(), ...contract.outsideW1eWriteProcedures];
-  assert.deepEqual([...new Set(objects)].sort(), [...new Set(contract.readObjects)].sort());
+  // The P2 repository funnels writes through a closed exec(name, params)
+  // helper, so recover its statically declared procedure names as well.
+  procedures.push(...[...sources.matchAll(/\bexec\(\s*'([A-Za-z0-9_]+)'/g)]
+    .map(match => `paws_api.${match[1]}`));
+  const expectedObjects = [
+    ...contract.readObjects, ...contract.p2ReadObjects,
+    ...contract.readProcedures, ...contract.p2ReadProcedures,
+    ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
+    ...contract.outsideW1eWriteProcedures
+  ];
+  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
 });
 
@@ -36,6 +46,12 @@ test('base runtime role has only column-scoped reads and the two approved artifa
   assert.match(migration, /paws\.vAfcRecordUnified\s*\([\s\S]*?Purpose, LegacyPurpose[\s\S]*?TO \[paws_runtime_read\]/i);
   for (const procedure of contract.readProcedures) {
     assert.match(migration, new RegExp(`GRANT EXECUTE ON OBJECT::${procedure.replace('.', '\\.')}\\s+TO \\[paws_runtime_read\\]`, 'i'), procedure);
+  }
+  for (const object of contract.p2ReadObjects) {
+    assert.match(p2Migration, new RegExp(`GRANT SELECT ON OBJECT::${object.replace('.', '\\.')}\\s*\\([\\s\\S]*?\\)\\s*TO \\[paws_runtime_read\\]`, 'i'), object);
+  }
+  for (const procedure of contract.p2ReadProcedures) {
+    assert.match(p2Migration, new RegExp(`GRANT EXECUTE ON OBJECT::${procedure.replace('.', '\\.')}\\s+TO \\[paws_runtime_read\\]`, 'i'), procedure);
   }
 });
 
@@ -81,4 +97,25 @@ test('write permission sets stay separate and W1E never binds a runtime principa
     ['paws_api.UpdateCalendarSession', 'paws_runtime_session_edit_write']
   ].sort());
   assert.doesNotMatch(migration, /ALTER\s+ROLE[\s\S]*?ADD\s+MEMBER|CREATE\s+USER\s+\[/i);
+});
+
+test('P2 permissions add exact workflow reads and gate-specific procedure execution without broad grants', () => {
+  const roleByDomain = {
+    taDraft: 'paws_runtime_ta_draft_write',
+    taReview: 'paws_runtime_ta_review_write',
+    taFinal: 'paws_runtime_ta_final_write',
+    taPublish: 'paws_runtime_ta_publish_write'
+  };
+  for (const [domain, procedures] of Object.entries(contract.p2WriteSets)) {
+    for (const procedure of procedures) {
+      assert.match(p2Migration, new RegExp(`GRANT EXECUTE ON OBJECT::${procedure.replace('.', '\\.')}\\s+TO \\[${roleByDomain[domain]}\\]`, 'i'));
+    }
+  }
+  assert.match(p2Migration, /IF\s+DB_NAME\(\)\s*<>\s*N'VetMed-Ops'[\s\S]*?THROW/i);
+  assert.match(p2Migration, /BEGIN\s+TRANSACTION[\s\S]*?COMMIT\s+TRANSACTION/i);
+  assert.match(p2Migration, /sys\.database_permissions/i);
+  assert.doesNotMatch(p2Migration, /GRANT\s+(?:INSERT|UPDATE|DELETE)\s+ON\s+(?:OBJECT|SCHEMA)::/i);
+  assert.doesNotMatch(p2Migration, /GRANT\s+EXECUTE\s+ON\s+SCHEMA::/i);
+  assert.doesNotMatch(p2Migration, /CREATE\s+USER\s+\[|ADD\s+MEMBER|ALTER\s+ROLE/i);
+  assert.doesNotMatch(p2Migration, /(?:GRANT|ALTER\s+ROLE)[\s\S]{0,120}(?:db_owner|CONTROL\s+DATABASE|sysadmin)/i);
 });

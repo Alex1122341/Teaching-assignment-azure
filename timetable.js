@@ -997,6 +997,9 @@
     $('faculty-dashboard-btn').addEventListener('click', () => {
       if (UCVM.canOpenFacultyDashboard(currentUser)) window.location.href = 'faculty-admin.html';
     });
+    $('teaching-assignments-btn').addEventListener('click', () => {
+      if (currentUser && ['faculty','hicc','visc','owner','administrator','adfa_general','adfa_regular','admin'].includes(String(currentUser.role || '').trim().toLowerCase())) window.location.href = 'teaching-assignments.html';
+    });
     $('my-timetable-btn').addEventListener('click', () => { myTimetableOnly = !myTimetableOnly; $('my-timetable-btn').textContent = myTimetableOnly ? 'Show All Timetable' : 'My Timetable'; render(); });
     $('course-list-btn').addEventListener('click', openCourseList);
     $('export-csv').addEventListener('click', () => openExportDialog('csv'));
@@ -2187,6 +2190,7 @@
     $('outlook-invite-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
     $('manage-users-btn').classList.toggle('hidden', !(UCVM.general(currentUser) || currentUser?.role === 'hicc'));
     $('faculty-dashboard-btn').classList.toggle('hidden', !UCVM.canOpenFacultyDashboard(currentUser));
+    $('teaching-assignments-btn').classList.toggle('hidden', !currentUser || !['faculty','hicc','visc','owner','administrator','adfa_general','adfa_regular','admin'].includes(String(currentUser.role || '').trim().toLowerCase()));
     $('cal-admin-menu').classList.toggle('hidden',!showAdminTools);
     for(const id of ['my-teaching-btn','afc-request-btn','my-change-history-btn'])$(id).classList.toggle('hidden',!currentUser);
     $('publish-firestore-schedule').classList.add('hidden');

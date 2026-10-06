@@ -3,6 +3,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { createUniversityHttpServer } = require('../src/runtime/university-http-server');
+const TEST_RUNTIME_IDENTITY = Object.freeze({
+  PAWS_RELEASE_SHA: 'a'.repeat(40),
+  PAWS_RUNTIME_TRUST_ANCHOR: 'b'.repeat(40)
+});
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -46,7 +50,7 @@ test('loopback adapter preserves runtime route response and Firebase bearer head
       calls.push(request);
       return { status: 200, jsonBody: { path: new URL(request.url).pathname, authorization: request.headers.get('authorization') } };
     },
-    env: {}
+    env: { ...TEST_RUNTIME_IDENTITY }
   });
   t.after(() => server.close());
   const port = await listen(server);
@@ -57,7 +61,7 @@ test('loopback adapter preserves runtime route response and Firebase bearer head
 });
 
 test('unset CORS allowlist denies browser cross-origin requests', async t => {
-  const server = createUniversityHttpServer({ runtime: async () => ({ status: 200, jsonBody: {} }), env: {} });
+  const server = createUniversityHttpServer({ runtime: async () => ({ status: 200, jsonBody: {} }), env: { ...TEST_RUNTIME_IDENTITY } });
   t.after(() => server.close());
   const port = await listen(server);
   const response = await get(port, '/api/v1/me', { headers: { origin: 'https://evil.example' } });
@@ -68,7 +72,7 @@ test('unset CORS allowlist denies browser cross-origin requests', async t => {
 test('exact allowlist permits origin and rejects substring lookalikes', async t => {
   const server = createUniversityHttpServer({
     runtime: async () => ({ status: 200, jsonBody: {} }),
-    env: { PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu' }
+    env: { ...TEST_RUNTIME_IDENTITY, PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu' }
   });
   t.after(() => server.close());
   const port = await listen(server);
@@ -83,7 +87,7 @@ test('bounded JSON POST reaches existing AFC route with parsed payload', async t
   let received;
   const server = createUniversityHttpServer({
     runtime: async request => { received = await request.json(); return { status: 201, jsonBody: { ok: true } }; },
-    env: { PAWS_API_MAX_BODY_BYTES: '64' }
+    env: { ...TEST_RUNTIME_IDENTITY, PAWS_API_MAX_BODY_BYTES: '64' }
   });
   t.after(() => server.close());
   const port = await listen(server);
@@ -109,7 +113,7 @@ test('binary runtime responses preserve exact PDF bytes and private download hea
       },
       binaryBody: bytes
     }),
-    env: { PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu' }
+    env: { ...TEST_RUNTIME_IDENTITY, PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu' }
   });
   t.after(() => server.close());
   const port = await listen(server);
@@ -131,7 +135,7 @@ test('malformed and oversized JSON fail before the runtime', async t => {
   let calls = 0;
   const server = createUniversityHttpServer({
     runtime: async () => { calls++; return { status: 200, jsonBody: {} }; },
-    env: { PAWS_API_MAX_BODY_BYTES: '8' }
+    env: { ...TEST_RUNTIME_IDENTITY, PAWS_API_MAX_BODY_BYTES: '8' }
   });
   t.after(() => server.close());
   const port = await listen(server);
@@ -147,8 +151,8 @@ test('malformed and oversized JSON fail before the runtime', async t => {
 });
 
 test('non-loopback binding is rejected and runtime exceptions fail closed', async t => {
-  assert.throws(() => createUniversityHttpServer({ runtime: async () => ({}), env: {}, host: '0.0.0.0' }), /loopback/i);
-  const server = createUniversityHttpServer({ runtime: async () => { throw new Error('secret detail'); }, env: {}, logger: { error() {} } });
+  assert.throws(() => createUniversityHttpServer({ runtime: async () => ({}), env: { ...TEST_RUNTIME_IDENTITY }, host: '0.0.0.0' }), /loopback/i);
+  const server = createUniversityHttpServer({ runtime: async () => { throw new Error('secret detail'); }, env: { ...TEST_RUNTIME_IDENTITY }, logger: { error() {} } });
   t.after(() => server.close());
   const port = await listen(server);
   const response = await get(port, '/api/v1/me');
@@ -176,7 +180,7 @@ test('local HTTP acceptance mounts the existing SQL health route and closes its 
     PAWS_SQL_DRIVER: 'tedious'
   };
   const runtime = createSwaSqlRuntime({ env, admin: {}, sql: { ConnectionPool: FakePool } });
-  const server = createUniversityHttpServer({ runtime, env: {} });
+  const server = createUniversityHttpServer({ runtime, env: { ...TEST_RUNTIME_IDENTITY } });
   t.after(async () => {
     await new Promise(resolve => server.close(resolve));
     await runtime.close();
@@ -193,7 +197,7 @@ test('local HTTP acceptance mounts the existing SQL health route and closes its 
 test('OPTIONS preflight permits only an exact allowlisted origin and headers', async t => {
   const server = createUniversityHttpServer({
     runtime: async () => ({ status: 200, jsonBody: {} }),
-    env: { PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu' }
+    env: { ...TEST_RUNTIME_IDENTITY, PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu' }
   });
   t.after(() => server.close());
   const port = await listen(server);
@@ -233,7 +237,7 @@ test('actual PAWS runtime keeps anonymous /me and Dashboard requests unauthorize
     async close() {}
   }
   const runtime = createSwaSqlRuntime({ env, admin: {}, sql: { ConnectionPool: FakePool } });
-  const server = createUniversityHttpServer({ runtime, env: {} });
+  const server = createUniversityHttpServer({ runtime, env: { ...TEST_RUNTIME_IDENTITY } });
   t.after(async () => {
     await new Promise(resolve => server.close(resolve));
     await runtime.close();

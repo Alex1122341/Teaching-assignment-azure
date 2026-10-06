@@ -11,10 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// W1H is the reviewed AFC runtime-authority product anchor. The preceding W1F
-// anchor remains historical evidence in governance tests; it is not mutable
-// and is never used as the current runtime trust source.
-const BASELINE_COMMIT='ab75affcae728132ca91106551d63fc73453bfe0';
+// W1M is the reviewed University runtime-attestation product anchor. W1H and
+// earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='06b517dff59a07e802cb8dff09400532fb195fe4';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

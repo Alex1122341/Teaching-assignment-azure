@@ -2,6 +2,7 @@
 
 const http = require('node:http');
 const { isIP } = require('node:net');
+const { createWriteGates } = require('../data/write-gates');
 
 const DEFAULT_MAX_BODY_BYTES = 64 * 1024;
 const ABSOLUTE_MAX_BODY_BYTES = 1024 * 1024;
@@ -43,6 +44,18 @@ function jsonError(status, code, message, headers = {}) {
   return { status, headers, jsonBody: { error: { code, message } } };
 }
 
+function runtimeIdentity(env) {
+  const releaseSha = env.PAWS_RELEASE_SHA;
+  if (typeof releaseSha !== 'string' || !/^[0-9a-f]{40}$/.test(releaseSha)) {
+    throw new Error('PAWS_RELEASE_SHA must be a lowercase 40-character Git commit SHA');
+  }
+  const runtimeTrustAnchor = env.PAWS_RUNTIME_TRUST_ANCHOR;
+  if (typeof runtimeTrustAnchor !== 'string' || !/^[0-9a-f]{40}$/.test(runtimeTrustAnchor)) {
+    throw new Error('PAWS_RUNTIME_TRUST_ANCHOR must be a lowercase 40-character Git commit SHA');
+  }
+  return Object.freeze({ releaseSha, runtimeTrustAnchor, writeGates: createWriteGates(env) });
+}
+
 async function readBody(request, limit) {
   const header = request.headers['content-length'];
   if (header !== undefined && (!/^\d+$/.test(String(header)) || Number(header) > limit)) {
@@ -75,6 +88,7 @@ function createUniversityHttpServer({
   const bindHost = assertLoopbackHost(host);
   const origins = parseOrigins(env.PAWS_API_ALLOWED_ORIGINS);
   const bodyLimit = maxBodyBytes(env);
+  const identity = runtimeIdentity(env);
 
   return http.createServer(async (incoming, outgoing) => {
     const origin = incoming.headers.origin;
@@ -109,6 +123,40 @@ function createUniversityHttpServer({
         'Access-Control-Max-Age': '600'
       });
       outgoing.end();
+      return;
+    }
+
+    const requestPath = new URL(incoming.url || '/', 'http://127.0.0.1').pathname;
+    if (requestPath === '/api/health/runtime') {
+      if (incoming.method !== 'GET') {
+        const payload = JSON.stringify({ error: { code: 'METHOD_NOT_ALLOWED', message: 'Only GET is allowed.' } });
+        outgoing.writeHead(405, {
+          ...corsHeaders,
+          Allow: 'GET',
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Length': Buffer.byteLength(payload)
+        });
+        outgoing.end(payload);
+        return;
+      }
+      const payload = JSON.stringify({
+        status: 'ok',
+        service: 'paws-university-api',
+        authority: 'vetmed-ops-sql',
+        releaseSha: identity.releaseSha,
+        runtimeTrustAnchor: identity.runtimeTrustAnchor,
+        writeGates: identity.writeGates
+      });
+      outgoing.writeHead(200, {
+        ...corsHeaders,
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Length': Buffer.byteLength(payload)
+      });
+      outgoing.end(payload);
       return;
     }
 

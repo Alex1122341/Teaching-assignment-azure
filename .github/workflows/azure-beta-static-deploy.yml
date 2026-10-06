@@ -11,27 +11,12 @@ on:
         description: Exact current main commit whose tested artifact is released
         required: true
         type: string
-      expected_live_aca_revision:
-        description: Expected single active ACA revision before and after static release
-        required: true
-        type: string
-      expected_live_api_digest:
-        description: Expected immutable live API image digest before and after static release
-        required: true
-        type: string
 
 permissions:
   contents: read
   actions: read
-  id-token: write
 
 env:
-  ACR_NAME: pawssqlbetaacr
-  IMAGE_REPOSITORY: paws-sql-beta-api
-  ACA_APP_NAME: paws-sql-beta-api-260926
-  ACA_RESOURCE_GROUP: rg-ucvm-teaching-lab
-  ACA_FQDN: paws-sql-beta-api-260926.wonderfulglacier-ff8c7a3b.eastus2.azurecontainerapps.io
-  EXPECTED_REVISION_MODE: Single
   SWA_URL: https://red-cliff-04871ca0f.5.azurestaticapps.net
 
 concurrency:
@@ -62,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$SOURCE_RUN_ID"
-          test -n "$COMMIT_SHA"
+          [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$GITHUB_REF" = "refs/heads/main"
           test "$GITHUB_SHA" = "$COMMIT_SHA"
           git fetch --no-tags origin main
@@ -106,80 +91,79 @@ jobs:
           node tools/beta-freeze.js --artifact .azure-production/app
           node tools/beta-api-freeze.js --artifact .azure-production/api
 
-      - name: Log in to Azure with read-only verification identity
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.PAWS_BETA_AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.PAWS_BETA_AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.PAWS_BETA_AZURE_SUBSCRIPTION_ID }}
-
-      - name: Verify live ACA identity before static release
-        id: predeploy_aca
+      - name: Derive University API origin and immutable trust anchor
+        id: release_identity
         shell: bash
         env:
-          EXPECTED_REVISION: ${{ inputs.expected_live_aca_revision }}
-          EXPECTED_API_DIGEST: ${{ inputs.expected_live_api_digest }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          [[ "$EXPECTED_API_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
-          expected_image="$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY@$EXPECTED_API_DIGEST"
-          app_json="$(az containerapp show --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
-          mode="$(jq -r '.properties.configuration.activeRevisionsMode // empty' <<< "$app_json")"
-          fqdn="$(jq -r '.properties.configuration.ingress.fqdn // empty' <<< "$app_json")"
-          test "$mode" = "$EXPECTED_REVISION_MODE"
-          test "$fqdn" = "$ACA_FQDN"
-          revisions_json="$(az containerapp revision list --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
-          active_count="$(jq '[.[] | select(.properties.active == true)] | length' <<< "$revisions_json")"
-          test "$active_count" = "1"
-          active_revision="$(jq -r '[.[] | select(.properties.active == true)][0].name // empty' <<< "$revisions_json")"
-          active_image="$(jq -r '[.[] | select(.properties.active == true)][0].properties.template.containers[0].image // empty' <<< "$revisions_json")"
-          health="$(jq -r '[.[] | select(.properties.active == true)][0].properties.healthState // empty' <<< "$revisions_json")"
-          provisioning="$(jq -r '[.[] | select(.properties.active == true)][0].properties.provisioningState // empty' <<< "$revisions_json")"
-          test "$active_revision" = "$EXPECTED_REVISION"
-          test "$active_image" = "$expected_image"
-          test "$health" = "Healthy"
-          test "$provisioning" = "Provisioned" || test "$provisioning" = "Succeeded"
-          jq -n \
-            --arg fqdn "$fqdn" \
-            --arg revisionMode "$mode" \
-            --arg revision "$active_revision" \
-            --arg image "$active_image" \
-            --arg health "$health" \
-            --arg provisioning "$provisioning" \
-            '{fqdn:$fqdn,revisionMode:$revisionMode,activeRevision:$revision,apiImage:$image,health:$health,provisioning:$provisioning}' \
-            > aca-predeploy-state.json
-          printf 'revision=%s\n' "$active_revision" >> "$GITHUB_OUTPUT"
-          printf 'apiImage=%s\n' "$active_image" >> "$GITHUB_OUTPUT"
+          api_origin="$(node - <<'NODE'
+          const config = require('./paws-api-origin.js');
+          const url = new URL(config.apiOrigin);
+          if (url.protocol !== 'https:' || !['', '/'].includes(url.pathname) || url.search || url.hash || url.username || url.password) {
+            throw new Error('paws-api-origin.js must contain a bare HTTPS origin');
+          }
+          process.stdout.write(url.origin);
+          NODE
+          )"
+          trust_anchor="$(node -p "require('./tools/beta-freeze.js').BASELINE_COMMIT")"
+          [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$trust_anchor" =~ ^[0-9a-f]{40}$ ]]
+          echo "apiOrigin=$api_origin" >> "$GITHUB_OUTPUT"
+          echo "runtimeTrustAnchor=$trust_anchor" >> "$GITHUB_OUTPUT"
 
       - name: Verify SQL health before static release
         id: predeploy_sql
         shell: bash
+        env:
+          API_ORIGIN: ${{ steps.release_identity.outputs.apiOrigin }}
         run: |
           set -euo pipefail
           passed=false
-          observed_status="000"
-          observed_body=''
           for attempt in $(seq 1 12); do
-            body_file="$(mktemp)"
-            observed_status="$(curl --silent --show-error --max-time 10 -o "$body_file" -w '%{http_code}' "https://$ACA_FQDN/api/health/sql" || true)"
-            observed_body="$(cat "$body_file" 2>/dev/null || true)"
-            if [ "$observed_status" = "200" ] \
-              && [ "$(jq -r '.status // empty' "$body_file" 2>/dev/null || true)" = "ok" ] \
-              && [ "$(jq -r '.service // empty' "$body_file" 2>/dev/null || true)" = "paws-beta-sql-runtime" ]; then
+            status="$(curl --silent --show-error --max-time 10 -o predeploy-sql-health.json -w '%{http_code}' "$API_ORIGIN/api/health/sql" || true)"
+            if [ "$status" = "200" ] \
+              && [ "$(jq -r '.status // empty' predeploy-sql-health.json 2>/dev/null || true)" = "ok" ] \
+              && [ "$(jq -r '.service // empty' predeploy-sql-health.json 2>/dev/null || true)" = "paws-beta-sql-runtime" ]; then
               passed=true
               break
             fi
             sleep 10
           done
           if [ "$passed" != true ]; then
-            echo "PREDEPLOY_SQL_HEALTH_BLOCKER status=$observed_status body=$observed_body"
+            echo 'PREDEPLOY_SQL_HEALTH_BLOCKER'
             exit 1
           fi
           echo 'sqlHealthPassed=true' >> "$GITHUB_OUTPUT"
 
+      - name: Verify runtime release identity and disabled write gates before static release
+        id: predeploy_runtime
+        shell: bash
+        env:
+          API_ORIGIN: ${{ steps.release_identity.outputs.apiOrigin }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          TRUST_ANCHOR: ${{ steps.release_identity.outputs.runtimeTrustAnchor }}
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 10 -o predeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
+          test "$status" = "200"
+          jq -e --arg commit "$COMMIT_SHA" --arg trust "$TRUST_ANCHOR" '
+            .status == "ok" and
+            .service == "paws-university-api" and
+            .authority == "vetmed-ops-sql" and
+            .releaseSha == $commit and
+            .runtimeTrustAnchor == $trust and
+            (.writeGates | .afcSingle == false and .afcBatch == false and .sessionEdit == false and .afcRequest == false and .afcDecision == false and .afcArtifact == false)
+          ' predeploy-runtime.json > /dev/null
+          echo 'runtimeAttestationPassed=true' >> "$GITHUB_OUTPUT"
+          jq -c '{authority,releaseSha,runtimeTrustAnchor,writeGates}' predeploy-runtime.json | sed 's/^/runtimeAttestation=/' >> "$GITHUB_OUTPUT"
+
       - name: Verify anonymous auth boundary before static release
         id: predeploy_auth
         shell: bash
+        env:
+          API_ORIGIN: ${{ steps.release_identity.outputs.apiOrigin }}
         run: |
           set -euo pipefail
           routes=(
@@ -191,10 +175,29 @@ jobs:
             /api/v1/dashboard/doe-overview
           )
           for route in "${routes[@]}"; do
-            status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' "https://$ACA_FQDN$route" || true)"
+            status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' "$API_ORIGIN$route" || true)"
             test "$status" = "401"
           done
           echo 'authBoundaryPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Verify API CORS preflight before static release
+        id: predeploy_cors
+        shell: bash
+        env:
+          API_ORIGIN: ${{ steps.release_identity.outputs.apiOrigin }}
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 10 -D predeploy-cors-headers.txt -o /dev/null -w '%{http_code}' \
+            -X OPTIONS "$API_ORIGIN/api/health/runtime" \
+            -H "Origin: $SWA_URL" \
+            -H 'Access-Control-Request-Method: GET' \
+            -H 'Access-Control-Request-Headers: authorization,content-type' || true)"
+          test "$status" = "204"
+          grep -Eiq "^access-control-allow-origin: ${SWA_URL//./\\.}[[:space:]]*$" predeploy-cors-headers.txt
+          grep -Eiq '^access-control-allow-methods:.*GET.*OPTIONS' predeploy-cors-headers.txt
+          grep -Eiq '^access-control-allow-headers:.*Authorization.*Content-Type' predeploy-cors-headers.txt
+          ! grep -Eiq '^access-control-allow-credentials:' predeploy-cors-headers.txt
+          echo 'corsPassed=true' >> "$GITHUB_OUTPUT"
 
       - name: Deploy tested static app
         uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
@@ -213,7 +216,7 @@ jobs:
           COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          files=(index.html asset-loader.js approval-workflow.js afc-workflow.js paws-api-origin.js paws-data-client.js)
+          files=(index.html asset-loader.js paws-api-origin.js paws-data-client.js afc-workflow.js afc-workflow-sql.js approval-workflow.js)
           mkdir -p public-static
           passed=false
           for attempt in $(seq 1 12); do
@@ -238,59 +241,46 @@ jobs:
           fi
           echo 'staticHashesPassed=true' >> "$GITHUB_OUTPUT"
 
-      - name: Verify ACA identity and API invariance after static release
-        id: postdeploy_aca
-        shell: bash
-        env:
-          EXPECTED_REVISION: ${{ inputs.expected_live_aca_revision }}
-          EXPECTED_API_DIGEST: ${{ inputs.expected_live_api_digest }}
-        run: |
-          set -euo pipefail
-          expected_image="$ACR_NAME.azurecr.io/$IMAGE_REPOSITORY@$EXPECTED_API_DIGEST"
-          app_json="$(az containerapp show --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
-          mode="$(jq -r '.properties.configuration.activeRevisionsMode // empty' <<< "$app_json")"
-          fqdn="$(jq -r '.properties.configuration.ingress.fqdn // empty' <<< "$app_json")"
-          test "$mode" = "$EXPECTED_REVISION_MODE"
-          test "$fqdn" = "$ACA_FQDN"
-          revisions_json="$(az containerapp revision list --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
-          active_count="$(jq '[.[] | select(.properties.active == true)] | length' <<< "$revisions_json")"
-          test "$active_count" = "1"
-          active_revision="$(jq -r '[.[] | select(.properties.active == true)][0].name // empty' <<< "$revisions_json")"
-          active_image="$(jq -r '[.[] | select(.properties.active == true)][0].properties.template.containers[0].image // empty' <<< "$revisions_json")"
-          health="$(jq -r '[.[] | select(.properties.active == true)][0].properties.healthState // empty' <<< "$revisions_json")"
-          provisioning="$(jq -r '[.[] | select(.properties.active == true)][0].properties.provisioningState // empty' <<< "$revisions_json")"
-          test "$active_revision" = "$EXPECTED_REVISION"
-          test "$active_image" = "$expected_image"
-          test "$health" = "Healthy"
-          test "$provisioning" = "Provisioned" || test "$provisioning" = "Succeeded"
-          jq -n \
-            --arg fqdn "$fqdn" \
-            --arg revisionMode "$mode" \
-            --arg revision "$active_revision" \
-            --arg image "$active_image" \
-            --arg health "$health" \
-            --arg provisioning "$provisioning" \
-            '{fqdn:$fqdn,revisionMode:$revisionMode,activeRevision:$revision,apiImage:$image,health:$health,provisioning:$provisioning}' \
-            > aca-postdeploy-state.json
-          diff -u aca-predeploy-state.json aca-postdeploy-state.json
-          printf 'revision=%s\n' "$active_revision" >> "$GITHUB_OUTPUT"
-          printf 'apiImage=%s\n' "$active_image" >> "$GITHUB_OUTPUT"
-          echo 'apiInvariantPassed=true' >> "$GITHUB_OUTPUT"
-
       - name: Verify SQL health after static release
         id: postdeploy_sql
         shell: bash
+        env:
+          API_ORIGIN: ${{ steps.release_identity.outputs.apiOrigin }}
         run: |
           set -euo pipefail
-          status="$(curl --silent --show-error --max-time 10 -o postdeploy-sql-health.json -w '%{http_code}' "https://$ACA_FQDN/api/health/sql" || true)"
+          status="$(curl --silent --show-error --max-time 10 -o postdeploy-sql-health.json -w '%{http_code}' "$API_ORIGIN/api/health/sql" || true)"
           test "$status" = "200"
           test "$(jq -r '.status // empty' postdeploy-sql-health.json)" = "ok"
           test "$(jq -r '.service // empty' postdeploy-sql-health.json)" = "paws-beta-sql-runtime"
           echo 'sqlHealthPassed=true' >> "$GITHUB_OUTPUT"
 
+      - name: Verify runtime release identity and disabled write gates after static release
+        id: postdeploy_runtime
+        shell: bash
+        env:
+          API_ORIGIN: ${{ steps.release_identity.outputs.apiOrigin }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          TRUST_ANCHOR: ${{ steps.release_identity.outputs.runtimeTrustAnchor }}
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 10 -o postdeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
+          test "$status" = "200"
+          jq -e --arg commit "$COMMIT_SHA" --arg trust "$TRUST_ANCHOR" '
+            .status == "ok" and
+            .service == "paws-university-api" and
+            .authority == "vetmed-ops-sql" and
+            .releaseSha == $commit and
+            .runtimeTrustAnchor == $trust and
+            (.writeGates | .afcSingle == false and .afcBatch == false and .sessionEdit == false and .afcRequest == false and .afcDecision == false and .afcArtifact == false)
+          ' postdeploy-runtime.json > /dev/null
+          echo 'runtimeAttestationPassed=true' >> "$GITHUB_OUTPUT"
+          jq -c '{authority,releaseSha,runtimeTrustAnchor,writeGates}' postdeploy-runtime.json | sed 's/^/runtimeAttestation=/' >> "$GITHUB_OUTPUT"
+
       - name: Verify anonymous auth boundary after static release
         id: postdeploy_auth
         shell: bash
+        env:
+          API_ORIGIN: ${{ steps.release_identity.outputs.apiOrigin }}
         run: |
           set -euo pipefail
           routes=(
@@ -302,10 +292,29 @@ jobs:
             /api/v1/dashboard/doe-overview
           )
           for route in "${routes[@]}"; do
-            status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' "https://$ACA_FQDN$route" || true)"
+            status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' "$API_ORIGIN$route" || true)"
             test "$status" = "401"
           done
           echo 'authBoundaryPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Verify API CORS preflight after static release
+        id: postdeploy_cors
+        shell: bash
+        env:
+          API_ORIGIN: ${{ steps.release_identity.outputs.apiOrigin }}
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 10 -D postdeploy-cors-headers.txt -o /dev/null -w '%{http_code}' \
+            -X OPTIONS "$API_ORIGIN/api/health/runtime" \
+            -H "Origin: $SWA_URL" \
+            -H 'Access-Control-Request-Method: GET' \
+            -H 'Access-Control-Request-Headers: authorization,content-type' || true)"
+          test "$status" = "204"
+          grep -Eiq "^access-control-allow-origin: ${SWA_URL//./\\.}[[:space:]]*$" postdeploy-cors-headers.txt
+          grep -Eiq '^access-control-allow-methods:.*GET.*OPTIONS' postdeploy-cors-headers.txt
+          grep -Eiq '^access-control-allow-headers:.*Authorization.*Content-Type' postdeploy-cors-headers.txt
+          ! grep -Eiq '^access-control-allow-credentials:' postdeploy-cors-headers.txt
+          echo 'corsPassed=true' >> "$GITHUB_OUTPUT"
 
       - name: Write static deploy evidence
         if: always()
@@ -313,14 +322,19 @@ jobs:
         env:
           COMMIT_SHA: ${{ inputs.commit_sha }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          EXPECTED_REVISION: ${{ inputs.expected_live_aca_revision }}
-          EXPECTED_API_DIGEST: ${{ inputs.expected_live_api_digest }}
+          API_ORIGIN: ${{ steps.release_identity.outputs.apiOrigin }}
+          TRUST_ANCHOR: ${{ steps.release_identity.outputs.runtimeTrustAnchor }}
           PRE_SQL: ${{ steps.predeploy_sql.outputs.sqlHealthPassed == 'true' && 'true' || 'false' }}
           POST_SQL: ${{ steps.postdeploy_sql.outputs.sqlHealthPassed == 'true' && 'true' || 'false' }}
+          PRE_RUNTIME: ${{ steps.predeploy_runtime.outputs.runtimeAttestationPassed == 'true' && 'true' || 'false' }}
+          POST_RUNTIME: ${{ steps.postdeploy_runtime.outputs.runtimeAttestationPassed == 'true' && 'true' || 'false' }}
           PRE_AUTH: ${{ steps.predeploy_auth.outputs.authBoundaryPassed == 'true' && 'true' || 'false' }}
           POST_AUTH: ${{ steps.postdeploy_auth.outputs.authBoundaryPassed == 'true' && 'true' || 'false' }}
+          PRE_CORS: ${{ steps.predeploy_cors.outputs.corsPassed == 'true' && 'true' || 'false' }}
+          POST_CORS: ${{ steps.postdeploy_cors.outputs.corsPassed == 'true' && 'true' || 'false' }}
           STATIC_HASHES: ${{ steps.static_verify.outputs.staticHashesPassed == 'true' && 'true' || 'false' }}
-          API_INVARIANT: ${{ steps.postdeploy_aca.outputs.apiInvariantPassed == 'true' && 'true' || 'false' }}
+          PRE_ATTESTATION: ${{ steps.predeploy_runtime.outputs.runtimeAttestation || '{}' }}
+          POST_ATTESTATION: ${{ steps.postdeploy_runtime.outputs.runtimeAttestation || '{}' }}
         run: |
           set -euo pipefail
           jq -n \
@@ -330,20 +344,22 @@ jobs:
             --arg staticDeployRunId "$GITHUB_RUN_ID" \
             --arg staticDeployRunNumber "$GITHUB_RUN_NUMBER" \
             --arg siteUrl "$SWA_URL" \
-            --arg baseline "ab75affcae728132ca91106551d63fc73453bfe0" \
-            --arg artifactName "azure-beta-$COMMIT_SHA" \
-            --arg expectedRevision "$EXPECTED_REVISION" \
-            --arg observedRevision "${{ steps.postdeploy_aca.outputs.revision }}" \
-            --arg expectedApiDigest "$EXPECTED_API_DIGEST" \
-            --arg observedApiImage "${{ steps.postdeploy_aca.outputs.apiImage }}" \
+            --arg apiOrigin "$API_ORIGIN" \
+            --arg releaseSha "$COMMIT_SHA" \
+            --arg runtimeTrustAnchor "$TRUST_ANCHOR" \
             --arg deployedAtUtc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson runtimePre "$PRE_ATTESTATION" \
+            --argjson runtimePost "$POST_ATTESTATION" \
             --argjson sqlHealthPre "$PRE_SQL" \
             --argjson sqlHealthPost "$POST_SQL" \
+            --argjson runtimeAttestationPre "$PRE_RUNTIME" \
+            --argjson runtimeAttestationPost "$POST_RUNTIME" \
             --argjson authBoundaryPre "$PRE_AUTH" \
             --argjson authBoundaryPost "$POST_AUTH" \
+            --argjson corsPre "$PRE_CORS" \
+            --argjson corsPost "$POST_CORS" \
             --argjson staticHashesPassed "$STATIC_HASHES" \
-            --argjson apiInvariantPassed "$API_INVARIANT" \
-            '{repository:$repository,commitSha:$commitSha,sourceRunId:$sourceRunId,staticDeployRunId:$staticDeployRunId,staticDeployRunNumber:$staticDeployRunNumber,siteUrl:$siteUrl,baseline:$baseline,artifactName:$artifactName,expectedRevision:$expectedRevision,observedRevision:$observedRevision,expectedApiDigest:$expectedApiDigest,observedApiImage:$observedApiImage,sqlHealthPre:$sqlHealthPre,sqlHealthPost:$sqlHealthPost,authBoundaryPre:$authBoundaryPre,authBoundaryPost:$authBoundaryPost,staticHashesPassed:$staticHashesPassed,apiInvariantPassed:$apiInvariantPassed,deployedAtUtc:$deployedAtUtc}' \
+            '{repository:$repository,commitSha:$commitSha,sourceRunId:$sourceRunId,staticDeployRunId:$staticDeployRunId,staticDeployRunNumber:$staticDeployRunNumber,siteUrl:$siteUrl,apiOrigin:$apiOrigin,releaseSha:$releaseSha,runtimeTrustAnchor:$runtimeTrustAnchor,writeGatesPre:($runtimePre.writeGates // null),writeGatesPost:($runtimePost.writeGates // null),sqlHealthPre:$sqlHealthPre,sqlHealthPost:$sqlHealthPost,runtimeAttestationPre:$runtimeAttestationPre,runtimeAttestationPost:$runtimeAttestationPost,authBoundaryPre:$authBoundaryPre,authBoundaryPost:$authBoundaryPost,corsPre:$corsPre,corsPost:$corsPost,staticHashesPassed:$staticHashesPassed,deployedAtUtc:$deployedAtUtc}' \
             > static-deploy-evidence.json
 
       - name: Upload static deploy evidence

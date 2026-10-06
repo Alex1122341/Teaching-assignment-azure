@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// W1M is the current immutable product anchor. W1H/W1F stay separately named
-// historical evidence so each reviewed protected-runtime delta remains pinned.
-const BASELINE_COMMIT='06b517dff59a07e802cb8dff09400532fb195fe4';
+// P1 is current. W1M/W1H/W1F remain immutable historical evidence so each
+// reviewed protected-runtime promotion stays independently pinned.
+const BASELINE_COMMIT='efdedb3d1b62a774e74b859a723e5a7906f86956';
+const W1M_PRODUCT_COMMIT='06b517dff59a07e802cb8dff09400532fb195fe4';
 const W1H_PRODUCT_COMMIT='ab75affcae728132ca91106551d63fc73453bfe0';
 const W1F_FREEZE_COMMIT='da21223a1d92572ff72767796229a655d122efb4';
 const PREVIOUS_FREEZE_COMMIT='51ed5f7aa0851aac5f20133ea213666028e018a3';
@@ -35,9 +36,9 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the W1M accepted runtime-attestation baseline',()=>{
+test('beta identity is pinned to the P1 accepted product baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
-  assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
+  assert.equal(baseline.siteUrl,'https://tester-teaching.web.app');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
 });
 
@@ -112,9 +113,9 @@ test('W1H freeze promotion preserves coverage and permits only the exact reviewe
 test('W1M freeze promotion preserves coverage and permits only the University HTTP adapter delta',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const w1hStatic=freeze.protectedPaths({root,baselineCommit:W1H_PRODUCT_COMMIT});
-  const w1mStatic=freeze.protectedPaths({root,baselineCommit:BASELINE_COMMIT});
+  const w1mStatic=freeze.protectedPaths({root,baselineCommit:W1M_PRODUCT_COMMIT});
   const w1hApi=apiFreeze.runtimeFiles({root,baselineCommit:W1H_PRODUCT_COMMIT});
-  const w1mApi=apiFreeze.runtimeFiles({root,baselineCommit:BASELINE_COMMIT});
+  const w1mApi=apiFreeze.runtimeFiles({root,baselineCommit:W1M_PRODUCT_COMMIT});
   assert.equal(w1hStatic.length,52);
   assert.equal(w1mStatic.length,52);
   assert.equal(w1hApi.length,34);
@@ -123,11 +124,43 @@ test('W1M freeze promotion preserves coverage and permits only the University HT
   assert.deepEqual(w1mStatic.filter(name=>!w1hStatic.includes(name)),[]);
   const changed=paths=>paths.filter(name=>!freeze.bytesMatch(
     freeze.readBaselineFile({root,baselineCommit:W1H_PRODUCT_COMMIT,file:name}),
-    freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
+    freeze.readBaselineFile({root,baselineCommit:W1M_PRODUCT_COMMIT,file:name})
   )).sort();
   assert.deepEqual(changed(w1mStatic),[],'W1M must not change protected static runtime bytes');
   assert.deepEqual(changed(w1mApi),['server/src/runtime/university-http-server.js'],
     'W1M may change only the protected University HTTP adapter');
+});
+
+test('P1 freeze promotion preserves coverage and permits only the reviewed DOE/dashboard/write API delta',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  const w1mStatic=freeze.protectedPaths({root,baselineCommit:W1M_PRODUCT_COMMIT});
+  const p1Static=freeze.protectedPaths({root,baselineCommit:BASELINE_COMMIT});
+  const w1mApi=apiFreeze.runtimeFiles({root,baselineCommit:W1M_PRODUCT_COMMIT});
+  const p1Api=apiFreeze.runtimeFiles({root,baselineCommit:BASELINE_COMMIT});
+  assert.equal(w1mStatic.length,52);
+  assert.equal(p1Static.length,52);
+  assert.equal(w1mApi.length,34);
+  assert.equal(p1Api.length,34);
+  assert.deepEqual(w1mStatic.filter(name=>!p1Static.includes(name)),[]);
+  assert.deepEqual(p1Static.filter(name=>!w1mStatic.includes(name)),[]);
+  assert.deepEqual(w1mApi.filter(name=>!p1Api.includes(name)),[]);
+  assert.deepEqual(p1Api.filter(name=>!w1mApi.includes(name)),[]);
+
+  const changed=paths=>paths.filter(name=>!freeze.bytesMatch(
+    freeze.readBaselineFile({root,baselineCommit:W1M_PRODUCT_COMMIT,file:name}),
+    freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
+  )).sort();
+  assert.deepEqual(changed(p1Static),[
+    'faculty-admin-doe-renderer.js','faculty-admin.js','paws-data-client.js','timetable.js'
+  ],'P1 protected static delta must match the reviewed product assets');
+  assert.deepEqual(changed(p1Api),[
+    'server/src/afc/afc-request-api.js','server/src/data/data-api.js',
+    'server/src/data/sql-session-repository.js','server/src/data/write-gates.js',
+    'server/src/runtime/swa-functions.js','server/src/runtime/swa-sql-runtime.js',
+    'server/src/runtime/university-http-server.js'
+  ],'P1 protected API delta must match the reviewed API/runtime files');
+  execFileSync('git',['merge-base','--is-ancestor',W1M_PRODUCT_COMMIT,BASELINE_COMMIT],{cwd:root});
+  execFileSync('git',['merge-base','--is-ancestor',BASELINE_COMMIT,'HEAD'],{cwd:root});
 });
 
 test('W1H protected static and API paths retain W1F coverage and historical bytes',()=>{
@@ -147,7 +180,7 @@ test('W1H protected static and API paths retain W1F coverage and historical byte
     ),true,`static bytes must match at W1F anchor and W1E head: ${name}`);
   }
 
-  const promotedApi=apiFreeze.runtimeFiles({root,baselineCommit:BASELINE_COMMIT});
+  const promotedApi=apiFreeze.runtimeFiles({root,baselineCommit:W1M_PRODUCT_COMMIT});
   const priorApi=apiFreeze.runtimeFiles({root,baselineCommit:PREVIOUS_FREEZE_COMMIT});
   const w1cApi=apiFreeze.runtimeFiles({root,baselineCommit:W1C_ACCEPTED_TIP});
   const w1dApi=apiFreeze.runtimeFiles({root,baselineCommit:W1D_ACCEPTED_TIP});
@@ -165,7 +198,7 @@ test('W1H protected static and API paths retain W1F coverage and historical byte
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the W1M product candidate frozen runtime reports zero protected drift',()=>{
+test('the P1 product candidate frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
@@ -188,7 +221,7 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 52 current protected files are byte-identical to the immutable W1M product blobs',()=>{
+test('all 52 current protected files are byte-identical to the immutable P1 product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
   assert.equal(protectedFiles.length,52);
   for(const name of protectedFiles){
@@ -335,7 +368,7 @@ test('beta-baseline.json remains non-authoritative and records the stabilized Be
 });
 
 // G. Dual-runtime baseline ---------------------------------------------------
-test('API freeze shares the promoted W1M static baseline and has zero runtime drift',()=>{
+test('API freeze shares the promoted P1 static baseline and has zero runtime drift',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
   assert.equal(apiFreeze.BASELINE_COMMIT,freeze.BASELINE_COMMIT);

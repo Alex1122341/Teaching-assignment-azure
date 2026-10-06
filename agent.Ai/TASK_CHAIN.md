@@ -1,3 +1,22 @@
+# Current task — P0 W1H runtime authority closure
+
+**Status:** W1H product and separate freeze/governance promotion are on the feature branch; local acceptance matrix passes. Architect #6 independent deep review is pending. No PR or deployment.
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Main/start SHA:** `156d2e5f60f7cd3afe40a6ad7972f10b0b7d0ffe`
+**Branch:** `feature/beta-w1h-runtime-authority-closure`
+
+- Nine state-changing API routes are inventoried: three retain W1C gates; six previously ungated AFC routes now have independent request, decision, and artifact gates. The four root/emulator failures are immutable W1F freeze assertions over the reviewed protected-file delta, not behavior failures.
+- Product commit: `ab75affcae728132ca91106551d63fc73453bfe0`. Freeze/governance and `beta-baseline.json` anchor to that immutable product commit; historical W1F anchor `da21223a1d92572ff72767796229a655d122efb4` is preserved. Exact protected delta: two static + six API files; coverage remains 52/34 with no additions or removals. Former four freeze-only failures now pass.
+- Verification: server 336/336; root `npm test` and `npm run test` each 775 total / 743 pass / 32 skipped / 0 failed; Auth/Firestore emulator 775/775; focused W1H/W1C/AFC 81/81; SQL authority/permission contracts 19/19. Both freeze tools and candidate verifier report zero drift; syntax, diff, and targeted secret checks pass.
+- Read-only live audit found exact-main drift in `swa-sql-runtime.js`, `data-api.js`, `dashboard-api.js`, and missing `write-gates.js`; deployed runtime is `UNATTESTED_RUNTIME`. All nine live mutation endpoints are ungated in this observed runtime.
+- Current SQL connection is personal `UC\\sa-xinyu.zhu1` with `db_owner`, `CONTROL DATABASE`, and broad write authority. Activation NO-GO. Existing dedicated identity not found; AD lookup cmdlet unavailable and PAWSApi service is a disabled placeholder. `EXTERNAL_IT_PROVISIONING_REQUIRED`.
+- Live UpdateCalendarSession matches migration-016 accepted weaker hash; `MIGRATION_016_READY`, but no migration executed. SQL role migration 018 exists locally only; migration 017 unchanged.
+- No live mutation, service change/restart, write-gate activation, deployment, main change, PR, or W2.
+- Chronological evidence: `agent.Ai/updates/2026-10-06-paws-w1h-runtime-authority-closure.md`.
+
+**Next:** Architect #6 independent deep review of the feature branch. No PR, merge, deployment, migration execution, identity/grant change, write-gate activation, or W2 is authorized.
+
+---
 # Current task — P0 W1F integration / freeze reconciliation / hosted CI
 
 - Existing branch: `feature/beta-w1e-identity-runtime-least-privilege`, starting SHA `ef7d925c4393d0d3c5e5d93ebd99e9870bc4d59c`; `origin/main` remains `1dca1037f61e8dbb054cc53b119d2b73982ab810`.

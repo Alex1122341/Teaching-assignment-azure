@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// The W1F integration candidate freezes the accepted W1C + W1D runtime at the
-// W1D product commit. Historical product anchors remain separately named.
-const BASELINE_COMMIT='da21223a1d92572ff72767796229a655d122efb4';
+// W1H is the current immutable product anchor. Keep W1F separately named as
+// historical evidence so its exact reviewed runtime delta can be tested.
+const BASELINE_COMMIT='ab75affcae728132ca91106551d63fc73453bfe0';
+const W1F_FREEZE_COMMIT='da21223a1d92572ff72767796229a655d122efb4';
 const PREVIOUS_FREEZE_COMMIT='51ed5f7aa0851aac5f20133ea213666028e018a3';
 const W1F_MAIN_COMMIT='1dca1037f61e8dbb054cc53b119d2b73982ab810';
 const W1C_PRODUCT_COMMIT='08633276663b71d7a6fc995e9be2d20c7cba4065';
@@ -33,7 +34,7 @@ function baselineJson(ref){
 }
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the W1F accepted dual-runtime baseline',()=>{
+test('beta identity is pinned to the W1H accepted dual-runtime baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://red-cliff-04871ca0f.5.azurestaticapps.net');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -44,23 +45,72 @@ test('the promoted dual-runtime baseline exists as a Git commit and is an ancest
   execFileSync('git',['merge-base','--is-ancestor',BASELINE_COMMIT,'HEAD'],{cwd:root});
 });
 
-test('W1F freeze anchor is the accepted W1D product after W1C and before W1E governance',()=>{
+test('W1F history remains the accepted W1D product before W1E governance',()=>{
   const isAncestor=(ancestor,descendant)=>execFileSync('git',['merge-base','--is-ancestor',ancestor,descendant],{cwd:root});
-  assert.equal(BASELINE_COMMIT,'da21223a1d92572ff72767796229a655d122efb4');
+  assert.equal(W1F_FREEZE_COMMIT,'da21223a1d92572ff72767796229a655d122efb4');
   for(const [ancestor,descendant] of [
     [PREVIOUS_FREEZE_COMMIT,W1C_PRODUCT_COMMIT],
     [W1C_PRODUCT_COMMIT,W1C_ACCEPTED_TIP],
-    [W1C_ACCEPTED_TIP,BASELINE_COMMIT],
-    [BASELINE_COMMIT,W1D_ACCEPTED_TIP],
+    [W1C_ACCEPTED_TIP,W1F_FREEZE_COMMIT],
+    [W1F_FREEZE_COMMIT,W1D_ACCEPTED_TIP],
     [W1D_ACCEPTED_TIP,W1E_ACCEPTED_TIP],
     [W1E_ACCEPTED_TIP,'HEAD']
   ])assert.doesNotThrow(()=>isAncestor(ancestor,descendant),`${ancestor} must precede ${descendant}`);
-  const integrationCommits=execFileSync('git',['rev-list','--reverse',`${W1F_MAIN_COMMIT}..${BASELINE_COMMIT}`],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
-  assert.deepEqual(integrationCommits,[W1C_PRODUCT_COMMIT,W1C_ACCEPTED_TIP,BASELINE_COMMIT],
-    'the promoted anchor must contain only the accepted W1C/W1D product chain, without unrelated commits');
+  const integrationCommits=execFileSync('git',['rev-list','--reverse',`${W1F_MAIN_COMMIT}..${W1F_FREEZE_COMMIT}`],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+  assert.deepEqual(integrationCommits,[W1C_PRODUCT_COMMIT,W1C_ACCEPTED_TIP,W1F_FREEZE_COMMIT],
+    'the historical W1F anchor must contain only the accepted W1C/W1D product chain, without unrelated commits');
 });
 
-test('W1F promoted protected static and API paths remain monotonic and hash-equal to W1E',()=>{
+test('W1H freeze promotion preserves coverage and permits only the exact reviewed protected delta',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  const w1fStatic=freeze.protectedPaths({root,baselineCommit:W1F_FREEZE_COMMIT});
+  const w1hStatic=freeze.protectedPaths({root,baselineCommit:BASELINE_COMMIT});
+  const w1fApi=apiFreeze.runtimeFiles({root,baselineCommit:W1F_FREEZE_COMMIT});
+  const w1hApi=apiFreeze.runtimeFiles({root,baselineCommit:BASELINE_COMMIT});
+  assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
+  assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
+  assert.equal(w1fStatic.length,52);
+  assert.equal(w1hStatic.length,52);
+  assert.deepEqual(w1fStatic.filter(name=>!w1hStatic.includes(name)),[]);
+  assert.deepEqual(w1hStatic.filter(name=>!w1fStatic.includes(name)),[]);
+  assert.equal(w1fApi.length,34);
+  assert.equal(w1hApi.length,34);
+  assert.deepEqual(w1fApi.filter(name=>!w1hApi.includes(name)),[]);
+  assert.deepEqual(w1hApi.filter(name=>!w1fApi.includes(name)),[]);
+
+  const changed=(paths)=>paths.filter(name=>!freeze.bytesMatch(
+    freeze.readBaselineFile({root,baselineCommit:W1F_FREEZE_COMMIT,file:name}),
+    freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name})
+  )).sort();
+  assert.deepEqual(changed(w1hStatic),['afc-workflow-sql.js','paws-data-client.js'],
+    'static protected delta must contain only the two reviewed W1H client assets');
+  assert.deepEqual(changed(w1hApi),[
+    'server/src/afc/afc-approval-api.js',
+    'server/src/afc/afc-approved-artifact-api.js',
+    'server/src/afc/afc-request-api.js',
+    'server/src/data/write-gates.js',
+    'server/src/runtime/swa-afc-request-functions.js',
+    'server/src/runtime/swa-sql-runtime.js'
+  ],'API protected delta must contain only the six reviewed W1H authority files');
+
+  const gates=freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:'server/src/data/write-gates.js'}).toString('utf8');
+  for(const envName of [
+    'PAWS_AFC_REQUEST_WRITE_ENABLED','PAWS_AFC_DECISION_WRITE_ENABLED','PAWS_AFC_ARTIFACT_WRITE_ENABLED',
+    'PAWS_AFC_SINGLE_WRITE_ENABLED','PAWS_AFC_BATCH_WRITE_ENABLED','PAWS_SESSION_EDIT_WRITE_ENABLED'
+  ]){
+    assert.ok(gates.includes(`${envName} === 'true'`),`${envName} must remain an independent exact-true gate`);
+  }
+  assert.doesNotMatch(gates,/ALL_WRITES_ENABLED|AFC_ALL_WRITES/,
+    'W1H must not replace the independent domain gates with a global write switch');
+
+  const migration017='database/azure-sql/017_w1e_runtime_least_privilege.sql';
+  assert.deepEqual(freeze.readBaselineFile({root,baselineCommit:W1E_ACCEPTED_TIP,file:migration017}),
+    freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:migration017}),`${migration017} must remain byte-identical`);
+  const migration018='database/azure-sql/018_w1h_afc_runtime_write_roles.sql';
+  assert.ok(execFileSync('git',['cat-file','-e',`${BASELINE_COMMIT}:${migration018}`],{cwd:root}));
+});
+
+test('W1H protected static and API paths retain W1F coverage and historical bytes',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const currentStatic=manifest();
   const oldStatic=baselineJson(PREVIOUS_FREEZE_COMMIT);
@@ -72,7 +122,7 @@ test('W1F promoted protected static and API paths remain monotonic and hash-equa
   for(const name of allStatic)assert.ok(promotedStatic.includes(name),`${name} must remain protected`);
   for(const name of promotedStatic){
     assert.equal(freeze.bytesMatch(
-      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:W1F_FREEZE_COMMIT,file:name}),
       freeze.readBaselineFile({root,baselineCommit:W1E_ACCEPTED_TIP,file:name})
     ),true,`static bytes must match at W1F anchor and W1E head: ${name}`);
   }
@@ -88,14 +138,14 @@ test('W1F promoted protected static and API paths remain monotonic and hash-equa
   }
   for(const name of promotedApi){
     assert.equal(freeze.bytesMatch(
-      freeze.readBaselineFile({root,baselineCommit:BASELINE_COMMIT,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:W1F_FREEZE_COMMIT,file:name}),
       freeze.readBaselineFile({root,baselineCommit:W1E_ACCEPTED_TIP,file:name})
     ),true,`API bytes must match at W1F anchor and W1E head: ${name}`);
   }
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the W1F integration candidate frozen runtime reports zero protected drift',()=>{
+test('the W1H product candidate frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
@@ -118,7 +168,7 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 52 current protected files are byte-identical to the immutable W1F candidate blobs',()=>{
+test('all 52 current protected files are byte-identical to the immutable W1H product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
   assert.equal(protectedFiles.length,52);
   for(const name of protectedFiles){
@@ -265,7 +315,7 @@ test('beta-baseline.json remains non-authoritative and records the stabilized Be
 });
 
 // G. Dual-runtime baseline ---------------------------------------------------
-test('API freeze shares the promoted static baseline and has zero runtime drift',()=>{
+test('API freeze shares the promoted W1H static baseline and has zero runtime drift',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
   assert.equal(apiFreeze.BASELINE_COMMIT,freeze.BASELINE_COMMIT);

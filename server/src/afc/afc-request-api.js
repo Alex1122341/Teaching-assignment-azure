@@ -2,6 +2,7 @@
 
 const { randomUUID } = require('node:crypto');
 const { workDays } = require('./afc-policy');
+const { writeDisabled } = require('../data/write-gates');
 
 const ADMIN_ROLES = new Set(['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin']);
 const SELF_ROLES = new Set(['faculty', 'hicc', 'visc']);
@@ -149,7 +150,7 @@ function normalizeRequest(row = {}) {
   };
 }
 
-function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = randomUUID }) {
+function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = randomUUID, writeGates = {} }) {
   async function authorize(token) {
     let decoded;
     try {
@@ -177,6 +178,18 @@ function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = ra
   }
 
   return {
+    async writeCapabilities(token) {
+      const auth = await authorize(token);
+      if (auth.status) return auth;
+      return result(200, {
+        writeCapabilities: {
+          requestLifecycle: writeGates.afcRequest === true,
+          decisions: writeGates.afcDecision === true,
+          approvedArtifactCreation: writeGates.afcArtifact === true
+        }
+      });
+    },
+
     async list(token) {
       const auth = await authorize(token);
       if (auth.status) return auth;
@@ -195,6 +208,7 @@ function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = ra
       const auth = await authorize(token);
       if (auth.status) return auth;
       if (!auth.scope.selfService) return error(403, 'ROLE_DENIED', 'Administrator accounts cannot submit a faculty AFC request.');
+      if (writeGates.afcRequest !== true) return writeDisabled();
       const validated = validateSubmitPayload(payload, auth.decoded.uid);
       if (validated.status) return validated;
       try {
@@ -219,6 +233,7 @@ function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = ra
       const auth = await authorize(token);
       if (auth.status) return auth;
       if (!auth.scope.selfService) return error(403, 'ROLE_DENIED', 'Only the requester can withdraw an AFC request.');
+      if (writeGates.afcRequest !== true) return writeDisabled();
       const id = text(afcRequestId);
       if (!UUID.test(id)) return error(400, 'INVALID_REQUEST_ID', 'AFC request id is not a valid identifier.');
       try {

@@ -6,6 +6,7 @@ const {
   validateSignature,
   ADMIN_ROLES
 } = require('./afc-request-api');
+const { writeDisabled } = require('../data/write-gates');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const result = (status, body) => ({ status, body });
@@ -72,6 +73,7 @@ function createAfcApprovalApi({
   verifyToken,
   findUser,
   repository,
+  writeGates = {},
   idFactory = randomUUID
 }) {
   async function authorize(token) {
@@ -121,6 +123,7 @@ function createAfcApprovalApi({
     async recommend(token, afcRequestId, payload) {
       const auth = await authorize(token);
       if (auth.status) return auth;
+      if (writeGates.afcDecision !== true) return writeDisabled();
       const id = validRequestId(afcRequestId);
       if (!id) return error(400, 'INVALID_REQUEST_ID', 'AFC request id is not a valid identifier.');
       const validated = validateDecisionPayload(payload, auth.decoded.uid);
@@ -137,6 +140,7 @@ function createAfcApprovalApi({
     async reject(token, afcRequestId, payload) {
       const auth = await authorize(token);
       if (auth.status) return auth;
+      if (writeGates.afcDecision !== true) return writeDisabled();
       const id = validRequestId(afcRequestId);
       if (!id) return error(400, 'INVALID_REQUEST_ID', 'AFC request id is not a valid identifier.');
       const validated = validateDecisionPayload(payload, auth.decoded.uid, { rejection: true });
@@ -159,6 +163,7 @@ function createAfcApprovalApi({
       if (!ADMIN_ROLES.has(auth.scope.role)) {
         return error(403, 'ROLE_DENIED', 'Only an administrator can approve an AFC request.');
       }
+      if (writeGates.afcDecision !== true) return writeDisabled();
 
       const id = validRequestId(afcRequestId);
       if (!id) return error(400, 'INVALID_REQUEST_ID', 'AFC request id is not a valid identifier.');

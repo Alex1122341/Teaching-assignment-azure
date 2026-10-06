@@ -89,6 +89,19 @@ check('approval workflow cannot apply a session mutation even when it also write
  await assertFails(batch.commit());
 });
 
+check('anonymous access and unmatched fallback paths remain denied',async()=>{
+ const {assertFails}=require('@firebase/rules-unit-testing');
+ const {doc,getDoc,setDoc,updateDoc,deleteDoc}=require('firebase/firestore');
+ const anonymous=env.unauthenticatedContext().firestore();
+ await assertFails(getDoc(doc(anonymous,'sessions/s1')));
+ await assertFails(setDoc(doc(anonymous,'sessions/anonymous'),{course:'301'}));
+ await assertFails(updateDoc(doc(anonymous,'sessions/s1'),{topic:'anonymous mutation'}));
+ await assertFails(deleteDoc(doc(anonymous,'sessions/s1')));
+ const owner=env.authenticatedContext('owner').firestore();
+ await assertFails(getDoc(doc(owner,'unclassified_business/new')));
+ await assertFails(setDoc(doc(owner,'unclassified_business/new'),{value:'must stay private'}));
+});
+
 check('retained User, Group, account audit, and public information features retain their intended Firestore scope',async()=>{
  const {assertFails,assertSucceeds}=require('@firebase/rules-unit-testing');
  const {doc,setDoc,updateDoc,deleteDoc,serverTimestamp}=require('firebase/firestore');

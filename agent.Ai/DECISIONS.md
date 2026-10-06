@@ -1,5 +1,11 @@
 # PAWS Locked Decisions
 
+## P0 W1E identity authority — 2026-10-05
+
+**LOCKED for the University SQL API:** Firebase Authentication is authoritative for sign-in identity, verified Firebase UID, and token validity/revocation. SQL `paws.UserProfile` is authoritative for API `BaseRole`, active/password-change state, faculty scope, and SQL business authorization. Firestore `users.role` / `facultyRoles` may govern separate Firestore-backed UI/account features only; they cannot grant or reduce University SQL API authority. Do not add browser-side synchronization between Firestore roles and SQL `BaseRole`; a future role-management API must be a trusted server-side task.
+
+**Runtime least privilege:** the University API must use a dedicated nonpersonal identity with only its separately reviewed read permission set and any explicitly activated domain stored-procedure roles. `db_owner`, `CONTROL DATABASE`, `sysadmin`, broad DML/DDL, and schema-wide EXECUTE are not runtime requirements. W1E's SQL role artifact is local-only and unexecuted; no identity binding or write activation is approved here.
+
 ## Owner-approved post-P3 Beta stabilization scope — 2026-10-04
 
 **LOCKED FOR THIS MILESTONE**

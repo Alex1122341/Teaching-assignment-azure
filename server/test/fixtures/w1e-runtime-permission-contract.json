@@ -1,0 +1,34 @@
+{
+  "readObjects": [
+    "paws.AfcRequest",
+    "paws.DoeFacultyAllocation",
+    "paws.DoeFacultyTarget",
+    "paws.DoePolicyVersion",
+    "paws.DoeRuleSeed",
+    "paws.Faculty",
+    "paws.FacultyProfessionalProfile",
+    "paws.JointAppointment",
+    "paws.RoleAssignment",
+    "paws.SessionAssignment",
+    "paws.UserProfile",
+    "paws.vAfcRecordUnified",
+    "paws.vCalendarSession"
+  ],
+  "readProcedures": [
+    "paws_api.GetApprovedAfcArtifact",
+    "paws_api.GetApprovedAfcArtifactSource"
+  ],
+  "writeSets": {
+    "afcSingle": ["paws_api.CreateAfcRecord"],
+    "afcBatch": ["paws_api.CreateAfcManualBatch"],
+    "sessionEdit": ["paws_api.UpdateCalendarSession"]
+  },
+  "outsideW1eWriteProcedures": [
+    "paws_api.ApproveAfcRequest",
+    "paws_api.CreateOrGetApprovedAfcArtifact",
+    "paws_api.RecommendAfcRequest",
+    "paws_api.RejectAfcRequest",
+    "paws_api.SubmitAfcRequest",
+    "paws_api.WithdrawAfcRequest"
+  ]
+}

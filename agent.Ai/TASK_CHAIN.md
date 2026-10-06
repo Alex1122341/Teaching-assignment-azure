@@ -834,3 +834,14 @@ Status: **OWNER DESIGN APPROVED / SPECIFICATION DRAFTED / OWNER SPEC REVIEW PEND
 - Root suite 666/637 passed/29 skipped; server 224/224; focused client+legacy 50/50; baseline/governance 27/27; static 49 and API 27 protected files, no drift.
 - No live SQL/Firebase/cloud/network/deployment changes. Branch remains unmerged and undeployed.
 - Stable Cloudflare hostname blocked by unavailable authorized DNS zone/domain. P3B4 remains design-only per owner approval.
+# Current task — P0 W1E identity authority and runtime least privilege
+
+- Current branch: `feature/beta-w1e-identity-runtime-least-privilege`, based exactly on accepted W1D `2d40117eb34ce309826a0e0d357b694fcf86801a`.
+- Locked authority is recorded in `DECISIONS.md`: Firebase Auth establishes identity; SQL `paws.UserProfile` establishes University SQL API roles, account state, and faculty scope; Firestore roles do not authorize SQL API calls.
+- W1E implementation consists of read-only source/role inventory, regression tests, local-only SQL roles artifact 017, runtime service/runbook, and chronological evidence. SQL artifact, service, live permission, Firebase/Firestore, gates, and deployment remain untouched.
+- Fresh host evidence maps the current personal runtime identity to `db_owner`, effective `CONTROL DATABASE` and `ALTER DATABASE`. This is not safe for write activation. No exact source SHA or process working-directory attestation exists. IT identity confirmation/provisioning is the external cutover dependency.
+- Pre-closeout local results: focused W1E/gate 12/12, server 329/329, root 770/733/5/32, emulator 770/765/5/0. Root/emulator failures match the exact pre-W1E frozen-runtime test failures; static/API files are unchanged from W1D. Strict freeze remains unchanged.
+- AFC is still PARTIAL for missing authenticated `/api/v1/me`, screenshot, and independently captured zero-write evidence; do not rerun its accepted build/deploy or release flow.
+- Next safe task: review the exact pushed W1E branch. Do not create a PR, merge, deploy, run migration 017, change live identity/permissions/service/gates, or publish Firestore rules.
+
+# Current task — P0 W1D Firestore authority containment

@@ -59,7 +59,7 @@ function makeArtifact(contents = baseline, extra = []) {
 
 test('API freeze shares the static immutable baseline and protects the complete current runtime', () => {
   assert.equal(freeze.BASELINE_COMMIT, staticFreeze.BASELINE_COMMIT);
-  assert.equal(freeze.currentRuntimeFiles({ root }).length, 34);
+  assert.equal(freeze.currentRuntimeFiles({ root }).length, 37);
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/data/write-gates.js'));
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/data/sql-doe-target-repository.js'));
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/afc/afc-request-api.js'));
@@ -72,6 +72,9 @@ test('API freeze shares the static immutable baseline and protects the complete 
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/data/sql-afc-request-repository.js'));
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/data/sql-afc-approval-repository.js'));
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/runtime/swa-afc-request-functions.js'));
+  assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/data/sql-teaching-assignment-workflow-repository.js'));
+  assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/runtime/swa-teaching-assignment-functions.js'));
+  assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/teaching-assignment/teaching-assignment-api.js'));
   assert.deepEqual(freeze.BUILD_DEFINITION_FILES, ['deploy/aca/Dockerfile']);
   assert.deepEqual(freeze.REPOSITORY_INPUT_FILES, repositoryInputs);
 });

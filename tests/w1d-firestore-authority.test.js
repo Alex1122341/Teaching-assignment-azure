@@ -64,13 +64,16 @@ test('public schedule remains read-only in the browser and public information re
  assert.match(rules,/match \/public_info\/\{id\}/);
 });
 
-test('W1C remains default-disabled and the SQL data client has no Firestore fallback',()=>{
- const data=read('paws-data-client.js'),gates=read('server/src/data/write-gates.js');
- assert.match(data,/sessionWritesEnabled:\(\)=>\s*false/);
- assert.match(data,/afcSingleWriteEnabled:\(\)=>\s*false/);
- assert.match(data,/afcBatchWriteEnabled:\(\)=>\s*false/);
- assert.match(gates,/===\s*'true'/);
- assert.doesNotMatch(data,/fallback.*firestore|firestore.*fallback/i);
+test('legacy schedule writes remain closed while gated SQL API capabilities default closed',()=>{
+  const data=read('paws-data-client.js'),gates=read('server/src/data/write-gates.js');
+  assert.match(data,/sessionWritesEnabled:\(\)=>\s*false/);
+  assert.match(data,/afcSingleWriteEnabled:\(\)=> writeCapabilities\.afcSingle===true/);
+  assert.match(data,/afcBatchWriteEnabled:\(\)=> writeCapabilities\.afcBatch===true/);
+  assert.match(data,/let writeCapabilities=Object\.freeze\(\{\}\)/);
+  assert.match(data,/sessionCreateEnabled:\(\)=> writeCapabilities\.sessionCreate===true/);
+  assert.match(data,/sessionEditEnabled:\(\)=> writeCapabilities\.sessionEdit===true/);
+  assert.match(gates,/===\s*'true'/);
+  assert.doesNotMatch(data,/fallback.*firestore|firestore.*fallback/i);
 });
 
 module.exports={SQL_CANONICAL_PATHS};

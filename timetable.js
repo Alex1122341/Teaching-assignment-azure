@@ -329,6 +329,14 @@
     const academicYear=String(row?.academicYear||'');
     const curriculumYear=Number(row?.curriculumYear)||Number((academicYear.match(/\d+/)||[])[0])||1;
     const instructor=String(row?.instructorNames||'').trim();
+    let canonicalAssignments=[];
+    try {
+      const raw=Array.isArray(row?.assignments)?row.assignments:JSON.parse(String(row?.assignmentsJson||'[]'));
+      if(Array.isArray(raw))canonicalAssignments=raw.map(item=>({
+        facultyId:String(item?.facultyId||''),ucid:String(item?.facultyId||''),
+        name:String(item?.displayName||''),role:String(item?.teachingRole||''),active:item?.active===true||item?.active===1
+      })).filter(item=>item.facultyId);
+    } catch (_) { canonicalAssignments=[]; }
     const date=String(row?.date||'').slice(0,10);
     const position=date?academicPositionForDate(parseYmd(date)):{semester:'',week:null};
     return {
@@ -347,7 +355,9 @@
       timeUnknown:!row?.startTime||!row?.endTime,
       room:String(row?.room||''),
       instructor,
-      assignments:instructor ? splitInstructorNames(instructor).map(name=>({name})) : [],
+      assignments:canonicalAssignments.length?canonicalAssignments:(instructor ? splitInstructorNames(instructor).map(name=>({name})) : []),
+      unresolvedAssignmentCount:Number(row?.unresolvedAssignmentCount)||0,
+      assignmentManagementAvailable:canonicalAssignments.every(item=>item.active===true)&&Number(row?.unresolvedAssignmentCount||0)===0,
       sourceSystem:'VetMed-Ops'
     };
   }
@@ -396,6 +406,7 @@
   };
   let scheduleSource = 'azure-sql-pending';
   let currentUser = null;
+  let canonicalWriteFaculty = [];
   let selectedWeek = 1;
   let selectedYear = 'all';
   let selectedSemester = 'fall';
@@ -507,10 +518,8 @@
     }
     const publish = $('publish-firestore-schedule');
     if (publish) {
-      const writesEnabled=Boolean(window.UCVM_PAWS_DATA&&window.UCVM_PAWS_DATA.sessionWritesEnabled());
-      publish.classList.toggle('hidden', !UCVM.admin(currentUser) || !writesEnabled);
-      publish.textContent = writesEnabled ? 'VetMed-Ops timetable edit path ready' : 'VetMed-Ops timetable (read only)';
-      publish.disabled = !writesEnabled;
+      publish.classList.add('hidden');
+      publish.disabled = true;
     }
   }
 
@@ -742,6 +751,22 @@
       return facultyDirectory.slice();
     }).catch(err=>{console.error('[faculty load for admin tools]',err);facultyDirectory=[];toast('Faculty list could not be loaded. Check admin faculty read rules.',true);return[]}).finally(()=>{facultyLoading=null});
     return facultyLoading;
+  }
+
+  async function ensureCanonicalWriteFacultyDirectory(){
+    if(canonicalWriteFaculty.length)return canonicalWriteFaculty.slice();
+    const rows=await window.UCVM_PAWS_DATA.dashboardFaculty({limit:500});
+    canonicalWriteFaculty=(Array.isArray(rows)?rows:[]).filter(row=>row?.active!==false&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(row?.facultyId||'')))
+      .map(row=>({...row,__id:String(row.facultyId),name:String(row.displayName||'').trim()}))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+    return canonicalWriteFaculty.slice();
+  }
+
+  function sqlAcademicYearForDate(date){
+    const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date||''));
+    if(!match)return '';
+    const start=Number(match[2])>=5?Number(match[1]):Number(match[1])-1;
+    return `${start}-${String((start+1)%100).padStart(2,'0')}`;
   }
 
   function buildSwapDoeState(){
@@ -1333,6 +1358,7 @@
   function openSessionDetail(id) {
     const s = renderedSessions.find(x => x.id === id) || sessions.find(x => x.id === id); if (!s) return;
     const edit = !s.isCcc&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-primary" id="detail-edit">Edit Session</button>` : '';
+    const assignmentEdit = !s.isCcc&&s.assignmentManagementAvailable===true&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-secondary" id="detail-assignments">Manage Instructors</button>` : '';
     const swap = !s.isCcc&&isAdmin()&&window.UCVM_PAWS_DATA?.sessionWritesEnabled?.() ? `<button class="btn btn-primary" id="detail-swap">SWAP Faculty</button>` : '';
     const labDetails = Array.isArray(s.labDetails) && s.labDetails.length > 1
       ? `<div class="login-cheatsheet"><strong>Lab stations / activities</strong><br><br>${s.labDetails.map(d => `<div style="margin-bottom:8px"><strong>${escapeHtml(d.topic)}</strong>${d.instructor ? `<br>${escapeHtml(d.instructor)}` : ''}${d.room ? `<br><span style="color:var(--text-3)">${escapeHtml(d.room)}</span>` : ''}</div>`).join('')}</div>`
@@ -1346,10 +1372,47 @@
         ${labDetails}
         <div class="login-cheatsheet"><strong>Schedule source:</strong> ${s.isCcc?'Away from Campus CCC record. This schedule copy includes only the faculty name and CCC dates.':scheduleSource === 'firestore' ? 'Synchronized Firestore sessions from All Faculty Summaries — the Faculty Dashboard reads these same sessions.' : 'No synchronized source is loaded. Use Faculty Dashboard → Teaching Summary → Replace & Sync All Faculty Summaries.'}</div>
       </div>
-      <div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button><div>${swap}${edit}</div></div>`);
+      <div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button><div>${swap}${assignmentEdit}${edit}</div></div>`);
     $('detail-close').onclick = closeModal;
     if ($('detail-swap')) $('detail-swap').onclick = () => openSwapModal(s.id);
+    if ($('detail-assignments')) $('detail-assignments').onclick = () => openSqlSessionAssignmentForm(s);
     if ($('detail-edit')) $('detail-edit').onclick = () => openSqlSessionEditForm(s);
+  }
+
+  async function openSqlSessionAssignmentForm(session){
+    if(!canEditExistingSqlSession()||!window.UCVM_PAWS_DATA?.sessionEditEnabled?.()){toast('Administrator permission is required to manage instructors.',true);return}
+    if(!session?.id||session.isCcc||session.assignmentManagementAvailable!==true){toast('Canonical instructor assignments are unavailable for this session.',true);return}
+    let directory;
+    try{directory=await ensureCanonicalWriteFacultyDirectory()}catch(error){console.error('[canonical faculty directory]',error);toast('The canonical Faculty list could not be loaded.',true);return}
+    const rows=(Array.isArray(session.assignments)?session.assignments:[]).filter(row=>row?.facultyId).map(row=>({facultyId:String(row.facultyId),teachingRole:String(row.role||'')}));
+    const roles=['Lecture','SRL','Lab Lead','Lab Primary','Lab Support','Lab Secondary'];
+    showModal(`<div class="modal-header"><div class="modal-title">Manage Session Instructors</div><div class="modal-subtitle">Only active canonical Faculty IDs can be assigned. New DOE remains NULL / Needs Review. Removing a line that has recorded workload or DOE is blocked.</div></div><form id="sql-assignment-form"><div class="modal-body"><div id="sql-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-assignment-add">+ Add instructor</button><div id="sql-assignment-error" class="hidden" role="alert"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-assignment-cancel">Cancel</button><button type="submit" class="btn btn-primary">Save instructors</button></div></form>`);
+    const render=()=>{
+      const host=$('sql-assignment-rows');if(!host)return;
+      host.innerHTML=rows.map((row,index)=>`<div class="instructor-line"><div class="form-grid"><select class="form-select" data-assignment-faculty="${index}" required><option value="">Choose active Faculty</option>${directory.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(person.displayName||person.facultyId)}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-assignment-role="${index}"><option value="">Role unavailable</option>${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-assignment-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
+      host.querySelectorAll('[data-assignment-faculty]').forEach(control=>control.onchange=()=>{rows[Number(control.dataset.assignmentFaculty)].facultyId=control.value});
+      host.querySelectorAll('[data-assignment-role]').forEach(control=>control.onchange=()=>{rows[Number(control.dataset.assignmentRole)].teachingRole=control.value});
+      host.querySelectorAll('[data-assignment-remove]').forEach(control=>control.onclick=()=>{rows.splice(Number(control.dataset.assignmentRemove),1);render()});
+    };
+    $('sql-assignment-add').onclick=()=>{if(rows.length>=30){toast('A session can include at most 30 instructors.',true);return}rows.push({facultyId:'',teachingRole:'Lecture'});render()};
+    $('sql-assignment-cancel').onclick=closeModal;
+    $('sql-assignment-form').onsubmit=async event=>{
+      event.preventDefault();const error=$('sql-assignment-error'),button=event.submitter;
+      if(rows.some(row=>!row.facultyId)||new Set(rows.map(row=>row.facultyId.toLowerCase())).size!==rows.length){error.textContent='Choose a distinct active Faculty member for each line.';error.classList.remove('hidden');return}
+      const original=(Array.isArray(session.assignments)?session.assignments:[]).filter(row=>row?.facultyId).map(row=>({facultyId:String(row.facultyId),teachingRole:String(row.role||'')}));
+      if(JSON.stringify(original)===JSON.stringify(rows)){toast('No instructor changes to save.');return}
+      button.disabled=true;button.textContent='Saving...';error.classList.add('hidden');
+      try{
+        await window.UCVM_PAWS_DATA.replaceSessionAssignments(session.id,rows);
+        invalidateAllSessions();const refreshed=await refreshSessionScope();closeModal();toast(refreshed?'Session instructors updated and audited.':'Instructor changes were saved; reload the timetable to verify them.',!refreshed);
+      }catch(failure){error.textContent=assignmentErrorMessage(failure);error.classList.remove('hidden');button.disabled=false;button.textContent='Save instructors'}
+    };
+    render();
+  }
+
+  function assignmentErrorMessage(error){
+    const messages={WRITE_DISABLED:'Instructor editing is currently disabled.',ROLE_DENIED:'This account cannot edit timetable instructors.',SESSION_NOT_FOUND:'This session no longer exists. Reload the timetable.',SESSION_FACULTY_INVALID:'Choose active canonical Faculty entries.',ASSIGNMENT_HAS_RECORDED_DOE:'A removed instructor line has recorded workload or DOE and cannot be removed here.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before editing.',SQL_UNAVAILABLE:'Instructor changes were not saved because the University API is unavailable.'};
+    return messages[String(error?.code||'')]||'Instructor changes were not saved. Review the selections and try again.';
   }
 
   function openSqlSessionEditForm(session) {
@@ -1477,7 +1540,7 @@
       <td><input class="bulk-date" data-bulk-field="date" data-index="${index}" type="date" value="${escapeHtml(row.date)}"></td>
       <td><select data-bulk-field="year" data-index="${index}">${bulkSelectOptions(['1','2','3','4'],row.year)}</select></td>
       <td><select data-bulk-field="course" data-index="${index}">${bulkSelectOptions(courseOptions,row.course)}</select></td>
-      <td><select data-bulk-field="type" data-index="${index}">${bulkSelectOptions(['LEC','LAB','SRL','Quiz/Midterm','OSCE','Exam','CCC'],row.type)}</select></td>
+      <td><select data-bulk-field="type" data-index="${index}">${bulkSelectOptions(['LEC','LAB','SRL','Quiz/Midterm','OSCE','Exam'],row.type)}</select></td>
       <td><input data-bulk-field="start" data-index="${index}" type="time" value="${escapeHtml(row.start)}"></td>
       <td><input data-bulk-field="end" data-index="${index}" type="time" value="${escapeHtml(row.end)}"></td>
       <td><input class="bulk-topic" data-bulk-field="topic" data-index="${index}" value="${escapeHtml(row.topic)}" placeholder="Session topic"></td>
@@ -1492,44 +1555,55 @@
   function resolveBulkFaculty(value,rowNumber){
     const assignments=[],errors=[];
     for(const token of String(value||'').split(/[;\n]+/).map(v=>v.trim()).filter(Boolean)){
-      if(swapNameKey(token)===swapNameKey('Other / Unassigned')){assignments.push({ucid:null,name:'Other / Unassigned'});continue}
-      const key=swapNameKey(token),match=facultyDirectory.find(f=>String(f.__id)===token||String(f.ucid||'')===token||String(f.email||'').toLowerCase()===token.toLowerCase()||swapFacultyAliases(f).has(key));
+      const match=canonicalWriteFaculty.find(f=>String(f.facultyId)===token||String(f.ucid||'').toLowerCase()===token.toLowerCase()||String(f.email||'').toLowerCase()===token.toLowerCase()||String(f.displayName||'').trim().toLowerCase()===token.toLowerCase());
       if(!match){errors.push(`Row ${rowNumber}: faculty "${token}" was not found.`);continue}
-      assignments.push({ucid:String(match.__id),name:swapFacultyName(match)});
+      if(assignments.some(row=>row.ucid===String(match.facultyId))){errors.push(`Row ${rowNumber}: faculty "${token}" is listed more than once.`);continue}
+      assignments.push({ucid:String(match.facultyId),facultyId:String(match.facultyId),name:String(match.displayName||'').trim()});
     }
     return {assignments,errors};
   }
   function validateBulkRows(rows){
-    const errors=[],warnings=[],prepared=[];
+    const errors=[],warnings=[],prepared=[],seen=new Set();
     if(!rows.length)errors.push('Add at least one row.');
     if(rows.length>MAX_BULK_SESSION_ROWS)errors.push(`A maximum of ${MAX_BULK_SESSION_ROWS} rows can be saved at once.`);
     rows.forEach((row,index)=>{
       const n=index+1,date=String(row.date||''),course=String(row.course||'').trim(),type=String(row.type||'').trim(),topic=String(row.topic||'').trim(),start=String(row.start||''),end=String(row.end||''),year=Number(row.year);
       if(!scheduling.normalizeDate(date))errors.push(`Row ${n}: enter a valid date.`);
       if(![1,2,3,4].includes(year))errors.push(`Row ${n}: year must be 1–4.`);
-      if(!course)errors.push(`Row ${n}: course is required.`);if(!type)errors.push(`Row ${n}: type is required.`);if(!topic)errors.push(`Row ${n}: topic is required.`);
+      if(!course||course==='CCC')errors.push(`Row ${n}: choose a canonical VetMed-Ops course.`);if(!type||type==='CCC')errors.push(`Row ${n}: choose a supported session type.`);if(!topic)errors.push(`Row ${n}: topic is required.`);
       if(scheduling.validateInterval(start,end).status!=='valid')errors.push(`Row ${n}: end time must be after start time.`);
+      if(topic.length>4000||String(row.room||'').length>256)errors.push(`Row ${n}: topic or room is too long.`);
+      const duplicateKey=[sqlAcademicYearForDate(date),course.toUpperCase(),date,start,end,type,topic.trim().toLowerCase()].join('\u001f');
+      if(seen.has(duplicateKey))errors.push(`Row ${n}: duplicates another row in this batch.`);else seen.add(duplicateKey);
       const resolved=resolveBulkFaculty(row.faculty,n);errors.push(...resolved.errors);
-      const assignments=finalizeInstructorAssignments(resolved.assignments,type,start,end,topic);
-      for(const assignment of assignments){const faculty=facultyDirectory.find(f=>String(f.__id)===String(assignment.ucid||''));if(!faculty)continue;const availability=facultyAssignmentAvailability(faculty,date,start,end,'');if(availability.available!==true)warnings.push(`Row ${n} · ${assignment.name}: ${assignmentAvailabilityDetail(availability,date,start,end)}`)}
-      if(!errors.some(message=>message.startsWith(`Row ${n}:`))){const pos=academicPositionForDate(parseYmd(date));prepared.push({date,week:pos.week,semester:pos.semester,year,course,courseName:course==='CCC'?'Away from Campus':(COURSES.find(c=>String(c.code)===course)?.name||''),type:course==='CCC'?'CCC':type,topic,instructor:assignments.map(a=>a.name).join('; '),room:String(row.room||'').trim(),start,end,assignments,labDetails:labDetailsFromAssignments(type,assignments,topic),sourceSystem:'Bulk live timetable entry'})}
+      const assignments=resolved.assignments.map(assignment=>({facultyId:assignment.facultyId,teachingRole:defaultTeachingRole(type)}));
+      for(const assignment of resolved.assignments){const faculty=facultyDirectory.find(f=>String(f.facultyId||f.__id)===String(assignment.facultyId));if(!faculty)continue;const availability=facultyAssignmentAvailability(faculty,date,start,end,'');if(availability.available!==true)warnings.push(`Row ${n} · ${assignment.name}: ${assignmentAvailabilityDetail(availability,date,start,end)}`)}
+      if(!errors.some(message=>message.startsWith(`Row ${n}:`))){const pos=academicPositionForDate(parseYmd(date));prepared.push({date,week:pos.week,semester:pos.semester,year,course,courseName:COURSES.find(c=>String(c.code)===course)?.name||'',type,topic,instructor:resolved.assignments.map(a=>a.name).join('; '),room:String(row.room||'').trim(),start,end,assignments,labDetails:labDetailsFromAssignments(type,resolved.assignments,topic),sourceSystem:'Bulk live timetable entry'})}
     });
     return {errors,warnings,sessions:prepared};
   }
-  async function saveBulkSessions(){
-    toast('Bulk session changes must use a future PAWS University API operation.',true);
-    return false;
+  let bulkRequestId='';
+  async function saveBulkSessions(rows){
+    const validation=validateBulkRows(rows),host=$('bulk-errors');
+    if(validation.errors.length){host.textContent=validation.errors.join('\n');host.classList.remove('hidden');return false}
+    const sessions=validation.sessions.map(row=>({academicYear:sqlAcademicYearForDate(row.date),curriculumYear:String(row.year),courseCode:row.course,sessionType:row.type,date:row.date,startTime:row.start,endTime:row.end,topic:row.topic,room:row.room||null,assignments:row.assignments}));
+    const button=$('bulk-session-form')?.querySelector('[type="submit"]');if(button){button.disabled=true;button.textContent='Saving...'}
+    try{
+      const result=await window.UCVM_PAWS_DATA.createSessionBatch({requestId:bulkRequestId,sessions});
+      invalidateAllSessions();const refreshed=await refreshSessionScope();closeModal();toast(refreshed?`${result.sessions.length} VetMed-Ops sessions created and audited.`:'Sessions were created; reload the timetable to verify them.',!refreshed);return true;
+    }catch(error){
+      host.textContent=creationErrorMessage(error);host.classList.remove('hidden');if(button){button.disabled=false;button.textContent='Save all sessions'}return false;
+    }
   }
 
   async function openBulkSessionForm(){
-    if(!requireSessionWrites())return;
-    if(!UCVM.admin(currentUser)){toast('ADFA permission is required.',true);return}
-    if(scheduleSource!=='firestore'){toast('The live Firestore timetable is unavailable.',true);return}
-    await ensureFacultyDirectory();bulkRows=[blankBulkRow()];
-    const facultyOptions=facultyDirectory.map(f=>`<option value="${escapeHtml(swapFacultyName(f))}">${escapeHtml([f.email,f.ucid||f.__id].filter(Boolean).join(' · '))}</option>`).join('');
+    if(!canEditExistingSqlSession()||!window.UCVM_PAWS_DATA?.sessionCreateEnabled?.()){toast('Administrator permission and the Session Create capability are required.',true);return}
+    try{await ensureCanonicalWriteFacultyDirectory()}catch(error){console.error('[canonical faculty directory]',error);toast('The canonical Faculty list could not be loaded.',true);return}
+    bulkRows=[blankBulkRow()];bulkRequestId=crypto.randomUUID();
+    const facultyOptions=canonicalWriteFaculty.map(f=>`<option value="${escapeHtml(f.displayName||f.facultyId)}">${escapeHtml([f.email,f.ucid||f.facultyId].filter(Boolean).join(' · '))}</option>`).join('');
     showModal(`<div class="modal-header"><div class="modal-title">Add Multiple Live Sessions</div><div class="modal-subtitle">Edit rows like a spreadsheet or paste tab-separated rows copied from Excel. Every row is validated before one atomic save.</div></div><form id="bulk-session-form"><div class="modal-body">
       <div class="bulk-toolbar"><button type="button" class="btn btn-secondary" id="bulk-add-row">+ Add row</button><button type="button" class="btn btn-secondary" id="bulk-duplicate-row">Duplicate last row</button><button type="button" class="btn btn-secondary" id="bulk-paste-rows">Paste Excel rows</button><span class="bulk-count" id="bulk-row-count"></span></div>
-      <div class="bulk-paste-panel hidden" id="bulk-paste-panel"><label class="form-label" for="bulk-paste-text">Paste columns: Date, Year, Course, Type, Start, End, Topic, Room, Faculty</label><textarea id="bulk-paste-text" placeholder="2026-09-14&#9;1&#9;CCC&#9;CCC&#9;07:30&#9;17:00&#9;CCC Day&#9;&#9;Faculty Name"></textarea><div><button type="button" class="btn btn-primary" id="bulk-paste-apply">Add pasted rows</button></div></div>
+      <div class="bulk-paste-panel hidden" id="bulk-paste-panel"><label class="form-label" for="bulk-paste-text">Paste columns: Date, Year, Course, Type, Start, End, Topic, Room, Faculty</label><textarea id="bulk-paste-text" placeholder="2026-09-14&#9;1&#9;VETM 315&#9;LEC&#9;07:30&#9;08:30&#9;Session topic&#9;Room&#9;Faculty Name"></textarea><div><button type="button" class="btn btn-primary" id="bulk-paste-apply">Add pasted rows</button></div></div>
       <datalist id="bulk-faculty-list">${facultyOptions}</datalist><div class="bulk-sheet-wrap"><table class="bulk-sheet"><thead><tr><th>Date</th><th>Year</th><th>Course</th><th>Type</th><th>Start</th><th>End</th><th>Topic</th><th>Room</th><th>Faculty</th><th></th></tr></thead><tbody id="bulk-session-body"></tbody></table></div><div class="bulk-errors hidden" id="bulk-errors"></div>
     </div><div class="modal-footer"><span class="form-hint">Maximum 200 rows. Faculty may be separated with semicolons.</span><div><button type="button" class="btn btn-secondary" id="bulk-cancel">Cancel</button> <button class="btn btn-primary" type="submit">Save all sessions</button></div></div></form>`);
     document.querySelector('#modal .modal-box')?.classList.add('bulk-wide');renderBulkRows();
@@ -1537,10 +1611,64 @@
     $('bulk-duplicate-row').onclick=()=>{if(bulkRows.length>=MAX_BULK_SESSION_ROWS){toast(`Maximum ${MAX_BULK_SESSION_ROWS} rows.`,true);return}bulkRows.push(blankBulkRow({...bulkRows.at(-1),date:bulkRows.at(-1)?.date}));renderBulkRows()};
     $('bulk-paste-rows').onclick=()=>$('bulk-paste-panel').classList.toggle('hidden');
     $('bulk-paste-apply').onclick=()=>{const parsed=parseBulkPaste($('bulk-paste-text').value);if(!parsed.length){toast('No tab-separated rows found.',true);return}const first=bulkRows.length===1&&Object.values(bulkRows[0]).filter(Boolean).length<=8?[]:bulkRows;bulkRows=[...first,...parsed].slice(0,MAX_BULK_SESSION_ROWS);renderBulkRows();$('bulk-paste-panel').classList.add('hidden')};
-    $('bulk-cancel').onclick=closeModal;$('bulk-session-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;button.textContent='Saving...';try{if(!await saveBulkSessions(bulkRows)){button.disabled=false;button.textContent='Save all sessions'}}catch(error){console.error('[bulk session save]',error);$('bulk-errors').textContent='Save failed. No rows were added. Check Firestore permissions and try again.';$('bulk-errors').classList.remove('hidden');button.disabled=false;button.textContent='Save all sessions'}};
+    $('bulk-cancel').onclick=closeModal;$('bulk-session-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;button.textContent='Saving...';await saveBulkSessions(bulkRows)};
+  }
+
+  async function openSqlSessionCreateForm(){
+    let directory;
+    try { directory=await ensureCanonicalWriteFacultyDirectory(); }
+    catch(error){console.error('[canonical faculty directory]',error);toast('The canonical Faculty list could not be loaded. No session was created.',true);return}
+    const roles=['Lecture','SRL','Lab Lead','Lab Primary','Lab Support','Lab Secondary'];
+    const assignmentRows=[];
+    showModal(`<div class="modal-header"><div class="modal-title">Add VetMed-Ops Session</div><div class="modal-subtitle">Saved to the canonical timetable through the University API. Instructor assignments use active SQL Faculty IDs; DOE values are not calculated here.</div></div>
+      <form id="sql-session-create-form"><div class="modal-body"><div class="form-grid">
+        ${input('create-date','Date','date',ymd(new Date()))}
+        ${select('create-year','Curriculum year',[1,2,3,4],1)}
+        ${select('create-course','Course',courseCodes().filter(code=>code!=='CCC'),'200')}
+        ${select('create-type','Session type',['LEC','LAB','SRL','Quiz/Midterm','OSCE','Exam'],'LEC')}
+        ${input('create-start','Start','time','09:00')}${input('create-end','End','time','10:00')}
+        ${input('create-topic','Topic','text','','full')}${input('create-room','Room','text','')}
+        <div class="form-field full"><label class="form-label">Instructor assignments</label><div id="sql-create-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-create-add-assignment">+ Add instructor</button><div class="form-hint">Assignments resolve only to active canonical Faculty. New DOE remains unassigned / Needs Review.</div></div>
+      </div><div id="sql-session-create-error" class="hidden" role="alert"></div></div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-session-create-cancel">Cancel</button><button class="btn btn-primary" type="submit">Create session</button></div></form>`);
+    const renderRows=()=>{
+      const host=$('sql-create-assignment-rows');if(!host)return;
+      host.innerHTML=assignmentRows.map((row,index)=>`<div class="instructor-line" data-create-assignment="${index}"><div class="form-grid"><select class="form-select" data-create-faculty="${index}" required><option value="">Choose active Faculty</option>${directory.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(person.displayName||person.facultyId)}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-create-role="${index}">${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-create-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
+      host.querySelectorAll('[data-create-faculty]').forEach(control=>control.onchange=()=>{assignmentRows[Number(control.dataset.createFaculty)].facultyId=control.value});
+      host.querySelectorAll('[data-create-role]').forEach(control=>control.onchange=()=>{assignmentRows[Number(control.dataset.createRole)].teachingRole=control.value});
+      host.querySelectorAll('[data-create-remove]').forEach(control=>control.onclick=()=>{assignmentRows.splice(Number(control.dataset.createRemove),1);renderRows()});
+    };
+    $('sql-create-add-assignment').onclick=()=>{if(assignmentRows.length>=30){toast('A session can include at most 30 instructors.',true);return}assignmentRows.push({facultyId:'',teachingRole:'Lecture'});renderRows()};
+    $('sql-session-create-cancel').onclick=closeModal;
+    $('sql-session-create-form').onsubmit=async event=>{
+      event.preventDefault();const form=new FormData(event.currentTarget),date=String(form.get('create-date')||''),error=$('sql-session-create-error'),button=event.submitter;
+      const assignments=assignmentRows.map(row=>({facultyId:row.facultyId,teachingRole:row.teachingRole}));
+      if(!scheduling.normalizeDate(date)||!sqlAcademicYearForDate(date)||scheduling.validateInterval(String(form.get('create-start')||''),String(form.get('create-end')||'')).status!=='valid'){
+        error.textContent='Enter a valid date and a start/end time with the end after the start.';error.classList.remove('hidden');return;
+      }
+      if(assignments.some(row=>!row.facultyId)||new Set(assignments.map(row=>row.facultyId.toLowerCase())).size!==assignments.length){
+        error.textContent='Choose a distinct active Faculty member for each instructor line.';error.classList.remove('hidden');return;
+      }
+      button.disabled=true;button.textContent='Creating...';error.classList.add('hidden');
+      try{
+        await window.UCVM_PAWS_DATA.createSession({academicYear:sqlAcademicYearForDate(date),curriculumYear:String(form.get('create-year')||''),courseCode:String(form.get('create-course')||'').trim(),sessionType:String(form.get('create-type')||''),date,startTime:String(form.get('create-start')||''),endTime:String(form.get('create-end')||''),topic:String(form.get('create-topic')||'').trim(),room:String(form.get('create-room')||'').trim()||null,assignments});
+        invalidateAllSessions();const refreshed=await refreshSessionScope();closeModal();toast(refreshed?'VetMed-Ops session created and audited.':'The session was created; reload the timetable to verify it.',!refreshed);
+      }catch(failure){error.textContent=creationErrorMessage(failure);error.classList.remove('hidden');button.disabled=false;button.textContent='Create session'}
+    };
+    renderRows();
+  }
+
+  function creationErrorMessage(error){
+    const messages={WRITE_DISABLED:'Session creation is currently disabled.',ROLE_DENIED:'This account cannot create timetable sessions.',COURSE_NOT_FOUND:'Choose a course that exists in VetMed-Ops.',DUPLICATE_SESSION_CONFLICT:'A matching session already exists. Review the date and time.',SESSION_FACULTY_INVALID:'Choose active Faculty entries from the list.',INVALID_SESSION_ACADEMIC_YEAR:'The selected date is outside the supported academic year.',SESSION_DATE_OUTSIDE_ACADEMIC_YEAR:'The date does not match the academic year.',INVALID_SESSION_ASSIGNMENTS:'Review the instructor assignments.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before creating a session.',SQL_UNAVAILABLE:'No session was created because the University API is unavailable.'};
+    return messages[String(error?.code||'')]||'The session was not created. Review the values and try again.';
   }
 
   async function openSessionForm(existing = null) {
+    if(!existing){
+      if(!canEditExistingSqlSession()){toast('Administrator permission is required to create sessions.',true);return}
+      if(!window.UCVM_PAWS_DATA?.sessionCreateEnabled?.()){toast('Session creation is disabled by the University API.',true);return}
+      return openSqlSessionCreateForm();
+    }
     if(!requireSessionWrites())return;
     if (!canEdit()) { toast('Editor permission is required to change sessions.', true); return; }
     if (scheduleSource !== 'firestore') { toast('The live Firestore timetable is unavailable. Sync it from Faculty Dashboard first.', true); return; }
@@ -1674,6 +1802,9 @@
             provider,
             profile
           };
+          canonicalWriteFaculty=[];
+          try { await window.UCVM_PAWS_DATA.refreshWriteCapabilities(); }
+          catch (capabilityError) { console.warn('[write capabilities]', capabilityError); }
           invalidateAllSessions();
           sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
           publishPageData();
@@ -2047,18 +2178,18 @@
   function updateAuthUI() {
     const b = $('account-toggle');
     const showAdminTools=canEdit()||UCVM.general(currentUser)||currentUser?.role==='hicc';
-    const sessionWritesEnabled=Boolean(window.UCVM_PAWS_DATA&&window.UCVM_PAWS_DATA.sessionWritesEnabled());
     b.textContent = currentUser ? `${currentUser.name} - ${currentUser.role}` : 'Sign in';
     b.classList.toggle('is-admin', canEdit());
-    $('add-session-btn').classList.toggle('hidden', !canEdit() || !sessionWritesEnabled);
-    $('selection-controls').classList.toggle('hidden', !canEdit() || !sessionWritesEnabled);
-    $('bulk-add-session-btn').classList.toggle('hidden', !UCVM.admin(currentUser) || !sessionWritesEnabled);
+    const sessionCreateEnabled=Boolean(window.UCVM_PAWS_DATA?.sessionCreateEnabled?.());
+    $('add-session-btn').classList.toggle('hidden', !canEditExistingSqlSession() || !sessionCreateEnabled);
+    $('selection-controls').classList.add('hidden');
+    $('bulk-add-session-btn').classList.toggle('hidden', !canEditExistingSqlSession() || !sessionCreateEnabled);
     $('outlook-invite-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
     $('manage-users-btn').classList.toggle('hidden', !(UCVM.general(currentUser) || currentUser?.role === 'hicc'));
     $('faculty-dashboard-btn').classList.toggle('hidden', !UCVM.canOpenFacultyDashboard(currentUser));
     $('cal-admin-menu').classList.toggle('hidden',!showAdminTools);
     for(const id of ['my-teaching-btn','afc-request-btn','my-change-history-btn'])$(id).classList.toggle('hidden',!currentUser);
-    $('publish-firestore-schedule').classList.toggle('hidden', !UCVM.admin(currentUser));
+    $('publish-firestore-schedule').classList.add('hidden');
     updateScheduleSourceUI();
     $('my-timetable-btn').classList.toggle('hidden', !currentUser || roleIsFaculty(currentUser));
     $('my-timetable-btn').textContent = currentUser && myTimetableOnly ? 'Show All Timetable' : 'My Timetable';

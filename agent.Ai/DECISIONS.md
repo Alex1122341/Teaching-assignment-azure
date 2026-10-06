@@ -1,5 +1,14 @@
 # PAWS Locked Decisions
 
+## P1 controlled Beta writes — 2026-10-06
+
+**LOCKED FOR THIS BETA MILESTONE BY ARCHITECT #6:** P0's authenticated read-only platform remains accepted, but P1 is authorized to enable individually gated, audited Beta writes for existing-session scalar edits, session create/batch, safe canonical Faculty assignment replacement, AFC administrator single/batch entry, and Faculty/HICC/VISC self-service AFC submit/withdraw after each domain passes acceptance. This is a temporary Beta testing exception, not production authorization.
+
+- Keep DOE/target/override/rule editing, Faculty master changes, RoleAssignment changes, destructive session deletion, AFC decision writes, AFC approved-artifact creation, generic SQL, and browser Firestore timetable writes disabled.
+- Each business write must use server Firebase authentication + SQL `UserProfile` authorization, validation, a narrow reviewed stored procedure, a transaction, durable audit, and a deterministic response.
+- `UC\sa-xinyu.zhu1` is accepted only as `TEMPORARY_BETA_OVERPRIVILEGED_RUNTIME` for this Beta task. Dedicated least-privilege identity remains mandatory before production, wider audience, broad write expansion, or removal of the Beta designation.
+- Exact final gate states are recorded with the P1 acceptance report and runtime attestation; gates default to false and remain independent.
+
 ## P0 W1E identity authority — 2026-10-05
 
 **LOCKED for the University SQL API:** Firebase Authentication is authoritative for sign-in identity, verified Firebase UID, and token validity/revocation. SQL `paws.UserProfile` is authoritative for API `BaseRole`, active/password-change state, faculty scope, and SQL business authorization. Firestore `users.role` / `facultyRoles` may govern separate Firestore-backed UI/account features only; they cannot grant or reduce University SQL API authority. Do not add browser-side synchronization between Firestore roles and SQL `BaseRole`; a future role-management API must be a trusted server-side task.

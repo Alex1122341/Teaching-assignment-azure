@@ -1,5 +1,5 @@
 'use strict';
-// Frozen Azure beta runtime enforcement.
+// Frozen PAWS Beta runtime enforcement.
 //
 // The immutable trust anchor is the frozen baseline Git commit, not any file in
 // the working tree. Every shipped application file listed by the static asset
@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// W1M is the reviewed University runtime-attestation product anchor. W1H and
-// earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='06b517dff59a07e802cb8dff09400532fb195fe4';
+// P1 is the reviewed DOE/dashboard + controlled Beta-write product anchor.
+// W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='efdedb3d1b62a774e74b859a723e5a7906f86956';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

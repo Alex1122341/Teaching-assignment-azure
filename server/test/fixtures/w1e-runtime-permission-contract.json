@@ -25,6 +25,9 @@
   },
   "outsideW1eWriteProcedures": [
     "paws_api.ApproveAfcRequest",
+    "paws_api.CreateCalendarSession",
+    "paws_api.CreateCalendarSessionBatch",
+    "paws_api.ReplaceCalendarSessionAssignments",
     "paws_api.CreateOrGetApprovedAfcArtifact",
     "paws_api.RecommendAfcRequest",
     "paws_api.RejectAfcRequest",

@@ -8,16 +8,43 @@ DECLARE @CurrentDefinition nvarchar(max) = OBJECT_DEFINITION(OBJECT_ID(N'paws_ap
 IF @CurrentDefinition IS NULL
     THROW 51601, 'Migration 016 requires paws_api.UpdateCalendarSession to exist.', 1;
 
-DECLARE @CurrentHash varchar(64) = CONVERT(varchar(64), HASHBYTES('SHA2_256', CONVERT(varbinary(max), @CurrentDefinition)), 2);
+DECLARE @CurrentRawHash varchar(64) = CONVERT(varchar(64), HASHBYTES('SHA2_256', CONVERT(varbinary(max), @CurrentDefinition)), 2);
 DECLARE @ExpectedWeakerHash varchar(64) = N'0A4459A9E254D65144D3E3A0F7097F5C01D20F90365B4BC2F557D34941994E57';
-DECLARE @ExpectedTargetHash varchar(64) = N'C65D88A700FDF5D3C7570D993E787E494DC10A91BFF80F13E0A4965BBCE6FBC9';
+DECLARE @ExpectedTargetCanonicalHash varchar(64) = N'F09724E9BF3BD9A2D5286B9F00FF1B88049FFD9173103CE162FA2D7571A9AFB0';
 
-IF @CurrentHash NOT IN (@ExpectedWeakerHash, @ExpectedTargetHash)
+DECLARE @CurrentCanonicalDefinition nvarchar(max) = REPLACE(REPLACE(@CurrentDefinition, NCHAR(13) + NCHAR(10), NCHAR(10)), NCHAR(13), NCHAR(10));
+DECLARE @CurrentCanonicalLength int = DATALENGTH(@CurrentCanonicalDefinition) / 2;
+WHILE @CurrentCanonicalLength > 0 AND LEFT(@CurrentCanonicalDefinition, 1) = NCHAR(10)
+BEGIN
+    SET @CurrentCanonicalDefinition = SUBSTRING(@CurrentCanonicalDefinition, 2, @CurrentCanonicalLength - 1);
+    SET @CurrentCanonicalLength -= 1;
+END;
+WHILE @CurrentCanonicalLength > 0 AND RIGHT(@CurrentCanonicalDefinition, 1) = NCHAR(10)
+BEGIN
+    SET @CurrentCanonicalDefinition = SUBSTRING(@CurrentCanonicalDefinition, 1, @CurrentCanonicalLength - 1);
+    SET @CurrentCanonicalLength -= 1;
+END;
+
+DECLARE @CurrentHeader nvarchar(64);
+IF LEFT(@CurrentCanonicalDefinition, DATALENGTH(N'CREATE OR ALTER PROCEDURE') / 2) COLLATE Latin1_General_100_BIN2 = N'CREATE OR ALTER PROCEDURE'
+    SET @CurrentHeader = N'CREATE OR ALTER PROCEDURE';
+ELSE IF LEFT(@CurrentCanonicalDefinition, DATALENGTH(N'CREATE PROCEDURE') / 2) COLLATE Latin1_General_100_BIN2 = N'CREATE PROCEDURE'
+    SET @CurrentHeader = N'CREATE PROCEDURE';
+ELSE IF LEFT(@CurrentCanonicalDefinition, DATALENGTH(N'CREATE   PROCEDURE') / 2) COLLATE Latin1_General_100_BIN2 = N'CREATE   PROCEDURE'
+    SET @CurrentHeader = N'CREATE   PROCEDURE';
+ELSE IF LEFT(@CurrentCanonicalDefinition, DATALENGTH(N'ALTER PROCEDURE') / 2) COLLATE Latin1_General_100_BIN2 = N'ALTER PROCEDURE'
+    SET @CurrentHeader = N'ALTER PROCEDURE';
+IF @CurrentHeader IS NULL
+    THROW 51604, 'Migration 016 stopped: the procedure declaration header is not an audited representation.', 1;
+SET @CurrentCanonicalDefinition = STUFF(@CurrentCanonicalDefinition, 1, DATALENGTH(@CurrentHeader) / 2, N'CREATE OR ALTER PROCEDURE');
+DECLARE @CurrentCanonicalHash varchar(64) = CONVERT(varchar(64), HASHBYTES('SHA2_256', CONVERT(varbinary(max), @CurrentCanonicalDefinition)), 2);
+
+IF @CurrentRawHash <> @ExpectedWeakerHash AND @CurrentCanonicalHash <> @ExpectedTargetCanonicalHash
     THROW 51602, 'Migration 016 stopped: the procedure definition is not an audited starting state.', 1;
 
 BEGIN TRY
     BEGIN TRANSACTION;
-    IF @CurrentHash = @ExpectedWeakerHash
+    IF @CurrentRawHash = @ExpectedWeakerHash
     BEGIN
         DECLARE @TargetDefinition nvarchar(max) = N'CREATE OR ALTER PROCEDURE paws_api.UpdateCalendarSession
     @SessionId uniqueidentifier,
@@ -193,9 +220,39 @@ END;
     END;
 
     DECLARE @FinalDefinition nvarchar(max) = OBJECT_DEFINITION(OBJECT_ID(N'paws_api.UpdateCalendarSession', N'P'));
-    DECLARE @FinalHash varchar(64) = CONVERT(varchar(64), HASHBYTES('SHA2_256', CONVERT(varbinary(max), @FinalDefinition)), 2);
-    IF @FinalHash <> @ExpectedTargetHash
+    IF @FinalDefinition IS NULL
+        THROW 51605, 'Migration 016 stopped: the target procedure definition disappeared.', 1;
+    DECLARE @FinalRawHash varchar(64) = CONVERT(varchar(64), HASHBYTES('SHA2_256', CONVERT(varbinary(max), @FinalDefinition)), 2);
+    DECLARE @FinalCanonicalDefinition nvarchar(max) = REPLACE(REPLACE(@FinalDefinition, NCHAR(13) + NCHAR(10), NCHAR(10)), NCHAR(13), NCHAR(10));
+    DECLARE @FinalCanonicalLength int = DATALENGTH(@FinalCanonicalDefinition) / 2;
+    WHILE @FinalCanonicalLength > 0 AND LEFT(@FinalCanonicalDefinition, 1) = NCHAR(10)
+    BEGIN
+        SET @FinalCanonicalDefinition = SUBSTRING(@FinalCanonicalDefinition, 2, @FinalCanonicalLength - 1);
+        SET @FinalCanonicalLength -= 1;
+    END;
+    WHILE @FinalCanonicalLength > 0 AND RIGHT(@FinalCanonicalDefinition, 1) = NCHAR(10)
+    BEGIN
+        SET @FinalCanonicalDefinition = SUBSTRING(@FinalCanonicalDefinition, 1, @FinalCanonicalLength - 1);
+        SET @FinalCanonicalLength -= 1;
+    END;
+
+    DECLARE @FinalHeader nvarchar(64);
+    IF LEFT(@FinalCanonicalDefinition, DATALENGTH(N'CREATE OR ALTER PROCEDURE') / 2) COLLATE Latin1_General_100_BIN2 = N'CREATE OR ALTER PROCEDURE'
+        SET @FinalHeader = N'CREATE OR ALTER PROCEDURE';
+    ELSE IF LEFT(@FinalCanonicalDefinition, DATALENGTH(N'CREATE PROCEDURE') / 2) COLLATE Latin1_General_100_BIN2 = N'CREATE PROCEDURE'
+        SET @FinalHeader = N'CREATE PROCEDURE';
+    ELSE IF LEFT(@FinalCanonicalDefinition, DATALENGTH(N'CREATE   PROCEDURE') / 2) COLLATE Latin1_General_100_BIN2 = N'CREATE   PROCEDURE'
+        SET @FinalHeader = N'CREATE   PROCEDURE';
+    ELSE IF LEFT(@FinalCanonicalDefinition, DATALENGTH(N'ALTER PROCEDURE') / 2) COLLATE Latin1_General_100_BIN2 = N'ALTER PROCEDURE'
+        SET @FinalHeader = N'ALTER PROCEDURE';
+    IF @FinalHeader IS NULL
+        THROW 51606, 'Migration 016 stopped: resulting procedure declaration header is not recognized.', 1;
+    SET @FinalCanonicalDefinition = STUFF(@FinalCanonicalDefinition, 1, DATALENGTH(@FinalHeader) / 2, N'CREATE OR ALTER PROCEDURE');
+    DECLARE @FinalCanonicalHash varchar(64) = CONVERT(varchar(64), HASHBYTES('SHA2_256', CONVERT(varbinary(max), @FinalCanonicalDefinition)), 2);
+    IF @FinalCanonicalHash <> @ExpectedTargetCanonicalHash
         THROW 51603, 'Migration 016 stopped: the resulting procedure definition did not match migration 012.', 1;
+    PRINT CONCAT('RAW_FINAL_HASH=', @FinalRawHash);
+    PRINT CONCAT('CANONICAL_FINAL_HASH=', @FinalCanonicalHash);
     COMMIT TRANSACTION;
 END TRY
 BEGIN CATCH

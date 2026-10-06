@@ -6,6 +6,7 @@ const { createWriteGates } = require('../data/write-gates');
 
 const DEFAULT_MAX_BODY_BYTES = 64 * 1024;
 const ABSOLUTE_MAX_BODY_BYTES = 1024 * 1024;
+const BATCH_MAX_BODY_BYTES = ABSOLUTE_MAX_BODY_BYTES;
 const FIXED_ERROR = JSON.stringify({ error: { code: 'SERVICE_UNAVAILABLE', message: 'The service is temporarily unavailable.' } });
 
 function parseOrigins(value) {
@@ -161,7 +162,10 @@ function createUniversityHttpServer({
     }
 
     try {
-      const body = await readBody(incoming, bodyLimit);
+      const bodyLimitForRequest = requestPath === '/api/v1/sessions/batch'
+        ? BATCH_MAX_BODY_BYTES
+        : bodyLimit;
+      const body = await readBody(incoming, bodyLimitForRequest);
       const headers = new Headers();
       for (const name of ['authorization', 'content-type', 'accept']) {
         const value = incoming.headers[name];
@@ -243,5 +247,6 @@ module.exports = {
   parseOrigins,
   assertLoopbackHost,
   DEFAULT_MAX_BODY_BYTES,
-  ABSOLUTE_MAX_BODY_BYTES
+  ABSOLUTE_MAX_BODY_BYTES,
+  BATCH_MAX_BODY_BYTES
 };

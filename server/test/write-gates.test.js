@@ -6,7 +6,7 @@ const { createWriteGates } = require('../src/data/write-gates');
 
 test('write gate environment is per-domain and fail-closed for missing, false, and non-exact values', () => {
   assert.deepEqual(createWriteGates({}), {
-    afcSingle: false, afcBatch: false, sessionEdit: false,
+    afcSingle: false, afcBatch: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false
   });
   assert.deepEqual(createWriteGates({
@@ -15,7 +15,7 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     PAWS_SESSION_EDIT_WRITE_ENABLED: 'TRUE',
     PAWS_UNRELATED_WRITE_ENABLED: 'true'
   }), {
-    afcSingle: true, afcBatch: false, sessionEdit: false,
+    afcSingle: true, afcBatch: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false
   });
 });

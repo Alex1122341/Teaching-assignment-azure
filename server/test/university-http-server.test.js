@@ -100,6 +100,26 @@ test('bounded JSON POST reaches existing AFC route with parsed payload', async t
   assert.deepEqual(received, { a: 1 });
 });
 
+test('session batch accepts the bounded 1 MiB payload while other routes retain the configured limit', async t => {
+  const seen = [];
+  const server = createUniversityHttpServer({
+    runtime: async request => { seen.push(new URL(request.url).pathname); await request.arrayBuffer(); return { status: 201, jsonBody: { ok: true } }; },
+    env: { ...TEST_RUNTIME_IDENTITY, PAWS_API_MAX_BODY_BYTES: '65536' }
+  });
+  t.after(() => server.close());
+  const port = await listen(server);
+  const body = JSON.stringify({ sessions: ['x'.repeat(70_000)] });
+  const batch = await get(port, '/api/v1/sessions/batch', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body
+  });
+  assert.equal(batch.status, 201);
+  const other = await get(port, '/api/v1/dashboard/afc-records', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body
+  });
+  assert.equal(other.status, 413);
+  assert.deepEqual(seen, ['/api/v1/sessions/batch']);
+});
+
 test('binary runtime responses preserve exact PDF bytes and private download headers', async t => {
   const bytes = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x25]);
   const server = createUniversityHttpServer({

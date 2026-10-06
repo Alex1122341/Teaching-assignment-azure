@@ -41,12 +41,27 @@ test('DOE rule renderer displays policy provenance and preserves year-stage valu
 
 test('DOE summary separates assigned teaching from role evidence and does not infer a missing rule value', () => {
   const renderer = makeRenderer();
-  const html = renderer.renderDoeSummary({ teachingDoe: 1.5, roleDoe: null, teachingLineCount: 1, teachingRecordedCount: 1, roleLineCount: 1, roleRecordedCount: 0, partial: true }, '2026-27', [{ courseCode: 'VETM 100', topic: 'Lab', date: '2026-09-01', sessionType: 'LAB', teachingRole: 'Primary', doeCredit: 1.5, doeRate: 0.21, doeQuantity: 1, doeUnit: 'hour' }], [{ roleType: 'CCC', doeMappedValue: null }]);
+  const html = renderer.renderDoeSummary({ teachingDoe: 1.5, roleDoe: null, teachingLineCount: 1, teachingRecordedCount: 1, roleLineCount: 1, roleRecordedCount: 0, partial: true }, '2026-27', [{ courseCode: 'VETM 100', topic: 'Lab', date: '2026-09-01', sessionType: 'LAB', teachingRole: 'Primary', doeCredit: 1.5, doeRate: 0.21, doeQuantity: 1, doeUnit: 'hour' }], [{ roleType: 'CCC', doeMappedValue: null }], { teachingDoe: 2, source: 'Faculty snapshot' });
   assert.match(html, /Assigned Teaching DOE/);
-  assert.match(html, /Recorded Role \/ Service DOE/);
+  assert.match(html, /Role \/ Service DOE/);
   assert.match(html, /1\.50%/);
+  assert.match(html, /Contract \/ Teaching Target DOE/);
+  assert.match(html, /Teaching Target Remaining \/ Difference/);
+  assert.match(html, /0\.50%/);
+  assert.match(html, /Total Known DOE/);
+  assert.match(html, /Needs Review/);
   assert.match(html, /DOE unavailable/);
   assert.match(html, /Role evidence/);
+});
+
+test('DOE summary withholds target differences when the authoritative target is absent', () => {
+  const renderer = makeRenderer();
+  const html = renderer.renderDoeSummary({ teachingDoe: 1.5, roleDoe: 0.25, teachingLineCount: 1, teachingRecordedCount: 1, roleLineCount: 1, roleRecordedCount: 1, partial: false }, '2026-27', [], [], {});
+  assert.match(html, /Contract \/ Teaching Target DOE/);
+  assert.match(html, /Target unavailable/);
+  assert.match(html, /Total Known DOE/);
+  assert.match(html, /1\.75%/);
+  assert.match(html, /Requires an authoritative teaching target/);
 });
 
 test('teaching course renderer labels the source section and never invents an assignment DOE rate', () => {

@@ -183,6 +183,10 @@ function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = ra
       if (auth.status) return auth;
       return result(200, {
         writeCapabilities: {
+          sessionEdit: writeGates.sessionEdit === true,
+          sessionCreate: writeGates.sessionCreate === true,
+          afcSingle: writeGates.afcSingle === true,
+          afcBatch: writeGates.afcBatch === true,
           requestLifecycle: writeGates.afcRequest === true,
           decisions: writeGates.afcDecision === true,
           approvedArtifactCreation: writeGates.afcArtifact === true

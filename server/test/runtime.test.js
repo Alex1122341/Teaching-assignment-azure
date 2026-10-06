@@ -78,14 +78,22 @@ test('unbounded GET sessions is allowed for the canonical dataset', async () => 
   assert.equal(out.body.sessions.length, 1937);
 });
 
-test('HTTP wrapper exposes only GET routes and safe errors', async () => {
+test('HTTP wrapper exposes authenticated read and explicitly scoped write routes', async () => {
   const api = {
     health: async () => ({ status: 503, body: { error: { code: 'SQL_UNAVAILABLE', message: 'safe' } } }),
     currentUser: async () => ({ status: 200, body: { profile: {} } }),
-    sessions: async () => ({ status: 200, body: { sessions: [] } })
+    sessions: async () => ({ status: 200, body: { sessions: [] } }),
+    updateExistingSession: async () => ({ status: 200, body: { session: {} } }),
+    createSession: async () => ({ status: 201, body: { session: {} } }),
+    createSessionBatch: async () => ({ status: 201, body: { sessions: [] } }),
+    replaceSessionAssignments: async () => ({ status: 200, body: { session: {} } })
   };
   const app = createSwaFunctions({ api });
   assert.equal((await app(request('/api/v1/me'))).status, 200);
   assert.equal((await app(request('/api/v1/sessions'))).status, 200);
-  assert.equal((await app({ ...request('/api/v1/sessions'), method: 'POST' })).status, 405);
+  assert.equal((await app({ ...request('/api/v1/sessions'), method: 'POST', json: async () => ({}) })).status, 201);
+  assert.equal((await app({ ...request('/api/v1/sessions/batch'), method: 'POST', json: async () => ({}) })).status, 201);
+  assert.equal((await app({ ...request('/api/v1/sessions/id'), method: 'PATCH', json: async () => ({ topic: 'test' }) })).status, 200);
+  assert.equal((await app({ ...request('/api/v1/sessions/id/assignments'), method: 'PATCH', json: async () => ({ assignments: [] }) })).status, 200);
+  assert.equal((await app({ ...request('/api/v1/sessions'), method: 'DELETE' })).status, 405);
 });

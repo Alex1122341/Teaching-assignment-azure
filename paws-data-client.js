@@ -43,6 +43,7 @@
     if(!fetchImpl)throw new Error('fetch is required');
 
     const apiOrigin=validateApiOrigin(API_ORIGIN);
+    let writeCapabilities=Object.freeze({});
 
     // Translates a response into the existing error contract: {status, code, message}.
     async function settle(response){
@@ -152,10 +153,41 @@
 
     return Object.freeze({
       sessionBackend:()=> 'vetmed-ops',
+      // Old schedule mutation controls stay closed. API write entry points use
+      // their own explicit capabilities below.
       sessionWritesEnabled:()=> false,
-      sessionEditEnabled:()=> false,
-      afcSingleWriteEnabled:()=> false,
-      afcBatchWriteEnabled:()=> false,
+      sessionEditEnabled:()=> writeCapabilities.sessionEdit===true,
+      sessionCreateEnabled:()=> writeCapabilities.sessionCreate===true,
+      afcSingleWriteEnabled:()=> writeCapabilities.afcSingle===true,
+      afcBatchWriteEnabled:()=> writeCapabilities.afcBatch===true,
+      async refreshWriteCapabilities(){
+        const body=await request('/api/v1/afc-requests/write-capabilities');
+        const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
+        writeCapabilities=Object.freeze({
+          sessionEdit:value.sessionEdit===true,
+          sessionCreate:value.sessionCreate===true,
+          afcSingle:value.afcSingle===true,
+          afcBatch:value.afcBatch===true,
+          requestLifecycle:value.requestLifecycle===true,
+          decisions:value.decisions===true,
+          approvedArtifactCreation:value.approvedArtifactCreation===true
+        });
+        return writeCapabilities;
+      },
+      async createSession(session={}){
+        const body=await request('/api/v1/sessions',{method:'POST',body:pickFields(session,['academicYear','curriculumYear','courseCode','sessionType','date','startTime','endTime','topic','room','assignments'])});
+        return body.session&&typeof body.session==='object'&&!Array.isArray(body.session)?body.session:{};
+      },
+      async createSessionBatch({requestId,sessions=[]}={}){
+        const body=await request('/api/v1/sessions/batch',{method:'POST',body:{requestId:String(requestId??''),sessions:Array.isArray(sessions)?sessions.map(session=>pickFields(session,['academicYear','curriculumYear','courseCode','sessionType','date','startTime','endTime','topic','room','assignments'])):[]}});
+        return {sessions:Array.isArray(body.sessions)?body.sessions:[],idempotentReplay:body.idempotentReplay===true};
+      },
+      async replaceSessionAssignments(sessionId,assignments=[]){
+        const id=String(sessionId??'').trim();
+        if(!id)throw new Error('sessionId is required.');
+        const body=await request('/api/v1/sessions/'+encodeURIComponent(id)+'/assignments',{method:'PATCH',body:{assignments:Array.isArray(assignments)?assignments.map(row=>pickFields(row,['facultyId','teachingRole'])):[]}});
+        return body.session&&typeof body.session==='object'&&!Array.isArray(body.session)?body.session:{};
+      },
       async currentUser(){
         const body=await request('/api/v1/me');
         return body.profile;
@@ -259,13 +291,8 @@
         return Array.isArray(body.afcRequests)?body.afcRequests:[];
       },
       async afcWriteCapabilities(){
-        const body=await request('/api/v1/afc-requests/write-capabilities');
-        const capabilities=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
-        return {
-          requestLifecycle:capabilities.requestLifecycle===true,
-          decisions:capabilities.decisions===true,
-          approvedArtifactCreation:capabilities.approvedArtifactCreation===true
-        };
+        const capabilities=await this.refreshWriteCapabilities();
+        return {requestLifecycle:capabilities.requestLifecycle===true,decisions:capabilities.decisions===true,approvedArtifactCreation:capabilities.approvedArtifactCreation===true};
       },
       async submitAfcRequest(payload={}){
         const body=pickFields(payload,[

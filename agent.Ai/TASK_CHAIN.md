@@ -1,4 +1,18 @@
-# Current task — P0 W1Q0 Static anonymous auth boundary coverage
+# Current task — PAWS P1 DOE + Faculty Dashboard + controlled Beta writes
+
+- Latest instruction: continue Architect #6's P1 end-to-end task; both live guarded SQL migrations are applied and verified.
+- Branch `feature/p1-doe-dashboard-write-beta`, based on `23e681a41e32fedf92ef062bac76cb3d8f494311`; commits so far are product `efdedb3d1b62a774e74b859a723e5a7906f86956` and freeze `be2403f9188504e5384427f5169dd13d83519e7a`. Migration/test/docs changes are pending commit; no PR.
+- Migration 016 final raw SHA `BEBE89D62AA2716390BBB606D8A43E937DCE8F582BE1839C06123DE35FC9BAB3`; canonical SHA `F09724E9BF3BD9A2D5286B9F00FF1B88049FFD9173103CE162FA2D7571A9AFB0`.
+- Migration 019 is committed after one failed syntax attempt, verified read-only cleanup of its partial DDL, and safe corrected rerun. Expected procedures and receipt table exist; no receipts, P1 import batches, or business data are present.
+- Root 748 pass / 32 skipped, emulator 780/780, server 361/361, focused baseline/API/deploy 60/60; freezes/candidate/static build/diff/secret scan pass. Hosted CI, PR, merge, exact-main CI, releases, write-gate activation, and authenticated acceptance are outstanding.
+- No API release, Hosting deploy, or write-gate activation has occurred. Live gates need fresh runtime attestation before any activation.
+- Detailed evidence: `agent.Ai/updates/2026-10-06-2207-paws-p1-live-migrations-and-verification.md`.
+
+**Next action:** review and commit the local correction/checkpoint on the existing branch, push and open the single P1 PR, then continue through hosted CI, merge, exact-main CI, controlled API and Hosting rollout, and authenticated acceptance. Keep each gate closed until its domain passes acceptance.
+
+---
+
+# Historical checkpoint — P0 W1Q0 Static anonymous auth boundary coverage
 
 - `fix/beta-w1q0-static-auth-boundary` is based on `main` at `d81c1e9117bfccb2044724ede72036e994a58a35`. Governance commit `6d334d5953f01191a450169c8b796f529c7c6aed` is open as PR #58 to `main`.
 - Static upload workflow and test enforce the exact same nine anonymous protected routes independently before and after upload; each request requires HTTP 401.

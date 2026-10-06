@@ -35,10 +35,10 @@ test('timetable Faculty Dashboard button supports current administrators and fac
  const allowed=new Set(['adfa_general','adfa_regular','faculty','hicc','visc']);
  for(const role of [null,'faculty','hicc','visc','adfa_general','adfa_regular','other_office']){
   const currentUser=role?{role,name:'Test'}:null,elements=new Map();
-  const $=id=>{if(!elements.has(id))elements.set(id,{classList:{toggle(name,value){this[name]=value;},contains(){return true;}},addEventListener(_name,fn){this.click=fn;}});return elements.get(id);};
+  const $=id=>{if(!elements.has(id))elements.set(id,{classList:{toggle(name,value){this[name]=value;},add(){},contains(){return true;}},addEventListener(_name,fn){this.click=fn;}});return elements.get(id);};
   const admin=p=>['adfa_general','adfa_regular','other_office'].includes(p?.role);
   const canOpenFacultyDashboard=p=>allowed.has(p?.role);
-  const context={$ ,currentUser,window:{UCVM_PAWS_DATA:{sessionWritesEnabled:()=>false}},UCVM:{admin,general:p=>p?.role==='adfa_general',canOpenFacultyDashboard},canEdit:()=>admin(currentUser),updateScheduleSourceUI(){},roleIsFaculty:p=>p?.role==='faculty',uiSettings:{showMyTimetable:true},myTimetableOnly:false};
+  const context={$ ,currentUser,window:{UCVM_PAWS_DATA:{sessionWritesEnabled:()=>false,sessionCreateEnabled:()=>true}},UCVM:{admin,general:p=>p?.role==='adfa_general',canOpenFacultyDashboard},canEdit:()=>admin(currentUser),canEditExistingSqlSession:()=>admin(currentUser),sessionCreateEnabled:true,updateScheduleSourceUI(){},roleIsFaculty:p=>p?.role==='faculty',uiSettings:{showMyTimetable:true},myTimetableOnly:false};
   vm.runInNewContext(ui+'\nupdateAuthUI();',context);
   const button=$('faculty-dashboard-btn');
   assert.equal(button.classList.hidden,!canOpenFacultyDashboard(currentUser),String(role));

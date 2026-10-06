@@ -1,4 +1,24 @@
-# Current task — P0 W1Q0 Static anonymous auth boundary coverage
+# Current task — PAWS P1 DOE + Faculty Dashboard + controlled Beta writes
+
+**Status:** Product implementation and both guarded P1 SQL migrations are complete locally/live; one coherent PR, hosted CI, merge, release, and public acceptance remain.
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / start SHA `23e681a41e32fedf92ef062bac76cb3d8f494311`
+**Branch:** `feature/p1-doe-dashboard-write-beta`
+**Commits:** product `efdedb3d1b62a774e74b859a723e5a7906f86956`; separate freeze promotion `be2403f9188504e5384427f5169dd13d83519e7a`. Migration/test/continuity corrections remain uncommitted. No PR.
+
+- Implemented separate fail-closed session-create gate, admin-only canonical session create/batch and assignment replacement API routes, narrow procedure repository calls, migration 019/rollback artifact, and gated UI entry points. Multi-session edit, swaps, delete, DOE mutation, AFC decisions/artifacts, and Firestore timetable writes remain unavailable.
+- Faculty DOE Summary displays only authoritative target/assignment/rule evidence, preserves unavailable versus zero, reports Needs Review, and does not infer values. Temporary runtime identity is documented as `TEMPORARY_BETA_OVERPRIVILEGED_RUNTIME`.
+- Migration 016 now verifies the exact migration-012 body through narrow canonicalization. VetMed-Ops final raw SHA is `BEBE89D62AA2716390BBB606D8A43E937DCE8F582BE1839C06123DE35FC9BAB3`; canonical SHA is `F09724E9BF3BD9A2D5286B9F00FF1B88049FFD9173103CE162FA2D7571A9AFB0`.
+- Migration 019 is applied: validation/create/batch/assignment procedures plus empty receipt table. Its first attempt failed on reserved alias `rowCount`; exactly the early migration DDL was removed by the updated guarded rollback after verifying zero P1 receipts/import batches, then corrected migration 019 was applied atomically. No business data was written.
+- Current verification: root 780 total / 748 passed / 32 skipped / 0 failed; emulator 780/780; server 361/361; focused baseline/API/deploy 60/60; freezes/candidate verifier zero drift; static build 52 files / 1,764,617 bytes; diff check passes; custom added-line secret scan 0 matches. Hosted CI not run.
+- No API/Hosting release, write-gate activation, live sentinel/business write, PR, or merge has occurred. Runtime gates must be re-attested before rollout/activation.
+- Detailed chronological evidence: `agent.Ai/updates/2026-10-06-2207-paws-p1-live-migrations-and-verification.md`.
+
+**Next:** finish diff/deployment-procedure review, commit the verified migration/test/continuity correction, push the branch, create the one coherent P1 PR, then continue hosted CI → merge → exact-main CI → controlled API/Hosting release → public authenticated acceptance. Do not start a following product task after P1 reporting.
+
+---
+
+# Historical checkpoint — P0 W1Q0 Static anonymous auth boundary coverage
 
 **Status:** Governance correction is implemented and hosted CI accepted; PR #58 is open and intentionally unmerged. No deployment or live mutation.
 **Repository:** `Alex1122341/Teaching-assignment-azure`

@@ -1,19 +1,23 @@
-# Current task — P0 W1E identity authority and University runtime least privilege
+# Current task — P0 W1F W1C + W1D + W1E integration / hosted CI
 
-**Status:** W1E implementation and verification commits are pushed; remote matched `64619224cf5243806258d929ebcbf4f32b8cd278`. No PR.
+**Status:** Local integration and freeze reconciliation verified; governance commit `d45e4d5` is committed on the existing W1E branch. Continuity/evidence commit, push, PR, and hosted CI are pending.
 **Repository:** `Alex1122341/Teaching-assignment-azure`
-**Base:** accepted W1D `2d40117eb34ce309826a0e0d357b694fcf86801a`
-**Branch:** `feature/beta-w1e-identity-runtime-least-privilege` (isolated worktree)
+**Base:** `main` / `origin/main` `1dca1037f61e8dbb054cc53b119d2b73982ab810`
+**Branch:** `feature/beta-w1e-identity-runtime-least-privilege`
+**Starting SHA:** `ef7d925c4393d0d3c5e5d93ebd99e9870bc4d59c`
+**Governance commit:** `d45e4d5` — freeze/governance only; continuity/evidence documentation is a separate commit.
+**PR:** not created yet
 
-- Locked authority: Firebase Auth proves identity/UID; SQL `paws.UserProfile.BaseRole`, `Active`, `MustChangePassword`, and `FacultyId` control University SQL API business authorization. Firestore roles remain separate UI/account authority and cannot be mirrored to SQL by the browser.
-- W1E prepares local-only permission artifact 017, route/permission inventory, service runbook, and mismatch/fail-closed regression tests. No SQL artifact execution, identity binding, live permission/configuration change, write activation, Firestore/Firebase mutation, or deployment.
-- Fresh read-only University runtime inspection: interactive loopback Node process, host `ITAPPVETOPSDB01`, process SQL identity `UC\\sa-xinyu.zhu1`; VetMed-Ops confirms `db_owner`, effective `CONTROL DATABASE` and `ALTER DATABASE`, not sysadmin. Classify `UNSAFE_FOR_WRITE_ACTIVATION`. `PAWSApi` is stopped/disabled placeholder. Source commit and process working directory are not attested.
-- W1E implementation commit: `f3103814244cef5080e44d6aca2f2bba2d0a2411`; verified push through continuity record commit `64619224cf5243806258d929ebcbf4f32b8cd278`.
-- Current test evidence: focused W1E/gate 12/12; server 329/329; root 770 tests, 733 pass, 5 fail, 32 skipped; emulator suite 770 tests, 765 pass, 5 fail, 0 skipped. All five failing test cases exactly match the pre-W1E baseline. Direct static freeze reports 11 inherited static-file drifts, and direct API freeze reports 4 inherited API-file drifts versus frozen commit `51ed5f7aa0851aac5f20133ea213666028e018a3`; all are already present at accepted W1D base `2d40117eb34ce309826a0e0d357b694fcf86801a`. Checks remain strict and unchanged. Emulator-specific W1D tests pass. See the chronological update for precise names and commands.
-- University IT must confirm/provision a supported nonpersonal passwordless service identity model before production cutover; current account inventory was not enumerated. Preferred: managed gMSA if supported; evaluate same-host virtual service identity, then IT-managed dedicated domain identity as fallback.
-- AFC parallel state is unchanged: previously accepted release/build/deploy evidence remains PARTIAL for missing authenticated `/api/v1/me`, screenshot, and independently captured zero-write network evidence. Do not rerun release/deploy; preserve its exact resume action in the W1E update.
+- Accepted sequence verified: main → W1C product `08633276663b71d7a6fc995e9be2d20c7cba4065` → W1C checkpoint `916a90cc2e3e9f55c01e26ace6a14f21c7d2cca9` → W1D product `da21223a1d92572ff72767796229a655d122efb4` → W1D checkpoint `2d40117eb34ce309826a0e0d357b694fcf86801a` → W1E `ef7d925c4393d0d3c5e5d93ebd99e9870bc4d59c`. No unrelated commits are inside the promoted product anchor.
+- W1F promotes immutable static/API freeze anchor to W1D product commit `da21223a1d92572ff72767796229a655d122efb4`. Static protected set remains 52/52; API protected set is 34 runtime + 1 build definition + 2 repository inputs = 37. All accepted old paths remain protected; every static/API protected blob at the new anchor equals W1E head. No whitelist or path exclusion was added.
+- Root Node 22.23.3 suite: 772 total / 740 pass / 0 fail / 32 skipped. Firestore/Auth emulator suite: 772/772 pass / 0 skipped. Server suite: 329/329 pass. W1E + write-gate focused suite: 12/12. W1C/W1D/AFC/session/auth focused suite: 96/96. Migration 016/W1E permission-contract/domain suite: 92/92. Baseline/deployment-governance suite: 46/46.
+- Static repository freeze: 52/52, zero drift. API repository freeze: 37/37, zero drift. Release artifact built from source SHA `ef7d925…` in an isolated temporary copy; static artifact 52 protected files + routing config and API artifact 34 runtime files both report zero drift. Candidate verifier passes. Exact local artifact proof is in the W1F update.
+- Custom six-pattern scan over added lines from `origin/main` to the current worktree: zero findings. `gitleaks` is not installed locally. Changed JavaScript syntax check: 43 files, zero failures. `git diff --check`: pass.
+- AFC correction: build run `37366171691`, attempt 3, job `112055470521` succeeded; static deploy `37397731687` succeeded; artifact ID `11384380488`, SHA-256 `a223964c33808ed4c535ae32610dc6f3b85b417bed7d3eb3a9f241b5d99076be`. Date cases 2027/2/3 and 2027/2/5 passed; invalid 2027/2/30 blocked submission. AFC remains PARTIAL only for screenshot, independently captured authenticated `/api/v1/me`, and zero-write network evidence. No release rerun is required. The older W1E time-stamped update is retained as historical chronology; this current state supersedes its stale AFC status.
+- W1C gates remain three independent exact-lowercase-`true` checks and default OFF; client capabilities remain false; migration 016 is unexecuted. W1D canonical Firestore business writers remain denied; rules are not published. W1E SQL `UserProfile` remains API authorization authority; migration 017 is unexecuted and has no principal binding. Live runtime still uses the previously observed personal identity with broad database permissions; write activation remains NO-GO.
+- No deployment, SQL mutation/permission change, Firestore write/rules publication, Firebase config change, service identity/config change, gate activation, migration execution, main change, or merge.
 
-**Next:** Architect #6 reviews the pushed `feature/beta-w1e-identity-runtime-least-privilege` branch and A–M report. No PR, merge, deployment, migration execution, live permission/service change, write gate enablement, or Firestore rules publication is part of W1E.
+**Next:** commit the continuity/evidence update separately, reverify that `origin/main` and the remote W1E ref have not moved, push this same branch, create exactly one PR to `main`, and wait for every required hosted CI job on its exact head. Do not merge; Architect #6 performs final integration review. University IT runtime identity provisioning and AFC evidence closure remain separate blockers and do not block repository integration.
 
 # Superseded checkpoint — P0 W1D Firestore authority containment
 

@@ -1,14 +1,16 @@
-# Current task — P0 W1E identity authority and runtime least privilege
+# Current task — P0 W1F integration / freeze reconciliation / hosted CI
 
-- Current branch: `feature/beta-w1e-identity-runtime-least-privilege`, based exactly on accepted W1D `2d40117eb34ce309826a0e0d357b694fcf86801a`.
-- W1E implementation commit: `f3103814244cef5080e44d6aca2f2bba2d0a2411`.
-- Verification record was pushed at `64619224cf5243806258d929ebcbf4f32b8cd278`; no PR.
-- Locked authority is recorded in `DECISIONS.md`: Firebase Auth establishes identity; SQL `paws.UserProfile` establishes University SQL API roles, account state, and faculty scope; Firestore roles do not authorize SQL API calls.
-- W1E implementation consists of read-only source/role inventory, regression tests, local-only SQL roles artifact 017, runtime service/runbook, and chronological evidence. SQL artifact, service, live permission, Firebase/Firestore, gates, and deployment remain untouched.
-- Fresh host evidence maps the current personal runtime identity to `db_owner`, effective `CONTROL DATABASE` and `ALTER DATABASE`. This is not safe for write activation. No exact source SHA or process working-directory attestation exists. IT identity confirmation/provisioning is the external cutover dependency.
-- Pre-closeout local results: focused W1E/gate 12/12, server 329/329, root 770/733/5/32, emulator 770/765/5/0. Root/emulator failures match the exact pre-W1E frozen-runtime test failures; static/API files are unchanged from W1D. Strict freeze remains unchanged.
-- AFC is still PARTIAL for missing authenticated `/api/v1/me`, screenshot, and independently captured zero-write evidence; do not rerun its accepted build/deploy or release flow.
-- Next safe task: Architect #6 reviews the pushed W1E branch. Do not create a PR, merge, deploy, run migration 017, change live identity/permissions/service/gates, or publish Firestore rules.
+- Existing branch: `feature/beta-w1e-identity-runtime-least-privilege`, starting SHA `ef7d925c4393d0d3c5e5d93ebd99e9870bc4d59c`; `origin/main` remains `1dca1037f61e8dbb054cc53b119d2b73982ab810`.
+- Accepted history is main → W1C `0863327` / `916a90c` → W1D product `da21223` / accepted checkpoint `2d40117` → W1E `ef7d925`; the promoted immutable freeze anchor is the W1D product commit `da21223a1d92572ff72767796229a655d122efb4`.
+- W1F local static/API freeze and artifact checks are zero-drift; no whitelist or protected-path removal. Detailed counts, runtime hash equality, test commands, security scan scope, and AFC correction are in the new W1F chronological update.
+- Required root, emulator, server, and focused suites pass; hosted CI has not yet run because the one integration PR is pending.
+- AFC build run `37366171691` attempt 3 and job `112055470521` succeeded; static deploy `37397731687` succeeded. AFC evidence remains PARTIAL only for screenshot, authenticated `/api/v1/me`, and network zero-write capture. The older W1E update remains preserved as historical chronology; current state is corrected in `PROJECT_STATE.md` and the W1F update.
+- Runtime identity remains the previously observed personal identity with `db_owner`, `CONTROL DATABASE`, and `ALTER DATABASE`; live write activation remains NO-GO. SQL migrations 016/017, Firestore rules publication, Firebase configuration, runtime service, deployment, gates, and live data remain untouched.
+- **Next:** commit W1F governance and evidence separately from accepted runtime/product commits, push the same branch, create exactly one PR to `main`, wait for every required workflow/job on the exact PR SHA, report the result to Architect #6, and stop before merge for Architect's deep final review.
+
+---
+
+# Superseded checkpoint — P0 W1E identity authority and runtime least privilege
 
 # Superseded task — P0 W1D Firestore authority containment
 

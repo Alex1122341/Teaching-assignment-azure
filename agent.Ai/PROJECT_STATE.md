@@ -1,6 +1,6 @@
 # Current task — P0 W1E identity authority and University runtime least privilege
 
-**Status:** W1E implementation commit `f3103814244cef5080e44d6aca2f2bba2d0a2411` is local; feature-branch push and Architect #6 review pending.
+**Status:** W1E implementation and verification commits are pushed; remote matched `64619224cf5243806258d929ebcbf4f32b8cd278`. No PR.
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 **Base:** accepted W1D `2d40117eb34ce309826a0e0d357b694fcf86801a`
 **Branch:** `feature/beta-w1e-identity-runtime-least-privilege` (isolated worktree)
@@ -8,11 +8,12 @@
 - Locked authority: Firebase Auth proves identity/UID; SQL `paws.UserProfile.BaseRole`, `Active`, `MustChangePassword`, and `FacultyId` control University SQL API business authorization. Firestore roles remain separate UI/account authority and cannot be mirrored to SQL by the browser.
 - W1E prepares local-only permission artifact 017, route/permission inventory, service runbook, and mismatch/fail-closed regression tests. No SQL artifact execution, identity binding, live permission/configuration change, write activation, Firestore/Firebase mutation, or deployment.
 - Fresh read-only University runtime inspection: interactive loopback Node process, host `ITAPPVETOPSDB01`, process SQL identity `UC\\sa-xinyu.zhu1`; VetMed-Ops confirms `db_owner`, effective `CONTROL DATABASE` and `ALTER DATABASE`, not sysadmin. Classify `UNSAFE_FOR_WRITE_ACTIVATION`. `PAWSApi` is stopped/disabled placeholder. Source commit and process working directory are not attested.
+- W1E implementation commit: `f3103814244cef5080e44d6aca2f2bba2d0a2411`; verified push through continuity record commit `64619224cf5243806258d929ebcbf4f32b8cd278`.
 - Current test evidence: focused W1E/gate 12/12; server 329/329; root 770 tests, 733 pass, 5 fail, 32 skipped; emulator suite 770 tests, 765 pass, 5 fail, 0 skipped. All five failing test cases exactly match the pre-W1E baseline. Direct static freeze reports 11 inherited static-file drifts, and direct API freeze reports 4 inherited API-file drifts versus frozen commit `51ed5f7aa0851aac5f20133ea213666028e018a3`; all are already present at accepted W1D base `2d40117eb34ce309826a0e0d357b694fcf86801a`. Checks remain strict and unchanged. Emulator-specific W1D tests pass. See the chronological update for precise names and commands.
 - University IT must confirm/provision a supported nonpersonal passwordless service identity model before production cutover; current account inventory was not enumerated. Preferred: managed gMSA if supported; evaluate same-host virtual service identity, then IT-managed dedicated domain identity as fallback.
 - AFC parallel state is unchanged: previously accepted release/build/deploy evidence remains PARTIAL for missing authenticated `/api/v1/me`, screenshot, and independently captured zero-write network evidence. Do not rerun release/deploy; preserve its exact resume action in the W1E update.
 
-**Next:** push only `feature/beta-w1e-identity-runtime-least-privilege` and provide the A–M report to Architect #6. No PR, merge, deployment, migration execution, live permission/service change, write gate enablement, or Firestore rules publication is part of W1E.
+**Next:** Architect #6 reviews the pushed `feature/beta-w1e-identity-runtime-least-privilege` branch and A–M report. No PR, merge, deployment, migration execution, live permission/service change, write gate enablement, or Firestore rules publication is part of W1E.
 
 # Superseded checkpoint — P0 W1D Firestore authority containment
 

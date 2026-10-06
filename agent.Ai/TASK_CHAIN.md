@@ -1,4 +1,15 @@
-# Current task — P0 W1Q0 Static anonymous auth boundary coverage
+# Current task — PAWS P1 DOE + Faculty Dashboard + controlled Beta writes
+
+- Latest authoritative instruction: Architect #6's `PAWS BETA — P1 DOE + FACULTY DASHBOARD + CONTROLLED BETA WRITE ENABLEMENT`; no newer scope change observed at 2026-10-06 20:38 UTC.
+- `feature/p1-doe-dashboard-write-beta` is based on exact `main` start SHA `23e681a41e32fedf92ef062bac76cb3d8f494311`; current HEAD remains that SHA with local uncommitted implementation. No PR.
+- Local implementation and server suite are in progress; no migration, live API/business write, gate enablement, deployment, PR, or merge has occurred. Live read-only check confirms migration 016's expected weaker procedure hash and AFC procedure presence.
+- P1 freezes: preserve one coherent PR and strict freeze; promote baseline only in a separate governance commit after product commit. Do not use generic SQL, Firestore timetable writes, session delete, DOE edits, AFC decision/artifact writes, or any gate outside the stated P1 target set.
+- Most recent checks in the preceding execution checkpoint: P1 focused server tests 22/22, full server 358/358, static build 52 files, and diff check pass. Full root suite has four expected old-W1M freeze-anchor failures pending the explicit P1 baseline promotion. Firebase emulator suite and custom secret scan remain outstanding.
+- **Next:** complete local/emulator/security verification, create separate product and governance commits, then continue the single PR/CI/merge/release/public-acceptance sequence authorized by Architect #6. Do not start a following product task after the P1 report.
+
+---
+
+# Historical checkpoint — P0 W1Q0 Static anonymous auth boundary coverage
 
 - `fix/beta-w1q0-static-auth-boundary` is based on `main` at `d81c1e9117bfccb2044724ede72036e994a58a35`. Governance commit `6d334d5953f01191a450169c8b796f529c7c6aed` is open as PR #58 to `main`.
 - Static upload workflow and test enforce the exact same nine anonymous protected routes independently before and after upload; each request requires HTTP 401.

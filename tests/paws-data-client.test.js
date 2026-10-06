@@ -148,7 +148,7 @@ test('Dashboard client exposes explicit AFC methods without Firestore fallback',
   const source=fs.readFileSync('paws-data-client.js','utf8');
   const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
-    'afcBatchWriteEnabled','afcSingleWriteEnabled','afcWriteCapabilities','approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcManualBatch','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','patchSession','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
+    'afcBatchWriteEnabled','afcSingleWriteEnabled','afcWriteCapabilities','approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcManualBatch','createDashboardAfcRecord','createSession','createSessionBatch','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','patchSession','recommendAfcRequest','refreshWriteCapabilities','rejectAfcRequest','replaceSessionAssignments','sessionBackend','sessionCreateEnabled','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
   ]);
   assert.doesNotMatch(source,/firestore/i);
 });
@@ -164,6 +164,32 @@ test('AFC write capabilities use an authenticated read-only GET and accept only 
   assert.equal(calls[0].init.method,'GET');
   assert.equal(calls[0].init.credentials,'omit');
   assert.equal(calls[0].init.headers.Authorization,'Bearer capability-token');
+});
+
+test('session create capabilities are fetched explicitly and legacy Firestore writes stay disabled',async()=>{
+  const client=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async()=>({ok:true,json:async()=>({writeCapabilities:{sessionEdit:true,sessionCreate:true,afcSingle:true,afcBatch:'true'}})})});
+  assert.equal(client.sessionWritesEnabled(),false);
+  assert.equal(client.sessionCreateEnabled(),false);
+  const capabilities=await client.refreshWriteCapabilities();
+  assert.deepEqual(capabilities,{sessionEdit:true,sessionCreate:true,afcSingle:true,afcBatch:false,requestLifecycle:false,decisions:false,approvedArtifactCreation:false});
+  assert.equal(client.sessionEditEnabled(),true);
+  assert.equal(client.sessionCreateEnabled(),true);
+  assert.equal(client.sessionWritesEnabled(),false);
+  assert.equal(client.afcSingleWriteEnabled(),true);
+  assert.equal(client.afcBatchWriteEnabled(),false);
+});
+
+test('session create, batch and assignment client methods use narrow API routes and allowlists',async()=>{
+  const calls=[];const client=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({session:{id:'s'},sessions:[{id:'s'}]})}}});
+  await client.createSession({academicYear:'2026-27',courseCode:'315',actorFirebaseUid:'forged'});
+  await client.createSessionBatch({requestId:'request',sessions:[{date:'2026-10-06',doeCredit:9}]});
+  await client.replaceSessionAssignments('session/1',[{facultyId:'faculty-1',teachingRole:'Lecture',displayName:'forged'}]);
+  assert.deepEqual(calls.map(call=>[new URL(call.url).pathname,call.init.method]),[
+    ['/api/v1/sessions','POST'],['/api/v1/sessions/batch','POST'],['/api/v1/sessions/session%2F1/assignments','PATCH']
+  ]);
+  assert.deepEqual(JSON.parse(calls[0].init.body),{academicYear:'2026-27',courseCode:'315'});
+  assert.deepEqual(JSON.parse(calls[1].init.body),{requestId:'request',sessions:[{date:'2026-10-06'}]});
+  assert.deepEqual(JSON.parse(calls[2].init.body),{assignments:[{facultyId:'faculty-1',teachingRole:'Lecture'}]});
 });
 
 test('existing-session scalar edits use the authenticated University API PATCH route',async()=>{

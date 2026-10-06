@@ -9,18 +9,23 @@ const sourceFunction = require('../test-support/source-function');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'timetable.js'), 'utf8');
 
-test('SQL existing-session edit capability does not expose Firestore create or multi-edit controls', () => {
-  assert.match(source, /const sessionWritesEnabled\s*=\s*Boolean\(window\.UCVM_PAWS_DATA\s*&&\s*window\.UCVM_PAWS_DATA\.sessionWritesEnabled\(\)\)/);
-  assert.match(source, /\$\('add-session-btn'\)\.classList\.toggle\('hidden',\s*!canEdit\(\)\s*\|\|\s*!sessionWritesEnabled\)/);
-  assert.match(source, /\$\('bulk-add-session-btn'\)\.classList\.toggle\('hidden',\s*!UCVM\.admin\(currentUser\)\s*\|\|\s*!sessionWritesEnabled\)/);
-  assert.match(source, /\$\('selection-controls'\)\.classList\.toggle\('hidden',\s*!canEdit\(\)\s*\|\|\s*!sessionWritesEnabled\)/);
+test('SQL session create controls use the separate server capability and multi-edit stays closed', () => {
+  assert.match(source, /const sessionCreateEnabled\s*=\s*Boolean\(window\.UCVM_PAWS_DATA\?\.sessionCreateEnabled\?\.\(\)\)/);
+  assert.match(source, /\$\('add-session-btn'\)\.classList\.toggle\('hidden',\s*!canEditExistingSqlSession\(\)\s*\|\|\s*!sessionCreateEnabled\)/);
+  assert.match(source, /\$\('bulk-add-session-btn'\)\.classList\.toggle\('hidden',\s*!canEditExistingSqlSession\(\)\s*\|\|\s*!sessionCreateEnabled\)/);
+  assert.match(source, /\$\('selection-controls'\)\.classList\.add\('hidden'\)/);
+  assert.match(source, /sessionCreateEnabled\?\.\(\)/);
   assert.match(source, /sessionEditEnabled\?\.\(\)/);
 });
 
-test('unsupported Firestore faculty reassignment stays hidden while SQL session editing is available', () => {
-  assert.match(source, /const swap\s*=\s*!s\.isCcc\s*&&\s*isAdmin\(\)\s*&&\s*window\.UCVM_PAWS_DATA\?\.sessionWritesEnabled\?\.\(\)/);
-  assert.match(source, /This timetable action is not available on the current VetMed-Ops API\./);
-  assert.match(source, /Only session fields are editable\. Faculty assignments and DOE values remain unchanged\./);
+test('canonical SQL session create and assignment flows never use client-provided Faculty names as write authority', () => {
+  assert.match(source, /async function openSqlSessionCreateForm\(/);
+  assert.match(source, /ensureCanonicalWriteFacultyDirectory\(/);
+  assert.match(source, /createSession\(\{/);
+  assert.match(source, /facultyId:row\.facultyId/);
+  assert.match(source, /DOE values are not calculated here/);
+  assert.match(source, /replaceSessionAssignments\(session\.id,rows\)/);
+  assert.match(source, /assignmentManagementAvailable===true/);
 });
 
 test('the timetable source banner distinguishes authorized SQL editors from read-only roles', () => {
@@ -37,7 +42,7 @@ test('the timetable source banner distinguishes authorized SQL editors from read
     const context = {
       scheduleSource: 'azure-sql',
       currentUser: { role },
-      $: id => { if (!nodes.has(id)) nodes.set(id, { classList: { toggle() {} } }); return nodes.get(id); },
+      $: id => { if (!nodes.has(id)) nodes.set(id, { classList: { toggle() {}, add() {} } }); return nodes.get(id); },
       canEditExistingSqlSession: () => ['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin'].includes(role),
       UCVM: {
         label: value => ({ adfa_general: 'ADFAD Owner', adfa_regular: 'ADFAD Admin', faculty: 'Faculty', hicc: 'HICC', visc: 'VISC' })[value] || value,

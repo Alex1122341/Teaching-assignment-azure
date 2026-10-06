@@ -1,4 +1,23 @@
-# Current task — P0 W1Q0 Static anonymous auth boundary coverage
+# Current task — PAWS P1 DOE + Faculty Dashboard + controlled Beta writes
+
+**Status:** Implementation and local server verification in progress on the instructed feature branch. No migration, API/Firebase deployment, write-gate activation, or live business write has occurred.
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / start SHA `23e681a41e32fedf92ef062bac76cb3d8f494311`
+**Branch:** `feature/p1-doe-dashboard-write-beta`
+**Current HEAD:** still the exact starting SHA; changes remain uncommitted. No PR.
+
+- Implemented separate fail-closed session-create gate, admin-only canonical session create/batch and assignment replacement API routes, narrow procedure repository calls, migration 019/rollback artifact, and gated UI entry points. Multi-session edit, swaps, delete, DOE mutation, AFC decisions/artifacts, and Firestore timetable writes remain unavailable.
+- Faculty DOE Summary displays only authoritative target/assignment/rule evidence, preserves unavailable versus zero, reports Needs Review, and does not infer values. Temporary runtime identity is documented as `TEMPORARY_BETA_OVERPRIVILEGED_RUNTIME`.
+- Live read-only verification on `ITAPPVETOPSDB01`: `paws_api.UpdateCalendarSession` is at the exact instructed weaker SHA-256 `0A4459A9E254D65144D3E3A0F7097F5C01D20F90365B4BC2F557D34941994E57`; existing AFC single, batch, submit, and withdraw procedures are present. Desktop Commander ping returned `pong`. No live SQL or business data changed.
+- Focused P1 API/migration/auth tests: 22/22; full server suite: 358/358. Full root suite: four failures, all the expected immutable W1M freeze-drift checks; all other root tests pass. Static build outputs 52 files / 1,764,617 bytes; `git diff --check` passes. Gitleaks/trufflehog binaries are unavailable locally; custom added-line secret scan remains to run.
+- Freeze promotion has not been made yet. The planned separate governance commit will pin the product commit and prove exact protected static/API path deltas; no baseline exception or unreviewed drift is allowed.
+- No live migration, application restart, gate enablement, sentinel write, PR, merge, or deployment has occurred.
+
+**Next:** finish the local security scan and full-suite/emulator verification, commit the coherent product change, promote its explicit protected-runtime baseline in a governance-only commit, then continue the authorized exact-head PR/CI/merge/release/acceptance sequence. Stop only at the P1 hard gates specified by Architect #6.
+
+---
+
+# Historical checkpoint — P0 W1Q0 Static anonymous auth boundary coverage
 
 **Status:** Governance correction is implemented and hosted CI accepted; PR #58 is open and intentionally unmerged. No deployment or live mutation.
 **Repository:** `Alex1122341/Teaching-assignment-azure`

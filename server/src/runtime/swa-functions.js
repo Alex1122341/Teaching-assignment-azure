@@ -27,7 +27,28 @@ function createSwaFunctions({ api, createTiming = createRequestTiming }) {
       const url = new URL(request.url);
       const token = bearer(request);
       let r;
-      if (/^\/api\/v1\/sessions\/[^/]+\/?$/.test(url.pathname)) {
+      if (url.pathname === '/api/v1/sessions/batch') {
+        if (request.method !== 'POST') {
+          r = { status: 405, body: { error: { code: 'METHOD_NOT_ALLOWED', message: 'POST required.' } }, headers: { Allow: 'POST' } };
+        } else {
+          let payload;
+          try { payload = typeof request.json === 'function' ? await request.json() : request.body; }
+          catch (_) { return response(400, { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } }, timing); }
+          r = await api.createSessionBatch(token, payload);
+        }
+      } else if (/^\/api\/v1\/sessions\/[^/]+\/assignments\/?$/.test(url.pathname)) {
+        if (request.method !== 'PATCH') {
+          r = { status: 405, body: { error: { code: 'METHOD_NOT_ALLOWED', message: 'PATCH required.' } }, headers: { Allow: 'PATCH' } };
+        } else {
+          let sessionId;
+          try { sessionId = decodeURIComponent(url.pathname.replace(/\/$/, '').split('/').at(-2)); }
+          catch (_) { return response(400, { error: { code: 'INVALID_SESSION_ID', message: 'The session id is invalid.' } }, timing); }
+          let payload;
+          try { payload = typeof request.json === 'function' ? await request.json() : request.body; }
+          catch (_) { return response(400, { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } }, timing); }
+          r = await api.replaceSessionAssignments(token, sessionId, payload);
+        }
+      } else if (/^\/api\/v1\/sessions\/[^/]+\/?$/.test(url.pathname)) {
         if (request.method !== 'PATCH') {
           r = { status: 405, body: { error: { code: 'METHOD_NOT_ALLOWED', message: 'PATCH required.' } }, headers: { Allow: 'PATCH' } };
         } else {
@@ -39,6 +60,11 @@ function createSwaFunctions({ api, createTiming = createRequestTiming }) {
           catch (_) { return response(400, { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } }, timing); }
           r = await api.updateExistingSession(token, sessionId, patch);
         }
+      } else if (url.pathname === '/api/v1/sessions' && request.method === 'POST') {
+        let payload;
+        try { payload = typeof request.json === 'function' ? await request.json() : request.body; }
+        catch (_) { return response(400, { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } }, timing); }
+        r = await api.createSession(token, payload);
       } else if (request.method !== 'GET') {
         r = { status: 405, body: { error: { code: 'METHOD_NOT_ALLOWED', message: 'GET required.' } } };
       } else if (url.pathname === '/api/health/sql') {

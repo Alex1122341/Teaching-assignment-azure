@@ -54,12 +54,12 @@ test('Dashboard runtime remains zero-Firestore and self-service stays scoped', (
   assert.match(source, /body\.faculty-self-mode/);
 });
 
-test('11A2 worksheet cards and evidence groups are honest about VetMed-Ops coverage', () => {
-  for (const label of ['Recorded Role / Service DOE', 'Teaching / Courses', 'Roles & Appointments', 'Applied Supervision', 'Teaching Remaining / Variance', 'DOE Rule Reference', 'Policy:', 'Reserve', 'AVAILABLE NOW', 'NOT YET AVAILABLE', 'DOE Evidence', 'Teaching evidence', 'Role evidence']) {
+test('P1 DOE summary and evidence groups are honest about VetMed-Ops coverage', () => {
+  for (const label of ['Contract / Teaching Target DOE', 'Assigned Teaching DOE', 'Role / Service DOE', 'Total Known DOE', 'Teaching Target Remaining / Difference', 'Teaching / Courses', 'Roles & Appointments', 'DOE Rule Reference', 'Policy:', 'RECORDED VALUES', 'DOE Evidence', 'Teaching evidence', 'Role evidence']) {
     assert.match(profileSource, new RegExp(label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')), label);
   }
   assert.match(profileSource, /VetMed-Ops recorded evidence/);
-  assert.match(profileSource, /Not available in current PAWS data/);
+  assert.match(profileSource, /No authoritative target recorded/);
   assert.match(profileSource, /no client-side recalculation/);
   assert.match(profileSource, /DOE unavailable \/ Needs Review/);
   assert.match(profileSource, /Partial \/ Needs Review/);

@@ -15,7 +15,7 @@ const adminAuth = { verifyToken: auth.verifyToken, findUser: async () => ({ ...p
 
 test('W1H adds three independent exact-lowercase true gates and preserves W1C gates', () => {
   assert.deepEqual(createWriteGates({}), {
-    afcSingle: false, afcBatch: false, sessionEdit: false,
+    afcSingle: false, afcBatch: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false
   });
   assert.deepEqual(createWriteGates({
@@ -26,7 +26,7 @@ test('W1H adds three independent exact-lowercase true gates and preserves W1C ga
     PAWS_AFC_DECISION_WRITE_ENABLED: 'True',
     PAWS_AFC_ARTIFACT_WRITE_ENABLED: '1'
   }), {
-    afcSingle: true, afcBatch: false, sessionEdit: false,
+    afcSingle: true, afcBatch: false, sessionEdit: false, sessionCreate: false,
     afcRequest: true, afcDecision: false, afcArtifact: false
   });
   for (const value of [undefined, 'false', 'TRUE', 'True', '1', 'yes', ' true', 'true ']) {
@@ -86,7 +86,7 @@ test('write-capabilities endpoint requires an authenticated GET and advertises o
   });
   assert.deepEqual(await route(request('GET')), {
     status: 200,
-    jsonBody: { writeCapabilities: { requestLifecycle: true, decisions: false, approvedArtifactCreation: true } }
+    jsonBody: { writeCapabilities: { sessionEdit: false, sessionCreate: false, afcSingle: false, afcBatch: false, requestLifecycle: true, decisions: false, approvedArtifactCreation: true } }
   });
   assert.equal((await route(request('POST'))).status, 405);
   const unauthenticatedRoute = createAfcRequestFunctions({ api: createAfcRequestApi({

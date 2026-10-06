@@ -1,21 +1,23 @@
-# Current task — P0 W1H runtime authority closure
+# Current task — P0 W1M runtime attestation + static release governance
 
-**Status:** W1H product and separate freeze/governance promotion are on the feature branch; local acceptance matrix passes. Architect #6 independent deep review is pending. No PR or deployment.
+**Status:** Product and separate freeze/governance commits are locally accepted. Exact feature branch push follows continuity update. No PR, merge, or deployment.
 **Repository:** `Alex1122341/Teaching-assignment-azure`
-**Main/start SHA:** `156d2e5f60f7cd3afe40a6ad7972f10b0b7d0ffe`
-**Branch:** `feature/beta-w1h-runtime-authority-closure`
+**Base:** `main` / `origin/main` `ab8f8085ddfe073c0b872a6678b0a8d2174b220b`
+**Branch:** `feature/beta-w1m-runtime-attestation-static-governance`
+**Product commit:** `06b517dff59a07e802cb8dff09400532fb195fe4`
+**Governance commit:** `951fbb3b20414594273e0bb056caea07c88b198c`
 
-- Nine state-changing API routes are inventoried: three retain W1C gates; six previously ungated AFC routes now have independent request, decision, and artifact gates. The four root/emulator failures are immutable W1F freeze assertions over the reviewed protected-file delta, not behavior failures.
-- Product commit: `ab75affcae728132ca91106551d63fc73453bfe0`. Freeze/governance authority and `beta-baseline.json` anchor to that immutable product commit; the historical W1F anchor `da21223a1d92572ff72767796229a655d122efb4` is retained. Exact protected delta is two static and six API files; static/API coverage remains 52/34 with no additions or removals. The four former freeze-only failures now pass.
-- Verification: server 336/336; root `npm test` 775 total / 743 pass / 32 skipped / 0 fail; `npm run test` same; Firestore/Auth emulator 775/775; W1H/W1C/AFC focused 81/81; SQL authority/permission contract focused 19/19. Both direct freeze commands and candidate verifier report zero drift. Changed governance JavaScript syntax, diff check, and targeted secret scan pass.
-- Read-only live audit found exact-main drift in `swa-sql-runtime.js`, `data-api.js`, `dashboard-api.js`, and missing `write-gates.js`; deployed runtime is `UNATTESTED_RUNTIME`. All nine live mutation endpoints are ungated in this observed runtime.
-- Current SQL connection is personal `UC\\sa-xinyu.zhu1` with `db_owner`, `CONTROL DATABASE`, and broad write authority. Activation NO-GO. Existing dedicated identity not found; AD lookup cmdlet unavailable and PAWSApi service is a disabled placeholder. `EXTERNAL_IT_PROVISIONING_REQUIRED`.
-- Live UpdateCalendarSession matches migration-016 accepted weaker hash; `MIGRATION_016_READY`, but no migration executed. SQL role migration 018 exists locally only; migration 017 unchanged.
-- No live mutation, service change/restart, write-gate activation, deployment, main change, PR, or W2.
-- Chronological evidence: `agent.Ai/updates/2026-10-06-paws-w1h-runtime-authority-closure.md`.
+- University HTTP adapter serves `GET /api/health/runtime`, validating `PAWS_RELEASE_SHA` and `PAWS_RUNTIME_TRUST_ANCHOR` as lowercase 40-character Git SHAs at server construction. It reports configured identity, `vetmed-ops-sql` authority, and the six existing `createWriteGates(env)` booleans; it is anonymous, GET-only, no-store/nosniff, and bypasses generic runtime/Firebase/SQL.
+- Static Deploy derives the HTTPS API origin from `paws-api-origin.js`; it checks SQL health, runtime attestation/release SHA/trust anchor, all six gates false, anonymous auth boundaries and exact CORS preflight before and after static-only release. Existing exact-main, successful build, exact artifact, freeze, and public byte convergence remain. Public convergence covers seven named files including `afc-workflow-sql.js`.
+- Freeze promotion is a separate governance commit anchored at product SHA `06b517d…`. Coverage remains 52 static and 34 API runtime paths (37 protected items including build/repository inputs); protected static delta from W1H is empty, protected API delta is only `server/src/runtime/university-http-server.js`.
+- Runbook records that the endpoint is an operational self-report, not cryptographic proof. API origin and separate ACA deploy workflow/tooling are unchanged.
+- Verification: server 340/340; root 775 total / 743 pass / 32 skipped / 0 fail; Auth/Firestore emulator 775/775; runtime/workflow focused 11/11; repository/artifact freeze and candidate verifier zero drift; combined static/API artifact built at governance SHA and zero drift; YAML, syntax, diff, ACA unchanged, and targeted added-line secret checks pass. Local Node 24.19.0 versus declared server Node 22.x noted in chronological update.
+- No live server access, API requests, SQL/Firebase/Firestore mutation, write-gate change, deployment, PR, merge, or main modification.
+- Chronological evidence: `agent.Ai/updates/2026-10-06-0846-paws-w1m-runtime-attestation-static-governance.md`.
 
-**Next:** Architect #6 independent deep review of the pushed feature branch. Do not create a PR or merge. Live cutover, migration execution, write activation, deployment, and W2 remain prohibited.
+**Next:** push only this feature branch after final branch-state verification; then Architect #6 reviews. No PR, merge, deployment, service restart, live mutation, or gate activation.
 
+---
 ---
 # Current task — P0 W1F W1C + W1D + W1E integration / hosted CI
 
@@ -1093,3 +1095,4 @@ This planning-only checkpoint is superseded by the current Tasks 1–7 implement
 - Cloudflare account is authenticated, but prior dashboard inspection found no available DNS zone/domain or named tunnel; stable hostname remains blocked externally.
 - P3B4 design spec is on separate branch `feature/p3b4-afc-approved-artifact` at `3a4bfb8566c4e904cf013c9f2c4fefb0dc953b95`; owner approved specification/planning only. No implementation/live SQL work.
 - Pre-existing untracked P3B3 scratch folder remains uncommitted.
+

@@ -52,12 +52,14 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const afcRequestApi = createAfcRequestApi({
     verifyToken: verify,
     findUser: users.findByUid,
-    repository: createSqlAfcRequestRepository(db)
+    repository: createSqlAfcRequestRepository(db),
+    writeGates
   });
   const afcApprovalApi = createAfcApprovalApi({
     verifyToken: verify,
     findUser: users.findByUid,
-    repository: createSqlAfcApprovalRepository(db)
+    repository: createSqlAfcApprovalRepository(db),
+    writeGates
   });
   const afcRequests = createAfcRequestFunctions({
     api: { ...afcRequestApi, ...afcApprovalApi }
@@ -66,7 +68,8 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     api: createAfcApprovedArtifactApi({
       verifyToken: verify,
       findUser: users.findByUid,
-      repository: createSqlAfcArtifactRepository(db)
+      repository: createSqlAfcArtifactRepository(db),
+      writeGates
     })
   });
   const handler = async request => {

@@ -88,6 +88,7 @@ function makeHarness({
       return profiles[uid] || null;
     },
     repository,
+    writeGates: { afcArtifact: true },
     renderer: async snapshot => {
       calls.render++;
       assert.equal(snapshot, sourceSnapshotJson);

@@ -13,6 +13,7 @@ function harness(overrides={}){
   ];
   const client={
     async listAfcRequests(){calls.push(['list']);return rows},
+    async afcWriteCapabilities(){calls.push(['capabilities']);return{requestLifecycle:true,decisions:true,approvedArtifactCreation:true}},
     async submitAfcRequest(payload){calls.push(['submit',payload]);return{afcRequestId:'r3',status:'pending_report_to'}},
     async withdrawAfcRequest(id){calls.push(['withdraw',id]);return{afcRequestId:id,status:'withdrawn'}},
     async recommendAfcRequest(id,payload){calls.push(['recommend',id,payload]);return{afcRequestId:id,status:'pending_admin'}},
@@ -104,7 +105,7 @@ test('SQL form payload preserves terms and applicant signature but excludes deri
   class FakeFormData{constructor(){ }get(key){return data[key]??''}}
   const signature={mode:'typed',name:'Test User',uid:'u2',signedAt:'2026-10-04T12:00:00Z',fingerprint:'b'.repeat(64)};
   const workflow=createSqlAfcWorkflow({
-    dataClient:{async listAfcRequests(){return[]}},document:{getElementById(id){return nodes[id]||{}}},
+    dataClient:{async listAfcRequests(){return[]},async afcWriteCapabilities(){return{requestLifecycle:true,decisions:true,approvedArtifactCreation:true}}},document:{getElementById(id){return nodes[id]||{}}},
     auth:{currentUser:{uid:'u2',email:'test@example.org'}},profile:()=>({role:'faculty'}),
     FormData:FakeFormData,signatureCapture:async()=>signature
   });
@@ -125,6 +126,7 @@ test('ambiguous AFC write transport failure tells the user to refresh before ret
   const workflow=createSqlAfcWorkflow({
     dataClient:{
       async listAfcRequests(){return[]},
+      async afcWriteCapabilities(){return{requestLifecycle:true,decisions:true,approvedArtifactCreation:true}},
       async submitAfcRequest(){submissions++;throw TypeError('network unavailable')}
     },
     document:{getElementById(){return{innerHTML:'',querySelectorAll(){return[]}}}},
@@ -165,6 +167,7 @@ async function submitUiHarness({submitAfcRequest,listAfcRequests}={}){
       calls.lists++;
       return listAfcRequests?listAfcRequests(calls.lists):[];
     },
+    async afcWriteCapabilities(){return{requestLifecycle:true,decisions:true,approvedArtifactCreation:true}},
     async submitAfcRequest(payload){
       calls.submissions++;
       return submitAfcRequest?submitAfcRequest(payload,calls.submissions):{afcRequestId:'created',status:'pending_report_to'};

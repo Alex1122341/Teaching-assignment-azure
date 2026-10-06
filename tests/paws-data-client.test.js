@@ -148,9 +148,22 @@ test('Dashboard client exposes explicit AFC methods without Firestore fallback',
   const source=fs.readFileSync('paws-data-client.js','utf8');
   const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
-    'afcBatchWriteEnabled','afcSingleWriteEnabled','approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcManualBatch','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','patchSession','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
+    'afcBatchWriteEnabled','afcSingleWriteEnabled','afcWriteCapabilities','approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcManualBatch','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','patchSession','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
   ]);
   assert.doesNotMatch(source,/firestore/i);
+});
+
+test('AFC write capabilities use an authenticated read-only GET and accept only explicit booleans',async()=>{
+  const calls=[];
+  const client=createPawsAzureDataClient({
+    tokenProvider:async()=>'capability-token',
+    fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({writeCapabilities:{requestLifecycle:true,decisions:'true',approvedArtifactCreation:false}})}}
+  });
+  assert.deepEqual(await client.afcWriteCapabilities(),{requestLifecycle:true,decisions:false,approvedArtifactCreation:false});
+  assert.equal(calls[0].url,`${API_ORIGIN}/api/v1/afc-requests/write-capabilities`);
+  assert.equal(calls[0].init.method,'GET');
+  assert.equal(calls[0].init.credentials,'omit');
+  assert.equal(calls[0].init.headers.Authorization,'Bearer capability-token');
 });
 
 test('existing-session scalar edits use the authenticated University API PATCH route',async()=>{

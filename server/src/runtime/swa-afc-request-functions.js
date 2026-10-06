@@ -1,6 +1,7 @@
 'use strict';
 
 const AFC_REQUESTS_PATH = '/api/v1/afc-requests';
+const AFC_WRITE_CAPABILITIES_PATH = '/api/v1/afc-requests/write-capabilities';
 
 function bearer(request) {
   const header = request.headers && request.headers.get
@@ -20,6 +21,17 @@ function createAfcRequestFunctions({ api }) {
       let pathname = url.pathname;
       while (pathname.length > 1 && pathname.endsWith('/')) pathname = pathname.slice(0, -1);
       const token = bearer(request);
+
+      if (pathname === AFC_WRITE_CAPABILITIES_PATH) {
+        if (request.method !== 'GET') {
+          return {
+            status: 405,
+            headers: { Allow: 'GET' },
+            jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'GET required.' } }
+          };
+        }
+        return toHttp(await api.writeCapabilities(token));
+      }
 
       if (pathname === AFC_REQUESTS_PATH) {
         if (request.method === 'GET') return toHttp(await api.list(token));
@@ -79,4 +91,4 @@ function createAfcRequestFunctions({ api }) {
   };
 }
 
-module.exports = { createAfcRequestFunctions, AFC_REQUESTS_PATH };
+module.exports = { createAfcRequestFunctions, AFC_REQUESTS_PATH, AFC_WRITE_CAPABILITIES_PATH };

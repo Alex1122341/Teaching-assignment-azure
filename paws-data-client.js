@@ -258,6 +258,15 @@
         const body=await request('/api/v1/afc-requests');
         return Array.isArray(body.afcRequests)?body.afcRequests:[];
       },
+      async afcWriteCapabilities(){
+        const body=await request('/api/v1/afc-requests/write-capabilities');
+        const capabilities=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
+        return {
+          requestLifecycle:capabilities.requestLifecycle===true,
+          decisions:capabilities.decisions===true,
+          approvedArtifactCreation:capabilities.approvedArtifactCreation===true
+        };
+      },
       async submitAfcRequest(payload={}){
         const body=pickFields(payload,[
           'startDate','endDate','reason','purposeDestination','coverage','contactAddress','contactPhone',

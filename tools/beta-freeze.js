@@ -11,9 +11,10 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// W1F immutable runtime/product anchor: accepted W1C + W1D runtime state at
-// the W1D product commit. W1E and W1F governance commits do not alter runtime.
-const BASELINE_COMMIT='da21223a1d92572ff72767796229a655d122efb4';
+// W1H is the reviewed AFC runtime-authority product anchor. The preceding W1F
+// anchor remains historical evidence in governance tests; it is not mutable
+// and is never used as the current runtime trust source.
+const BASELINE_COMMIT='ab75affcae728132ca91106551d63fc73453bfe0';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

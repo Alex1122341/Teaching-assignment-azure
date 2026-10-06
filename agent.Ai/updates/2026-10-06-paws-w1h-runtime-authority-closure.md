@@ -79,11 +79,11 @@ No SQL DML/DDL/DCL, permission change, migration execution, business POST/PATCH,
 - Current Windows process and SQL connection use personal `UC\\sa-xinyu.zhu1`; SQL principal is `db_owner` with `CONTROL DATABASE`, `ALTER DATABASE`, DML and schema EXECUTE authority. Write activation remains NO-GO.
 - Existing gMSA inventory could not be queried because `Get-ADServiceAccount` is unavailable on the host. The `PAWSApi` service is stopped/disabled and configured with a placeholder command, so it is not a usable service identity. Readiness: `EXTERNAL_IT_PROVISIONING_REQUIRED`.
 
-## 11. Exact current breakpoint
+## 11. Pre-promotion breakpoint (superseded by section 16)
 
 W1H local behavior is implemented and focused tests pass. Full root and emulator checks fail only strict frozen-baseline tests. No commit/push is permitted by the task's all-tests-pass condition. Current process: PID 788 `node.exe`, command `src/runtime/university-api.js`, parent PowerShell PID 7832 running `C:\PAWS\Runtime\Acceptance\2026-10-04\Start-PAWSApi-StageA.ps1`, owner `UC\\sa-xinyu.zhu1`, deterministic source root `C:\PAWS\Runtime\Versions\4767a55e5305453c4f9db44dbc801cdab1be321c96da0125996b262ad2d74605\server`.
 
-## 12. Next safe action
+## 12. Pre-promotion next action (superseded by section 16)
 
 Architect #6 must resolve the immutable-freeze integration boundary before a feature commit can pass all required suites. Keep this work local and unpushed pending the next instruction. IT provisioning is an external prerequisite for any later identity cutover.
 
@@ -100,3 +100,12 @@ Do not rerun the live SQL audit or re-execute the test suites unless requested. 
 Architect #6 accepted the W1H implementation direction and confirmed that the four old-anchor failures are expected immutable W1F freeze checks. The reviewed protected runtime delta is exactly two static files (`afc-workflow-sql.js`, `paws-data-client.js`) and six API files (`server/src/afc/afc-approval-api.js`, `server/src/afc/afc-approved-artifact-api.js`, `server/src/afc/afc-request-api.js`, `server/src/data/write-gates.js`, `server/src/runtime/swa-afc-request-functions.js`, `server/src/runtime/swa-sql-runtime.js`). These map to the three new W1H gates and authenticated client capability alignment. All remaining W1H files are tests, migration 018, or continuity documentation; migration 017 remains unchanged.
 
 Pre-promotion counts remain 52 protected static files and 34 protected API runtime files. The product and freeze-promotion commits must remain separate. New freeze authority must be the immutable W1H product commit; preserve the W1F anchor `da21223a1d92572ff72767796229a655d122efb4` as history and prove the exact reviewed protected delta. No deployment, migration, SQL/identity change, write-gate activation, PR, merge, or main change is authorized.
+
+## 16. W1H product and freeze-promotion acceptance
+
+- Product commit: `ab75affcae728132ca91106551d63fc73453bfe0`, parent `156d2e5f60f7cd3afe40a6ad7972f10b0b7d0ffe`. The separate freeze/governance promotion uses this immutable commit as the shared static/API authority. Historical W1F anchor `da21223a1d92572ff72767796229a655d122efb4` remains available as evidence.
+- Exact W1F → W1H protected delta is two static files (`afc-workflow-sql.js`, `paws-data-client.js`) and six API files (`server/src/afc/afc-approval-api.js`, `server/src/afc/afc-approved-artifact-api.js`, `server/src/afc/afc-request-api.js`, `server/src/data/write-gates.js`, `server/src/runtime/swa-afc-request-functions.js`, `server/src/runtime/swa-sql-runtime.js`). Protected path coverage is unchanged at 52 static and 34 API runtime files; no additions or removals. Regression coverage pins the exact delta, preserves independent W1C gates, confirms all six exact-true domain gates, and checks migration 017 byte identity from W1E to W1H plus migration 018 in product history.
+- `npm test --prefix server`: 336/336 pass. `npm test` and `npm run test`: each 775 total / 743 pass / 32 skipped / 0 fail. Firestore/Auth emulator: 775/775 pass. Focused W1H/W1C/AFC/client suite: 81/81. SQL identity/permission/W1H contract suite: 19/19.
+- `node tools/beta-freeze.js`, `node tools/beta-api-freeze.js`, and `node tools/verify-beta-candidate.js`: all pass with zero drift. Changed governance JS passes `node --check`; `git diff --check` passes; targeted credential-pattern scan reports no findings. The historical negative Git-object fixture still prints its expected `fatal: path ...` diagnostic without adding a failed test.
+- The four pre-promotion freeze-only failures are resolved by the new product anchor. No test, freeze, whitelist, or protected-file policy was weakened.
+- Status: product and governance commits remain separate on `feature/beta-w1h-runtime-authority-closure`; Architect #6 independent deep review is pending. No PR, merge, production deployment, SQL/migration execution, identity/grant change, write-gate activation, or W2 occurred. Live runtime remains `UNATTESTED_RUNTIME`; activation remains NO-GO pending separately provisioned identity and live cutover direction.

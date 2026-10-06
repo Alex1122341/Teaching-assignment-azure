@@ -1,19 +1,20 @@
 # Current task — P0 W1H runtime authority closure
 
-**Status:** W1H implementation accepted by Architect #6; product commit and controlled freeze promotion in progress. Four old-anchor failures are expected protected-runtime drift assertions.
+**Status:** W1H product and separate freeze/governance promotion are on the feature branch; local acceptance matrix passes. Architect #6 independent deep review is pending. No PR or deployment.
 **Repository:** `Alex1122341/Teaching-assignment-azure`
 **Main/start SHA:** `156d2e5f60f7cd3afe40a6ad7972f10b0b7d0ffe`
 **Branch:** `feature/beta-w1h-runtime-authority-closure`
 
 - Nine state-changing API routes are inventoried: three retain W1C gates; six previously ungated AFC routes now have independent request, decision, and artifact gates. The four root/emulator failures are immutable W1F freeze assertions over the reviewed protected-file delta, not behavior failures.
-- New request/decision/artifact gates and client capability/UI alignment are implemented locally. Focused suites 44/44; server suite 336/336. No live commit/push/PR until the separate product and governance commits pass review/tests.
+- Product commit: `ab75affcae728132ca91106551d63fc73453bfe0`. Freeze/governance authority and `beta-baseline.json` anchor to that immutable product commit; the historical W1F anchor `da21223a1d92572ff72767796229a655d122efb4` is retained. Exact protected delta is two static and six API files; static/API coverage remains 52/34 with no additions or removals. The four former freeze-only failures now pass.
+- Verification: server 336/336; root `npm test` 775 total / 743 pass / 32 skipped / 0 fail; `npm run test` same; Firestore/Auth emulator 775/775; W1H/W1C/AFC focused 81/81; SQL authority/permission contract focused 19/19. Both direct freeze commands and candidate verifier report zero drift. Changed governance JavaScript syntax, diff check, and targeted secret scan pass.
 - Read-only live audit found exact-main drift in `swa-sql-runtime.js`, `data-api.js`, `dashboard-api.js`, and missing `write-gates.js`; deployed runtime is `UNATTESTED_RUNTIME`. All nine live mutation endpoints are ungated in this observed runtime.
 - Current SQL connection is personal `UC\\sa-xinyu.zhu1` with `db_owner`, `CONTROL DATABASE`, and broad write authority. Activation NO-GO. Existing dedicated identity not found; AD lookup cmdlet unavailable and PAWSApi service is a disabled placeholder. `EXTERNAL_IT_PROVISIONING_REQUIRED`.
 - Live UpdateCalendarSession matches migration-016 accepted weaker hash; `MIGRATION_016_READY`, but no migration executed. SQL role migration 018 exists locally only; migration 017 unchanged.
 - No live mutation, service change/restart, write-gate activation, deployment, main change, PR, or W2.
 - Chronological evidence: `agent.Ai/updates/2026-10-06-paws-w1h-runtime-authority-closure.md`.
 
-**Next:** finish Architect #6's controlled W1H product commit and separate freeze-promotion governance commit; live cutover/migration/write remains prohibited.
+**Next:** Architect #6 independent deep review of the pushed feature branch. Do not create a PR or merge. Live cutover, migration execution, write activation, deployment, and W2 remain prohibited.
 
 ---
 # Current task — P0 W1F W1C + W1D + W1E integration / hosted CI

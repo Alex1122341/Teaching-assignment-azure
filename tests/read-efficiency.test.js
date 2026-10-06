@@ -71,9 +71,10 @@ test('faculty admin enhancements reuse the page snapshots', () => {
   assert.doesNotMatch(source, /db\.doc\(`users\/\$\{u\.uid\}`\)\.get\(\)/);
 });
 
-test('audit details are written directly without scanning recent logs after save',()=>{
+test('audit details remain a read helper while canonical browser audit writes are removed',()=>{
  const access=read('faculty-access.js'),timetable=read('timetable.js'),admin=read('faculty-admin.js');
  assert.doesNotMatch(access,/patchRecent|waitClosed|new MutationObserver\(inspect\)/);
- assert.match(timetable,/UCVM_AUDIT_DETAILS\.diff/);
+ assert.doesNotMatch(timetable,/UCVM_AUDIT_DETAILS\.diff/);
+ assert.match(access,/async function logs\(/);
  assert.equal(admin.includes('UCVM_AUDIT_DETAILS'),false,'the read-only Dashboard has no audit-write path');
 });

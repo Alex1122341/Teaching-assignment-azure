@@ -83,10 +83,11 @@ test('workflow refuses UI actions outside the current server-returned ownership 
 });
 
 
-test('SQL entry point selects the SQL AFC module only for the VetMed-Ops backend',()=>{
+test('SQL AFC facade delegates only to the API for VetMed-Ops and fails closed otherwise',()=>{
   const source=fs.readFileSync('afc-workflow.js','utf8');
   const html=fs.readFileSync('index.html','utf8');
-  assert.match(source,/businessBackend\(\)==='vetmed-ops'&&window\.UCVM_AFC_SQL/);
+  assert.match(source,/backend\(\)==='vetmed-ops'&&window\.UCVM_AFC_SQL/);
+  assert.match(source,/Firestore AFC access is disabled/);
   assert.ok(html.indexOf('afc-workflow-sql.js')<html.indexOf('afc-workflow.js'));
 });
 

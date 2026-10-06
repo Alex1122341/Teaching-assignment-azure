@@ -26,16 +26,10 @@ test('latest updates is removed and exports use a compact bottom bar',()=>{
  assert.match(timetable,/id="outlook-invite-btn"/);
 });
 
-test('admins can add up to 200 sessions in an editable spreadsheet table',()=>{
- assert.match(timetable,/id="bulk-add-session-btn"/);
- assert.match(timetable,/const MAX_BULK_SESSION_ROWS\s*=\s*200/);
- assert.match(timetable,/function openBulkSessionForm/);
- assert.match(timetable,/function parseBulkPaste/);
- assert.match(timetable,/function validateBulkRows/);
- assert.match(timetable,/async function saveBulkSessions/);
- for(const id of ['bulk-add-row','bulk-duplicate-row','bulk-paste-rows','bulk-session-body'])assert.match(timetable,new RegExp(`id=["']${id}["']`));
- assert.match(timetable,/session_change_log|SESSION_LOG_COLLECTION/);
- assert.match(timetable,/batch\.commit\(\)/);
+test('bulk session editor cannot be opened or saved from the browser',()=>{
+ assert.match(timetable,/sessionWritesEnabled\(\)/);
+ assert.match(timetable,/async function saveBulkSessions\(\)\{[\s\S]*?future PAWS University API operation[\s\S]*?return false/);
+ assert.doesNotMatch(timetable,/async function saveBulkSessions\(\)[\s\S]*?batch\.commit\(\)/);
 });
 
 test('Outlook invitation package is filtered, reviewable, and contains attendees',()=>{

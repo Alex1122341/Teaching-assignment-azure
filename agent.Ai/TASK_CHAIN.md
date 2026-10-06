@@ -1,3 +1,14 @@
+# Current task — P0 W1D Firestore authority containment
+
+- Starting point: W1C accepted at `916a90cc2e3e9f55c01e26ace6a14f21c7d2cca9`; work is isolated on `feature/beta-w1d-firestore-authority-containment`.
+- W1D local changes make SQL-canonical Firestore rules independent of `settings/system_state`, fail-close old reachable client writers, retain separate user/group/announcement behavior, and inventory each path in the authority matrix.
+- Identity overlap (`users.role` / Firebase `facultyRoles` vs SQL `UserProfile.BaseRole`) remains unresolved for Architect #6. The runtime SQL principal still has previously evidenced broad authority; no permission change is in scope.
+- No live Firestore/SQL/Azure write, rules publish, Firebase configuration mutation, W1C activation, migration 016, deployment, PR, merge, or `main` change.
+- Current local verification and freeze-drift classification are in `agent.Ai/updates/2026-10-05-paws-w1d-firestore-authority-containment.md`.
+- Independent read-only review found no Critical or Important issue; a Minor AFC Firestore read-path description was corrected in the matrix. **Next:** commit and push this feature branch, then send Architect #6 the A–L report. No PR/deploy/rules publication/SQL change is authorized.
+
+---
+
 # Current task — P0 W1C containment ready for Architect #6 review
 
 - Implementation commit `08633276663b71d7a6fc995e9be2d20c7cba4065` is pushed on `feature/beta-w1c-write-containment`; no PR/deployment.

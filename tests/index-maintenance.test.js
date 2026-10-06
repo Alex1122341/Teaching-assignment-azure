@@ -14,27 +14,28 @@ test('maintenance helpers replace and remove sessions without losing faculty IDs
  assert.deepEqual(api.removeSession(replaced,'s1').map(x=>x.id),['s2']);
 });
 
-test('session writes add derived faculty IDs',()=>{
+test('Beta session entry points fail closed instead of creating Firestore session writes',()=>{
  const index=read('timetable.js'),admin=read('faculty-admin.js'),approval=read('approval-workflow.js');
- assert.match(index,/UCVM_INDEX_MAINTENANCE\.sessionForWrite\(s\)/);
+ assert.doesNotMatch(index,/db\.batch\(\)/);
+ assert.match(index,/Session changes must use the PAWS University API/);
  assert.equal(admin.includes('UCVM_INDEX_MAINTENANCE'),false,'the read-only Dashboard has no session-write path');
- assert.match(approval,/patch\.facultyIds=UCVM_DATA_INDEX\.sessionFacultyIds/);
+ assert.match(approval,/approval application is disabled until the PAWS University API/);
+ assert.doesNotMatch(approval,/batch\.set\(ref,/);
 });
 
-test('session mutations update derived settings from exact before and after records',()=>{
+test('derived settings are not loaded as a Beta session mutation dependency',()=>{
  const index=read('timetable.js'),approval=read('approval-workflow.js'),admin=read('faculty-admin.js'),maintenance=read('index-maintenance.js');
- assert.match(index,/UCVM_INDEX_MAINTENANCE\.updateDerivedIndexes\(db,changes/);
- assert.match(index,/\{before:existing\|\|null,after:next\}/);
- assert.match(index,/\{before:s,after:null\}/);
- assert.match(approval,/updateDerivedIndexes\?\.\(\[\{before:current,after/);
+ assert.doesNotMatch(read('index.html'),/index-maintenance\.js/);
+ assert.doesNotMatch(index,/updateDerivedIndexes/);
+ assert.doesNotMatch(approval,/updateDerivedIndexes/);
  assert.equal(admin.includes('writeDerivedIndexes'),false,'the read-only Dashboard has no derived-index write');
  assert.match(maintenance,/faculty_index/);
  assert.match(maintenance,/schedule_stats/);
 });
 
-test('derived settings writes are limited to administrators',()=>{
+test('derived settings writes are denied to all browser roles',()=>{
  const rules=read('firestore.rules');
- assert.match(rules,/id in \['faculty_index','schedule_stats','faculty_swap_index','faculty_swap_map'\].*admin\(\)/s);
+ assert.match(rules,/match \/settings\/\{id\}[\s\S]*?allow write: if false/);
 });
 
 test('session deltas update totals, courses, faculty counts, and assigned DOE',()=>{

@@ -1,3 +1,21 @@
+# Current checkpoint — P0 W1D Firestore authority containment
+
+**Last verified:** 2026-10-05
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `feature/beta-w1c-write-containment` @ `916a90cc2e3e9f55c01e26ace6a14f21c7d2cca9`
+**Branch:** `feature/beta-w1d-firestore-authority-containment`
+**Status:** implementation and local evidence are complete; independent review found no Critical/Important defects and the only Minor documentation mismatch was corrected. Commit/push the named feature branch only; no PR.
+
+- Canonical SQL business paths are denied in local `firestore.rules` independent of maintenance state. Reachable timetable/AFC/User Management and legacy approval writers are removed or fail closed as recorded in `docs/superpowers/specs/2026-10-05-paws-w1d-firestore-authority-matrix.md`.
+- Firebase Auth, the established Firestore user/group functions and append-only account audit remain separate. `users.role` / `facultyRoles` versus SQL `UserProfile.BaseRole` remains an Architect decision; no mapping was inferred.
+- W1C remains default-disabled; no Firestore rules publish, Firebase/SQL/Azure mutation, migration 016, deployment, PR, merge, or main change occurred.
+- Latest local verification: root/emulator/server results are recorded in the W1D update. The five strict static/API freeze failures remain unmodified and are recorded as protected baseline drift for review.
+- Live University SQL identity remains `UC\\sa-xinyu.zhu1` with prior broad `db_owner` / `CONTROL DATABASE` evidence; W1D does not change it. Runtime exact-main attestation and AFC release completion are not reverified here.
+
+**Next:** commit and push only `feature/beta-w1d-firestore-authority-containment`, then send the A–L report to Architect #6. Do not open a PR, merge, publish rules, enable W1C, mutate SQL/Firebase/Azure, or deploy. Use `git log -1` and the matching remote ref for the exact final SHA.
+
+---
+
 # Current checkpoint — P0 W1C containment ready for Architect #6 review
 
 **Last verified:** 2026-10-05

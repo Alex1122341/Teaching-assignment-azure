@@ -43,7 +43,7 @@ test('all session mutation entrypoints fail closed before legacy Firestore write
     const start=src.indexOf(marker);
     assert.notEqual(start,-1,name);
     const first=src.slice(start,start+260);
-    assert.match(first,/requireSessionWrites\(\)/,name);
+    assert.ok(/requireSessionWrites\(\)|future PAWS University API|PAWS University API operation|PAWS University API supports|must be handled by the PAWS University API/.test(first),`${name} must fail closed or remain capability-gated`);
   }
   assert.match(src,/sessionWritesEnabled\(\)/);
 });

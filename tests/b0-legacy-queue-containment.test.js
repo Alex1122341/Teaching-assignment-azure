@@ -65,14 +65,10 @@ test('asset loader fails closed for missing, unknown, and throwing backends', as
   }
 });
 
-test('asset loader permits legacy dependencies only for explicit firestore opt-in', async () => {
+test('asset loader does not restore legacy approval/Firestore writers for any backend', async () => {
   const h = assetLoaderHarness({ sessionBackend: () => ' firestore ' });
-  assert.equal(await h.context.UCVM_ASSETS.ensureApprovalWorkflow(), true);
-  assert.deepEqual(h.loaded, [
-    'faculty-swap-safe.js',
-    'faculty-swap-handoff.js',
-    'approval-workflow.js'
-  ]);
+  assert.equal(await h.context.UCVM_ASSETS.ensureApprovalWorkflow(), false);
+  assert.deepEqual(h.loaded, []);
 });
 
 function approvalBoundaryScenario(client) {
@@ -159,9 +155,9 @@ test('AFC uses the same safe unavailable facade for missing and unknown backends
     assert.equal(result.initCalls, 0, label);
     assert.equal(result.firestoreTouches, 0, label);
     assert.equal(result.decisionCalls, 0, label);
-    assert.match(result.panel.innerHTML, /PAWS University API and VetMed-Ops workflow/, label);
+    assert.match(result.panel.innerHTML, /PAWS University API/, label);
     assert.doesNotMatch(result.panel.innerHTML, /Submit AFC request|afc-form/i, label);
-    await assert.rejects(result.context.window.UCVM_AFC.submit({}), /PAWS University API and VetMed-Ops workflow/);
+    await assert.rejects(result.context.window.UCVM_AFC.submit({}), /PAWS University API/);
   }
 });
 
@@ -250,11 +246,11 @@ test('Azure SQL AFC facade keeps panel navigation but exposes no legacy request 
   const h = azureAfcPanelHarness();
   assert.equal(h.context.window.UCVM_AFC.unavailable, true);
   h.context.window.UCVM_AFC.mount({ panelId: 'afc-panel-content', mode: 'timetable' });
-  await assert.rejects(h.context.window.UCVM_AFC.submit({}), /PAWS University API and VetMed-Ops workflow/);
+  await assert.rejects(h.context.window.UCVM_AFC.submit({}), /PAWS University API/);
 
   h.request.onclick();
   assert.equal(h.panel.hidden, false);
-  assert.match(h.elements.get('afc-panel-content').innerHTML, /PAWS University API and VetMed-Ops workflow/);
+  assert.match(h.elements.get('afc-panel-content').innerHTML, /PAWS University API/);
   assert.doesNotMatch(h.elements.get('afc-panel-content').innerHTML, /afc-form|Submit AFC request/i);
   assert.equal(h.context.decideCalls, 0);
 

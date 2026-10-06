@@ -23,11 +23,16 @@ function harness(kind,{accept=true,otherStart='09:30',otherEnd='10:30',stale=fal
  vm.runInContext([...legacyHelpers,...names].map(name=>sourceFunction(file,name)).join('\n'),context);
  return{writes,prompts,messages,order,run:()=>context[kind==='safe'?'safeApproveRequest':'approveRequest']('r1')};
 }
-for(const kind of ['safe','legacy']){
+for(const kind of ['safe']){
  test(`${kind} cancellation performs no writes`,async()=>{const h=harness(kind,{accept:false});await h.run();assert.equal(h.writes.length,0);assert.equal(h.prompts.length,1);assert.match(h.prompts[0],/override/i);});
  test(`${kind} confirmation records actor, server timestamp and sanitized conflicts`,async()=>{const h=harness(kind);await h.run();const log=h.writes.find(w=>w.path==='session_change_log/log1');assert.ok(log);assert.equal(log.data.override?.confirmed,true);assert.equal(log.data.override.confirmedBy,'admin1');assert.equal(log.data.override.confirmedAt,'SERVER_TIME');assert.deepEqual(log.data.override.conflicts,[{id:'s2',course:'315',date:'2026-10-01',start:'09:30',end:'10:30'}]);assert.doesNotMatch(JSON.stringify(log.data.override),/DO NOT LEAK|doeCredit|ucid|example.test/);assert.ok(h.order.indexOf('read:sessions/s1')<h.order.indexOf('confirm'));});
  test(`${kind} adjacent session needs no conflict override`,async()=>{const h=harness(kind,{otherStart:'10:00',otherEnd:'11:00'});await h.run();assert.doesNotMatch(h.prompts[0],/conflict detected|override and approve/i);assert.equal(h.writes.find(w=>w.path==='session_change_log/log1').data.override??null,null);});
  test(`${kind} stale request is blocked before prompting or writing`,async()=>{const h=harness(kind,{stale:true});await h.run();assert.equal(h.prompts.length,0);assert.equal(h.writes.length,0);assert.ok(h.messages.some(x=>/changed|blocked/i.test(x)));});
  test(`${kind} unknown target is warned but not recorded as confirmed overlap`,async()=>{const h=harness(kind,{unknown:true});await h.run();assert.match(h.prompts[0],/not specified|incomplete|check needed|unknown/i);assert.equal(h.writes.find(w=>w.path==='session_change_log/log1').data.override??null,null);});
 }
-test('legacy rejects invalid proposed timing before confirmation',async()=>{const h=harness('legacy',{edit:true});await h.run();assert.equal(h.prompts.length,0);assert.equal(h.writes.length,0);assert.ok(h.messages.some(x=>/valid|time/i.test(x)));});
+test('legacy approval module contains no browser session application and dynamically loaded path is retired',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'..','approval-workflow.js'),'utf8'),access=fs.readFileSync(path.join(__dirname,'..','faculty-access.js'),'utf8');
+ assert.match(source,/Timetable approval application is disabled until the PAWS University API/);
+ assert.doesNotMatch(source,/async function approveRequest\([^)]*\)\{[^}]*batch\.(?:set|update|delete)/);
+ assert.doesNotMatch(access,/approval-workflow\.js/);
+});

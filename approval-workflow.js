@@ -359,36 +359,11 @@ async function hydrateApprovalImpacts(){
   if(!impacted.length)return null;
   return{...approvalScheduling.overrideAudit({uid:user.uid,name:me?.name||'ADFA administrator'},impacted),confirmedAt:stamp()};
  }
- async function approveRequest(id){
-  if(!isApprover())return;
-  const requestSnap=await db.doc(`${REQUESTS}/${id}`).get({source:'server'});
-  if(!requestSnap.exists)return;const r={id:requestSnap.id,...requestSnap.data()};if(r.status!=='pending')return;
-  const ref=db.doc(`${SESSIONS}/${r.sessionId}`),snap=await ref.get({source:'server'});if(!snap.exists)return toast('The session no longer exists. Reject or review this request manually.',true);const current={id:snap.id,...snap.data()};
-  sessions.set(String(current.id),current);
-  let patch={},log={};
-  if(r.requestType==='session_edit'){
-    const fields=(r.changes||[]).map(c=>c.field);if(!validateBase(current,r.base,fields))return toast('This session changed after the request was submitted. Approval is blocked to prevent overwriting newer data.',true);
-    patch={...(r.patch||{})};
-    const timeChanged=['start','end'].some(field=>Object.prototype.hasOwnProperty.call(patch,field)&&patch[field]!==current[field]);
-    const proposed={...current,...patch,timeUnknown:timeChanged?false:current.timeUnknown===true};
-    if(scheduling.validateSessionTiming(proposed).status==='invalid')return toast('Approval blocked: enter a valid date and time interval before resubmitting.',true);
-    if(timeChanged)patch.timeUnknown=false;
-    log={action:'approved_session_edit',changes:r.changes||[]};
-  }else if(r.requestType==='faculty_swap'){
-    if(!validateBase(current,r.base,['course','date','start','end','topic','type','room']))return toast('This session changed after the swap request was submitted. Approval is blocked.',true);
-    const arr=assignedArray(current),fromId=String(r.fromFaculty?.facultyId||''),fromName=norm(r.fromFaculty?.name),idx=arr.findIndex(a=>(fromId&&String(a.ucid||'')===fromId)||(fromName&&norm(a.name)===fromName));if(idx<0)return toast('The outgoing instructor is no longer assigned. Approval is blocked.',true);
-    const incoming={...(arr[idx]||{}),ucid:String(r.toFaculty?.facultyId||''),name:r.toFaculty?.name||'',category:'Faculty',source:'Approved swap request',swappedFrom:{ucid:String(arr[idx]?.ucid||''),name:arr[idx]?.name||''},swappedAt:new Date().toISOString()};arr[idx]=incoming;patch={assignments:arr,instructor:arr.map(a=>a.name).filter(Boolean).join('; ')};log={action:'swap_faculty',fromFaculty:r.fromFaculty||{},toFaculty:r.toFaculty||{},role:incoming.role||current.type||''};
-  }else return;
-  if(patch.assignments)patch.facultyIds=UCVM_DATA_INDEX.sessionFacultyIds({...current,...patch});
-  await ensureApprovalFaculty([r],true);await ensureFacultySessionContext([r],true);
-  const warnings=approvalWarnings(r,current),warningText=warnings.length?`\n\nWARNING — availability/conflict checks:\n- ${warnings.join('\n- ')}`:'',conflictOverride=approvalConflictOverride(r,current);
-  if(conflictOverride){
-    if(!confirm(`TIMETABLE CONFLICT DETECTED${warningText}\n\nOverride and approve despite the timetable conflict(s)? This override will be recorded in the audit log.`))return;
-  }else if(!confirm(`Approve and apply this ${r.requestType==='faculty_swap'?'faculty swap':'session change'} to the live timetable?${warningText}`))return;
-  try{
-    const after={...current,...patch},batch=db.batch(),reqRef=db.doc(`${REQUESTS}/${id}`),logRef=db.collection(LOGS).doc();batch.set(ref,{...patch,updatedBy:user.uid,updatedByName:me?.name||user.email||'',updatedAt:stamp()},{merge:true});batch.set(logRef,{...log,requestId:id,sessionId:r.sessionId,course:current.course||r.course||'',date:ymd(patch.date||current.date),topic:patch.topic||current.topic||'',override:conflictOverride,changedBy:user.uid,changedByName:me?.name||user.email||'',changedByEmail:user.email||'',changedAt:stamp()});batch.update(reqRef,{status:'approved',approvedBy:user.uid,approvedByName:me?.name||user.email||'',approvedAt:stamp(),appliedAt:stamp()});await batch.commit();await window.UCVM_PAGE_DATA?.updateDerivedIndexes?.([{before:current,after}]);toast('Approved and applied to the live timetable.');closeModal();
-  }catch(e){console.error(e);toast(e.message,true)}
+ async function approveRequest(){
+  toast('Timetable approval application is disabled until the PAWS University API handles the canonical session mutation.',true);
+  return false;
  }
+
  async function rejectRequest(id){
   if(!isApprover())return;const reason=prompt('Optional rejection reason:','')??null;if(reason===null)return;try{await db.doc(`${REQUESTS}/${id}`).update({status:'rejected',rejectedBy:user.uid,rejectedByName:me?.name||user.email||'',rejectedAt:stamp(),rejectionReason:String(reason||'').trim()});toast('Request rejected.');closeModal()}catch(e){toast(e.message,true)}
  }

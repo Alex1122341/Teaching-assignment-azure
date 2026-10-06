@@ -1,40 +1,29 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const read=name=>fs.readFileSync(path.join(root,name),'utf8');
 
-const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-
-test('timetable exposes the AFC request panel', () => {
-  assert.match(html, /id="afc-request-btn"/);
-  assert.match(html, /id="afc-panel"/);
-  assert.match(html, /asset-loader\.js/);
-  assert.doesNotMatch(html, /pdf-lib/);
-  assert.match(html, /afc-workflow\.js/);
+test('timetable retains AFC panel navigation and loads the SQL workflow first',()=>{
+ const html=read('index.html');
+ for(const id of ['afc-request-btn','afc-panel'])assert.match(html,new RegExp(`id="${id}"`));
+ assert.ok(html.indexOf('afc-workflow-sql.js')<html.indexOf('afc-workflow.js'));
+ assert.doesNotMatch(html,/afc-actions\.js/);
 });
 
-test('AFC UI collects dates, conditional details, coverage, and electronic signature', () => {
-  const source = fs.readFileSync(path.join(root, 'afc-workflow.js'), 'utf8');
-  for (const field of ['startDate','endDate','reason','purposeDestination','coverage','applicantSignature','UCVM_SIGNATURE']) assert.match(source, new RegExp(field));
-  assert.match(fs.readFileSync(path.join(root, 'afc-actions.js'), 'utf8'), /pdf_chunks/);
+test('Firestore AFC writer modules are absent or fail closed',()=>{
+ const workflow=read('afc-workflow.js'),actions=read('afc-actions.js');
+ assert.match(workflow,/browser Firestore submission is disabled/);
+ assert.doesNotMatch(workflow,/collection\(['"]afc_requests['"]\)/);
+ assert.match(actions,/direct Firestore mutation is disabled/);
+ assert.doesNotMatch(actions,/batch\.(?:set|update|delete)\(/);
 });
 
-test('AFC UI requires contact details for each new request', () => {
-  const source = fs.readFileSync(path.join(root, 'afc-workflow.js'), 'utf8');
-  assert.match(source, /name="contactAddress"[^>]*required[^>]*maxlength="500"/);
-  assert.match(source, /name="contactPhone"[^>]*required[^>]*maxlength="50"/);
-  assert.match(source, /contactAddress=String\(d\.get\('contactAddress'\)\|\|''\)\.trim\(\)/);
-  assert.match(source, /contactPhone=String\(d\.get\('contactPhone'\)\|\|''\)\.trim\(\)/);
-  assert.match(source, /coverage,contactAddress,contactPhone,workDays/);
-});
-
-test('AFC teaching matches render as a vertical sorted list', () => {
-  const source = fs.readFileSync(path.join(root, 'afc-workflow.js'), 'utf8');
-  assert.match(source, /class="afc-teaching-list"/);
-  assert.match(source, /String\(a\.date\|\|''\)\.localeCompare\(String\(b\.date\|\|''\)\)/);
-  assert.match(source, /String\(a\.start\|\|''\)\.localeCompare\(String\(b\.start\|\|''\)\)/);
-  assert.match(source, /String\(a\.course\|\|''\)\.localeCompare\(String\(b\.course\|\|''\)\)/);
-  assert.match(source, /String\(a\.topic\|\|a\.type\|\|''\)\.localeCompare\(String\(b\.topic\|\|b\.type\|\|''\)\)/);
-  assert.doesNotMatch(source, /teaching assignment\(s\) found:.*\.join/);
+test('public read compatibility and authorized signature capture remain separate from AFC writes',()=>{
+ const html=read('index.html'),sql=read('afc-workflow-sql.js'),client=read('paws-data-client.js');
+ assert.match(html,/signature-capture\.js/);
+ assert.match(sql,/listAfcRequests/);
+ assert.match(client,/api\/v1\/afc-requests/);
 });

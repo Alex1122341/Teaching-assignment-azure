@@ -37,19 +37,19 @@ check('ready users can read maintenance system state',async()=>{
  await assertSucceeds(getDoc(doc(env.authenticatedContext('member').firestore(),'settings/system_state')));
 });
 
-check('maintenance lock blocks normal admins and permits only active owner teaching-data recovery writes',async()=>{
+check('maintenance lock does not grant any browser actor canonical business writes',async()=>{
  const {assertFails,assertSucceeds}=require('@firebase/rules-unit-testing'),{doc,setDoc,serverTimestamp}=require('firebase/firestore');
  await seedLocked();
  const regular=env.authenticatedContext('regular').firestore(),general2=env.authenticatedContext('general2').firestore(),general=env.authenticatedContext('general').firestore();
  await assertFails(setDoc(doc(regular,'sessions/s1'),{topic:'blocked',updatedBy:'regular',updatedAt:serverTimestamp()},{merge:true}));
  await assertFails(setDoc(doc(general2,'sessions/s1'),{topic:'blocked',updatedBy:'general2',updatedAt:serverTimestamp()},{merge:true}));
- await assertSucceeds(setDoc(doc(general,'sessions/s1'),{topic:'recovery-preserved'},{merge:true}));
+ await assertFails(setDoc(doc(general,'sessions/s1'),{topic:'recovery-preserved'},{merge:true}));
  await assertFails(setDoc(doc(regular,'faculty/f1'),{facultySummaryStatus2026_27:'blocked',updatedBy:'regular'},{merge:true}));
  await assertFails(setDoc(doc(general2,'faculty/f1'),{facultySummaryStatus2026_27:'blocked',updatedBy:'general2'},{merge:true}));
- await assertSucceeds(setDoc(doc(general,'faculty/f1'),{facultySummaryStatus2026_27:'recovery'},{merge:true}));
+ await assertFails(setDoc(doc(general,'faculty/f1'),{facultySummaryStatus2026_27:'recovery'},{merge:true}));
  await assertFails(setDoc(doc(regular,'settings/faculty_index'),{entries:[]}));
  await assertFails(setDoc(doc(general2,'settings/faculty_index'),{entries:[]}));
- await assertSucceeds(setDoc(doc(general,'settings/faculty_index'),{entries:[]}));
+ await assertFails(setDoc(doc(general,'settings/faculty_index'),{entries:[]}));
 });
 
 check('change-request decisions are blocked for everyone while teaching maintenance is active',async()=>{

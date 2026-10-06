@@ -54,41 +54,37 @@ beforeEach(async()=>{if(!enabled)return;await env.clearFirestore();await seedHea
 
 const generalDb=()=>compatDb(env.authenticatedContext('general').firestore());
 
-check('missing faculty_index is detected, rebuilt, and HEALTHY afterward',async()=>{
+check('missing faculty_index can be diagnosed but browser rebuild is denied',async()=>{
  const {doc,deleteDoc}=require('firebase/firestore');
  await env.withSecurityRulesDisabled(async context=>deleteDoc(doc(context.firestore(),'settings/faculty_index')));
  const beforeReport=await api.verifyDerivedIndexes(generalDb());
  assert.equal(beforeReport.severity,'mismatch');
  assert.ok(beforeReport.mismatches.some(row=>row.document==='faculty_index'&&row.issue==='document-missing'));
- const afterReport=await api.rebuildDerivedIndexes(generalDb(),{uid:'general',name:'General'});
- assert.equal(afterReport.ok,true);
- assert.equal(afterReport.severity,'healthy');
+ await assert.rejects(()=>api.rebuildDerivedIndexes(generalDb(),{uid:'general',name:'General'}));
 });
 
-check('wrong schedule count reports exact values then rebuilds cleanly',async()=>{
+check('wrong schedule count can be diagnosed but browser repair is denied',async()=>{
  const {doc,setDoc}=require('firebase/firestore');
  await env.withSecurityRulesDisabled(async context=>setDoc(doc(context.firestore(),'settings/schedule_stats'),{sessionCount:9,assignedFacultyCount:1,courseCounts:{301:9}}));
  const beforeReport=await api.verifyDerivedIndexes(generalDb());
  assert.equal(beforeReport.severity,'mismatch');
  assert.ok(beforeReport.mismatches.some(row=>row.document==='schedule_stats'&&row.path==='courseCounts.301'&&row.expected===1&&row.actual===9));
- const afterReport=await api.rebuildDerivedIndexes(generalDb(),{uid:'general',name:'General'});
- assert.equal(afterReport.ok,true);
+ await assert.rejects(()=>api.rebuildDerivedIndexes(generalDb(),{uid:'general',name:'General'}));
 });
 
-check('stale public swap display and AFC ranges repair without changing private key',async()=>{
+check('stale public swap display is diagnosed but browser repair is denied',async()=>{
  const {doc,getDoc,setDoc}=require('firebase/firestore');
  const raw=env.authenticatedContext('general').firestore();
  const beforeMap=(await getDoc(doc(raw,'settings/faculty_swap_map'))).data(),stable=beforeMap.entries.find(row=>row.facultyId==='f1').key;
  await env.withSecurityRulesDisabled(async context=>setDoc(doc(context.firestore(),'settings/faculty_swap_index'),{schemaVersion:'ucvm-faculty-swap-index-v1',entries:[{key:stable,name:'Wrong Name',aliases:['Wrong Name'],unavailableRanges:[]}]}));
  const beforeReport=await api.verifyDerivedIndexes(generalDb());
  assert.equal(beforeReport.severity,'mismatch');
- const afterReport=await api.rebuildDerivedIndexes(generalDb(),{uid:'general',name:'General'});
- assert.equal(afterReport.ok,true);
+ await assert.rejects(()=>api.rebuildDerivedIndexes(generalDb(),{uid:'general',name:'General'}));
  const afterMap=(await getDoc(doc(raw,'settings/faculty_swap_map'))).data(),afterKey=afterMap.entries.find(row=>row.facultyId==='f1').key;
  assert.equal(afterKey,stable);
 });
 
-check('new active faculty receives one new opaque key while existing keys stay stable',async()=>{
+check('new Faculty does not permit browser creation of a derived opaque key',async()=>{
  const {doc,getDoc,setDoc}=require('firebase/firestore');
  const raw=env.authenticatedContext('general').firestore();
  const beforeMap=(await getDoc(doc(raw,'settings/faculty_swap_map'))).data();
@@ -97,15 +93,12 @@ check('new active faculty receives one new opaque key while existing keys stay s
  const beforeReport=await api.verifyDerivedIndexes(generalDb());
  assert.equal(beforeReport.severity,'mismatch');
  assert.ok(beforeReport.mismatches.some(row=>row.issue==='missing-new-faculty-key'&&row.path==='faculty.f3'));
- const afterReport=await api.rebuildDerivedIndexes(generalDb(),{uid:'general',name:'General'});
- assert.equal(afterReport.ok,true);
+ await assert.rejects(()=>api.rebuildDerivedIndexes(generalDb(),{uid:'general',name:'General'}));
  const afterMap=(await getDoc(doc(raw,'settings/faculty_swap_map'))).data();
  const f3=afterMap.entries.find(row=>row.facultyId==='f3');
- assert.ok(f3?.key);
+ assert.equal(f3,undefined);
  assert.equal(afterMap.entries.find(row=>row.facultyId==='f1').key,beforeKeys.f1);
  assert.equal(afterMap.entries.find(row=>row.facultyId==='f2').key,beforeKeys.f2);
- assert.notEqual(f3.key,beforeKeys.f1);
- assert.notEqual(f3.key,beforeKeys.f2);
 });
 
 check('duplicate private opaque-key ownership is CRITICAL and rebuild is blocked',async()=>{

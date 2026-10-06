@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const TEST_RUNTIME_IDENTITY = { PAWS_RELEASE_SHA: 'a'.repeat(40), PAWS_RUNTIME_TRUST_ANCHOR: 'b'.repeat(40) };
 const {
   createSqlAfcApprovalRepository,
   RECOMMEND_PROCEDURE,
@@ -130,7 +131,7 @@ test('actual SQL runtime mounts approval actions and rejects anonymous decisions
     PAWS_SQL_DRIVER: 'tedious'
   };
   const runtime = createSwaSqlRuntime({ env, admin: {}, sql: { ConnectionPool: FakePool } });
-  const server = createUniversityHttpServer({ runtime, env: {} });
+  const server = createUniversityHttpServer({ runtime, env: { ...TEST_RUNTIME_IDENTITY } });
   t.after(async () => { await new Promise(resolve => server.close(resolve)); await runtime.close(); });
   const port = await listen(server);
   assert.equal(await post(port, '/api/v1/afc-requests/' + REQUEST_ID + '/recommend'), 401);

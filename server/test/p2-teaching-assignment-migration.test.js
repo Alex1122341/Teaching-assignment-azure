@@ -114,3 +114,10 @@ test('P2 permissions are guarded, transactional, exact-procedure only, and narro
   assert.doesNotMatch(rollback, /DROP\s+TABLE|DROP\s+PROCEDURE/i);
   assert.doesNotMatch(rollback, /DROP\s+ROLE/i);
 });
+
+test('migration 022 safely creates the empty read-role container when absent', () => {
+  const sql = fs.readFileSync(permissionsPath, 'utf8');
+  assert.match(sql, /IF\s+DATABASE_PRINCIPAL_ID\(N'paws_runtime_read'\)[\s\S]*?<>\s*'R'[\s\S]*?THROW\s+52202/i);
+  assert.match(sql, /BEGIN\s+TRANSACTION[\s\S]*DATABASE_PRINCIPAL_ID\(N'paws_runtime_read'\)\s+IS\s+NULL[\s\S]*CREATE ROLE \[paws_runtime_read\][\s\S]*GRANT SELECT[\s\S]*COMMIT\s+TRANSACTION/i);
+  assert.match(sql, /membership remains intentionally unmanaged/i);
+});

@@ -12,9 +12,11 @@ SET XACT_ABORT ON;
 IF DB_NAME() <> N'VetMed-Ops'
     THROW 52200, 'Migration 022 must run in VetMed-Ops.', 1;
 
-IF DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NULL
-   OR (SELECT type FROM sys.database_principals WHERE principal_id = DATABASE_PRINCIPAL_ID(N'paws_runtime_read')) <> 'R'
-   OR OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage', N'FN') IS NULL
+IF DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NOT NULL
+   AND (SELECT type FROM sys.database_principals WHERE principal_id = DATABASE_PRINCIPAL_ID(N'paws_runtime_read')) <> 'R'
+    THROW 52202, 'The paws_runtime_read principal exists but is not a database role.', 1;
+
+IF OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage', N'FN') IS NULL
    OR OBJECT_ID(N'paws_api.SaveTeachingAssignmentDraft', N'P') IS NULL
    OR OBJECT_ID(N'paws_api.AddTeachingAssignmentContribution', N'P') IS NULL
    OR OBJECT_ID(N'paws_api.SubmitTeachingAssignmentRevision', N'P') IS NULL
@@ -48,12 +50,13 @@ IF EXISTS (
     WHERE name IN (N'paws_runtime_ta_draft_write', N'paws_runtime_ta_review_write', N'paws_runtime_ta_final_write', N'paws_runtime_ta_publish_write')
       AND type <> 'R'
 )
-    THROW 52202, 'A P2 permission role name is occupied by a non-role principal.', 1;
+    THROW 52203, 'A P2 permission role name is occupied by a non-role principal.', 1;
 GO
 
 BEGIN TRY
     BEGIN TRANSACTION;
 
+    IF DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NULL EXEC(N'CREATE ROLE [paws_runtime_read] AUTHORIZATION [dbo];');
     IF DATABASE_PRINCIPAL_ID(N'paws_runtime_ta_draft_write') IS NULL EXEC(N'CREATE ROLE [paws_runtime_ta_draft_write] AUTHORIZATION [dbo];');
     IF DATABASE_PRINCIPAL_ID(N'paws_runtime_ta_review_write') IS NULL EXEC(N'CREATE ROLE [paws_runtime_ta_review_write] AUTHORIZATION [dbo];');
     IF DATABASE_PRINCIPAL_ID(N'paws_runtime_ta_final_write') IS NULL EXEC(N'CREATE ROLE [paws_runtime_ta_final_write] AUTHORIZATION [dbo];');
@@ -64,7 +67,7 @@ BEGIN TRY
         JOIN sys.database_principals r ON r.principal_id=m.role_principal_id
         WHERE r.name IN (N'paws_runtime_ta_draft_write', N'paws_runtime_ta_review_write', N'paws_runtime_ta_final_write', N'paws_runtime_ta_publish_write')
     )
-        THROW 52203, 'P2 write roles must be empty before migration; inspect memberships before retrying.', 1;
+        THROW 52204, 'P2 write roles must be empty before migration; inspect memberships before retrying.', 1;
 
     -- Direct repository reads only. Shared Faculty and SessionAssignment
     -- reads remain governed by their existing W1E column grants.

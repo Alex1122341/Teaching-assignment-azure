@@ -1,4 +1,25 @@
-# Current task — P0 W1M runtime attestation + static release governance
+# Current task — P0 W1Q0 Static anonymous auth boundary coverage
+
+**Status:** Governance correction is implemented and hosted CI accepted; PR #58 is open and intentionally unmerged. No deployment or live mutation.
+**Repository:** `Alex1122341/Teaching-assignment-azure`
+**Base:** `main` / `origin/main` `d81c1e9117bfccb2044724ede72036e994a58a35`
+**Branch:** `fix/beta-w1q0-static-auth-boundary`
+**Governance commit:** `6d334d5953f01191a450169c8b796f529c7c6aed`
+**PR:** https://github.com/Alex1122341/Teaching-assignment-azure/pull/58
+**PR head at accepted CI:** `6d334d5953f01191a450169c8b796f529c7c6aed`
+
+- Static deployment workflow checks all nine intended anonymous protected-read routes before and after Static upload, requiring HTTP 401 for each.
+- Regression test compares the exact nine-route set independently on both sides of upload and independently requires each section to enforce 401.
+- `Azure Beta Build` PR run `37491345772`, job `112364580460`, passed on the exact PR head. SQL Migration Tests did not trigger under its path filters. Local root suite: 775 total / 743 pass / 32 skipped / 0 failed; focused workflow suite 7/7; governance suite 55/55.
+- Static freeze 52 / zero drift; API runtime freeze 34 / zero drift; candidate verifier zero drift; product trust anchor remains `06b517dff59a07e802cb8dff09400532fb195fe4`; ACA deploy workflow unchanged.
+- No runtime, API-origin, freeze-authority, ACA, Azure, SQL, Firebase, Firestore, Cloudflare, IIS, or business-data changes. No merge, deployment, API restart, migration, permission change, or write-gate activation.
+- Chronological evidence: `agent.Ai/updates/2026-10-06-1559-paws-w1q0-static-auth-boundary.md`.
+
+**Next:** Architect #6 performs final review. Do not merge PR #58 or deploy Static without a new explicit instruction.
+
+---
+
+# Historical checkpoint — P0 W1M runtime attestation + static release governance
 
 **Status:** Product and separate freeze/governance commits are locally accepted. Exact feature branch push follows continuity update. No PR, merge, or deployment.
 **Repository:** `Alex1122341/Teaching-assignment-azure`

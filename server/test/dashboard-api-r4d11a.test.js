@@ -16,9 +16,9 @@ const request = (url, { method = 'GET' } = {}) => ({
 function harness(profile, overrides = {}) {
   const calls = [];
   const repository = {
-    teachingSummary: async args => { calls.push(['teachingSummary', args]); return [{ facultyId: FACULTY_ID, displayName: 'A', assignedTeachingDoe: 1, roleDoe: 2, recordedDoeTotal: 3, doeComplete: true }]; },
+    teachingSummary: async args => { calls.push(['teachingSummary', args]); return [{ facultyId: FACULTY_ID, displayName: 'A', assignedTeachingDoe: 1, roleDoe: 2, recordedDoeTotal: 3, effectiveDoeTotal: 3, doeComplete: true }]; },
     roles: async args => { calls.push(['roles', args]); return [{ facultyId: FACULTY_ID, roleType: 'VISC', doeMappedValue: 1, doeOverrideValue: null }]; },
-    doeOverview: async args => { calls.push(['doeOverview', args]); return { academicYear: '2026-27', recordedDoeTotal: 3, partial: false }; },
+    doeOverview: async args => { calls.push(['doeOverview', args]); return { academicYear: '2026-27', recordedDoeTotal: 3, effectiveDoeTotal: 3, partial: false }; },
     ...overrides.repository
   };
   const api = createDashboardApi({
@@ -39,6 +39,7 @@ test('admin aggregate routes return read-only DTOs and bind academic year', asyn
   const doe = await app(request('/api/v1/dashboard/doe-overview?academicYear=2026-27'));
   assert.equal(summary.status, 200);
   assert.equal(summary.jsonBody.teachingSummary[0].recordedDoeTotal, 3);
+  assert.equal(summary.jsonBody.teachingSummary[0].effectiveDoeTotal, 3);
   assert.equal(roles.status, 200);
   assert.equal(roles.jsonBody.roles[0].roleType, 'VISC');
   assert.equal(doe.status, 200);
@@ -71,12 +72,12 @@ test('non-GET aggregate requests are rejected with Allow GET', async () => {
   }
 });
 
-test('repository teaching summary uses server-side aggregation without detail fanout', async () => {
+test('repository teaching summary uses one aggregate plus bounded DOE-gap evidence queries without detail fanout', async () => {
   const queries = [];
   const repository = createSqlDashboardRepository({ query: async (sql, params) => { queries.push({ sql, params }); return []; } });
   const rows = await repository.teachingSummary({ academicYear: '2026-27' });
   assert.deepEqual(rows, []);
-  assert.equal(queries.length, 1);
+  assert.equal(queries.length, 3);
   assert.equal(queries[0].params.academicYear, '2026-27');
   assert.equal(queries[0].params.doeNa0, 'Quiz/Midterm');
   assert.equal(queries[0].params.doeNa1, 'OSCE');
@@ -84,6 +85,68 @@ test('repository teaching summary uses server-side aggregation without detail fa
   assert.match(queries[0].sql, /GROUP BY/i);
   assert.match(queries[0].sql, /DoeCredit/i);
   assert.match(queries[0].sql, /RoleAssignment/i);
+  assert.match(queries[1].sql, /sa\.DoeCredit IS NULL/i);
+  assert.match(queries[1].sql, /NOT IN \(@doeNa0, @doeNa1\)/i);
+  assert.match(queries[2].sql, /r\.DoeMappedValue IS NULL/i);
+  assert.match(queries[2].sql, /r\.DoeOverrideValue IS NULL/i);
+});
+
+test('repository teaching summary fills deterministic DOE gaps without changing recorded audit totals', async () => {
+  const repository = createSqlDashboardRepository({ query: async sql => {
+    if (/WITH teaching AS/.test(sql)) return [{
+      facultyId: FACULTY_ID,
+      displayName: 'A',
+      assignedTeachingDoe: 1,
+      roleDoe: 2,
+      recordedDoeTotal: 3,
+      teachingLineCount: 2,
+      teachingRecordedCount: 1,
+      teachingMissingCount: 1,
+      teachingNotApplicableCount: 0,
+      roleLineCount: 2,
+      roleRecordedCount: 1,
+      roleMissingCount: 1,
+      doeComplete: 0,
+      year1Assignments: 2,
+      year2Assignments: 0,
+      year3Assignments: 0,
+      year4Assignments: 0,
+      creditedHours: 3,
+      courseCount: 1,
+      sessionCount: 2
+    }];
+    if (/sa\.DoeCredit IS NULL/.test(sql)) return [{
+      facultyId: FACULTY_ID,
+      sessionType: 'LEC',
+      teachingRole: 'Lecture',
+      creditedHours: 2,
+      doeQuantity: null,
+      doeCredit: null
+    }];
+    if (/r\.DoeMappedValue IS NULL/.test(sql)) return [{
+      facultyId: FACULTY_ID,
+      academicYear: '2026-27',
+      roleType: 'VISC',
+      courseOrSubjectOrRotation: 'Subject A',
+      doeMappedValue: null,
+      doeOverrideValue: null
+    }];
+    return [];
+  } });
+  const [row] = await repository.teachingSummary({ academicYear: '2026-27' });
+  assert.equal(row.recordedTeachingDoe, 1);
+  assert.equal(row.assignedTeachingDoe, 1.6);
+  assert.equal(row.teachingCalculatedCount, 1);
+  assert.equal(row.teachingResolvedCount, 2);
+  assert.equal(row.teachingMissingCount, 0);
+  assert.equal(row.recordedRoleDoe, 2);
+  assert.equal(row.roleDoe, 7);
+  assert.equal(row.roleCalculatedCount, 1);
+  assert.equal(row.roleResolvedCount, 2);
+  assert.equal(row.roleMissingCount, 0);
+  assert.equal(row.recordedDoeTotal, 3);
+  assert.equal(row.effectiveDoeTotal, 8.6);
+  assert.equal(row.doeComplete, true);
 });
 
 test('repository effective role DOE preserves zero and negative overrides', async () => {
@@ -133,32 +196,75 @@ test('repository exposes full-year legacy HICC/course-coordinator candidates wit
   assert.equal(roles[0].doeCourseUnits, 3);
 });
 
-test('repository DOE overview returns empty-safe values for null DOE lines', async () => {
-  const repository = createSqlDashboardRepository({ query: async () => [{
-    teachingLineCount: 2, teachingMissingCount: 1, teachingDoe: 0,
-    teachingRecordedCount: 1,
-    roleLineCount: 1, roleMissingCount: 1, roleDoe: null, roleRecordedCount: 0,
-    overrideCount: 1, overrideZeroCount: 1, overrideNegativeCount: 0
-  }] });
+test('repository DOE overview keeps unresolved calculator gaps explicit', async () => {
+  const repository = createSqlDashboardRepository({ query: async sql => {
+    if (/AS teachingLineCount/.test(sql)) return [{
+      teachingLineCount: 2, teachingMissingCount: 1, teachingNotApplicableCount: 0, teachingDoe: 0, teachingRecordedCount: 1,
+      roleLineCount: 1, roleMissingCount: 1, roleDoe: null, roleRecordedCount: 0,
+      overrideCount: 1, overrideZeroCount: 1, overrideNegativeCount: 0
+    }];
+    if (/AS activeFacultyCount/.test(sql)) return [{ activeFacultyCount: 0, teachingTargetCount: 0 }];
+    if (/FROM paws\.DoeFacultyAllocation/.test(sql)) return [];
+    if (/sa\.DoeCredit IS NULL/.test(sql)) return [{ facultyId: FACULTY_ID, sessionType: 'LEC', teachingRole: null, creditedHours: 1, doeQuantity: null }];
+    if (/r\.DoeMappedValue IS NULL/.test(sql)) return [{ facultyId: FACULTY_ID, academicYear: '2026-27', roleType: 'CCC', courseOrSubjectOrRotation: 'CCC shifts' }];
+    return [];
+  } });
   const overview = await repository.doeOverview({ academicYear: '2026-27' });
   assert.equal(overview.partial, true);
   assert.equal(overview.teachingDoe, 0);
   assert.equal(overview.roleDoe, null);
   assert.equal(overview.recordedDoeTotal, 0);
+  assert.equal(overview.effectiveDoeTotal, 0);
+  assert.equal(overview.teachingCalculatedCount, 0);
+  assert.equal(overview.roleCalculatedCount, 0);
+  assert.equal(overview.teachingMissingCount, 1);
+  assert.equal(overview.roleMissingCount, 1);
   assert.equal(overview.overrideZeroCount, 1);
 });
 
-test('repository DOE overview preserves legitimate zero when no lines exist', async () => {
-  const repository = createSqlDashboardRepository({ query: async () => [{
-    teachingLineCount: 0, teachingRecordedCount: 0, teachingMissingCount: 0, teachingDoe: null,
-    roleLineCount: 0, roleRecordedCount: 0, roleMissingCount: 0, roleDoe: null,
-    overrideCount: 0, overrideZeroCount: 0, overrideNegativeCount: 0
-  }] });
+test('repository DOE overview preserves legitimate zero when no DOE lines exist', async () => {
+  const repository = createSqlDashboardRepository({ query: async sql => {
+    if (/AS teachingLineCount/.test(sql)) return [{
+      teachingLineCount: 0, teachingRecordedCount: 0, teachingMissingCount: 0, teachingNotApplicableCount: 0, teachingDoe: null,
+      roleLineCount: 0, roleRecordedCount: 0, roleMissingCount: 0, roleDoe: null,
+      overrideCount: 0, overrideZeroCount: 0, overrideNegativeCount: 0
+    }];
+    if (/AS activeFacultyCount/.test(sql)) return [{ activeFacultyCount: 0, teachingTargetCount: 0 }];
+    return [];
+  } });
   const overview = await repository.doeOverview({ academicYear: '2026-27' });
   assert.equal(overview.teachingDoe, 0);
   assert.equal(overview.roleDoe, 0);
   assert.equal(overview.recordedDoeTotal, 0);
+  assert.equal(overview.effectiveDoeTotal, 0);
   assert.equal(overview.doeStatus, 'none');
+});
+
+test('repository DOE overview fills deterministic teaching and role gaps through the shared calculator', async () => {
+  const repository = createSqlDashboardRepository({ query: async sql => {
+    if (/AS teachingLineCount/.test(sql)) return [{
+      teachingLineCount: 1, teachingRecordedCount: 0, teachingMissingCount: 1, teachingNotApplicableCount: 0, teachingDoe: null,
+      roleLineCount: 1, roleRecordedCount: 0, roleMissingCount: 1, roleDoe: null,
+      overrideCount: 0, overrideZeroCount: 0, overrideNegativeCount: 0
+    }];
+    if (/AS activeFacultyCount/.test(sql)) return [{ activeFacultyCount: 1, teachingTargetCount: 0 }];
+    if (/sa\.DoeCredit IS NULL/.test(sql)) return [{ facultyId: FACULTY_ID, sessionType: 'LEC', teachingRole: 'Lecture', creditedHours: 2, doeQuantity: null }];
+    if (/r\.DoeMappedValue IS NULL/.test(sql)) return [{ facultyId: FACULTY_ID, academicYear: '2026-27', roleType: 'VISC', courseOrSubjectOrRotation: 'Subject A' }];
+    return [];
+  } });
+  const overview = await repository.doeOverview({ academicYear: '2026-27' });
+  assert.equal(overview.recordedDoeTotal, null);
+  assert.equal(overview.teachingDoe, 0.6);
+  assert.equal(overview.roleDoe, 5);
+  assert.equal(overview.effectiveDoeTotal, 5.6);
+  assert.equal(overview.teachingCalculatedCount, 1);
+  assert.equal(overview.roleCalculatedCount, 1);
+  assert.equal(overview.teachingResolvedCount, 1);
+  assert.equal(overview.roleResolvedCount, 1);
+  assert.equal(overview.teachingMissingCount, 0);
+  assert.equal(overview.roleMissingCount, 0);
+  assert.equal(overview.partial, false);
+  assert.equal(overview.doeStatus, 'complete');
 });
 
 test('DOE overview keeps contract target coverage separate from assigned teaching and role DOE', async () => {
@@ -190,4 +296,7 @@ test('DOE overview keeps contract target coverage separate from assigned teachin
   assert.equal(result.teachingNotApplicableCount, 91);
   assert.equal(result.roleMissingCount, 78);
   assert.equal(result.recordedDoeTotal, 12);
+  assert.equal(result.effectiveDoeTotal, 12);
+  assert.equal(result.teachingCalculatedCount, 0);
+  assert.equal(result.roleCalculatedCount, 0);
 });

@@ -109,6 +109,30 @@ test('repository role calculator fills deterministic VISC gaps but leaves CCC wi
   assert.equal(roles[1].doeReviewReason, 'ccc-shift-count-required');
 });
 
+test('repository exposes full-year legacy HICC/course-coordinator candidates without choosing a role', async () => {
+  const repository = createSqlDashboardRepository({ query: async () => [{
+    roleAssignmentId: 1,
+    facultyId: FACULTY_ID,
+    displayName: 'A',
+    academicYear: '2026-27',
+    roleType: 'Course Coordinator / HICC (legacy ambiguous)',
+    courseOrSubjectOrRotation: 'VTMD 420: Sick Animals-Integument, MSK',
+    doeMappedValue: null,
+    doeOverrideValue: null
+  }] });
+  const roles = await repository.roles({ academicYear: '2026-27' });
+  assert.equal(roles[0].effectiveDoe, null);
+  assert.equal(roles[0].doeReviewReason, 'legacy-course-coordinator-hicc-role-must-be-resolved');
+  assert.deepEqual(roles[0].doeCandidates, {
+    courseCoordinatorDoe: 3.5,
+    courseCoordinatorRuleCode: 'course_coordination_3_5',
+    hiccDoe: 6,
+    hiccRuleCode: 'hicc_curriculum_development'
+  });
+  assert.equal(roles[0].doeCandidateBasis, 'full-year-reference-before-proration');
+  assert.equal(roles[0].doeCourseUnits, 3);
+});
+
 test('repository DOE overview returns empty-safe values for null DOE lines', async () => {
   const repository = createSqlDashboardRepository({ query: async () => [{
     teachingLineCount: 2, teachingMissingCount: 1, teachingDoe: 0,

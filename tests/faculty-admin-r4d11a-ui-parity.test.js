@@ -77,3 +77,15 @@ test('11A2 aggregate faculty names navigate to cached Lookup detail without fano
   assert.doesNotMatch(source, /dashboardFacultyById\(row\.facultyId\)/);
 });
 
+
+test('aggregate DOE UI labels effective totals and calculator provenance explicitly', () => {
+  assert.match(html, /Effective DOE Total/);
+  assert.doesNotMatch(html, />Recorded DOE Total</);
+  assert.match(html, /deterministic DOE Calculator fallback/);
+  assert.match(html, /Calculated DOE/);
+  assert.match(html, /DOE Source/);
+  assert.match(source, /effectiveDoeTotal/);
+  assert.match(source, /teachingCalculatedCount/);
+  assert.match(source, /roleCalculatedCount/);
+  assert.match(source, /recorded \+ .*calculated/);
+});

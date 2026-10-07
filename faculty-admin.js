@@ -192,9 +192,9 @@
 
   async function loadRoles() {
     if (aggregateCache.roles) { renderRoles(); return; }
-    const body = $('roles-body'); if (body) body.innerHTML = '<tr><td colspan="11" class="empty">Loading roles…</td></tr>';
+    const body = $('roles-body'); if (body) body.innerHTML = '<tr><td colspan="14" class="empty">Loading roles…</td></tr>';
     try { aggregateCache.roles = await UCVM_PAWS_DATA.dashboardRoles(); fillRoleFilter(); renderRoles(); }
-    catch (error) { if (body) body.innerHTML = `<tr><td colspan="11" class="empty">${esc(detailFailureMessage(error))}</td></tr>`; }
+    catch (error) { if (body) body.innerHTML = `<tr><td colspan="14" class="empty">${esc(detailFailureMessage(error))}</td></tr>`; }
   }
 
   async function loadDoeOverview() {
@@ -326,7 +326,7 @@
   function renderRoles() {
     const body = $('roles-body'); if (!body) return; const query = norm($('roles-search')?.value), type = $('role-type-filter')?.value || '';
     const rows = (aggregateCache.roles || []).filter(row => (!query || norm(`${row.displayName} ${row.roleType} ${row.courseOrSubjectOrRotation} ${row.courseName}`).includes(query)) && (!type || row.roleType === type));
-    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)}</button></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.details || '—')}</td><td>${esc(row.effectiveDate || '—')}</td><td>${esc(row.expirationDate || '—')}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="12" class="empty">No role assignments.</td></tr>';
+    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)}</button></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.details || '—')}</td><td>${esc(row.effectiveDate || '—')}</td><td>${esc(row.expirationDate || '—')}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.calculated)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(doe.source || row.doeSource || (doe.effective === null ? 'missing' : 'stored'))}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="14" class="empty">No role assignments.</td></tr>';
     document.querySelectorAll('[data-summary-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.summaryPerson)));
   }
 

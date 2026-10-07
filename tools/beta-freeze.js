@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// P2 is the reviewed teaching-assignment workflow product anchor.
-// P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='e37981f35a3b9954b7b69e98e38fcf69262ec185';
+// P3 is the reviewed canonical Faculty-management product anchor.
+// P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='6b257fb5e3d8fe9443dd27d5103242656a50daa9';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

@@ -1,6 +1,7 @@
 'use strict';
 
 const { DOE_RULES } = require('./doe-rule-book');
+const { courseEvidence } = require('./doe-course-catalog-2026-27');
 
 const CALCULATOR_SOURCE = 'Teaching Assignments 2026-27 MASTER.xlsx · DOE Calculator';
 const CALCULATOR_VERSION = '2026-27-v1';
@@ -177,10 +178,24 @@ function calculateCourseCoordinatorDoe(courseUnits) {
   };
 }
 
-function calculateHiccDoe(courseUnits, { developmentApplicable = true } = {}) {
-  if (developmentApplicable !== true) return review('hicc-development-not-applicable', { ...ruleMeta('hicc_curriculum_development') });
+function calculateHiccDoe(courseUnits, { developmentApplicable = null } = {}) {
+  if (developmentApplicable === null || developmentApplicable === undefined) {
+    return review('hicc-development-applicability-required', { ...ruleMeta('hicc_curriculum_development') });
+  }
   const units = nonNegative(courseUnits);
   if (units === null) return review('course-units-required', { rate: 2, unit: 'course unit', ...ruleMeta('hicc_curriculum_development') });
+  if (developmentApplicable === false) {
+    return {
+      applicable: false,
+      calculatedDoe: 0,
+      rate: 0,
+      quantity: units,
+      unit: 'course unit',
+      status: 'not-applicable',
+      reviewReason: null,
+      ...ruleMeta('hicc_curriculum_development')
+    };
+  }
   return {
     applicable: true,
     calculatedDoe: fixed(units * 2),
@@ -316,13 +331,21 @@ function calculateTraineeReserveReference({ teachingDoe, teachingFocused = false
 function calculateRoleRule(role = {}, inputs = {}) {
   const roleType = text(role.roleType);
   const academicYear = text(role.academicYear || inputs.academicYear);
+  const course = text(role.courseOrSubjectOrRotation || role.courseName);
+  const catalog = academicYear === '2026-27' && course ? courseEvidence(course) : null;
+  const courseUnits = inputs.courseUnits ?? role.courseUnits ?? catalog?.courseUnits ?? null;
+  const hiccDevelopmentApplicable = inputs.developmentApplicable
+    ?? role.developmentApplicable
+    ?? catalog?.hiccDevelopmentApplicable
+    ?? null;
+
   switch (roleType) {
     case 'VISC': {
-      const inferredOneSubject = text(role.courseOrSubjectOrRotation) ? 1 : null;
+      const inferredOneSubject = course ? 1 : null;
       return calculateViscDoe(academicYear, inputs.subjectCount ?? role.subjectCount ?? inferredOneSubject);
     }
     case 'Designated Rotation Coordinator': {
-      const inferredOneType = text(role.courseOrSubjectOrRotation) ? 1 : null;
+      const inferredOneType = course ? 1 : null;
       return calculateRotationCoordinationDoe(inputs.uniqueRotationTypes ?? role.uniqueRotationTypes ?? inferredOneType);
     }
     case 'Rotation Participant':
@@ -330,16 +353,32 @@ function calculateRoleRule(role = {}, inputs = {}) {
     case 'CCC':
       return calculateCccDoe(inputs.shiftCount ?? role.shiftCount);
     case 'Course Coordinator':
-      return calculateCourseCoordinatorDoe(inputs.courseUnits ?? role.courseUnits);
+      return { ...calculateCourseCoordinatorDoe(courseUnits), courseUnits, courseEvidenceSource: catalog?.source || null };
     case 'HICC':
-      return calculateHiccDoe(inputs.courseUnits ?? role.courseUnits, {
-        developmentApplicable: inputs.developmentApplicable ?? role.developmentApplicable ?? true
-      });
-    case 'Course Coordinator / HICC (legacy ambiguous)':
+      return {
+        ...calculateHiccDoe(courseUnits, { developmentApplicable: hiccDevelopmentApplicable }),
+        courseUnits,
+        hiccDevelopmentApplicable,
+        courseEvidenceSource: catalog?.source || null
+      };
+    case 'Course Coordinator / HICC (legacy ambiguous)': {
+      const cc = calculateCourseCoordinatorDoe(courseUnits);
+      const hicc = calculateHiccDoe(courseUnits, { developmentApplicable: hiccDevelopmentApplicable });
       return review('legacy-course-coordinator-hicc-role-must-be-resolved', {
+        courseUnits,
+        hiccDevelopmentApplicable,
+        candidates: {
+          courseCoordinatorDoe: cc.calculatedDoe,
+          courseCoordinatorRuleCode: cc.ruleCode || null,
+          hiccDoe: hicc.calculatedDoe,
+          hiccRuleCode: hicc.ruleCode || null
+        },
+        candidateBasis: 'full-year-reference-before-proration',
+        courseEvidenceSource: catalog?.source || null,
         calculatorSource: CALCULATOR_SOURCE,
         calculatorVersion: CALCULATOR_VERSION
       });
+    }
     default:
       return review('role-type-not-covered-by-calculator', {
         roleType: roleType || null,

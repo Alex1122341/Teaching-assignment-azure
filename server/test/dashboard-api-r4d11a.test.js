@@ -78,6 +78,9 @@ test('repository teaching summary uses server-side aggregation without detail fa
   assert.deepEqual(rows, []);
   assert.equal(queries.length, 1);
   assert.equal(queries[0].params.academicYear, '2026-27');
+  assert.equal(queries[0].params.doeNa0, 'Quiz/Midterm');
+  assert.equal(queries[0].params.doeNa1, 'OSCE');
+  assert.match(queries[0].sql, /SessionType[\s\S]*NOT IN \(@doeNa0, @doeNa1\)/i);
   assert.match(queries[0].sql, /GROUP BY/i);
   assert.match(queries[0].sql, /DoeCredit/i);
   assert.match(queries[0].sql, /RoleAssignment/i);
@@ -91,6 +94,19 @@ test('repository effective role DOE preserves zero and negative overrides', asyn
   const roles = await repository.roles({ academicYear: '2026-27' });
   assert.equal(roles[0].effectiveDoe, 0);
   assert.equal(roles[1].effectiveDoe, -0.5);
+});
+
+test('repository role calculator fills deterministic VISC gaps but leaves CCC without shifts unresolved', async () => {
+  const repository = createSqlDashboardRepository({ query: async () => [
+    { roleAssignmentId: 1, facultyId: FACULTY_ID, displayName: 'A', academicYear: '2026-27', roleType: 'VISC', courseOrSubjectOrRotation: 'Subject A', doeMappedValue: null, doeOverrideValue: null },
+    { roleAssignmentId: 2, facultyId: FACULTY_ID, displayName: 'A', academicYear: '2026-27', roleType: 'CCC', courseOrSubjectOrRotation: 'CCC shifts', doeMappedValue: null, doeOverrideValue: null }
+  ] });
+  const roles = await repository.roles({ academicYear: '2026-27' });
+  assert.equal(roles[0].effectiveDoe, 5);
+  assert.equal(roles[0].doeSource, 'calculator');
+  assert.equal(roles[0].doeRuleCode, 'visc_2026_27');
+  assert.equal(roles[1].effectiveDoe, null);
+  assert.equal(roles[1].doeReviewReason, 'ccc-shift-count-required');
 });
 
 test('repository DOE overview returns empty-safe values for null DOE lines', async () => {
@@ -124,7 +140,7 @@ test('repository DOE overview preserves legitimate zero when no lines exist', as
 test('DOE overview keeps contract target coverage separate from assigned teaching and role DOE', async () => {
   const repository = createSqlDashboardRepository({ query: async sql => {
     if (/AS teachingLineCount/.test(sql)) return [{
-      teachingLineCount: 4970, teachingMissingCount: 91, teachingDoe: 0, teachingRecordedCount: 4879,
+      teachingLineCount: 4879, teachingMissingCount: 0, teachingNotApplicableCount: 91, teachingDoe: 0, teachingRecordedCount: 4879,
       roleLineCount: 162, roleMissingCount: 78, roleDoe: 12, roleRecordedCount: 84,
       overrideCount: 0, overrideZeroCount: 0, overrideNegativeCount: 0
     }];
@@ -146,7 +162,8 @@ test('DOE overview keeps contract target coverage separate from assigned teachin
       { categoryCode: 'service_admin', allocationRowCount: 111, facultyCount: 111 }
     ]
   });
-  assert.equal(result.teachingMissingCount, 91);
+  assert.equal(result.teachingMissingCount, 0);
+  assert.equal(result.teachingNotApplicableCount, 91);
   assert.equal(result.roleMissingCount, 78);
   assert.equal(result.recordedDoeTotal, 12);
 });

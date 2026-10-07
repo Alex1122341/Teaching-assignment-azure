@@ -58,7 +58,8 @@
         'rotation-type-count-required': 'Rotation type count required',
         'visc-subject-count-required': 'VISC subject count required',
         'visc-year-not-covered-by-calculator': 'VISC academic year not covered',
-        'role-type-not-covered-by-calculator': 'Role type not covered by Calculator'
+        'role-type-not-covered-by-calculator': 'Role type not covered by Calculator',
+        'role-date-proration-review-required': 'Role dates require case-by-case DOE proration review'
       };
       return labels[reason] || reason || '—';
     }

@@ -656,7 +656,12 @@ function createSqlDashboardRepository(db) {
           doeReviewReason: doe.reviewReason,
           doeRuleCode: doe.ruleCode || null,
           doeCalculatorSource: doe.calculatorSource || null,
-          doeSource: doe.source || null
+          doeSource: doe.source,
+          doeCandidates: doe.candidates || null,
+          doeCandidateBasis: doe.candidateBasis || null,
+          doeCourseUnits: doe.courseUnits ?? null,
+          doeHiccDevelopmentApplicable: doe.hiccDevelopmentApplicable ?? null,
+          doeCourseEvidenceSource: doe.courseEvidenceSource || null || null
         };
       });
 
@@ -957,7 +962,12 @@ function createSqlDashboardRepository(db) {
           doeReviewReason: doe.reviewReason,
           doeRuleCode: doe.ruleCode || null,
           doeCalculatorSource: doe.calculatorSource || null,
-          doeSource: doe.source
+          doeSource: doe.source,
+          doeCandidates: doe.candidates || null,
+          doeCandidateBasis: doe.candidateBasis || null,
+          doeCourseUnits: doe.courseUnits ?? null,
+          doeHiccDevelopmentApplicable: doe.hiccDevelopmentApplicable ?? null,
+          doeCourseEvidenceSource: doe.courseEvidenceSource || null
         };
       });
     },

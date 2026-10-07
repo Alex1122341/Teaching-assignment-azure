@@ -126,3 +126,50 @@ test('CCC without confirmed shift count remains an explicit review case', () => 
   assert.equal(ccc.reviewReason, 'ccc-shift-count-required');
   assert.match(CALCULATOR_SOURCE, /DOE Calculator/);
 });
+
+test('dated annual roles keep proration case by case and do not false-mismatch stored values', () => {
+  const unresolved = resolveRoleDoe({
+    roleType: 'Course Coordinator',
+    academicYear: '2026-27',
+    courseOrSubjectOrRotation: 'VTMD 420: Sick Animals-Integument, MSK',
+    effectiveDate: '2026-09-01',
+    expirationDate: '2027-03-01',
+    doeMappedValue: null,
+    doeOverrideValue: null
+  });
+  assert.equal(unresolved.calculatedDoe, 3.5);
+  assert.equal(unresolved.effectiveDoe, null);
+  assert.equal(unresolved.source, 'missing');
+  assert.equal(unresolved.reviewReason, 'role-date-proration-review-required');
+  assert.equal(unresolved.prorationReview, true);
+  assert.equal(unresolved.candidateBasis, 'full-year-reference-before-proration');
+
+  const storedProrated = resolveRoleDoe({
+    roleType: 'HICC',
+    academicYear: '2026-27',
+    courseOrSubjectOrRotation: 'VTMD 420: Sick Animals-Integument, MSK',
+    effectiveDate: '2026-09-01',
+    expirationDate: '2027-03-01',
+    doeMappedValue: 3,
+    doeOverrideValue: null
+  });
+  assert.equal(storedProrated.calculatedDoe, 6);
+  assert.equal(storedProrated.effectiveDoe, 3);
+  assert.equal(storedProrated.source, 'mapped');
+  assert.equal(storedProrated.status, 'mapped');
+  assert.equal(storedProrated.reviewReason, null);
+  assert.equal(storedProrated.requiresReview, false);
+
+  const datedYear1Zero = resolveRoleDoe({
+    roleType: 'HICC',
+    academicYear: '2026-27',
+    courseOrSubjectOrRotation: 'VTMD 211: Practical Work Experience 1',
+    effectiveDate: '2026-09-01',
+    expirationDate: '2027-03-01',
+    doeMappedValue: null,
+    doeOverrideValue: null
+  });
+  assert.equal(datedYear1Zero.calculatedDoe, 0);
+  assert.equal(datedYear1Zero.effectiveDoe, 0);
+  assert.equal(datedYear1Zero.prorationReview, false);
+});

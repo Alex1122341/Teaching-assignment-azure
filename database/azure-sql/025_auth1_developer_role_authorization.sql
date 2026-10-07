@@ -62,7 +62,8 @@ BEGIN TRY
 
     DECLARE @ObjectName sysname, @Existing nvarchar(500), @Developer nvarchar(500),
             @ObjectId int, @Definition nvarchar(max), @ExistingCount int,
-            @DeveloperCount int, @AnsiNulls bit, @QuotedIdentifier bit;
+            @DeveloperCount int, @AnsiNulls bit, @QuotedIdentifier bit,
+            @Header nvarchar(200), @CreatePosition int;
     DECLARE role_policy CURSOR LOCAL FAST_FORWARD FOR
         SELECT ObjectName, ExistingPredicate, DeveloperPredicate FROM @Targets ORDER BY ObjectName;
     OPEN role_policy;
@@ -91,16 +92,21 @@ BEGIN TRY
             THROW 52505, 'An AUTH-1 SQL authorization predicate differs from its reviewed baseline.', 1;
 
         SET @Definition = REPLACE(@Definition, @Existing, @Developer);
-        IF LEFT(LTRIM(@Definition), 16) = N'CREATE PROCEDURE'
-            SET @Definition = STUFF(@Definition, CHARINDEX(N'CREATE PROCEDURE', @Definition), 16, N'ALTER PROCEDURE');
-        ELSE IF LEFT(LTRIM(@Definition), 15) = N'CREATE FUNCTION'
-            SET @Definition = STUFF(@Definition, CHARINDEX(N'CREATE FUNCTION', @Definition), 15, N'ALTER FUNCTION');
-        ELSE IF LEFT(LTRIM(@Definition), 25) = N'CREATE OR ALTER PROCEDURE'
-            SET @Definition = STUFF(@Definition, CHARINDEX(N'CREATE OR ALTER PROCEDURE', @Definition), 25, N'ALTER PROCEDURE');
-        ELSE IF LEFT(LTRIM(@Definition), 24) = N'CREATE OR ALTER FUNCTION'
-            SET @Definition = STUFF(@Definition, CHARINDEX(N'CREATE OR ALTER FUNCTION', @Definition), 24, N'ALTER FUNCTION');
-        ELSE IF LEFT(LTRIM(@Definition), 15) <> N'ALTER PROCEDURE'
-            AND LEFT(LTRIM(@Definition), 14) <> N'ALTER FUNCTION'
+        SET @Header = UPPER(LTRIM(REPLACE(REPLACE(REPLACE(LEFT(@Definition, 200), CHAR(9), N' '), CHAR(10), N' '), CHAR(13), N' ')));
+        WHILE CHARINDEX(N'  ', @Header) > 0
+            SET @Header = REPLACE(@Header, N'  ', N' ');
+        SET @CreatePosition = CHARINDEX(N'CREATE', UPPER(@Definition));
+
+        IF LEFT(@Header, 16) = N'CREATE PROCEDURE'
+            SET @Definition = STUFF(@Definition, @CreatePosition, 6, N'ALTER');
+        ELSE IF LEFT(@Header, 15) = N'CREATE FUNCTION'
+            SET @Definition = STUFF(@Definition, @CreatePosition, 6, N'ALTER');
+        ELSE IF LEFT(@Header, 25) = N'CREATE OR ALTER PROCEDURE'
+            SET @Definition = STUFF(@Definition, @CreatePosition, 15, N'ALTER');
+        ELSE IF LEFT(@Header, 24) = N'CREATE OR ALTER FUNCTION'
+            SET @Definition = STUFF(@Definition, @CreatePosition, 15, N'ALTER');
+        ELSE IF LEFT(@Header, 15) <> N'ALTER PROCEDURE'
+            AND LEFT(@Header, 14) <> N'ALTER FUNCTION'
             THROW 52506, 'An AUTH-1 module does not use a supported CREATE definition.', 1;
 
         IF @AnsiNulls = 1 EXEC (N'SET ANSI_NULLS ON;'); ELSE EXEC (N'SET ANSI_NULLS OFF;');

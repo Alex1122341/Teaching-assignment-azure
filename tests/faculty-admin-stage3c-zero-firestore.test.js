@@ -460,9 +460,9 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
 test('92 / 94 / 96. the controller stays bounded with contract DOE detail and overview', () => {
   const bytes = fs.statSync(path.join(root, 'faculty-admin.js')).size;
   const named = [...ADMIN_SOURCE.matchAll(/function ([A-Za-z0-9_$]+)\(/g)].length;
-  // The released controller now includes the separately scoped Contract DOE
-  // read surface; keep the existing bound while allowing that reviewed UI.
-  assert.ok(bytes < 54000, `controller must remain bounded after P4 policy-tab integration (actual ${bytes})`);
+  // The combined accepted DOE Calculator and P4 policy-tab integrations add
+  // reviewed controller wiring while keeping the controller under 55 KB.
+  assert.ok(bytes < 55000, `controller must remain bounded after P4 policy-tab integration (actual ${bytes})`);
   assert.match(ADMIN_SOURCE, /function renderTeachingSummary\(/);
   assert.match(ADMIN_SOURCE, /function renderRoles\(/);
   assert.match(ADMIN_SOURCE, /function renderDoeOverview\(/);

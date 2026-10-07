@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// DOE Calculator is current. AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
+// Integrated P4 is current. DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='1fd064b0a1b2367cb2d3a58d71d6c8856fb1c74a';
+const BASELINE_COMMIT='d62f5406ce1f89813bf928611e551e864ae165fc';
+const DOE_CALCULATOR_BASELINE_COMMIT='1fd064b0a1b2367cb2d3a58d71d6c8856fb1c74a';
 const AUTH1_PRODUCT_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';
 const P3_PRODUCT_COMMIT='d6b433f3b7f5bb62400deedba537e47b970b34d2';
 const P1_PRODUCT_COMMIT='efdedb3d1b62a774e74b859a723e5a7906f86956';
@@ -42,7 +43,7 @@ const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:c
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the DOE Calculator product baseline',()=>{
+test('beta identity is pinned to the integrated P4 DOE product baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://tester-teaching.web.app');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -240,17 +241,17 @@ test('W1H protected static and API paths retain W1F coverage and historical byte
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the DOE Calculator product frozen runtime reports zero protected drift',()=>{
+test('the integrated P4 product frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,56);
+  assert.equal(result.protected,59);
 });
 
-test('the current static manifest has exactly 56 protected files',()=>{
-  assert.equal(manifest().length,56);
-  assert.equal(freeze.protectedPaths({root}).length,56);
+test('the current static manifest has exactly 59 protected files',()=>{
+  assert.equal(manifest().length,59);
+  assert.equal(freeze.protectedPaths({root}).length,59);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -263,9 +264,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 56 current protected files are byte-identical to the immutable DOE Calculator product blobs',()=>{
+test('all 59 current protected files are byte-identical to the immutable integrated P4 product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,56);
+  assert.equal(protectedFiles.length,59);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -312,11 +313,10 @@ test('AUTH-1 freeze promotion preserves coverage and permits only its reviewed r
 });
 
 test('DOE Calculator freeze promotion preserves coverage and permits only the reviewed calculator delta',()=>{
-  const apiFreeze=require('../tools/beta-api-freeze.js');
   const auth1Static=historicalStaticPaths(AUTH1_PRODUCT_COMMIT);
-  const doeStatic=historicalStaticPaths(BASELINE_COMMIT);
+  const doeStatic=historicalStaticPaths(DOE_CALCULATOR_BASELINE_COMMIT);
   const auth1Api=historicalApiPaths(AUTH1_PRODUCT_COMMIT);
-  const doeApi=historicalApiPaths(BASELINE_COMMIT);
+  const doeApi=historicalApiPaths(DOE_CALCULATOR_BASELINE_COMMIT);
   assert.equal(auth1Static.length,56);
   assert.equal(doeStatic.length,56);
   assert.deepEqual(auth1Static.filter(name=>!doeStatic.includes(name)),[]);
@@ -332,13 +332,13 @@ test('DOE Calculator freeze promotion preserves coverage and permits only the re
       );
     }catch{return true;}
   }).sort();
-  assert.deepEqual(changed(doeStatic,AUTH1_PRODUCT_COMMIT,BASELINE_COMMIT),[
+  assert.deepEqual(changed(doeStatic,AUTH1_PRODUCT_COMMIT,DOE_CALCULATOR_BASELINE_COMMIT),[
     'dashboard-view-model.js',
     'faculty-admin-doe-renderer.js',
     'faculty-admin.html',
     'faculty-admin.js'
   ]);
-  assert.deepEqual(changed([...new Set([...auth1Api,...doeApi])],AUTH1_PRODUCT_COMMIT,BASELINE_COMMIT),[
+  assert.deepEqual(changed([...new Set([...auth1Api,...doeApi])],AUTH1_PRODUCT_COMMIT,DOE_CALCULATOR_BASELINE_COMMIT),[
     'server/src/data/sql-dashboard-repository.js',
     'server/src/domain/doe-calculator.js',
     'server/src/domain/doe-course-catalog-2026-27.js',
@@ -346,6 +346,57 @@ test('DOE Calculator freeze promotion preserves coverage and permits only the re
   ]);
   assert.ok(doeApi.includes('server/src/domain/doe-calculator.js'));
   assert.ok(doeApi.includes('server/src/domain/doe-course-catalog-2026-27.js'));
+});
+
+test('P4 freeze promotion preserves DOE Calculator coverage and adds only the reviewed DOE engine delta',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  const calculatorStatic=historicalStaticPaths(DOE_CALCULATOR_BASELINE_COMMIT);
+  const p4Static=historicalStaticPaths(BASELINE_COMMIT);
+  const calculatorApi=historicalApiPaths(DOE_CALCULATOR_BASELINE_COMMIT);
+  const p4Api=historicalApiPaths(BASELINE_COMMIT);
+  assert.equal(calculatorStatic.length,56);
+  assert.equal(p4Static.length,59);
+  assert.deepEqual(calculatorStatic.filter(name=>!p4Static.includes(name)),[]);
+  assert.deepEqual(p4Static.filter(name=>!calculatorStatic.includes(name)),[
+    'faculty-admin-doe-edit.js','faculty-admin-doe-policy.js','faculty-admin-doe-worksheet.js'
+  ]);
+  assert.equal(calculatorApi.length,41);
+  assert.equal(p4Api.length,58);
+  assert.deepEqual(calculatorApi.filter(name=>!p4Api.includes(name)),[]);
+  assert.deepEqual(p4Api.filter(name=>!calculatorApi.includes(name)),[
+    'server/src/data/sql-doe-assignment-repository.js','server/src/data/sql-doe-engine-repository.js',
+    'server/src/data/sql-doe-policy-repository.js','server/src/data/sql-doe-target-override-repository.js',
+    'server/src/data/sql-doe-worksheet-repository.js','server/src/doe/doe-api.js',
+    'server/src/doe/doe-assignment-service.js','server/src/doe/doe-calculation-service.js',
+    'server/src/doe/doe-policy-service.js','server/src/doe/doe-reserve-service.js',
+    'server/src/doe/doe-session-service.js','server/src/doe/doe-target-override-service.js',
+    'server/src/doe/doe-workflow-preview-service.js','server/src/doe/doe-worksheet-service.js',
+    'server/src/domain/doe-formula.js','server/src/domain/doe-policy-engine.js',
+    'server/src/runtime/swa-doe-functions.js'
+  ]);
+  const changed=(paths,from,to)=>paths.filter(name=>{
+    try{return !freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:from,file:name}),
+      freeze.readBaselineFile({root,baselineCommit:to,file:name})
+    );}catch{return true;}
+  }).sort();
+  assert.deepEqual(changed([...new Set([...calculatorStatic,...p4Static])],DOE_CALCULATOR_BASELINE_COMMIT,BASELINE_COMMIT),[
+    'faculty-admin-doe-edit.js','faculty-admin-doe-policy.js','faculty-admin-doe-worksheet.js',
+    'faculty-admin-enhancements.js','faculty-admin-management.js','faculty-admin.css',
+    'faculty-admin.html','faculty-admin.js','paws-data-client.js','timetable.js'
+  ]);
+  assert.deepEqual(changed([...new Set([...calculatorApi,...p4Api])],DOE_CALCULATOR_BASELINE_COMMIT,BASELINE_COMMIT),[
+    'server/src/data/data-api.js','server/src/data/sql-doe-assignment-repository.js',
+    'server/src/data/sql-doe-engine-repository.js','server/src/data/sql-doe-policy-repository.js',
+    'server/src/data/sql-doe-target-override-repository.js','server/src/data/sql-doe-worksheet-repository.js',
+    'server/src/data/write-gates.js','server/src/doe/doe-api.js','server/src/doe/doe-assignment-service.js',
+    'server/src/doe/doe-calculation-service.js','server/src/doe/doe-policy-service.js',
+    'server/src/doe/doe-reserve-service.js','server/src/doe/doe-session-service.js',
+    'server/src/doe/doe-target-override-service.js','server/src/doe/doe-workflow-preview-service.js',
+    'server/src/doe/doe-worksheet-service.js','server/src/domain/doe-formula.js',
+    'server/src/domain/doe-policy-engine.js','server/src/runtime/swa-doe-functions.js',
+    'server/src/runtime/swa-sql-runtime.js'
+  ]);
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
 });
 // C. New asset protection ----------------------------------------------------
@@ -447,7 +498,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,56);
+  assert.equal(protectedFiles.length,59);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -485,17 +536,17 @@ test('beta-baseline.json remains non-authoritative and records the stabilized Be
 });
 
 // G. Dual-runtime baseline ---------------------------------------------------
-test('API freeze shares the promoted DOE Calculator static baseline and has zero runtime drift',()=>{
+test('API freeze shares the promoted integrated P4 static baseline and has zero runtime drift',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
   assert.equal(apiFreeze.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,41);
+  assert.equal(result.runtimeFiles.length,58);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,44);
+  assert.equal(result.protected,61);
   assert.ok(result.runtimeFiles.includes('server/src/auth/role-policy.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-calculator.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-course-catalog-2026-27.js'));

@@ -76,3 +76,29 @@ test('teaching course renderer marks non-calculator session types as not applica
   assert.match(html, /DOE not applicable/);
   assert.doesNotMatch(html, /Needs Review/);
 });
+
+test('legacy role candidates are visible without selecting Course Coordinator or HICC', () => {
+  const renderer = makeRenderer();
+  const html = renderer.renderDoeSummary(
+    { teachingDoe: 0, roleDoe: null, teachingLineCount: 0, teachingApplicableCount: 0, teachingRecordedCount: 0, teachingMissingCount: 0, teachingNotApplicableCount: 0, roleLineCount: 1, roleRecordedCount: 0, roleMissingCount: 1, partial: true },
+    '2026-27',
+    [],
+    [{
+      roleType: 'Course Coordinator / HICC (legacy ambiguous)',
+      courseOrSubjectOrRotation: 'VTMD 420: Sick Animals-Integument, MSK',
+      doeMappedValue: null,
+      doeOverrideValue: null,
+      calculatedDoe: null,
+      effectiveDoe: null,
+      doeCandidates: { courseCoordinatorDoe: 3.5, hiccDoe: 6 },
+      doeCandidateBasis: 'full-year-reference-before-proration',
+      doeReviewReason: 'legacy-course-coordinator-hicc-role-must-be-resolved',
+      doeSource: 'missing'
+    }],
+    {}
+  );
+  assert.match(html, /CC 3\.50% \/ HICC 6\.00%/);
+  assert.match(html, /full-year before proration/);
+  assert.match(html, /Resolve Course Coordinator vs HICC/);
+  assert.doesNotMatch(html, /Effective DOE<\/th><td>3\.50%/);
+});

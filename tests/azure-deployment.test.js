@@ -109,14 +109,14 @@ test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
   const freeze=require('../tools/beta-freeze.js');
   const baseline=require('../tools/beta-baseline.json');
   assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
-  assert.equal(freeze.BASELINE_COMMIT,'d6b433f3b7f5bb62400deedba537e47b970b34d2');
+  assert.equal(freeze.BASELINE_COMMIT,'ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5');
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
   assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
 });
 
-test('legacy Azure static deploy derives the promoted P3 trust anchor and verifies API attestation',()=>{
+test('legacy Azure static deploy derives the promoted AUTH-1 trust anchor and verifies API attestation',()=>{
   const workflow=read('.github/workflows/azure-beta-static-deploy.yml');
   assert.match(workflow,/require\('\.\/tools\/beta-freeze\.js'\)\.BASELINE_COMMIT/);
   assert.match(workflow,/runtimeTrustAnchor/);

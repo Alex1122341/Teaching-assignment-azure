@@ -206,6 +206,25 @@ test('H: the faculty roster is the full roster for an administrator and one row 
   }
 });
 
+test('H2: all-status roster is admin-only and invalid status is rejected', async () => {
+  const admin = harness(adminProfile('adfa_general'));
+  const all = await admin.app(request('/api/v1/dashboard/faculty?status=all'));
+  assert.equal(all.status, 200);
+  assert.equal(admin.calls[0][1].status, 'all');
+
+  const faculty = harness(selfProfile('faculty'));
+  const denied = await faculty.app(request('/api/v1/dashboard/faculty?status=all'));
+  assert.equal(denied.status, 403);
+  assert.equal(denied.jsonBody.error.code, 'ROLE_DENIED');
+  assert.equal(faculty.calls.length, 0);
+
+  const invalid = harness(adminProfile('adfa_general'));
+  const badStatus = await invalid.app(request('/api/v1/dashboard/faculty?status=unknown'));
+  assert.equal(badStatus.status, 400);
+  assert.equal(badStatus.jsonBody.error.code, 'INVALID_FACULTY_STATUS');
+  assert.equal(invalid.calls.length, 0);
+});
+
 // I -------------------------------------------------------------------------
 test('I: a faculty-scoped caller may read only its own faculty record', async () => {
   const own = harness(selfProfile('hicc'));

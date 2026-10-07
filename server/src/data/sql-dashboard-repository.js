@@ -268,6 +268,8 @@ function createSqlDashboardRepository(db) {
         params.search = likePattern(search);
       }
 
+      const whereClause = predicates.length ? `WHERE ${predicates.join(' AND ')}` : '';
+
       const rows = await db.query(
         `SELECT TOP (@limit)
              f.FacultyId AS facultyId,
@@ -304,7 +306,7 @@ function createSqlDashboardRepository(db) {
          FROM paws.Faculty f
          LEFT JOIN paws.Faculty manager ON manager.FacultyId = f.ReportsToFacultyId
          LEFT JOIN paws.FacultyProfessionalProfile profile ON profile.FacultyId = f.FacultyId
-         WHERE ${predicates.join(' AND ')}
+         ${whereClause}
          ORDER BY f.DisplayName, f.FacultyId`,
         params
       );

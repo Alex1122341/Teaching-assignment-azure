@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// P3 ProfileVersion hotfix is the reviewed Faculty-management runtime anchor.
+// P3 all-status Faculty roster hotfix is the reviewed runtime anchor.
 // P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='576fff9687417a97fe635cbb4e523f41ade74e4a';
+const BASELINE_COMMIT='d6b433f3b7f5bb62400deedba537e47b970b34d2';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

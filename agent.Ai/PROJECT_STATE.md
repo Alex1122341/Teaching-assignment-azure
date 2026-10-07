@@ -1,17 +1,18 @@
-# Current task — P3 Faculty ProfileVersion hotfix release and closeout
+# Current task — P3 all-status Faculty roster hotfix release and closeout
 
-**Status:** In progress under Architect #6 approval. Functional commit is preserved; governance baseline files are updated locally but not committed. No PR, merge, exact-main build, artifact download, redeployment, or new live Faculty mutation has occurred in this checkpoint.
+**Status:** Functional and freeze/governance commits are preserved locally under Architect #6 approval. PR, merge, exact-main CI/artifact, runtime redeployment, and live roster verification remain outstanding.
 **Repository:** Alex1122341/Teaching-assignment-azure
-**Base / origin/main:** 9ef8f7a1f8f64ddde8cac3288cdeea7faac03d7f
-**Branch:** fix/p3-faculty-version-json
-**Functional runtime trust anchor:** 576fff9687417a97fe635cbb4e523f41ade74e4a
+**Base / origin/main:** 436d9a5e79bb1ce62997902ebe665fb1ae14318b
+**Branch:** fix/p3-faculty-all-roster
+**Functional commit / runtime trust anchor:** d6b433f3b7f5bb62400deedba537e47b970b34d2
+**Governance commit:** separate freeze-promotion commit at branch HEAD; see `git log -2` for its SHA.
 
-- Functional diff is limited to Faculty ProfileVersion serialization, migration 024 source, and supporting contract tests. SQL rowversion remains a JSON-safe hex string; no JavaScript numeric conversion.
-- Migrations 023/024 were already applied; do not rerun. Existing synthetic fixture: FacultyId 7AE9027A-BFD3-4795-B79F-8621E351C291; ImportBatchId 1B026924-539C-4CB4-BFC2-573EA1861AF5. Do not create another.
-- Governance files now point to 576fff…; static hashes are unchanged. Candidate verification and repository/artifact freezes pass: 56 static files; 38 API runtime files plus build definition and two repository inputs; zero drift.
-- Local verification: focused P3 16/16; full server 396/396; root 782 total / 750 pass / 32 skipped / 0 fail; static build 56 files / 1,835,569 bytes; diff check passes. Local Node v24.19.0; server declares Node 22.x. gitleaks unavailable; added-diff secret-pattern scan remains.
-- Existing live API remains at 9ef8f7a1… with old trust anchor 6b257fb5…; P3 write gate already true. No live state changed during this local verification.
-- Next: finish secret scan and final review, create separate governance commit, push branch, open one two-commit PR, complete hosted CI, merge commit, exact-main artifact, direct University API deployment, and live lifecycle plus bounded P1/P2 checks. Do not rerun migrations, recreate fixture, use ACR/ACA, or begin P4.
+- Functional diff fixes the optional Faculty roster `WHERE` clause and adds query-generation plus API authorization/validation regressions. Freeze governance advances the trust anchor; static hashes are unchanged.
+- The synthetic fixture remains FacultyId 7AE9027A-BFD3-4795-B79F-8621E351C291, inactive. Expected counts remain 120 active / 1 inactive. Do not change or recreate it; do not rerun migrations 023/024.
+- Focused roster/API tests: 75/75; P3-focused tests: 89/89; full server suite: 398/398. Root suite is being rerun after updating anchor assertions; its prior run exposed four expected stale-anchor assertions, now updated.
+- Candidate verifier, static/API repository and artifact freezes: zero drift; static build: 56 files / 1,835,569 bytes. `git diff --check` passes.
+- No PR, merge, hosted CI, new artifact download, runtime deployment, or live business mutation has occurred in this checkpoint. Existing merge `436d9a5e…` remains deployed.
+- Next: finish tests and added-diff secret scan, push two commits, open one narrow PR, hosted CI, merge commit, exact-main CI/artifact, deploy only API to ITAPPVETOPSDB01, then verify roster routes and existing P1/P2 health/read surfaces. No Hosting redeploy if static bytes remain unchanged. Do not use ACR/ACA or start P4.
 
 ---
 

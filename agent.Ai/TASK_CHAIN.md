@@ -1,12 +1,12 @@
-# Current task — PAWS Beta P3 ProfileVersion hotfix release and closeout
+# Current task — PAWS Beta P3 all-status Faculty roster hotfix and closeout
 
-- Architect #6 approved the serialization hotfix, protected trust-anchor advance, one two-commit PR, merge commit, exact-main artifact, University API rollout, and synthetic-fixture acceptance. No P4.
-- Repository Alex1122341/Teaching-assignment-azure; base/origin main 9ef8f7a1f8f64ddde8cac3288cdeea7faac03d7f; branch fix/p3-faculty-version-json.
-- Functional runtime commit is immutable: 576fff9687417a97fe635cbb4e523f41ade74e4a. Governance files point to it locally; governance commit, push, PR, merge, and deployment remain outstanding.
-- Migrations 023/024 were already applied. Existing fixture is FacultyId 7AE9027A-BFD3-4795-B79F-8621E351C291 / ImportBatchId 1B026924-539C-4CB4-BFC2-573EA1861AF5; do not create another. Continue only after fresh API reads post-deployment.
-- Local verification: focused P3 16/16; root 782 total / 750 pass / 32 skipped / 0 fail; server 396/396; static build 56 files / 1,835,569 bytes; candidate, repository/artifact freezes zero drift; diff check pass. Secret scan remains; gitleaks unavailable.
-- Existing API release is 9ef8f7a… with trust anchor 6b257fb…; no new live change in this checkpoint. Do not rerun migrations, use ACR/ACA, deploy Hosting if static bytes are unchanged, or begin P4.
-- Next: finish secret scan; commit governance separately; push/open exactly one two-commit PR; hosted CI; merge commit; exact-main CI/artifact; deploy directly to ITAPPVETOPSDB01 University Node runtime; complete lifecycle/concurrency/role/audit checks and bounded P1/P2 smoke. Final fixture inactive; counts 120 active / 1 inactive.
+- Architect #6 approved the narrow query fix, protected trust-anchor advance, one two-commit PR, merge commit, exact-main artifact, University API rollout, and read-only fixture acceptance. No P4.
+- Repository Alex1122341/Teaching-assignment-azure; base/origin main 436d9a5e79bb1ce62997902ebe665fb1ae14318b; branch fix/p3-faculty-all-roster.
+- Functional/trust-anchor commit: d6b433f3b7f5bb62400deedba537e47b970b34d2. Separate governance commit is the branch HEAD; verify its SHA with `git log -2`. Push/PR/merge/deployment remain outstanding.
+- Fixture FacultyId 7AE9027A-BFD3-4795-B79F-8621E351C291 remains inactive; expected count is 120 active / 1 inactive. No business mutation is needed. Do not recreate/change fixture or rerun migrations 023/024.
+- Focused tests 75/75; P3 suite 89/89; server 398/398; root 782 total / 750 pass / 32 skipped / 0 fail; candidate and repository/artifact freezes zero drift; static build 56 files / 1,835,569 bytes; diff and added-diff secret scan pass (`gitleaks` unavailable).
+- Existing API release remains 436d9a5… with trust anchor 576fff…; no runtime or live business-data change in this checkpoint. Do not use ACR/ACA, redeploy Hosting if static bytes remain unchanged, or begin P4.
+- Next: push/open one two-commit PR; require hosted CI; merge without squash; require exact-main CI/artifact; deploy API to ITAPPVETOPSDB01; verify all roster routes, inactive fixture inclusion, ProfileVersion/stale tests, and bounded P1/P2 read/health surfaces.
 
 ---
 

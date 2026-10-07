@@ -190,9 +190,23 @@ function createDataApi({
   createSession: insertSession = async () => null,
   createSessionBatch: insertSessionBatch = async () => [],
   replaceSessionAssignments: saveSessionAssignments = async () => null,
+  recalculateSessionDoe = null,
   health = async () => true,
   writeGates = {}
 }) {
+  async function recalculateDoeAfterSessionWrite(sessionId, auth, trigger) {
+    if (typeof recalculateSessionDoe !== 'function') return null;
+    try {
+      return await recalculateSessionDoe({
+        sessionId,
+        actor: { uid: auth.decoded.uid, name: text(auth.profile.displayName) || null },
+        trigger
+      });
+    } catch (_) {
+      return { status: 'needs_review', issueCodes: ['DOE_RECALCULATION_FAILED'] };
+    }
+  }
+
   async function authorize(token, timing) {
     let decoded;
     const verifyStarted = timing ? timing.start('firebase_verify') : null;
@@ -286,9 +300,11 @@ function createDataApi({
       if (invalid) return result(400, { error: { code: invalid, message: 'The session edit is invalid.' } });
       try {
         const session = await updateSession({ sessionId, patch, actorFirebaseUid: auth.decoded.uid, actorName: text(auth.profile.displayName) || null });
-        return session
-          ? result(200, { session })
-          : result(404, { error: { code: 'SESSION_NOT_FOUND', message: 'The timetable session was not found.' } });
+        if (session) {
+          const doe = await recalculateDoeAfterSessionWrite(sessionId, auth, 'session_edit');
+          return result(200, { session, ...(doe ? { doe } : {}) });
+        }
+        return result(404, { error: { code: 'SESSION_NOT_FOUND', message: 'The timetable session was not found.' } });
       } catch (error) {
         const sqlNumber = Number(error?.number ?? error?.originalError?.info?.number);
         const known = SESSION_EDIT_SQL_ERRORS.get(sqlNumber);
@@ -310,7 +326,8 @@ function createDataApi({
           actorFirebaseUid: auth.decoded.uid,
           actorName: text(auth.profile.displayName) || null
         });
-        return result(201, { session: created });
+        const doe = created?.id ? await recalculateDoeAfterSessionWrite(created.id, auth, 'session_create') : null;
+        return result(201, { session: created, ...(doe ? { doe } : {}) });
       } catch (failure) {
         const sqlNumber = Number(failure?.number ?? failure?.originalError?.info?.number);
         const known = SESSION_CREATE_SQL_ERRORS.get(sqlNumber);
@@ -337,7 +354,10 @@ function createDataApi({
           actorName: text(auth.profile.displayName) || null
         });
         const idempotentReplay = created.some(row => row.idempotentReplay === true || row.idempotentReplay === 1);
-        return result(idempotentReplay ? 200 : 201, { sessions: created, idempotentReplay });
+        const doe = !idempotentReplay && typeof recalculateSessionDoe === 'function'
+          ? await Promise.all(created.filter(row => row.id || row.sessionId).map(row => recalculateDoeAfterSessionWrite(row.id || row.sessionId, auth, 'session_create')))
+          : null;
+        return result(idempotentReplay ? 200 : 201, { sessions: created, idempotentReplay, ...(doe ? { doe } : {}) });
       } catch (failure) {
         const sqlNumber = Number(failure?.number ?? failure?.originalError?.info?.number);
         const known = SESSION_CREATE_SQL_ERRORS.get(sqlNumber);
@@ -367,9 +387,11 @@ function createDataApi({
           actorFirebaseUid: auth.decoded.uid,
           actorName: text(auth.profile.displayName) || null
         });
-        return session
-          ? result(200, { session })
-          : result(404, { error: { code: 'SESSION_NOT_FOUND', message: 'The timetable session was not found.' } });
+        if (session) {
+          const doe = await recalculateDoeAfterSessionWrite(sessionId, auth, 'session_assignment_replacement');
+          return result(200, { session, ...(doe ? { doe } : {}) });
+        }
+        return result(404, { error: { code: 'SESSION_NOT_FOUND', message: 'The timetable session was not found.' } });
       } catch (failure) {
         const sqlNumber = Number(failure?.number ?? failure?.originalError?.info?.number);
         const known = SESSION_ASSIGNMENT_SQL_ERRORS.get(sqlNumber);

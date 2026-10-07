@@ -10,21 +10,32 @@ const doeRenderer = fs.readFileSync('faculty-admin-doe-renderer.js', 'utf8');
 const profileSource = `${source}\n${doeRenderer}`;
 const client = fs.readFileSync('paws-data-client.js', 'utf8');
 
-test('admin exposes only the four read-only parity tabs and no legacy mutation surfaces', () => {
+test('admin exposes the read-only parity tabs and gated Annual DOE Rule Book', () => {
   for (const [id, label] of [['lookup', 'Lookup'], ['summary', 'Teaching Summary'], ['roles', 'Roles & Appointments'], ['doe-overview', 'DOE Overview']]) {
     assert.match(html, new RegExp(`data-tab="${id}"`));
     const labelPattern = label.replace('&', '(?:&|&amp;)');
     assert.match(html, new RegExp(labelPattern));
   }
-  for (const retired of ['Faculty Database', 'JSON import', 'CSV import', 'DOE Rule Book', 'Change History', 'import-afc-btn', 'save-edit']) {
+  for (const retired of ['Faculty Database', 'JSON import', 'CSV import', 'Change History', 'import-afc-btn', 'save-edit']) {
     assert.doesNotMatch(html, new RegExp(retired, 'i'), retired);
   }
+  assert.match(html, /data-tab="doe-rules" id="doe-rules-tab"/);
+  assert.match(html, /id="doe-rules-content"/);
+  assert.match(html, /faculty-admin-doe-policy\.js/);
+  const policy = fs.readFileSync('faculty-admin-doe-policy.js', 'utf8');
+  for (const label of ['Academic Year', 'Policy Version', 'Course Mapping', 'VISC Subjects', 'Preview &amp; Validate', 'History', 'Publish', 'Recalculate']) assert.ok(policy.includes(label), label);
+  assert.match(policy, /api\.validateDoePolicyDraft/);
+  assert.match(policy, /api\.previewDoePolicyImpact/);
+  assert.match(policy, /api\.publishDoePolicyDraft/);
 });
 
 test('rich profile uses the API view model for DOE and year/course/session expansion', () => {
   assert.match(html, /dashboard-view-model\.js/);
   assert.match(profileSource, /groupTeachingAssignments\(/);
-  assert.match(source, /summarizeDoe\(/);
+  const worksheet = fs.readFileSync('faculty-admin-doe-worksheet.js', 'utf8');
+  assert.match(source, /doeWorksheetView\?\.loadDetail/);
+  assert.match(worksheet, /api\.doeWorksheet\(/);
+  assert.match(worksheet, /server-authoritative/i);
   assert.match(profileSource, /<details class="course-group"/);
   for (const label of ['DOE Summary', 'Teaching \/ Courses', 'Roles & Appointments', 'Away from Campus', 'Professional Profile']) {
     assert.match(profileSource, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));

@@ -39,6 +39,24 @@
     "paws.TeachingAssignmentPublishedSession",
     "paws.TeachingAssignmentPublishedInstructor"
   ],
+  "p4ReadObjects": [
+    "paws.DoePolicyRule",
+    "paws.DoeRuleSelector",
+    "paws.DoeRuleParameter",
+    "paws.DoeRuleTier",
+    "paws.DoeRuleInput",
+    "paws.DoeReferenceSource",
+    "paws.DoeCourseMapping",
+    "paws.DoeSubjectMapping",
+    "paws.DoePolicyException",
+    "paws.DoeCalculationRecord",
+    "paws.DoeAssignmentFact",
+    "paws.DoeAssignmentFactInput",
+    "paws.DoeImpactRun",
+    "paws.DoeImpactRunRow",
+    "paws.DoeAuditEvent",
+    "paws.DoePolicyPublication"
+  ],
   "p2ReadProcedures": [
     "paws_api.CanActOnTeachingAssignmentPackage"
   ],

@@ -25,6 +25,20 @@ const { createWriteGates } = require('../data/write-gates');
 const { createSqlTeachingAssignmentWorkflowRepository } = require('../data/sql-teaching-assignment-workflow-repository');
 const { createTeachingAssignmentApi } = require('../teaching-assignment/teaching-assignment-api');
 const { createTeachingAssignmentFunctions } = require('./swa-teaching-assignment-functions');
+const { createSqlDoeEngineRepository } = require('../data/sql-doe-engine-repository');
+const { createSqlDoeWorksheetRepository } = require('../data/sql-doe-worksheet-repository');
+const { createSqlDoeAssignmentRepository } = require('../data/sql-doe-assignment-repository');
+const { createSqlDoeTargetOverrideRepository } = require('../data/sql-doe-target-override-repository');
+const { createSqlDoePolicyRepository } = require('../data/sql-doe-policy-repository');
+const { createDoeCalculationService } = require('../doe/doe-calculation-service');
+const { createDoeSessionService } = require('../doe/doe-session-service');
+const { createWorksheetService } = require('../doe/doe-worksheet-service');
+const { createDoeAssignmentService } = require('../doe/doe-assignment-service');
+const { createDoeTargetOverrideService } = require('../doe/doe-target-override-service');
+const { createDoePolicyService } = require('../doe/doe-policy-service');
+const { createDoeWorkflowPreviewService } = require('../doe/doe-workflow-preview-service');
+const { createDoeApi } = require('../doe/doe-api');
+const { createDoeFunctions } = require('./swa-doe-functions');
 
 function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
@@ -50,6 +64,13 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     verifyIdToken: createFirebaseVerifier({ admin, projectId: env.FIREBASE_PROJECT_ID, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }),
     expectedProjectId: env.FIREBASE_PROJECT_ID
   });
+  const doeRepository = createSqlDoeEngineRepository(db);
+  const doeAssignmentRepository = createSqlDoeAssignmentRepository(db);
+  const doeCalculationService = createDoeCalculationService({ repository: doeRepository });
+  const doeSessionService = createDoeSessionService({
+    repository: { ...doeRepository, ...doeAssignmentRepository },
+    calculationService: doeCalculationService
+  });
   const timetable = createSwaFunctions({ api: createDataApi({
     verifyToken: verify,
     findUser: users.findByUid,
@@ -58,6 +79,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     createSession: sessions.createNew,
     createSessionBatch: sessions.createBatch,
     replaceSessionAssignments: sessions.replaceAssignments,
+    recalculateSessionDoe: doeSessionService.recalculate,
     health: () => db.health(),
     writeGates
   }) });
@@ -90,8 +112,26 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const teachingAssignmentRoutes = createTeachingAssignmentFunctions({api:createTeachingAssignmentApi({
     verifyToken:verify,findUser:users.findByUid,repository:createSqlTeachingAssignmentWorkflowRepository(db),writeGates
   })});
+  const doeWorksheetRepository = createSqlDoeWorksheetRepository(db);
+  const doeWorksheetService = createWorksheetService({ repository: doeWorksheetRepository });
+  const doeTargetOverrideRepository = createSqlDoeTargetOverrideRepository(db);
+  const doePolicyRepository = createSqlDoePolicyRepository(db);
+  const doePolicyService = createDoePolicyService({ repository: { ...doeRepository, ...doePolicyRepository }, calculationService: doeCalculationService });
+  const doeRoutes = createDoeFunctions({ api: createDoeApi({
+    verifyToken: verify,
+    findUser: users.findByUid,
+    repository: { ...doeRepository, ...doePolicyRepository },
+    calculationService: doeCalculationService,
+    worksheetService: doeWorksheetService,
+    workflowPreviewService: createDoeWorkflowPreviewService({ repository: { ...sessions, ...doeAssignmentRepository }, worksheetService: doeWorksheetService, calculationService: doeCalculationService }),
+    assignmentService: createDoeAssignmentService({ repository: doeAssignmentRepository, calculationService: doeCalculationService }),
+    targetOverrideService: createDoeTargetOverrideService({ repository: doeTargetOverrideRepository }),
+    policyService: doePolicyService,
+    writeGates
+  }) });
   const handler = async request => {
     const pathname = new URL(request.url).pathname;
+    if (pathname.startsWith('/api/v1/doe/')) return doeRoutes(request);
     if (pathname.startsWith('/api/v1/teaching-assignments/')) return teachingAssignmentRoutes(request);
     if (pathname.startsWith('/api/v1/dashboard/')) return dashboardRoutes(request);
     if (/^\/api\/v1\/afc-requests\/[^/]+\/approved-artifact\/?$/.test(pathname)) return afcArtifactRoutes(request);

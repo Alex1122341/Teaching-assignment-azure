@@ -8,7 +8,8 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
   assert.deepEqual(createWriteGates({}), {
     afcSingle: false, afcBatch: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
-    taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false
+    taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
+    doeAdmin: false, doePolicyPublish: false, doeRecalculate: false
   });
   assert.deepEqual(createWriteGates({
     PAWS_AFC_SINGLE_WRITE_ENABLED: 'true',
@@ -23,6 +24,17 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
   }), {
     afcSingle: true, afcBatch: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
-    taDraft: true, taReview: true, taFinal: false, taPublish: false, facultyAdmin: true
+    taDraft: true, taReview: true, taFinal: false, taPublish: false, facultyAdmin: true,
+    doeAdmin: false, doePolicyPublish: false, doeRecalculate: false
+  });
+  assert.deepEqual(createWriteGates({
+    PAWS_DOE_ADMIN_WRITE_ENABLED: 'true',
+    PAWS_DOE_POLICY_PUBLISH_ENABLED: 'true',
+    PAWS_DOE_RECALC_WRITE_ENABLED: 'true'
+  }), {
+    afcSingle: false, afcBatch: false, sessionEdit: false, sessionCreate: false,
+    afcRequest: false, afcDecision: false, afcArtifact: false,
+    taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
+    doeAdmin: true, doePolicyPublish: true, doeRecalculate: true
   });
 });

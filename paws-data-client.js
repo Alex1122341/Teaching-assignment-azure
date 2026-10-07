@@ -138,14 +138,22 @@
       return '/api/v1/afc-requests/'+encodeURIComponent(value)+(action?'/'+action:'');
     }
 
-    function pickFields(value,allowed){
+  function pickFields(value,allowed){
       const input=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
       const output={};
       for(const key of allowed){
         if(Object.prototype.hasOwnProperty.call(input,key))output[key]=input[key];
       }
-      return output;
-    }
+    return output;
+  }
+
+  const DOE_FACT_FIELDS = [
+    'category','activityType','roleType','teachingRole','courseCode','subjectKey','sessionId','assignmentId',
+    'week','year','stage','hours','shifts','weeks','trainees','targetDoe','baseDoe','fte','quantity','date',
+    'subjectName','units','courseUnitCount','curriculumStage','hiccEligible','developmentPhase','stream',
+    'teachingTarget','rawSupervision','assignedTeaching','scopeText'
+  ];
+  const doeFacts = facts => pickFields(facts, DOE_FACT_FIELDS);
 
     async function afcRequestResult(path,options){
       const body=await request(path,options);
@@ -162,6 +170,23 @@
       afcSingleWriteEnabled:()=> writeCapabilities.afcSingle===true,
       afcBatchWriteEnabled:()=> writeCapabilities.afcBatch===true,
       facultyAdminWriteEnabled:()=> facultyAdminWriteCapability===true,
+      doeAdminWriteEnabled:()=> writeCapabilities.doeAdmin===true,
+      doePolicyPublishEnabled:()=> writeCapabilities.doePolicyPublish===true,
+      doeRecalculateEnabled:()=> writeCapabilities.doeRecalculate===true,
+      async refreshDoeWriteCapabilities(){
+        try{
+          const body=await request('/api/v1/doe/write-capabilities');
+          const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
+          writeCapabilities=Object.freeze({...writeCapabilities,
+            doeAdmin:value.doeAdmin===true,
+            doePolicyPublish:value.doePolicyPublish===true,
+            doeRecalculate:value.doeRecalculate===true
+          });
+        }catch(_){
+          writeCapabilities=Object.freeze({...writeCapabilities,doeAdmin:false,doePolicyPublish:false,doeRecalculate:false});
+        }
+        return {doeAdmin:writeCapabilities.doeAdmin===true,doePolicyPublish:writeCapabilities.doePolicyPublish===true,doeRecalculate:writeCapabilities.doeRecalculate===true};
+      },
       async refreshFacultyAdminWriteCapabilities(){
         try{
           const body=await request('/api/v1/dashboard/faculty-admin/write-capabilities');
@@ -173,7 +198,7 @@
       async refreshWriteCapabilities(){
         const body=await request('/api/v1/afc-requests/write-capabilities');
         const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
-        writeCapabilities=Object.freeze({
+        writeCapabilities=Object.freeze({...writeCapabilities,
           sessionEdit:value.sessionEdit===true,
           sessionCreate:value.sessionCreate===true,
           afcSingle:value.afcSingle===true,
@@ -186,17 +211,21 @@
       },
       async createSession(session={}){
         const body=await request('/api/v1/sessions',{method:'POST',body:pickFields(session,['academicYear','curriculumYear','courseCode','sessionType','date','startTime','endTime','topic','room','assignments'])});
-        return body.session&&typeof body.session==='object'&&!Array.isArray(body.session)?body.session:{};
+        const saved=body.session&&typeof body.session==='object'&&!Array.isArray(body.session)?{...body.session}:{};
+        if(body.doe)saved.doeRecalculation=body.doe;
+        return saved;
       },
       async createSessionBatch({requestId,sessions=[]}={}){
         const body=await request('/api/v1/sessions/batch',{method:'POST',body:{requestId:String(requestId??''),sessions:Array.isArray(sessions)?sessions.map(session=>pickFields(session,['academicYear','curriculumYear','courseCode','sessionType','date','startTime','endTime','topic','room','assignments'])):[]}});
-        return {sessions:Array.isArray(body.sessions)?body.sessions:[],idempotentReplay:body.idempotentReplay===true};
+        return {sessions:Array.isArray(body.sessions)?body.sessions:[],idempotentReplay:body.idempotentReplay===true,doe:Array.isArray(body.doe)?body.doe:[]};
       },
       async replaceSessionAssignments(sessionId,assignments=[]){
         const id=String(sessionId??'').trim();
         if(!id)throw new Error('sessionId is required.');
         const body=await request('/api/v1/sessions/'+encodeURIComponent(id)+'/assignments',{method:'PATCH',body:{assignments:Array.isArray(assignments)?assignments.map(row=>pickFields(row,['facultyId','teachingRole'])):[]}});
-        return body.session&&typeof body.session==='object'&&!Array.isArray(body.session)?body.session:{};
+        const saved=body.session&&typeof body.session==='object'&&!Array.isArray(body.session)?{...body.session}:{};
+        if(body.doe)saved.doeRecalculation=body.doe;
+        return saved;
       },
       async currentUser(){
         const body=await request('/api/v1/me');
@@ -267,7 +296,9 @@
         const id=String(sessionId??'').trim();
         if(!id)throw new Error('sessionId is required.');
         const body=await request('/api/v1/sessions/'+encodeURIComponent(id),{method:'PATCH',body:pickFields(patch,['date','startTime','endTime','courseCode','sessionType','topic','room'])});
-        return body.session&&typeof body.session==='object'&&!Array.isArray(body.session)?body.session:{};
+        const saved=body.session&&typeof body.session==='object'&&!Array.isArray(body.session)?{...body.session}:{};
+        if(body.doe)saved.doeRecalculation=body.doe;
+        return saved;
       },
       async dashboardSummary({academicYear=null}={}){
         const query=new URLSearchParams();
@@ -326,6 +357,95 @@
         const suffix=query.toString()?'?'+query.toString():'';
         const body=await request('/api/v1/dashboard/doe-overview'+suffix);
         return body.doeOverview&&typeof body.doeOverview==='object'&&!Array.isArray(body.doeOverview)?body.doeOverview:{};
+      },
+      async doeActivePolicy({academicYear}={}){
+        const query=new URLSearchParams({academicYear:String(academicYear||'')});
+        const body=await request('/api/v1/doe/policy?'+query.toString());
+        return body.policy&&typeof body.policy==='object'&&!Array.isArray(body.policy)?body.policy:{};
+      },
+      async doePolicyVersion({policyVersionId}={}){
+        const query=new URLSearchParams({policyVersionId:String(policyVersionId||'')});
+        const body=await request('/api/v1/doe/policy-version?'+query.toString());
+        return body.policy&&typeof body.policy==='object'&&!Array.isArray(body.policy)?body.policy:{};
+      },
+      async doePolicyHistory({academicYear}={}){
+        const query=new URLSearchParams({academicYear:String(academicYear||'')});
+        const body=await request('/api/v1/doe/history?'+query.toString());
+        return Array.isArray(body.history)?body.history:[];
+      },
+      async createDoePolicyDraft(payload={}){
+        const body=await request('/api/v1/doe/policies/draft',{method:'POST',body:payload});
+        return body.policy&&typeof body.policy==='object'&&!Array.isArray(body.policy)?body.policy:{};
+      },
+      async copyDoePolicy(payload={}){
+        const body=await request('/api/v1/doe/policies/copy',{method:'POST',body:payload});
+        return body.policy&&typeof body.policy==='object'&&!Array.isArray(body.policy)?body.policy:{};
+      },
+      async saveDoePolicyDraft(policyVersionId,payload={}){
+        const id=String(policyVersionId??'').trim();if(!id)throw new Error('policyVersionId is required.');
+        const body=await request('/api/v1/doe/policies/'+encodeURIComponent(id)+'/draft',{method:'PUT',body:payload});
+        return body.policy&&typeof body.policy==='object'&&!Array.isArray(body.policy)?body.policy:{};
+      },
+      async validateDoePolicyDraft(policyVersionId,payload={}){
+        const id=String(policyVersionId??'').trim();if(!id)throw new Error('policyVersionId is required.');
+        const body=await request('/api/v1/doe/policies/'+encodeURIComponent(id)+'/validate',{method:'POST',body:payload});
+        return body.validation&&typeof body.validation==='object'&&!Array.isArray(body.validation)?body.validation:{};
+      },
+      async previewDoePolicyImpact(policyVersionId,payload={}){
+        const id=String(policyVersionId??'').trim();if(!id)throw new Error('policyVersionId is required.');
+        const body=await request('/api/v1/doe/policies/'+encodeURIComponent(id)+'/impact',{method:'POST',body:payload});
+        return body.impact&&typeof body.impact==='object'&&!Array.isArray(body.impact)?body.impact:{};
+      },
+      async publishDoePolicyDraft(policyVersionId,payload={}){
+        const id=String(policyVersionId??'').trim();if(!id)throw new Error('policyVersionId is required.');
+        const body=await request('/api/v1/doe/policies/'+encodeURIComponent(id)+'/publish',{method:'POST',body:payload});
+        return body.publication&&typeof body.publication==='object'&&!Array.isArray(body.publication)?body.publication:{};
+      },
+      async archiveDoePolicy(policyVersionId,payload={}){
+        const id=String(policyVersionId??'').trim();if(!id)throw new Error('policyVersionId is required.');
+        const body=await request('/api/v1/doe/policies/'+encodeURIComponent(id)+'/archive',{method:'POST',body:payload});
+        return body.policy&&typeof body.policy==='object'&&!Array.isArray(body.policy)?body.policy:{};
+      },
+      async recalculateDoe({academicYear,limit}={}){
+        const body=await request('/api/v1/doe/recalculate',{method:'POST',body:{academicYear,limit}});
+        return body.recalculation&&typeof body.recalculation==='object'&&!Array.isArray(body.recalculation)?body.recalculation:{};
+      },
+      async doePreview({academicYear,facts}={}){
+        const body=await request('/api/v1/doe/preview',{method:'POST',body:{academicYear,facts:doeFacts(facts)}});
+        return body.preview&&typeof body.preview==='object'&&!Array.isArray(body.preview)?body.preview:{};
+      },
+      async doeWorkflowPreview({sessionId,outgoingFacultyId,incomingFacultyId}={}){
+        const body=await request('/api/v1/doe/workflow-preview',{method:'POST',body:{sessionId:String(sessionId||''),outgoingFacultyId:String(outgoingFacultyId||''),incomingFacultyId:String(incomingFacultyId||'')}});
+        return body.preview&&typeof body.preview==='object'&&!Array.isArray(body.preview)?body.preview:{};
+      },
+      async doeWorksheet({facultyId,academicYear}={}){
+        const query=new URLSearchParams({facultyId:String(facultyId||''),academicYear:String(academicYear||'')});
+        const body=await request('/api/v1/doe/worksheet?'+query.toString());
+        return body.worksheet&&typeof body.worksheet==='object'&&!Array.isArray(body.worksheet)?body.worksheet:{};
+      },
+      async doeWorksheets({academicYear}={}){
+        const query=new URLSearchParams({academicYear:String(academicYear||'')});
+        const body=await request('/api/v1/doe/worksheets?'+query.toString());
+        return Array.isArray(body.worksheets)?body.worksheets:[];
+      },
+      async saveDoeAssignment({academicYear,facultyId,facts,notes='',trigger='faculty_edit'}={}){
+        const body=await request('/api/v1/doe/assignments',{method:'POST',body:{academicYear,facultyId,facts:doeFacts(facts),notes:String(notes||''),trigger}});
+        return body.assignment&&typeof body.assignment==='object'&&!Array.isArray(body.assignment)?body.assignment:{};
+      },
+      async updateDoeAssignment(assignmentFactId,{academicYear,facultyId,expectedRevision,facts,notes='',trigger='faculty_edit'}={}){
+        const id=String(assignmentFactId??'').trim();if(!id)throw new Error('assignmentFactId is required.');
+        const body=await request('/api/v1/doe/assignments/'+encodeURIComponent(id),{method:'PATCH',body:{academicYear,facultyId,expectedRevision,facts:doeFacts(facts),notes:String(notes||''),trigger}});
+        return body.assignment&&typeof body.assignment==='object'&&!Array.isArray(body.assignment)?body.assignment:{};
+      },
+      async deactivateDoeAssignment(assignmentFactId,{academicYear,facultyId,expectedRevision,reason=''}={}){
+        const id=String(assignmentFactId??'').trim();if(!id)throw new Error('assignmentFactId is required.');
+        const body=await request('/api/v1/doe/assignments/'+encodeURIComponent(id),{method:'DELETE',body:{academicYear,facultyId,expectedRevision,reason:String(reason||'')}});
+        return body.assignment&&typeof body.assignment==='object'&&!Array.isArray(body.assignment)?body.assignment:{};
+      },
+      async saveDoeTargetOverride(facultyId,{academicYear,override=null}={}){
+        const id=String(facultyId??'').trim();if(!id)throw new Error('facultyId is required.');
+        const body=await request('/api/v1/doe/targets/'+encodeURIComponent(id),{method:'PUT',body:{academicYear,override}});
+        return body.target&&typeof body.target==='object'&&!Array.isArray(body.target)?body.target:{};
       },
       async dashboardAfcRecords({search=null,reason=null,active=null,limit=null}={}){
         const query=new URLSearchParams();

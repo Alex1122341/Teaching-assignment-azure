@@ -63,12 +63,11 @@ test('the timetable loads the faculty directory only when an admin tool needs it
   assert.doesNotMatch(source, /if \(UCVM\.admin\(profile\)\) subscribeFacultyDirectory\(\)/);
 });
 
-test('faculty admin enhancements reuse the page snapshots', () => {
+test('legacy faculty admin enhancement contains no local DOE calculation or persistence', () => {
   const source = read('faculty-admin-enhancements.js');
-  assert.match(source, /UCVM_ADMIN_DATA/);
-  assert.doesNotMatch(source, /collection\('faculty'\)\.onSnapshot/);
-  assert.doesNotMatch(source, /collection\('sessions'\)\.onSnapshot/);
-  assert.doesNotMatch(source, /db\.doc\(`users\/\$\{u\.uid\}`\)\.get\(\)/);
+  assert.match(source, /mountDoeEditor/);
+  assert.match(source, /UCVM_FACULTY_DOE_EDIT/);
+  assert.doesNotMatch(source, /UCVM_ADMIN_DATA|onSnapshot|firestore|collection\(|doeCredit|doeRate\s*\*/i);
 });
 
 test('audit details remain a read helper while canonical browser audit writes are removed',()=>{

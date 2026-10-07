@@ -59,7 +59,11 @@ test('course coordination tier calculation covers the workbook thresholds', () =
 });
 
 test('HICC, VISC, clinical rotation and CCC formulas match the DOE Calculator', () => {
-  assert.equal(calculateHiccDoe(4).calculatedDoe, 8);
+  assert.equal(calculateHiccDoe(4).reviewReason, 'hicc-development-applicability-required');
+  assert.equal(calculateHiccDoe(4, { developmentApplicable: true }).calculatedDoe, 8);
+  const year1Hicc = calculateHiccDoe(3, { developmentApplicable: false });
+  assert.equal(year1Hicc.calculatedDoe, 0);
+  assert.equal(year1Hicc.status, 'not-applicable');
   assert.equal(calculateViscDoe('2026-27', 2).calculatedDoe, 10);
   assert.equal(calculateRotationParticipantDoe(3).calculatedDoe, 7.5);
   assert.equal(calculateRotationCoordinationDoe(2).calculatedDoe, 4);
@@ -94,10 +98,29 @@ test('role resolution preserves override > mapped > calculator precedence', () =
   assert.equal(calculated.source, 'calculator');
 });
 
-test('legacy combined HICC/course-coordinator and CCC without shifts remain explicit review cases', () => {
-  const legacy = resolveRoleDoe({ roleType: 'Course Coordinator / HICC (legacy ambiguous)', academicYear: '2026-27' });
+test('course catalog provides safe explicit-role calculations and legacy full-year candidates', () => {
+  const cc = resolveRoleDoe({ roleType: 'Course Coordinator', academicYear: '2026-27', courseOrSubjectOrRotation: 'VTMD 420: Sick Animals-Integument, MSK' });
+  assert.equal(cc.effectiveDoe, 3.5);
+  assert.equal(cc.courseUnits, 3);
+
+  const year1Hicc = resolveRoleDoe({ roleType: 'HICC', academicYear: '2026-27', courseOrSubjectOrRotation: 'VTMD 211: Practical Work Experience 1' });
+  assert.equal(year1Hicc.effectiveDoe, 0);
+  assert.equal(year1Hicc.hiccDevelopmentApplicable, false);
+
+  const legacy = resolveRoleDoe({ roleType: 'Course Coordinator / HICC (legacy ambiguous)', academicYear: '2026-27', courseOrSubjectOrRotation: 'VTMD 420: Sick Animals-Integument, MSK' });
   assert.equal(legacy.effectiveDoe, null);
   assert.equal(legacy.reviewReason, 'legacy-course-coordinator-hicc-role-must-be-resolved');
+  assert.equal(legacy.courseUnits, 3);
+  assert.equal(legacy.candidates.courseCoordinatorDoe, 3.5);
+  assert.equal(legacy.candidates.hiccDoe, 6);
+  assert.equal(legacy.candidateBasis, 'full-year-reference-before-proration');
+
+  const legacyYear1 = resolveRoleDoe({ roleType: 'Course Coordinator / HICC (legacy ambiguous)', academicYear: '2026-27', courseOrSubjectOrRotation: 'VTMD 211: Practical Work Experience 1' });
+  assert.equal(legacyYear1.candidates.courseCoordinatorDoe, 3.5);
+  assert.equal(legacyYear1.candidates.hiccDoe, 0);
+});
+
+test('CCC without confirmed shift count remains an explicit review case', () => {
   const ccc = resolveRoleDoe({ roleType: 'CCC', academicYear: '2026-27' });
   assert.equal(ccc.effectiveDoe, null);
   assert.equal(ccc.reviewReason, 'ccc-shift-count-required');

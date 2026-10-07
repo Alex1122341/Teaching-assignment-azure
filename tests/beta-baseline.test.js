@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // P3 is current. P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='6b257fb5e3d8fe9443dd27d5103242656a50daa9';
+const BASELINE_COMMIT='576fff9687417a97fe635cbb4e523f41ade74e4a';
 const P1_PRODUCT_COMMIT='efdedb3d1b62a774e74b859a723e5a7906f86956';
 const P2_PRODUCT_COMMIT='e37981f35a3b9954b7b69e98e38fcf69262ec185';
 const W1M_PRODUCT_COMMIT='06b517dff59a07e802cb8dff09400532fb195fe4';

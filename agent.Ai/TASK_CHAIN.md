@@ -1,14 +1,12 @@
-# Current task — PAWS P1 DOE + Faculty Dashboard + controlled Beta writes
+# Current task — PAWS Beta P3 ProfileVersion hotfix release and closeout
 
-- Latest instruction: continue Architect #6's P1 end-to-end task; both live guarded SQL migrations are applied and verified.
-- Branch `feature/p1-doe-dashboard-write-beta`, based on `23e681a41e32fedf92ef062bac76cb3d8f494311`; commits so far are product `efdedb3d1b62a774e74b859a723e5a7906f86956` and freeze `be2403f9188504e5384427f5169dd13d83519e7a`. Migration/test/docs changes are pending commit; no PR.
-- Migration 016 final raw SHA `BEBE89D62AA2716390BBB606D8A43E937DCE8F582BE1839C06123DE35FC9BAB3`; canonical SHA `F09724E9BF3BD9A2D5286B9F00FF1B88049FFD9173103CE162FA2D7571A9AFB0`.
-- Migration 019 is committed after one failed syntax attempt, verified read-only cleanup of its partial DDL, and safe corrected rerun. Expected procedures and receipt table exist; no receipts, P1 import batches, or business data are present.
-- Root 748 pass / 32 skipped, emulator 780/780, server 361/361, focused baseline/API/deploy 60/60; freezes/candidate/static build/diff/secret scan pass. Hosted CI, PR, merge, exact-main CI, releases, write-gate activation, and authenticated acceptance are outstanding.
-- No API release, Hosting deploy, or write-gate activation has occurred. Live gates need fresh runtime attestation before any activation.
-- Detailed evidence: `agent.Ai/updates/2026-10-06-2207-paws-p1-live-migrations-and-verification.md`.
-
-**Next action:** review and commit the local correction/checkpoint on the existing branch, push and open the single P1 PR, then continue through hosted CI, merge, exact-main CI, controlled API and Hosting rollout, and authenticated acceptance. Keep each gate closed until its domain passes acceptance.
+- Architect #6 approved the serialization hotfix, protected trust-anchor advance, one two-commit PR, merge commit, exact-main artifact, University API rollout, and synthetic-fixture acceptance. No P4.
+- Repository Alex1122341/Teaching-assignment-azure; base/origin main 9ef8f7a1f8f64ddde8cac3288cdeea7faac03d7f; branch fix/p3-faculty-version-json.
+- Functional runtime commit is immutable: 576fff9687417a97fe635cbb4e523f41ade74e4a. Governance files point to it locally; governance commit, push, PR, merge, and deployment remain outstanding.
+- Migrations 023/024 were already applied. Existing fixture is FacultyId 7AE9027A-BFD3-4795-B79F-8621E351C291 / ImportBatchId 1B026924-539C-4CB4-BFC2-573EA1861AF5; do not create another. Continue only after fresh API reads post-deployment.
+- Local verification: focused P3 16/16; root 782 total / 750 pass / 32 skipped / 0 fail; server 396/396; static build 56 files / 1,835,569 bytes; candidate, repository/artifact freezes zero drift; diff check pass. Secret scan remains; gitleaks unavailable.
+- Existing API release is 9ef8f7a… with trust anchor 6b257fb…; no new live change in this checkpoint. Do not rerun migrations, use ACR/ACA, deploy Hosting if static bytes are unchanged, or begin P4.
+- Next: finish secret scan; commit governance separately; push/open exactly one two-commit PR; hosted CI; merge commit; exact-main CI/artifact; deploy directly to ITAPPVETOPSDB01 University Node runtime; complete lifecycle/concurrency/role/audit checks and bounded P1/P2 smoke. Final fixture inactive; counts 120 active / 1 inactive.
 
 ---
 

@@ -78,9 +78,9 @@
 
   function dashboardRawRole(value) { return String((value && typeof value === 'object' ? value.role : value) || '').toLowerCase(); }
   function dashboardRole(value) { return ({ owner: 'adfa_general', administrator: 'adfa_regular', other_office: 'other_office', adfa_general: 'adfa_general', adfa_regular: 'adfa_regular', admin: 'adfa_regular', editor: 'faculty', viewer: 'faculty' }[dashboardRawRole(value)] || dashboardRawRole(value)); }
-  function dashboardAdmin(profile) { return ['adfa_general', 'adfa_regular'].includes(dashboardRole(profile && profile.role)); }
-  function dashboardGeneral(profile) { return dashboardRole(profile && profile.role) === 'adfa_general'; }
-  function dashboardRoleLabel(value) { return ({ owner: 'ADFAD Owner', adfa_general: 'ADFAD Owner', administrator: 'ADFAD Admin', adfa_regular: 'ADFAD Admin', admin: 'ADFAD Admin', other_office: 'Other Office', hicc: 'HICC', visc: 'VISC', faculty: 'Faculty', editor: 'Faculty', viewer: 'Faculty' }[dashboardRawRole(value)] || dashboardRawRole(value)); }
+  function dashboardAdmin(profile) { return ['developer', 'adfa_general', 'adfa_regular'].includes(dashboardRole(profile && profile.role)); }
+  function dashboardGeneral(profile) { return ['developer', 'adfa_general'].includes(dashboardRole(profile && profile.role)); }
+  function dashboardRoleLabel(value) { return ({ developer: 'Developer', owner: 'ADFAD Owner', adfa_general: 'ADFAD Owner', administrator: 'ADFAD Admin', adfa_regular: 'ADFAD Admin', admin: 'ADFAD Admin', other_office: 'Other Office', hicc: 'HICC', visc: 'VISC', faculty: 'Faculty', editor: 'Faculty', viewer: 'Faculty' }[dashboardRawRole(value)] || dashboardRawRole(value)); }
   function isSelfServiceProfile(p){return ['faculty','hicc','visc'].includes(String(p?.role||'').toLowerCase())}
 
   async function loadSelfFaculty(facultyId) {

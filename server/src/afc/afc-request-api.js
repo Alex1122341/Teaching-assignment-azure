@@ -3,8 +3,9 @@
 const { randomUUID } = require('node:crypto');
 const { workDays } = require('./afc-policy');
 const { writeDisabled } = require('../data/write-gates');
+const { ADMINISTRATOR_ROLES, normalizeBaseRole } = require('../auth/role-policy');
 
-const ADMIN_ROLES = new Set(['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin']);
+const ADMIN_ROLES = ADMINISTRATOR_ROLES;
 const SELF_ROLES = new Set(['faculty', 'hicc', 'visc']);
 const ALLOWED_ROLES = new Set([...ADMIN_ROLES, ...SELF_ROLES]);
 const FORBIDDEN_IDENTITY_FIELDS = new Set([
@@ -22,7 +23,7 @@ const error = (status, code, message) => result(status, { error: { code, message
 const text = value => value === null || value === undefined ? '' : String(value).trim();
 
 function roleOf(profile) {
-  return text(profile && profile.baseRole).toLowerCase();
+  return normalizeBaseRole(profile && profile.baseRole) || '';
 }
 
 function authorizeProfile(profile) {

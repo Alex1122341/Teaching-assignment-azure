@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// P3 all-status Faculty roster hotfix is the reviewed runtime anchor.
-// P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='d6b433f3b7f5bb62400deedba537e47b970b34d2';
+// AUTH-1 Developer-role runtime is the reviewed trust anchor.
+// P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

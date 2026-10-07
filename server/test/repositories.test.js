@@ -10,6 +10,7 @@ test('user lookup is exact UID, read-only and includes password-change gate', as
   assert.equal(await repository.findByUid('u'), null);
   assert.match(sql, /FROM paws\.UserProfile/);
   assert.match(sql, /MustChangePassword/);
+  assert.match(sql, /Email AS email/);
   assert.match(sql, /FirebaseUid = @uid/);
   assert.doesNotMatch(sql, /INSERT|UPDATE|DELETE|staging\./i);
 });

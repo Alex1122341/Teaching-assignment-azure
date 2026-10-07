@@ -43,7 +43,7 @@ test('session create gate is independent, exact-true, and fail-closed by default
 });
 
 test('single session create is disabled before repository invocation when its gate is false', async () => {
-  const { api, calls } = makeApi();
+  const { api, calls } = makeApi({ role: 'developer' });
   const response = await api.createSession('token', SESSION);
   assert.equal(response.status, 503);
   assert.equal(response.body.error.code, 'WRITE_DISABLED');
@@ -51,7 +51,7 @@ test('single session create is disabled before repository invocation when its ga
 });
 
 test('single session create is admin-only and derives actor identity from verified Firebase and SQL profile', async () => {
-  const { api, calls } = makeApi({ gates: { sessionCreate: true } });
+  const { api, calls } = makeApi({ role: 'developer', gates: { sessionCreate: true } });
   const response = await api.createSession('token', SESSION);
   assert.equal(response.status, 201);
   assert.equal(calls.create.length, 1);
@@ -129,11 +129,12 @@ test('session assignment targets are requested only for timetable-edit administr
     findUser: async () => ({ active: true, baseRole: role, facultyId: role === 'faculty' ? FACULTY_ID : null }),
     listSessions: async input => { requests.push({ role, ...input }); return []; }
   });
-  for (const role of ['administrator', 'adfa_regular', 'faculty', 'viewer']) {
+  for (const role of ['developer', 'administrator', 'adfa_regular', 'faculty']) {
     assert.equal((await make(role).sessions('token', {})).status, 200);
   }
+  assert.equal((await make('viewer').sessions('token', {})).status, 403, 'unsupported viewer role fails closed');
   assert.deepEqual(requests.map(({ role, includeAssignmentTargets }) => [role, includeAssignmentTargets]), [
-    ['administrator', true], ['adfa_regular', true], ['faculty', false], ['viewer', false]
+    ['developer', true], ['administrator', true], ['adfa_regular', true], ['faculty', false]
   ]);
 });
 

@@ -17,7 +17,7 @@ function makeRenderer() {
     formatDoe: value => value === null || value === undefined ? 'DOE unavailable' : `${Number(value).toFixed(2)}%`,
     display: value => value === null || value === undefined || value === '' ? '—' : String(value),
     effectiveRoleDoe: role => ({ mapped: role.doeMappedValue ?? null, override: role.doeOverrideValue ?? null, calculated: role.calculatedDoe ?? null, effective: role.effectiveDoe ?? role.doeOverrideValue ?? role.doeMappedValue ?? role.calculatedDoe ?? null, source: role.doeSource || null, reviewReason: role.doeReviewReason || null }),
-    groupTeachingAssignments: assignments => assignments.length ? [{ curriculumYear: 'Year 1', courses: [{ courseCode: 'VETM 100', courseName: 'Foundations', assignmentCount: assignments.length, creditedHours: 1, doeTotal: 0, doeStatus: 'complete', assignments }] }] : []
+    groupTeachingAssignments: assignments => assignments.length ? [{ curriculumYear: 'Year 1', sessionCount: assignments.length, courses: [{ courseCode: 'VETM 100', courseName: 'Foundations', assignmentCount: assignments.length, creditedHours: 1, doeTotal: 0, doeStatus: assignments.every(item => item.doeApplicable === false) ? 'not-applicable' : 'complete', assignments }] }] : []
   });
 }
 

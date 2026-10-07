@@ -67,14 +67,24 @@ test('A: an administrator role reads the Dashboard summary', async () => {
   assert.equal(response.jsonBody.summary.sessionCount, 1937);
 });
 
-test('B: exactly owner, administrator, adfa_general, adfa_regular and admin are administrators', () => {
-  assert.deepEqual([...ADMIN_ROLES].sort(), ['adfa_general', 'adfa_regular', 'admin', 'administrator', 'owner']);
+test('B: developer and the supported administrator aliases are administrators', () => {
+  assert.deepEqual([...ADMIN_ROLES].sort(), ['adfa_general', 'adfa_regular', 'admin', 'administrator', 'developer', 'owner']);
   for (const role of ADMIN_ROLES) {
     const scope = resolveScope(adminProfile(role));
     assert.equal(scope.status, undefined, role);
     assert.equal(scope.administrator, true, role);
     assert.equal(scope.facultyScoped, false, role);
   }
+});
+
+test('Developer Dashboard scope is administrative without bypassing the active SQL profile requirement', async () => {
+  const { app, calls } = harness(adminProfile('developer'));
+  const response = await app(request('/api/v1/dashboard/summary'));
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+  const inactive = harness({ ...adminProfile('developer'), active: false });
+  assert.equal((await inactive.app(request('/api/v1/dashboard/summary'))).status, 403);
+  assert.equal(inactive.calls.length, 0);
 });
 
 // C -------------------------------------------------------------------------

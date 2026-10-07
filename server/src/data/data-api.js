@@ -1,23 +1,10 @@
 'use strict';
 
-const SUPPORTED_ROLES = new Set([
-  'owner',
-  'administrator',
-  'adfa_general',
-  'adfa_regular',
-  'admin',
-  'faculty',
-  'hicc',
-  'visc',
-  'viewer'
-]);
+const { SUPPORTED_ROLES, ADMINISTRATOR_ROLES, SELF_SERVICE_ROLES, normalizeBaseRole } = require('../auth/role-policy');
 
 // Only roles that represent a canonical Faculty person are Faculty-scoped.
-// The two current Beta viewer accounts are office/test accounts (DVM/LAB) and
-// deliberately remain non-Faculty; they must not be forced through a fuzzy
-// Faculty match.
-const FACULTY_SCOPED_ROLES = new Set(['faculty', 'hicc', 'visc']);
-const SESSION_EDIT_ROLES = new Set(['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin']);
+const FACULTY_SCOPED_ROLES = SELF_SERVICE_ROLES;
+const SESSION_EDIT_ROLES = ADMINISTRATOR_ROLES;
 const SESSION_TYPES = new Set(['LEC', 'LAB', 'SRL', 'Quiz/Midterm', 'OSCE', 'Exam']);
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SESSION_EDIT_FIELDS = new Set(['date', 'startTime', 'endTime', 'courseCode', 'sessionType', 'topic', 'room']);
@@ -173,8 +160,8 @@ function validateAuthorizedProfile(profile) {
   if (profile.mustChangePassword === true) {
     return result(403, { error: { code: 'PASSWORD_CHANGE_REQUIRED', message: 'Password change is required before timetable access.' } });
   }
-  const role = text(profile.baseRole).toLowerCase();
-  if (!SUPPORTED_ROLES.has(role)) {
+  const role = normalizeBaseRole(profile.baseRole);
+  if (!role) {
     return result(403, { error: { code: 'ROLE_DENIED', message: 'This role cannot read SQL timetable data.' } });
   }
   const facultyScoped = FACULTY_SCOPED_ROLES.has(role);
@@ -182,7 +169,7 @@ function validateAuthorizedProfile(profile) {
   if (facultyScoped && !facultyId) {
     return result(403, { error: { code: 'FACULTY_LINK_REQUIRED', message: 'A linked faculty profile is required.' } });
   }
-  return { profile, role, facultyScoped, facultyId: facultyScoped ? facultyId : null };
+  return { profile: { ...profile, baseRole: role }, role, facultyScoped, facultyId: facultyScoped ? facultyId : null };
 }
 
 function normalizedRange(range = {}) {
@@ -253,6 +240,7 @@ function createDataApi({
         if (auth.status) return auth;
         return result(200, {
           profile: {
+            email: auth.profile.email || null,
             displayName: auth.profile.displayName,
             role: auth.profile.baseRole,
             facultyId: auth.profile.facultyId || null,

@@ -1,13 +1,14 @@
 'use strict';
 
 const {writeDisabled} = require('../data/write-gates');
+const {ADMINISTRATOR_ROLES, normalizeBaseRole} = require('../auth/role-policy');
 
-const ADMIN = new Set(['owner','administrator','adfa_general','adfa_regular','admin']);
+const ADMIN = ADMINISTRATOR_ROLES;
 const YEAR = /^[1-9]\d{3}-(\d{2})$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ok = (body={}) => ({status:200,body});
 const fail = (status,code,message) => ({status,body:{error:{code,message}}});
-const roleOf = user => String(user?.baseRole || '').trim().toLowerCase();
+const roleOf = user => normalizeBaseRole(user?.baseRole) || String(user?.baseRole || '').trim().toLowerCase();
 
 function validYear(value) {
   const match=YEAR.exec(String(value || ''));

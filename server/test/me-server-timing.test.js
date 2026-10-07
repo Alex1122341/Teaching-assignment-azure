@@ -7,7 +7,7 @@ const { createRequestTiming } = require('../src/perf/request-timing');
 const { createSqlConnection } = require('../src/data/sql-connection');
 const { createSqlUserRepository } = require('../src/data/sql-user-repository');
 
-const profile = { displayName: 'Test User', baseRole: 'administrator', facultyId: null, active: true, mustChangePassword: false };
+const profile = { email: 'test@example.edu', displayName: 'Test User', baseRole: 'administrator', facultyId: null, active: true, mustChangePassword: false };
 const request = (token) => ({ method: 'GET', url: 'https://local/api/v1/me', headers: { get: name => name.toLowerCase() === 'authorization' && token ? `Bearer ${token}` : null } });
 
 test('authenticated /me preserves JSON body and exposes approved Server-Timing', async () => {
@@ -18,7 +18,7 @@ test('authenticated /me preserves JSON body and exposes approved Server-Timing',
   });
   const out = await createSwaFunctions({ api })(request('ok'));
   assert.equal(out.status, 200);
-  assert.deepEqual(out.jsonBody, { profile: { displayName: 'Test User', role: 'administrator', facultyId: null, active: true, mustChangePassword: false } });
+  assert.deepEqual(out.jsonBody, { profile: { email: 'test@example.edu', displayName: 'Test User', role: 'adfa_regular', facultyId: null, active: true, mustChangePassword: false } });
   assert.match(out.headers['Server-Timing'], /firebase_verify/);
   assert.match(out.headers['Server-Timing'], /sql_connect;dur=0;desc="warm"/);
   assert.match(out.headers['Server-Timing'], /sql_user_query/);

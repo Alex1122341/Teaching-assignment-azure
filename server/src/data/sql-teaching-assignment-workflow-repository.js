@@ -1,5 +1,7 @@
 'use strict';
 
+const { isAdministratorRole } = require('../auth/role-policy');
+
 function createSqlTeachingAssignmentWorkflowRepository(db) {
   const run=(sql,params={})=>db.query(sql,params);
   const exec=(name,params)=>{
@@ -9,7 +11,7 @@ function createSqlTeachingAssignmentWorkflowRepository(db) {
   const packageScope=`paws_api.CanActOnTeachingAssignmentPackage(p.TeachingAssignmentPackageId,@actorFirebaseUid,@actionKind)=1`;
   return Object.freeze({
     async listWorkQueue({actorFirebaseUid,facultyId,role,academicYear}) {
-      const admin=['owner','administrator','adfa_general','adfa_regular','admin'].includes(role);
+      const admin=isAdministratorRole(role);
       const actionKind=role==='hicc'?'hicc':'visc';
       return run(`SELECT p.TeachingAssignmentPackageId AS packageId,p.AcademicYear AS academicYear,p.GroupId AS groupId,
           g.Name AS groupName,p.HiccResponsibilityId AS responsibleHiccResponsibilityId,hr.Label AS hiccLabel,
@@ -47,7 +49,7 @@ function createSqlTeachingAssignmentWorkflowRepository(db) {
         ORDER BY g.Name,hr.Label,rs.SessionOrder`,{academicYear});
     },
     async getPackage({packageId,actorFirebaseUid,role}) {
-      const admin=['owner','administrator','adfa_general','adfa_regular','admin'].includes(role);
+      const admin=isAdministratorRole(role);
       const actionKind=role==='hicc'?'hicc':'visc';
       const p=await run(`SELECT p.TeachingAssignmentPackageId AS packageId,p.PackageIdentity AS packageIdentity,p.AcademicYear AS academicYear,p.GroupId AS groupId,g.Name AS groupName,
           p.HiccResponsibilityId AS responsibleHiccResponsibilityId,hr.Label AS hiccLabel,p.Status AS status,p.WorkingRevision AS workingRevision,

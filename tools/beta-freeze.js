@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// P3 is the reviewed canonical Faculty-management product anchor.
+// P3 ProfileVersion hotfix is the reviewed Faculty-management runtime anchor.
 // P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='6b257fb5e3d8fe9443dd27d5103242656a50daa9';
+const BASELINE_COMMIT='576fff9687417a97fe635cbb4e523f41ade74e4a';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

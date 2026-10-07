@@ -403,7 +403,13 @@ function resolveRoleDoe(role = {}, inputs = {}) {
     overrideDoe: override,
     effectiveDoe: effective,
     source,
-    status: mismatch ? 'stored-calculation-mismatch' : source === 'missing' ? 'needs-review' : source,
+    status: mismatch
+      ? 'stored-calculation-mismatch'
+      : source === 'missing'
+        ? 'needs-review'
+        : source === 'calculator' && calculation.status === 'not-applicable'
+          ? 'not-applicable'
+          : source,
     reviewReason: mismatch ? 'stored-doe-differs-from-calculator' : (source === 'missing' ? calculation.reviewReason : null),
     requiresReview: mismatch || source === 'missing'
   };

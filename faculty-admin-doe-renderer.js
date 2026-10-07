@@ -45,32 +45,94 @@
       return 'Recorded';
     }
 
+    function reviewLabel(reason) {
+      const labels = {
+        'stored-doe-differs-from-calculator': 'Stored DOE differs from Calculator',
+        'teaching-role-not-covered-by-calculator': 'Teaching role not covered by Calculator',
+        'credited-hours-required': 'Credited hours required',
+        'legacy-course-coordinator-hicc-role-must-be-resolved': 'Resolve Course Coordinator vs HICC',
+        'course-units-required': 'Course units required',
+        'hicc-development-applicability-required': 'HICC development applicability required',
+        'ccc-shift-count-required': 'CCC shift count required',
+        'rotation-weeks-required': 'Rotation weeks required',
+        'rotation-type-count-required': 'Rotation type count required',
+        'visc-subject-count-required': 'VISC subject count required',
+        'visc-year-not-covered-by-calculator': 'VISC academic year not covered',
+        'role-type-not-covered-by-calculator': 'Role type not covered by Calculator',
+        'role-date-proration-review-required': 'Role dates require case-by-case DOE proration review'
+      };
+      return labels[reason] || reason || '—';
+    }
+
+    function roleCandidateLabel(role = {}) {
+      const candidates = role.doeCandidates && typeof role.doeCandidates === 'object' ? role.doeCandidates : null;
+      if (!candidates) return '—';
+      const parts = [];
+      if (number(candidates.courseCoordinatorDoe) !== null) parts.push(`CC ${formatDoe(candidates.courseCoordinatorDoe)}`);
+      if (number(candidates.hiccDoe) !== null) parts.push(`HICC ${formatDoe(candidates.hiccDoe)}`);
+      const suffix = role.doeCandidateBasis === 'full-year-reference-before-proration' ? ' · full-year before proration' : '';
+      return parts.length ? parts.join(' / ') + suffix : '—';
+    }
+
+    function teachingEffectiveDoe(assignment = {}) {
+      if (assignment.doeApplicable === false && number(assignment.doeCredit) === null) return null;
+      const effective = number(assignment.effectiveDoeCredit);
+      return effective === null ? number(assignment.doeCredit) : effective;
+    }
+
+    function teachingStatus(assignment = {}) {
+      if (assignment.doeApplicable === false) return 'Not applicable';
+      const status = assignment.doeCalculationStatus || assignment.doeStatus;
+      if (status === 'calculated') return 'Calculated';
+      if (status === 'stored') return 'Stored';
+      if (status === 'stored-calculation-mismatch') return 'Review stored value';
+      if (status === 'needs-review') return reviewLabel(assignment.doeReviewReason);
+      return status || (teachingEffectiveDoe(assignment) === null ? 'Needs Review' : 'Recorded');
+    }
+
     function renderDoeEvidence(assignments, roles) {
-      const teachingRows = (Array.isArray(assignments) ? assignments : []).map(assignment => `<tr><td>${esc(assignment.courseCode || '—')}</td><td>${esc(assignment.topic || '—')}</td><td>${esc(assignment.date || '—')}</td><td>${esc(assignment.sessionType || '—')}</td><td>${esc(assignment.teachingRole || '—')}</td><td>${formatDoe(assignment.doeCredit)}</td><td>${formatDoe(assignment.doeRate)}</td><td>${display(assignment.doeQuantity)}</td><td>${esc(assignment.doeUnit || '—')}</td><td>${esc(assignment.doeStatus || (number(assignment.doeCredit) === null ? 'Needs Review' : 'Recorded'))}</td></tr>`).join('');
-      const roleRows = (Array.isArray(roles) ? roles : []).map(role => { const effective = effectiveRoleDoe(role); return `<tr><td>${esc(role.roleType || '—')}</td><td>${esc(role.courseOrSubjectOrRotation || role.courseName || '—')}</td><td>${formatDoe(effective.mapped)}</td><td>${formatDoe(effective.override)}</td><td>${formatDoe(effective.effective)}</td><td>${esc(role.effectiveDate || '—')}</td><td>${esc(role.expirationDate || '—')}</td><td>${esc(role.doeOverrideReason || '—')}</td><td>${esc(role.specialNotes || '—')}</td></tr>`; }).join('');
+      const teachingRows = (Array.isArray(assignments) ? assignments : []).map(assignment => {
+        const effective = teachingEffectiveDoe(assignment);
+        return `<tr><td>${esc(assignment.courseCode || '—')}</td><td>${esc(assignment.topic || '—')}</td><td>${esc(assignment.date || '—')}</td><td>${esc(assignment.sessionType || '—')}</td><td>${esc(assignment.teachingRole || '—')}</td><td>${formatDoe(assignment.doeCredit)}</td><td>${formatDoe(assignment.calculatedDoeCredit)}</td><td>${assignment.doeApplicable === false ? 'Not applicable' : formatDoe(effective)}</td><td>${esc(assignment.doeRuleCode || '—')}</td><td>${esc(assignment.doeSource || '—')}</td><td>${esc(teachingStatus(assignment))}</td></tr>`;
+      }).join('');
+      const roleRows = (Array.isArray(roles) ? roles : []).map(role => {
+        const effective = effectiveRoleDoe(role);
+        return `<tr><td>${esc(role.roleType || '—')}</td><td>${esc(role.courseOrSubjectOrRotation || role.courseName || '—')}</td><td>${formatDoe(effective.mapped)}</td><td>${formatDoe(effective.override)}</td><td>${formatDoe(effective.calculated)}</td><td>${formatDoe(effective.effective)}</td><td>${esc(roleCandidateLabel(role))}</td><td>${esc(role.doeRuleCode || '—')}</td><td>${esc(effective.source || role.doeSource || '—')}</td><td>${esc(reviewLabel(effective.reviewReason || role.doeReviewReason))}</td><td>${esc(role.specialNotes || '—')}</td></tr>`;
+      }).join('');
       if (!teachingRows && !roleRows) return '';
-      const teaching = teachingRows ? `<details class="doe-evidence-group"><summary>Teaching evidence · ${assignments.length} stored assignment lines</summary><div class="table-wrap"><table class="data-table doe-evidence-table"><thead><tr><th>Course</th><th>Topic / Activity</th><th>Date</th><th>Session Type</th><th>Teaching Role</th><th>Stored DOE</th><th>Rate</th><th>Quantity</th><th>Unit</th><th>DOE Status</th></tr></thead><tbody>${teachingRows}</tbody></table></div></details>` : '';
-      const role = roleRows ? `<details class="doe-evidence-group"><summary>Role evidence · ${roles.length} stored role lines</summary><div class="table-wrap"><table class="data-table doe-evidence-table"><thead><tr><th>Role Type</th><th>Assignment</th><th>Mapped DOE</th><th>Override DOE</th><th>Effective DOE</th><th>Effective</th><th>Expires</th><th>Override Reason</th><th>Special Notes</th></tr></thead><tbody>${roleRows}</tbody></table></div></details>` : '';
-      return `<div class="doe-evidence"><div class="doe-evidence-title">DOE Evidence · VetMed-Ops</div><div class="doe-evidence-copy">Stored DOE and overrides are shown as received; no client-side recalculation is applied.</div>${teaching}${role}</div>`;
+      const teaching = teachingRows ? `<details class="doe-evidence-group"><summary>Teaching evidence · ${assignments.length} assignment lines</summary><div class="table-wrap"><table class="data-table doe-evidence-table"><thead><tr><th>Course</th><th>Topic / Activity</th><th>Date</th><th>Session Type</th><th>Teaching Role</th><th>Stored DOE</th><th>Calculated DOE</th><th>Effective DOE</th><th>Rule</th><th>Source</th><th>Status / Review</th></tr></thead><tbody>${teachingRows}</tbody></table></div></details>` : '';
+      const role = roleRows ? `<details class="doe-evidence-group"><summary>Role evidence · ${roles.length} role lines</summary><div class="table-wrap"><table class="data-table doe-evidence-table"><thead><tr><th>Role Type</th><th>Assignment</th><th>Mapped DOE</th><th>Override DOE</th><th>Calculated DOE</th><th>Effective DOE</th><th>Full-year Candidates</th><th>Rule</th><th>Source</th><th>Status / Review</th><th>Special Notes</th></tr></thead><tbody>${roleRows}</tbody></table></div></details>` : '';
+      return `<div class="doe-evidence"><div class="doe-evidence-title">DOE Evidence · VetMed-Ops + DOE Calculator</div><div class="doe-evidence-copy">Stored DOE and overrides remain authoritative. Server-side Calculator results are shown separately and are used only when no stored value exists; unresolved required inputs remain review items.</div>${teaching}${role}</div>`;
     }
 
     function renderDoeSummary(summary, academicYear, assignments, roles, contractDoe = {}) {
       const teaching = number(summary.teachingDoe), role = number(summary.roleDoe), target = number(contractDoe?.teachingDoe);
-      const teachingMissing = Math.max(0, Number(summary.teachingLineCount || 0) - Number(summary.teachingRecordedCount || 0));
-      const roleMissing = Math.max(0, Number(summary.roleLineCount || 0) - Number(summary.roleRecordedCount || 0));
+      const teachingMissing = Math.max(0, Number(summary.teachingMissingCount || 0));
+      const roleMissing = Math.max(0, Number(summary.roleMissingCount || 0));
+      const teachingNotApplicable = Math.max(0, Number(summary.teachingNotApplicableCount || 0));
       const knownValues = [teaching, role].filter(value => value !== null);
       const totalKnown = knownValues.length ? knownValues.reduce((sum, value) => sum + value, 0) : null;
-      const status = summary.partial || teachingMissing || roleMissing ? 'Needs Review' : target === null ? 'Target unavailable' : 'Complete';
+      const status = teachingMissing && roleMissing
+        ? 'Teaching + Role Review'
+        : teachingMissing
+          ? 'Teaching Review'
+          : roleMissing
+            ? 'Role Review'
+            : target === null ? 'Target unavailable' : 'Complete';
       const statusClass = status === 'Complete' ? 'doe-within' : 'doe-under';
       const card = (label, value, subline = '', className = '') => `<div class="doe-summary-card ${className}"><div class="doe-summary-label">${esc(label)}</div><div class="doe-summary-value">${esc(value)}</div>${subline ? `<div class="doe-summary-subline">${esc(subline)}</div>` : ''}</div>`;
-      const totalSubline = [teachingMissing ? `${teachingMissing} teaching line(s) unresolved` : '', roleMissing ? `${roleMissing} role line(s) unresolved` : ''].filter(Boolean).join(' · ') || 'Sum of recorded teaching and role values';
+      const totalSubline = [teachingMissing ? `${teachingMissing} teaching line(s) unresolved` : '', roleMissing ? `${roleMissing} role line(s) unresolved` : '', teachingNotApplicable ? `${teachingNotApplicable} teaching line(s) not applicable` : ''].filter(Boolean).join(' · ') || 'Sum of effective teaching and role DOE';
       const difference = target !== null && teaching !== null ? target - teaching : null;
-      return `<section class="section wide doe-profile-summary doe-worksheet"><div class="section-title">DOE Summary · ${esc(`${academicYear || 'Teaching'} · VetMed-Ops recorded evidence`)}</div><div class="doe-worksheet-boundary"><span class="available">RECORDED VALUES</span> Teaching and Role / Service DOE are displayed separately. Rule references do not assign DOE.</div><div class="doe-summary-grid">${card('Contract / Teaching Target DOE', target === null ? 'Unavailable' : formatDoe(target), target === null ? 'No authoritative target recorded' : `${contractDoe.policyVersionLabel || contractDoe.source || 'Source recorded'}`)}${card('Assigned Teaching DOE', formatDoe(teaching), `${teachingMissing} unresolved of ${Number(summary.teachingLineCount || 0)} lines`)}${card('Role / Service DOE', formatDoe(role), `${roleMissing} unresolved of ${Number(summary.roleLineCount || 0)} lines`)}${card('Total Known DOE', formatDoe(totalKnown), totalSubline)}${target !== null && difference !== null ? card('Teaching Target Remaining / Difference', formatDoe(difference), 'Target minus assigned teaching DOE') : card('Teaching Target Remaining / Difference', 'Unavailable', 'Requires an authoritative teaching target and recorded teaching DOE')}</div><div class="doe-note">DOE is read-only. Missing values remain unavailable; no rule-based estimates or inferred tenure are applied.</div><div class="doe-evidence-status ${statusClass}">DOE status: ${esc(status)}</div>${renderDoeEvidence(assignments, roles)}</section>`;
+      const teachingSubline = [`${teachingMissing} unresolved of ${Number(summary.teachingApplicableCount ?? summary.teachingLineCount ?? 0)} applicable lines`, teachingNotApplicable ? `${teachingNotApplicable} not applicable` : ''].filter(Boolean).join(' · ');
+      return `<section class="section wide doe-profile-summary doe-worksheet"><div class="section-title">DOE Summary · ${esc(`${academicYear || 'Teaching'} · VetMed-Ops + Calculator evidence`)}</div><div class="doe-worksheet-boundary"><span class="available">EFFECTIVE DOE</span> Stored/override values take precedence; DOE Calculator fills only deterministic gaps and never guesses missing inputs.</div><div class="doe-summary-grid">${card('Contract / Teaching Target DOE', target === null ? 'Unavailable' : formatDoe(target), target === null ? 'No authoritative target recorded' : `${contractDoe.policyVersionLabel || contractDoe.source || 'Source recorded'}`)}${card('Assigned Teaching DOE', formatDoe(teaching), teachingSubline)}${card('Role / Service DOE', formatDoe(role), `${roleMissing} unresolved of ${Number(summary.roleLineCount || 0)} lines`)}${card('Total Effective DOE', formatDoe(totalKnown), totalSubline)}${target !== null && difference !== null ? card('Teaching Target Remaining / Difference', formatDoe(difference), 'Target minus effective assigned teaching DOE') : card('Teaching Target Remaining / Difference', 'Unavailable', 'Requires an authoritative teaching target and resolved teaching DOE')}</div><div class="doe-note">DOE Calculator source: Teaching Assignments 2026-27 MASTER.xlsx. Legacy role ambiguity and missing CCC shifts/course units remain explicit review items.</div><div class="doe-evidence-status ${statusClass}">DOE status: ${esc(status)}</div>${renderDoeEvidence(assignments, roles)}</section>`;
     }
 
     function renderTeachingCourses(assignments) {
       const years = groupTeachingAssignments(assignments);
-      const body = years.map(year => `<section class="year-section"><h3 class="year-title">${esc(year.curriculumYear)} · ${year.sessionCount ?? year.assignmentCount ?? 0} sessions · ${Number(year.creditedHours || 0).toFixed(2)} credited hours</h3>${year.courses.map(course => `<details class="course-group"><summary><div><div class="course-group-title">${esc(course.courseCode)}</div><div class="course-group-meta">${esc(course.courseName || 'Course name unavailable')} · ${course.assignmentCount} sessions · ${course.creditedHours.toFixed(2)} credited hours · ${formatDoe(course.doeTotal)} stored DOE</div></div><span class="course-group-meta">${course.doeStatus === 'complete' ? 'DOE recorded' : 'Needs Review'} ▾</span></summary><div class="table-wrap"><table class="activity-table"><thead><tr><th>Date</th><th>Start</th><th>End</th><th>Session Type</th><th>Teaching Role</th><th>Topic / Activity</th><th>Room</th><th>Credited Hours</th><th>DOE Rate</th><th>DOE Quantity</th><th>DOE Unit</th><th>DOE Credit</th><th>DOE Status</th></tr></thead><tbody>${course.assignments.map(assignment => `<tr data-session-id="${esc(assignment.sessionId || '')}"><td>${esc(assignment.date || '—')}</td><td>${esc(assignment.startTime || '—')}</td><td>${esc(assignment.endTime || '—')}</td><td>${esc(assignment.sessionType || '—')}</td><td>${esc(assignment.teachingRole || '—')}</td><td class="session-topic">${esc(assignment.topic || '—')}</td><td>${esc(assignment.room || '—')}</td><td>${display(assignment.creditedHours)}</td><td>${formatDoe(assignment.doeRate)}</td><td>${display(assignment.doeQuantity)}</td><td>${esc(assignment.doeUnit || '—')}</td><td>${formatDoe(assignment.doeCredit)}</td><td>${esc(assignment.doeStatus || 'Needs Review')}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}</section>`).join('') || '<div class="empty">No teaching assignments recorded for this academic year.</div>';
+      const body = years.map(year => `<section class="year-section"><h3 class="year-title">${esc(year.curriculumYear)} · ${year.sessionCount ?? year.assignmentCount ?? 0} sessions · ${Number(year.creditedHours || 0).toFixed(2)} credited hours</h3>${year.courses.map(course => {
+        const courseStatus = course.doeStatus === 'complete' ? 'DOE resolved' : course.doeStatus === 'not-applicable' ? 'DOE not applicable' : 'Needs Review';
+        return `<details class="course-group"><summary><div><div class="course-group-title">${esc(course.courseCode)}</div><div class="course-group-meta">${esc(course.courseName || 'Course name unavailable')} · ${course.assignmentCount} sessions · ${course.creditedHours.toFixed(2)} credited hours · ${formatDoe(course.doeTotal)} effective DOE</div></div><span class="course-group-meta">${courseStatus} ▾</span></summary><div class="table-wrap"><table class="activity-table"><thead><tr><th>Date</th><th>Start</th><th>End</th><th>Session Type</th><th>Teaching Role</th><th>Topic / Activity</th><th>Room</th><th>Credited Hours</th><th>Stored DOE</th><th>Calculated DOE</th><th>Effective DOE</th><th>DOE Status</th></tr></thead><tbody>${course.assignments.map(assignment => `<tr data-session-id="${esc(assignment.sessionId || '')}"><td>${esc(assignment.date || '—')}</td><td>${esc(assignment.startTime || '—')}</td><td>${esc(assignment.endTime || '—')}</td><td>${esc(assignment.sessionType || '—')}</td><td>${esc(assignment.teachingRole || '—')}</td><td class="session-topic">${esc(assignment.topic || '—')}</td><td>${esc(assignment.room || '—')}</td><td>${display(assignment.creditedHours)}</td><td>${formatDoe(assignment.doeCredit)}</td><td>${formatDoe(assignment.calculatedDoeCredit)}</td><td>${assignment.doeApplicable === false ? 'Not applicable' : formatDoe(teachingEffectiveDoe(assignment))}</td><td>${esc(teachingStatus(assignment))}</td></tr>`).join('')}</tbody></table></div></details>`;
+      }).join('')}</section>`).join('') || '<div class="empty">No teaching assignments recorded for this academic year.</div>';
       return `<section class="section wide"><div class="section-title">Teaching / Courses</div>${body}</section>`;
     }
 

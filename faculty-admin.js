@@ -192,9 +192,9 @@
 
   async function loadRoles() {
     if (aggregateCache.roles) { renderRoles(); return; }
-    const body = $('roles-body'); if (body) body.innerHTML = '<tr><td colspan="11" class="empty">Loading roles…</td></tr>';
+    const body = $('roles-body'); if (body) body.innerHTML = '<tr><td colspan="14" class="empty">Loading roles…</td></tr>';
     try { aggregateCache.roles = await UCVM_PAWS_DATA.dashboardRoles(); fillRoleFilter(); renderRoles(); }
-    catch (error) { if (body) body.innerHTML = `<tr><td colspan="11" class="empty">${esc(detailFailureMessage(error))}</td></tr>`; }
+    catch (error) { if (body) body.innerHTML = `<tr><td colspan="14" class="empty">${esc(detailFailureMessage(error))}</td></tr>`; }
   }
 
   async function loadDoeOverview() {
@@ -306,9 +306,19 @@
     renderDetailPending(selected); selectFacultyDetail(selected.__id);
   }
 
+  function teachingSummaryDoeStatus(row = {}) {
+    const teachingMissing = Math.max(0, Number(row.teachingMissingCount || 0));
+    const roleMissing = Math.max(0, Number(row.roleMissingCount || 0));
+    const notApplicable = Math.max(0, Number(row.teachingNotApplicableCount || 0));
+    if (!teachingMissing && !roleMissing) return { label: 'Complete', className: 'doe-within', title: notApplicable ? `${notApplicable} teaching line(s) not applicable to DOE` : 'All applicable DOE lines resolved' };
+    if (teachingMissing && roleMissing) return { label: `Teaching + Role Review (${teachingMissing + roleMissing})`, className: 'doe-under', title: `${teachingMissing} teaching and ${roleMissing} role line(s) unresolved` };
+    if (teachingMissing) return { label: `Teaching Review (${teachingMissing})`, className: 'doe-under', title: `${teachingMissing} applicable teaching line(s) unresolved` };
+    return { label: `Role Review (${roleMissing})`, className: 'doe-under', title: `${roleMissing} role line(s) unresolved` };
+  }
+
   function renderTeachingSummary() {
     const body = $('summary-body'); if (!body) return; const query = norm($('summary-search')?.value); const rows = (aggregateCache.teachingSummary || []).filter(row => !query || norm(`${row.displayName} ${row.facultyId}`).includes(query));
-    body.innerHTML = rows.map(row => `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)}</button>${facultyManagement.editAction(row.facultyId)}</td><td>${formatDoe(row.assignedTeachingDoe)}</td><td>${formatDoe(row.roleDoe)}</td><td>${formatDoe(row.recordedDoeTotal)}</td><td>${row.year1Assignments ?? 0}</td><td>${row.year2Assignments ?? 0}</td><td>${row.year3Assignments ?? 0}</td><td>${row.year4Assignments ?? 0}</td><td>${display(row.creditedHours)}</td><td>${row.courseCount ?? 0}</td><td>${row.sessionCount ?? 0}</td><td><span class="doe-status ${row.doeComplete ? 'doe-within' : 'doe-under'}">${row.doeComplete ? 'Complete' : 'Needs Review'}</span></td></tr>`).join('') || '<tr><td colspan="12" class="empty">No teaching summary rows.</td></tr>';
+    body.innerHTML = rows.map(row => { const status = teachingSummaryDoeStatus(row); const effectiveTotal = row.effectiveDoeTotal ?? row.recordedDoeTotal; return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)}</button>${facultyManagement.editAction(row.facultyId)}</td><td>${formatDoe(row.assignedTeachingDoe)}</td><td>${formatDoe(row.roleDoe)}</td><td>${formatDoe(effectiveTotal)}</td><td>${row.year1Assignments ?? 0}</td><td>${row.year2Assignments ?? 0}</td><td>${row.year3Assignments ?? 0}</td><td>${row.year4Assignments ?? 0}</td><td>${display(row.creditedHours)}</td><td>${row.courseCount ?? 0}</td><td>${row.sessionCount ?? 0}</td><td><span class="doe-status ${status.className}" title="${esc(status.title)}">${esc(status.label)}</span></td></tr>`; }).join('') || '<tr><td colspan="12" class="empty">No teaching summary rows.</td></tr>';
     document.querySelectorAll('[data-summary-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.summaryPerson)));
   }
 
@@ -316,7 +326,7 @@
   function renderRoles() {
     const body = $('roles-body'); if (!body) return; const query = norm($('roles-search')?.value), type = $('role-type-filter')?.value || '';
     const rows = (aggregateCache.roles || []).filter(row => (!query || norm(`${row.displayName} ${row.roleType} ${row.courseOrSubjectOrRotation} ${row.courseName}`).includes(query)) && (!type || row.roleType === type));
-    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)}</button></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.details || '—')}</td><td>${esc(row.effectiveDate || '—')}</td><td>${esc(row.expirationDate || '—')}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="12" class="empty">No role assignments.</td></tr>';
+    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)}</button></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.details || '—')}</td><td>${esc(row.effectiveDate || '—')}</td><td>${esc(row.expirationDate || '—')}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.calculated)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(doe.source || row.doeSource || (doe.effective === null ? 'missing' : 'stored'))}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="14" class="empty">No role assignments.</td></tr>';
     document.querySelectorAll('[data-summary-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.summaryPerson)));
   }
 
@@ -334,11 +344,12 @@
       ['Contract Teaching targets missing', coverage.missingTeachingTargetCount],
       ['Contract target coverage', coverage.coveragePercent === null || coverage.coveragePercent === undefined ? '—' : `${Number(coverage.coveragePercent).toFixed(1)}%`],
       ['Assigned Teaching DOE', formatDoe(overview.teachingDoe)],
-      ['Role DOE', formatDoe(overview.roleDoe)]
+      ['Role DOE', formatDoe(overview.roleDoe)],
+      ['Effective DOE Total', formatDoe(overview.effectiveDoeTotal ?? overview.recordedDoeTotal)]
     ].map(([label, value]) => `<div class="doe-summary-card"><div class="doe-summary-label">${esc(label)}</div><div class="doe-summary-value">${esc(value)}</div></div>`).join('');
     const categories = Array.isArray(coverage.allocationCategories) ? coverage.allocationCategories : [];
     const categoryRows = categories.map(row => `<tr><td>${esc(row.categoryCode)}</td><td>${display(row.facultyCount)}</td><td>${display(row.allocationRowCount)}</td></tr>`).join('');
-    const body = $('doe-overview-body'); if (body) body.innerHTML = `<div class="doe-note ${overview.partial ? 'warn-box' : ''}">Contract targets come from the Faculty source snapshot. Assigned Teaching DOE comes from SessionAssignment, and Role DOE comes from RoleAssignment; coverage is reported separately.</div><div class="recon-grid"><div class="recon-card"><div class="recon-label">Assigned Teaching DOE lines missing</div><div class="recon-value">${display(overview.teachingMissingCount)}</div><div>${display(overview.teachingRecordedCount)} / ${display(overview.teachingLineCount)} recorded</div></div><div class="recon-card"><div class="recon-label">Role DOE lines missing</div><div class="recon-value">${display(overview.roleMissingCount)}</div><div>${display(overview.roleRecordedCount)} / ${display(overview.roleLineCount)} recorded</div></div><div class="recon-card"><div class="recon-label">Zero overrides preserved</div><div class="recon-value">${display(overview.overrideZeroCount)}</div></div><div class="recon-card"><div class="recon-label">Negative overrides preserved</div><div class="recon-value">${display(overview.overrideNegativeCount)}</div></div></div>${categoryRows ? `<div class="section-title">Non-Teaching Contract DOE category coverage</div><div class="table-wrap"><table class="data-table"><thead><tr><th>Category</th><th>Faculty with source</th><th>Allocation rows</th></tr></thead><tbody>${categoryRows}</tbody></table></div>` : '<div class="empty">No non-Teaching contract DOE allocations are recorded for this academic year.</div>'}`;
+    const body = $('doe-overview-body'); if (body) body.innerHTML = `<div class="doe-note ${overview.partial ? 'warn-box' : ''}">Stored SessionAssignment DOE and RoleAssignment override/mapped DOE remain authoritative. The server-side DOE Calculator fills only deterministic gaps; missing required inputs remain review items.</div><div class="recon-grid"><div class="recon-card"><div class="recon-label">Assigned Teaching DOE lines unresolved</div><div class="recon-value">${display(overview.teachingMissingCount)}</div><div>${display(overview.teachingRecordedCount)} recorded + ${display(overview.teachingCalculatedCount)} calculated = ${display(overview.teachingResolvedCount)} / ${display(overview.teachingLineCount)} applicable lines resolved · ${display(overview.teachingNotApplicableCount)} not applicable</div></div><div class="recon-card"><div class="recon-label">Role DOE lines unresolved</div><div class="recon-value">${display(overview.roleMissingCount)}</div><div>${display(overview.roleRecordedCount)} recorded + ${display(overview.roleCalculatedCount)} calculated = ${display(overview.roleResolvedCount)} / ${display(overview.roleLineCount)} resolved</div></div><div class="recon-card"><div class="recon-label">Zero overrides preserved</div><div class="recon-value">${display(overview.overrideZeroCount)}</div></div><div class="recon-card"><div class="recon-label">Negative overrides preserved</div><div class="recon-value">${display(overview.overrideNegativeCount)}</div></div></div>${categoryRows ? `<div class="section-title">Non-Teaching Contract DOE category coverage</div><div class="table-wrap"><table class="data-table"><thead><tr><th>Category</th><th>Faculty with source</th><th>Allocation rows</th></tr></thead><tbody>${categoryRows}</tbody></table></div>` : '<div class="empty">No non-Teaching contract DOE allocations are recorded for this academic year.</div>'}`;
   }
 
   function renderApiDetail(detail) {

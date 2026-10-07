@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// AUTH-1 Developer-role runtime is the reviewed trust anchor.
-// P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';
+// DOE Calculator runtime is the reviewed trust anchor.
+// AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='1fd064b0a1b2367cb2d3a58d71d6c8856fb1c74a';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

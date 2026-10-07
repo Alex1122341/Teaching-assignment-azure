@@ -180,7 +180,7 @@ test('R / S. detail stays lazy, single, and cached; no N+1', async () => {
   assert.deepEqual(h.calls.filter(c => c.startsWith('dashboardFacultyById')), ['dashboardFacultyById:f-1'], 'one detail request, then cached');
 });
 
-test('T / U. AFC purpose stays detail-only and DOE stays the stored value', async () => {
+test('T / U. AFC purpose stays detail-only and stored DOE keeps precedence over client-side derivation', async () => {
   const h = createHarness();
   await h.signIn();
   await flush();
@@ -188,8 +188,9 @@ test('T / U. AFC purpose stays detail-only and DOE stays the stored value', asyn
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
   assert.match(pane, new RegExp(AFC_PURPOSE), 'AFC purpose is shown in the selected detail');
-  assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/, 'stored DOE credit is displayed with canonical percentage formatting');
-  assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/);
+  assert.match(pane, /<td>0\.90%<\/td><td>DOE unavailable<\/td><td>0\.90%<\/td>/, 'stored DOE credit remains the effective value when no server calculator result is supplied');
+  assert.match(pane, /Confirmed/);
+  assert.doesNotMatch(pane, /1\.25%/, 'client must not derive DOE from legacy rate and quantity');
 });
 
 test('V / W. a 503 still has no Firestore fallback and never signs out', async () => {

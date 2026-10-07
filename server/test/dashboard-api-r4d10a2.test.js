@@ -627,6 +627,29 @@ test('E4: a faculty-scoped roster query is narrowed by FacultyId', async () => {
   assert.equal(/f\.FacultyId = @facultyId/.test(queries[0].sql), true);
 });
 
+test('Faculty roster status filters build valid optional WHERE clauses', async () => {
+  const cases = [
+    { name: 'active', input: { status: 'active' }, where: /WHERE f\.Active = 1/ },
+    { name: 'inactive', input: { status: 'inactive' }, where: /WHERE f\.Active = 0/ },
+    { name: 'all with search', input: { status: 'all', search: 'fixture' }, where: /WHERE .*f\.DisplayName LIKE @search/ },
+    { name: 'all with FacultyId', input: { status: 'all', facultyId: FACULTY_ID }, where: /WHERE f\.FacultyId = @facultyId/ }
+  ];
+
+  for (const { name, input, where } of cases) {
+    let sql;
+    const repository = createSqlDashboardRepository({ query: async query => { sql = query; return []; } });
+    await repository.faculty({ academicYear: AY, ...input });
+    assert.match(sql, where, name);
+    assert.doesNotMatch(sql, /WHERE\s+ORDER BY/, name);
+  }
+
+  let unfilteredSql;
+  const repository = createSqlDashboardRepository({ query: async query => { unfilteredSql = query; return []; } });
+  await repository.faculty({ academicYear: AY, status: 'all' });
+  assert.doesNotMatch(unfilteredSql, /WHERE\s+ORDER BY/, 'unfiltered all-status roster must omit WHERE');
+  assert.match(unfilteredSql, /FROM paws\.Faculty f\s+LEFT JOIN/, 'unfiltered all-status roster still reads Faculty rows');
+});
+
 test('E5: facultyById returns null for an unknown / malformed id without querying', async () => {
   let queried = false;
   const repository = createSqlDashboardRepository({ query: async () => { queried = true; return []; } });

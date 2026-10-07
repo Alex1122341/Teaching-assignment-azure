@@ -320,10 +320,12 @@ test('R: source / import metadata stays isolated to the AFC unified projection',
     );
   }
   // Legacy DTO mappers must not emit provenance fields; the isolated AFC
-  // projection is explicitly allowed to carry source/audit metadata.
-  for (const forbidden of ["sourceImportBatchId", "sourceRow", "sourceFacultyName", "createdAtUtc", "updatedAtUtc"]) {
+  // projection is explicitly allowed to carry source/audit metadata. The
+  // canonical Faculty UpdatedAtUtc concurrency token is not provenance.
+  for (const forbidden of ["sourceImportBatchId", "sourceRow", "sourceFacultyName", "createdAtUtc"]) {
     assert.equal(legacyProjection.includes(forbidden), false, 'legacy DTO exposes ' + forbidden);
   }
+  assert.match(legacyProjection, /UpdatedAtUtc/);
   assert.match(source.slice(source.indexOf('// ------------------------------------------------------------- AFC list')), /u\.SourceKind AS sourceKind/);
 });
 
@@ -445,14 +447,19 @@ test('W2: the read-only proof recognises the expanded surface and keeps its disc
 });
 
 // Y ---------------------------------------------------------------------------
-test('Y: every non-GET method on a dashboard path is 405 with Allow: GET', async () => {
+test('Y: read-only Dashboard routes reject methods while Faculty detail exposes only the narrow PATCH method', async () => {
   const { app } = harness(adminProfile('administrator'));
   const urls = ['/api/v1/dashboard/summary', '/api/v1/dashboard/faculty', '/api/v1/dashboard/faculty/' + FACULTY_ID];
   for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
     for (const url of urls) {
       const response = await app(request(url, { method }));
+      if (url.endsWith('/' + FACULTY_ID) && method === 'PATCH') {
+        assert.equal(response.status, 503);
+        assert.equal(response.jsonBody.error.code, 'WRITE_DISABLED');
+        continue;
+      }
       assert.equal(response.status, 405, method + ' ' + url);
-      assert.equal(response.headers.Allow, 'GET', method + ' ' + url);
+      assert.equal(response.headers.Allow, url.endsWith('/' + FACULTY_ID) ? 'GET, PATCH' : 'GET', method + ' ' + url);
       assert.equal(response.jsonBody.error.code, 'METHOD_NOT_ALLOWED');
     }
   }

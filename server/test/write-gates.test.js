@@ -8,7 +8,7 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
   assert.deepEqual(createWriteGates({}), {
     afcSingle: false, afcBatch: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
-    taDraft: false, taReview: false, taFinal: false, taPublish: false
+    taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false
   });
   assert.deepEqual(createWriteGates({
     PAWS_AFC_SINGLE_WRITE_ENABLED: 'true',
@@ -18,10 +18,11 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     PAWS_TA_REVIEW_WRITE_ENABLED: 'true',
     PAWS_TA_FINAL_WRITE_ENABLED: 'false',
     PAWS_TA_PUBLISH_WRITE_ENABLED: 'TRUE',
-    PAWS_UNRELATED_WRITE_ENABLED: 'true'
+    PAWS_UNRELATED_WRITE_ENABLED: 'true',
+    PAWS_FACULTY_ADMIN_WRITE_ENABLED: 'true'
   }), {
     afcSingle: true, afcBatch: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
-    taDraft: true, taReview: true, taFinal: false, taPublish: false
+    taDraft: true, taReview: true, taFinal: false, taPublish: false, facultyAdmin: true
   });
 });

@@ -44,6 +44,7 @@
 
     const apiOrigin=validateApiOrigin(API_ORIGIN);
     let writeCapabilities=Object.freeze({});
+    let facultyAdminWriteCapability=false;
 
     // Translates a response into the existing error contract: {status, code, message}.
     async function settle(response){
@@ -160,6 +161,15 @@
       sessionCreateEnabled:()=> writeCapabilities.sessionCreate===true,
       afcSingleWriteEnabled:()=> writeCapabilities.afcSingle===true,
       afcBatchWriteEnabled:()=> writeCapabilities.afcBatch===true,
+      facultyAdminWriteEnabled:()=> facultyAdminWriteCapability===true,
+      async refreshFacultyAdminWriteCapabilities(){
+        try{
+          const body=await request('/api/v1/dashboard/faculty-admin/write-capabilities');
+          const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
+          facultyAdminWriteCapability=value.facultyAdmin===true;
+        }catch(_){facultyAdminWriteCapability=false;}
+        return facultyAdminWriteCapability===true;
+      },
       async refreshWriteCapabilities(){
         const body=await request('/api/v1/afc-requests/write-capabilities');
         const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
@@ -266,11 +276,12 @@
         const body=await request('/api/v1/dashboard/summary'+suffix);
         return body.summary&&typeof body.summary==='object'&&!Array.isArray(body.summary)?body.summary:{};
       },
-      async dashboardFaculty({academicYear=null,search=null,limit=null}={}){
+      async dashboardFaculty({academicYear=null,search=null,limit=null,status=null}={}){
         const query=new URLSearchParams();
         if(String(academicYear??'').trim())query.set('academicYear',String(academicYear));
         if(String(search??'').trim())query.set('search',String(search));
         if(String(limit??'').trim())query.set('limit',String(limit));
+        if(String(status??'').trim())query.set('status',String(status));
         const suffix=query.toString()?'?'+query.toString():'';
         const body=await request('/api/v1/dashboard/faculty'+suffix);
         return Array.isArray(body.faculty)?body.faculty:[];
@@ -282,6 +293,18 @@
         if(String(academicYear??'').trim())query.set('academicYear',String(academicYear));
         const suffix=query.toString()?'?'+query.toString():'';
         return request('/api/v1/dashboard/faculty/'+encodeURIComponent(id)+suffix);
+      },
+      async updateDashboardFaculty(facultyId,payload={}){
+        const id=String(facultyId??'').trim();if(!id)throw new Error('facultyId is required.');
+        return request('/api/v1/dashboard/faculty/'+encodeURIComponent(id),{method:'PATCH',body:payload});
+      },
+      async deactivateDashboardFaculty(facultyId,{expectedUpdatedAtUtc,confirm=false}={}){
+        const id=String(facultyId??'').trim();if(!id)throw new Error('facultyId is required.');
+        return request('/api/v1/dashboard/faculty/'+encodeURIComponent(id)+'/deactivate',{method:'POST',body:{expectedUpdatedAtUtc,confirm}});
+      },
+      async restoreDashboardFaculty(facultyId,{expectedUpdatedAtUtc}={}){
+        const id=String(facultyId??'').trim();if(!id)throw new Error('facultyId is required.');
+        return request('/api/v1/dashboard/faculty/'+encodeURIComponent(id)+'/restore',{method:'POST',body:{expectedUpdatedAtUtc}});
       },
       async dashboardTeachingSummary({academicYear=null}={}){
         const query=new URLSearchParams();

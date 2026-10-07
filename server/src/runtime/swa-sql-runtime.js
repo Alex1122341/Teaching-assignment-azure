@@ -4,6 +4,7 @@ const { resolveSqlDriver, parseBooleanFlag, buildSqlConnectionConfig, createSqlC
 const { createSqlUserRepository } = require('../data/sql-user-repository');
 const { createSqlSessionRepository } = require('../data/sql-session-repository');
 const { createSqlDashboardRepository } = require('../data/sql-dashboard-repository');
+const { createSqlFacultyAdminRepository } = require('../data/sql-faculty-admin-repository');
 const { createSqlDoeTargetRepository } = require('../data/sql-doe-target-repository');
 const { createSqlAfcWriteRepository } = require('../data/sql-afc-write-repository');
 const { createSqlAfcRequestRepository } = require('../data/sql-afc-request-repository');
@@ -43,6 +44,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     ...createSqlDoeTargetRepository(db)
   };
   const afcWrite = createSqlAfcWriteRepository(db);
+  const facultyAdminWrite = createSqlFacultyAdminRepository(db);
   const writeGates = createWriteGates(env);
   const verify = createFirebaseSqlAuth({
     verifyIdToken: createFirebaseVerifier({ admin, projectId: env.FIREBASE_PROJECT_ID, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }),
@@ -60,7 +62,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     writeGates
   }) });
   const dashboardRoutes = createDashboardFunctions({
-    api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: afcWrite, writeGates })
+    api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: { ...afcWrite, ...facultyAdminWrite }, writeGates })
   });
   const afcRequestApi = createAfcRequestApi({
     verifyToken: verify,

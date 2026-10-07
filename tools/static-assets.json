@@ -29,6 +29,7 @@
   "faculty-admin-afc-batch.js",
   "faculty-admin.html",
   "faculty-admin.js",
+  "faculty-admin-management.js",
   "faculty-admin-doe-renderer.js",
   "teaching-assignments.css",
   "teaching-assignments.html",

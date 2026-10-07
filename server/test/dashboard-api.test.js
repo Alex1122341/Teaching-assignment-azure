@@ -284,7 +284,7 @@ test('M: a SQL failure is reported as 503 without leaking detail', async () => {
 });
 
 // N -------------------------------------------------------------------------
-test('N: every non-GET method on a dashboard path is 405 with Allow: GET', async () => {
+test('N: dashboard read routes reject unsupported methods and Faculty detail allows only PATCH as its write method', async () => {
   const { app, calls } = harness(adminProfile('administrator'));
   const urls = [
     '/api/v1/dashboard/summary',
@@ -294,8 +294,13 @@ test('N: every non-GET method on a dashboard path is 405 with Allow: GET', async
   for (const url of urls) {
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']) {
       const response = await app(request(url, { method }));
+      if (url.endsWith('/' + FACULTY_ID) && method === 'PATCH') {
+        assert.equal(response.status, 503, method + ' ' + url);
+        assert.equal(response.jsonBody.error.code, 'WRITE_DISABLED', method + ' ' + url);
+        continue;
+      }
       assert.equal(response.status, 405, method + ' ' + url);
-      assert.equal(response.headers.Allow, 'GET', method + ' ' + url);
+      assert.equal(response.headers.Allow, url.endsWith('/' + FACULTY_ID) ? 'GET, PATCH' : 'GET', method + ' ' + url);
       assert.equal(response.jsonBody.error.code, 'METHOD_NOT_ALLOWED', method + ' ' + url);
     }
   }

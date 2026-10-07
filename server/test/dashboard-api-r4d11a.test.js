@@ -159,6 +159,27 @@ test('repository effective role DOE preserves zero and negative overrides', asyn
   assert.equal(roles[1].effectiveDoe, -0.5);
 });
 
+test('repository preserves dated prorated stored role DOE without full-year mismatch', async () => {
+  const repository = createSqlDashboardRepository({ query: async () => [{
+    roleAssignmentId: 1,
+    facultyId: FACULTY_ID,
+    displayName: 'A',
+    academicYear: '2026-27',
+    roleType: 'HICC',
+    courseOrSubjectOrRotation: 'VTMD 420: Sick Animals-Integument, MSK',
+    effectiveDate: '2026-09-01',
+    expirationDate: '2027-03-01',
+    doeMappedValue: 3,
+    doeOverrideValue: null
+  }] });
+  const [role] = await repository.roles({ academicYear: '2026-27' });
+  assert.equal(role.calculatedDoe, 6);
+  assert.equal(role.effectiveDoe, 3);
+  assert.equal(role.doeSource, 'mapped');
+  assert.equal(role.doeCalculationStatus, 'mapped');
+  assert.equal(role.doeReviewReason, null);
+});
+
 test('repository role calculator fills deterministic VISC gaps but leaves CCC without shifts unresolved', async () => {
   const repository = createSqlDashboardRepository({ query: async () => [
     { roleAssignmentId: 1, facultyId: FACULTY_ID, displayName: 'A', academicYear: '2026-27', roleType: 'VISC', courseOrSubjectOrRotation: 'Subject A', doeMappedValue: null, doeOverrideValue: null },

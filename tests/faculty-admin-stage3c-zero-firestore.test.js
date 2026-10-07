@@ -287,13 +287,16 @@ test('Y. AFC purpose is detail-only', async () => {
   assert.match(h.byId('profile-pane').innerHTML, new RegExp(AFC_PURPOSE), 'shown in the selected detail');
 });
 
-test('Z. DOE is the stored API value, never recomputed', async () => {
+test('Z. stored DOE remains authoritative and the browser never recomputes DOE', async () => {
   const h = await drive();
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
-   assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/);
-   assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/);
-   assert.match(pane, /<td>12\.50%<\/td><td>10\.00%<\/td>/, 'roles render stored doeMappedValue / doeOverrideValue');
+  assert.match(pane, /Stored DOE/);
+  assert.match(pane, /Calculated DOE/);
+  assert.match(pane, /Effective DOE/);
+  assert.match(pane, /<td>0\.90%<\/td><td>DOE unavailable<\/td><td>0\.90%<\/td>/, 'stored teaching DOE remains effective when no server calculator result is supplied');
+  assert.doesNotMatch(pane, /1\.25%/, 'browser must not derive DOE from legacy rate and quantity');
+  assert.match(pane, /<td>12\.50%<\/td><td>10\.00%<\/td>/, 'roles preserve stored mapped and override DOE');
   assert.doesNotMatch(ADMIN_SOURCE, /doeRate\s*\*|\*\s*doeQuantity/, 'no browser DOE recomputation');
 });
 

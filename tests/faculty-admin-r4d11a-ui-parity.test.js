@@ -41,7 +41,7 @@ test('rich profile uses the API view model for DOE and year/course/session expan
     assert.match(profileSource, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
   assert.match(profileSource, /Joint appointment/);
-  for (const field of ['DOE Rate', 'DOE Quantity', 'DOE Unit', 'DOE Credit', 'DOE Status', 'Teaching Role', 'Topic', 'Room']) {
+  for (const field of ['Stored DOE', 'Calculated DOE', 'Effective DOE', 'DOE Status', 'Teaching Role', 'Topic', 'Room']) {
     assert.match(profileSource, new RegExp(field));
   }
 });
@@ -65,13 +65,16 @@ test('Dashboard runtime remains zero-Firestore and self-service stays scoped', (
   assert.match(source, /body\.faculty-self-mode/);
 });
 
-test('P1 DOE summary and evidence groups are honest about VetMed-Ops coverage', () => {
-  for (const label of ['Contract / Teaching Target DOE', 'Assigned Teaching DOE', 'Role / Service DOE', 'Total Known DOE', 'Teaching Target Remaining / Difference', 'Teaching / Courses', 'Roles & Appointments', 'DOE Rule Reference', 'Policy:', 'RECORDED VALUES', 'DOE Evidence', 'Teaching evidence', 'Role evidence']) {
+test('DOE summary and evidence groups are honest about VetMed-Ops and Calculator coverage', () => {
+  for (const label of ['Contract / Teaching Target DOE', 'Assigned Teaching DOE', 'Role / Service DOE', 'Total Effective DOE', 'Teaching Target Remaining / Difference', 'Teaching / Courses', 'Roles & Appointments', 'DOE Rule Reference', 'Policy:', 'EFFECTIVE DOE', 'DOE Evidence', 'Teaching evidence', 'Role evidence']) {
     assert.match(profileSource, new RegExp(label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')), label);
   }
-  assert.match(profileSource, /VetMed-Ops recorded evidence/);
+  assert.match(profileSource, /VetMed-Ops \+ Calculator evidence/);
   assert.match(profileSource, /No authoritative target recorded/);
-  assert.match(profileSource, /no client-side recalculation/);
+  assert.match(profileSource, /Server-side Calculator results are shown separately/);
+  assert.match(profileSource, /Stored DOE and overrides remain authoritative/);
+  assert.match(source, /Teaching Review/);
+  assert.match(source, /Role Review/);
   assert.match(profileSource, /DOE unavailable \/ Needs Review/);
   assert.match(profileSource, /Partial \/ Needs Review/);
 });
@@ -85,3 +88,15 @@ test('11A2 aggregate faculty names navigate to cached Lookup detail without fano
   assert.doesNotMatch(source, /dashboardFacultyById\(row\.facultyId\)/);
 });
 
+
+test('aggregate DOE UI labels effective totals and calculator provenance explicitly', () => {
+  assert.match(html, /Effective DOE Total/);
+  assert.doesNotMatch(html, />Recorded DOE Total</);
+  assert.match(html, /deterministic DOE Calculator fallback/);
+  assert.match(html, /Calculated DOE/);
+  assert.match(html, /DOE Source/);
+  assert.match(source, /effectiveDoeTotal/);
+  assert.match(source, /teachingCalculatedCount/);
+  assert.match(source, /roleCalculatedCount/);
+  assert.match(source, /recorded \+ .*calculated/);
+});

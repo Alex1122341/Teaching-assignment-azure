@@ -439,20 +439,25 @@ test('AFC purpose appears only in the selected detail', () => {
   assert.doesNotMatch(slice('function updateKpis', 'function renderLookup'), /purpose/i, 'no global KPI exposes AFC purpose');
 });
 
-test('DOE values are displayed exactly as stored, with no client-side recomputation', async () => {
+test('stored DOE remains authoritative and the client never recomputes DOE', async () => {
   const h = await driveAdmin();
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
-  // doeRate 0.5 * doeQuantity 2.5 = 1.25, but the authoritative stored credit is
-  // 0.9, so the DOE unit/credit/status cells prove the stored value is displayed.
-  assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/, 'the stored DOE unit, credit and status render verbatim');
-  assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/, 'the DOE credit must not be recomputed from rate x quantity');
+  // The legacy fixture has rate 0.5 and quantity 2.5, but the authoritative
+  // stored credit is 0.9. The client must display Stored / Calculated /
+  // Effective evidence without deriving 1.25 in the browser.
+  assert.match(pane, /Stored DOE/);
+  assert.match(pane, /Calculated DOE/);
+  assert.match(pane, /Effective DOE/);
+  assert.match(pane, /<td>0\.90%<\/td><td>DOE unavailable<\/td><td>0\.90%<\/td>/, 'stored DOE remains the effective value when the server provides no calculator result');
+  assert.match(pane, /Confirmed/);
+  assert.doesNotMatch(pane, /1\.25%/, 'the browser must not recompute rate x quantity');
 
   const detail = `${ADMIN_SOURCE}\n${read('faculty-admin-doe-renderer.js')}\n${read('dashboard-view-model.js')}`;
-  for (const field of ['doeRate', 'doeQuantity', 'doeUnit', 'doeCredit', 'doeStatus', 'doeMappedValue', 'doeOverrideValue']) {
-    assert.match(detail, new RegExp(field), `DOE field ${field} must be rendered`);
+  for (const field of ['doeCredit', 'calculatedDoeCredit', 'effectiveDoeCredit', 'doeCalculationStatus', 'doeMappedValue', 'doeOverrideValue', 'calculatedDoe', 'effectiveDoe']) {
+    assert.match(detail, new RegExp(field), `DOE field ${field} must be represented by the client contract`);
   }
-  assert.doesNotMatch(detail, /doeRate\s*\*|\*\s*doeQuantity|doeCredit\s*=/, 'DOE must not be recomputed');
+  assert.doesNotMatch(detail, /doeRate\s*\*|\*\s*doeQuantity|doeCredit\s*=/, 'DOE calculation must remain server-side');
   assert.doesNotMatch(slice('function rosterRecord', 'async function loadAdminDashboard'), /doe[A-Z(]|doeRate|doeCredit|doeOverride/, 'the roster adapter must not invent DOE values');
 });
 

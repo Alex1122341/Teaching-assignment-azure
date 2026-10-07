@@ -1,6 +1,6 @@
 /*
   PAWS Beta P2 permission rollback. Removes only migration 022's P2 column and
-  named-procedure grants. Empty TA role containers are retained so an audited
+  named-procedure grants. Empty runtime role containers are retained so an audited
   retry can reapply the migration without role-name races. No business data,
   migration 017 permissions, logins, users, or memberships are modified.
 */

@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// AUTH-1 is current. P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
+// P4 is current. AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';
+const BASELINE_COMMIT='5dc7348fd877d3b56815074df43f34202a8af10a';
+const AUTH1_BASELINE_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';
 const P3_PRODUCT_COMMIT='d6b433f3b7f5bb62400deedba537e47b970b34d2';
 const P1_PRODUCT_COMMIT='efdedb3d1b62a774e74b859a723e5a7906f86956';
 const P2_PRODUCT_COMMIT='e37981f35a3b9954b7b69e98e38fcf69262ec185';
@@ -41,7 +42,7 @@ const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:c
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the AUTH-1 Developer-role product baseline',()=>{
+test('beta identity is pinned to the reviewed P4 DOE product baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://tester-teaching.web.app');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -239,17 +240,17 @@ test('W1H protected static and API paths retain W1F coverage and historical byte
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the AUTH-1 product frozen runtime reports zero protected drift',()=>{
+test('the P4 product frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,56);
+  assert.equal(result.protected,59);
 });
 
-test('the current static manifest has exactly 56 protected files',()=>{
-  assert.equal(manifest().length,56);
-  assert.equal(freeze.protectedPaths({root}).length,56);
+test('the current static manifest has exactly 59 protected files',()=>{
+  assert.equal(manifest().length,59);
+  assert.equal(freeze.protectedPaths({root}).length,59);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -262,9 +263,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 56 current protected files are byte-identical to the immutable AUTH-1 product blobs',()=>{
+test('all 59 current protected files are byte-identical to the immutable P4 product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,56);
+  assert.equal(protectedFiles.length,59);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -274,11 +275,10 @@ test('all 56 current protected files are byte-identical to the immutable AUTH-1 
 });
 
 test('AUTH-1 freeze promotion preserves coverage and permits only its reviewed role-policy delta',()=>{
-  const apiFreeze=require('../tools/beta-api-freeze.js');
   const p3Static=historicalStaticPaths(P3_PRODUCT_COMMIT);
-  const auth1Static=historicalStaticPaths(BASELINE_COMMIT);
+  const auth1Static=historicalStaticPaths(AUTH1_BASELINE_COMMIT);
   const p3Api=historicalApiPaths(P3_PRODUCT_COMMIT);
-  const auth1Api=historicalApiPaths(BASELINE_COMMIT);
+  const auth1Api=historicalApiPaths(AUTH1_BASELINE_COMMIT);
   assert.equal(p3Static.length,56);
   assert.equal(auth1Static.length,56);
   assert.deepEqual(p3Static.filter(name=>!auth1Static.includes(name)),[]);
@@ -294,10 +294,10 @@ test('AUTH-1 freeze promotion preserves coverage and permits only its reviewed r
       );
     }catch{return true;}
   }).sort();
-  assert.deepEqual(changed(auth1Static,P3_PRODUCT_COMMIT,BASELINE_COMMIT),[
+  assert.deepEqual(changed(auth1Static,P3_PRODUCT_COMMIT,AUTH1_BASELINE_COMMIT),[
     'faculty-access.js','faculty-admin.js','timetable.js'
   ]);
-  assert.deepEqual(changed([...new Set([...p3Api,...auth1Api])],P3_PRODUCT_COMMIT,BASELINE_COMMIT),[
+  assert.deepEqual(changed([...new Set([...p3Api,...auth1Api])],P3_PRODUCT_COMMIT,AUTH1_BASELINE_COMMIT),[
     'server/src/afc/afc-approved-artifact-renderer.js',
     'server/src/afc/afc-request-api.js',
     'server/src/auth/role-policy.js',
@@ -308,6 +308,50 @@ test('AUTH-1 freeze promotion preserves coverage and permits only its reviewed r
     'server/src/teaching-assignment/teaching-assignment-api.js'
   ]);
   assert.ok(auth1Api.includes('server/src/auth/role-policy.js'));
+});
+
+test('P4 freeze promotion preserves AUTH-1 coverage and permits only the reviewed DOE runtime delta',()=>{
+  const apiFreeze=require('../tools/beta-api-freeze.js');
+  const auth1Static=historicalStaticPaths(AUTH1_BASELINE_COMMIT);
+  const p4Static=historicalStaticPaths(BASELINE_COMMIT);
+  const auth1Api=historicalApiPaths(AUTH1_BASELINE_COMMIT);
+  const p4Api=historicalApiPaths(BASELINE_COMMIT);
+  assert.equal(auth1Static.length,56);
+  assert.equal(p4Static.length,59);
+  assert.equal(auth1Api.length,39);
+  assert.equal(p4Api.length,56);
+  assert.deepEqual(auth1Static.filter(name=>!p4Static.includes(name)),[]);
+  assert.deepEqual(p4Static.filter(name=>!auth1Static.includes(name)),[
+    'faculty-admin-doe-edit.js','faculty-admin-doe-policy.js','faculty-admin-doe-worksheet.js'
+  ]);
+
+  const changed=(paths,from,to)=>paths.filter(name=>{
+    try{
+      return !freeze.bytesMatch(
+        freeze.readBaselineFile({root,baselineCommit:from,file:name}),
+        freeze.readBaselineFile({root,baselineCommit:to,file:name})
+      );
+    }catch{return true;}
+  }).sort();
+  assert.deepEqual(changed(auth1Static,AUTH1_BASELINE_COMMIT,BASELINE_COMMIT),[
+    'faculty-admin-enhancements.js','faculty-admin-management.js','faculty-admin.css',
+    'faculty-admin.html','faculty-admin.js','paws-data-client.js','timetable.js'
+  ]);
+  assert.deepEqual(changed([...new Set([...auth1Api,...p4Api])],AUTH1_BASELINE_COMMIT,BASELINE_COMMIT),[
+    'server/src/data/data-api.js','server/src/data/sql-doe-assignment-repository.js',
+    'server/src/data/sql-doe-engine-repository.js','server/src/data/sql-doe-policy-repository.js',
+    'server/src/data/sql-doe-target-override-repository.js','server/src/data/sql-doe-worksheet-repository.js',
+    'server/src/data/write-gates.js','server/src/doe/doe-api.js','server/src/doe/doe-assignment-service.js',
+    'server/src/doe/doe-calculation-service.js','server/src/doe/doe-policy-service.js',
+    'server/src/doe/doe-reserve-service.js','server/src/doe/doe-session-service.js',
+    'server/src/doe/doe-target-override-service.js','server/src/doe/doe-workflow-preview-service.js',
+    'server/src/doe/doe-worksheet-service.js','server/src/domain/doe-formula.js',
+    'server/src/domain/doe-policy-engine.js','server/src/runtime/swa-doe-functions.js',
+    'server/src/runtime/swa-sql-runtime.js'
+  ]);
+  assert.ok(p4Api.includes('server/src/auth/role-policy.js'));
+  assert.ok(p4Api.includes('server/src/doe/doe-workflow-preview-service.js'));
+  assert.ok(p4Api.includes('server/src/runtime/swa-doe-functions.js'));
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
 });
 
@@ -410,7 +454,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,56);
+  assert.equal(protectedFiles.length,59);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -448,17 +492,17 @@ test('beta-baseline.json remains non-authoritative and records the stabilized Be
 });
 
 // G. Dual-runtime baseline ---------------------------------------------------
-test('API freeze shares the promoted AUTH-1 static baseline and has zero runtime drift',()=>{
+test('API freeze shares the promoted P4 static baseline and has zero runtime drift',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
   assert.equal(apiFreeze.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,39);
+  assert.equal(result.runtimeFiles.length,56);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,42);
+  assert.equal(result.protected,59);
   assert.ok(result.runtimeFiles.includes('server/src/auth/role-policy.js'));
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-doe-target-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));

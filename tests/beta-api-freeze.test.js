@@ -59,7 +59,7 @@ function makeArtifact(contents = baseline, extra = []) {
 
 test('API freeze shares the static immutable baseline and protects the complete current runtime', () => {
   assert.equal(freeze.BASELINE_COMMIT, staticFreeze.BASELINE_COMMIT);
-  assert.equal(freeze.currentRuntimeFiles({ root }).length, 39);
+  assert.equal(freeze.currentRuntimeFiles({ root }).length, 56);
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/auth/role-policy.js'));
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/data/write-gates.js'));
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/data/sql-doe-target-repository.js'));

@@ -456,7 +456,7 @@ function createSqlDashboardRepository(db) {
                p.BoardCertificationCount AS boardCertificationCount,
                p.AbvmaLicenseNumber AS abvmaLicenseNumber,
                p.AbvmaMemberType AS abvmaMemberType,
-               CONVERT(varchar(18), p.ProfileVersion, 1) AS profileVersion
+               CONVERT(varchar(18), CONVERT(varbinary(8), p.ProfileVersion), 1) AS profileVersion
            FROM paws.FacultyProfessionalProfile p
            WHERE p.FacultyId = @facultyId`,
           { facultyId }

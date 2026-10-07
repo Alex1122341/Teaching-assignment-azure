@@ -19,14 +19,18 @@ test('Faculty Dashboard keeps administrative tabs while supporting linked facult
  assert.match(auth,/if \(isSelfServiceProfile\(profile\)\) \{ window\.UCVMSessionGuard\?\.clearNotice\?\.\(\); await enterSelfMode\(user, profile\); return; \}/,'clear only after an authorized linked faculty profile is resolved');
  assert.match(auth,/if \(dashboardAdmin\(profile\)\) \{ window\.UCVMSessionGuard\?\.clearNotice\?\.\(\); enterAdminMode\(user, profile\); return; \}/,'clear only after an authorized admin profile is resolved');
  assert.match(source,/\$\('user-management-link'\)\??\.classList\.toggle\('hidden',\s*!dashboardGeneral\(profile\)\)/);
- const rename=enhancements.match(/ function renameDashboard\(\)\{[\s\S]*?\n \}/)?.[0];
- assert.ok(rename,'renameDashboard should remain independently executable');
- const nodes=new Map(),document={title:'Old title',documentElement:{dataset:{}},querySelector(selector){if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector)}};
- require('node:vm').runInNewContext(`${rename}\nrenameDashboard();`,{document});
- assert.equal(document.title,'Faculty Dashboard');
- assert.equal(nodes.get('.brand-title').textContent,'Faculty Dashboard');
- assert.equal(nodes.get('.gate-title').textContent,'Faculty Dashboard');
- assert.match(nodes.get('.gate-copy').innerHTML,/href="index\.html">Timetable<\/a>/);
+ assert.match(html,/data-tab="doe-list"/);
+ assert.match(html,/id="doe-list-body"/);
+ assert.match(html,/data-tab="doe-rules" id="doe-rules-tab"/);
+ assert.match(html,/id="doe-rules-content"/);
+ assert.ok(html.indexOf('faculty-admin-doe-policy.js') < html.indexOf('<script src="faculty-admin.js"></script>'));
+ assert.match(html,/faculty-admin-doe-edit\.js/);
+ assert.match(source,/UCVM_FACULTY_DOE_EDIT\?\.create/);
+ assert.match(source,/UCVM_FACULTY_DOE_POLICY\?\.create/);
+ assert.match(source,/canPublish: \(\) => !selfMode && dashboardGeneral\(currentUser\) && UCVM_PAWS_DATA\.doePolicyPublishEnabled/);
+ assert.match(source,/canRecalculate: \(\) => !selfMode && dashboardGeneral\(currentUser\) && UCVM_PAWS_DATA\.doeRecalculateEnabled/);
+ assert.match(source,/if \(activeTab === 'doe-rules'\) return doePolicyView\?\.loadHistory\(\)/);
+ assert.doesNotMatch(enhancements,/doeCredit|doeRate\s*\*|firestore|collection\(/i);
 });
 
 test('timetable Faculty Dashboard button supports current administrators and faculty self-service',()=>{

@@ -130,6 +130,7 @@ function createHarness(overrides = {}) {
   context.globalThis = context;
   vm.runInNewContext(read('dashboard-view-model.js'), context, { filename: 'dashboard-view-model.js' });
   vm.runInNewContext(read('faculty-admin-doe-renderer.js'), context, { filename: 'faculty-admin-doe-renderer.js' });
+  vm.runInNewContext(read('faculty-admin-doe-worksheet.js'), context, { filename: 'faculty-admin-doe-worksheet.js' });
   vm.runInNewContext(MANAGEMENT_SOURCE, context, { filename: 'faculty-admin-management.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
@@ -268,7 +269,7 @@ test('M. approval workflow remains available as a dormant artifact but is not dy
 test('28 / 29. the final local script set includes the modular view model', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const local = srcs.filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-management.js', 'faculty-admin.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'session-guard.js'].sort());
+  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-policy.js', 'faculty-admin-management.js', 'faculty-admin.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'session-guard.js'].sort());
   assert.equal(srcs.filter(s => /gstatic\.com\/firebasejs/.test(s)).length, 2, 'only the app and auth compat SDKs remain');
   const inline = [...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].map(m => m[1].trim());
   assert.deepEqual(inline, [], 'no inline script remains');
@@ -280,7 +281,8 @@ test('28 / 29. the final local script set includes the modular view model', () =
 test('30–35. read-only Dashboard tabs are exposed without legacy write surfaces', () => {
   assert.match(ADMIN_HTML, /<section id="lookup-view" class="panel">/);
   for (const tab of ['data-tab="lookup"', 'data-tab="summary"', 'data-tab="roles"', 'data-tab="doe-overview"']) assert.equal(ADMIN_HTML.includes(tab), true, `${tab} must remain available`);
-  for (const retired of ['sessional-view', 'database-view', 'history-view', 'faculty-audit', 'Import Full Faculty JSON', 'DOE Rule Book']) assert.equal(ADMIN_HTML.includes(retired), false, `${retired} must be gone`);
+  for (const retired of ['sessional-view', 'database-view', 'history-view', 'faculty-audit', 'Import Full Faculty JSON']) assert.equal(ADMIN_HTML.includes(retired), false, `${retired} must be gone`);
+  assert.equal(ADMIN_HTML.includes('data-tab="doe-rules"'), true, 'Annual DOE Rule Book is an authorized separate admin tab');
 });
 
 test('36 / 37 / 38. the selected canonical API detail still renders roles, teaching and AFC', async () => {
@@ -341,9 +343,9 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 test('58–63. the Dashboard page runtime surface is bounded and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 11, 'script elements: 2 Firebase CDN + 9 local');
+  assert.equal(srcs, 14, 'script elements: 2 Firebase CDN + 12 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 9);
+  assert.equal(local.length, 12);
   assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });

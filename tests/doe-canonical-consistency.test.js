@@ -33,10 +33,11 @@ test('faculty index and canonical helper agree when contract DOE is the effectiv
  assert.equal(entry.contractTeachingDOE,target.value);
 });
 
-test('Faculty Dashboard DOE list delegates effective target calculation to the canonical helper',()=>{
+test('legacy Faculty Dashboard enhancement delegates only to the canonical API-backed DOE editor',()=>{
  const source=fs.readFileSync(path.join(__dirname,'../faculty-admin-enhancements.js'),'utf8');
- assert.match(source,/UCVM_FACULTY_DOE\.effectiveTarget\(/);
- assert.doesNotMatch(source,/num\(f\?\.doeOverride2026_27\?\.value\)/);
+ assert.match(source,/UCVM_FACULTY_DOE_EDIT/);
+ assert.match(source,/editor\.create\(\{ api, academicYear, onSaved, canWrite \}\)/);
+ assert.doesNotMatch(source,/firestore|collection\(|doeCredit|doeRate\s*\*|effectiveTarget\(/i);
 });
 
 test('pages load canonical DOE before data-index consumers',()=>{

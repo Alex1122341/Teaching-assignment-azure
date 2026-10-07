@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, '../..');
 const contract = require('./fixtures/w1e-runtime-permission-contract.json');
 const migration = fs.readFileSync(path.join(root, 'database/azure-sql/017_w1e_runtime_least_privilege.sql'), 'utf8');
 const p2Migration = fs.readFileSync(path.join(root, 'database/azure-sql/022_teaching_assignment_workflow_permissions.sql'), 'utf8');
+const p4Migration = fs.readFileSync(path.join(root, 'database/azure-sql/027_doe_runtime_permissions.sql'), 'utf8');
 
 test('W1E permission contract covers every SQL repository object and stored procedure', () => {
   const repositoryDir = path.join(root, 'server/src/data');
@@ -25,12 +26,12 @@ test('W1E permission contract covers every SQL repository object and stored proc
   procedures.push(...[...sources.matchAll(/\bexec\(\s*'([A-Za-z0-9_]+)'/g)]
     .map(match => `paws_api.${match[1]}`));
   const expectedObjects = [
-    ...contract.readObjects, ...contract.p2ReadObjects,
+    ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects,
     ...contract.readProcedures, ...contract.p2ReadProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
     ...contract.outsideW1eWriteProcedures
   ];
-  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects])].sort());
+  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
 });
 
@@ -118,4 +119,22 @@ test('P2 permissions add exact workflow reads and gate-specific procedure execut
   assert.doesNotMatch(p2Migration, /GRANT\s+EXECUTE\s+ON\s+SCHEMA::/i);
   assert.doesNotMatch(p2Migration, /CREATE\s+USER\s+\[|ADD\s+MEMBER|ALTER\s+ROLE/i);
   assert.doesNotMatch(p2Migration, /(?:GRANT|ALTER\s+ROLE)[\s\S]{0,120}(?:db_owner|CONTROL\s+DATABASE|sysadmin)/i);
+});
+
+test('P4 permissions are VetMed-Ops guarded, use separate empty operation roles, and cover normalized DOE reads', () => {
+  assert.match(p4Migration, /DB_NAME\(\)\s*<>\s*N'VetMed-Ops'[\s\S]*?THROW/i);
+  for (const object of contract.p4ReadObjects) {
+    assert.match(p4Migration, new RegExp(`GRANT SELECT ON OBJECT::${object.replace('.', '\\.')}\\s+TO \\[paws_runtime_read\\]`, 'i'), object);
+  }
+  for (const [role, gates] of [
+    ['paws_runtime_doe_admin_write', /PAWS_DOE_ADMIN_WRITE_ENABLED/],
+    ['paws_runtime_doe_policy_publish', /PAWS_DOE_POLICY_PUBLISH_ENABLED/],
+    ['paws_runtime_doe_recalculate', /PAWS_DOE_RECALC_WRITE_ENABLED/]
+  ]) {
+    assert.match(p4Migration, new RegExp(`CREATE ROLE \\[${role}\\]`, 'i'));
+    assert.match(p4Migration, new RegExp(`DATABASE_PRINCIPAL_ID\\(N'${role}'\\)`, 'i'));
+    assert.ok(gates, 'application write gate must be separately configured');
+  }
+  assert.match(p4Migration, /DOE write roles must remain empty/i);
+  assert.doesNotMatch(p4Migration, /CREATE\\s+USER\\s+\\[|ALTER\\s+ROLE[\\s\\S]*ADD\\s+MEMBER|GRANT\\s+CONTROL/i);
 });

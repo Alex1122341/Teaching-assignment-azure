@@ -55,11 +55,9 @@ test('faculty record rules use the linked facultyId for get and keep list admin-
  assert.match(rules,/match \/faculty\/\{id\} \{\s*allow get: if admin\(\) \|\| ownFacultyId\(id\);\s*allow list: if admin\(\);/s);
 });
 
-test('admin-only enhancements keep their data subscription behind the administrator check',()=>{
+test('legacy Dashboard enhancement exposes only the API-backed P4 DOE editor bridge',()=>{
  const src=read('faculty-admin-enhancements.js');
- const start=src.indexOf('const startFromPage=()=>');
- assert.ok(start>=0,'admin enhancement gate must exist');
- const body=src.slice(start,start+500);
- assert.match(body,/UCVM\.admin\(sharedProfile\)/);
- assert.match(body,/subscribe\(\)/);
+ assert.match(src,/window\.UCVM_FACULTY_DOE_EDIT/);
+ assert.match(src,/editor\.create/);
+ assert.doesNotMatch(src,/firestore|collection\(|onSnapshot|doeCredit|doeRate\s*\*/i);
 });

@@ -19,6 +19,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
 const MANAGEMENT_SOURCE = read('faculty-admin-management.js');
 const DOE_RENDERER_SOURCE = read('faculty-admin-doe-renderer.js');
+const DOE_WORKSHEET_SOURCE = read('faculty-admin-doe-worksheet.js');
 const AFC_BATCH_SOURCE = read('faculty-admin-afc-batch.js');
 const ADMIN_HTML = read('faculty-admin.html');
 const ACCESS_SOURCE = read('faculty-access.js');
@@ -118,6 +119,7 @@ function createHarness(overrides = {}) {
   // NOTE: context.UCVM is deliberately absent.
   vm.runInNewContext(read('dashboard-view-model.js'), context, { filename: 'dashboard-view-model.js' });
   vm.runInNewContext(DOE_RENDERER_SOURCE, context, { filename: 'faculty-admin-doe-renderer.js' });
+  vm.runInNewContext(DOE_WORKSHEET_SOURCE, context, { filename: 'faculty-admin-doe-worksheet.js' });
   vm.runInNewContext(MANAGEMENT_SOURCE, context, { filename: 'faculty-admin-management.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
@@ -143,8 +145,8 @@ test('A / D. the page loads only the Firebase app+auth CDN and bounded local scr
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
-  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 11, '11 script elements total');
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
+  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 14, '14 script elements total');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
 
@@ -448,17 +450,19 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
   assert.equal(/\bfirestore\b/i.test(CONTINUITY_SOURCE), false, 'paws-auth-continuity.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(ADMIN_SOURCE), false, 'faculty-admin.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(DOE_RENDERER_SOURCE), false, 'faculty-admin-doe-renderer.js: no Firestore dependency');
+  const doeWorksheetSource = read('faculty-admin-doe-worksheet.js');
+  assert.equal(/\bfirestore\b/i.test(doeWorksheetSource), false, 'faculty-admin-doe-worksheet.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(AFC_BATCH_SOURCE), false, 'faculty-admin-afc-batch.js: no Firestore dependency');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
 });
 
 test('92 / 94 / 96. the controller stays bounded with contract DOE detail and overview', () => {
   const bytes = fs.statSync(path.join(root, 'faculty-admin.js')).size;
   const named = [...ADMIN_SOURCE.matchAll(/function ([A-Za-z0-9_$]+)\(/g)].length;
-  // The released controller now includes the separately scoped Contract DOE
-  // read surface; keep the existing bound while allowing that reviewed UI.
-  assert.ok(bytes < 52000, `controller must remain bounded (actual ${bytes})`);
+  // The combined accepted DOE Calculator and P4 policy-tab integrations add
+  // reviewed controller wiring while keeping the controller under 55 KB.
+  assert.ok(bytes < 55000, `controller must remain bounded after P4 policy-tab integration (actual ${bytes})`);
   assert.match(ADMIN_SOURCE, /function renderTeachingSummary\(/);
   assert.match(ADMIN_SOURCE, /function renderRoles\(/);
   assert.match(ADMIN_SOURCE, /function renderDoeOverview\(/);

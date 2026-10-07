@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
   const bind = (node,event,handler) => { if(!node)return; if(typeof node.addEventListener==='function')node.addEventListener(event,handler); else node[`on${event}`]=handler; };
-  function create({ canWrite, getFaculty, getSelectedDetail, getFacultyDetail, onChanged, notify }) {
+  function create({ canWrite, getFaculty, getSelectedDetail, getFacultyDetail, onChanged, onEditOpen, notify }) {
     function actions(f) {
       if (!canWrite() || !f?.facultyId || !f.updatedAtUtc) return '';
       return `<div class="faculty-admin-actions"><button type="button" class="btn" data-faculty-edit="1">Edit Faculty</button>${f.active === false ? '<button type="button" class="btn btn-primary" data-faculty-restore="1">Restore Faculty</button>' : '<button type="button" class="btn" data-faculty-deactivate="1">Deactivate Faculty</button>'}</div>`;
@@ -39,6 +39,7 @@
       const form = $('faculty-record-form'); form.dataset.facultyId = f.facultyId; form.dataset.expectedUpdatedAtUtc = f.updatedAtUtc;
       form.dataset.expectedProfileVersion = p.profileVersion || '';
       $('faculty-record-status').textContent = ''; $('faculty-record-save').disabled = false; $('faculty-record-editor').showModal();
+      if (typeof onEditOpen === 'function') onEditOpen(form, f, p);
     }
     async function editById(facultyId) {
       if (!canWrite() || !facultyId || typeof getFacultyDetail !== 'function') return;

@@ -74,7 +74,10 @@ test('runtime attestation is direct, read-only, no-store, and reports all P1/P2 
     taReview: false,
     taFinal: false,
     taPublish: false,
-    facultyAdmin: false
+    facultyAdmin: false,
+    doeAdmin: false,
+    doePolicyPublish: false,
+    doeRecalculate: false
   });
   assert.equal(runtimeCalls, 0);
 });

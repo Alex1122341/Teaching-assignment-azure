@@ -1389,7 +1389,7 @@
     try{directory=await ensureCanonicalWriteFacultyDirectory()}catch(error){console.error('[canonical faculty directory]',error);toast('The canonical Faculty list could not be loaded.',true);return}
     const rows=(Array.isArray(session.assignments)?session.assignments:[]).filter(row=>row?.facultyId).map(row=>({facultyId:String(row.facultyId),teachingRole:String(row.role||'')}));
     const roles=['Lecture','SRL','Lab Lead','Lab Primary','Lab Support','Lab Secondary'];
-    showModal(`<div class="modal-header"><div class="modal-title">Manage Session Instructors</div><div class="modal-subtitle">Only active canonical Faculty IDs can be assigned. New DOE remains NULL / Needs Review. Removing a line that has recorded workload or DOE is blocked.</div></div><form id="sql-assignment-form"><div class="modal-body"><div id="sql-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-assignment-add">+ Add instructor</button><div id="sql-assignment-error" class="hidden" role="alert"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-assignment-cancel">Cancel</button><button type="submit" class="btn btn-primary">Save instructors</button></div></form>`);
+    showModal(`<div class="modal-header"><div class="modal-title">Manage Session Instructors</div><div class="modal-subtitle">Only active canonical Faculty IDs can be assigned. DOE is recalculated by the University server after save; missing rules or mappings remain Needs Review. Removing a line that has recorded workload or DOE is blocked.</div></div><form id="sql-assignment-form"><div class="modal-body"><div id="sql-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-assignment-add">+ Add instructor</button><div id="sql-assignment-error" class="hidden" role="alert"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-assignment-cancel">Cancel</button><button type="submit" class="btn btn-primary">Save instructors</button></div></form>`);
     const render=()=>{
       const host=$('sql-assignment-rows');if(!host)return;
       host.innerHTML=rows.map((row,index)=>`<div class="instructor-line"><div class="form-grid"><select class="form-select" data-assignment-faculty="${index}" required><option value="">Choose active Faculty</option>${directory.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(person.displayName||person.facultyId)}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-assignment-role="${index}"><option value="">Role unavailable</option>${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-assignment-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
@@ -1406,8 +1406,8 @@
       if(JSON.stringify(original)===JSON.stringify(rows)){toast('No instructor changes to save.');return}
       button.disabled=true;button.textContent='Saving...';error.classList.add('hidden');
       try{
-        await window.UCVM_PAWS_DATA.replaceSessionAssignments(session.id,rows);
-        invalidateAllSessions();const refreshed=await refreshSessionScope();closeModal();toast(refreshed?'Session instructors updated and audited.':'Instructor changes were saved; reload the timetable to verify them.',!refreshed);
+        const saved=await window.UCVM_PAWS_DATA.replaceSessionAssignments(session.id,rows);
+        invalidateAllSessions();const refreshed=await refreshSessionScope();closeModal();toast(refreshed?`Session instructors updated and audited.${sessionDoeNotice(saved.doeRecalculation)}`:'Instructor changes were saved; reload the timetable to verify them.',!refreshed);
       }catch(failure){error.textContent=assignmentErrorMessage(failure);error.classList.remove('hidden');button.disabled=false;button.textContent='Save instructors'}
     };
     render();
@@ -1421,7 +1421,7 @@
   function openSqlSessionEditForm(session) {
     if(!canEditExistingSqlSession()||!window.UCVM_PAWS_DATA?.sessionEditEnabled?.()){toast('Administrator permission is required to edit this session.',true);return}
     if(!session?.id||session.isCcc){toast('Only an existing VetMed-Ops session can be edited here.',true);return}
-    showModal(`<div class="modal-header"><div class="modal-title">Edit VetMed-Ops Session</div><div class="modal-subtitle">Only session fields are editable. Faculty assignments and DOE values remain unchanged.</div></div>
+    showModal(`<div class="modal-header"><div class="modal-title">Edit VetMed-Ops Session</div><div class="modal-subtitle">Only session facts are editable. The University server recalculates affected DOE; missing rules or mappings are shown as Needs Review.</div></div>
       <form id="sql-session-edit-form"><div class="modal-body"><div class="form-grid">
         ${input('sql-edit-date','Date','date',session.date)}
         ${input('sql-edit-course','Course code','text',session.course)}
@@ -1451,11 +1451,11 @@
       if(Object.prototype.hasOwnProperty.call(patch,'courseCode')&&!patch.courseCode){error.textContent='Course code is required.';error.classList.remove('hidden');return}
       button.disabled=true;button.textContent='Saving...';
       try{
-        await window.UCVM_PAWS_DATA.patchSession(session.id,patch);
+        const saved=await window.UCVM_PAWS_DATA.patchSession(session.id,patch);
         invalidateAllSessions();
         const refreshed=await refreshSessionScope();
         closeModal();
-        if(refreshed)toast('VetMed-Ops session updated and audited.');
+        if(refreshed)toast(`VetMed-Ops session updated and audited.${sessionDoeNotice(saved.doeRecalculation)}`);
         else toast('The session was saved, but the timetable refresh failed. Reload the timetable to verify the saved values.',true);
       }catch(failure){
         error.textContent=sessionEditErrorMessage(failure);error.classList.remove('hidden');button.disabled=false;button.textContent='Save session';
@@ -1508,6 +1508,13 @@
       SQL_UNAVAILABLE: 'The session was not saved because the VetMed-Ops service is unavailable. Try again later.'
     };
     return messages[String(error?.code || '')] || 'The session was not saved. Review the values or contact an administrator.';
+  }
+
+  function sessionDoeNotice(outcome) {
+    if (!outcome || typeof outcome !== 'object') return '';
+    if (outcome.status === 'calculated') return ' Server DOE recalculation and evidence recording passed.';
+    const issues = Array.isArray(outcome.issueCodes) ? outcome.issueCodes.filter(Boolean).join(', ') : '';
+    return ` DOE status: Needs Review${issues ? ` (${issues})` : ''}. No numeric result was applied.`;
   }
 
   function detailField(label, value) {
@@ -1593,7 +1600,8 @@
     const button=$('bulk-session-form')?.querySelector('[type="submit"]');if(button){button.disabled=true;button.textContent='Saving...'}
     try{
       const result=await window.UCVM_PAWS_DATA.createSessionBatch({requestId:bulkRequestId,sessions});
-      invalidateAllSessions();const refreshed=await refreshSessionScope();closeModal();toast(refreshed?`${result.sessions.length} VetMed-Ops sessions created and audited.`:'Sessions were created; reload the timetable to verify them.',!refreshed);return true;
+      const needsReview=(result.doe||[]).filter(item=>item?.status==='needs_review').length;
+      invalidateAllSessions();const refreshed=await refreshSessionScope();closeModal();toast(refreshed?`${result.sessions.length} VetMed-Ops sessions created and audited.${needsReview?` ${needsReview} session(s) need DOE review; no numeric DOE was applied.`:''}`:'Sessions were created; reload the timetable to verify them.',!refreshed);return true;
     }catch(error){
       host.textContent=creationErrorMessage(error);host.classList.remove('hidden');if(button){button.disabled=false;button.textContent='Save all sessions'}return false;
     }
@@ -1631,7 +1639,7 @@
         ${select('create-type','Session type',['LEC','LAB','SRL','Quiz/Midterm','OSCE','Exam'],'LEC')}
         ${input('create-start','Start','time','09:00')}${input('create-end','End','time','10:00')}
         ${input('create-topic','Topic','text','','full')}${input('create-room','Room','text','')}
-        <div class="form-field full"><label class="form-label">Instructor assignments</label><div id="sql-create-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-create-add-assignment">+ Add instructor</button><div class="form-hint">Assignments resolve only to active canonical Faculty. New DOE remains unassigned / Needs Review.</div></div>
+        <div class="form-field full"><label class="form-label">Instructor assignments</label><div id="sql-create-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-create-add-assignment">+ Add instructor</button><div class="form-hint">Assignments resolve only to active canonical Faculty. The server calculates DOE from active annual rules; missing rules or mappings stay Needs Review.</div></div>
       </div><div id="sql-session-create-error" class="hidden" role="alert"></div></div>
       <div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-session-create-cancel">Cancel</button><button class="btn btn-primary" type="submit">Create session</button></div></form>`);
     const renderRows=()=>{
@@ -1654,8 +1662,8 @@
       }
       button.disabled=true;button.textContent='Creating...';error.classList.add('hidden');
       try{
-        await window.UCVM_PAWS_DATA.createSession({academicYear:sqlAcademicYearForDate(date),curriculumYear:String(form.get('create-year')||''),courseCode:String(form.get('create-course')||'').trim(),sessionType:String(form.get('create-type')||''),date,startTime:String(form.get('create-start')||''),endTime:String(form.get('create-end')||''),topic:String(form.get('create-topic')||'').trim(),room:String(form.get('create-room')||'').trim()||null,assignments});
-        invalidateAllSessions();const refreshed=await refreshSessionScope();closeModal();toast(refreshed?'VetMed-Ops session created and audited.':'The session was created; reload the timetable to verify it.',!refreshed);
+        const saved=await window.UCVM_PAWS_DATA.createSession({academicYear:sqlAcademicYearForDate(date),curriculumYear:String(form.get('create-year')||''),courseCode:String(form.get('create-course')||'').trim(),sessionType:String(form.get('create-type')||''),date,startTime:String(form.get('create-start')||''),endTime:String(form.get('create-end')||''),topic:String(form.get('create-topic')||'').trim(),room:String(form.get('create-room')||'').trim()||null,assignments});
+        invalidateAllSessions();const refreshed=await refreshSessionScope();closeModal();toast(refreshed?`VetMed-Ops session created and audited.${sessionDoeNotice(saved.doeRecalculation)}`:'The session was created; reload the timetable to verify it.',!refreshed);
       }catch(failure){error.textContent=creationErrorMessage(failure);error.classList.remove('hidden');button.disabled=false;button.textContent='Create session'}
     };
     renderRows();

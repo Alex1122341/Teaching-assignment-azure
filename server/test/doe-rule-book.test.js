@@ -17,6 +17,8 @@ test('UCVM guideline rule book preserves the reviewed assigned teaching rates an
     ['course_coordination_lt3', 'course_coordination_3_5', 'course_coordination_6_9', 'course_coordination_10_14', 'course_coordination_15_plus'].map(code => byCode[code].academicYearOrStage));
   assert.equal(byCode.rotation_participant.rateOrTierPct, '2.5%');
   assert.equal(byCode.rotation_coordination.rateOrTierPct, '+2%');
+  assert.equal(byCode.ccc_shift.rateOrTierPct, '0.5%');
+  assert.equal(byCode.ccc_shift.basis, 'per shift');
 });
 
 test('UCVM guideline rule book preserves supervision, HICC, and VISC stage semantics', () => {

@@ -41,3 +41,13 @@ test('legacy Faculty dashboard enhancement contains no browser Firestore write p
   assert.doesNotMatch(legacy, /firebase\.firestore\(\)\.FieldValue/);
   assert.match(legacy, /All Faculty edits must use the guarded SQL API/);
 });
+
+test('deactivate and restore return Faculty fields from the Faculty alias after profile joins', () => {
+  for (const procedure of ['DeactivateFaculty', 'RestoreFaculty']) {
+    const start = migration.indexOf(`CREATE OR ALTER PROCEDURE paws_api.${procedure}`);
+    const next = migration.indexOf('\nGO', start);
+    const body = migration.slice(start, next);
+    assert.match(body, /SELECT\s+f\.FacultyId\s+AS\s+facultyId[\s\S]*?FROM\s+paws\.Faculty\s+f\s+LEFT JOIN\s+paws\.FacultyProfessionalProfile\s+p/i);
+    assert.match(body, /WHERE\s+f\.FacultyId\s*=\s*@FacultyId/i);
+  }
+});

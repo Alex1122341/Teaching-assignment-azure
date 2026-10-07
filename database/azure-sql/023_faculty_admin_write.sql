@@ -252,9 +252,9 @@ BEGIN
         IF XACT_STATE()<>0 ROLLBACK TRANSACTION;
         THROW;
     END CATCH;
-    SELECT FacultyId AS facultyId,PreferredFirstName AS preferredFirstName,PreferredLastName AS preferredLastName,
-        DisplayName AS displayName,Ucid AS ucid,Email AS email,RecordType AS recordType,Stream AS stream,Rank AS rank,
-        Fte AS fte,ReportsToFacultyId AS reportsToFacultyId,Active AS active,
+    SELECT f.FacultyId AS facultyId,f.PreferredFirstName AS preferredFirstName,f.PreferredLastName AS preferredLastName,
+        f.DisplayName AS displayName,f.Ucid AS ucid,f.Email AS email,f.RecordType AS recordType,f.Stream AS stream,f.Rank AS rank,
+        f.Fte AS fte,f.ReportsToFacultyId AS reportsToFacultyId,f.Active AS active,
         CONVERT(varchar(33),f.UpdatedAtUtc,126)+'Z' AS updatedAtUtc,
         p.TeachingArea AS teachingArea,p.ProfessionalCategory AS professionalCategory,
         CONVERT(varchar(10),p.ServiceDate,23) AS serviceDate,p.PriorYearsExperience AS priorYearsExperience,
@@ -310,9 +310,9 @@ BEGIN
         IF XACT_STATE()<>0 ROLLBACK TRANSACTION;
         THROW;
     END CATCH;
-    SELECT FacultyId AS facultyId,PreferredFirstName AS preferredFirstName,PreferredLastName AS preferredLastName,
-        DisplayName AS displayName,Ucid AS ucid,Email AS email,RecordType AS recordType,Stream AS stream,Rank AS rank,
-        Fte AS fte,ReportsToFacultyId AS reportsToFacultyId,Active AS active,
+    SELECT f.FacultyId AS facultyId,f.PreferredFirstName AS preferredFirstName,f.PreferredLastName AS preferredLastName,
+        f.DisplayName AS displayName,f.Ucid AS ucid,f.Email AS email,f.RecordType AS recordType,f.Stream AS stream,f.Rank AS rank,
+        f.Fte AS fte,f.ReportsToFacultyId AS reportsToFacultyId,f.Active AS active,
         CONVERT(varchar(33),f.UpdatedAtUtc,126)+'Z' AS updatedAtUtc,
         p.TeachingArea AS teachingArea,p.ProfessionalCategory AS professionalCategory,
         CONVERT(varchar(10),p.ServiceDate,23) AS serviceDate,p.PriorYearsExperience AS priorYearsExperience,

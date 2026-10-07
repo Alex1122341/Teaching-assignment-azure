@@ -52,6 +52,7 @@
         'credited-hours-required': 'Credited hours required',
         'legacy-course-coordinator-hicc-role-must-be-resolved': 'Resolve Course Coordinator vs HICC',
         'course-units-required': 'Course units required',
+        'hicc-development-applicability-required': 'HICC development applicability required',
         'ccc-shift-count-required': 'CCC shift count required',
         'rotation-weeks-required': 'Rotation weeks required',
         'rotation-type-count-required': 'Rotation type count required',
@@ -60,6 +61,16 @@
         'role-type-not-covered-by-calculator': 'Role type not covered by Calculator'
       };
       return labels[reason] || reason || '—';
+    }
+
+    function roleCandidateLabel(role = {}) {
+      const candidates = role.doeCandidates && typeof role.doeCandidates === 'object' ? role.doeCandidates : null;
+      if (!candidates) return '—';
+      const parts = [];
+      if (number(candidates.courseCoordinatorDoe) !== null) parts.push(`CC ${formatDoe(candidates.courseCoordinatorDoe)}`);
+      if (number(candidates.hiccDoe) !== null) parts.push(`HICC ${formatDoe(candidates.hiccDoe)}`);
+      const suffix = role.doeCandidateBasis === 'full-year-reference-before-proration' ? ' · full-year before proration' : '';
+      return parts.length ? parts.join(' / ') + suffix : '—';
     }
 
     function teachingEffectiveDoe(assignment = {}) {
@@ -85,11 +96,11 @@
       }).join('');
       const roleRows = (Array.isArray(roles) ? roles : []).map(role => {
         const effective = effectiveRoleDoe(role);
-        return `<tr><td>${esc(role.roleType || '—')}</td><td>${esc(role.courseOrSubjectOrRotation || role.courseName || '—')}</td><td>${formatDoe(effective.mapped)}</td><td>${formatDoe(effective.override)}</td><td>${formatDoe(effective.calculated)}</td><td>${formatDoe(effective.effective)}</td><td>${esc(role.doeRuleCode || '—')}</td><td>${esc(effective.source || role.doeSource || '—')}</td><td>${esc(reviewLabel(effective.reviewReason || role.doeReviewReason))}</td><td>${esc(role.specialNotes || '—')}</td></tr>`;
+        return `<tr><td>${esc(role.roleType || '—')}</td><td>${esc(role.courseOrSubjectOrRotation || role.courseName || '—')}</td><td>${formatDoe(effective.mapped)}</td><td>${formatDoe(effective.override)}</td><td>${formatDoe(effective.calculated)}</td><td>${formatDoe(effective.effective)}</td><td>${esc(roleCandidateLabel(role))}</td><td>${esc(role.doeRuleCode || '—')}</td><td>${esc(effective.source || role.doeSource || '—')}</td><td>${esc(reviewLabel(effective.reviewReason || role.doeReviewReason))}</td><td>${esc(role.specialNotes || '—')}</td></tr>`;
       }).join('');
       if (!teachingRows && !roleRows) return '';
       const teaching = teachingRows ? `<details class="doe-evidence-group"><summary>Teaching evidence · ${assignments.length} assignment lines</summary><div class="table-wrap"><table class="data-table doe-evidence-table"><thead><tr><th>Course</th><th>Topic / Activity</th><th>Date</th><th>Session Type</th><th>Teaching Role</th><th>Stored DOE</th><th>Calculated DOE</th><th>Effective DOE</th><th>Rule</th><th>Source</th><th>Status / Review</th></tr></thead><tbody>${teachingRows}</tbody></table></div></details>` : '';
-      const role = roleRows ? `<details class="doe-evidence-group"><summary>Role evidence · ${roles.length} role lines</summary><div class="table-wrap"><table class="data-table doe-evidence-table"><thead><tr><th>Role Type</th><th>Assignment</th><th>Mapped DOE</th><th>Override DOE</th><th>Calculated DOE</th><th>Effective DOE</th><th>Rule</th><th>Source</th><th>Status / Review</th><th>Special Notes</th></tr></thead><tbody>${roleRows}</tbody></table></div></details>` : '';
+      const role = roleRows ? `<details class="doe-evidence-group"><summary>Role evidence · ${roles.length} role lines</summary><div class="table-wrap"><table class="data-table doe-evidence-table"><thead><tr><th>Role Type</th><th>Assignment</th><th>Mapped DOE</th><th>Override DOE</th><th>Calculated DOE</th><th>Effective DOE</th><th>Full-year Candidates</th><th>Rule</th><th>Source</th><th>Status / Review</th><th>Special Notes</th></tr></thead><tbody>${roleRows}</tbody></table></div></details>` : '';
       return `<div class="doe-evidence"><div class="doe-evidence-title">DOE Evidence · VetMed-Ops + DOE Calculator</div><div class="doe-evidence-copy">Stored DOE and overrides remain authoritative. Server-side Calculator results are shown separately and are used only when no stored value exists; unresolved required inputs remain review items.</div>${teaching}${role}</div>`;
     }
 

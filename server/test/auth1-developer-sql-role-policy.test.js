@@ -32,3 +32,10 @@ test('AUTH-1 SQL migration is idempotent and fails closed on unexpected module d
   assert.doesNotMatch(migration, /\bGRANT\s+/i);
   assert.doesNotMatch(migration, /\bUPDATE\s+paws\.UserProfile\b/i);
 });
+
+test('AUTH-1 SQL migration normalizes whitespace in inspected module headers', () => {
+  assert.match(migration, /SET @Header = UPPER\(LTRIM\(REPLACE\(REPLACE\(REPLACE\(LEFT\(@Definition, 200\)/);
+  assert.match(migration, /WHILE CHARINDEX\(N'  ', @Header\) > 0/);
+  assert.match(migration, /LEFT\(@Header, 16\) = N'CREATE PROCEDURE'/);
+  assert.match(migration, /LEFT\(@Header, 15\) = N'CREATE FUNCTION'/);
+});

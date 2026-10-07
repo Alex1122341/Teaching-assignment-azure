@@ -30,7 +30,7 @@ test('rich profile uses the API view model for DOE and year/course/session expan
     assert.match(profileSource, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
   assert.match(profileSource, /Joint appointment/);
-  for (const field of ['DOE Rate', 'DOE Quantity', 'DOE Unit', 'DOE Credit', 'DOE Status', 'Teaching Role', 'Topic', 'Room']) {
+  for (const field of ['Stored DOE', 'Calculated DOE', 'Effective DOE', 'DOE Status', 'Teaching Role', 'Topic', 'Room']) {
     assert.match(profileSource, new RegExp(field));
   }
 });
@@ -55,10 +55,10 @@ test('Dashboard runtime remains zero-Firestore and self-service stays scoped', (
 });
 
 test('DOE summary and evidence groups are honest about VetMed-Ops and Calculator coverage', () => {
-  for (const label of ['Contract / Teaching Target DOE', 'Assigned Teaching DOE', 'Role / Service DOE', 'Total Known DOE', 'Teaching Target Remaining / Difference', 'Teaching / Courses', 'Roles & Appointments', 'DOE Rule Reference', 'Policy:', 'RECORDED VALUES', 'DOE Evidence', 'Teaching evidence', 'Role evidence']) {
+  for (const label of ['Contract / Teaching Target DOE', 'Assigned Teaching DOE', 'Role / Service DOE', 'Total Effective DOE', 'Teaching Target Remaining / Difference', 'Teaching / Courses', 'Roles & Appointments', 'DOE Rule Reference', 'Policy:', 'EFFECTIVE DOE', 'DOE Evidence', 'Teaching evidence', 'Role evidence']) {
     assert.match(profileSource, new RegExp(label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')), label);
   }
-  assert.match(profileSource, /VetMed-Ops recorded evidence/);
+  assert.match(profileSource, /VetMed-Ops \+ Calculator evidence/);
   assert.match(profileSource, /No authoritative target recorded/);
   assert.match(profileSource, /Server-side Calculator results are shown separately/);
   assert.match(profileSource, /Stored DOE and overrides remain authoritative/);

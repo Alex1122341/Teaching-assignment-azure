@@ -342,7 +342,7 @@ function calculateRoleRule(role = {}, inputs = {}) {
   switch (roleType) {
     case 'VISC': {
       const inferredOneSubject = course ? 1 : null;
-      return calculateViscDoe(academicYear, inputs.subjectCount ?? role.subjectCount ?? inferredOneSubject);
+      return { ...calculateViscDoe(academicYear, inputs.subjectCount ?? role.subjectCount ?? inferredOneSubject), prorationSensitive: true, candidateBasis: 'full-year-reference-before-proration' };
     }
     case 'Designated Rotation Coordinator': {
       const inferredOneType = course ? 1 : null;
@@ -353,13 +353,15 @@ function calculateRoleRule(role = {}, inputs = {}) {
     case 'CCC':
       return calculateCccDoe(inputs.shiftCount ?? role.shiftCount);
     case 'Course Coordinator':
-      return { ...calculateCourseCoordinatorDoe(courseUnits), courseUnits, courseEvidenceSource: catalog?.source || null };
+      return { ...calculateCourseCoordinatorDoe(courseUnits), courseUnits, courseEvidenceSource: catalog?.source || null, prorationSensitive: true, candidateBasis: 'full-year-reference-before-proration' };
     case 'HICC':
       return {
         ...calculateHiccDoe(courseUnits, { developmentApplicable: hiccDevelopmentApplicable }),
         courseUnits,
         hiccDevelopmentApplicable,
-        courseEvidenceSource: catalog?.source || null
+        courseEvidenceSource: catalog?.source || null,
+        prorationSensitive: true,
+        candidateBasis: 'full-year-reference-before-proration'
       };
     case 'Course Coordinator / HICC (legacy ambiguous)': {
       const cc = calculateCourseCoordinatorDoe(courseUnits);
@@ -393,10 +395,43 @@ function resolveRoleDoe(role = {}, inputs = {}) {
   const override = number(role.doeOverrideValue);
   const calculation = calculateRoleRule(role, inputs);
   const calculated = calculation.calculatedDoe;
-  const effective = override !== null ? override : mapped !== null ? mapped : calculated;
-  const source = override !== null ? 'override' : mapped !== null ? 'mapped' : calculated !== null ? 'calculator' : 'missing';
   const stored = override !== null ? override : mapped;
-  const mismatch = stored !== null && calculated !== null && Math.abs(stored - calculated) > TOLERANCE;
+  const hasTemporalWindow = Boolean(text(role.effectiveDate) || text(role.expirationDate));
+  const prorationReview = stored === null
+    && calculated !== null
+    && calculated !== 0
+    && calculation.prorationSensitive === true
+    && hasTemporalWindow;
+  const effective = override !== null
+    ? override
+    : mapped !== null
+      ? mapped
+      : prorationReview
+        ? null
+        : calculated;
+  const source = override !== null
+    ? 'override'
+    : mapped !== null
+      ? 'mapped'
+      : prorationReview
+        ? 'missing'
+        : calculated !== null
+          ? 'calculator'
+          : 'missing';
+
+  // A stored value on a dated annual/stage role may already be the approved
+  // case-by-case proration. Comparing it with the full-year reference would
+  // create a false mismatch, so date-sensitive full-year references remain
+  // evidence only whenever a temporal window is present.
+  const comparableToFullYear = !(calculation.prorationSensitive === true && hasTemporalWindow);
+  const mismatch = stored !== null
+    && calculated !== null
+    && comparableToFullYear
+    && Math.abs(stored - calculated) > TOLERANCE;
+  const unresolvedReason = prorationReview
+    ? 'role-date-proration-review-required'
+    : calculation.reviewReason;
+
   return {
     ...calculation,
     mappedDoe: mapped,
@@ -407,11 +442,16 @@ function resolveRoleDoe(role = {}, inputs = {}) {
       ? 'stored-calculation-mismatch'
       : source === 'missing'
         ? 'needs-review'
-        : source === 'calculator' && calculation.status === 'not-applicable'
-          ? 'not-applicable'
-          : source,
-    reviewReason: mismatch ? 'stored-doe-differs-from-calculator' : (source === 'missing' ? calculation.reviewReason : null),
-    requiresReview: mismatch || source === 'missing'
+        : source,
+    reviewReason: mismatch
+      ? 'stored-doe-differs-from-calculator'
+      : source === 'missing'
+        ? unresolvedReason
+        : null,
+    requiresReview: mismatch || source === 'missing',
+    hasTemporalWindow,
+    prorationReview,
+    candidateBasis: calculation.candidateBasis || (calculation.prorationSensitive === true ? 'full-year-reference-before-proration' : null)
   };
 }
 

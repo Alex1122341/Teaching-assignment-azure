@@ -39,15 +39,41 @@ function compareAssignment(left, right) {
     || compareText(left.sessionAssignmentId, right.sessionAssignmentId);
 }
 
+function teachingDoeEvidence(assignment = {}) {
+  const applicable = assignment.doeApplicable === false ? false : true;
+  const stored = number(assignment.doeCredit);
+  const calculated = number(assignment.calculatedDoeCredit);
+  const effective = Object.prototype.hasOwnProperty.call(assignment, 'effectiveDoeCredit')
+    ? number(assignment.effectiveDoeCredit)
+    : stored;
+  return {
+    applicable,
+    stored,
+    calculated,
+    effective,
+    status: text(assignment.doeCalculationStatus || assignment.doeStatus) || (applicable ? (effective === null ? 'needs-review' : 'stored') : 'not-applicable'),
+    reviewReason: text(assignment.doeReviewReason) || null
+  };
+}
+
 function effectiveRoleDoe(role = {}) {
   const mapped = number(role.doeMappedValue);
   const override = role.doeOverrideValue === null || role.doeOverrideValue === undefined
     ? null
     : number(role.doeOverrideValue);
+  const calculated = number(role.calculatedDoe);
   const effective = Object.prototype.hasOwnProperty.call(role, 'effectiveDoe')
     ? number(role.effectiveDoe)
-    : (override !== null ? override : mapped);
-  return { mapped, override, effective, status: effective === null ? 'needs-review' : 'stored' };
+    : (override !== null ? override : mapped !== null ? mapped : calculated);
+  return {
+    mapped,
+    override,
+    calculated,
+    effective,
+    source: text(role.doeSource) || (override !== null ? 'override' : mapped !== null ? 'mapped' : calculated !== null ? 'calculator' : 'missing'),
+    status: text(role.doeCalculationStatus) || (effective === null ? 'needs-review' : 'stored'),
+    reviewReason: text(role.doeReviewReason) || null
+  };
 }
 
 function groupTeachingAssignments(assignments) {
@@ -79,20 +105,27 @@ function groupTeachingAssignments(assignments) {
           const value = number(assignment.creditedHours);
           return value === null ? sum : sum + value;
         }, 0);
-        const doeValues = assignmentsSorted.map(assignment => number(assignment.doeCredit));
-        const recordedDoeCount = doeValues.filter(value => value !== null).length;
-        const missing = assignmentsSorted.length - recordedDoeCount;
-        const doeTotal = recordedDoeCount === 0 && assignmentsSorted.length > 0
-          ? null
-          : doeValues.filter(value => value !== null).reduce((sum, value) => sum + value, 0);
+        const evidence = assignmentsSorted.map(teachingDoeEvidence);
+        const applicableEvidence = evidence.filter(item => item.applicable);
+        const resolvedEvidence = applicableEvidence.filter(item => item.effective !== null);
+        const storedDoeCount = evidence.filter(item => item.stored !== null).length;
+        const notApplicableDoeCount = evidence.filter(item => !item.applicable).length;
+        const missing = applicableEvidence.length - resolvedEvidence.length;
+        const doeTotal = applicableEvidence.length === 0
+          ? 0
+          : resolvedEvidence.length === 0
+            ? null
+            : resolvedEvidence.reduce((sum, item) => sum + item.effective, 0);
         return {
           ...course,
           assignments: assignmentsSorted,
           assignmentCount: assignmentsSorted.length,
           creditedHours,
           doeTotal,
-          recordedDoeCount,
-          doeStatus: assignmentsSorted.length === 0 ? 'none' : (missing ? 'needs-review' : 'complete'),
+          recordedDoeCount: storedDoeCount,
+          resolvedDoeCount: resolvedEvidence.length,
+          notApplicableDoeCount,
+          doeStatus: assignmentsSorted.length === 0 ? 'none' : missing ? 'needs-review' : applicableEvidence.length === 0 ? 'not-applicable' : 'complete',
           missingDoeCount: missing
         };
       });
@@ -109,30 +142,46 @@ function groupTeachingAssignments(assignments) {
 function summarizeDoe(detail = {}) {
   const teachingAssignments = Array.isArray(detail.teachingAssignments) ? detail.teachingAssignments : [];
   const roles = Array.isArray(detail.roles) ? detail.roles : [];
-  const teachingValues = teachingAssignments.map(assignment => number(assignment?.doeCredit));
-  const roleValues = roles.map(role => effectiveRoleDoe(role));
-  const teachingPresent = teachingValues.filter(value => value !== null);
-  const rolePresent = roleValues.map(item => item.effective).filter(value => value !== null);
-  const teachingLineCount = teachingValues.length;
-  const roleLineCount = roleValues.length;
-  const teachingMissingCount = teachingLineCount - teachingPresent.length;
-  const roleMissingCount = roleLineCount - rolePresent.length;
-  const teachingDoe = teachingLineCount === 0 ? 0 : (teachingPresent.length === 0 ? null : teachingPresent.reduce((sum, value) => sum + value, 0));
-  const roleDoe = roleLineCount === 0 ? 0 : (rolePresent.length === 0 ? null : rolePresent.reduce((sum, value) => sum + value, 0));
-  const recordedValues = [...teachingPresent, ...rolePresent];
+  const teachingEvidence = teachingAssignments.map(teachingDoeEvidence);
+  const teachingApplicable = teachingEvidence.filter(item => item.applicable);
+  const teachingResolved = teachingApplicable.filter(item => item.effective !== null);
+  const teachingRecorded = teachingEvidence.filter(item => item.stored !== null);
+  const roleEvidence = roles.map(role => effectiveRoleDoe(role));
+  const roleResolved = roleEvidence.filter(item => item.effective !== null);
+  const roleRecorded = roleEvidence.filter(item => item.mapped !== null || item.override !== null);
+  const teachingLineCount = teachingEvidence.length;
+  const teachingNotApplicableCount = teachingEvidence.filter(item => !item.applicable).length;
+  const teachingApplicableCount = teachingApplicable.length;
+  const roleLineCount = roleEvidence.length;
+  const teachingMissingCount = teachingApplicableCount - teachingResolved.length;
+  const roleMissingCount = roleLineCount - roleResolved.length;
+  const teachingDoe = teachingApplicableCount === 0 ? 0 : (teachingResolved.length === 0 ? null : teachingResolved.reduce((sum, item) => sum + item.effective, 0));
+  const roleDoe = roleLineCount === 0 ? 0 : (roleResolved.length === 0 ? null : roleResolved.reduce((sum, item) => sum + item.effective, 0));
+  const effectiveValues = [...teachingResolved.map(item => item.effective), ...roleResolved.map(item => item.effective)];
+  const reviewRelevantLineCount = teachingApplicableCount + roleLineCount;
+  const effectiveDoeTotal = reviewRelevantLineCount === 0
+    ? 0
+    : effectiveValues.length === 0 ? null : effectiveValues.reduce((sum, value) => sum + value, 0);
   return {
     teachingDoe,
     roleDoe,
-    recordedDoeTotal: recordedValues.length === 0
-      ? (teachingLineCount + roleLineCount === 0 ? 0 : null)
-      : recordedValues.reduce((sum, value) => sum + value, 0),
+    recordedDoeTotal: effectiveDoeTotal,
+    effectiveDoeTotal,
     teachingLineCount,
-    teachingRecordedCount: teachingPresent.length,
+    teachingApplicableCount,
+    teachingNotApplicableCount,
+    teachingRecordedCount: teachingRecorded.length,
+    teachingResolvedCount: teachingResolved.length,
     roleLineCount,
-    roleRecordedCount: rolePresent.length,
+    roleRecordedCount: roleRecorded.length,
+    roleResolvedCount: roleResolved.length,
     teachingMissingCount,
     roleMissingCount,
-    partial: teachingMissingCount > 0 || roleMissingCount > 0
+    partial: teachingMissingCount > 0 || roleMissingCount > 0,
+    reviewReasons: [
+      ...teachingEvidence.filter(item => item.applicable && item.effective === null && item.reviewReason).map(item => item.reviewReason),
+      ...roleEvidence.filter(item => item.effective === null && item.reviewReason).map(item => item.reviewReason)
+    ]
   };
 }
 
@@ -141,5 +190,5 @@ function formatDoe(value) {
   return parsed === null ? 'DOE unavailable' : `${parsed.toFixed(2)}%`;
 }
 
-  return { groupTeachingAssignments, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear };
+  return { groupTeachingAssignments, teachingDoeEvidence, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear };
 });

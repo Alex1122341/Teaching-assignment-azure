@@ -38,15 +38,15 @@ test('only faculty, HICC and VISC are Faculty-scoped', () => {
   assert.deepEqual([...FACULTY_SCOPED_ROLES].sort(), ['faculty', 'hicc', 'visc']);
 });
 
-test('HICC requires FacultyId while current viewer office accounts do not', async () => {
+test('HICC requires FacultyId and unsupported viewer role fails closed', async () => {
   let scope;
   const base = { verifyToken: async () => ({ uid: 'u' }), listSessions: async args => { scope = args; return []; } };
   let api = createDataApi({ ...base, findUser: async () => ({ active: true, mustChangePassword: false, baseRole: 'hicc', facultyId: null }) });
   assert.equal((await api.sessions('ok', {})).status, 403);
 
   api = createDataApi({ ...base, findUser: async () => ({ active: true, mustChangePassword: false, baseRole: 'viewer', facultyId: null }) });
-  assert.equal((await api.sessions('ok', {})).status, 200);
-  assert.equal(scope.facultyId, null);
+  assert.equal((await api.sessions('ok', {})).status, 403);
+  assert.equal(scope, undefined);
 });
 
 test('Faculty-scoped session reads pass FacultyId to repository', async () => {

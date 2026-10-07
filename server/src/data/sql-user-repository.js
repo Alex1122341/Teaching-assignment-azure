@@ -5,6 +5,7 @@ function createSqlUserRepository(db) {
     async findByUid(uid, timing) {
       const rows = await db.query(
         `SELECT FirebaseUid AS firebaseUid,
+                Email AS email,
                 DisplayName AS displayName,
                 BaseRole AS baseRole,
                 FacultyId AS facultyId,

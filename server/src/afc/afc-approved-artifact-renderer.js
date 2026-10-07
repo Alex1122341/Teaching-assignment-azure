@@ -16,7 +16,6 @@ const TEMPLATE_SHA256_HEX = '481677829217736B15CB3CBB010F49CB553A8664FE53F860478
 const TEMPLATE_SHA256 = Buffer.from(TEMPLATE_SHA256_HEX, 'hex');
 const TEMPLATE_PATH = path.join(__dirname, 'assets', 'absence-from-campus-app.pdf');
 const PRIMARY_DEPARTMENT = '30060 - Faculty of Veterinary Medicine';
-const ADMIN_ROLES = new Set(['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin']);
 const RANK_OPTIONS = new Map([
   ['assistant professor', 'Assistant Professor - AC0003'],
   ['assistant professor (teaching)', 'Assistant Professor (Teaching) - AC0004'],

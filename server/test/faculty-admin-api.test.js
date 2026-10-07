@@ -60,8 +60,8 @@ test('write capability is admin-only and reports the gate state', async () => {
   assert.equal((await harness('faculty').app(request('/api/v1/dashboard/faculty-admin/write-capabilities'))).status, 403);
 });
 
-test('all five admin role aliases can update Faculty through the narrow API', async () => {
-  for (const role of ['admin', 'administrator', 'adfa_regular', 'adfa_general', 'owner']) {
+test('all administrator roles, including Developer, can update Faculty through the narrow API', async () => {
+  for (const role of ['developer', 'admin', 'administrator', 'adfa_regular', 'adfa_general', 'owner']) {
     const { app, calls } = harness(role);
     const response = await app(request(`/api/v1/dashboard/faculty/${FACULTY_ID}`, {
       method: 'PATCH', body: input()

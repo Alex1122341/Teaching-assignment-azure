@@ -31,6 +31,7 @@ test('write gates deny writes and only current HICC/VISC or admin capabilities c
   assert.equal((await createApi({role:'adfa_general'}).api.saveFinalization('uid',packageId,{expectedWorkingRevision:2,assignments:[]})).status,200);
   assert.equal((await createApi({role:'adfa_regular'}).api.publish('uid',{academicYear:'2026-27'})).status,200);
   assert.equal((await createApi({role:'administrator'}).api.saveFinalization('uid',packageId,{expectedWorkingRevision:2,assignments:[]})).status,200);
+  assert.equal((await createApi({role:'developer'}).api.saveFinalization('uid',packageId,{expectedWorkingRevision:2,assignments:[]})).status,200);
 });
 
 test('review rejects missing push-back reason and maps stale SQL revision conflicts', async () => {

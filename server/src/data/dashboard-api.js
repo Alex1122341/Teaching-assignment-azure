@@ -6,7 +6,7 @@ const { randomUUID } = require('node:crypto');
 //
 // Authorization model (server-side, authoritative):
 //
-//   administrator roles : owner, administrator, adfa_general, adfa_regular, admin
+//   administrator roles : developer, owner, administrator, adfa_general, adfa_regular, admin
 //   self-service roles  : faculty, hicc, visc
 //   denied              : viewer, other_office (retired), any unsupported role
 //
@@ -24,9 +24,9 @@ const { randomUUID } = require('node:crypto');
 
 const { InvalidAcademicYearError, resolveAcademicYear } = require('./academic-year');
 const { writeDisabled } = require('./write-gates');
+const { ADMINISTRATOR_ROLES, SELF_SERVICE_ROLES, isAdministratorRole, normalizeBaseRole } = require('../auth/role-policy');
 
-const ADMIN_ROLES = new Set(['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin']);
-const SELF_SERVICE_ROLES = new Set(['faculty', 'hicc', 'visc']);
+const ADMIN_ROLES = ADMINISTRATOR_ROLES;
 const DASHBOARD_ROLES = new Set([...ADMIN_ROLES, ...SELF_SERVICE_ROLES]);
 const AFC_REASON_LABELS = Object.freeze({
   university_travel: 'University Travel',
@@ -56,11 +56,11 @@ const error = (status, code, message) => result(status, { error: { code, message
 const text = value => (value === null || value === undefined ? '' : String(value).trim());
 
 function roleOf(profile) {
-  return text(profile && profile.baseRole).toLowerCase();
+  return normalizeBaseRole(profile && profile.baseRole) || '';
 }
 
 function isAdministrator(role) {
-  return ADMIN_ROLES.has(role);
+  return isAdministratorRole(role);
 }
 
 function isSelfService(role) {

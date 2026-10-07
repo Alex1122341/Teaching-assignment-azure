@@ -17,6 +17,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
+const MANAGEMENT_SOURCE = read('faculty-admin-management.js');
 const DOE_RENDERER_SOURCE = read('faculty-admin-doe-renderer.js');
 const AFC_BATCH_SOURCE = read('faculty-admin-afc-batch.js');
 const ADMIN_HTML = read('faculty-admin.html');
@@ -72,7 +73,7 @@ function createHarness(overrides = {}) {
     const set = new Set();
     return { add(c) { set.add(c); }, remove(c) { set.delete(c); }, toggle(c, v) { if (v === undefined) { set.has(c) ? set.delete(c) : set.add(c); } else if (v) set.add(c); else set.delete(c); }, contains(c) { return set.has(c); } };
   };
-  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
+  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, addEventListener(event, handler) { this[`on${event}`] = handler; }, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
   const nodes = new Map(), rowStubs = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
   const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = cb; }, async signOut() { signOuts += 1; } };
@@ -101,7 +102,7 @@ function createHarness(overrides = {}) {
     },
     createElement: () => element('created')
   };
-  const window = { UCVMSessionGuard: { start() { sessionGuardStarts += 1; } } };
+  const window = { confirm: () => true, UCVMSessionGuard: { start() { sessionGuardStarts += 1; } } };
   const context = {
     window, document,
     location: { href: '', pathname: '/faculty-admin.html', replace() {} },
@@ -115,7 +116,9 @@ function createHarness(overrides = {}) {
   };
   context.globalThis = context;
   // NOTE: context.UCVM is deliberately absent.
+  vm.runInNewContext(read('dashboard-view-model.js'), context, { filename: 'dashboard-view-model.js' });
   vm.runInNewContext(DOE_RENDERER_SOURCE, context, { filename: 'faculty-admin-doe-renderer.js' });
+  vm.runInNewContext(MANAGEMENT_SOURCE, context, { filename: 'faculty-admin-management.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
     calls, errors, byId,
@@ -132,7 +135,7 @@ async function drive(overrides) { const h = createHarness(overrides); await h.si
 // ===========================================================================
 // A–D: final page runtime graph
 // ===========================================================================
-test('A / D. the page loads only the Firebase app+auth CDN and eight bounded local scripts', () => {
+test('A / D. the page loads only the Firebase app+auth CDN and bounded local scripts', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const cdn = srcs.filter(s => /^https?:/.test(s));
   const local = srcs.filter(s => !/^https?:/.test(s));
@@ -140,8 +143,8 @@ test('A / D. the page loads only the Firebase app+auth CDN and eight bounded loc
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin.js']);
-  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 10, '10 script elements total');
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
+  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 11, '11 script elements total');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
 
@@ -230,7 +233,7 @@ test('O / P / Q / R / S. request counts are exactly as accepted, with no N+1', a
   assert.deepEqual(h.calls.filter(c => c.startsWith('dashboardFacultyById')), ['dashboardFacultyById:f-1', 'dashboardFacultyById:f-2'], 'S: one per distinct faculty, never a fanout');
 
   const load = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('async function loadAdminDashboard'), ADMIN_SOURCE.indexOf('function dashboardRawRole'));
-  assert.match(load, /await Promise\.all\(\[UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\)\]\)/, 'summary + roster stay parallel');
+  assert.match(load, /await Promise\.all\(\[\s*UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\{\s*status:\s*facultyStatus\s*\}\),/, 'summary + status-filtered roster stay parallel');
   assert.equal(load.split('await').length - 1, 1, 'no serial await precedes the parallel load');
 });
 
@@ -444,7 +447,7 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
   assert.equal(/\bfirestore\b/i.test(DOE_RENDERER_SOURCE), false, 'faculty-admin-doe-renderer.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(AFC_BATCH_SOURCE), false, 'faculty-admin-afc-batch.js: no Firestore dependency');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin.js']);
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
 });
 
 test('92 / 94 / 96. the controller stays bounded with contract DOE detail and overview', () => {

@@ -249,10 +249,14 @@ function createSqlDashboardRepository(db) {
     // ---------------------------------------------------------------- faculty
     // Roster. Administrators receive the full active roster; a faculty-scoped
     // caller is narrowed by `facultyId` to exactly its own row.
-    async faculty({ academicYear: year, search = null, limit, facultyId = null } = {}) {
+    async faculty({ academicYear: year, search = null, limit, facultyId = null, status = 'active' } = {}) {
       const resolvedYear = resolveAcademicYear(year);
       const params = { academicYear: resolvedYear, limit: boundLimit(limit) };
-      const predicates = ['f.Active = 1'];
+      const predicates = [];
+
+      if (status === 'active') predicates.push('f.Active = 1');
+      else if (status === 'inactive') predicates.push('f.Active = 0');
+      else if (status !== 'all') throw new Error('Invalid Faculty status filter');
 
       if (facultyId) {
         predicates.push('f.FacultyId = @facultyId');
@@ -279,6 +283,7 @@ function createSqlDashboardRepository(db) {
              f.ReportsToFacultyId AS reportsToFacultyId,
              manager.DisplayName AS reportsToName,
              f.Active AS active,
+             CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc,
              profile.TeachingArea AS teachingArea,
              profile.ProfessionalCategory AS professionalCategory,
              (SELECT COUNT(DISTINCT c.SessionId)
@@ -318,6 +323,7 @@ function createSqlDashboardRepository(db) {
         reportsToFacultyId: toText(row.reportsToFacultyId),
         reportsToName: toText(row.reportsToName),
         active: toBool(row.active),
+        updatedAtUtc: row.updatedAtUtc instanceof Date ? row.updatedAtUtc.toISOString() : toText(row.updatedAtUtc),
         teachingArea: toText(row.teachingArea),
         professionalCategory: toText(row.professionalCategory),
         sessionCount: toInt(row.sessionCount),
@@ -393,12 +399,12 @@ function createSqlDashboardRepository(db) {
     },
 
     // -------------------------------------------------------------- facultyById
-    // Full single-faculty detail. Returns null when the FacultyId is unknown or
-    // the faculty record is inactive.
+    // Full single-faculty detail. Inactive records are available only when the
+    // caller has already been authorized as an administrator.
     //
     // The six required sections are returned as siblings of `faculty`, never
     // nested inside it.
-    async facultyById({ facultyId, academicYear: year } = {}) {
+    async facultyById({ facultyId, academicYear: year, includeInactive = false } = {}) {
       if (!isUuid(facultyId)) return null;
       const resolvedYear = resolveAcademicYear(year);
 
@@ -419,18 +425,19 @@ function createSqlDashboardRepository(db) {
              f.FteSourceUpdatedAtUtc AS fteSourceUpdatedAtUtc,
              f.ReportsToFacultyId AS reportsToFacultyId,
              manager.DisplayName AS reportsToName,
-             f.Active AS active
+             f.Active AS active,
+             CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc
          FROM paws.Faculty f
          LEFT JOIN paws.Faculty manager ON manager.FacultyId = f.ReportsToFacultyId
          WHERE f.FacultyId = @facultyId
-           AND f.Active = 1`,
-        { facultyId }
+           AND (@includeInactive = 1 OR f.Active = 1)`,
+        { facultyId, includeInactive: includeInactive ? 1 : 0 }
       );
 
       const record = rows[0];
       if (!record) return null;
 
-      const [profileRows, jointRows, roleRows, afcRows, assignmentRows, contractTargetRows, contractAllocationRows, doeRuleRows] = await Promise.all([
+      const [profileRows, jointRows, roleRows, afcRows, assignmentRows, contractTargetRows, contractAllocationRows, doeRuleRows, linkedRows] = await Promise.all([
         // ---------------------------------------------------- professional profile
         db.query(
           `SELECT
@@ -448,7 +455,8 @@ function createSqlDashboardRepository(db) {
                p.BoardCertification AS boardCertification,
                p.BoardCertificationCount AS boardCertificationCount,
                p.AbvmaLicenseNumber AS abvmaLicenseNumber,
-               p.AbvmaMemberType AS abvmaMemberType
+               p.AbvmaMemberType AS abvmaMemberType,
+               CONVERT(varchar(18), p.ProfileVersion, 1) AS profileVersion
            FROM paws.FacultyProfessionalProfile p
            WHERE p.FacultyId = @facultyId`,
           { facultyId }
@@ -590,6 +598,20 @@ function createSqlDashboardRepository(db) {
               AND p.Active = 1
             ORDER BY r.Category, r.SourceRow, r.DoeRuleSeedId`,
           { academicYear: resolvedYear }
+        ),
+        db.query(
+          `SELECT
+              (SELECT COUNT_BIG(*) FROM paws.UserProfile u WHERE u.FacultyId=@facultyId AND u.Active=1) AS activeUserProfileCount,
+              (SELECT COUNT_BIG(*) FROM paws.SessionAssignment sa JOIN paws.vCalendarSession s ON s.SessionId=sa.SessionId
+                WHERE sa.FacultyId=@facultyId AND s.AcademicYear=@academicYear AND s.SessionDate>=CONVERT(date,SYSUTCDATETIME())) AS currentTeachingSessionCount,
+              (SELECT COUNT_BIG(*) FROM paws.RoleAssignment ra WHERE ra.FacultyId=@facultyId
+                AND (ra.EffectiveDate IS NULL OR ra.EffectiveDate<=CONVERT(date,SYSUTCDATETIME()))
+                AND (ra.ExpirationDate IS NULL OR CONVERT(date,SYSUTCDATETIME())<ra.ExpirationDate)) AS currentRoleCount,
+              (SELECT COUNT_BIG(*) FROM paws.TeachingResponsibilityAssignee a
+                WHERE a.FacultyId=@facultyId AND a.AcademicYear=@academicYear
+                  AND a.ActiveDate<=CONVERT(date,SYSUTCDATETIME())
+                  AND (a.ExpirationDate IS NULL OR CONVERT(date,SYSUTCDATETIME())<a.ExpirationDate)) AS currentTeachingResponsibilityCount`,
+          { facultyId, academicYear: resolvedYear }
         )
       ]);
 
@@ -642,7 +664,8 @@ function createSqlDashboardRepository(db) {
           fteSourceUpdatedAtUtc: record.fteSourceUpdatedAtUtc || null,
           reportsToFacultyId: toText(record.reportsToFacultyId),
           reportsToName: toText(record.reportsToName),
-          active: toBool(record.active)
+          active: toBool(record.active),
+          updatedAtUtc: toText(record.updatedAtUtc)
         },
         academicYear: resolvedYear,
         professionalProfile: profile
@@ -661,7 +684,8 @@ function createSqlDashboardRepository(db) {
               boardCertification: toText(profile.boardCertification),
               boardCertificationCount: toNumber(profile.boardCertificationCount),
               abvmaLicenseNumber: toText(profile.abvmaLicenseNumber),
-              abvmaMemberType: toText(profile.abvmaMemberType)
+              abvmaMemberType: toText(profile.abvmaMemberType),
+              profileVersion: toText(profile.profileVersion)
             }
           : null,
         jointAppointments: jointRows.map(row => ({
@@ -739,7 +763,13 @@ function createSqlDashboardRepository(db) {
         },
         teachingAssignments,
         sessionCount: teachingAssignments.length,
-        checkNeededCount: checkNeeded
+        checkNeededCount: checkNeeded,
+        linkedRecords: {
+          activeUserProfileCount: toInt(linkedRows[0]?.activeUserProfileCount),
+          currentTeachingSessionCount: toInt(linkedRows[0]?.currentTeachingSessionCount),
+          currentRoleCount: toInt(linkedRows[0]?.currentRoleCount),
+          currentTeachingResponsibilityCount: toInt(linkedRows[0]?.currentTeachingResponsibilityCount)
+        }
       };
     },
 

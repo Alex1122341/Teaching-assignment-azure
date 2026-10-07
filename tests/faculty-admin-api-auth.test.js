@@ -44,7 +44,9 @@ function dashboardHarness(currentUser){
     Event:class{constructor(type){this.type=type}},
     console:{error(){}},setTimeout,clearTimeout,Map,Set,Date,JSON,String,Number,Array,Object,Math,Blob:class{},URL:{createObjectURL(){return''},revokeObjectURL(){}},confirm:()=>false
   };
+  vm.runInNewContext(read('dashboard-view-model.js'),context);
   vm.runInNewContext(read('faculty-admin-doe-renderer.js'),context);
+  vm.runInNewContext(read('faculty-admin-management.js'),context);
   vm.runInNewContext(read('faculty-admin.js'),context);
   assert.equal(typeof authCallback,'function','Dashboard must register an auth callback');
   return{run:user=>authCallback(user),redirects,reads,signOuts:()=>signOuts,nodes};

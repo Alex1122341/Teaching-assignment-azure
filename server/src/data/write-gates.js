@@ -17,7 +17,8 @@ function createWriteGates(env = {}) {
     taDraft: env.PAWS_TA_DRAFT_WRITE_ENABLED === 'true',
     taReview: env.PAWS_TA_REVIEW_WRITE_ENABLED === 'true',
     taFinal: env.PAWS_TA_FINAL_WRITE_ENABLED === 'true',
-    taPublish: env.PAWS_TA_PUBLISH_WRITE_ENABLED === 'true'
+    taPublish: env.PAWS_TA_PUBLISH_WRITE_ENABLED === 'true',
+    facultyAdmin: env.PAWS_FACULTY_ADMIN_WRITE_ENABLED === 'true'
   });
 }
 

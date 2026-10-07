@@ -9,9 +9,9 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// P2 is current. P1/W1M/W1H/W1F remain immutable historical evidence so each
+// P3 is current. P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='e37981f35a3b9954b7b69e98e38fcf69262ec185';
+const BASELINE_COMMIT='6b257fb5e3d8fe9443dd27d5103242656a50daa9';
 const P1_PRODUCT_COMMIT='efdedb3d1b62a774e74b859a723e5a7906f86956';
 const P2_PRODUCT_COMMIT='e37981f35a3b9954b7b69e98e38fcf69262ec185';
 const W1M_PRODUCT_COMMIT='06b517dff59a07e802cb8dff09400532fb195fe4';
@@ -40,7 +40,7 @@ const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:c
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the P2 teaching-assignment product baseline',()=>{
+test('beta identity is pinned to the P3 Faculty-management product baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://tester-teaching.web.app');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -238,17 +238,17 @@ test('W1H protected static and API paths retain W1F coverage and historical byte
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the P2 product frozen runtime reports zero protected drift',()=>{
+test('the P3 product frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,55);
+  assert.equal(result.protected,56);
 });
 
-test('the current static manifest has exactly 55 protected files',()=>{
-  assert.equal(manifest().length,55);
-  assert.equal(freeze.protectedPaths({root}).length,55);
+test('the current static manifest has exactly 56 protected files',()=>{
+  assert.equal(manifest().length,56);
+  assert.equal(freeze.protectedPaths({root}).length,56);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -261,9 +261,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 55 current protected files are byte-identical to the immutable P2 product blobs',()=>{
+test('all 56 current protected files are byte-identical to the immutable P3 product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,55);
+  assert.equal(protectedFiles.length,56);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -371,7 +371,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,55);
+  assert.equal(protectedFiles.length,56);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -397,7 +397,8 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
 
 test('beta-baseline.json remains non-authoritative and records the stabilized Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,17);
+  assert.equal(Object.keys(baseline.sha256).length,18);
+  assert.ok(baseline.sha256['faculty-admin-management.js']);
   assert.ok(baseline.sha256['afc-workflow.js']);
   assert.ok(baseline.sha256['afc-workflow-sql.js']);
   assert.ok(baseline.sha256['paws-auth-continuity.js']);
@@ -408,17 +409,17 @@ test('beta-baseline.json remains non-authoritative and records the stabilized Be
 });
 
 // G. Dual-runtime baseline ---------------------------------------------------
-test('API freeze shares the promoted P2 static baseline and has zero runtime drift',()=>{
+test('API freeze shares the promoted P3 static baseline and has zero runtime drift',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
   assert.equal(apiFreeze.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,37);
+  assert.equal(result.runtimeFiles.length,38);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,40);
+  assert.equal(result.protected,41);
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-doe-target-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/data/sql-afc-write-repository.js'));
   assert.ok(result.runtimeFiles.includes('server/src/afc/afc-request-api.js'));

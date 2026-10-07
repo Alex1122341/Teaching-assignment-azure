@@ -16,6 +16,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
+const MANAGEMENT_SOURCE = read('faculty-admin-management.js');
 const ADMIN_HTML = read('faculty-admin.html');
 const ACCESS_SOURCE = read('faculty-access.js');
 const KPI_IDS = ['kpi-total', 'kpi-sessions', 'kpi-assignments', 'kpi-courses', 'kpi-roles', 'kpi-hicc', 'kpi-visc', 'kpi-afc', 'kpi-grid', 'kpi-check'];
@@ -75,7 +76,7 @@ function createHarness(overrides = {}) {
     const set = new Set();
     return { add(c) { set.add(c); }, remove(c) { set.delete(c); }, toggle(c, v) { if (v === undefined) { set.has(c) ? set.delete(c) : set.add(c); } else if (v) set.add(c); else set.delete(c); }, contains(c) { return set.has(c); } };
   };
-  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
+  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, addEventListener(event, handler) { this[`on${event}`] = handler; }, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
   const nodes = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
   const rowStubs = new Map();
@@ -105,7 +106,7 @@ function createHarness(overrides = {}) {
     },
     createElement: () => element('created')
   };
-  const window = { dispatchEvent(e) { events.push(e && e.type ? e.type : String(e)); }, UCVMSessionGuard: { start() { sessionGuardStarts += 1; } } };
+  const window = { dispatchEvent(e) { events.push(e && e.type ? e.type : String(e)); }, confirm: () => true, UCVMSessionGuard: { start() { sessionGuardStarts += 1; } } };
   const context = {
     window, document,
     location: { href: '', pathname: '/faculty-admin.html', replace() {} },
@@ -127,7 +128,9 @@ function createHarness(overrides = {}) {
     setTimeout, clearTimeout, Map, Set, Date, JSON, String, Number, Boolean, Array, Object, Math, Promise, RegExp, Error, TypeError, isNaN, parseInt, parseFloat
   };
   context.globalThis = context;
+  vm.runInNewContext(read('dashboard-view-model.js'), context, { filename: 'dashboard-view-model.js' });
   vm.runInNewContext(read('faculty-admin-doe-renderer.js'), context, { filename: 'faculty-admin-doe-renderer.js' });
+  vm.runInNewContext(MANAGEMENT_SOURCE, context, { filename: 'faculty-admin-management.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
     calls, events, errors, byId,
@@ -156,9 +159,9 @@ test('A. admin API core still runs with no Firestore global at all', async () =>
   assert.equal(h.byId('sync-status').textContent.length > 0, true);
 });
 
-test('Q. summary and roster are still requested through one parallel Promise.all', async () => {
+test('Q. summary and status-filtered roster are still requested through one parallel Promise.all', async () => {
   const load = slice('async function loadAdminDashboard', 'function dashboardRawRole');
-  assert.match(load, /await Promise\.all\(\s*\[\s*UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\)\s*\]\)/s, 'both requests must be started together');
+  assert.match(load, /await Promise\.all\(\s*\[\s*UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\{\s*status:\s*facultyStatus\s*\}\),/s, 'summary and roster must be started together');
   assert.equal((load.match(/await Promise\.all/g) || []).length, 1, 'summary and roster use one parallel aggregate load');
   const h = createHarness();
   await h.signIn();
@@ -264,7 +267,7 @@ test('M. approval workflow remains available as a dormant artifact but is not dy
 test('28 / 29. the final local script set includes the modular view model', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const local = srcs.filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-doe-renderer.js', 'faculty-admin.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'session-guard.js'].sort());
+  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-management.js', 'faculty-admin.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'session-guard.js'].sort());
   assert.equal(srcs.filter(s => /gstatic\.com\/firebasejs/.test(s)).length, 2, 'only the app and auth compat SDKs remain');
   const inline = [...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].map(m => m[1].trim());
   assert.deepEqual(inline, [], 'no inline script remains');
@@ -298,7 +301,7 @@ test('39–49. no unsupported mutation control ships on the Dashboard page', () 
     assert.equal(ADMIN_HTML.includes(id), false, `${id} must not ship on the API-only Dashboard`);
   }
   assert.equal(ADMIN_HTML.includes('data-general-only'), false);
-  for (const label of ['Import Away from Campus', 'Replace &amp; Sync', 'Import Workload', '+ Add Faculty', 'Import Full Faculty JSON', 'Edit Faculty', 'Export JSON', 'Export CSV', 'Rebuild Derived Indexes']) {
+  for (const label of ['Import Away from Campus', 'Replace &amp; Sync', 'Import Workload', '+ Add Faculty', 'Import Full Faculty JSON', 'Export JSON', 'Export CSV', 'Rebuild Derived Indexes']) {
     assert.equal(ADMIN_HTML.includes(label), false, `${label} must not ship`);
   }
 });
@@ -337,9 +340,9 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 test('58–63. the Dashboard page runtime surface is bounded and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 10, 'script elements: 2 Firebase CDN + 8 local');
+  assert.equal(srcs, 11, 'script elements: 2 Firebase CDN + 9 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 8);
+  assert.equal(local.length, 9);
   assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });

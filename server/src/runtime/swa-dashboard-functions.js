@@ -33,6 +33,13 @@ function createDashboardFunctions({ api }) {
 
       const isAfcRecords = pathname === '/api/v1/dashboard/afc-records';
       const isAfcBatch = pathname === '/api/v1/dashboard/afc-records/batch';
+      const facultyUpdate = /^\/api\/v1\/dashboard\/faculty\/([^/]+)$/.exec(pathname);
+      const facultyAction = /^\/api\/v1\/dashboard\/faculty\/([^/]+)\/(restore|deactivate)$/.exec(pathname);
+      const isFacultyWrite = (!!facultyAction && request.method === 'POST') || (!!facultyUpdate && request.method === 'PATCH');
+      if ((facultyAction && request.method !== 'POST') || (facultyUpdate && !['GET', 'PATCH'].includes(request.method))) {
+        const allow = facultyAction ? 'POST' : 'GET, PATCH';
+        return { status: 405, headers: { Allow: allow }, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: `${allow} required.` } } };
+      }
       if (isAfcBatch && request.method !== 'POST') {
         return {
           status: 405,
@@ -40,16 +47,34 @@ function createDashboardFunctions({ api }) {
           jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'POST required.' } }
         };
       }
-      if (request.method !== 'GET' && !(isAfcRecords && request.method === 'POST') && !(isAfcBatch && request.method === 'POST')) {
+      if (request.method !== 'GET' && !(isAfcRecords && request.method === 'POST') && !(isAfcBatch && request.method === 'POST') && !isFacultyWrite) {
         return {
           status: 405,
-          headers: { Allow: isAfcBatch ? 'POST' : isAfcRecords ? 'GET, POST' : 'GET' },
-          jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: isAfcBatch ? 'POST required.' : isAfcRecords ? 'GET or POST required.' : 'GET required.' } }
+          headers: { Allow: isAfcBatch ? 'POST' : isAfcRecords ? 'GET, POST' : facultyAction ? 'POST' : facultyUpdate ? 'GET, PATCH' : 'GET' },
+          jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: isAfcBatch ? 'POST required.' : isAfcRecords ? 'GET or POST required.' : facultyAction ? 'POST required.' : facultyUpdate ? 'GET or PATCH required.' : 'GET required.' } }
         };
       }
 
       const token = bearer(request);
       const academicYear = url.searchParams.get('academicYear');
+
+      if (pathname === '/api/v1/dashboard/faculty-admin/write-capabilities') {
+        const response = await api.facultyAdminWriteCapabilities(token);
+        return { status: response.status, jsonBody: response.body };
+      }
+
+      if (isFacultyWrite) {
+        let payload;
+        try { payload = typeof request.json === 'function' ? await request.json() : request.body; }
+        catch (_) { return { status: 400, jsonBody: { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } } }; }
+        let facultyId;
+        try { facultyId = decodeURIComponent((facultyAction || facultyUpdate)[1]); }
+        catch (_) { return { status: 400, jsonBody: { error: { code: 'INVALID_FACULTY_ID', message: 'Faculty id is not a valid identifier.' } } }; }
+        const response = facultyAction
+          ? await api[facultyAction[2] === 'restore' ? 'restoreFaculty' : 'deactivateFaculty'](token, facultyId, payload)
+          : await api.updateFaculty(token, facultyId, payload);
+        return { status: response.status, jsonBody: response.body };
+      }
 
       if (isAfcBatch || isAfcRecords) {
         if (isAfcBatch) {
@@ -92,7 +117,8 @@ function createDashboardFunctions({ api }) {
         const response = await api.faculty(token, {
           academicYear,
           search: url.searchParams.get('search'),
-          limit: limit === null ? undefined : Number(limit)
+          limit: limit === null ? undefined : Number(limit),
+          status: url.searchParams.get('status') || 'active'
         });
         return { status: response.status, jsonBody: response.body };
       }

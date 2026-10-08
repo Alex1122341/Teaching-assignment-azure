@@ -25,3 +25,7 @@ Worksheet totals use the same reserve service; recognize the exact live Teaching
 5. Confirm the live Worksheet and DOE List values/source status. Preserve private before/after evidence.
 
 Recovery: restore the previous API/static release. To remove imported snapshots, require all 116 current Faculty/year/id/raw/evidence rows and workload parameters to equal the private approved plan before a transaction deletes only those source snapshots and workload source row. Do not drop source tables or alter annual evidence, targets, roles, sessions or user edits. Reuse the preserved plan for re-import if recovery is reversed.
+
+## Explicit frozen runtime promotion
+
+Product anchor `0e6f7a20dae9f0ba86f4157aabefda0a1fa8fb5f` promotes previous anchor `6b859ca63810dac7a34f31053cd651e735dbd653`. Protected delta: faculty-admin-doe-worksheet.js, sql-doe-worksheet-repository.js, doe-worksheet-service.js, doe-reserve-service.js. No protected path removed; static manifest and package inputs unchanged. The separate governance commit updates the shared Git-object anchor, current assertion pins and reporting together; historical commits remain immutable. Independent product/governance review precedes release.

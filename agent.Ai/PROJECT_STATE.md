@@ -1,3 +1,8 @@
+# Current breakpoint — role DOE recovery released (2026-10-08)
+
+Owner-directed role DOE fix COMPLETE. PR74 merged main092122c84d5a5ab49c1de19a829fe82d6650598d; exact-mainCI234/run37829177112 success; API PID28928/port18787, anchor6b859ca63810dac7a34f31053cd651e735dbd653. BatchA834D571-A259-42A1-242C-9AE3D4F56F97 committed78updates+34inserts;196roles,0missingDOE,22explicitzeros;112source values and120UI subtotals match.84otherroles unchanged. See updates/2026-10-08-role-doe-source-recovery-release.md. Do not rerun batch or merge unrelatedPR73.
+
+---
 # Current task — P3 all-status Faculty roster hotfix release and closeout
 
 **Status:** Functional and freeze/governance commits are preserved locally under Architect #6 approval. PR, merge, exact-main CI/artifact, runtime redeployment, and live roster verification remain outstanding.

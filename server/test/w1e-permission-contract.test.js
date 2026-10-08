@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '../..');
 const contract = require('./fixtures/w1e-runtime-permission-contract.json');
 const migration = fs.readFileSync(path.join(root, 'database/azure-sql/017_w1e_runtime_least_privilege.sql'), 'utf8');
 const p2Migration = fs.readFileSync(path.join(root, 'database/azure-sql/022_teaching_assignment_workflow_permissions.sql'), 'utf8');
-const p4Migration = fs.readFileSync(path.join(root, 'database/azure-sql/027_doe_runtime_permissions.sql'), 'utf8');
+const p4Migration = fs.readFileSync(path.join(root, 'database/azure-sql/027_doe_runtime_permissions.sql'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'database/azure-sql/028_doe_supervision_source.sql'), 'utf8');
 
 test('W1E permission contract covers every SQL repository object and stored procedure', () => {
   const repositoryDir = path.join(root, 'server/src/data');

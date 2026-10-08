@@ -15,6 +15,7 @@ const finite = value => {
   return Number.isFinite(number) ? number : null;
 };
 const round = value => Number(Number(value).toFixed(6));
+const teachingFocused = stream => ['teaching_focused', 'teaching-focused', 'teaching focused'].includes(String(stream || '').trim().toLowerCase());
 
 function requireNumber(policy, key, { min = 0, max = Infinity } = {}) {
   const value = finite(policy?.[key]);
@@ -46,13 +47,13 @@ function applyTeachingReserve({ teachingTarget, stream, rawSupervision, assigned
   }
 
   let initialTraineeReserve;
-  if (String(stream || '').toLowerCase() === 'teaching_focused') initialTraineeReserve = Math.min(target, config.teachingFocusedTraineeCeiling);
+  if (teachingFocused(stream)) initialTraineeReserve = Math.min(target, config.teachingFocusedTraineeCeiling);
   else if (target <= config.splitThreshold) initialTraineeReserve = target * config.splitRatio;
   else initialTraineeReserve = Math.min(target, config.highTeachingTraineeCeiling);
 
   const initialAssignedTeachingReserve = Math.max(0, target - initialTraineeReserve);
   const roomAfterAssigned = Math.max(0, target - assigned);
-  const flexible = String(stream || '').toLowerCase() !== 'teaching_focused' && target <= config.splitThreshold;
+  const flexible = !teachingFocused(stream) && target <= config.splitThreshold;
   const supervisionCeiling = flexible ? target : initialTraineeReserve;
   const appliedSupervision = Math.min(supervision, supervisionCeiling, roomAfterAssigned);
   const maxAssignedTeaching = Math.max(0, target - appliedSupervision);

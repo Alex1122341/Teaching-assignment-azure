@@ -55,7 +55,9 @@
     "paws.DoeImpactRun",
     "paws.DoeImpactRunRow",
     "paws.DoeAuditEvent",
-    "paws.DoePolicyPublication"
+    "paws.DoePolicyPublication",
+    "paws.DoeSupervisionSourceSnapshot",
+    "paws.DoeWorkloadSource"
   ],
   "p2ReadProcedures": [
     "paws_api.CanActOnTeachingAssignmentPackage"

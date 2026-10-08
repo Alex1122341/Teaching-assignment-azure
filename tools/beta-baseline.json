@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "6b859ca63810dac7a34f31053cd651e735dbd653",
+  "sourceCommit": "0e6f7a20dae9f0ba86f4157aabefda0a1fa8fb5f",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "index.html": "d636106fc5a48a83d5d22a1e742e56ad4b5d0aa6ec87d12ef043cd119da6ef2b",
@@ -19,6 +19,7 @@
     "afc-workflow-sql.js": "ac08e7b903440e27eae3b2d42ef76bf3d10c990ed3ce4bce635d9dfc47f725ce",
     "teaching-assignments.css": "54b0774aa7dd55add0b8c6876c148eb94b20a747a7e50506ebc2587d56d51f66",
     "teaching-assignments.html": "a2b63698ded13acef024f6770267e2c9b1126b2dcd9eafd0acfb6065412fcd27",
-    "teaching-assignments.js": "84c3f2d7871258e89ebff618380c2d2d9cfbe1dd3cf50f86c37e9d8d658059e9"
+    "teaching-assignments.js": "84c3f2d7871258e89ebff618380c2d2d9cfbe1dd3cf50f86c37e9d8d658059e9",
+    "faculty-admin-doe-worksheet.js": "d8b71b659ac7421a09c31d3466deac58b1494b5ece74ac9665f740cd695e5f65"
   }
 }

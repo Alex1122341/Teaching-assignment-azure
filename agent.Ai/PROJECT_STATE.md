@@ -1,3 +1,13 @@
+# Current task — DOE Worksheet source recovery 2026-10-08
+
+Status: source import committed; PR #75 under CI, release pending.
+Branch: fix/doe-worksheet-evidence-20261008. Base/live API: 092122c84d5a5ab49c1de19a829fe82d6650598d. Product/trust anchor: 0e6f7a20dae9f0ba86f4157aabefda0a1fa8fb5f.
+User confirms Derrick Rancourt, Shannon Toy, Emma Vaasjo, Tara Arndt and Douglas Morck trainee counts zero; missing source formula rows may use existing formulas. Workload Guidelines PDF and # Trainees worksheet are approved evidence.
+Migration 028 and guarded import committed on ITAPPVETOPSDB01/VetMed-Ops: 116 snapshots, raw aggregate 569.25, 42 explicit zeros. Rollback preview matched before commit. Do not rerun import or prior role batch. Source plan retained privately in outputs/worksheet-recovery-20261008 and server Acceptance/WorksheetDOE-20261008.
+Reviewed product/governance; scoped source SELECT grants and NULL-safe guards fixed. PR CI exposed stale baseline report count and source permission fixture, now corrected. No manual/new tests run. Existing CI checks must pass before merge and exact-main release.
+Next: require final PR CI, merge #75, require exact-main CI, deploy exact server runtime and Firebase Hosting static-only. Preserve all write gates, configured credentials and draft annual policy. Verify live Worksheet amounts/status and record final release evidence. Missing source/target values must remain explicit rather than inferred.
+
+---
 # Current task — P3 all-status Faculty roster hotfix release and closeout
 
 **Status:** Functional and freeze/governance commits are preserved locally under Architect #6 approval. PR, merge, exact-main CI/artifact, runtime redeployment, and live roster verification remain outstanding.

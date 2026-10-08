@@ -37,6 +37,7 @@
   let afcRecords = [];
   let afcLoaded = false;
   let afcSubmitInFlight = false;
+  let afcSingleOutcomeUnconfirmed = false;
   let afcBatchRows = [{ facultyId: '', facultyEntry: '', startDate: '', endDate: '', purpose: '', dateErrors: {}, errors: [], status: 'EDIT' }];
   let afcBatchRequestId = '';
   let afcBatchReviewed = false;
@@ -222,9 +223,11 @@
       afcLoaded = true;
       renderAfcRecords();
       const note = $('afc-load-note'); if (note) note.textContent = `Unified AFC view · ${afcRecords.length} record${afcRecords.length === 1 ? '' : 's'} loaded · maximum 2,000.`;
+      return afcRecords;
     } catch (error) {
       afcLoaded = false;
       if (body) body.innerHTML = `<tr><td colspan="7" class="empty">${esc(detailFailureMessage(error))}</td></tr>`;
+      return null;
     }
   }
 
@@ -232,7 +235,7 @@
     const element = $('afc-faculty'); if (!element) return;
     const old = element.value;
     const rows = faculty.filter(row => row.active !== false).sort((a, b) => String(a.displayName || a.facultyId).localeCompare(String(b.displayName || b.facultyId)));
-    element.innerHTML = '<option value="">Select active faculty…</option>' + rows.map(row => `<option value="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)} · ${esc(row.facultyId)}</option>`).join('');
+    element.innerHTML = '<option value="">Select active faculty…</option>' + rows.map(row => `<option value="${esc(row.facultyId)}">${esc(row.displayName || 'Name unavailable')}</option>`).join('');
     if (rows.some(row => row.facultyId === old)) element.value = old;
   }
 
@@ -256,7 +259,7 @@
       const haystack = norm([row.facultyName, row.facultyId, row.notes, row.legacyPurpose, row.reason, row.reasonCode].filter(present).join(' '));
       return (!query || haystack.includes(query)) && (!reason || row.reasonCode === reason || (!row.reasonCode && norm(row.reason) === norm(AFC_REASON_LABELS[reason]))) && (!active || String(row.active !== false) === active) && (!source || norm(row.sourceKind || 'manual') === source);
     });
-    body.innerHTML = rows.map(row => `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(row.facultyName || row.facultyId || '—')}</button><div class="person-meta">${esc(row.facultyId || '')}</div></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${row.active === false ? 'No' : 'Yes'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No AFC records match the current filters.</td></tr>';
+    body.innerHTML = rows.map(row => `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(row.facultyName || 'Name unavailable')}</button></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${row.active === false ? 'No' : 'Yes'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No AFC records match the current filters.</td></tr>';
     document.querySelectorAll('[data-afc-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.afcPerson)));
   }
 
@@ -266,7 +269,7 @@
 
   function validateAfcForm(values) {
     if (!values.facultyId) return 'Select an active faculty member.';
-    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !UCVM_AFC_BATCH.normalizePastedDate(value, 'Date').error;
     if (!validDate(values.startDate) || !validDate(values.endDate)) return 'Enter valid start and end dates.';
     if (values.endDate < values.startDate) return 'End date cannot be before start date.';
     if (!Object.prototype.hasOwnProperty.call(AFC_REASON_LABELS, values.reasonCode)) return 'Select a recognised AFC reason.';
@@ -282,20 +285,25 @@
 
   async function submitAfcRecord(event) {
     event?.preventDefault?.();
-    if (afcSubmitInFlight) return;
+    if (afcSubmitInFlight || afcSingleOutcomeUnconfirmed) return;
     const values = afcFormValues(); const validation = validateAfcForm(values);
     if (validation) { setAfcFormStatus(validation, true); return; }
     const submit = $('afc-submit');
     afcSubmitInFlight = true; if (submit) { submit.disabled = true; submit.textContent = 'Saving…'; }
     setAfcFormStatus('Saving AFC record…');
     try {
-      await UCVM_PAWS_DATA.createDashboardAfcRecord(values);
-      $('afc-record-form')?.reset();
-      setAfcFormStatus('AFC record created.');
+      const created = await UCVM_PAWS_DATA.createDashboardAfcRecord(values);
+      if (!created?.afcRecordId) throw Object.assign(new Error('AFC save response incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
+      const records = await loadAfcRecords(true);
+      if (!records?.some(row => String(row.afcRecordId) === String(created.afcRecordId))) throw Object.assign(new Error('AFC readback incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
+      $('afc-record-form')?.reset?.();
+      setAfcFormStatus('AFC record created and confirmed in the AFC list.');
       await loadAdminDashboard();
-      await loadAfcRecords(true);
-    } catch (error) { setAfcFormStatus(error?.message || 'AFC record could not be created.', true); }
-    finally { afcSubmitInFlight = false; if (submit) { submit.disabled = false; submit.textContent = 'Create AFC Record'; } }
+    } catch (error) {
+      afcSingleOutcomeUnconfirmed = error?.code !== 'WRITE_DISABLED' && (error?.code === 'OUTCOME_UNCONFIRMED' || !Number(error?.status) || Number(error.status) >= 500);
+      setAfcFormStatus(afcSingleOutcomeUnconfirmed ? 'The AFC save outcome is unconfirmed. Refresh the AFC list and check for the record before reloading this form. Do not submit it again until checked.' : error?.message || 'AFC record could not be created.', true);
+    }
+    finally { afcSubmitInFlight = false; if (submit) { submit.disabled = afcSingleOutcomeUnconfirmed; submit.textContent = 'Create AFC Record'; } }
   }
 
   function updateFilters() { fillSelect('filter-rank', unique('rank'), 'All ranks'); }
@@ -386,14 +394,14 @@
   function loadDoeList(force = false) { return doeWorksheetView?.loadList(force); }
 
   function afcFacultyRows() { return activeFaculty.filter(row => row.active !== false).sort((a, b) => String(a.displayName || a.facultyId).localeCompare(String(b.displayName || b.facultyId))); }
-  function afcFacultyLabel(row) { return text(row.displayName || row.facultyId) + ' · ' + text(row.facultyId); }
+  function afcFacultyLabel(row) { return text(row.displayName) || 'Name unavailable'; }
   function resolveAfcFaculty(value) {
     const input = text(value);
     const rows = afcFacultyRows();
-    const exact = rows.find(row => text(row.facultyId).toLowerCase() === input.toLowerCase() || afcFacultyLabel(row) === input);
-    if (exact) return exact;
-    const nameMatches = rows.filter(row => text(row.displayName) === input);
-    if (nameMatches.length === 1) return nameMatches[0];
+    const exactId = rows.find(row => text(row.facultyId).toLowerCase() === input.toLowerCase());
+    if (exactId) return exactId;
+    const labelMatches = rows.filter(row => afcFacultyLabel(row) === input && text(row.displayName));
+    if (labelMatches.length === 1) return labelMatches[0];
     const parts = input.split(/,\s*/);
     if (parts.length === 2 && parts[0] && parts[1]) {
       const swapped = parts[1] + ' ' + parts[0];

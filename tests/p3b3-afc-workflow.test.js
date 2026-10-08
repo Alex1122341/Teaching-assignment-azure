@@ -30,6 +30,25 @@ function harness(overrides={}){
   return{workflow,calls,panel,rows};
 }
 
+test('AFC submission treats an ambiguous 5xx as unconfirmed rather than a safe retry',async()=>{
+  const {workflow}=harness({profile:()=>({role:'faculty'}),dataClient:{
+    listAfcRequests:async()=>[],afcWriteCapabilities:async()=>({requestLifecycle:true}),
+    submitAfcRequest:async()=>{throw Object.assign(new Error('write failed'),{status:503,code:'SQL_UNAVAILABLE'})}
+  }});
+  await workflow.load(true);
+  await assert.rejects(()=>workflow.submit({}),{code:'OUTCOME_UNCONFIRMED'});
+});
+test('AFC decision signature does not use Firebase UID as a visible signer name',async()=>{
+  let captured;
+  const button={dataset:{afcId:'r1',afcAction:'recommend'}};
+  const panel={innerHTML:'',querySelectorAll(selector){return selector==='[data-afc-action]'?[button]:[]}};
+  const {workflow}=harness({document:{getElementById:()=>panel},auth:{currentUser:{uid:'u2'}},profile:()=>({role:'faculty'}),signatureCapture:async input=>{captured=input;return null}});
+  await workflow.load(true);
+  await button.onclick();
+  assert.equal(captured.uid,'u2');
+  assert.notEqual(captured.name,'u2');
+});
+
 test('SQL AFC workflow lists scoped API rows, escapes content, and never references a Firestore request or PDF path',async()=>{
   const {workflow,calls,panel}=harness();
   await workflow.load(true);

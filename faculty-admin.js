@@ -294,14 +294,15 @@
     try {
       const created = await UCVM_PAWS_DATA.createDashboardAfcRecord(values);
       if (!created?.afcRecordId) throw Object.assign(new Error('AFC save response incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
-      const records = await loadAfcRecords(true);
-      if (!records?.some(row => String(row.afcRecordId) === String(created.afcRecordId))) throw Object.assign(new Error('AFC readback incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
+      let confirmed = false;
+      for (let i = 0; i < 2 && !confirmed; i++) confirmed = (await loadAfcRecords(true))?.some(row => String(row.afcRecordId) === String(created.afcRecordId));
+      if (!confirmed) throw Object.assign(new Error('AFC readback incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
       $('afc-record-form')?.reset?.();
       setAfcFormStatus('AFC record created and confirmed in the AFC list.');
       await loadAdminDashboard();
     } catch (error) {
-      afcSingleOutcomeUnconfirmed = error?.code !== 'WRITE_DISABLED' && (error?.code === 'OUTCOME_UNCONFIRMED' || !Number(error?.status) || Number(error.status) >= 500);
-      setAfcFormStatus(afcSingleOutcomeUnconfirmed ? 'The AFC save outcome is unconfirmed. Refresh the AFC list and check for the record before reloading this form. Do not submit it again until checked.' : error?.message || 'AFC record could not be created.', true);
+      afcSingleOutcomeUnconfirmed = !(error?.code === 'WRITE_DISABLED' && error.status === 503) && (error?.code === 'OUTCOME_UNCONFIRMED' || !Number(error?.status) || Number(error.status) >= 500);
+      setAfcFormStatus(afcSingleOutcomeUnconfirmed ? 'Save unconfirmed. Check the AFC list before reloading or submitting again.' : error?.message || 'AFC record could not be created.', true);
     }
     finally { afcSubmitInFlight = false; if (submit) { submit.disabled = afcSingleOutcomeUnconfirmed; submit.textContent = 'Create AFC Record'; } }
   }

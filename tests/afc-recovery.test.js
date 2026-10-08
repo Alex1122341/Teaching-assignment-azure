@@ -73,8 +73,20 @@ for (const confirmed of [true, false]) test(`AFC accepted create requires matchi
   for (const [key, value] of Object.entries({ 'afc-faculty': id, 'afc-start-date': '2027-02-01', 'afc-end-date': '2027-02-02', 'afc-reason': 'vacation' })) ui.document.getElementById(key).value = value;
   ui.document.getElementById('afc-record-form').reset = () => { resets++; };
   await ui.submitAfcRecord();
-  assert.equal(posts, 1); assert.equal(reads, 1);
+  assert.equal(posts, 1); assert.equal(reads, confirmed ? 1 : 2);
   assert.equal(resets, confirmed ? 1 : 0);
   assert.equal(ui.nodes.get('afc-submit').disabled, !confirmed);
   assert.equal(/created and confirmed/.test(ui.nodes.get('afc-form-status').textContent), confirmed);
+});
+for (const status of [404, 503]) test(`AFC readback retries GET only after transient ${status}`, async () => {
+  let posts = 0, reads = 0;
+  const ui = dashboard({
+    createDashboardAfcRecord: async () => { posts++; return { afcRecordId: 'record-1' }; },
+    dashboardAfcRecords: async () => { reads++; if (reads === 1) throw Object.assign(new Error('Read unavailable'), { status }); return [{ afcRecordId: 'record-1' }]; },
+    dashboardSummary: async () => ({}), dashboardFaculty: async () => []
+  });
+  for (const [key, value] of Object.entries({ 'afc-faculty': id, 'afc-start-date': '2027-02-01', 'afc-end-date': '2027-02-02', 'afc-reason': 'vacation' })) ui.document.getElementById(key).value = value;
+  await ui.submitAfcRecord();
+  assert.equal(posts, 1); assert.equal(reads, 2);
+  assert.match(ui.nodes.get('afc-form-status').textContent, /created and confirmed/);
 });

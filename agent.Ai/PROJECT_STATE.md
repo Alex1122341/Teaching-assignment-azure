@@ -1,3 +1,8 @@
+# Current task — DOE Worksheet release 2026-10-08
+
+Live API and Hosting: d42313746f6edfca34d22055d11d7d89df720d96; PR75 merged; exact-main CI37850151374/37850151391 successful. Trust anchor0e6f7a20dae9f0ba86f4157aabefda0a1fa8fb5f; API PID19656. Source import committed116/569.25/42; do not rerun. Live Alanna Worksheet complete and source-labelled.109 real faculty have complete totals; seven real faculty need formal contract targets, requested from owner. Four placeholders and inactive fixture remain without source/target. See updates/2026-10-08-doe-worksheet-source-release.md for exact evidence and next breakpoint. All gates/credentials preserved; annual draft not published.
+
+---
 # Current task — DOE Worksheet source recovery 2026-10-08
 
 Status: source import committed; PR #75 under CI, release pending.

@@ -10,16 +10,16 @@ FROM OPENJSON(@plan,'$.rows') WITH (
  snapshotId uniqueidentifier '$.snapshotId', facultyId uniqueidentifier '$.facultyId',
  rawDoe decimal(12,6) '$.rawDoe', evidence nvarchar(max) '$.evidence' AS JSON,
  sourceReference nvarchar(1000) '$.sourceReference');
-IF @year<>N'2026-27' OR (SELECT COUNT(*) FROM #source)<>116 THROW 51020,'Invalid supervision source plan.',1;
-IF JSON_VALUE(@plan,'$.sourceSha256')<>'a834d571a25942a1242c9ae3d4f56f975525dfa48658c76883a92dac6bb1d1b4'
- OR JSON_VALUE(@plan,'$.guidelineSha256')<>'e1b3261e268b43b14e474051a8fd68fe3910d45cf2179c72fd118bc8f7a005b5'
+IF COALESCE(@year,N'')<>N'2026-27' OR (SELECT COUNT(*) FROM #source)<>116 THROW 51020,'Invalid supervision source plan.',1;
+IF COALESCE(JSON_VALUE(@plan,'$.sourceSha256'),'')<>'a834d571a25942a1242c9ae3d4f56f975525dfa48658c76883a92dac6bb1d1b4'
+ OR COALESCE(JSON_VALUE(@plan,'$.guidelineSha256'),'')<>'e1b3261e268b43b14e474051a8fd68fe3910d45cf2179c72fd118bc8f7a005b5'
  OR (SELECT SUM(rawDoe) FROM #source)<>569.25
  OR (SELECT COUNT(*) FROM #source WHERE rawDoe=0)<>42 THROW 51028,'Approved source evidence changed.',1;
-IF TRY_CONVERT(decimal(12,6),JSON_VALUE(@plan,'$.parameters.splitThreshold'))<>35
- OR TRY_CONVERT(decimal(12,6),JSON_VALUE(@plan,'$.parameters.splitRatio'))<>0.5
- OR TRY_CONVERT(decimal(12,6),JSON_VALUE(@plan,'$.parameters.highTeachingTraineeCeiling'))<>15
- OR TRY_CONVERT(decimal(12,6),JSON_VALUE(@plan,'$.parameters.teachingFocusedTraineeCeiling'))<>7.5
- OR TRY_CONVERT(int,JSON_VALUE(@plan,'$.parameters.rollingAverageYears'))<>3 THROW 51029,'Approved workload parameters changed.',1;
+IF COALESCE(TRY_CONVERT(decimal(12,6),JSON_VALUE(@plan,'$.parameters.splitThreshold')),-1)<>35
+ OR COALESCE(TRY_CONVERT(decimal(12,6),JSON_VALUE(@plan,'$.parameters.splitRatio')),-1)<>0.5
+ OR COALESCE(TRY_CONVERT(decimal(12,6),JSON_VALUE(@plan,'$.parameters.highTeachingTraineeCeiling')),-1)<>15
+ OR COALESCE(TRY_CONVERT(decimal(12,6),JSON_VALUE(@plan,'$.parameters.teachingFocusedTraineeCeiling')),-1)<>7.5
+ OR COALESCE(TRY_CONVERT(int,JSON_VALUE(@plan,'$.parameters.rollingAverageYears')),-1)<>3 THROW 51029,'Approved workload parameters changed.',1;
 IF EXISTS(SELECT 1 FROM #source WHERE snapshotId IS NULL OR facultyId IS NULL OR rawDoe IS NULL OR rawDoe<0 OR ISJSON(evidence)<>1) THROW 51021,'Invalid supervision row.',1;
 IF EXISTS(SELECT facultyId FROM #source GROUP BY facultyId HAVING COUNT(*)<>1) THROW 51022,'Duplicate source identity.',1;
 BEGIN TRANSACTION;

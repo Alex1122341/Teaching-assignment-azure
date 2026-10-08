@@ -25,6 +25,6 @@ CREATE TABLE paws.DoeSupervisionSourceSnapshot (
  CreatedAtUtc datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
  CONSTRAINT UQ_DoeSupervisionSourceSnapshot_FacultyYear UNIQUE(FacultyId,AcademicYear)
 );
-GRANT SELECT ON OBJECT::paws.DoeWorkloadSource TO paws_runtime_read;
-GRANT SELECT ON OBJECT::paws.DoeSupervisionSourceSnapshot TO paws_runtime_read;
+GRANT SELECT ON OBJECT::paws.DoeWorkloadSource TO [paws_runtime_read];
+GRANT SELECT ON OBJECT::paws.DoeSupervisionSourceSnapshot TO [paws_runtime_read];
 COMMIT;

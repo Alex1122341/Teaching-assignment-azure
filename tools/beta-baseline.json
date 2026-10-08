@@ -1,18 +1,18 @@
 {
-  "sourceCommit": "0e6f7a20dae9f0ba86f4157aabefda0a1fa8fb5f",
+  "sourceCommit": "33f1742a938702643cdec946352db05875641929",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "index.html": "d636106fc5a48a83d5d22a1e742e56ad4b5d0aa6ec87d12ef043cd119da6ef2b",
     "timetable.js": "d9739e2ff6405768bf1582855ed103966e444aa678c010ef1e5f1e627b46fdae",
     "timetable.css": "c63af5fe18a0f7001c1903829775bcb4c432111fc2b6d57e756f4649133c5c39",
     "faculty-admin-management.js": "5a2ae7bf3a95caf47c04d8f9f98400965149bcc9f7302347b632783f860dd620",
-    "faculty-admin.html": "d33bfb5b66b3332570bbccba88059e98e1e6debb655e3ca7332a9c7fe7ef376e",
-    "faculty-admin.js": "45e652d8bb141caaa80ecac2fc1a5581747f7d983613c6ec97945fcec26afcb5",
+    "faculty-admin.html": "9fc3ba05b7b6719be60a213f9ec8b9512048fe4fa8ecae9a126ff4ccc1da8ab9",
+    "faculty-admin.js": "aa2d51b854631aa5ee4586a8dd3c6d72887aabdfac71fabdf51cdc3f9f7611fe",
     "faculty-admin.css": "2c05e8a8ac3e4c7ed3539ea52d89f437eb70f295424e23f4a52014fbc424346f",
     "dashboard-view-model.js": "742b81419eeca591c3a35a439e9964febc42c398d683f25700fb77d226492b43",
     "faculty-access.js": "74bb21e8da53d6129ef0115d83d3dc032487edcb3febc0fac517117065820015",
     "paws-api-origin.js": "e0b8546a6f973a9bd11d02aaf67739a44b7603d078aed3e9efc315549df06708",
-    "paws-data-client.js": "fe4b87d51170fb81a9461461d74459803a8e494cc7bea99a949b3092e9c4925e",
+    "paws-data-client.js": "83120bd9d5503e8647139c1cb0a8a7d26c5dfa6ee14cb829b6aa0ab42e3cea4b",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
     "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170",
     "afc-workflow.js": "91404b1899f057594584a8110bde358a1328d4c4ef167786edbfd2208c17b314",
@@ -20,6 +20,7 @@
     "teaching-assignments.css": "54b0774aa7dd55add0b8c6876c148eb94b20a747a7e50506ebc2587d56d51f66",
     "teaching-assignments.html": "a2b63698ded13acef024f6770267e2c9b1126b2dcd9eafd0acfb6065412fcd27",
     "teaching-assignments.js": "84c3f2d7871258e89ebff618380c2d2d9cfbe1dd3cf50f86c37e9d8d658059e9",
-    "faculty-admin-doe-worksheet.js": "d8b71b659ac7421a09c31d3466deac58b1494b5ece74ac9665f740cd695e5f65"
+    "faculty-admin-doe-worksheet.js": "d8b71b659ac7421a09c31d3466deac58b1494b5ece74ac9665f740cd695e5f65",
+    "faculty-admin-doe-manual.js": "992ff87c3a9e13c455d0e2a2cd8a9e43dd4256de610f38d6cb8cee9cb9f992de"
   }
 }

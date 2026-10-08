@@ -1,5 +1,19 @@
 'use strict';
 
+const { resolveTeachingDoe, resolveRoleDoe } = require('../domain/doe-calculator');
+
+function resolutionEvidence(resolved) {
+  return {
+    resultDoe: resolved.effectiveDoe, calculatedDoe: resolved.calculatedDoe,
+    storedDoe: resolved.storedDoe ?? resolved.mappedDoe ?? null, overrideDoe: resolved.overrideDoe ?? null,
+    doeSource: resolved.source, status: resolved.source === 'missing' ? 'needs_review' : resolved.status,
+    applicable: resolved.applicable, requiresReview: resolved.requiresReview === true,
+    reviewReason: resolved.reviewReason, ruleKey: resolved.ruleCode,
+    reference: { title: resolved.sourceReference || resolved.calculatorSource }, calculatorVersion: resolved.calculatorVersion,
+    errorCode: resolved.reviewReason ? resolved.reviewReason.replace(/-/g, '_').toUpperCase() : null
+  };
+}
+
 const text = value => value === null || value === undefined ? '' : String(value).trim();
 const number = value => value === null || value === undefined || value === '' ? null : Number(value);
 const bool = value => value === true || value === 1 || value === '1';
@@ -66,7 +80,9 @@ function createSqlDoeWorksheetRepository(db) {
       db.query(
         `SELECT sa.SessionAssignmentId AS sessionAssignmentId, sa.SessionId AS sessionId,
                 sa.FacultyId AS facultyId, sa.TeachingRole AS teachingRole,
-                sa.DoeCredit AS doeCredit, sa.DoeStatus AS doeStatus
+                sa.DoeCredit AS doeCredit, sa.DoeStatus AS doeStatus,
+                sa.CreditedHours AS creditedHours, sa.DoeQuantity AS doeQuantity,
+                s.SessionType AS sessionType
            FROM paws.SessionAssignment AS sa
            INNER JOIN paws.vCalendarSession AS s ON s.SessionId=sa.SessionId
           WHERE s.AcademicYear=@academicYear AND sa.FacultyId IS NOT NULL
@@ -79,7 +95,8 @@ function createSqlDoeWorksheetRepository(db) {
                 r.RoleType AS roleType, r.CourseOrSubjectOrRotation AS scopeText,
                 r.DoeMappedValue AS doeMappedValue, r.DoeOverrideValue AS doeOverrideValue,
                 r.DoeOverrideReason AS doeOverrideReason, r.SpecialNotes AS specialNotes,
-                r.EffectiveDate AS effectiveDate, r.ExpirationDate AS expirationDate
+                r.EffectiveDate AS effectiveDate, r.ExpirationDate AS expirationDate,
+                r.AcademicYear AS academicYear, r.CourseName AS courseName, r.Details AS details
            FROM paws.RoleAssignment AS r
           WHERE (r.AcademicYear=@academicYear OR r.AcademicYear IS NULL)
             AND r.FacultyId IS NOT NULL AND (@facultyId=N'' OR r.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))
@@ -122,18 +139,23 @@ function createSqlDoeWorksheetRepository(db) {
     for (const row of sessionRows) pushLine(row.facultyId, {
       lineId: text(row.sessionAssignmentId), sourceEntityType: 'legacy_session_assignment',
       sourceEntityId: text(row.sessionAssignmentId), category: 'teaching', roleType: text(row.teachingRole),
-      sessionId: text(row.sessionId), resultDoe: null, legacyResultDoe: number(row.doeCredit), status: 'needs_review',
-      errorCode: 'LEGACY_DOE_EVIDENCE_REQUIRES_RECALC', legacyDoeStatus: text(row.doeStatus)
+      sessionId: text(row.sessionId), legacyResultDoe: number(row.doeCredit), legacyDoeStatus: text(row.doeStatus),
+      creditedHours: number(row.creditedHours), doeQuantity: number(row.doeQuantity),
+      ...resolutionEvidence(resolveTeachingDoe(row))
     });
 
-    for (const row of legacyRoleRows) pushLine(row.facultyId, {
+    for (const row of legacyRoleRows) {
+      if (assignmentRows.some(a => text(a.facultyId).toLowerCase() === text(row.facultyId).toLowerCase()
+          && text(a.sourceEntityId).toLowerCase() === text(row.roleAssignmentId).toLowerCase())) continue;
+      pushLine(row.facultyId, {
       lineId: text(row.roleAssignmentId), sourceEntityType: 'legacy_role_assignment',
       sourceEntityId: text(row.roleAssignmentId), category: 'role', roleType: text(row.roleType),
-      scopeText: text(row.scopeText), resultDoe: null,
-      legacyResultDoe: number(row.doeOverrideValue) ?? number(row.doeMappedValue), status: 'needs_review',
-      errorCode: 'LEGACY_DOE_EVIDENCE_REQUIRES_REVIEW', notes: text(row.specialNotes),
+      scopeText: text(row.scopeText),
+      legacyResultDoe: number(row.doeOverrideValue) ?? number(row.doeMappedValue), notes: text(row.specialNotes),
+      ...resolutionEvidence(resolveRoleDoe({ ...row, academicYear: row.academicYear || academicYear, courseOrSubjectOrRotation: row.scopeText })),
       overrideReason: text(row.doeOverrideReason), effectiveDate: row.effectiveDate || null, expirationDate: row.expirationDate || null
     });
+    }
 
     return facultyRows.map(row => {
       const key = text(row.facultyId).toLowerCase(), targetRow = targets.get(key);

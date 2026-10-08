@@ -44,8 +44,8 @@ function createWorksheetService({ repository } = {}) {
     if (text(source.policyStatus).toLowerCase() === 'mixed') errors.push({ code: 'MIXED_POLICY_VERSIONS', message: 'Faculty DOE source rows span multiple policy versions and require review.' });
     if (text(source.policyStatus).toLowerCase() === 'missing_version') errors.push({ code: 'POLICY_VERSION_NOT_FOUND', message: 'Faculty DOE provenance references a missing policy version.' });
     for (const row of lines) {
-      if (finite(row.resultDoe) === null || ['needs_review', 'error'].includes(text(row.status).toLowerCase())) {
-        errors.push({ code: 'DOE_LINE_UNAVAILABLE', message: 'A DOE line is unavailable and requires review.', lineId: text(row.lineId), sourceEntityId: text(row.sourceEntityId), errorCode: text(row.errorCode) || null });
+      if (finite(row.resultDoe) === null || ['needs_review', 'error'].includes(text(row.status).toLowerCase()) || row.requiresReview) {
+        errors.push({ code: text(row.errorCode) || 'DOE_LINE_UNAVAILABLE', message: text(row.reviewReason).replace(/-/g, ' ') || 'A DOE line is unavailable and requires review.', lineId: text(row.lineId), sourceEntityId: text(row.sourceEntityId), errorCode: text(row.errorCode) || null });
       }
     }
 

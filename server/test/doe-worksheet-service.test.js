@@ -44,7 +44,7 @@ test('worksheet surfaces unavailable lines and target as Needs Review without pr
   assert.equal(worksheet.totals.assignedTeachingDoe, null);
   assert.equal(worksheet.totals.effectiveTargetDoe, null);
   assert.ok(worksheet.errors.some(row => row.code === 'DOE_TARGET_UNAVAILABLE'));
-  assert.ok(worksheet.errors.some(row => row.code === 'DOE_LINE_UNAVAILABLE'));
+  assert.ok(worksheet.errors.some(row => row.code === 'COURSE_MAPPING_REQUIRED'));
 });
 
 test('DOE List and Faculty Detail share the same worksheet totals and expose specific mapping gaps', async () => {

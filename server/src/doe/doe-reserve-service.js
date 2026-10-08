@@ -40,19 +40,25 @@ function normalizePolicy(policy = {}) {
 
 function applyTeachingReserve({ teachingTarget, stream, rawSupervision, assignedTeaching, policy } = {}) {
   const config = normalizePolicy(policy);
+  if (!String(stream ?? '').trim()) throw new DoeReservePolicyError('RESERVE_STREAM_REQUIRED', 'An authoritative faculty stream is required for trainee reserve calculation.');
+  const streamKey = String(stream).trim().toLowerCase().replace(/&/g, ' and ').replace(/[\s-]+/g, '_');
+  const teachingFocused = ['teaching_focused', 'teaching_focused_stream', 'teaching', 'teaching_stream'].includes(streamKey);
+  if (!teachingFocused && !['clinical', 'research', 'research_focused', 'research_and_teaching', 'teaching_and_research'].includes(streamKey)) {
+    throw new DoeReservePolicyError('RESERVE_STREAM_UNRESOLVED', 'Faculty stream is not recognized; confirm its reserve classification.');
+  }
   const target = finite(teachingTarget), supervision = finite(rawSupervision), assigned = finite(assignedTeaching);
   if (target === null || target < 0 || supervision === null || supervision < 0 || assigned === null || assigned < 0) {
     throw new DoeReservePolicyError('RESERVE_INPUT_INVALID', 'Teaching target, supervision, and assigned teaching must be finite non-negative numbers.');
   }
 
   let initialTraineeReserve;
-  if (String(stream || '').toLowerCase() === 'teaching_focused') initialTraineeReserve = Math.min(target, config.teachingFocusedTraineeCeiling);
+  if (teachingFocused) initialTraineeReserve = Math.min(target, config.teachingFocusedTraineeCeiling);
   else if (target <= config.splitThreshold) initialTraineeReserve = target * config.splitRatio;
   else initialTraineeReserve = Math.min(target, config.highTeachingTraineeCeiling);
 
   const initialAssignedTeachingReserve = Math.max(0, target - initialTraineeReserve);
   const roomAfterAssigned = Math.max(0, target - assigned);
-  const flexible = String(stream || '').toLowerCase() !== 'teaching_focused' && target <= config.splitThreshold;
+  const flexible = !teachingFocused && target <= config.splitThreshold;
   const supervisionCeiling = flexible ? target : initialTraineeReserve;
   const appliedSupervision = Math.min(supervision, supervisionCeiling, roomAfterAssigned);
   const maxAssignedTeaching = Math.max(0, target - appliedSupervision);

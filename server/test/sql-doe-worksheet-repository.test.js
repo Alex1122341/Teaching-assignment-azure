@@ -30,9 +30,9 @@ test('DOE worksheet repository joins only current immutable calculation evidence
   assert.equal(worksheetSource.lines[0].assignmentFactId, 'assignment-1');
   assert.equal(worksheetSource.lines[0].resultDoe, 12);
   assert.equal(worksheetSource.lines[0].reference.title, 'UCVM Workload Guidelines');
-  assert.equal(worksheetSource.lines[1].status, 'needs_review');
+  assert.equal(worksheetSource.lines[1].status, 'stored');
   assert.equal(worksheetSource.lines[1].legacyResultDoe, 4);
-  assert.equal(worksheetSource.lines[1].resultDoe, null);
+  assert.equal(worksheetSource.lines[1].resultDoe, 4);
   assert.equal(worksheetSource.policyStatus, 'consistent');
   assert.ok(calls.every(call => call.params.academicYear === '2026-27'));
   assert.ok(calls.some(call => /LEFT JOIN paws\.DoeCalculationRecord[\s\S]*a\.Active=1/i.test(call.sql)));

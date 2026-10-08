@@ -1,6 +1,6 @@
 'use strict';
 
-const { applyTeachingReserve } = require('./doe-reserve-service');
+const { applyTeachingReserve, normalizePolicy } = require('./doe-reserve-service');
 
 const text = value => String(value ?? '').trim();
 const finite = value => {
@@ -19,8 +19,8 @@ function lineSection(category) {
 }
 
 function sumLines(lines) {
-  const rows = Array.isArray(lines) ? lines : [];
-  if (rows.some(row => finite(row?.resultDoe) === null || ['needs_review', 'error'].includes(text(row?.status).toLowerCase()))) return null;
+  const rows = (Array.isArray(lines) ? lines : []).filter(row => !(row.applicable === false && finite(row.resultDoe) === null));
+  if (rows.some(row => finite(row?.resultDoe) === null || ['needs_review', 'needs-review', 'error'].includes(text(row?.status).toLowerCase()))) return null;
   return round(rows.reduce((sum, row) => sum + finite(row.resultDoe), 0));
 }
 
@@ -44,22 +44,31 @@ function createWorksheetService({ repository } = {}) {
     if (text(source.policyStatus).toLowerCase() === 'mixed') errors.push({ code: 'MIXED_POLICY_VERSIONS', message: 'Faculty DOE source rows span multiple policy versions and require review.' });
     if (text(source.policyStatus).toLowerCase() === 'missing_version') errors.push({ code: 'POLICY_VERSION_NOT_FOUND', message: 'Faculty DOE provenance references a missing policy version.' });
     for (const row of lines) {
-      if (finite(row.resultDoe) === null || ['needs_review', 'error'].includes(text(row.status).toLowerCase())) {
-        errors.push({ code: 'DOE_LINE_UNAVAILABLE', message: 'A DOE line is unavailable and requires review.', lineId: text(row.lineId), sourceEntityId: text(row.sourceEntityId), errorCode: text(row.errorCode) || null });
+      if (row.applicable === false && finite(row.resultDoe) === null) continue;
+      const blocking = finite(row.resultDoe) === null || ['needs_review', 'needs-review', 'error'].includes(text(row.status).toLowerCase());
+      if (blocking || row.requiresReview || text(row.status) === 'stored-calculation-mismatch') {
+        errors.push({ code: text(row.errorCode) || 'DOE_LINE_UNAVAILABLE', message: text(row.reviewReason).replace(/-/g, ' ') || 'A DOE line requires review.', lineId: text(row.lineId), sourceEntityId: text(row.sourceEntityId), errorCode: text(row.errorCode) || null, blocking });
       }
     }
 
     const target = finite(source.target?.effectiveTargetDoe);
     if (target === null) errors.push({ code: 'DOE_TARGET_UNAVAILABLE', message: 'Effective Teaching DOE target is unavailable.' });
+    try { normalizePolicy(source.reservePolicy); }
+    catch (error) { errors.push({ code: error.code || 'RESERVE_POLICY_INVALID', message: error.message, blocking: true }); }
     const sections = { scheduledTeaching: { lines: [] }, roles: { lines: [] }, supervision: { lines: [] }, adjustments: { lines: [] } };
     for (const row of lines) sections[lineSection(row.category)].lines.push(row);
     sections.scheduledTeaching.subtotal = sumLines(sections.scheduledTeaching.lines);
     sections.roles.subtotal = sumLines(sections.roles.lines);
-    sections.supervision.rawSubtotal = sumLines(sections.supervision.lines);
+    sections.supervision.rawSubtotal = source.supervisionDataAvailable === false ? null : sumLines(sections.supervision.lines);
+    if (source.supervisionDataAvailable === false) errors.push({
+      code: 'SUPERVISION_DATA_UNAVAILABLE',
+      message: 'Trainee supervision data has not been supplied for this faculty and academic year; an empty dataset does not confirm zero supervision.',
+      blocking: true
+    });
     sections.adjustments.subtotal = sumLines(sections.adjustments.lines);
 
     let reserve = null;
-    if (!errors.length) {
+    if (!errors.some(error => error.blocking !== false)) {
       try {
         reserve = applyTeachingReserve({
           teachingTarget: target, stream: source.stream, rawSupervision: sections.supervision.rawSubtotal,
@@ -72,13 +81,17 @@ function createWorksheetService({ repository } = {}) {
     }
 
     sections.supervision.appliedSubtotal = reserve ? reserve.appliedSupervision : null;
-    const assigned = errors.length ? null : round(sections.scheduledTeaching.subtotal + sections.roles.subtotal + sections.adjustments.subtotal + reserve.appliedSupervision);
+    const assigned = reserve ? round(sections.scheduledTeaching.subtotal + sections.roles.subtotal + sections.adjustments.subtotal + reserve.appliedSupervision) : null;
     const lastCalculatedAt = lines.map(row => text(row.calculatedAt)).filter(Boolean).sort().at(-1) || '';
     return {
       facultyId: text(source.facultyId || facultyId), academicYear: text(source.academicYear || academicYear),
       displayName: text(source.displayName), stream: text(source.stream), status: errors.length ? 'needs_review' : 'calculated',
       policyVersionId: policyVersion(lines), target: { ...(source.target || {}) }, reservePolicy: { ...(source.reservePolicy || {}) },
+      targetPolicyVersionLabel: text(source.targetPolicyVersionLabel),
+      workloadSourceReference: text(source.workloadSourceReference),
+      calculationBasis: lines.some(line => ['legacy_session_assignment', 'legacy_role_assignment', 'supervision_source_snapshot'].includes(text(line.sourceEntityType))) ? 'recorded_sources' : 'annual_engine',
       reserve, lines, sections, errors,
+      completeness: { valuesComplete: !errors.some(error => error.blocking !== false), policyConsistent: !errors.length, reviewLineCount: errors.filter(error => error.lineId).length },
       totals: {
         scheduledTeachingDoe: sections.scheduledTeaching.subtotal, roleDoe: sections.roles.subtotal,
         rawSupervisionDoe: sections.supervision.rawSubtotal, appliedSupervisionDoe: sections.supervision.appliedSubtotal,
@@ -134,7 +147,8 @@ function createWorksheetService({ repository } = {}) {
         supervisionLineCount: lines.filter(line => lineSection(line.category) === 'supervision').length,
         adjustmentLineCount: lines.filter(line => lineSection(line.category) === 'adjustments').length,
         serverFactCount: lines.length,
-        unratedLineCount: lines.filter(line => finite(line.resultDoe) === null || ['needs_review', 'error'].includes(text(line.status).toLowerCase())).length,
+        unratedLineCount: lines.filter(line => !(line.applicable === false && finite(line.resultDoe) === null)
+          && (finite(line.resultDoe) === null || ['needs_review', 'needs-review', 'error'].includes(text(line.status).toLowerCase()))).length,
         missingMappingCount: lines.filter(line => isMappingIssue(line.errorCode)).length,
         issueCount: (row.errors || []).length, issueCodes, ...row.totals
       };

@@ -5,11 +5,12 @@ const { createSqlDoeWorksheetRepository } = require('../src/data/sql-doe-workshe
 const { createWorksheetService } = require('../src/doe/doe-worksheet-service');
 const { applyTeachingReserve } = require('../src/doe/doe-reserve-service');
 const policy = { splitThreshold:35, splitRatio:.5, highTeachingTraineeCeiling:15, teachingFocusedTraineeCeiling:7.5, rollingAverageYears:3 };
-function repo({ sessions=[], roles=[] }={}) {
+function repo({ sessions=[], roles=[], assignments=[] }={}) {
   return createSqlDoeWorksheetRepository({ async query(sql) {
     if (/FROM paws\.Faculty AS f/.test(sql)) return [{facultyId:'f1',displayName:'Example',stream:'clinical'}];
     if (/FROM paws\.SessionAssignment AS sa/.test(sql)) return sessions.map(row=>({facultyId:'f1',...row}));
     if (/FROM paws\.RoleAssignment AS r/.test(sql)) return roles.map(row=>({facultyId:'f1',...row}));
+    if (/FROM paws\.DoeAssignmentFact AS a/.test(sql)) return assignments.map(row=>({facultyId:'f1',...row}));
     return [];
   }});
 }
@@ -25,6 +26,29 @@ test('worksheet legacy teaching uses the same credited-role calculator as Dashbo
   assert.equal(source.lines[1].requiresReview,true);
   assert.equal(source.lines[2].resultDoe,null);
   assert.equal(source.lines[2].errorCode,'CREDITED_HOURS_REQUIRED');
+});
+for (const namespace of ['role_assignment','doe_assignment']) test(`legacy role dedupe is namespaced: ${namespace}`, async()=>{
+  const source = await repo({roles:[{roleAssignmentId:'r1',doeOverrideValue:2}],assignments:[{assignmentFactId:'a1',sourceEntityType:namespace,sourceEntityId:'r1',category:'role',resultDoe:2,calculationStatus:'calculated'}]}).getFacultyWorksheetSource('f1','2026-27');
+  assert.equal(source.lines.length, namespace === 'role_assignment' ? 1 : 2);
+});
+test('recorded mismatch keeps known effective total but makes policy completeness visible', async()=>{
+  const service=createWorksheetService({repository:{getFacultyWorksheetSource:async()=>({facultyId:'f1',stream:'clinical',target:{effectiveTargetDoe:15},reservePolicy:policy,lines:[
+    {lineId:'stored',category:'teaching',resultDoe:4,calculatedDoe:3,status:'stored-calculation-mismatch',requiresReview:true,errorCode:'STORED_DOE_DIFFERS_FROM_CALCULATOR'}
+  ]})}});
+  const result=await service.buildFacultyWorksheet({facultyId:'f1',academicYear:'2026-27'});
+  assert.equal(result.status,'needs_review');
+  assert.equal(result.completeness.valuesComplete,true);
+  assert.equal(result.completeness.policyConsistent,false);
+  assert.equal(result.totals.assignedTeachingDoe,4);
+});
+test('missing worksheet line cannot masquerade as a complete effective total', async()=>{
+  const service=createWorksheetService({repository:{getFacultyWorksheetSource:async()=>({facultyId:'f1',stream:'clinical',target:{effectiveTargetDoe:15},reservePolicy:policy,lines:[
+    {category:'teaching',resultDoe:3,status:'stored'}, {category:'role',resultDoe:null,status:'needs_review',errorCode:'COURSE_UNITS_REQUIRED'}
+  ]})}});
+  const result=await service.buildFacultyWorksheet({facultyId:'f1',academicYear:'2026-27'});
+  assert.equal(result.completeness.valuesComplete,false);
+  assert.equal(result.totals.assignedTeachingDoe,null);
+  assert.equal(result.totals.scheduledTeachingDoe,3);
 });
 test('worksheet preserves approved zero and negative role overrides and dated unresolved proration',async()=>{
   const source=await repo({roles:[
@@ -58,8 +82,12 @@ test('reserve does not assume a stream when it is missing',()=>{
   assert.throws(()=>applyTeachingReserve({teachingTarget:15,assignedTeaching:3,rawSupervision:12,stream:null,policy}),{code:'RESERVE_STREAM_REQUIRED'});
   assert.throws(()=>applyTeachingReserve({teachingTarget:15,assignedTeaching:3,rawSupervision:12,stream:'unknown',policy}),{code:'RESERVE_STREAM_UNRESOLVED'});
 });
-test('reserve boundary at 35 differs from above 35 and recognizes explicit teaching stream',()=>{
+test('reserve boundary at 35 differs from above 35 and recognizes canonical teaching stream',()=>{
   assert.equal(applyTeachingReserve({teachingTarget:35,assignedTeaching:0,rawSupervision:30,stream:'clinical',policy}).appliedSupervision,30);
   assert.equal(applyTeachingReserve({teachingTarget:35.01,assignedTeaching:0,rawSupervision:30,stream:'clinical',policy}).appliedSupervision,15);
-  assert.equal(applyTeachingReserve({teachingTarget:80,assignedTeaching:0,rawSupervision:20,stream:'Teaching-Focused',policy}).appliedSupervision,7.5);
+  assert.equal(applyTeachingReserve({teachingTarget:80,assignedTeaching:0,rawSupervision:20,stream:'teaching_focused',policy}).appliedSupervision,7.5);
+});
+test('reserve rejects unproven stream aliases and never infers stream from rank',()=>{
+  for (const stream of ['teaching','teaching_stream','Teaching-Focused','research_and_teaching']) assert.throws(()=>applyTeachingReserve({teachingTarget:15,assignedTeaching:3,rawSupervision:12,stream,rank:'Professor',policy}),{code:'RESERVE_STREAM_UNRESOLVED'});
+  assert.throws(()=>applyTeachingReserve({teachingTarget:15,assignedTeaching:3,rawSupervision:12,rank:'Teaching Professor',policy}),{code:'RESERVE_STREAM_REQUIRED'});
 });

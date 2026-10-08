@@ -41,9 +41,10 @@ function normalizePolicy(policy = {}) {
 function applyTeachingReserve({ teachingTarget, stream, rawSupervision, assignedTeaching, policy } = {}) {
   const config = normalizePolicy(policy);
   if (!String(stream ?? '').trim()) throw new DoeReservePolicyError('RESERVE_STREAM_REQUIRED', 'An authoritative faculty stream is required for trainee reserve calculation.');
-  const streamKey = String(stream).trim().toLowerCase().replace(/&/g, ' and ').replace(/[\s-]+/g, '_');
-  const teachingFocused = ['teaching_focused', 'teaching_focused_stream', 'teaching', 'teaching_stream'].includes(streamKey);
-  if (!teachingFocused && !['clinical', 'research', 'research_focused', 'research_and_teaching', 'teaching_and_research'].includes(streamKey)) {
+  // Canonical contract values only. Add aliases only with approved source/SQL evidence.
+  const streamKey = String(stream).trim().toLowerCase();
+  const teachingFocused = streamKey === 'teaching_focused';
+  if (!teachingFocused && !['clinical', 'research'].includes(streamKey)) {
     throw new DoeReservePolicyError('RESERVE_STREAM_UNRESOLVED', 'Faculty stream is not recognized; confirm its reserve classification.');
   }
   const target = finite(teachingTarget), supervision = finite(rawSupervision), assigned = finite(assignedTeaching);

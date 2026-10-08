@@ -44,8 +44,9 @@ function createWorksheetService({ repository } = {}) {
     if (text(source.policyStatus).toLowerCase() === 'mixed') errors.push({ code: 'MIXED_POLICY_VERSIONS', message: 'Faculty DOE source rows span multiple policy versions and require review.' });
     if (text(source.policyStatus).toLowerCase() === 'missing_version') errors.push({ code: 'POLICY_VERSION_NOT_FOUND', message: 'Faculty DOE provenance references a missing policy version.' });
     for (const row of lines) {
-      if (finite(row.resultDoe) === null || ['needs_review', 'error'].includes(text(row.status).toLowerCase()) || row.requiresReview) {
-        errors.push({ code: text(row.errorCode) || 'DOE_LINE_UNAVAILABLE', message: text(row.reviewReason).replace(/-/g, ' ') || 'A DOE line is unavailable and requires review.', lineId: text(row.lineId), sourceEntityId: text(row.sourceEntityId), errorCode: text(row.errorCode) || null });
+      const blocking = finite(row.resultDoe) === null || ['needs_review', 'needs-review', 'error'].includes(text(row.status).toLowerCase());
+      if (blocking || row.requiresReview || text(row.status) === 'stored-calculation-mismatch') {
+        errors.push({ code: text(row.errorCode) || 'DOE_LINE_UNAVAILABLE', message: text(row.reviewReason).replace(/-/g, ' ') || 'A DOE line requires review.', lineId: text(row.lineId), sourceEntityId: text(row.sourceEntityId), errorCode: text(row.errorCode) || null, blocking });
       }
     }
 
@@ -59,7 +60,7 @@ function createWorksheetService({ repository } = {}) {
     sections.adjustments.subtotal = sumLines(sections.adjustments.lines);
 
     let reserve = null;
-    if (!errors.length) {
+    if (!errors.some(error => error.blocking !== false)) {
       try {
         reserve = applyTeachingReserve({
           teachingTarget: target, stream: source.stream, rawSupervision: sections.supervision.rawSubtotal,
@@ -72,13 +73,14 @@ function createWorksheetService({ repository } = {}) {
     }
 
     sections.supervision.appliedSubtotal = reserve ? reserve.appliedSupervision : null;
-    const assigned = errors.length ? null : round(sections.scheduledTeaching.subtotal + sections.roles.subtotal + sections.adjustments.subtotal + reserve.appliedSupervision);
+    const assigned = reserve ? round(sections.scheduledTeaching.subtotal + sections.roles.subtotal + sections.adjustments.subtotal + reserve.appliedSupervision) : null;
     const lastCalculatedAt = lines.map(row => text(row.calculatedAt)).filter(Boolean).sort().at(-1) || '';
     return {
       facultyId: text(source.facultyId || facultyId), academicYear: text(source.academicYear || academicYear),
       displayName: text(source.displayName), stream: text(source.stream), status: errors.length ? 'needs_review' : 'calculated',
       policyVersionId: policyVersion(lines), target: { ...(source.target || {}) }, reservePolicy: { ...(source.reservePolicy || {}) },
       reserve, lines, sections, errors,
+      completeness: { valuesComplete: !errors.some(error => error.blocking !== false), policyConsistent: !errors.length, reviewLineCount: errors.filter(error => error.lineId).length },
       totals: {
         scheduledTeachingDoe: sections.scheduledTeaching.subtotal, roleDoe: sections.roles.subtotal,
         rawSupervisionDoe: sections.supervision.rawSubtotal, appliedSupervisionDoe: sections.supervision.appliedSubtotal,

@@ -145,7 +145,8 @@ function createSqlDoeWorksheetRepository(db) {
     });
 
     for (const row of legacyRoleRows) {
-      if (assignmentRows.some(a => text(a.facultyId).toLowerCase() === text(row.facultyId).toLowerCase()
+      if (assignmentRows.some(a => text(a.sourceEntityType).toLowerCase() === 'role_assignment'
+          && text(a.facultyId).toLowerCase() === text(row.facultyId).toLowerCase()
           && text(a.sourceEntityId).toLowerCase() === text(row.roleAssignmentId).toLowerCase())) continue;
       pushLine(row.facultyId, {
       lineId: text(row.roleAssignmentId), sourceEntityType: 'legacy_role_assignment',

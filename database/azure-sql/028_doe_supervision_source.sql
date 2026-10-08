@@ -1,5 +1,7 @@
 /* Source-backed Worksheet recovery. Does not publish the draft Annual Rule Book. */
 SET XACT_ABORT ON;
+IF DB_NAME()<>N'VetMed-Ops' OR DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NULL
+ THROW 51030,'Supervision recovery requires VetMed-Ops and the existing scoped runtime read role.',1;
 BEGIN TRANSACTION;
 IF OBJECT_ID(N'paws.DoeWorkloadSource',N'U') IS NULL
 CREATE TABLE paws.DoeWorkloadSource (
@@ -23,4 +25,6 @@ CREATE TABLE paws.DoeSupervisionSourceSnapshot (
  CreatedAtUtc datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
  CONSTRAINT UQ_DoeSupervisionSourceSnapshot_FacultyYear UNIQUE(FacultyId,AcademicYear)
 );
+GRANT SELECT ON OBJECT::paws.DoeWorkloadSource TO paws_runtime_read;
+GRANT SELECT ON OBJECT::paws.DoeSupervisionSourceSnapshot TO paws_runtime_read;
 COMMIT;

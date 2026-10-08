@@ -1,3 +1,9 @@
+# Current candidate — AFC / DOE recovery (2026-10-08)
+
+Owner-directed bounded local fixes are under review preparation on fix/afc-doe-recovery-20261008, based on main621d61e. Live API remains00c2a0d; authentication, SQL read evidence and Hosting credential provisioning remain required. No PR/deployment/freeze promotion authorization for this candidate. See updates/2026-10-08-afc-doe-recovery-candidate.md for exact evidence and remaining plan.
+
+---
+
 # Current task — PAWS Beta P3 all-status Faculty roster hotfix and closeout
 
 - Architect #6 approved the narrow query fix, protected trust-anchor advance, one two-commit PR, merge commit, exact-main artifact, University API rollout, and read-only fixture acceptance. No P4.

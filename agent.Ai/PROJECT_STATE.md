@@ -1,3 +1,9 @@
+# Current candidate — AFC / DOE recovery (2026-10-08)
+
+Owner-directed bounded local fixes are under review preparation on fix/afc-doe-recovery-20261008, based on main621d61e. Live API remains00c2a0d; authentication, SQL read evidence and Hosting credential provisioning remain required. No PR/deployment/freeze promotion authorization for this candidate. See updates/2026-10-08-afc-doe-recovery-candidate.md for exact evidence and remaining plan.
+
+---
+
 # Current task — P3 all-status Faculty roster hotfix release and closeout
 
 **Status:** Functional and freeze/governance commits are preserved locally under Architect #6 approval. PR, merge, exact-main CI/artifact, runtime redeployment, and live roster verification remain outstanding.

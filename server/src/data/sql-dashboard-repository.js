@@ -61,7 +61,7 @@ const AFC_MAX_LIMIT = 2000;
 // "Coordinator" — because the source distinguishes the two values and fuzzy
 // matching would inflate the HICC count from 64 to 75.
 const VISC_ROLE_TYPES = ['VISC'];
-const HICC_ROLE_TYPES = ['Course Coordinator / HICC (legacy ambiguous)'];
+const HICC_ROLE_TYPES = ['Course Coordinator / HICC (legacy ambiguous)', 'HICC'];
 
 // Retained only so the R4D-10A export surface does not break. NOT used as a
 // query predicate — `RoleCategory` is the wrong axis (it is NULL live).

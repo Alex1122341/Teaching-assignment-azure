@@ -11,7 +11,8 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Integrated P4 is current. DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='d62f5406ce1f89813bf928611e551e864ae165fc';
+const BASELINE_COMMIT='6b859ca63810dac7a34f31053cd651e735dbd653';
+const P4_PRODUCT_COMMIT='d62f5406ce1f89813bf928611e551e864ae165fc';
 const DOE_CALCULATOR_BASELINE_COMMIT='1fd064b0a1b2367cb2d3a58d71d6c8856fb1c74a';
 const AUTH1_PRODUCT_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';
 const P3_PRODUCT_COMMIT='d6b433f3b7f5bb62400deedba537e47b970b34d2';
@@ -351,9 +352,9 @@ test('DOE Calculator freeze promotion preserves coverage and permits only the re
 test('P4 freeze promotion preserves DOE Calculator coverage and adds only the reviewed DOE engine delta',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const calculatorStatic=historicalStaticPaths(DOE_CALCULATOR_BASELINE_COMMIT);
-  const p4Static=historicalStaticPaths(BASELINE_COMMIT);
+  const p4Static=historicalStaticPaths(P4_PRODUCT_COMMIT);
   const calculatorApi=historicalApiPaths(DOE_CALCULATOR_BASELINE_COMMIT);
-  const p4Api=historicalApiPaths(BASELINE_COMMIT);
+  const p4Api=historicalApiPaths(P4_PRODUCT_COMMIT);
   assert.equal(calculatorStatic.length,56);
   assert.equal(p4Static.length,59);
   assert.deepEqual(calculatorStatic.filter(name=>!p4Static.includes(name)),[]);
@@ -380,12 +381,12 @@ test('P4 freeze promotion preserves DOE Calculator coverage and adds only the re
       freeze.readBaselineFile({root,baselineCommit:to,file:name})
     );}catch{return true;}
   }).sort();
-  assert.deepEqual(changed([...new Set([...calculatorStatic,...p4Static])],DOE_CALCULATOR_BASELINE_COMMIT,BASELINE_COMMIT),[
+  assert.deepEqual(changed([...new Set([...calculatorStatic,...p4Static])],DOE_CALCULATOR_BASELINE_COMMIT,P4_PRODUCT_COMMIT),[
     'faculty-admin-doe-edit.js','faculty-admin-doe-policy.js','faculty-admin-doe-worksheet.js',
     'faculty-admin-enhancements.js','faculty-admin-management.js','faculty-admin.css',
     'faculty-admin.html','faculty-admin.js','paws-data-client.js','timetable.js'
   ]);
-  assert.deepEqual(changed([...new Set([...calculatorApi,...p4Api])],DOE_CALCULATOR_BASELINE_COMMIT,BASELINE_COMMIT),[
+  assert.deepEqual(changed([...new Set([...calculatorApi,...p4Api])],DOE_CALCULATOR_BASELINE_COMMIT,P4_PRODUCT_COMMIT),[
     'server/src/data/data-api.js','server/src/data/sql-doe-assignment-repository.js',
     'server/src/data/sql-doe-engine-repository.js','server/src/data/sql-doe-policy-repository.js',
     'server/src/data/sql-doe-target-override-repository.js','server/src/data/sql-doe-worksheet-repository.js',

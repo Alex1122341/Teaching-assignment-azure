@@ -548,7 +548,7 @@ test('E7: hiccCount and viscCount are matched on RoleType, never RoleCategory', 
 });
 
 test('E8: the HICC / VISC vocabulary is exactly the two confirmed live values', () => {
-  assert.deepEqual(HICC_ROLE_TYPES, ['Course Coordinator / HICC (legacy ambiguous)']);
+  assert.deepEqual(HICC_ROLE_TYPES, ['Course Coordinator / HICC (legacy ambiguous)', 'HICC']);
   assert.deepEqual(VISC_ROLE_TYPES, ['VISC']);
 });
 

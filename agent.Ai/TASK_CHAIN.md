@@ -1,3 +1,9 @@
+# Current candidate — AFC/DOE Draft PR73 ready for Architect #6 review
+
+Final product commit bcad875e5ac471df6427d793cc3eee4d3bbe6722; branch fix/afc-doe-recovery-20261008 pushed; Draft PR73 OPEN. Server513/513, root811total/776pass/3expected freeze failures/32skip. See updates/2026-10-08-afc-doe-architect-review-draft.md. Architect #6 instructs STOP here: no merge, freeze promotion, deployment or live write. Full reconciliation and authenticated acceptance remain incomplete.
+
+---
+
 # Current candidate — AFC / DOE recovery (2026-10-08)
 
 Owner-directed bounded local fixes are under review preparation on fix/afc-doe-recovery-20261008, based on main621d61e. Live API remains00c2a0d; authentication, SQL read evidence and Hosting credential provisioning remain required. No PR/deployment/freeze promotion authorization for this candidate. See updates/2026-10-08-afc-doe-recovery-candidate.md for exact evidence and remaining plan.

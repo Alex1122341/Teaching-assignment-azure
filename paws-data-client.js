@@ -171,6 +171,7 @@
       afcBatchWriteEnabled:()=> writeCapabilities.afcBatch===true,
       facultyAdminWriteEnabled:()=> facultyAdminWriteCapability===true,
       doeAdminWriteEnabled:()=> writeCapabilities.doeAdmin===true,
+      doeManualAssignmentWriteEnabled:()=> writeCapabilities.doeManualAssignment===true,
       doePolicyPublishEnabled:()=> writeCapabilities.doePolicyPublish===true,
       doeRecalculateEnabled:()=> writeCapabilities.doeRecalculate===true,
       async refreshDoeWriteCapabilities(){
@@ -179,13 +180,14 @@
           const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
           writeCapabilities=Object.freeze({...writeCapabilities,
             doeAdmin:value.doeAdmin===true,
+            doeManualAssignment:value.doeManualAssignment===true,
             doePolicyPublish:value.doePolicyPublish===true,
             doeRecalculate:value.doeRecalculate===true
           });
         }catch(_){
-          writeCapabilities=Object.freeze({...writeCapabilities,doeAdmin:false,doePolicyPublish:false,doeRecalculate:false});
+          writeCapabilities=Object.freeze({...writeCapabilities,doeAdmin:false,doeManualAssignment:false,doePolicyPublish:false,doeRecalculate:false});
         }
-        return {doeAdmin:writeCapabilities.doeAdmin===true,doePolicyPublish:writeCapabilities.doePolicyPublish===true,doeRecalculate:writeCapabilities.doeRecalculate===true};
+        return {doeAdmin:writeCapabilities.doeAdmin===true,doeManualAssignment:writeCapabilities.doeManualAssignment===true,doePolicyPublish:writeCapabilities.doePolicyPublish===true,doeRecalculate:writeCapabilities.doeRecalculate===true};
       },
       async refreshFacultyAdminWriteCapabilities(){
         try{
@@ -431,6 +433,20 @@
       async saveDoeAssignment({academicYear,facultyId,facts,notes='',trigger='faculty_edit'}={}){
         const body=await request('/api/v1/doe/assignments',{method:'POST',body:{academicYear,facultyId,facts:doeFacts(facts),notes:String(notes||''),trigger}});
         return body.assignment&&typeof body.assignment==='object'&&!Array.isArray(body.assignment)?body.assignment:{};
+      },
+      async manualDoeScopeSuggestions({academicYear}={}){
+        const body=await request('/api/v1/doe/manual-scope-suggestions?'+new URLSearchParams({academicYear:String(academicYear||'')}));
+        return Array.isArray(body.suggestions)?body.suggestions:[];
+      },
+      async saveManualDoeAssignment(assignmentId,payload){
+        const id=String(assignmentId||'').trim();
+        const body=await request('/api/v1/doe/manual-assignments'+(id?'/'+encodeURIComponent(id):''),{method:id?'PATCH':'POST',body:payload});
+        return body.assignment||{};
+      },
+      async deactivateManualDoeAssignment(assignmentId,payload){
+        const id=String(assignmentId||'').trim();if(!id)throw new Error('Assignment ID required.');
+        const body=await request('/api/v1/doe/manual-assignments/'+encodeURIComponent(id),{method:'DELETE',body:payload});
+        return body.assignment||{};
       },
       async updateDoeAssignment(assignmentFactId,{academicYear,facultyId,expectedRevision,facts,notes='',trigger='faculty_edit'}={}){
         const id=String(assignmentFactId??'').trim();if(!id)throw new Error('assignmentFactId is required.');

@@ -506,11 +506,18 @@
     api: UCVM_PAWS_DATA,
     academicYear: currentAcademicYear,
     canWrite: () => !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled && UCVM_PAWS_DATA.doeAdminWriteEnabled?.() === true,
+    canManualWrite: () => !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled && UCVM_PAWS_DATA.doeManualAssignmentWriteEnabled?.() === true,
     onSaved: async id => {
       doeWorksheetView?.invalidate();
+      aggregateCache.roles = null;
+      aggregateCache.teachingSummary = null;
+      aggregateCache.doeOverview = null;
       detailCache.delete(String(id));
       if (String(selectedId || '').toLowerCase() === String(id || '').toLowerCase()) await selectFacultyDetail(id);
       if (activeTab === 'doe-list') await loadDoeList(true);
+      if (activeTab === 'summary') await loadTeachingSummary();
+      if (activeTab === 'roles') await loadRoles();
+      if (activeTab === 'doe-overview') await loadDoeOverview();
     }
   });
   const facultyManagement = window.UCVM_FACULTY_ADMIN_MANAGEMENT.create({

@@ -14,6 +14,20 @@ function createDoeFunctions({ api } = {}) {
       const path = url.pathname.replace(/\/+$/, '') || '/';
       if (!path.startsWith(`${PREFIX}/`)) return { status: 404, jsonBody: { error: { code: 'NOT_FOUND', message: 'Route not found.' } } };
       const token = bearer(request);
+      if (path === `${PREFIX}/manual-scope-suggestions`) {
+        if (request.method !== 'GET') return { status: 405, headers: { Allow: 'GET' }, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'GET required.' } } };
+        const result = await api.manualScopeSuggestions(token, { academicYear: url.searchParams.get('academicYear') });
+        return { status: result.status, jsonBody: result.body };
+      }
+      const manualMatch = /^\/api\/v1\/doe\/manual-assignments(?:\/([^/]+))?$/.exec(path);
+      if (manualMatch) {
+        const id = manualMatch[1] ? decodeURIComponent(manualMatch[1]) : '';
+        if (id ? !['PATCH','DELETE'].includes(request.method) : request.method !== 'POST') return { status: 405, headers: { Allow: id ? 'PATCH, DELETE' : 'POST' }, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'Unsupported manual DOE method.' } } };
+        let payload;
+        try { payload = typeof request.json === 'function' ? await request.json() : request.body; } catch (_) { payload = null; }
+        const result = await api.saveManualAssignment(token, payload, id, request.method === 'DELETE');
+        return { status: result.status, jsonBody: result.body };
+      }
       if (path === `${PREFIX}/write-capabilities`) {
         if (request.method !== 'GET') return { status: 405, headers: { Allow: 'GET' }, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'GET required.' } } };
         const result = await api.writeCapabilities(token);

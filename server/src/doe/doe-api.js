@@ -32,7 +32,7 @@ function validateFacts(facts) {
     (typeof value !== 'string' || value.length <= 1000));
 }
 
-function createDoeApi({ verifyToken, findUser, repository, calculationService, worksheetService, assignmentService, targetOverrideService, workflowPreviewService, policyService, writeGates = {} } = {}) {
+function createDoeApi({ verifyToken, findUser, repository, calculationService, worksheetService, assignmentService, manualAssignmentService, targetOverrideService, workflowPreviewService, policyService, writeGates = {} } = {}) {
   if (!verifyToken || !findUser || !repository || !calculationService) throw new TypeError('DOE API requires authentication, SQL repositories, and the calculation service.');
   async function actor(token) {
     if (!token) return { response: fail(401, 'UNAUTHENTICATED', 'A Firebase bearer token is required.') };
@@ -55,7 +55,9 @@ function createDoeApi({ verifyToken, findUser, repository, calculationService, w
     if (adminOnly && !isAdministratorRole(identity.role)) return fail(403, 'ROLE_DENIED', 'This role cannot access DOE administration.');
     try { return await action(identity); }
     catch (caught) {
-      const status = ['INVALID_ACADEMIC_YEAR','INVALID_FACTS','DOE_POLICY_REQUIRED','DOE_DRAFT_INVALID','DOE_WORKFLOW_PREVIEW_INVALID'].includes(caught.code) ? 400
+      const status = ['INVALID_ACADEMIC_YEAR','INVALID_FACTS','DOE_POLICY_REQUIRED','DOE_DRAFT_INVALID','DOE_WORKFLOW_PREVIEW_INVALID','MANUAL_DOE_INVALID'].includes(caught.code) ? 400
+        : caught.code === 'MANUAL_DOE_REVISION_CONFLICT' ? 409
+        : ['MANUAL_DOE_NOT_FOUND','MANUAL_DOE_FACULTY_NOT_FOUND'].includes(caught.code) ? 404
         : ['ACTIVE_POLICY_REQUIRED','DOE_POLICY_REVISION_CONFLICT','DOE_VALIDATION_REQUIRED','DOE_IMPACT_REQUIRED','DOE_POLICY_NOT_DRAFT'].includes(caught.code) ? 409
         : caught.code === 'DOE_POLICY_NOT_FOUND' ? 404
         : caught.code === 'SESSION_NOT_FOUND' ? 404
@@ -72,9 +74,25 @@ function createDoeApi({ verifyToken, findUser, repository, calculationService, w
     async writeCapabilities(token) {
       return invoke(token, true, async () => ok({ writeCapabilities: {
         doeAdmin: writeGates.doeAdmin === true,
+        doeManualAssignment: writeGates.doeManualAssignment === true && writeGates.facultyAdmin === true,
         doePolicyPublish: writeGates.doePolicyPublish === true,
         doeRecalculate: writeGates.doeRecalculate === true
       } }));
+    },
+    async manualScopeSuggestions(token, { academicYear } = {}) {
+      const year = canonicalYear(academicYear);
+      if (!year) return fail(400, 'INVALID_ACADEMIC_YEAR', 'A valid Academic Year is required.');
+      return invoke(token, true, async () => {
+        if (!manualAssignmentService) return fail(503, 'DOE_UNAVAILABLE', 'Manual DOE is unavailable.');
+        return ok({ suggestions: await manualAssignmentService.scopeSuggestions(year) });
+      });
+    },
+    async saveManualAssignment(token, payload, assignmentId = '', deactivate = false) {
+      return invoke(token, true, async identity => {
+        if (writeGates.doeManualAssignment !== true || writeGates.facultyAdmin !== true) return fail(503, 'WRITE_DISABLED', 'Manual DOE assignment writes are currently disabled.');
+        if (!manualAssignmentService) return fail(503, 'DOE_UNAVAILABLE', 'Manual DOE is unavailable.');
+        return ok({ assignment: await manualAssignmentService.save({ actorUid: identity.uid, payload, assignmentId, deactivate }) });
+      });
     },
     async policyVersion(token, { policyVersionId } = {}) {
       if (!text(policyVersionId)) return fail(400, 'DOE_POLICY_REQUIRED', 'A policy version ID is required.');

@@ -52,7 +52,7 @@ test('DOE worksheet list uses one bounded SQL read per source category and inclu
   const repository = createSqlDoeWorksheetRepository(db);
   const sources = await repository.listFacultyWorksheetSources('2026-27');
   assert.deepEqual(sources.map(row => row.facultyId), ['active-1', 'inactive-1']);
-  assert.equal(calls.length, 8);
+  assert.equal(calls.length, 9);
   assert.ok(calls.some(call => /TOP \(@limit\)/i.test(call.sql)));
   assert.ok(calls.every(call => call.params.academicYear === '2026-27'));
 });

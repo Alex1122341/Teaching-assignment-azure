@@ -14,8 +14,9 @@
   const finite = value => value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value);
   const pct = value => finite(value) === null ? 'Needs Review' : `${Number(value).toFixed(2)}%`;
 
-  function create({ api, academicYear, onSaved = () => {}, canWrite = () => false } = {}) {
+  function create({ api, academicYear, onSaved = () => {}, canWrite = () => false, canManualWrite } = {}) {
     if (!api) throw new TypeError('The authenticated PAWS data client is required.');
+    if (typeof canManualWrite === 'function') return window.UCVM_FACULTY_DOE_MANUAL.create({api,academicYear,onSaved,canManualWrite,canWrite});
     let previewSequence = 0;
 
     function factsFor(row) {

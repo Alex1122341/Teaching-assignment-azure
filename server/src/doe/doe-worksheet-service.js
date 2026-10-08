@@ -68,11 +68,14 @@ function createWorksheetService({ repository } = {}) {
     sections.adjustments.subtotal = sumLines(sections.adjustments.lines);
 
     let reserve = null;
+    // Negotiated adjustments are applied after the source supervision reserve.
+    // A reduction must not be absorbed by an automatic increase in supervision.
+    const manualRoleDoe = sumLines(sections.roles.lines.filter(line => line.sourceEntityType === 'manual_doe_assignment'));
     if (!errors.some(error => error.blocking !== false)) {
       try {
         reserve = applyTeachingReserve({
           teachingTarget: target, stream: source.stream, rawSupervision: sections.supervision.rawSubtotal,
-          assignedTeaching: round(sections.scheduledTeaching.subtotal + sections.roles.subtotal + sections.adjustments.subtotal),
+          assignedTeaching: round(sections.scheduledTeaching.subtotal + sections.roles.subtotal - manualRoleDoe + sections.adjustments.subtotal),
           policy: source.reservePolicy
         });
       } catch (error) {
@@ -89,7 +92,7 @@ function createWorksheetService({ repository } = {}) {
       policyVersionId: policyVersion(lines), target: { ...(source.target || {}) }, reservePolicy: { ...(source.reservePolicy || {}) },
       targetPolicyVersionLabel: text(source.targetPolicyVersionLabel),
       workloadSourceReference: text(source.workloadSourceReference),
-      calculationBasis: lines.some(line => ['legacy_session_assignment', 'legacy_role_assignment', 'supervision_source_snapshot'].includes(text(line.sourceEntityType))) ? 'recorded_sources' : 'annual_engine',
+      calculationBasis: lines.some(line => ['legacy_session_assignment', 'legacy_role_assignment', 'supervision_source_snapshot', 'manual_doe_assignment'].includes(text(line.sourceEntityType))) ? 'recorded_sources' : 'annual_engine',
       reserve, lines, sections, errors,
       completeness: { valuesComplete: !errors.some(error => error.blocking !== false), policyConsistent: !errors.length, reviewLineCount: errors.filter(error => error.lineId).length },
       totals: {
@@ -129,7 +132,7 @@ function createWorksheetService({ repository } = {}) {
     return worksheets.map(row => {
       const lines = Array.isArray(row.lines) ? row.lines : [];
       const roleLines = lines.filter(line => lineSection(line.category) === 'roles');
-      const roleAssignments = roleLines.filter(line => text(line.sourceEntityType) === 'doe_assignment').map(line => ({
+      const roleAssignments = roleLines.filter(line => ['doe_assignment','manual_doe_assignment'].includes(text(line.sourceEntityType))).map(line => ({
         assignmentFactId: text(line.assignmentFactId || line.sourceEntityId), roleType: text(line.roleType),
         courseCode: text(line.courseCode), subjectKey: text(line.subjectKey), resultDoe: finite(line.resultDoe),
         status: text(line.status), ruleKey: text(line.ruleKey), ruleId: text(line.ruleId), reference: line.reference || null,

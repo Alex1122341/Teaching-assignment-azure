@@ -32,6 +32,7 @@
   "faculty-admin-management.js",
   "faculty-admin-doe-renderer.js",
   "faculty-admin-doe-edit.js",
+  "faculty-admin-doe-manual.js",
   "faculty-admin-doe-worksheet.js",
   "faculty-admin-doe-policy.js",
   "teaching-assignments.css",

@@ -33,9 +33,9 @@ test('DOE capability endpoint returns configured gates only to active administra
     verifyToken:async()=>({uid:'u1'}),findUser:async()=>({active:true,baseRole:role}),
     repository:{loadActivePolicy:async()=>null},calculationService:{preview:async()=>({})},writeGates:gates
   })});
-  const admin=await make('administrator',{doeAdmin:true,doePolicyPublish:false,doeRecalculate:true})(request('/api/v1/doe/write-capabilities'));
+  const admin=await make('administrator',{doeAdmin:true,doeManualAssignment:false,doePolicyPublish:false,doeRecalculate:true})(request('/api/v1/doe/write-capabilities'));
   assert.equal(admin.status,200);
-  assert.deepEqual(admin.jsonBody.writeCapabilities,{doeAdmin:true,doePolicyPublish:false,doeRecalculate:true});
+  assert.deepEqual(admin.jsonBody.writeCapabilities,{doeAdmin:true,doeManualAssignment:false,doePolicyPublish:false,doeRecalculate:true});
   assert.equal((await make('faculty',{doeAdmin:true})(request('/api/v1/doe/write-capabilities'))).status,403);
   assert.equal((await make('administrator',{})(request('/api/v1/doe/write-capabilities','POST'))).status,405);
 });
@@ -166,7 +166,7 @@ test('annual Rule Book lifecycle endpoints are administrator-only and publishing
       recalculate: async input => { calls.push(['recalculate', input]); return { created: 1 }; }
     }, writeGates: gates
   }) });
-  const admin = make('developer', { doeAdmin: true, doePolicyPublish: false, doeRecalculate: false });
+  const admin = make('developer', { doeAdmin: true, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false });
   const created = await admin(request('/api/v1/doe/policies/draft', 'POST', 'ok', { academicYear: '2026-27', versionLabel: 'Draft 1', sourceReference: 'UCVM annual guidelines' }));
   assert.equal(created.status, 200);
   const saved = await admin(request('/api/v1/doe/policies/p1/draft', 'PUT', 'ok', { expectedRevision: 2, patch: { rules: [] } }));

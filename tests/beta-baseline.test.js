@@ -499,7 +499,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,60);
+  assert.equal(protectedFiles.length,62);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------

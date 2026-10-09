@@ -42,7 +42,7 @@
   let afcBatchReviewed = false;
   let detailLoadToken = 0;
   const detailCache = new Map();
-  const detailPending = new Set();
+  const detailPending = new Map();
   const aggregateCache = { teachingSummary: null, roles: null, doeOverview: null };
 
   function rosterRecord(row) {
@@ -53,7 +53,7 @@
       ucid: text(r.ucid), email: text(r.email), recordType: text(r.recordType), stream: text(r.stream), rank: text(r.rank), fte: present(r.fte) ? r.fte : undefined,
       reportsToFacultyId: text(r.reportsToFacultyId), reportsToName: text(r.reportsToName), active: r.active !== false, teachingArea: text(r.teachingArea), professionalCategory: text(r.professionalCategory),
       updatedAtUtc: text(r.updatedAtUtc),
-      sessionCount: Number(r.sessionCount) || 0, roleCount: Number(r.roleCount) || 0, afcCount: Number(r.afcCount) || 0, jointAppointmentCount: Number(r.jointAppointmentCount) || 0 };
+      sessionCount: number(r.sessionCount), roleCount: number(r.roleCount), afcCount: number(r.afcCount), jointAppointmentCount: number(r.jointAppointmentCount) };
   }
 
   async function loadAdminDashboard() {
@@ -143,6 +143,7 @@
     on($('doe-list-refresh'),'click',()=>loadDoeList(true));
     facultyManagement.bind();
     on($('lookup-reset'), 'click', () => { $('lookup-search').value = ''; $('filter-rank').value = ''; renderLookup(); });
+    on($('lookup-clear'), 'click', () => { selectedId = null; selectedDetail = null; ++detailLoadToken; renderLookup(); });
     document.querySelectorAll('.tab').forEach(tab => on(tab, 'click', () => selectTab(tab.dataset.tab)));
     on($('summary-search'), 'input', renderTeachingSummary); on($('roles-search'), 'input', renderRoles);
     on($('role-type-filter'), 'change', renderRoles);
@@ -305,10 +306,11 @@
   function renderLookup() {
     const rows = filteredLookup(); const count = $('result-count'); if (count) count.textContent = rows.length;
     if (selectedId && !rows.some(row => row.__id === selectedId)) selectedId = null;
-    const list = $('result-list'); if (list) list.innerHTML = rows.map(row => `<div class="person-row ${row.__id === selectedId ? 'active' : ''}" data-id="${esc(row.__id)}"><div class="person-name">${esc(row.preferredFullName || row.__id)}${row.active === false ? ' <span class="faculty-inactive-badge">Inactive</span>' : ''}</div><div class="person-meta">${esc(row.rank)}${row.teachingArea ? ' · ' + esc(row.teachingArea) : ''}</div><div class="person-meta">${row.sessionCount} sessions · ${row.roleCount} roles · ${row.afcCount} AFC</div>${facultyManagement.editAction(row.facultyId)}</div>`).join('') || '<div class="empty">No matching faculty.</div>';
-    document.querySelectorAll('.person-row').forEach(node => on(node, 'click', () => { selectedId = node.dataset.id; renderLookup(); }));
+    const list = $('result-list'); if (list) list.innerHTML = rows.map(row => `<div class="person-row ${row.__id === selectedId ? 'active' : ''}" data-id="${esc(row.__id)}"><button type="button" class="person-select" aria-pressed="${row.__id === selectedId}"><span class="person-name">${esc(row.preferredFullName || row.__id)}${row.active === false ? ' <span class="faculty-inactive-badge">Inactive</span>' : ''}</span><span class="person-meta">${esc(row.rank)}${row.teachingArea ? ' · ' + esc(row.teachingArea) : ''}</span><span class="person-meta">${display(row.sessionCount)} sessions · ${display(row.roleCount)} roles · ${display(row.afcCount)} AFC</span></button>${facultyManagement.editAction(row.facultyId)}</div>`).join('') || '<div class="empty">No matching faculty.</div>';
+    document.querySelectorAll('.person-select').forEach(node => on(node, 'click', () => { selectedId = node.closest('.person-row').dataset.id; selectedDetail = null; ++detailLoadToken; renderLookup(); }));
     const selected = faculty.find(row => row.__id === selectedId); if (!selected) { selectedDetail = null; renderApiDetail(null); return; }
     if (detailCache.has(selected.__id)) { selectedDetail = detailCache.get(selected.__id); renderApiDetail(selectedDetail); return; }
+    selectedDetail = null;
     renderDetailPending(selected); selectFacultyDetail(selected.__id);
   }
 
@@ -364,18 +366,39 @@
     const profile = data.professionalProfile && typeof data.professionalProfile === 'object' ? data.professionalProfile : null;
     const roles = Array.isArray(data.roles) ? data.roles : []; const assignments = Array.isArray(data.teachingAssignments) ? data.teachingAssignments : [];
     const badges = [facultyRecord.rank, present(facultyRecord.fte) ? `FTE ${facultyRecord.fte}` : '', facultyRecord.stream, facultyRecord.recordType].filter(Boolean).map(value => `<span class="badge">${esc(value)}</span>`).join('');
-    const identity = field('Display name', facultyRecord.displayName) + field('UCID', facultyRecord.ucid) + field('Email', facultyRecord.email) + field('Rank', facultyRecord.rank) + field('Stream', facultyRecord.stream) + field('FTE', facultyRecord.fte) + field('Reports to', facultyRecord.reportsToName) + field('Active', facultyRecord.active === false ? 'No' : 'Yes');
-    const professional = profile ? field('Teaching area', profile.teachingArea, true) + field('Professional category', profile.professionalCategory) + field('Service date', profile.serviceDate) + field('Prior years experience', profile.priorYearsExperience) + field('DVM earned', profile.dvmEarnedDate) + field('DVM type', profile.dvmType) + field('Masters earned', profile.mastersEarnedDate) + field('Masters area', profile.mastersArea, true) + field('PhD earned', profile.phdEarnedDate) + field('PhD area', profile.phdArea, true) + field('Board certification', profile.boardCertification, true) + field('ABVMA member type', profile.abvmaMemberType) : '';
+    const identity = field('Preferred name', facultyRecord.displayName) + field('UCID', facultyRecord.ucid) + field('Email', facultyRecord.email) + field('Reports to', facultyRecord.reportsToName);
+    const appointment = field('Rank', facultyRecord.rank) + field('Stream', facultyRecord.stream) + field('FTE', facultyRecord.fte) + field('Record type', facultyRecord.recordType) + field('Service date', profile?.serviceDate) + field('Prior years experience', profile?.priorYearsExperience) + field('Active', facultyRecord.active === false ? 'No' : 'Yes');
+    const professional = profile ? field('Teaching area', profile.teachingArea, true) + field('Professional category', profile.professionalCategory) + field('DVM earned', profile.dvmEarnedDate) + field('DVM type', profile.dvmType) + field('Masters earned', profile.mastersEarnedDate) + field('Masters area', profile.mastersArea, true) + field('PhD earned', profile.phdEarnedDate) + field('PhD area', profile.phdArea, true) + field('Board certified date', profile.boardCertifiedDate) + field('Board certification count', profile.boardCertificationCount) + field('Board certification', profile.boardCertification, true) + field('ABVMA license number', profile.abvmaLicenseNumber) + field('ABVMA member type', profile.abvmaMemberType) : '';
+    const specialty = [profile?.teachingArea, profile?.boardCertification].filter(present);
+    const specialtyHtml = specialty.length ? `<div class="specialty-box"><strong>Specialty / focus:</strong> ${specialty.map(esc).join(' · ')}</div>` : '';
     const joints = (Array.isArray(data.jointAppointments) ? data.jointAppointments : []).map((joint, index) => section(`Joint appointment ${index + 1}`, field('Home faculty', joint.homeFaculty) + field('Joint faculty', joint.jointFaculty) + field('FTE UCVM', joint.fteUcvm) + field('FTE other faculty', joint.fteOtherFaculty) + field('Expiry date', joint.expiryDate) + field('Notes', joint.notes, true))).join('');
-    const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Effective', 'Expires', 'Mapped DOE', 'Override DOE', 'Effective DOE', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, role.effectiveDate, role.expirationDate, formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.effective), role.doeOverrideReason, role.specialNotes]; })));
-    const afcHtml = apiSection('Away from Campus', apiTable(['Start', 'End', 'Active', 'Reason', 'Notes', 'Source'], (Array.isArray(data.afcRecords) ? data.afcRecords : []).map(record => [record.startDate, record.endDate, record.active === false ? 'No' : 'Yes', record.reason || record.reasonCode || record.purpose, record.notes || record.legacyPurpose, record.sourceKind || 'import'])));
+    const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Effective', 'Expires', 'Mapped DOE', 'Override DOE', 'Calculated DOE', 'Effective DOE', 'Source', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, role.effectiveDate, role.expirationDate, formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.calculated), formatDoe(effective.effective), effective.source || role.doeSource, role.doeOverrideReason, role.specialNotes]; })));
+    const afcHtml = renderFacultyAfc(data.afcRecords);
     const scope = section('Identity / appointment metadata', field('Academic year', data.academicYear) + field('Teaching assignments', data.sessionCount) + field('Assignments needing time review', data.checkNeededCount), true);
     const canManage = !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled;
     const linked = data.linkedRecords || {};
     const actions = facultyManagement.actions(facultyRecord);
     const relationshipNote = canManage && facultyRecord.active !== false ? facultyManagement.relationshipWarning(linked) : '';
-    pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyRecord.displayName || facultyRecord.facultyId || '')}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div></div>${actions}</div>${relationshipNote}<div class="profile-sections"><section id="faculty-doe-worksheet" class="section wide"><div class="empty">Loading authoritative DOE Worksheet…</div></section>${renderContractDoe(data.contractDoe, facultyRecord)}${renderDoeRuleBook(data.doeRuleBook)}${renderTeachingCourses(assignments)}${rolesHtml}${afcHtml}${profile ? section('Professional Profile', professional, true) : ''}${joints}${scope}${section('Identity', identity)}</div>`;
+    pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyRecord.displayName || facultyRecord.facultyId || '')}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div>${specialtyHtml}</div>${actions}</div>${relationshipNote}<div class="profile-sections"><section id="faculty-doe-worksheet" class="section wide"><div class="empty">Loading authoritative DOE Worksheet…</div></section>${renderContractDoe(data.contractDoe, facultyRecord)}${renderDoeRuleBook(data.doeRuleBook)}${afcHtml}${rolesHtml}${renderTeachingCourses(assignments)}${section('Identity & contact', identity)}${section('Appointment', appointment)}${profile ? section('Specialty & education', professional, true) : ''}${joints}${scope}</div>`;
     loadDetailDoeWorksheet(facultyRecord.facultyId, text(data.academicYear) || currentAcademicYear());
+  }
+
+  function renderFacultyAfc(records) {
+    // Render only the record set authorized and returned by the detail API.
+    if (!Array.isArray(records)) return '';
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dateOnly = value => /^\d{4}-\d{2}-\d{2}(?:$|T)/.test(text(value)) ? text(value).slice(0, 10) : '';
+    const archived = record => record.active === false || (dateOnly(record.endDate) && dateOnly(record.endDate) < today);
+    const upcoming = records.filter(record => !archived(record)).sort((a,b) => text(a.startDate).localeCompare(text(b.startDate)));
+    const past = records.filter(archived).sort((a,b) => text(b.endDate).localeCompare(text(a.endDate)));
+    const table = rows => apiTable(['Start', 'End', 'Availability status', 'Reason', 'Notes', 'Source'], rows.map(record => {
+      const start = dateOnly(record.startDate), end = dateOnly(record.endDate);
+      const status = record.active === false ? 'Inactive' : !start || !end ? 'Dates need review' : end < today ? 'Past' : start <= today ? 'Current' : 'Upcoming';
+      return [record.startDate, record.endDate, status, record.reason || record.reasonCode || record.purpose, record.notes || record.legacyPurpose, record.sourceKind || 'Source unavailable'];
+    })) || '<div class="afc-none">No records in this group.</div>';
+    const fold = (label, rows, open = false) => `<details class="afc-fold" ${open ? 'open' : ''}><summary><span>${label}</span><span>${rows.length} record${rows.length === 1 ? '' : 's'}</span></summary>${table(rows)}</details>`;
+    return `<section class="section wide"><div class="section-title">Away from Campus · Availability & HR Archive</div><div class="afc-wrap">${fold('Current / Upcoming', upcoming, true)}${fold('Past / Inactive · HR Archive', past)}<div class="afc-privacy">${selfMode ? 'Your private Away from Campus / availability records.' : 'Confidential availability and HR records. Detailed reasons follow your Dashboard permissions.'}</div></div></section>`;
   }
 
   function currentAcademicYear() { return text(dashboardSummary?.academicYear || ''); }
@@ -479,7 +502,23 @@
   const DOE_PROFILE_RENDERER = window.UCVM_FACULTY_DOE_RENDERER.create({ esc, number, formatDoe, display, effectiveRoleDoe, groupTeachingAssignments });
   const { renderContractDoe, renderDoeRuleBook, renderTeachingCourses } = DOE_PROFILE_RENDERER;
   function renderDetailPending(row) { const pane = $('profile-pane'); if (pane) pane.innerHTML = row ? `<div class="empty">Loading ${esc(row.preferredFullName || row.__id)}…</div>` : '<div class="empty">Select a faculty member to view their profile.</div>'; }
-  async function selectFacultyDetail(facultyId) { const started = typeof performance?.now === 'function' ? performance.now() : 0; const id = String(facultyId ?? '').trim(); if (!id || detailPending.has(id)) return; if (detailCache.has(id)) { selectedDetail = detailCache.get(id); renderApiDetail(selectedDetail); return; } detailPending.add(id); const token = ++detailLoadToken; try { const detail = await UCVM_PAWS_DATA.dashboardFacultyById(id); if (token !== detailLoadToken) return; detailCache.set(id, detail); selectedDetail = detail; renderApiDetail(detail); pawsTimingLog(`detail`, started); } catch (error) { if (token !== detailLoadToken) return; const pane = $('profile-pane'); if (pane) pane.innerHTML = `<div class="empty">${esc(detailFailureMessage(error))}</div>`; } finally { detailPending.delete(id); } }
+  async function selectFacultyDetail(facultyId) {
+    const started = typeof performance?.now === 'function' ? performance.now() : 0;
+    const id = text(facultyId); if (!id || norm(selectedId) !== norm(id)) return;
+    const token = ++detailLoadToken;
+    if (detailCache.has(id)) { selectedDetail = detailCache.get(id); renderApiDetail(selectedDetail); return; }
+    let request = detailPending.get(id);
+    if (!request) { request = UCVM_PAWS_DATA.dashboardFacultyById(id); detailPending.set(id, request); }
+    try {
+      const detail = await request;
+      detailCache.set(id, detail);
+      if (token !== detailLoadToken || norm(selectedId) !== norm(id)) return;
+      selectedDetail = detail; renderApiDetail(detail); pawsTimingLog('detail', started);
+    } catch (error) {
+      if (token !== detailLoadToken || norm(selectedId) !== norm(id)) return;
+      const pane = $('profile-pane'); if (pane) pane.innerHTML = `<div class="empty">${esc(detailFailureMessage(error))}</div>`;
+    } finally { if (detailPending.get(id) === request) detailPending.delete(id); }
+  }
 
   function apiTable(headers, rows) { if (!rows.length) return ''; return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(header => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells => `<tr>${cells.map(cell => `<td>${esc(display(cell))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
   function apiSection(title, table) { return table ? `<section class="section wide"><div class="section-title">${esc(title)}</div>${table}</section>` : ''; }

@@ -1,6 +1,6 @@
 ## Current — Session SWAP / preferred names (2026-10-09)
 
-Owner-authorized implementation and publish. PR79 CI pending;97exact HR matches,24unresolved. Current durable checkpoint: updates/2026-10-09-session-swap-release-preparation.md.
+Owner-authorized implementation and publication completed. PR79 merged; exact-main CI37957382593 passed; live789963e/PID10976,65 Hosting assets, SQL030–032 applied,97 HR names imported and24 unresolved blank. Current durable checkpoint: updates/2026-10-09-session-swap-release-complete.md. Actual office reviewer assignment remains absent, not fabricated.
 
 # Current checkpoint — Faculty UI and DOE Rule Book published
 

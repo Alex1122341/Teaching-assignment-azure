@@ -13,6 +13,9 @@ function policyError(error) {
   else if (message.includes('DOE_POLICY_NOT_DRAFT')) error.code = 'DOE_POLICY_NOT_DRAFT';
   else if (message.includes('DOE_POLICY_NOT_FOUND')) error.code = 'DOE_POLICY_NOT_FOUND';
   else if (message.includes('DOE_POLICY_ALREADY_ACTIVE')) error.code = 'DOE_POLICY_ALREADY_ACTIVE';
+  else if (message.includes('DOE_POLICY_VERSION_LABEL_EXISTS')) error.code = 'DOE_POLICY_VERSION_LABEL_EXISTS';
+  else if (message.includes('DOE_POLICY_CHANGED')) error.code = 'DOE_POLICY_REVISION_CONFLICT';
+  else if (message.includes('DOE_ASSIGNMENT_REVISION_CONFLICT')) error.code = 'DOE_POLICY_REVISION_CONFLICT';
   return error;
 }
 
@@ -289,15 +292,25 @@ function createSqlDoePolicyRepository(db) {
       const newPolicyVersionId = uid();
       const referenceIds = new Map((source.references || []).map(row => [row.referenceId, uid()]));
       const ruleIds = new Map((source.rules || []).map(row => [row.ruleId, uid()]));
-      const next = { ...source, version: { ...source.version, policyVersionId: newPolicyVersionId, academicYear, status: 'draft', revision: 0, versionLabel: `Copy ${source.version.versionLabel}`, sourceReference: source.version.sourceReference },
+      const next = { ...source, version: { ...source.version, policyVersionId: newPolicyVersionId, academicYear, status: 'draft', revision: 0, versionLabel: `${text(source.version.versionLabel).slice(0,48)} copy ${newPolicyVersionId.slice(0,8)}`, sourceReference: source.version.sourceReference },
         references: source.references.map(row => ({ ...row, referenceId: referenceIds.get(row.referenceId) })),
         rules: source.rules.map(row => ({ ...row, ruleId: ruleIds.get(row.ruleId), referenceId: row.referenceId ? referenceIds.get(row.referenceId) : null, selectors: row.selectors.map(item => ({ ...item, selectorId: uid() })), parameters: row.parameters.map(item => ({ ...item, parameterId: uid() })), tiers: row.tiers.map(item => ({ ...item, tierId: uid() })), inputs: row.inputs.map(item => ({ ...item })) })),
         exceptions: includeExceptions ? source.exceptions.map(row => ({ ...row, exceptionId: uid() })) : [],
         courseMappings: source.courseMappings.map(row => ({ ...row, mappingId: uid(), referenceId: row.referenceId ? referenceIds.get(row.referenceId) : null })),
         subjectMappings: source.subjectMappings.map(row => ({ ...row, mappingId: uid(), referenceId: row.referenceId ? referenceIds.get(row.referenceId) : null })) };
+      if (text(source.version.academicYear) !== text(academicYear)) {
+        for (const rows of [next.rules,next.references,next.courseMappings,next.subjectMappings]) for (const row of rows) row.reviewStatus = 'needs_review';
+      }
       const id = next.version.policyVersionId;
       await this.createDraft({ policyVersionId: id, academicYear, versionLabel: next.version.versionLabel, sourceReference: next.version.sourceReference, actorUid });
       return this.saveDraft({ policyVersionId: id, academicYear, expectedRevision: 0, actorUid, bundle: next });
+    },
+
+    async getImpactPreview(policyVersionId) {
+      const runs = await db.query(`SELECT TOP (1) ImpactRunId AS impactRunId, DraftRevision AS revision, FacultyAffected AS facultyAffected, AssignmentsChanged AS assignmentsChanged, NeedsReview AS needsReview, MappingGaps AS mappingGaps, TotalDelta AS totalDelta, CreatedAtUtc AS createdAtUtc FROM paws.DoeImpactRun WHERE PolicyVersionId=@policyVersionId ORDER BY CreatedAtUtc DESC`, { policyVersionId });
+      if (!runs[0]) return null;
+      const rows = await db.query(`SELECT FacultyId AS facultyId,SourceEntityId AS sourceEntityId,OldDoe AS oldDoe,ProjectedDoe AS projectedDoe,DeltaDoe AS deltaDoe,Status AS status,IssueCode AS issueCode FROM paws.DoeImpactRunRow WHERE ImpactRunId=@impactRunId ORDER BY FacultyId,SourceEntityId`, { impactRunId: runs[0].impactRunId });
+      return { ...runs[0], rows };
     },
 
     async listHistory(academicYear) {
@@ -309,8 +322,9 @@ function createSqlDoePolicyRepository(db) {
     async archivePolicy({ policyVersionId, expectedRevision, actorUid }) {
       try {
         const rows = await db.query(`SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION; DECLARE @year nvarchar(32),@before nvarchar(8000);
-          SELECT @year=AcademicYear,@before=(SELECT PolicyVersionId AS policyVersionId,AcademicYear AS academicYear,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND Revision=@expectedRevision AND Status IN(N'draft',N'archived') FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+          SELECT @before=(SELECT PolicyVersionId AS policyVersionId,AcademicYear AS academicYear,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND Revision=@expectedRevision AND Status IN(N'draft',N'archived') FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
           IF @before IS NULL THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
+          SELECT @year=AcademicYear FROM paws.DoePolicyVersion WHERE PolicyVersionId=@policyVersionId;
           UPDATE paws.DoePolicyVersion SET Status=N'archived',Active=0,Revision=Revision+1,UpdatedBy=@actorUid,UpdatedAtUtc=SYSUTCDATETIME() WHERE PolicyVersionId=@policyVersionId AND Revision=@expectedRevision;
           INSERT INTO paws.DoeAuditEvent(AuditEventId,PolicyVersionId,AcademicYear,Action,EntityType,EntityId,ActorUid,BeforeJson,AfterJson) VALUES(NEWID(),@policyVersionId,@year,N'archived',N'doe_policy_version',CONVERT(nvarchar(128),@policyVersionId),@actorUid,@before,N'{"status":"archived"}');
           COMMIT; SELECT CONVERT(nvarchar(36),@policyVersionId) AS policyVersionId,@year AS academicYear,N'archived' AS status,@expectedRevision+1 AS revision; END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK; THROW; END CATCH;`, { policyVersionId, expectedRevision, actorUid });
@@ -318,7 +332,7 @@ function createSqlDoePolicyRepository(db) {
       } catch (error) { throw policyError(error); }
     },
 
-    async recalculate({ academicYear, policyVersionId, policyRevision, actorUid, limit = 250, calculate }) {
+    async recalculate({ academicYear, policyVersionId, policyRevision, actorUid, limit = 250, calculate, preview = false }) {
       if (typeof calculate !== 'function') throw Object.assign(new Error('DOE recalculation requires the active-policy calculation runner.'), { code: 'DOE_RECALCULATION_UNAVAILABLE' });
       const boundedLimit = Number.isSafeInteger(Number(limit)) ? Math.min(250, Math.max(1, Number(limit))) : 250;
       const sources = await db.query(
@@ -331,7 +345,7 @@ function createSqlDoePolicyRepository(db) {
                    FROM paws.DoeAssignmentFactInput i WHERE i.AssignmentFactId=a.AssignmentFactId FOR JSON PATH) AS inputsJson
            FROM paws.DoeAssignmentFact a LEFT JOIN paws.DoeCalculationRecord currentCalc ON currentCalc.CalculationId=a.CurrentCalculationId
           WHERE a.AcademicYear=@academicYear AND a.Active=1 AND (currentCalc.CalculationId IS NULL OR currentCalc.PolicyVersionId<>@policyVersionId)
-          ORDER BY a.AssignmentFactId`, { academicYear, limit: boundedLimit });
+          ORDER BY a.AssignmentFactId`, { academicYear, policyVersionId, limit: boundedLimit });
       const records = [];
       let needsReview = 0;
       for (const source of sources) {
@@ -373,6 +387,9 @@ function createSqlDoePolicyRepository(db) {
           });
         }
       }
+      if (preview) return { preview: true, policyVersionId, policyRevision, recordsProjected: records.length, needsReview,
+        scope: 'normalized_assignment_facts', limit: boundedLimit,
+        rows: records.map(row => ({ assignmentFactId: row.assignmentFactId, facultyId: row.facultyId, sourceRevision: row.sourceRevision, resultDoe: row.resultDoe, status: row.status, calculationText: row.calculationText })) };
       const rowsJson = JSON.stringify(records);
       const results = await db.query(
         `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;

@@ -75,9 +75,11 @@ function createDoePolicyService({ repository, calculationService } = {}) {
       const result = engine.validatePolicy(bundle);
       const references = new Set((bundle.references || []).map(item => text(item.referenceId)).filter(Boolean));
       for (const rule of bundle.rules || []) {
-        if (rule.enabled !== false && rule.referenceRequired === true && !text(rule.referenceId)) result.errors.push({ code: 'REFERENCE_REQUIRED', message: `Rule ${text(rule.ruleKey)} requires a structured source reference.`, ruleId: text(rule.ruleId) });
+        if (rule.enabled !== false && !text(rule.referenceId)) result.errors.push({ code: 'REFERENCE_REQUIRED', message: `Rule ${text(rule.ruleKey)} requires a structured source reference.`, ruleId: text(rule.ruleId) });
         if (text(rule.referenceId) && !references.has(text(rule.referenceId))) result.errors.push({ code: 'REFERENCE_REQUIRED', message: `Rule ${text(rule.ruleKey)} references a missing structured source.`, ruleId: text(rule.ruleId), referenceId: text(rule.referenceId) });
       }
+      const usedReferences = new Set((bundle.rules || []).filter(rule => rule.enabled !== false).map(rule => text(rule.referenceId)).filter(Boolean));
+      for (const reference of bundle.references || []) if (usedReferences.has(text(reference.referenceId)) && text(reference.reviewStatus) !== 'approved') result.errors.push({ code: 'REFERENCE_REVIEW_REQUIRED', message: 'Linked guideline reference requires annual review before publication.', referenceId: text(reference.referenceId) });
       for (const mapping of [...(bundle.courseMappings || []), ...(bundle.subjectMappings || [])]) {
         if (text(mapping.referenceId) && !references.has(text(mapping.referenceId))) result.errors.push({ code: 'REFERENCE_REQUIRED', message: 'Mapping references a missing structured source.', mappingId: text(mapping.mappingId), referenceId: text(mapping.referenceId) });
       }
@@ -109,25 +111,27 @@ function createDoePolicyService({ repository, calculationService } = {}) {
       return repository.publishPolicy({ policyVersionId, academicYear: version.academicYear, revision: expectedRevision, actorUid });
     },
 
-    async copyPreviousYear({ sourcePolicyVersionId, academicYear, actorUid } = {}) {
+    async copyPreviousYear({ sourcePolicyVersionId, academicYear, actorUid, mode } = {}) {
       const targetYear = text(academicYear);
       if (!/^\d{4}-\d{2}$/.test(targetYear)) throw new DoePolicyLifecycleError('INVALID_ACADEMIC_YEAR', 'A canonical target Academic Year is required.');
       const source = await repository.getPolicyVersion(text(sourcePolicyVersionId));
       if (!source) throw new DoePolicyLifecycleError('DOE_POLICY_NOT_FOUND', 'Source Rule Book was not found.');
-      if (text(source.version.academicYear) === targetYear) throw new DoePolicyLifecycleError('DOE_COPY_YEAR_SAME', 'Copy must create a Draft for a different Academic Year.');
+      if (mode !== 'clone' && text(source.version.academicYear) === targetYear) throw new DoePolicyLifecycleError('DOE_COPY_YEAR_SAME', 'Copy must create a Draft for a different Academic Year.');
+      if (mode === 'clone' && text(source.version.academicYear) !== targetYear) throw new DoePolicyLifecycleError('DOE_DRAFT_INVALID', 'Clone stays within its source Academic Year. Use Copy for a different year.');
       return repository.clonePolicy({ sourcePolicyVersionId, sourceAcademicYear: source.version.academicYear, academicYear: targetYear, actorUid, includeExceptions: false });
     },
 
     listHistory(academicYear) { return repository.listHistory(text(academicYear)); },
     archive({ policyVersionId, expectedRevision, actorUid } = {}) { return repository.archivePolicy({ policyVersionId, expectedRevision, actorUid }); },
-    recalculate({ academicYear, actorUid, limit } = {}) {
+    recalculate({ academicYear, actorUid, limit, preview = false, expectedPolicyVersionId, expectedPolicyRevision } = {}) {
       if (!calculationService || typeof calculationService.previewWithPolicy !== 'function') throw new DoePolicyLifecycleError('DOE_RECALCULATION_UNAVAILABLE', 'The active-policy calculation runner is unavailable.');
       const year = text(academicYear);
       if (typeof repository.loadActivePolicy !== 'function') throw new DoePolicyLifecycleError('DOE_RECALCULATION_UNAVAILABLE', 'The active Rule Book repository is unavailable.');
       return repository.loadActivePolicy(year).then(bundle => {
         if (!bundle || text(bundle.version?.status).toLowerCase() !== 'active') throw new DoePolicyLifecycleError('ACTIVE_POLICY_REQUIRED', `No active DOE policy is available for ${year}.`);
+        if ((expectedPolicyVersionId && text(expectedPolicyVersionId) !== text(bundle.version.policyVersionId)) || (expectedPolicyRevision !== undefined && Number(expectedPolicyRevision) !== Number(bundle.version.revision))) throw new DoePolicyLifecycleError('DOE_POLICY_REVISION_CONFLICT', 'Active policy changed after preview. Preview again before recalculating.');
         const calculate = facts => calculationService.previewWithPolicy({ policyBundle: bundle, academicYear: year, facts });
-        return repository.recalculate({ academicYear: year, policyVersionId: bundle.version.policyVersionId, policyRevision: Number(bundle.version.revision), actorUid, limit, calculate });
+        return repository.recalculate({ academicYear: year, policyVersionId: bundle.version.policyVersionId, policyRevision: Number(bundle.version.revision), actorUid, limit, calculate, preview });
       });
     }
   });

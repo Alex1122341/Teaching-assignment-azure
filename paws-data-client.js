@@ -408,8 +408,8 @@
         const body=await request('/api/v1/doe/policies/'+encodeURIComponent(id)+'/archive',{method:'POST',body:payload});
         return body.policy&&typeof body.policy==='object'&&!Array.isArray(body.policy)?body.policy:{};
       },
-      async recalculateDoe({academicYear,limit}={}){
-        const body=await request('/api/v1/doe/recalculate',{method:'POST',body:{academicYear,limit}});
+      async recalculateDoe({academicYear,limit,preview,expectedPolicyVersionId,expectedPolicyRevision}={}){
+        const body=await request('/api/v1/doe/recalculate',{method:'POST',body:{academicYear,limit,...(preview===true?{preview:true}:{}),...(expectedPolicyVersionId?{expectedPolicyVersionId}:{}),...(expectedPolicyRevision!==undefined?{expectedPolicyRevision}:{})}});
         return body.recalculation&&typeof body.recalculation==='object'&&!Array.isArray(body.recalculation)?body.recalculation:{};
       },
       async doePreview({academicYear,facts}={}){

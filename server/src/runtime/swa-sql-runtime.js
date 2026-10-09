@@ -28,6 +28,8 @@ const { createTeachingAssignmentFunctions } = require('./swa-teaching-assignment
 const { createSqlDoeEngineRepository } = require('../data/sql-doe-engine-repository');
 const { createSqlDoeWorksheetRepository } = require('../data/sql-doe-worksheet-repository');
 const { createSqlDoeAssignmentRepository } = require('../data/sql-doe-assignment-repository');
+const { createSqlManualDoeRepository } = require('../data/sql-manual-doe-repository');
+const { createManualDoeService } = require('../doe/manual-doe-service');
 const { createSqlDoeTargetOverrideRepository } = require('../data/sql-doe-target-override-repository');
 const { createSqlDoePolicyRepository } = require('../data/sql-doe-policy-repository');
 const { createDoeCalculationService } = require('../doe/doe-calculation-service');
@@ -125,6 +127,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     worksheetService: doeWorksheetService,
     workflowPreviewService: createDoeWorkflowPreviewService({ repository: { ...sessions, ...doeAssignmentRepository }, worksheetService: doeWorksheetService, calculationService: doeCalculationService }),
     assignmentService: createDoeAssignmentService({ repository: doeAssignmentRepository, calculationService: doeCalculationService }),
+    manualAssignmentService: createManualDoeService({ repository: createSqlManualDoeRepository(db) }),
     targetOverrideService: createDoeTargetOverrideService({ repository: doeTargetOverrideRepository }),
     policyService: doePolicyService,
     writeGates

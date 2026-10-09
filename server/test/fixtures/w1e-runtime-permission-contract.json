@@ -80,9 +80,15 @@
     ]
   },
   "writeSets": {
-    "afcSingle": ["paws_api.CreateAfcRecord"],
-    "afcBatch": ["paws_api.CreateAfcManualBatch"],
-    "sessionEdit": ["paws_api.UpdateCalendarSession"]
+    "afcSingle": [
+      "paws_api.CreateAfcRecord"
+    ],
+    "afcBatch": [
+      "paws_api.CreateAfcManualBatch"
+    ],
+    "sessionEdit": [
+      "paws_api.UpdateCalendarSession"
+    ]
   },
   "outsideW1eWriteProcedures": [
     "paws_api.ApproveAfcRequest",
@@ -94,5 +100,9 @@
     "paws_api.RejectAfcRequest",
     "paws_api.SubmitAfcRequest",
     "paws_api.WithdrawAfcRequest"
+  ],
+  "manualReadObjects": [
+    "paws.Course",
+    "paws.ManualDoeAssignment"
   ]
 }

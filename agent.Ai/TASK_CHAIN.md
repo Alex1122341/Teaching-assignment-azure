@@ -1,3 +1,13 @@
+# Current checkpoint — Master targets applied, remainder deferred
+
+Owner authorized Master values and leaves other blanks unfilled. Batch71f5ecd1-6298-4e44-8986-f10e5dc7d128 inserted Andrew60% and Jennifer30%, with2 audit events. Active target coverage111; live totals49.50% and14.00%, both Calculated. Remaining Derrick/Douglas/Renate/Shannon/Thilo targets verified null and intentionally deferred. No code/deployment/gate change; live d423137/PID19656. See updates/2026-10-08-master-target-recovery.md. Do not rerun imports or fill remaining blanks.
+
+---
+# Current task — DOE Worksheet release 2026-10-08
+
+Live API and Hosting: d42313746f6edfca34d22055d11d7d89df720d96; PR75 merged; exact-main CI37850151374/37850151391 successful. Trust anchor0e6f7a20dae9f0ba86f4157aabefda0a1fa8fb5f; API PID19656. Source import committed116/569.25/42; do not rerun. Live Alanna Worksheet complete and source-labelled.109 real faculty have complete totals; seven real faculty need formal contract targets, requested from owner. Four placeholders and inactive fixture remain without source/target. See updates/2026-10-08-doe-worksheet-source-release.md for exact evidence and next breakpoint. All gates/credentials preserved; annual draft not published.
+
+---
 # Current task — DOE Worksheet source recovery 2026-10-08
 
 Status: source import committed; PR #75 under CI, release pending.

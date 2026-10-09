@@ -34,7 +34,7 @@ function createSqlDoeWorksheetRepository(db) {
 
   async function loadSources(academicYear, facultyId = null) {
     const params = { academicYear, facultyId: text(facultyId), limit: 500 };
-    const [facultyRows, targetRows, policyRows, reserveRows, assignmentRows, sessionRows, legacyRoleRows, supervisionSourceRows] = await Promise.all([
+    const [facultyRows, targetRows, policyRows, reserveRows, assignmentRows, sessionRows, legacyRoleRows, supervisionSourceRows, manualRows] = await Promise.all([
       db.query(
         `SELECT TOP (@limit) f.FacultyId AS facultyId, f.DisplayName AS displayName, f.Stream AS stream, f.Active AS facultyActive
            FROM paws.Faculty AS f
@@ -110,7 +110,13 @@ function createSqlDoeWorksheetRepository(db) {
            FROM paws.DoeWorkloadSource AS w
            LEFT JOIN paws.DoeSupervisionSourceSnapshot AS s ON s.AcademicYear=w.AcademicYear
              AND (@facultyId=N'' OR s.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))
-          WHERE w.AcademicYear=@academicYear`, params)
+          WHERE w.AcademicYear=@academicYear`, params),
+      db.query(`SELECT AssignmentId AS assignmentFactId,FacultyId AS facultyId,RoleType AS roleType,
+        ScopeText AS scopeText,CourseCode AS courseCode,SubjectKey AS subjectKey,DoeValue AS resultDoe,
+        Notes AS notes,Revision AS revision,UpdatedAtUtc AS calculatedAt
+        FROM paws.ManualDoeAssignment WHERE AcademicYear=@academicYear AND Active=1
+          AND (@facultyId=N'' OR FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))
+        ORDER BY FacultyId,CreatedAtUtc,AssignmentId`, params)
     ]);
 
     const policy = policyRows.length === 1 ? policyRows[0] : null;
@@ -151,6 +157,15 @@ function createSqlDoeWorksheetRepository(db) {
         errorCode: row.calculationStatus && text(row.calculationStatus).toLowerCase() !== 'calculated' ? text(row.calculationStatus).toUpperCase() : null
       });
     }
+
+    for (const row of manualRows) pushLine(row.facultyId, {
+      lineId: text(row.assignmentFactId), assignmentFactId: text(row.assignmentFactId), sourceEntityId: text(row.assignmentFactId),
+      sourceEntityType: 'manual_doe_assignment', category: 'role', roleType: text(row.roleType),
+      scopeText: text(row.scopeText), courseCode: text(row.courseCode), subjectKey: text(row.subjectKey),
+      resultDoe: number(row.resultDoe), status: 'manual', doeSource: 'manual_adjustment', active: true,
+      revision: Number(row.revision), notes: text(row.notes), calculatedAt: row.calculatedAt,
+      calculationText: 'Negotiated manual adjustment; additive to existing DOE.', reference: { title: 'Administrator-entered negotiated DOE' }
+    });
 
     for (const row of sessionRows) pushLine(row.facultyId, {
       lineId: text(row.sessionAssignmentId), sourceEntityType: 'legacy_session_assignment',

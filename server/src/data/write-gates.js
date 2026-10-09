@@ -20,6 +20,7 @@ function createWriteGates(env = {}) {
     taPublish: env.PAWS_TA_PUBLISH_WRITE_ENABLED === 'true',
     facultyAdmin: env.PAWS_FACULTY_ADMIN_WRITE_ENABLED === 'true',
     doeAdmin: env.PAWS_DOE_ADMIN_WRITE_ENABLED === 'true',
+    doeManualAssignment: env.PAWS_DOE_MANUAL_ASSIGNMENT_WRITE_ENABLED === 'true',
     doePolicyPublish: env.PAWS_DOE_POLICY_PUBLISH_ENABLED === 'true',
     doeRecalculate: env.PAWS_DOE_RECALC_WRITE_ENABLED === 'true'
   });

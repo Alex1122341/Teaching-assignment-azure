@@ -63,7 +63,7 @@ test('runtime attestation is direct, read-only, no-store, and reports all P1/P2 
   assert.equal(body.releaseSha, identity.PAWS_RELEASE_SHA);
   assert.equal(body.runtimeTrustAnchor, identity.PAWS_RUNTIME_TRUST_ANCHOR);
   assert.deepEqual(body.writeGates, {
-    afcSingle: false,
+    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false,
     afcBatch: false,
     sessionEdit: false,
     sessionCreate: false,
@@ -107,7 +107,7 @@ test('runtime health preflight retains exact CORS allowlist behavior without cre
   });
   assert.equal(allowed.status, 204);
   assert.equal(allowed.headers['access-control-allow-origin'], 'https://paws.example.edu');
-  assert.equal(allowed.headers['access-control-allow-methods'], 'GET, POST, PATCH, OPTIONS');
+  assert.equal(allowed.headers['access-control-allow-methods'], 'GET, POST, PATCH, PUT, OPTIONS');
   assert.equal(allowed.headers['access-control-allow-headers'], 'Authorization, Content-Type');
   assert.equal(allowed.headers['access-control-allow-credentials'], undefined);
   const denied = await request(port, '/api/health/runtime', { headers: { origin: 'https://evil.example' } });

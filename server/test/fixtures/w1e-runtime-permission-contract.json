@@ -104,5 +104,19 @@
   "manualReadObjects": [
     "paws.Course",
     "paws.ManualDoeAssignment"
-  ]
+  ],
+  "swapReadProcedures": [
+    "paws_api.GetSessionSwapContext",
+    "paws_api.GetSessionSwap",
+    "paws_api.GetSessionSwapQueue"
+  ],
+  "swapWriteSets": {
+    "request": [
+      "paws_api.SaveSessionSwap",
+      "paws_api.WithdrawSessionSwap"
+    ],
+    "decision": [
+      "paws_api.DecideSessionSwap"
+    ]
+  }
 }

@@ -13,6 +13,9 @@ BEGIN TRY
     ALTER TABLE paws.Faculty ADD HrName nvarchar(260) NULL;
   IF COL_LENGTH(N'paws.Faculty', N'HrNameSource') IS NULL
     ALTER TABLE paws.Faculty ADD HrNameSource nvarchar(1024) NULL;
+  IF DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NULL
+    THROW 53200, 'Reviewed runtime read role is required.', 1;
+  EXEC(N'GRANT SELECT ON OBJECT::paws.Faculty(HrName,HrNameSource) TO paws_runtime_read;');
   COMMIT TRANSACTION;
 END TRY
 BEGIN CATCH

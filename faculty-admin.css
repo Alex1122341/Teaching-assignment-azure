@@ -131,6 +131,7 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 #faculty-record-fields .form-section-title{margin:0 0 8px;font-size:11px}
 #faculty-record-fields .field-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
 #faculty-record-fields .field{display:flex;flex-direction:column;gap:4px;padding:0;border:0}
+#faculty-record-fields .field.full{grid-column:1/-1}
 #faculty-record-fields .field-value{padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px}
 #faculty-record-fields .input,#faculty-record-fields .select,#faculty-record-fields .textarea{width:100%}
 #faculty-record-fields .textarea{resize:vertical;min-height:80px}

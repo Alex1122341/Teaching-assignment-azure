@@ -41,8 +41,14 @@
   let afcBatchRequestId = '';
   let afcBatchReviewed = false;
   let detailLoadToken = 0;
+  let detailGeneration = 0;
   const detailCache = new Map();
   const detailPending = new Map();
+  function invalidateFacultyDetails() {
+    // A write must start fresh reads; older requests cannot repopulate the cache.
+    ++detailGeneration; ++detailLoadToken;
+    detailCache.clear(); detailPending.clear(); selectedDetail = null;
+  }
   const aggregateCache = { teachingSummary: null, roles: null, doeOverview: null };
 
   function rosterRecord(row) {
@@ -139,7 +145,7 @@
 
   function bindUI() {
     on($('lookup-search'), 'input', debounce(renderLookup)); on($('filter-rank'), 'change', renderLookup);
-    on($('faculty-status-filter'), 'change', async () => { facultyStatus = $('faculty-status-filter').value || 'active'; detailCache.clear(); selectedId = null; await loadAdminDashboard(); });
+    on($('faculty-status-filter'), 'change', async () => { facultyStatus = $('faculty-status-filter').value || 'active'; invalidateFacultyDetails(); selectedId = null; await loadAdminDashboard(); });
     on($('doe-list-refresh'),'click',()=>loadDoeList(true));
     facultyManagement.bind();
     on($('lookup-reset'), 'click', () => { $('lookup-search').value = ''; $('filter-rank').value = ''; renderLookup(); });
@@ -303,11 +309,17 @@
   function updateStatus() { const summary = dashboardSummary || {}, show = key => present(summary[key]) ? summary[key] : '—'; const status = $('sync-status'); if (status) status.textContent = `Faculty ${faculty.length} · sessions ${show('sessionCount')} · assignments ${show('assignmentCount')} · roles ${show('roleAssignmentCount')} · HICC ${show('hiccCount')} · VISC ${show('viscCount')} · AFC ${show('afcRecordCount')} · check needed ${show('checkNeededCount')}`; const note = $('summary-load-note'); if (note) note.textContent = `VetMed-Ops summary · academic year ${summary.academicYear || 'current'}`; }
   function updateKpis() { const summary = dashboardSummary || {}; const set = (id, key) => { const node = $(id); if (node) node.textContent = present(summary[key]) ? String(summary[key]) : '—'; }; [['kpi-total', 'activeFacultyCount'], ['kpi-sessions', 'sessionCount'], ['kpi-assignments', 'assignmentCount'], ['kpi-courses', 'courseCount'], ['kpi-roles', 'roleAssignmentCount'], ['kpi-hicc', 'hiccCount'], ['kpi-visc', 'viscCount'], ['kpi-afc', 'afcRecordCount'], ['kpi-grid', 'gridPositionableCount'], ['kpi-check', 'checkNeededCount']].forEach(([id, key]) => set(id, key)); }
 
-  function renderLookup() {
+  function renderLookup(focusId) {
+    const active = document.activeElement;
+    const focusFacultyId = typeof focusId === 'string' ? focusId : active?.matches?.('.person-select') ? active.closest('.person-row')?.dataset.id : null;
     const rows = filteredLookup(); const count = $('result-count'); if (count) count.textContent = rows.length;
     if (selectedId && !rows.some(row => row.__id === selectedId)) selectedId = null;
     const list = $('result-list'); if (list) list.innerHTML = rows.map(row => `<div class="person-row ${row.__id === selectedId ? 'active' : ''}" data-id="${esc(row.__id)}"><button type="button" class="person-select" aria-pressed="${row.__id === selectedId}"><span class="person-name">${esc(row.preferredFullName || row.__id)}${row.active === false ? ' <span class="faculty-inactive-badge">Inactive</span>' : ''}</span><span class="person-meta">${esc(row.rank)}${row.teachingArea ? ' · ' + esc(row.teachingArea) : ''}</span><span class="person-meta">${display(row.sessionCount)} sessions · ${display(row.roleCount)} roles · ${display(row.afcCount)} AFC</span></button>${facultyManagement.editAction(row.facultyId)}</div>`).join('') || '<div class="empty">No matching faculty.</div>';
-    document.querySelectorAll('.person-select').forEach(node => on(node, 'click', () => { selectedId = node.closest('.person-row').dataset.id; selectedDetail = null; ++detailLoadToken; renderLookup(); }));
+    document.querySelectorAll('.person-select').forEach(node => on(node, 'click', event => { selectedId = node.closest('.person-row').dataset.id; selectedDetail = null; ++detailLoadToken; renderLookup(event.detail === 0 || document.activeElement === node ? selectedId : undefined); }));
+    if (focusFacultyId) {
+      const focusedRow = [...document.querySelectorAll('#result-list .person-row')].find(node => node.dataset.id === focusFacultyId);
+      focusedRow?.querySelector('.person-select')?.focus({ preventScroll: true });
+    }
     const selected = faculty.find(row => row.__id === selectedId); if (!selected) { selectedDetail = null; renderApiDetail(null); return; }
     if (detailCache.has(selected.__id)) { selectedDetail = detailCache.get(selected.__id); renderApiDetail(selectedDetail); return; }
     selectedDetail = null;
@@ -506,16 +518,18 @@
     const started = typeof performance?.now === 'function' ? performance.now() : 0;
     const id = text(facultyId); if (!id || norm(selectedId) !== norm(id)) return;
     const token = ++detailLoadToken;
+    const generation = detailGeneration;
     if (detailCache.has(id)) { selectedDetail = detailCache.get(id); renderApiDetail(selectedDetail); return; }
     let request = detailPending.get(id);
     if (!request) { request = UCVM_PAWS_DATA.dashboardFacultyById(id); detailPending.set(id, request); }
     try {
       const detail = await request;
+      if (generation !== detailGeneration) return;
       detailCache.set(id, detail);
       if (token !== detailLoadToken || norm(selectedId) !== norm(id)) return;
       selectedDetail = detail; renderApiDetail(detail); pawsTimingLog('detail', started);
     } catch (error) {
-      if (token !== detailLoadToken || norm(selectedId) !== norm(id)) return;
+      if (generation !== detailGeneration || token !== detailLoadToken || norm(selectedId) !== norm(id)) return;
       const pane = $('profile-pane'); if (pane) pane.innerHTML = `<div class="empty">${esc(detailFailureMessage(error))}</div>`;
     } finally { if (detailPending.get(id) === request) detailPending.delete(id); }
   }
@@ -551,8 +565,8 @@
       aggregateCache.roles = null;
       aggregateCache.teachingSummary = null;
       aggregateCache.doeOverview = null;
-      detailCache.delete(String(id));
-      if (String(selectedId || '').toLowerCase() === String(id || '').toLowerCase()) await selectFacultyDetail(id);
+      invalidateFacultyDetails();
+      if (selectedId) await selectFacultyDetail(selectedId);
       if (activeTab === 'doe-list') await loadDoeList(true);
       if (activeTab === 'summary') await loadTeachingSummary();
       if (activeTab === 'roles') await loadRoles();
@@ -570,7 +584,7 @@
       if (requestedStatus === 'inactive' && facultyStatus === 'active') facultyStatus = 'inactive';
       else if (requestedStatus === 'active' && facultyStatus === 'inactive') facultyStatus = 'active';
       if ($('faculty-status-filter')) $('faculty-status-filter').value = facultyStatus;
-      selectedId = id; detailCache.clear(); await loadAdminDashboard(); await selectFacultyDetail(id);
+      selectedId = id; invalidateFacultyDetails(); await loadAdminDashboard(); await selectFacultyDetail(id);
     }
   });
   doeWorksheetView = window.UCVM_FACULTY_DOE_WORKSHEET.create({

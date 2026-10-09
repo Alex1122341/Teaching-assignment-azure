@@ -10,7 +10,7 @@ Independent agents stopped after partial implementation because their workspace 
 
 ## Evidence before release
 
-Reviewed product anchor: `e45ef1463195f4e47f6492c956469e72df94abaf`. Governance promotion protects all65 static assets and65 API runtime files plus3 repository/build inputs. The immutable comparison still reads Git blobs; no drift exceptions were added. Existing fixture inventory counts are synchronized to the expanded manifests.
+Reviewed product anchor: `404e3bdf6a2cf3947ab76f41bb13ea9120c833a0`. Governance promotion protects all65 static assets and65 API runtime files plus3 repository/build inputs. The immutable comparison still reads Git blobs; no drift exceptions were added. Existing fixture inventory counts are synchronized to the expanded manifests.
 
 - All changed JavaScript parsed with `node --check`.
 - `node tools/build-static.js`: 65 shipped static files.
@@ -30,4 +30,5 @@ LAB group/roster data is absent in current SQL and shown as None available. Curr
 ## Recovery
 
 Restore the previous University launcher and Hosting release if activation fails. Leave additive SQL objects and real request audit intact. Rollback030 may run only with zero request rows; rollback031 revokes procedure grants. HR schema columns remain additive; a private import recovery script must restore only guarded before-images.
+
 

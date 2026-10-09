@@ -8,6 +8,9 @@ const vm = require('node:vm');
 class Element {
   constructor(id = '') { this.id = id; this.value = ''; this.textContent = ''; this.innerHTML = ''; this.disabled = false; this.classList = { toggle() {} }; this.handlers = {}; this.dataset = {}; }
   addEventListener(name, fn) { this.handlers[name] = fn; }
+  setAttribute() {}
+  showModal() { this.open=true; }
+  close() { this.open=false; }
   querySelectorAll() { return []; }
   dispatchEvent() {}
 }
@@ -23,6 +26,7 @@ function setup({ canAdmin = true, canPublish = false, canRecalculate = false } =
     get innerHTML() { return markup; },
     querySelector(selector) { return nodes.get(selector.slice(1)) || null; },
     querySelectorAll(selector) { return selector === '[data-draft-only]' ? ['doe-policy-save', 'doe-policy-validate', 'doe-policy-impact'].map(id => nodes.get(id)) : []; }
+    ,addEventListener() {}
   };
   const calls = [];
   let policy = null;
@@ -39,28 +43,32 @@ function setup({ canAdmin = true, canPublish = false, canRecalculate = false } =
     archiveDoePolicy: async (id, args) => { calls.push(['archive', id, args]); return policy; },
     recalculateDoe: async args => { calls.push(['recalculate', args]); return { recordsCreated: 0, remaining: 0 }; }
   };
-  const window = {};
+  let structuredPatch = { rules: [], references: [], courseMappings: [], subjectMappings: [], exceptions: [], reservePolicy: {} };
+  const window = { confirm: () => true, UCVM_FACULTY_DOE_RULEBOOK: { create: () => ({ mount() {}, setLocked() {}, editorOpen: () => false, isDirty: () => false, setBundle(value) { if(value)structuredPatch = { rules:value.rules, references:value.references, courseMappings:value.courseMappings, subjectMappings:value.subjectMappings, exceptions:value.exceptions, reservePolicy:value.reservePolicy }; }, getPatch: () => structuredPatch }) } };
   vm.runInNewContext(fs.readFileSync('faculty-admin-doe-policy.js', 'utf8'), { window }, { filename: 'faculty-admin-doe-policy.js' });
   const view = window.UCVM_FACULTY_DOE_POLICY.create({ api, getAcademicYear: () => '2026-27', canAdmin: () => canAdmin, canPublish: () => canPublish, canRecalculate: () => canRecalculate });
   view.mount(host);
-  return { view, host, nodes, calls };
+  return { view, host, nodes, calls, setStructuredPatch(value) { structuredPatch=value; } };
 }
 
 test('Annual Rule Book presents the required annual lifecycle and relational editor sections', () => {
   const { host, nodes } = setup();
-  for (const text of ['DOE Rules', 'Academic Year', 'Policy Version', 'Course Mapping', 'VISC Subjects', 'Preview &amp; Validate', 'History', 'Publish', 'Archive Draft', 'Recalculate']) assert.ok(host.innerHTML.includes(text), text);
+  for (const text of ['Annual DOE Rule Book', 'Academic Year', 'Policy Version', 'Rule Book &amp; Mappings', 'Preview &amp; Validate', 'History', 'Publish', 'Archive Draft', 'Recalculate']) assert.ok(host.innerHTML.includes(text), text);
   assert.match(host.innerHTML, /id="doe-policy-year" value="2026-27"/);
   assert.equal(nodes.get('doe-policy-publish').disabled, true);
   assert.equal(nodes.get('doe-policy-recalculate').disabled, true);
 });
 
 test('draft editing sends normalized policy collections and a revision precondition to the API', async () => {
-  const { nodes, calls } = setup();
+  const { nodes, calls, setStructuredPatch } = setup();
   await nodes.get('doe-policy-new-draft').handlers.click();
-  assert.deepEqual(JSON.parse(JSON.stringify(calls.find(([name]) => name === 'create')[1])), { academicYear: '2026-27', versionLabel: '', sourceReference: '' });
-  nodes.get('doe-policy-rules').value = '[{"ruleKey":"lecture","category":"assigned_teaching"}]';
-  nodes.get('doe-policy-references').value = '[{"title":"UCVM Workload Guidelines","section":"4"}]';
-  nodes.get('doe-policy-reserve').value = '{"splitThreshold":0.5}';
+  nodes.get('doe-policy-create-label').value = 'Reviewed 2026-27';
+  nodes.get('doe-policy-create-source').value = 'UCVM Workload Guidelines';
+  await nodes.get('doe-policy-create-form').handlers.submit({preventDefault() {}});
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.find(([name]) => name === 'create')[1])), { academicYear: '2026-27', versionLabel: 'Reviewed 2026-27', sourceReference: 'UCVM Workload Guidelines' });
+  nodes.get('doe-policy-version-label').value = 'Reviewed 2026-27';
+  nodes.get('doe-policy-source').value = 'UCVM Workload Guidelines';
+  setStructuredPatch({rules:[{ruleKey:'lecture',category:'assigned_teaching'}],references:[{title:'UCVM Workload Guidelines',section:'4'}],reservePolicy:{splitThreshold:0.5}});
   await nodes.get('doe-policy-save').handlers.click();
   const save = calls.find(([name]) => name === 'save');
   assert.equal(save[1], 'p-1');

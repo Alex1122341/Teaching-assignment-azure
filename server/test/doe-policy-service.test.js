@@ -7,7 +7,7 @@ const { createDoePolicyService } = require('../src/doe/doe-policy-service');
 function makeRepository(overrides = {}) {
   const draft = {
     version: { policyVersionId: 'draft-1', academicYear: '2026-27', status: 'draft', revision: 2, validatedRevision: null, impactRevision: null },
-    rules: [{ ruleId: 'rule-1', ruleKey: 'lecture', category: 'teaching', ruleLabel: 'Lecture', priority: 1, calculationMode: 'per_hour', resultKind: 'credit', parameters: [{ name: 'rate', valueNumber: 1 }], inputs: [{ inputName: 'hours', required: true }], selectors: [{ field: 'activityType', operator: 'equals', valueText: 'lecture' }] }],
+    rules: [{ ruleId: 'rule-1', ruleKey: 'lecture', category: 'teaching', ruleLabel: 'Lecture', referenceId: 'ref-1', priority: 1, calculationMode: 'per_hour', resultKind: 'credit', parameters: [{ name: 'rate', valueNumber: 1 }], inputs: [{ inputName: 'hours', required: true }], selectors: [{ field: 'activityType', operator: 'equals', valueText: 'lecture' }] }],
     references: [{ referenceId: 'ref-1', title: 'UCVM Workload Guidelines', section: 'Teaching', pageNumber: 4, reviewStatus: 'approved' }],
     exceptions: [], courseMappings: [], subjectMappings: []
   };

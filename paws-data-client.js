@@ -53,6 +53,9 @@
         const error=new Error(body?.error?.message||'The PAWS data service is unavailable.');
         error.code=body?.error?.code||('HTTP_'+response.status);
         error.status=response.status;
+        if(body?.error?.details!==undefined)error.details=body.error.details;
+        if(Array.isArray(body?.error?.errors))error.errors=body.error.errors;
+        if(body?.error?.currentRevision!==undefined)error.currentRevision=body.error.currentRevision;
         if(Array.isArray(body?.rows))error.rows=body.rows;
         throw error;
       }
@@ -408,8 +411,8 @@
         const body=await request('/api/v1/doe/policies/'+encodeURIComponent(id)+'/archive',{method:'POST',body:payload});
         return body.policy&&typeof body.policy==='object'&&!Array.isArray(body.policy)?body.policy:{};
       },
-      async recalculateDoe({academicYear,limit}={}){
-        const body=await request('/api/v1/doe/recalculate',{method:'POST',body:{academicYear,limit}});
+      async recalculateDoe({academicYear,limit,preview,expectedPolicyVersionId,expectedPolicyRevision}={}){
+        const body=await request('/api/v1/doe/recalculate',{method:'POST',body:{academicYear,limit,...(preview===true?{preview:true}:{}),...(expectedPolicyVersionId?{expectedPolicyVersionId}:{}),...(expectedPolicyRevision!==undefined?{expectedPolicyRevision}:{})}});
         return body.recalculation&&typeof body.recalculation==='object'&&!Array.isArray(body.recalculation)?body.recalculation:{};
       },
       async doePreview({academicYear,facts}={}){

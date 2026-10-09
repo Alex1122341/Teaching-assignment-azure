@@ -13,8 +13,8 @@
 - [x] API/repository: scoped capability and authenticated administrator routes; validate identities, numeric range/precision, revisions, scope and negative notes.
 - [x] Read integration: manual role credits in worksheet totals, DOE list and Roles & Appointments search; do not replace imported trainee or role sources.
 - [x] Editor: manual input, datalist suggestions, save/edit/deactivate, duplicate click guard, inline failures, retain existing target controls.
-- [ ] Independent code review and any necessary repairs.
-- [ ] Separate freeze promotion, reviewed PR, exact-main CI, SQL migration, API cutover, Hosting publish, read-only live UI acceptance and continuity checkpoint.
+- [x] Independent code review and any necessary repairs.
+- [x] Separate freeze promotion, reviewed PR, exact-main CI, SQL migration, API cutover, Hosting publish, read-only live UI acceptance and continuity checkpoint.
 
 ## Review focus
 

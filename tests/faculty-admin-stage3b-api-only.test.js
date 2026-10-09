@@ -95,11 +95,20 @@ function createHarness(overrides = {}) {
     querySelector: selector => byId('query:' + selector),
     querySelectorAll(selector) {
       if (selector === '.kpi-value') return KPI_IDS.map(byId);
-      if (selector === '.person-row') {
+      if (selector === '.person-select' || selector === '.person-row' || selector === '#result-list .person-row') {
         const html = byId('result-list').innerHTML || '';
         return (html.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')).map(id => {
-          if (!rowStubs.has(id)) { const el = element('row:' + id); el.dataset.id = id; rowStubs.set(id, el); }
-          return rowStubs.get(id);
+          if (!rowStubs.has(id)) {
+            const el = element('row:' + id); el.dataset.id = id;
+            const button = element('select:' + id);
+            button.closest = selector => selector === '.person-row' ? el : null;
+            button.matches = selector => selector === '.person-select';
+            button.focus = () => { document.activeElement = button; };
+            el.querySelector = selector => selector === '.person-select' ? button : null;
+            el.selectButton = button; rowStubs.set(id, el);
+          }
+          const row = rowStubs.get(id);
+          return selector === '.person-select' ? row.selectButton : row;
         });
       }
       return [];
@@ -142,7 +151,13 @@ function createHarness(overrides = {}) {
     hasAuthCallback: () => typeof authCallback === 'function',
     signIn: async () => { await authCallback({ uid: 'u-1', email: 'admin@example.test' }); },
     rowIds: () => (byId('result-list').innerHTML.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')),
-    clickRow: async id => { const stub = rowStubs.get(id); assert.ok(stub, `row ${id} must be rendered`); stub.onclick(); await flush(); }
+    clickRow: async id => {
+      const stub = rowStubs.get(id); assert.ok(stub, `row ${id} must be rendered`);
+      assert.equal(typeof stub.selectButton.onclick, 'function', 'selection button has a handler');
+      stub.selectButton.focus(); stub.selectButton.onclick({ detail: 0 });
+      assert.equal(document.activeElement, stub.selectButton, 'keyboard selection retains focus');
+      await flush();
+    }
   };
 }
 
@@ -269,7 +284,7 @@ test('M. approval workflow remains available as a dormant artifact but is not dy
 test('28 / 29. the final local script set includes the modular view model', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const local = srcs.filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-policy.js', 'faculty-admin-management.js', 'faculty-admin.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'session-guard.js'].sort());
+  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-management.js', 'faculty-admin.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'session-guard.js'].sort());
   assert.equal(srcs.filter(s => /gstatic\.com\/firebasejs/.test(s)).length, 2, 'only the app and auth compat SDKs remain');
   const inline = [...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].map(m => m[1].trim());
   assert.deepEqual(inline, [], 'no inline script remains');
@@ -343,9 +358,9 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 test('58–63. the Dashboard page runtime surface is bounded and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 15, 'script elements: 2 Firebase CDN + 13 local');
+  assert.equal(srcs, 16, 'script elements: 2 Firebase CDN + 14 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 13);
+  assert.equal(local.length, 14);
   assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });
@@ -354,7 +369,7 @@ test('64. performance timing hooks are preserved', () => {
   assert.match(ADMIN_SOURCE, /window\.__pawsDashboardTiming\s*===\s*true/);
   assert.match(ADMIN_SOURCE, /\[PAWS dashboard timing\]/);
   assert.match(ADMIN_SOURCE, /pawsTimingLog\('summary\+faculty'/);
-  assert.match(ADMIN_SOURCE, /pawsTimingLog\(`detail`/);
+  assert.match(ADMIN_SOURCE, /pawsTimingLog\('detail'/);
 });
 
 // ===========================================================================

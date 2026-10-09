@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Integrated P4 is current. DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='33f1742a938702643cdec946352db05875641929';
+const BASELINE_COMMIT='0f9ce1c4c9a748283cffc76394f22247a9f17451';
 const P4_PRODUCT_COMMIT='d62f5406ce1f89813bf928611e551e864ae165fc';
 const DOE_CALCULATOR_BASELINE_COMMIT='1fd064b0a1b2367cb2d3a58d71d6c8856fb1c74a';
 const AUTH1_PRODUCT_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';
@@ -247,12 +247,12 @@ test('the integrated P4 product frozen runtime reports zero protected drift',()=
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,60);
+  assert.equal(result.protected,62);
 });
 
-test('the current static manifest has exactly 60 protected files',()=>{
-  assert.equal(manifest().length,60);
-  assert.equal(freeze.protectedPaths({root}).length,60);
+test('the current static manifest has exactly 62 protected files',()=>{
+  assert.equal(manifest().length,62);
+  assert.equal(freeze.protectedPaths({root}).length,62);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -265,9 +265,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 60 current protected files are byte-identical to the immutable integrated P4 product blobs',()=>{
+test('all 62 current protected files are byte-identical to the immutable integrated P4 product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,60);
+  assert.equal(protectedFiles.length,62);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -525,7 +525,7 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
 
 test('beta-baseline.json remains non-authoritative and records the stabilized Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,20);
+  assert.equal(Object.keys(baseline.sha256).length,23);
   assert.ok(baseline.sha256['faculty-admin-management.js']);
   assert.ok(baseline.sha256['afc-workflow.js']);
   assert.ok(baseline.sha256['afc-workflow-sql.js']);

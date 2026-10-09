@@ -1,3 +1,7 @@
+## Current — Session SWAP / preferred names (2026-10-09)
+
+Owner-authorized implementation and publish. PR79 CI pending;97exact HR matches,24unresolved. Current durable checkpoint: updates/2026-10-09-session-swap-release-preparation.md.
+
 # Current checkpoint — Faculty UI and DOE Rule Book published
 
 2026-10-09: PR77 and PR78 merged and deployed. Live release2b48f7d4131d562a9b3e3ac29e9d88ab4ebb737a, trust902a6cc6a876e24badf12df1deb7853fc0cc2993, API PID31700. PR CI37947427258 and exact-main CI37947990687 succeeded; 60 source files attested and 62-file Hosting-only release completed. Public API and SQL health both ok. Faculty/Rule Book screenshots saved and inspected.
@@ -951,3 +955,4 @@ Read-only comparison complete; manual versus automatic DOE interaction clarifica
 
 ## 2026-10-08 — Reference parity design review
 Owner approved retaining manual signed DOE over the automatic policy baseline. Written specification: docs/superpowers/specs/2026-10-08-faculty-ui-doe-rulebook-parity-design.md. Current gate: written-spec review; implementation plan follows its approval. No product or live changes.
+

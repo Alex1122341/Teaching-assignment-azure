@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const facultyName = (record, fallback = '') => window.PAWS_FACULTY_NAME.format(record, fallback);
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
   const bind = (node,event,handler) => { if(!node)return; if(typeof node.addEventListener==='function')node.addEventListener(event,handler); else node[`on${event}`]=handler; };
@@ -25,11 +26,11 @@
       const p = profile || {}, roster = getFaculty();
       const fields = new Map([
         ['preferredFirstName','Preferred first name',f.preferredFirstName,128],['preferredLastName','Preferred last name',f.preferredLastName,128],
-        ['displayName','Display name',f.displayName,260],['ucid','UCID',f.ucid,64],['email','Email',f.email,256],
+        ['displayName','Stored display name',f.storedDisplayName ?? f.displayName,260],['ucid','UCID',f.ucid,64],['email','Email',f.email,256],
         ['recordType','Record type',f.recordType,32],['stream','Stream',f.stream,128],['rank','Rank',f.rank,128]
       ].map(([key,label,value,max]) => [key, control(key,label,value,{max})]));
       fields.set('fte',control('fte','FTE',f.fte,{type:'number',step:'0.0001'}));
-      fields.set('reportsToFacultyId',`<label class="field"><span class="field-label">Reports to</span><select class="select" name="reportsToFacultyId"><option value="">No supervisor</option>${roster.filter(r => r.facultyId !== f.facultyId).map(r => `<option value="${esc(r.facultyId)}" ${r.facultyId === f.reportsToFacultyId ? 'selected' : ''}>${esc(r.displayName || r.facultyId)}${r.active === false ? ' · inactive' : ''}</option>`).join('')}${f.reportsToFacultyId && !roster.some(r => r.facultyId === f.reportsToFacultyId) ? `<option selected value="${esc(f.reportsToFacultyId)}">${esc(f.reportsToFacultyId)} · current linked record</option>` : ''}</select></label>`);
+      fields.set('reportsToFacultyId',`<label class="field"><span class="field-label">Reports to</span><select class="select" name="reportsToFacultyId"><option value="">No supervisor</option>${roster.filter(r => r.facultyId !== f.facultyId).map(r => `<option value="${esc(r.facultyId)}" ${r.facultyId === f.reportsToFacultyId ? 'selected' : ''}>${esc(facultyName(r, r.facultyId))}${r.active === false ? ' · inactive' : ''}</option>`).join('')}${f.reportsToFacultyId && !roster.some(r => r.facultyId === f.reportsToFacultyId) ? `<option selected value="${esc(f.reportsToFacultyId)}">${esc(f.reportsToFacultyId)} · current linked record</option>` : ''}</select></label>`);
       const profileFields = [
         ['teachingArea','Teaching area',512],['professionalCategory','Professional category',256],['serviceDate','Service date'],
         ['priorYearsExperience','Prior years experience',null,'number','0.01'],['dvmEarnedDate','DVM earned date',64],['dvmType','DVM type',256],
@@ -44,7 +45,7 @@
       const specialtyKeys = profileFields.map(([key]) => key).filter(key => !appointmentKeys.includes(key));
       const controls = keys => keys.map(key => fields.get(key));
       $('faculty-record-fields').innerHTML = group('Identity & contact', [`<div class="field full"><span class="field-label">Faculty ID (immutable)</span><div class="field-value">${esc(f.facultyId)}</div></div>`, ...controls(identityKeys)]) + group('Appointment', controls(appointmentKeys)) + group('Specialty & education', controls(specialtyKeys));
-      $('faculty-record-title').textContent = `Edit Faculty · ${f.displayName || f.facultyId}`;
+      $('faculty-record-title').textContent = `Edit Faculty · ${facultyName(f, f.facultyId)}`;
       const form = $('faculty-record-form'); form.dataset.facultyId = f.facultyId; form.dataset.expectedUpdatedAtUtc = f.updatedAtUtc;
       form.dataset.expectedProfileVersion = p.profileVersion || '';
       $('faculty-record-status').textContent = ''; $('faculty-record-save').disabled = false;
@@ -94,12 +95,12 @@
     }
     async function deactivate(f, linked) {
       const links = [`${Number(linked.activeUserProfileCount)||0} active login(s)`,`${Number(linked.currentTeachingSessionCount)||0} future teaching session(s)`,`${Number(linked.currentRoleCount)||0} current role(s)`,`${Number(linked.currentTeachingResponsibilityCount)||0} current responsibility assignment(s)`].join(', ');
-      if (!window.confirm(`Deactivate ${f.displayName || f.facultyId}?\n\nThis only marks the Faculty record inactive. It does not delete linked records, disable user accounts, or remove teaching, role, appointment, DOE, or AFC history.\n\nCurrently linked: ${links}.\n\nContinue?`)) return;
+      if (!window.confirm(`Deactivate ${facultyName(f, f.facultyId)}?\n\nThis only marks the Faculty record inactive. It does not delete linked records, disable user accounts, or remove teaching, role, appointment, DOE, or AFC history.\n\nCurrently linked: ${links}.\n\nContinue?`)) return;
       try { await UCVM_PAWS_DATA.deactivateDashboardFaculty(f.facultyId,{expectedUpdatedAtUtc:f.updatedAtUtc,confirm:true}); notify('Faculty record deactivated; linked records were preserved.'); await onChanged(f.facultyId,'inactive'); }
       catch (error) { notify(error?.message || 'Faculty record could not be deactivated.',true); }
     }
     async function restore(f) {
-      if (!window.confirm(`Restore ${f.displayName || f.facultyId} as the same Faculty record? Its Faculty ID and existing relationships will be preserved.`)) return;
+      if (!window.confirm(`Restore ${facultyName(f, f.facultyId)} as the same Faculty record? Its Faculty ID and existing relationships will be preserved.`)) return;
       try { await UCVM_PAWS_DATA.restoreDashboardFaculty(f.facultyId,{expectedUpdatedAtUtc:f.updatedAtUtc}); notify('Existing Faculty record restored.'); await onChanged(f.facultyId,'active'); }
       catch (error) { notify(error?.message || 'Faculty record could not be restored.',true); }
     }

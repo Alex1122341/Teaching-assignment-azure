@@ -1,5 +1,7 @@
 'use strict';
 
+const { facultyDisplayNameSql } = require('./faculty-display-name');
+
 // BETA-R4D-10A2 — read-only Azure SQL repository for the Dashboard API.
 //
 // Scope and safety contract:
@@ -395,7 +397,7 @@ function createSqlDashboardRepository(db) {
              f.FacultyId AS facultyId,
              f.PreferredFirstName AS preferredFirstName,
              f.PreferredLastName AS preferredLastName,
-             f.DisplayName AS displayName,
+             ${facultyDisplayNameSql()} AS displayName,
              f.Ucid AS ucid,
              f.Email AS email,
              f.RecordType AS recordType,
@@ -403,7 +405,7 @@ function createSqlDashboardRepository(db) {
              f.Rank AS rank,
              f.Fte AS fte,
              f.ReportsToFacultyId AS reportsToFacultyId,
-             manager.DisplayName AS reportsToName,
+             ${facultyDisplayNameSql('manager')} AS reportsToName,
              f.Active AS active,
              CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc,
              profile.TeachingArea AS teachingArea,
@@ -483,7 +485,7 @@ function createSqlDashboardRepository(db) {
         `SELECT TOP (@limit)
              u.AfcRecordId AS afcRecordId,
              u.FacultyId AS facultyId,
-             f.DisplayName AS facultyName,
+             ${facultyDisplayNameSql()} AS facultyName,
              CONVERT(varchar(10), u.StartDate, 23) AS startDate,
              CONVERT(varchar(10), u.EndDate, 23) AS endDate,
                u.ReasonCode AS reasonCode,
@@ -536,17 +538,20 @@ function createSqlDashboardRepository(db) {
              f.RecordType AS recordType,
              f.PreferredFirstName AS preferredFirstName,
              f.PreferredLastName AS preferredLastName,
-             f.DisplayName AS displayName,
+             ${facultyDisplayNameSql()} AS displayName,
              f.Ucid AS ucid,
              f.Email AS email,
              f.Stream AS stream,
              f.Rank AS rank,
              f.Fte AS fte,
+             f.DisplayName AS storedDisplayName,
+             f.HrName AS hrName,
+             f.HrNameSource AS hrNameSource,
              f.FteSourceReference AS fteSourceReference,
              f.FteSourceRow AS fteSourceRow,
              f.FteSourceUpdatedAtUtc AS fteSourceUpdatedAtUtc,
              f.ReportsToFacultyId AS reportsToFacultyId,
-             manager.DisplayName AS reportsToName,
+             ${facultyDisplayNameSql('manager')} AS reportsToName,
              f.Active AS active,
              CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc
          FROM paws.Faculty f
@@ -795,6 +800,9 @@ function createSqlDashboardRepository(db) {
           preferredFirstName: toText(record.preferredFirstName),
           preferredLastName: toText(record.preferredLastName),
           displayName: toText(record.displayName),
+          storedDisplayName: toText(record.storedDisplayName),
+          hrName: toText(record.hrName),
+          hrNameSource: toText(record.hrNameSource),
           ucid: toText(record.ucid),
           email: toText(record.email),
           stream: toText(record.stream),
@@ -980,7 +988,7 @@ function createSqlDashboardRepository(db) {
             GROUP BY r.FacultyId
          )
          SELECT f.FacultyId AS facultyId,
-                f.DisplayName AS displayName,
+                ${facultyDisplayNameSql()} AS displayName,
                 CASE WHEN COALESCE(t.teachingLineCount, 0) = 0 THEN 0 ELSE t.assignedTeachingDoe END AS assignedTeachingDoe,
                 CASE WHEN COALESCE(r.roleLineCount, 0) = 0 THEN 0 ELSE r.roleDoe END AS roleDoe,
                 CASE
@@ -1073,7 +1081,7 @@ function createSqlDashboardRepository(db) {
       const resolvedYear = resolveAcademicYear(year);
       const rows = await db.query(
         `SELECT f.FacultyId AS facultyId,
-                f.DisplayName AS displayName,
+                ${facultyDisplayNameSql()} AS displayName,
                 r.RoleAssignmentId AS roleAssignmentId,
                 r.FacultyResolutionStatus AS facultyResolutionStatus,
                 r.AcademicYear AS academicYear,
@@ -1093,7 +1101,7 @@ function createSqlDashboardRepository(db) {
           WHERE r.AcademicYear = @academicYear
             AND f.Active = 1
           UNION ALL
-          SELECT f.FacultyId,f.DisplayName,m.AssignmentId,N'manual_adjustment',m.AcademicYear,
+          SELECT f.FacultyId,${facultyDisplayNameSql()},m.AssignmentId,N'manual_adjustment',m.AcademicYear,
                  N'Manual DOE adjustment',m.RoleType,m.ScopeText,COALESCE(m.CourseCode,m.SubjectKey),
                  N'Negotiated manual adjustment (additive)',NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
             FROM paws.ManualDoeAssignment m

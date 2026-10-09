@@ -7,6 +7,9 @@ const WRITE_DISABLED = Object.freeze({
 
 function createWriteGates(env = {}) {
   return Object.freeze({
+    swapRequest: env.PAWS_SWAP_REQUEST_WRITE_ENABLED === 'true',
+    swapDecision: env.PAWS_SWAP_DECISION_WRITE_ENABLED === 'true',
+    swapApply: env.PAWS_SWAP_APPLY_WRITE_ENABLED === 'true',
     afcSingle: env.PAWS_AFC_SINGLE_WRITE_ENABLED === 'true',
     afcBatch: env.PAWS_AFC_BATCH_WRITE_ENABLED === 'true',
     sessionEdit: env.PAWS_SESSION_EDIT_WRITE_ENABLED === 'true',

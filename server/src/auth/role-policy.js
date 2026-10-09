@@ -9,7 +9,8 @@ const NORMALIZED_ROLE = Object.freeze({
 const SELF_SERVICE_ROLES = new Set(['faculty', 'hicc', 'visc']);
 const ADMINISTRATOR_ROLES = new Set(['developer', 'adfa_general', 'adfa_regular', 'owner', 'administrator', 'admin']);
 const GENERAL_ROLES = new Set(['developer', 'adfa_general', 'owner']);
-const SUPPORTED_ROLES = new Set([...ADMINISTRATOR_ROLES, ...SELF_SERVICE_ROLES]);
+const OFFICE_ROLES = new Set(['adc', 'lab']);
+const SUPPORTED_ROLES = new Set([...ADMINISTRATOR_ROLES, ...SELF_SERVICE_ROLES, ...OFFICE_ROLES]);
 
 function normalizeBaseRole(value) {
   const role = typeof value === 'string' ? value.trim().toLowerCase() : '';

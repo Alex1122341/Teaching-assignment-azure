@@ -164,6 +164,17 @@
     }
 
     return Object.freeze({
+      swapCapabilities:()=>request('/api/v1/swaps/capabilities'),
+      swapContext(sessionId){
+        const id=String(sessionId??'').trim();if(!id)throw new Error('sessionId is required.');
+        return request('/api/v1/swaps/context?'+new URLSearchParams({sessionId:id}));
+      },
+      swapQueue:()=>request('/api/v1/swaps/queue'),
+      swapDetail(requestId){return request(swapPath(requestId));},
+      createSwap(payload){return request('/api/v1/swaps',{method:'POST',body:payload});},
+      reviseSwap(requestId,payload){return request(swapPath(requestId),{method:'PUT',body:payload});},
+      decideSwap(requestId,payload){return request(swapPath(requestId)+'/decisions',{method:'POST',body:payload});},
+      withdrawSwap(requestId,payload){return request(swapPath(requestId)+'/withdraw',{method:'POST',body:payload});},
       sessionBackend:()=> 'vetmed-ops',
       // Old schedule mutation controls stay closed. API write entry points use
       // their own explicit capabilities below.
@@ -538,6 +549,11 @@
         return requestBinary(requestPath(afcRequestId,'approved-artifact'),{method:'POST'});
       }
     });
+  }
+
+  function swapPath(requestId){
+    const id=String(requestId??'').trim();if(!id)throw new Error('requestId is required.');
+    return '/api/v1/swaps/'+encodeURIComponent(id);
   }
 
   return {createPawsAzureDataClient};

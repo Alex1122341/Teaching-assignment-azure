@@ -1,3 +1,7 @@
+## Developer support deployment checkpoint — 2026-10-09
+
+PR80/81 merged; exact-main485094deb7c46bca476f629d865f2039990f8293 CI37964488843 succeeded. Runtime66/static68 accepted against b200e27db7993b915b951641fe00e8f0d972e56e. SQL033 applied,61 reversible tables/63 capture triggers/0 support operations. SQL034 additive binary capture restores AfcManualRecord BatchPayloadHash using explicit hex style1; rolled-back schema/compiler plus generated SELECT/UPDATE/INSERT descriptors exit0,62 reversible tables. AfcArtifact remains excluded. Live789963e/PID10976 unchanged. Resume follow-up SQL034 PR/exact-main CI, persistent034, guarded runtime/Hosting release, read-only Tasks UI acceptance; no fabricated Developer login or business test writes.
+
 ## Active Session SWAP release — 2026-10-09
 
 PR79 merged and published. Live release789963e85223f6fd3c813bc84e7720e1bd1f3db4, anchor404e3bdf6a2cf3947ab76f41bb13ea9120c833a0, API PID10976. Exact-main CI37957382593 succeeded; SQL030/031/032 applied;97 guarded HR names imported,24 blank. Hosting65 assets deployed and Chrome SWAP form/inbox verified read-only. See updates/2026-10-09-session-swap-release-complete.md. No repeated import/release. Missing actual office reviewers remain explicit.

@@ -111,7 +111,7 @@ function createUniversityHttpServer({
       const requestedHeaders = String(incoming.headers['access-control-request-headers'] || '')
         .split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
       const allowedHeaders = new Set(['authorization', 'content-type', 'x-paws-support-context']);
-      if (!origin || !origins.has(origin) || !['GET', 'POST', 'PATCH'].includes(requestedMethod) ||
+      if (!origin || !origins.has(origin) || !['GET', 'POST', 'PATCH', 'PUT'].includes(requestedMethod) ||
           requestedHeaders.some(value => !allowedHeaders.has(value))) {
         outgoing.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8', Vary: 'Origin' });
         outgoing.end(JSON.stringify({ error: { code: 'CORS_PREFLIGHT_DENIED', message: 'Preflight request is not allowed.' } }));

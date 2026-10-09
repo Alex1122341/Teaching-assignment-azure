@@ -324,7 +324,7 @@ test('77–83. the canonical API detail renders profile, joint appointments, rol
   const h = await drive();
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
-   assert.match(pane, /Specialty & education/i, '77');
+  assert.match(pane, /Specialty (?:&|&amp;) education/i, '77');
   assert.match(pane, /Renewal pending/, '78');
   assert.match(pane, /VETM 300/, '79');
   assert.match(pane, new RegExp(AFC_PURPOSE), '80');

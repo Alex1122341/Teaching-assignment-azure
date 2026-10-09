@@ -44,6 +44,7 @@ function dashboardHarness(currentUser){
     Event:class{constructor(type){this.type=type}},
     console:{error(){}},setTimeout,clearTimeout,Map,Set,Date,JSON,String,Number,Array,Object,Math,Blob:class{},URL:{createObjectURL(){return''},revokeObjectURL(){}},confirm:()=>false
   };
+  vm.runInNewContext(read('faculty-name.js'), context, { filename: 'faculty-name.js' });
   vm.runInNewContext(read('dashboard-view-model.js'),context);
   vm.runInNewContext(read('faculty-admin-doe-renderer.js'),context);
   vm.runInNewContext(read('faculty-admin-doe-worksheet.js'),context);

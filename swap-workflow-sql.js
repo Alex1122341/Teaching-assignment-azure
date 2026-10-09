@@ -4,7 +4,7 @@
   const array=value=>Array.isArray(value)?value:[];
   const fieldValue=(key,value)=>['startTime','endTime'].includes(key)?String(value??'').slice(0,5):String(value??'');
   const name=value=>root.PAWS_FACULTY_NAME?.format(value)||String(value?.displayName||value||'').replace(/,/g,' ').replace(/\s+/g,' ').trim();
-  let host=null,generation=0,owner='',getUser=()=>null,onChanged=()=>{},pending=new Set();
+  let authenticatedUser='',host=null,generation=0,owner='',getUser=()=>null,onChanged=()=>{},pending=new Set();
   const client=()=>root.UCVM_PAWS_DATA;
   const userKey=()=>String(getUser()?.uid||'');
   function valid(token){return token===generation&&owner===userKey()&&host?.open;}
@@ -70,5 +70,5 @@
       host.querySelectorAll('[data-decision]').forEach(button=>button.onclick=()=>mutate('decision',button.dataset.decision));const withdraw=host.querySelector('[data-withdraw]');if(withdraw)withdraw.onclick=()=>mutate('withdraw');
     }catch(error){if(valid(token)){showError(error);addReload(()=>openDetail(id));}}
   }
-  root.PAWS_SWAP=Object.freeze({configure(options){getUser=options.getUser;onChanged=options.onChanged||(()=>{});},openSession,openQueue,refreshPending,isPending:sessionId=>pending.has(String(sessionId)),reset(){pending=new Set();close();host?.replaceChildren();}});
+  root.PAWS_SWAP=Object.freeze({configure(options){getUser=options.getUser;onChanged=options.onChanged||(()=>{});},openSession,openQueue,refreshPending,syncUser(){const uid=userKey();if(authenticatedUser===uid)return;authenticatedUser=uid;pending=new Set();close();host?.replaceChildren();if(uid)refreshPending().then(()=>{if(userKey()===uid)onChanged();});},isPending:sessionId=>pending.has(String(sessionId)),reset(){pending=new Set();close();host?.replaceChildren();}});
 })(window);

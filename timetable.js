@@ -406,7 +406,6 @@
   };
   let scheduleSource = 'azure-sql-pending';
   let currentUser = null;
-  let swapQueueUser='';
   window.PAWS_SWAP?.configure({getUser:()=>currentUser,onChanged:async()=>{
     invalidateAllSessions();await Promise.all([refreshSessionScope(),window.PAWS_SWAP.refreshPending()]);render();
   }});
@@ -2205,8 +2204,7 @@
     $('faculty-dashboard-btn').classList.toggle('hidden', !UCVM.canOpenFacultyDashboard(currentUser));
     $('swap-inbox-btn').classList.toggle('hidden',!currentUser);
     $('swap-inbox-btn').onclick=()=>window.PAWS_SWAP?.openQueue();
-    const swapUser=String(currentUser?.uid||'');
-    if(swapQueueUser!==swapUser){swapQueueUser=swapUser;window.PAWS_SWAP?.reset();if(swapUser)window.PAWS_SWAP?.refreshPending().then(()=>{if(String(currentUser?.uid||'')===swapUser)render();});}
+    window.PAWS_SWAP?.syncUser();
     $('teaching-assignments-btn').classList.toggle('hidden', !currentUser || !['faculty','hicc','visc','developer','owner','administrator','adfa_general','adfa_regular','admin'].includes(String(currentUser.role || '').trim().toLowerCase()));
     $('cal-admin-menu').classList.toggle('hidden',!showAdminTools);
     for(const id of ['my-teaching-btn','afc-request-btn','my-change-history-btn'])$(id).classList.toggle('hidden',!currentUser);

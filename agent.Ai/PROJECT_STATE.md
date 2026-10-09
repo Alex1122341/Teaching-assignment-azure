@@ -1,3 +1,12 @@
+# Current checkpoint — Faculty reference UI deployed; SQL hotfix releasing
+
+2026-10-09: PR77 merged c5f7106cc429b4f082682f004e1545dad834fc29; exact-main CI37944509892 and Hosting-only62-file release completed. Live University API c5f7106/trust0f9ce1c/PID20056; DOE operation gates enabled under owner's explicit request, existing scoped roles bound. Source data, annual Active policy and allocations preserved.
+
+Follow-up PR78 branch fix/doe-sql-draft-clone-20261009 fixes SQL error2717 (nvarchar8000), atomic cloning and guarded publication checksum query; product/trust902a6cc6a876e24badf12df1deb7853fc0cc2993 reviewed, governance reviewed. C drive0 free; new source-attested60-file runtime staged under P:\PAWS\Runtime\Staging\DoeDraftHotfix-20261009. Resume final PR/exact-main CI, guarded cutover with c5 rollback and Hosting-only release. Original normalized Draft A607… remains6 rules; failed clone327C… remains empty revision0; do not silently edit/archive it. No source reimport or filling deferred targets.
+
+See updates/2026-10-09-faculty-rulebook-deployed-and-sql-hotfix.md. Completion evidence will supersede this pending checkpoint after release.
+
+---
 # Current checkpoint — Master targets applied, remainder deferred
 
 Owner authorized Master values and leaves other blanks unfilled. Batch71f5ecd1-6298-4e44-8986-f10e5dc7d128 inserted Andrew60% and Jennifer30%, with2 audit events. Active target coverage111; live totals49.50% and14.00%, both Calculated. Remaining Derrick/Douglas/Renate/Shannon/Thilo targets verified null and intentionally deferred. No code/deployment/gate change; live d423137/PID19656. See updates/2026-10-08-master-target-recovery.md. Do not rerun imports or fill remaining blanks.

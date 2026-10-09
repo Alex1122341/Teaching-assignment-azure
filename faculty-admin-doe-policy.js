@@ -35,6 +35,7 @@
     }
     function render(){
       const v=policy?.version||{};
+      node('history').value=id();
       node('version-label').value=v.versionLabel||'';node('source').value=v.sourceReference||'';
       node('meta').textContent=policy?`${v.status} · ${v.academicYear} · revision ${rev()} · ${v.policyVersionId}`:'No policy selected.';
       node('context').textContent=policy&&text(v.status).toLowerCase()==='active'&&!(policy.rules||[]).length?'This Active version is a legacy contract / FTE source snapshot with no configured policy rules. Choose the normalized Draft from Policy Version to review rules.':draft()?'Draft Rule Book: changes require Save Draft, validation and Impact Preview before publication.':policy?'This version is read only. Clone as Draft to propose changes.':'Choose an annual policy version. The interface supplies no default rates.';

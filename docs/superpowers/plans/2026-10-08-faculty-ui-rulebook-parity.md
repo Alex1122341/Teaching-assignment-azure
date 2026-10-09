@@ -16,12 +16,12 @@
 
 ## Tasks
 
-- [ ] Faculty UI: modify faculty-admin.js, faculty-admin-management.js, faculty-admin.html and faculty-admin.css. Group editor/profile fields, expandable course details, AFC archive, responsive reference layout. Preserve controls, canonical identity and manual editor.
-- [ ] Rule UI: modify faculty-admin-doe-policy.js and create faculty-admin-doe-rulebook.js/css as needed. Typed rule/mapping/reference/reserve editors, categories/groups/tabs, validation/impact/history/lifecycle through authenticated existing APIs; preserve unedited bundle fields, safe revision and single-flight behavior.
-- [ ] Backend lifecycle: inspect reference/current engines and permissions, implement Clone as Draft or other gaps narrowly, bind scoped capabilities for the requested actual operations; no deployment-triggered publication/recalculation.
-- [ ] Task reviews and broad branch review; repair findings.
-- [ ] Product commit and separate reviewed runtime freeze promotion. Update established inventory assertions only where manifests/interfaces change.
-- [ ] PR, exact-main CI, guarded SQL changes if required,60+file source attestation/API cutover and rollback, Hosting-only release.
+- [x] Faculty UI: modify faculty-admin.js, faculty-admin-management.js, faculty-admin.html and faculty-admin.css. Group editor/profile fields, expandable course details, AFC archive, responsive reference layout. Preserve controls, canonical identity and manual editor.
+- [x] Rule UI: modify faculty-admin-doe-policy.js and create faculty-admin-doe-rulebook.js/css as needed. Typed rule/mapping/reference/reserve editors, categories/groups/tabs, validation/impact/history/lifecycle through authenticated existing APIs; preserve unedited bundle fields, safe revision and single-flight behavior.
+- [x] Backend lifecycle: inspect reference/current engines and permissions, implement Clone as Draft or other gaps narrowly, bind scoped capabilities for the requested actual operations; no deployment-triggered publication/recalculation.
+- [x] Task reviews and broad branch review; repair findings.
+- [x] Product commit and separate reviewed runtime freeze promotion. Update established inventory assertions only where manifests/interfaces change.
+- [x] PR, exact-main CI, guarded SQL changes if required,60+file source attestation/API cutover and rollback, Hosting-only release.
 - [ ] Live read-only acceptance screenshots and durable release checkpoint.
 
 ## Review focus
@@ -32,3 +32,5 @@ Stale faculty/policy selection; zero/negative/manual DOE versus baseline recalcu
 
 Ruling: proceed through implementation and publication stages without additional design approval requests, following the owner's explicit instruction.
 Ruling: preserve current formal reserve35/0.5/15/7.5/3-year inputs; visible Demo values are not authoritative.
+
+Post-release SQL hotfix PR78: follow exact-main CI and guarded deployment; final live screenshots/checkpoint pending.

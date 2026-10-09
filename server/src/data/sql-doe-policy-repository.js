@@ -110,7 +110,7 @@ function createSqlDoePolicyRepository(db) {
       } catch (error) { throw policyError(error); }
     },
 
-    async saveDraft({ policyVersionId, academicYear, expectedRevision, actorUid, bundle }) {
+    async saveDraft({ policyVersionId, academicYear, expectedRevision, actorUid, bundle, createVersion = false }) {
       const serializedRules = (bundle.rules || []).map(rule => ({ ...rule,
         selectors: (rule.selectors || []).map(selector => ({ ...selector,
           ...(Array.isArray(selector.values) ? { valuesJson: JSON.stringify(selector.values) } : {}) })),
@@ -130,7 +130,16 @@ function createSqlDoePolicyRepository(db) {
       try {
         const rows = await db.query(
           `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;
-           DECLARE @beforeJson nvarchar(8000);
+           IF @createVersion=1 BEGIN
+             IF EXISTS(SELECT 1 FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE AcademicYear=@academicYear AND VersionLabel=@versionLabel)
+               THROW 52601,'DOE_POLICY_VERSION_LABEL_EXISTS',1;
+             INSERT INTO paws.DoePolicyVersion(PolicyVersionId,AcademicYear,VersionLabel,SourceReference,Active,Status,Revision,UpdatedBy)
+             VALUES(@policyVersionId,@academicYear,@versionLabel,@sourceReference,0,N'draft',0,@actorUid);
+             INSERT INTO paws.DoeAuditEvent(AuditEventId,PolicyVersionId,AcademicYear,Action,EntityType,EntityId,ActorUid,AfterJson)
+             VALUES(NEWID(),@policyVersionId,@academicYear,N'draft_created',N'doe_policy_version',CONVERT(nvarchar(128),@policyVersionId),@actorUid,
+                    (SELECT @versionLabel AS versionLabel,@sourceReference AS sourceReference FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
+           END;
+           DECLARE @beforeJson nvarchar(max);
            SELECT @beforeJson=(SELECT PolicyVersionId AS policyVersionId,AcademicYear AS academicYear,VersionLabel AS versionLabel,SourceReference AS sourceReference,Revision AS revision,ValidatedRevision AS validatedRevision,ImpactRevision AS impactRevision FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@expectedRevision FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
            IF @beforeJson IS NULL BEGIN
              IF EXISTS(SELECT 1 FROM paws.DoePolicyVersion WHERE PolicyVersionId=@policyVersionId) THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
@@ -175,7 +184,7 @@ function createSqlDoePolicyRepository(db) {
                   (SELECT @expectedRevision+1 AS revision,@versionLabel AS versionLabel,@sourceReference AS sourceReference FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
            COMMIT; SELECT @policyVersionId AS policyVersionId,@academicYear AS academicYear,N'draft' AS status,@expectedRevision+1 AS revision;
            END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK; THROW; END CATCH;`,
-          { policyVersionId, academicYear, expectedRevision, actorUid, versionLabel: bundle.version.versionLabel, sourceReference: bundle.version.sourceReference, rulesJson, referencesJson, exceptionsJson, coursesJson, subjectsJson });
+          { policyVersionId, academicYear, expectedRevision, actorUid, createVersion, versionLabel: bundle.version.versionLabel, sourceReference: bundle.version.sourceReference, rulesJson, referencesJson, exceptionsJson, coursesJson, subjectsJson });
         return rows[0] || { policyVersionId, academicYear, status: 'draft', revision: expectedRevision + 1 };
       } catch (error) { throw policyError(error); }
     },
@@ -272,8 +281,9 @@ function createSqlDoePolicyRepository(db) {
       try {
         const rows = await db.query(
           `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;
-           DECLARE @checksum char(64),@impactRunId uniqueidentifier,@publicationId uniqueidentifier=NEWID(),@before nvarchar(8000);
-           SELECT @checksum=ValidatedChecksum,@before=(SELECT PolicyVersionId AS policyVersionId,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@revision AND ValidatedRevision=@revision AND ImpactRevision=@revision FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@impactRunId=(SELECT TOP(1) ImpactRunId FROM paws.DoeImpactRun WHERE PolicyVersionId=@policyVersionId AND DraftRevision=@revision ORDER BY CreatedAtUtc DESC);
+           DECLARE @checksum char(64),@impactRunId uniqueidentifier,@publicationId uniqueidentifier=NEWID(),@before nvarchar(max);
+           SELECT @checksum=ValidatedChecksum FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@revision AND ValidatedRevision=@revision AND ImpactRevision=@revision;
+           SELECT @before=(SELECT PolicyVersionId AS policyVersionId,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@revision AND ValidatedRevision=@revision AND ImpactRevision=@revision FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@impactRunId=(SELECT TOP(1) ImpactRunId FROM paws.DoeImpactRun WHERE PolicyVersionId=@policyVersionId AND DraftRevision=@revision ORDER BY CreatedAtUtc DESC);
            IF @before IS NULL THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
            IF @checksum IS NULL OR @impactRunId IS NULL THROW 52604,'DOE_VALIDATION_OR_IMPACT_REQUIRED',1;
            UPDATE paws.DoePolicyVersion SET Status=N'archived',Active=0,UpdatedBy=@actorUid,UpdatedAtUtc=SYSUTCDATETIME() WHERE AcademicYear=@academicYear AND Status=N'active';
@@ -305,8 +315,7 @@ function createSqlDoePolicyRepository(db) {
         for (const rows of [next.rules,next.references,next.courseMappings,next.subjectMappings]) for (const row of rows) row.reviewStatus = 'needs_review';
       }
       const id = next.version.policyVersionId;
-      await this.createDraft({ policyVersionId: id, academicYear, versionLabel: next.version.versionLabel, sourceReference: next.version.sourceReference, actorUid });
-      return this.saveDraft({ policyVersionId: id, academicYear, expectedRevision: 0, actorUid, bundle: next });
+      return this.saveDraft({ policyVersionId: id, academicYear, expectedRevision: 0, actorUid, bundle: next, createVersion: true });
     },
 
     async getImpactPreview(policyVersionId) {
@@ -324,7 +333,7 @@ function createSqlDoePolicyRepository(db) {
 
     async archivePolicy({ policyVersionId, expectedRevision, actorUid }) {
       try {
-        const rows = await db.query(`SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION; DECLARE @year nvarchar(32),@before nvarchar(8000);
+        const rows = await db.query(`SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION; DECLARE @year nvarchar(32),@before nvarchar(max);
           SELECT @before=(SELECT PolicyVersionId AS policyVersionId,AcademicYear AS academicYear,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND Revision=@expectedRevision AND Status IN(N'draft',N'archived') FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
           IF @before IS NULL THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
           SELECT @year=AcademicYear FROM paws.DoePolicyVersion WHERE PolicyVersionId=@policyVersionId;

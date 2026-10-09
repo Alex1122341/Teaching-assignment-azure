@@ -208,3 +208,6 @@ Do not reuse these without re-verification:
 - Screenshot: C:/Users/xinyu/Documents/Codex/2026-08-31/outputs/manual-doe-20261008/manual-doe-editor.png.
 - Rollback: C:/PAWS/Runtime/Acceptance/WorksheetDOE-20261008/Start-WorksheetDOE-Live.ps1. New launcher: C:/PAWS/Runtime/Acceptance/ManualDOE-20261008/Start-ManualDOE-Live.ps1.
 - Breakpoint: published. Administrators enter actual negotiated values case by case; helper positive credit remains separate; negative adjustment requires Notes. No automatic paired allocations.
+
+## 2026-10-09 — owner-directed Faculty / annual DOE administration
+Owner approved reference Faculty Lookup/Edit and full annual Rule Book lifecycle, retaining negotiated signed manual DOE separately, and instructed publication. This supersedes earlier P1 exclusions for the specifically accepted Faculty/DOE admin, policy publication and recalculation operations. Existing API role checks, audit, draft validation/impact revisions and explicit action confirmations remain. Deployment itself does not activate annual policies or recalculate allocations. Deferred Master targets remain blank. SQL writes use valid nvarchar(max); clone version+contents+audits are atomic. Immutable freeze promotion902a6cc is separately reviewed.

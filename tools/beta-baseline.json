@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "0f9ce1c4c9a748283cffc76394f22247a9f17451",
+  "sourceCommit": "902a6cc6a876e24badf12df1deb7853fc0cc2993",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "index.html": "d636106fc5a48a83d5d22a1e742e56ad4b5d0aa6ec87d12ef043cd119da6ef2b",
@@ -22,7 +22,7 @@
     "teaching-assignments.js": "84c3f2d7871258e89ebff618380c2d2d9cfbe1dd3cf50f86c37e9d8d658059e9",
     "faculty-admin-doe-worksheet.js": "d8b71b659ac7421a09c31d3466deac58b1494b5ece74ac9665f740cd695e5f65",
     "faculty-admin-doe-manual.js": "992ff87c3a9e13c455d0e2a2cd8a9e43dd4256de610f38d6cb8cee9cb9f992de",
-    "faculty-admin-doe-policy.js": "35a3a50271f0242b44966af2ef8f7b4733f332ed7a0b0d01951db35cba5ec61e",
+    "faculty-admin-doe-policy.js": "6527c369d862c68d8e1b690f8aa186259f909b6f2327fce6aad4c97419ab6479",
     "faculty-admin-doe-rulebook.js": "e7f8ad10fe4de813637df29131a0ce39101b04b1a0994f70c7d1a6e1a95a9115",
     "faculty-admin-doe-rulebook.css": "acff4af42e4489b5cbf7ce4b1e5ba3e7f2b225876aabb21d8de25af5b74303c6"
   }

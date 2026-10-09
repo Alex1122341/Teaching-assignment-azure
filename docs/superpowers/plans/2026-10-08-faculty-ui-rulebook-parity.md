@@ -22,7 +22,7 @@
 - [x] Task reviews and broad branch review; repair findings.
 - [x] Product commit and separate reviewed runtime freeze promotion. Update established inventory assertions only where manifests/interfaces change.
 - [x] PR, exact-main CI, guarded SQL changes if required,60+file source attestation/API cutover and rollback, Hosting-only release.
-- [ ] Live read-only acceptance screenshots and durable release checkpoint.
+- [x] Live read-only acceptance screenshots and durable release checkpoint.
 
 ## Review focus
 
@@ -33,4 +33,4 @@ Stale faculty/policy selection; zero/negative/manual DOE versus baseline recalcu
 Ruling: proceed through implementation and publication stages without additional design approval requests, following the owner's explicit instruction.
 Ruling: preserve current formal reserve35/0.5/15/7.5/3-year inputs; visible Demo values are not authoritative.
 
-Post-release SQL hotfix PR78: follow exact-main CI and guarded deployment; final live screenshots/checkpoint pending.
+Post-release SQL hotfix PR78 completed: exact-main CI37947990687, guarded API cutover, Hosting-only release and live screenshots/checkpoint recorded in agent.Ai/updates/2026-10-09-faculty-rulebook-release-complete.md.

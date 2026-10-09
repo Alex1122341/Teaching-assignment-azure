@@ -251,6 +251,7 @@ function createHarness(overrides = {}) {
   };
   context.globalThis = context;
 
+  vm.runInNewContext(read('faculty-name.js'), context, { filename: 'faculty-name.js' });
   vm.runInNewContext(read('dashboard-view-model.js'), context, { filename: 'dashboard-view-model.js' });
   vm.runInNewContext(read('faculty-admin-doe-renderer.js'), context, { filename: 'faculty-admin-doe-renderer.js' });
   vm.runInNewContext(read('faculty-admin-doe-worksheet.js'), context, { filename: 'faculty-admin-doe-worksheet.js' });

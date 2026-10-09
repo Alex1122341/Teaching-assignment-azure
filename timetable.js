@@ -406,6 +406,9 @@
   };
   let scheduleSource = 'azure-sql-pending';
   let currentUser = null;
+  window.PAWS_SWAP?.configure({getUser:()=>currentUser,onChanged:async()=>{
+    invalidateAllSessions();await Promise.all([refreshSessionScope(),window.PAWS_SWAP.refreshPending()]);render();
+  }});
   let canonicalWriteFaculty = [];
   let selectedWeek = 1;
   let selectedYear = 'all';
@@ -1160,7 +1163,7 @@
     layoutDaySessions(data).forEach(item=>{
       const s=item.session,startM=Math.max(DAY_START,item.startM),endM=Math.min(DAY_END,item.endM);if(endM<=startM)return;
       const top=((startM-DAY_START)/SPAN)*100,height=Math.max(3.5,((endM-startM)/SPAN)*100),laneWidth=100/item.laneCount,left=item.lane*laneWidth;
-      html+=`<div class="tg-block ${colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.room?` | ${escapeHtml(s.room)}`:''}<br>${escapeHtml(s.instructor||'TBD')}</div></div>`;
+      html+=`<div class="tg-block ${colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${window.PAWS_SWAP?.isPending(s.id)?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.room?` | ${escapeHtml(s.room)}`:''}<br>${escapeHtml(s.instructor||'TBD')}</div></div>`;
     });
     html+='</div></div>'+unpositionedSessionsHtml(data);$('calendar-body').innerHTML=html;bindSessionBlocks();
   }
@@ -1196,7 +1199,7 @@
         const height = Math.max(3.5, ((endM - startM) / SPAN) * 100);
         const laneWidth=100/item.laneCount, left=item.lane*laneWidth;
         html += `<div class="tg-block ${colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)">
-          <div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}</div>
+          <div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${window.PAWS_SWAP?.isPending(s.id)?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div>
           <div class="tg-block-l2">${escapeHtml(s.topic)}</div>
           <div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.room ? ` | ${escapeHtml(s.room)}` : ''}<br>${escapeHtml(s.instructor || 'TBD')}</div>
         </div>`;
@@ -1362,13 +1365,14 @@
     const s = renderedSessions.find(x => x.id === id) || sessions.find(x => x.id === id); if (!s) return;
     const edit = !s.isCcc&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-primary" id="detail-edit">Edit Session</button>` : '';
     const assignmentEdit = !s.isCcc&&s.assignmentManagementAvailable===true&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-secondary" id="detail-assignments">Manage Instructors</button>` : '';
-    const swap = !s.isCcc&&isAdmin()&&window.UCVM_PAWS_DATA?.sessionWritesEnabled?.() ? `<button class="btn btn-primary" id="detail-swap">SWAP Faculty</button>` : '';
+    const swap = !s.isCcc&&currentUser&&window.PAWS_SWAP&&scheduleSource==='azure-sql' ? `<button class="btn btn-primary" id="detail-swap">SWAP request</button>` : '';
     const labDetails = Array.isArray(s.labDetails) && s.labDetails.length > 1
       ? `<div class="login-cheatsheet"><strong>Lab stations / activities</strong><br><br>${s.labDetails.map(d => `<div style="margin-bottom:8px"><strong>${escapeHtml(d.topic)}</strong>${d.instructor ? `<br>${escapeHtml(d.instructor)}` : ''}${d.room ? `<br><span style="color:var(--text-3)">${escapeHtml(d.room)}</span>` : ''}</div>`).join('')}</div>`
       : '';
     showModal(`
       <div class="modal-header"><div class="modal-title">${escapeHtml(s.course)} - ${escapeHtml(s.topic)}</div><div class="modal-subtitle">${escapeHtml(s.type)} | ${formatLongDate(parseYmd(s.date))}</div></div>
       <div class="modal-body">
+        ${window.PAWS_SWAP?.isPending(s.id)?'<p class="sql-swap-pending">SWAP PENDING</p>':''}
         <div class="form-grid">
           ${detailField('Time', s.timeUnknown ? 'Time not specified in source workbook' : `${s.start} - ${s.end}`)}${detailField('Room', s.room)}${detailFieldMultiline('Instructor(s)', instructorDisplayText(s)||'TBD')}${s.year?detailField('Year', `Year ${s.year}`):''}
         </div>
@@ -1377,7 +1381,7 @@
       </div>
       <div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button><div>${swap}${assignmentEdit}${edit}</div></div>`);
     $('detail-close').onclick = closeModal;
-    if ($('detail-swap')) $('detail-swap').onclick = () => openSwapModal(s.id);
+    if ($('detail-swap')) $('detail-swap').onclick = () => {closeModal();window.PAWS_SWAP.openSession(s.id);};
     if ($('detail-assignments')) $('detail-assignments').onclick = () => openSqlSessionAssignmentForm(s);
     if ($('detail-edit')) $('detail-edit').onclick = () => openSqlSessionEditForm(s);
   }
@@ -1799,7 +1803,7 @@
           window.UCVMSessionGuard?.clearNotice?.(window.sessionStorage, window.document);
           profile.facultyId=sqlFacultyId;
           setLoginProgress('Loading your timetable...', true);
-          const name = String(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
+          const name = window.PAWS_FACULTY_NAME.format(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
           currentUser = {
             id: user.uid,
             uid: user.uid,
@@ -2198,6 +2202,9 @@
     $('outlook-invite-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
     $('manage-users-btn').classList.toggle('hidden', !(UCVM.general(currentUser) || currentUser?.role === 'hicc'));
     $('faculty-dashboard-btn').classList.toggle('hidden', !UCVM.canOpenFacultyDashboard(currentUser));
+    $('swap-inbox-btn').classList.toggle('hidden',!currentUser);
+    $('swap-inbox-btn').onclick=()=>window.PAWS_SWAP?.openQueue();
+    window.PAWS_SWAP?.syncUser();
     $('teaching-assignments-btn').classList.toggle('hidden', !currentUser || !['faculty','hicc','visc','developer','owner','administrator','adfa_general','adfa_regular','admin'].includes(String(currentUser.role || '').trim().toLowerCase()));
     $('cal-admin-menu').classList.toggle('hidden',!showAdminTools);
     for(const id of ['my-teaching-btn','afc-request-btn','my-change-history-btn'])$(id).classList.toggle('hidden',!currentUser);

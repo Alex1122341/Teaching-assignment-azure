@@ -16,6 +16,9 @@ const { createAfcApprovedArtifactApi } = require('../afc/afc-approved-artifact-a
 const { createDataApi } = require('../data/data-api');
 const { createDashboardApi } = require('../data/dashboard-api');
 const { createSwaFunctions } = require('./swa-functions');
+const { createSwapApi } = require('../swap/swap-api');
+const { createSqlSwapRepository } = require('../data/sql-swap-repository');
+const { createSwapFunctions } = require('./swa-swap-functions');
 const { createDashboardFunctions } = require('./swa-dashboard-functions');
 const { createAfcRequestFunctions } = require('./swa-afc-request-functions');
 const { createSwaAfcArtifactFunctions } = require('./swa-afc-artifact-functions');
@@ -132,8 +135,12 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     policyService: doePolicyService,
     writeGates
   }) });
+  const swapRoutes = createSwapFunctions({api:createSwapApi({
+    verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),writeGates
+  })});
   const handler = async request => {
     const pathname = new URL(request.url).pathname;
+    if (pathname === '/api/v1/swaps' || pathname.startsWith('/api/v1/swaps/')) return swapRoutes(request);
     if (pathname.startsWith('/api/v1/doe/')) return doeRoutes(request);
     if (pathname.startsWith('/api/v1/teaching-assignments/')) return teachingAssignmentRoutes(request);
     if (pathname.startsWith('/api/v1/dashboard/')) return dashboardRoutes(request);

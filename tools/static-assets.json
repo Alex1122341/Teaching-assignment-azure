@@ -60,5 +60,8 @@
   "timetable.js",
   "user-management.html",
   "user-management.css",
-  "user-management.js"
+  "user-management.js",
+  "faculty-name.js",
+  "swap-workflow-sql.js",
+  "swap-workflow-sql.css"
 ]

@@ -109,7 +109,7 @@ test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
   const freeze=require('../tools/beta-freeze.js');
   const baseline=require('../tools/beta-baseline.json');
   assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
-  assert.equal(freeze.BASELINE_COMMIT,'902a6cc6a876e24badf12df1deb7853fc0cc2993');
+  assert.equal(freeze.BASELINE_COMMIT,'404e3bdf6a2cf3947ab76f41bb13ea9120c833a0');
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
@@ -193,3 +193,5 @@ test('setup docs label this repository beta and forbid automatic test promotion'
   assert.match(setup,/no automatic sync|not automatically sync/i);
   assert.doesNotMatch(setup,/GitHub Pages.*deploy|Pages test site.*this repository/i);
 });
+
+

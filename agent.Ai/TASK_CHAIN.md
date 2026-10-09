@@ -1,3 +1,16 @@
+## Current — Session SWAP / preferred names (2026-10-09)
+
+Owner-authorized implementation and publish. PR79 CI pending;97exact HR matches,24unresolved. Current durable checkpoint: updates/2026-10-09-session-swap-release-preparation.md.
+
+# Current checkpoint — Faculty UI and DOE Rule Book published
+
+2026-10-09: PR77 and PR78 merged and deployed. Live release2b48f7d4131d562a9b3e3ac29e9d88ab4ebb737a, trust902a6cc6a876e24badf12df1deb7853fc0cc2993, API PID31700. PR CI37947427258 and exact-main CI37947990687 succeeded; 60 source files attested and 62-file Hosting-only release completed. Public API and SQL health both ok. Faculty/Rule Book screenshots saved and inspected.
+
+SQL draft-save compilation and atomic cloning fixes included. Original normalized Draft A607… has6 rules; old failed clone327C… remains empty and untouched. Annual Active policy/source data/deferred targets/allocations preserved. Server C is full; live runtime/temp/logs use P with prior release rollback launcher retained. No remaining runtime work under this instruction.
+
+See updates/2026-10-09-faculty-rulebook-release-complete.md. Continue only on a new concrete instruction; do not repeat imports or releases.
+
+---
 # Current checkpoint — Faculty reference UI deployed; SQL hotfix releasing
 
 2026-10-09: PR77 merged c5f7106cc429b4f082682f004e1545dad834fc29; exact-main CI37944509892 and Hosting-only62-file release completed. Live University API c5f7106/trust0f9ce1c/PID20056; DOE operation gates enabled under owner's explicit request, existing scoped roles bound. Source data, annual Active policy and allocations preserved.
@@ -942,3 +955,4 @@ Read-only comparison complete; manual versus automatic DOE interaction clarifica
 
 ## 2026-10-08 — Reference parity design review
 Owner approved retaining manual signed DOE over the automatic policy baseline. Written specification: docs/superpowers/specs/2026-10-08-faculty-ui-doe-rulebook-parity-design.md. Current gate: written-spec review; implementation plan follows its approval. No product or live changes.
+

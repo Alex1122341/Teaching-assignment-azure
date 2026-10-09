@@ -41,7 +41,7 @@ function createSqlSessionRepository(db) {
             CONVERT(varchar(8), c.StartTime, 108) AS startTime,
             CONVERT(varchar(8), c.EndTime, 108) AS endTime,
             c.Room AS room,
-            COALESCE((SELECT STRING_AGG(CONVERT(nvarchar(max), ${facultyDisplayNameSql()}), N'; ') WITHIN GROUP (ORDER BY f.DisplayName) FROM paws.SessionAssignment sn INNER JOIN paws.Faculty f ON f.FacultyId = sn.FacultyId WHERE sn.SessionId = c.SessionId), c.InstructorNames) AS instructorNames,
+            COALESCE((SELECT STRING_AGG(CONVERT(nvarchar(max), COALESCE(NULLIF(${facultyDisplayNameSql()},N''),LTRIM(RTRIM(REPLACE(sn.SourceFacultyName,N',',N' '))))), N'; ') WITHIN GROUP (ORDER BY sn.SessionAssignmentId) FROM paws.SessionAssignment sn LEFT JOIN paws.Faculty f ON f.FacultyId = sn.FacultyId WHERE sn.SessionId = c.SessionId), REPLACE(c.InstructorNames,N',',N' ')) AS instructorNames,
             ${assignmentProjection}
          FROM paws.vCalendarSession c${where}
          ORDER BY c.SessionDate, c.StartTime, c.SessionId`,

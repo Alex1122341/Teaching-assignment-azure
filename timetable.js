@@ -1803,7 +1803,7 @@
           window.UCVMSessionGuard?.clearNotice?.(window.sessionStorage, window.document);
           profile.facultyId=sqlFacultyId;
           setLoginProgress('Loading your timetable...', true);
-          const name = String(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
+          const name = window.PAWS_FACULTY_NAME.format(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
           currentUser = {
             id: user.uid,
             uid: user.uid,

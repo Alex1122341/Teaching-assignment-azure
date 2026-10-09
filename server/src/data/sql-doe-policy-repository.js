@@ -411,7 +411,7 @@ function createSqlDoePolicyRepository(db) {
          COMMIT; SELECT @recordCount AS recordsCreated,@needsReview AS needsReview,@policyVersionId AS policyVersionId,@policyRevision AS policyRevision;
          END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK; THROW; END CATCH;`,
         { policyVersionId, academicYear, policyRevision, actorUid, rowsJson, recordCount: records.length, needsReview }
-      );
+      ).catch(error => { throw policyError(error); });
       const remaining = await db.query(`SELECT COUNT_BIG(*) AS remaining FROM paws.DoeAssignmentFact a LEFT JOIN paws.DoeCalculationRecord c ON c.CalculationId=a.CurrentCalculationId WHERE a.AcademicYear=@academicYear AND a.Active=1 AND (c.CalculationId IS NULL OR c.PolicyVersionId<>@policyVersionId)`, { academicYear, policyVersionId });
       return { ...(results[0] || { recordsCreated: records.length, needsReview, policyVersionId, policyRevision }), limit: boundedLimit, remaining: Number(remaining[0]?.remaining || 0) };
     }

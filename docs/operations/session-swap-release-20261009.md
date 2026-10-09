@@ -10,6 +10,8 @@ Independent agents stopped after partial implementation because their workspace 
 
 ## Evidence before release
 
+Reviewed product anchor: `cfed56731000e7a58d3762c57f716be8b082939b`. Governance promotion protects all65 static assets and65 API runtime files plus3 repository/build inputs. The immutable comparison still reads Git blobs; no drift exceptions were added. Existing fixture inventory counts are synchronized to the expanded manifests.
+
 - All changed JavaScript parsed with `node --check`.
 - `node tools/build-static.js`: 65 shipped static files.
 - `node tools/build-swa-api.js`: 65 runtime files.

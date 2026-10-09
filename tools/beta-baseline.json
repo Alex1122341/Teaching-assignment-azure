@@ -1,18 +1,18 @@
 {
-  "sourceCommit": "902a6cc6a876e24badf12df1deb7853fc0cc2993",
+  "sourceCommit": "cfed56731000e7a58d3762c57f716be8b082939b",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
-    "index.html": "d636106fc5a48a83d5d22a1e742e56ad4b5d0aa6ec87d12ef043cd119da6ef2b",
-    "timetable.js": "d9739e2ff6405768bf1582855ed103966e444aa678c010ef1e5f1e627b46fdae",
+    "index.html": "966feda20456fad6f169dde321ff7f13ea431bb463d393efe0cc1d6902006d83",
+    "timetable.js": "dae728186444377311364288812bdd7cadcf43e77606297530eebfb91c4eb117",
     "timetable.css": "c63af5fe18a0f7001c1903829775bcb4c432111fc2b6d57e756f4649133c5c39",
-    "faculty-admin-management.js": "b9742b4544d8a28fa838a0a863ab9b7af0ff7508f124ba0fbc075ea8b7cfd330",
-    "faculty-admin.html": "ab4b2cfed0e135cbe5d7f3f50f02463e1e41e5b9d5bb78c8369d51f7359da20b",
-    "faculty-admin.js": "10ccaf8c88978ea8ef06f313fa6368b4e3d33a32c5dcd731888bbb817496875d",
+    "faculty-admin-management.js": "d1dbac3c4a31f44b59a327fa486929f458fe3f5d782e26d3e983c8a1bfd76fbd",
+    "faculty-admin.html": "167d466a210cbb3896840249a5bd3d6bf18bbd691e960ced274b26122311f059",
+    "faculty-admin.js": "0b5c6387df1a80a0b70eaff9d85b5c270abd50e5d4f2764ef286ab289aad973e",
     "faculty-admin.css": "bcdbecdcac1cbd3bd9fb3f22c9a40cc0407d6214c5d097022ecb5aabb2ff6979",
     "dashboard-view-model.js": "742b81419eeca591c3a35a439e9964febc42c398d683f25700fb77d226492b43",
     "faculty-access.js": "74bb21e8da53d6129ef0115d83d3dc032487edcb3febc0fac517117065820015",
     "paws-api-origin.js": "e0b8546a6f973a9bd11d02aaf67739a44b7603d078aed3e9efc315549df06708",
-    "paws-data-client.js": "ac1c1934ea041e298efb3ab8721dba5351be4f40aa4f8df8afc816c59df4b110",
+    "paws-data-client.js": "50020d4ae7bf1e9852610a6431e7a6abb4048ff94392134978b15483b71ec8c7",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
     "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170",
     "afc-workflow.js": "91404b1899f057594584a8110bde358a1328d4c4ef167786edbfd2208c17b314",
@@ -24,6 +24,9 @@
     "faculty-admin-doe-manual.js": "992ff87c3a9e13c455d0e2a2cd8a9e43dd4256de610f38d6cb8cee9cb9f992de",
     "faculty-admin-doe-policy.js": "6527c369d862c68d8e1b690f8aa186259f909b6f2327fce6aad4c97419ab6479",
     "faculty-admin-doe-rulebook.js": "e7f8ad10fe4de813637df29131a0ce39101b04b1a0994f70c7d1a6e1a95a9115",
-    "faculty-admin-doe-rulebook.css": "acff4af42e4489b5cbf7ce4b1e5ba3e7f2b225876aabb21d8de25af5b74303c6"
+    "faculty-admin-doe-rulebook.css": "acff4af42e4489b5cbf7ce4b1e5ba3e7f2b225876aabb21d8de25af5b74303c6",
+    "faculty-name.js": "85d22a5b28365b7017d4e77cc5f78f8a16ed7e3a1332e36aecc65590e36bbc03",
+    "swap-workflow-sql.js": "83d4f04d19061bd967fb27f9ba9f307492d7f7fef56e73f178ef322c6c934c5c",
+    "swap-workflow-sql.css": "43c9d4733a941ea3e845df917f1fdc8fe407939c2f98635d98f90d15b99448db"
   }
 }

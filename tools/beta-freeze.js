@@ -13,7 +13,7 @@ const {execFileSync}=require('node:child_process');
 
 // Integrated P4 DOE runtime is the reviewed trust anchor.
 // DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='05fbbfea17ded4ef9f656c863e31fc9279bdf313';
+const BASELINE_COMMIT='b200e27db7993b915b951641fe00e8f0d972e56e';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

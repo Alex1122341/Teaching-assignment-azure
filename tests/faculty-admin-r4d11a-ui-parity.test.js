@@ -37,7 +37,7 @@ test('rich profile uses the API view model for DOE and year/course/session expan
   assert.match(worksheet, /api\.doeWorksheet\(/);
   assert.match(worksheet, /server-authoritative/i);
   assert.match(profileSource, /<details class="course-group"/);
-  for (const label of ['DOE Summary', 'Teaching \/ Courses', 'Roles & Appointments', 'Away from Campus', 'Professional Profile']) {
+  for (const label of ['DOE Summary', 'Teaching \/ Courses', 'Roles & Appointments', 'Away from Campus', 'Identity & contact', 'Appointment', 'Specialty & education']) {
     assert.match(profileSource, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
   assert.match(profileSource, /Joint appointment/);

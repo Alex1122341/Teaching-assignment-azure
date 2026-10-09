@@ -95,11 +95,20 @@ function createHarness(overrides = {}) {
     querySelector: selector => byId('query:' + selector),
     querySelectorAll(selector) {
       if (selector === '.kpi-value') return KPI_IDS.map(byId);
-      if (selector === '.person-row') {
+      if (selector === '.person-select' || selector === '.person-row' || selector === '#result-list .person-row') {
         const html = byId('result-list').innerHTML || '';
         return (html.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')).map(id => {
-          if (!rowStubs.has(id)) { const el = element('row:' + id); el.dataset.id = id; rowStubs.set(id, el); }
-          return rowStubs.get(id);
+          if (!rowStubs.has(id)) {
+            const el = element('row:' + id); el.dataset.id = id;
+            const button = element('select:' + id);
+            button.closest = selector => selector === '.person-row' ? el : null;
+            button.matches = selector => selector === '.person-select';
+            button.focus = () => { document.activeElement = button; };
+            el.querySelector = selector => selector === '.person-select' ? button : null;
+            el.selectButton = button; rowStubs.set(id, el);
+          }
+          const row = rowStubs.get(id);
+          return selector === '.person-select' ? row.selectButton : row;
         });
       }
       return [];
@@ -142,7 +151,13 @@ function createHarness(overrides = {}) {
     hasAuthCallback: () => typeof authCallback === 'function',
     signIn: async () => { await authCallback({ uid: 'u-1', email: 'admin@example.test' }); },
     rowIds: () => (byId('result-list').innerHTML.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')),
-    clickRow: async id => { const stub = rowStubs.get(id); assert.ok(stub, `row ${id} must be rendered`); stub.onclick(); await flush(); }
+    clickRow: async id => {
+      const stub = rowStubs.get(id); assert.ok(stub, `row ${id} must be rendered`);
+      assert.equal(typeof stub.selectButton.onclick, 'function', 'selection button has a handler');
+      stub.selectButton.focus(); stub.selectButton.onclick({ detail: 0 });
+      assert.equal(document.activeElement, stub.selectButton, 'keyboard selection retains focus');
+      await flush();
+    }
   };
 }
 
@@ -354,7 +369,7 @@ test('64. performance timing hooks are preserved', () => {
   assert.match(ADMIN_SOURCE, /window\.__pawsDashboardTiming\s*===\s*true/);
   assert.match(ADMIN_SOURCE, /\[PAWS dashboard timing\]/);
   assert.match(ADMIN_SOURCE, /pawsTimingLog\('summary\+faculty'/);
-  assert.match(ADMIN_SOURCE, /pawsTimingLog\(`detail`/);
+  assert.match(ADMIN_SOURCE, /pawsTimingLog\('detail'/);
 });
 
 // ===========================================================================

@@ -200,12 +200,21 @@ function createHarness(overrides = {}) {
     querySelector(selector) { return byId('query:' + selector); },
     querySelectorAll(selector) {
       if (selector === '.kpi-value') return KPI_IDS.map(byId);
-      if (selector === '.person-row') {
+      if (selector === '.person-select' || selector === '.person-row' || selector === '#result-list .person-row') {
         const html = byId('result-list').innerHTML || '';
         const ids = (html.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, ''));
         return ids.map(id => {
-          if (!rowStubs.has(id)) { const el = element('row:' + id); el.dataset.id = id; rowStubs.set(id, el); }
-          return rowStubs.get(id);
+          if (!rowStubs.has(id)) {
+            const el = element('row:' + id); el.dataset.id = id;
+            const button = element('select:' + id);
+            button.closest = selector => selector === '.person-row' ? el : null;
+            button.matches = selector => selector === '.person-select';
+            button.focus = () => { document.activeElement = button; };
+            el.querySelector = selector => selector === '.person-select' ? button : null;
+            el.selectButton = button; rowStubs.set(id, el);
+          }
+          const row = rowStubs.get(id);
+          return selector === '.person-select' ? row.selectButton : row;
         });
       }
       return [];
@@ -257,12 +266,14 @@ function createHarness(overrides = {}) {
     ucvmInitCalls: () => ucvmInitCalls,
     signIn: async (user) => { await authCallback(user || { uid: 'u-1', email: 'admin@example.test' }); },
     rowIds: () => (byId('result-list').innerHTML.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')),
-    // Simulates the user clicking a rendered roster row.
+    // Activate the native selection button inside the rendered roster row.
     clickRow: async id => {
       const stub = rowStubs.get(id);
       assert.ok(stub, `row ${id} must have been rendered`);
-      assert.equal(typeof stub.onclick, 'function', `row ${id} must have a click handler`);
-      stub.onclick();
+      assert.equal(typeof stub.selectButton.onclick, 'function', `row ${id} must have a selection handler`);
+      stub.selectButton.focus();
+      stub.selectButton.onclick({ detail: 0 });
+      assert.equal(document.activeElement, stub.selectButton, 'keyboard selection retains focus');
       await flush();
     }
   };
@@ -420,21 +431,22 @@ test('re-selecting a cached faculty member does not refetch', async () => {
 
 test('the core flow never invokes the legacy Firestore loaders', () => {
   const bodies = [
-    ['loadAdminDashboard', slice('async function loadAdminDashboard', 'function indexedFaculty')],
-    ['selectFacultyDetail', slice('async function selectFacultyDetail', 'async function loadAdminDashboard')],
-    ['renderLookup', slice('function renderLookup', 'function field(')],
+    ['loadAdminDashboard', slice('async function loadAdminDashboard', 'function dashboardRawRole')],
+    ['selectFacultyDetail', slice('async function selectFacultyDetail', 'function apiTable')],
+    ['renderLookup', slice('function renderLookup', 'function teachingSummaryDoeStatus')],
     ['loadSelfFaculty', slice('async function loadSelfFaculty', 'async function enterSelfMode')],
     ['enterAdminMode', slice('function enterAdminMode', 'function dashboardAuthFailureMessage')]
   ];
   for (const [name, body] of bodies) {
+    assert.ok(body.length > 0, `${name} source boundary must resolve`);
     assert.doesNotMatch(body, /subscribeFaculty\(|subscribeSessions\(|loadFacultyDetail\(|listenFacultySessions\(|ensureFullFaculty\(|ensureFullSessions\(/, `${name} must not invoke legacy loaders`);
     assert.doesNotMatch(body, /db\.collection\(/, `${name} must not read Firestore`);
   }
 });
 
 test('AFC purpose appears only in the selected detail', () => {
-  assert.match(slice('function renderApiDetail', 'function renderDetailPending'), /Purpose/, 'AFC purpose is rendered in detail');
-  assert.doesNotMatch(slice('function renderLookup', 'function pawsTimingEnabled'), /purpose/i, 'the roster must not expose AFC purpose');
+  assert.match(slice('function renderFacultyAfc', 'function currentAcademicYear'), /record\.purpose/, 'AFC purpose is rendered in detail');
+  assert.doesNotMatch(slice('function renderLookup', 'function teachingSummaryDoeStatus'), /purpose/i, 'the roster must not expose AFC purpose');
   assert.doesNotMatch(read('faculty-admin.html'), /away purpose/);
   assert.doesNotMatch(slice('function updateKpis', 'function renderLookup'), /purpose/i, 'no global KPI exposes AFC purpose');
 });

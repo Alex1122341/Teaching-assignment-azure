@@ -1,3 +1,7 @@
+## Developer support deployment checkpoint — 2026-10-09
+
+PR80/81 merged; exact-main485094deb7c46bca476f629d865f2039990f8293 CI37964488843 succeeded. Runtime66/static68 accepted against b200e27db7993b915b951641fe00e8f0d972e56e. SQL033 applied,61 reversible tables/63 capture triggers/0 support operations. SQL034 additive binary capture restores AfcManualRecord BatchPayloadHash using explicit hex style1; rolled-back schema/compiler plus generated SELECT/UPDATE/INSERT descriptors exit0,62 reversible tables. AfcArtifact remains excluded. Live789963e/PID10976 unchanged. Resume follow-up SQL034 PR/exact-main CI, persistent034, guarded runtime/Hosting release, read-only Tasks UI acceptance; no fabricated Developer login or business test writes.
+
 ## Current — Session SWAP / preferred names (2026-10-09)
 
 Owner-authorized implementation and publication completed. PR79 merged; exact-main CI37957382593 passed; live789963e/PID10976,65 Hosting assets, SQL030–032 applied,97 HR names imported and24 unresolved blank. Current durable checkpoint: updates/2026-10-09-session-swap-release-complete.md. Actual office reviewer assignment remains absent, not fabricated.

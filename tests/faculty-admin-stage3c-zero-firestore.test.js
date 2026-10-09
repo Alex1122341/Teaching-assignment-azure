@@ -145,8 +145,8 @@ test('A / D. the page loads only the Firebase app+auth CDN and bounded local scr
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
-  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 15, '15 script elements total');
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
+  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 16, '16 script elements total');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
 
@@ -454,7 +454,7 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
   assert.equal(/\bfirestore\b/i.test(doeWorksheetSource), false, 'faculty-admin-doe-worksheet.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(AFC_BATCH_SOURCE), false, 'faculty-admin-afc-batch.js: no Firestore dependency');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
 });
 
 test('92 / 94 / 96. the controller stays bounded with contract DOE detail and overview', () => {

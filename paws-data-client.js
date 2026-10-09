@@ -53,6 +53,9 @@
         const error=new Error(body?.error?.message||'The PAWS data service is unavailable.');
         error.code=body?.error?.code||('HTTP_'+response.status);
         error.status=response.status;
+        if(body?.error?.details!==undefined)error.details=body.error.details;
+        if(Array.isArray(body?.error?.errors))error.errors=body.error.errors;
+        if(body?.error?.currentRevision!==undefined)error.currentRevision=body.error.currentRevision;
         if(Array.isArray(body?.rows))error.rows=body.rows;
         throw error;
       }

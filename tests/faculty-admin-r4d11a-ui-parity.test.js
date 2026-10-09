@@ -22,7 +22,7 @@ test('admin exposes the read-only parity tabs and gated Annual DOE Rule Book', (
   assert.match(html, /data-tab="doe-rules" id="doe-rules-tab"/);
   assert.match(html, /id="doe-rules-content"/);
   assert.match(html, /faculty-admin-doe-policy\.js/);
-  const policy = fs.readFileSync('faculty-admin-doe-policy.js', 'utf8');
+  const policy = fs.readFileSync('faculty-admin-doe-policy.js', 'utf8') + fs.readFileSync('faculty-admin-doe-rulebook.js', 'utf8');
   for (const label of ['Academic Year', 'Policy Version', 'Course Mapping', 'VISC Subjects', 'Preview &amp; Validate', 'History', 'Publish', 'Recalculate']) assert.ok(policy.includes(label), label);
   assert.match(policy, /api\.validateDoePolicyDraft/);
   assert.match(policy, /api\.previewDoePolicyImpact/);

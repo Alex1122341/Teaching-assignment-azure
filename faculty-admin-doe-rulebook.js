@@ -48,11 +48,11 @@
         const choices=def.type==='reference'?[['','No reference selected'],...(bundle.references||[]).map(r=>[r.referenceId,refName(r.referenceId)])]:(def.options||[]).map(v=>[v,v.replace(/_/g,' ')||'Not specified']);
         if(value && !choices.some(([v])=>v===value))choices.push([value,value]);
         control=`<select class="select" ${attr}>${choices.map(([v,l])=>`<option value="${esc(v)}" ${value===v?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
-      } else if(['textarea','array','object'].includes(def.type))control=`<textarea class="input" rows="${def.type==='textarea'?2:3}" ${attr}>${esc(def.type==='array'||def.type==='object'?value==null?'':JSON.stringify(value,null,2):value)}</textarea>`;
+      } else if(['textarea','array','object'].includes(def.type))control=`<textarea class="input" rows="${def.type==='textarea'?2:3}" ${attr}>${esc(def.type==='array'||def.type==='object'?value==null?'':typeof value==='string'?value:JSON.stringify(value,null,2):value)}</textarea>`;
       else control=`<input class="input" type="${def.type==='id'?'text':def.type}" ${def.type==='number'?'step="any"':''} ${attr} value="${esc(def.type==='date'?text(value).slice(0,10):value)}" ${def.type==='id'?'readonly':''}>`;
       return `<label class="field ${['textarea','object','array'].includes(def.type)?'doe-field-wide':''}"><span class="field-label">${esc(def.label)}</span>${control}</label>`;
     }
-    function readFields(container,defs,original){
+    function readFields(container,defs,original,validate=true){
       const result={...original};
       for(const def of defs){
         const element=container.querySelector(`[data-field="${def.key}"]`);if(!element||element.disabled)continue;
@@ -60,14 +60,14 @@
         if(def.type==='checkbox')result[def.key]=element.checked;
         else if(def.type==='number'){
           result[def.key]=raw===''?null:Number(raw);
-          if(raw!==''&&!Number.isFinite(result[def.key]))throw new Error(`${def.label} must be a finite number.`);
+          if(raw!==''&&!Number.isFinite(result[def.key])){if(validate)throw new Error(`${def.label} must be a finite number.`);result[def.key]=raw;}
         } else if(def.type==='nullableBoolean')result[def.key]=raw===''?null:raw==='true';
         else if(def.type==='array'||def.type==='object'){
           if(!text(raw)){if(Object.prototype.hasOwnProperty.call(original,def.key))result[def.key]=def.type==='array'?[]:{};continue;}
-          try{result[def.key]=JSON.parse(raw);}catch(_){throw new Error(`${def.label} must be valid JSON.`);}
-          if(def.type==='array'?!Array.isArray(result[def.key]):!result[def.key]||typeof result[def.key]!=='object'||Array.isArray(result[def.key]))throw new Error(`${def.label} must be a JSON ${def.type}.`);
+          try{result[def.key]=JSON.parse(raw);}catch(_){if(validate)throw new Error(`${def.label} must be valid JSON.`);result[def.key]=raw;continue;}
+          if(def.type==='array'?!Array.isArray(result[def.key]):!result[def.key]||typeof result[def.key]!=='object'||Array.isArray(result[def.key])){if(validate)throw new Error(`${def.label} must be a JSON ${def.type}.`);result[def.key]=raw;}
         } else result[def.key]=['date','reference'].includes(def.type)&&!raw?null:text(raw);
-        if(def.required&&(result[def.key]===null||result[def.key]===''))throw new Error(`${def.label} is required.`);
+        if(validate&&def.required&&(result[def.key]===null||result[def.key]===''))throw new Error(`${def.label} is required.`);
       }
       return result;
     }
@@ -106,14 +106,14 @@
       node('doe-rulebook-editor-apply').hidden=!editable();
       node('doe-rulebook-editor-error').textContent='';
     }
-    function readEditor(){
-      const {key,row}=editing,result=readFields(node('doe-rulebook-editor-fields'),schemas[key],row);
+    function readEditor(validate=true){
+      const {key,row}=editing,result=readFields(node('doe-rulebook-editor-fields'),schemas[key],row,validate);
       if(key==='rules')for(const nested of ['selectors','inputs','parameters','tiers']){
-        result[nested]=[...node('doe-rulebook-editor-fields').querySelectorAll(`[data-nested="${nested}"] > [data-row]`)].map((element,index)=>readFields(element,schemas[nested],typeof row[nested]?.[index]==='string'?{inputName:row[nested][index]}:row[nested]?.[index]||{}));
+        result[nested]=[...node('doe-rulebook-editor-fields').querySelectorAll(`[data-nested="${nested}"] > [data-row]`)].map((element,index)=>readFields(element,schemas[nested],typeof row[nested]?.[index]==='string'?{inputName:row[nested][index]}:row[nested]?.[index]||{},validate));
       }
       if(key==='rules'){
         result.mappingRequirement=result.mappingRequirement||null;
-        for(const selector of result.selectors){
+        if(validate)for(const selector of result.selectors){
           if(['in','not_in'].includes(selector.operator)){
             if(!Array.isArray(selector.values)||!selector.values.length)throw new Error('Set selectors require a nonempty JSON array of values.');
           }else{
@@ -145,7 +145,7 @@
           else if(button.id==='doe-rulebook-add')openEditor(category==='exceptions'&&panel==='rules'?'exceptions':panel,-1);
           else if(button.hasAttribute('data-close-editor'))node('doe-rulebook-editor').close();
           else if(button.dataset.addNested||button.dataset.remove){
-            const key=button.dataset.addNested||button.dataset.remove;editing.row=readEditor();
+            const key=button.dataset.addNested||button.dataset.remove;editing.row=readEditor(false);
             if(button.dataset.addNested)editing.row[key].push(key==='inputs'?{required:true}:key==='selectors'?{operator:'equals',valueType:'text'}:key==='tiers'?{tierOrder:editing.row[key].length,fromValue:0}:{});
             else editing.row[key].splice(Number(button.dataset.row),1);
             drawEditor();

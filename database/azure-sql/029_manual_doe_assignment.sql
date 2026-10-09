@@ -32,6 +32,7 @@ END;
 IF DATABASE_PRINCIPAL_ID(N'paws_runtime_manual_doe_write') IS NULL
     CREATE ROLE paws_runtime_manual_doe_write AUTHORIZATION dbo;
 GRANT SELECT ON OBJECT::paws.ManualDoeAssignment TO paws_runtime_read;
+GRANT SELECT ON OBJECT::paws.Course (CourseCode, CourseName) TO [paws_runtime_read];
 GO
 CREATE OR ALTER PROCEDURE paws.SaveManualDoeAssignment
     @assignmentId uniqueidentifier, @facultyId uniqueidentifier, @academicYear nvarchar(32),

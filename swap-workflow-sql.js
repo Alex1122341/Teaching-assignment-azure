@@ -70,5 +70,5 @@
       host.querySelectorAll('[data-decision]').forEach(button=>button.onclick=()=>mutate('decision',button.dataset.decision));const withdraw=host.querySelector('[data-withdraw]');if(withdraw)withdraw.onclick=()=>mutate('withdraw');
     }catch(error){if(valid(token)){showError(error);addReload(()=>openDetail(id));}}
   }
-  root.PAWS_SWAP=Object.freeze({configure(options){getUser=options.getUser;onChanged=options.onChanged||(()=>{});},openSession,openQueue,refreshPending,syncUser(){const uid=userKey();if(authenticatedUser===uid)return;authenticatedUser=uid;pending=new Set();close();host?.replaceChildren();if(uid)refreshPending().then(()=>{if(userKey()===uid)onChanged();});},isPending:sessionId=>pending.has(String(sessionId)),reset(){pending=new Set();close();host?.replaceChildren();}});
+  root.PAWS_SWAP=Object.freeze({configure(options){getUser=options.getUser;onChanged=options.onChanged||(()=>{});},openSession,openQueue,openDetail,refreshPending,syncUser(){const uid=userKey();if(authenticatedUser===uid)return;authenticatedUser=uid;pending=new Set();close();host?.replaceChildren();if(uid)refreshPending().then(()=>{if(userKey()===uid)onChanged();});},isPending:sessionId=>pending.has(String(sessionId)),reset(){pending=new Set();close();host?.replaceChildren();}});
 })(window);

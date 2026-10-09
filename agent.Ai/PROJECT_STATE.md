@@ -1,6 +1,6 @@
 ## Active Session SWAP release — 2026-10-09
 
-PR79 on feature/session-swap-20261009; implementation and inline review complete, CI and deployment pending. Runtime anchor e45ef1463195f4e47f6492c956469e72df94abaf. Live remains 2b48f7d. Resume agent.Ai/updates/2026-10-09-session-swap-release-preparation.md; no persistent SWAP/HR migration yet.
+PR79 merged and published. Live release789963e85223f6fd3c813bc84e7720e1bd1f3db4, anchor404e3bdf6a2cf3947ab76f41bb13ea9120c833a0, API PID10976. Exact-main CI37957382593 succeeded; SQL030/031/032 applied;97 guarded HR names imported,24 blank. Hosting65 assets deployed and Chrome SWAP form/inbox verified read-only. See updates/2026-10-09-session-swap-release-complete.md. No repeated import/release. Missing actual office reviewers remain explicit.
 
 # Current checkpoint — Faculty UI and DOE Rule Book published
 

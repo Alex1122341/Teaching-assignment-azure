@@ -1,4 +1,5 @@
 'use strict';
+const { AsyncLocalStorage } = require('node:async_hooks');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_KEYS = new Map([
@@ -158,8 +159,29 @@ function buildSqlConnectionConfig({ connectionString, miClientId, driver, allowS
 function createSqlConnection({ connectionString, miClientId, driver, allowSelfSigned = false, config, sql }) {
   const connectionConfig = config || buildSqlConnectionConfig({ connectionString, miClientId, driver, allowSelfSigned });
   let pool;
+  const transactions = new AsyncLocalStorage();
   return {
+    async transaction(callback, {supportOperationId=null}={}) {
+      if(transactions.getStore())throw Error('Nested request transaction is unsupported');
+      if(!pool)await this.query('SELECT 1 AS ready');
+      const transaction=new sql.Transaction(pool);
+      let rolledBack=false;transaction.on('rollback',()=>{rolledBack=true;});
+      await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+      const state={transaction,operationId:supportOperationId,error:null,chain:Promise.resolve()};
+      try {
+        const result=await transactions.run(state,callback);
+        await state.chain;
+        if(state.error)throw state.error;
+        await transaction.commit();return result;
+      }catch(error){if(!rolledBack)await transaction.rollback().catch(()=>{});throw error;}
+    },
     async query(text, params = {}, options = {}) {
+      const state=transactions.getStore();
+      if(state && !options.transactionQueued){
+        const pending=state.chain.then(()=>this.query(text,params,{...options,transactionQueued:true}));
+        state.chain=pending.catch(error=>{state.error=state.error||error;});
+        return pending;
+      }
       const timing = options && options.timing;
       const queryMetric = options && options.queryMetric;
       if (pool) {
@@ -172,7 +194,9 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
           if (timing) timing.end('sql_connect', connectStarted, 'cold');
         }
       }
-      const request = pool.request();
+      const request = state ? new sql.Request(state.transaction) : pool.request();
+      if(Object.prototype.hasOwnProperty.call(params,'pawsInternalSupportOperation'))throw Error('Reserved SQL parameter');
+      if(state?.operationId)request.input('pawsInternalSupportOperation',state.operationId);
       for (const [name, value] of Object.entries(params)) {
         // An explicitly supplied `null` is a real SQL NULL and must be bound:
         // a statement may reference the parameter in an
@@ -182,7 +206,8 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
       }
       const queryStarted = timing && queryMetric ? timing.start(queryMetric) : null;
       try {
-        const result = await request.query(text);
+        const contextValue=state?.operationId?'@pawsInternalSupportOperation':'NULL';
+        const result = await request.query("EXEC sys.sp_set_session_context @key=N'paws_support_operation',@value="+contextValue+";\n"+text);
         return result.recordset || [];
       } finally {
         if (timing && queryMetric) timing.end(queryMetric, queryStarted);

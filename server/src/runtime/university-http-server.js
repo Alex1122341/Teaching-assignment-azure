@@ -110,7 +110,7 @@ function createUniversityHttpServer({
       const requestedMethod = String(incoming.headers['access-control-request-method'] || '').toUpperCase();
       const requestedHeaders = String(incoming.headers['access-control-request-headers'] || '')
         .split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
-      const allowedHeaders = new Set(['authorization', 'content-type']);
+      const allowedHeaders = new Set(['authorization', 'content-type', 'x-paws-support-context']);
       if (!origin || !origins.has(origin) || !['GET', 'POST', 'PATCH'].includes(requestedMethod) ||
           requestedHeaders.some(value => !allowedHeaders.has(value))) {
         outgoing.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8', Vary: 'Origin' });
@@ -120,7 +120,7 @@ function createUniversityHttpServer({
       outgoing.writeHead(204, {
         ...corsHeaders,
         'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, OPTIONS',
-        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-PAWS-Support-Context',
         'Access-Control-Max-Age': '600'
       });
       outgoing.end();
@@ -167,7 +167,7 @@ function createUniversityHttpServer({
         : bodyLimit;
       const body = await readBody(incoming, bodyLimitForRequest);
       const headers = new Headers();
-      for (const name of ['authorization', 'content-type', 'accept']) {
+      for (const name of ['authorization', 'content-type', 'accept', 'x-paws-support-context']) {
         const value = incoming.headers[name];
         if (value) headers.set(name, Array.isArray(value) ? value.join(', ') : value);
       }

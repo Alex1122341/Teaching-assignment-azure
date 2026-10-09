@@ -359,9 +359,9 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 test('58–63. the Dashboard page runtime surface is bounded and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 16, 'script elements: 2 Firebase CDN + 14 local');
+  assert.equal(srcs, 17, 'script elements: 2 Firebase CDN + 15 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 14);
+  assert.equal(local.length, 15);
   assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });

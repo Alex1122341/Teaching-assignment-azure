@@ -929,3 +929,7 @@ Status: **OWNER DESIGN APPROVED / SPECIFICATION DRAFTED / OWNER SPEC REVIEW PEND
 
 ## 2026-10-08 — Faculty reference parity request
 Read-only comparison complete; manual versus automatic DOE interaction clarification pending. See updates/2026-10-08-faculty-reference-ui-review.md. No product/live changes.
+
+
+## 2026-10-08 — Reference parity design review
+Owner approved retaining manual signed DOE over the automatic policy baseline. Written specification: docs/superpowers/specs/2026-10-08-faculty-ui-doe-rulebook-parity-design.md. Current gate: written-spec review; implementation plan follows its approval. No product or live changes.

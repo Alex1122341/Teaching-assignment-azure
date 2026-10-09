@@ -44,6 +44,7 @@ const { createDoePolicyService } = require('../doe/doe-policy-service');
 const { createDoeWorkflowPreviewService } = require('../doe/doe-workflow-preview-service');
 const { createDoeApi } = require('../doe/doe-api');
 const { createDoeFunctions } = require('./swa-doe-functions');
+const { createSupportService } = require('../support/support-service');
 
 function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
@@ -65,10 +66,12 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const afcWrite = createSqlAfcWriteRepository(db);
   const facultyAdminWrite = createSqlFacultyAdminRepository(db);
   const writeGates = createWriteGates(env);
-  const verify = createFirebaseSqlAuth({
+  const realVerify = createFirebaseSqlAuth({
     verifyIdToken: createFirebaseVerifier({ admin, projectId: env.FIREBASE_PROJECT_ID, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }),
     expectedProjectId: env.FIREBASE_PROJECT_ID
   });
+  const support=createSupportService({db,verifyToken:realVerify,findUser:users.findByUid});
+  const verify=support.verify;
   const doeRepository = createSqlDoeEngineRepository(db);
   const doeAssignmentRepository = createSqlDoeAssignmentRepository(db);
   const doeCalculationService = createDoeCalculationService({ repository: doeRepository });
@@ -138,7 +141,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const swapRoutes = createSwapFunctions({api:createSwapApi({
     verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),writeGates
   })});
-  const handler = async request => {
+  const route = async request => {
     const pathname = new URL(request.url).pathname;
     if (pathname === '/api/v1/swaps' || pathname.startsWith('/api/v1/swaps/')) return swapRoutes(request);
     if (pathname.startsWith('/api/v1/doe/')) return doeRoutes(request);
@@ -148,6 +151,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     if (pathname === '/api/v1/afc-requests' || pathname.startsWith('/api/v1/afc-requests/')) return afcRequests(request);
     return timetable(request);
   };
+  const handler = request => support.handle(request,route);
   handler.close = () => db.close();
   return handler;
 }

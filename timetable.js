@@ -228,6 +228,7 @@
     }
     return {
       ...profile,
+      name: profile.displayName || profile.name,
       role,
       active: profile.active === true,
       mustChangePassword: profile.mustChangePassword === true
@@ -407,8 +408,20 @@
   let scheduleSource = 'azure-sql-pending';
   let currentUser = null;
   window.PAWS_SWAP?.configure({getUser:()=>currentUser,onChanged:async()=>{
-    invalidateAllSessions();await Promise.all([refreshSessionScope(),window.PAWS_SWAP.refreshPending()]);render();
+    invalidateAllSessions();await Promise.all([refreshSessionScope(),window.PAWS_SWAP.refreshPending()]);render();window.PAWS_TASKS?.refresh();
   }});
+  window.PAWS_TASKS?.configure({hasUser:()=>Boolean(currentUser),allSessions:ensureAllSessions,disposition:calendarTimingDisposition,reason:unpositionedReason,openSession:async id=>{
+    const session=sessionCache.get(id);if(!session)return;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(session.date||''))){
+      const date=parseYmd(session.date);if(!Number.isNaN(date.getTime())){
+        const position=academicPositionForDate(date);selectedSemester=position.semester;selectedWeek=Math.max(1,Math.min(WEEK_COUNT,position.week));selectedDayIndex=Math.max(0,Math.min(4,date.getDay()-1));
+        $('filter-month').value='all';$('search-input').value='';$('filter-type').value='all';selectedYear='all';selectedCourses.clear();courseFilterActive=false;myTimetableOnly=false;populateCourseFilter();
+        document.querySelectorAll('[data-year]').forEach(b=>b.classList.toggle('active',b.dataset.year==='all'));document.querySelectorAll('[data-semester]').forEach(b=>b.classList.toggle('active',b.dataset.semester===selectedSemester));renderWeekControls();syncWeekUI();await refreshSessionScope();
+      }
+    }
+    openSessionDetail(id);
+  }});
+  pageDataSubscribers.add(()=>{window.PAWS_TASKS?.refresh();});
   let canonicalWriteFaculty = [];
   let selectedWeek = 1;
   let selectedYear = 'all';
@@ -451,7 +464,7 @@
   function initialScheduleFiltersExpanded(media, stored) {
     if (stored === 'true') return true;
     if (stored === 'false') return false;
-    return !media.matches;
+    return false;
   }
   function setScheduleFiltersExpanded(expanded, persist=true) {
     const panel=$('schedule-filter-panel'),button=$('schedule-filter-toggle');
@@ -1165,7 +1178,7 @@
       const top=((startM-DAY_START)/SPAN)*100,height=Math.max(3.5,((endM-startM)/SPAN)*100),laneWidth=100/item.laneCount,left=item.lane*laneWidth;
       html+=`<div class="tg-block ${colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${window.PAWS_SWAP?.isPending(s.id)?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.room?` | ${escapeHtml(s.room)}`:''}<br>${escapeHtml(s.instructor||'TBD')}</div></div>`;
     });
-    html+='</div></div>'+unpositionedSessionsHtml(data);$('calendar-body').innerHTML=html;bindSessionBlocks();
+    html+='</div></div>'+(window.PAWS_TASKS?'':unpositionedSessionsHtml(data));$('calendar-body').innerHTML=html;bindSessionBlocks();
   }
 
   function renderWeek() {
@@ -1207,7 +1220,7 @@
       html += '</div>';
     }
     html += '</div>';
-    $('calendar-body').innerHTML = html+unpositionedSessionsHtml(data);
+    $('calendar-body').innerHTML = html+(window.PAWS_TASKS?'':unpositionedSessionsHtml(data));
     bindSessionBlocks();
   }
 
@@ -1362,7 +1375,7 @@
   }
 
   function openSessionDetail(id) {
-    const s = renderedSessions.find(x => x.id === id) || sessions.find(x => x.id === id); if (!s) return;
+    const s = renderedSessions.find(x => x.id === id) || sessions.find(x => x.id === id) || sessionCache.get(id); if (!s) return;
     const edit = !s.isCcc&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-primary" id="detail-edit">Edit Session</button>` : '';
     const assignmentEdit = !s.isCcc&&s.assignmentManagementAvailable===true&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-secondary" id="detail-assignments">Manage Instructors</button>` : '';
     const swap = !s.isCcc&&currentUser&&window.PAWS_SWAP&&scheduleSource==='azure-sql' ? `<button class="btn btn-primary" id="detail-swap">SWAP request</button>` : '';
@@ -1377,7 +1390,7 @@
           ${detailField('Time', s.timeUnknown ? 'Time not specified in source workbook' : `${s.start} - ${s.end}`)}${detailField('Room', s.room)}${detailFieldMultiline('Instructor(s)', instructorDisplayText(s)||'TBD')}${s.year?detailField('Year', `Year ${s.year}`):''}
         </div>
         ${labDetails}
-        <div class="login-cheatsheet"><strong>Schedule source:</strong> ${s.isCcc?'Away from Campus CCC record. This schedule copy includes only the faculty name and CCC dates.':scheduleSource === 'firestore' ? 'Synchronized Firestore sessions from All Faculty Summaries — the Faculty Dashboard reads these same sessions.' : 'No synchronized source is loaded. Use Faculty Dashboard → Teaching Summary → Replace & Sync All Faculty Summaries.'}</div>
+        ${s.isCcc?'<p class="form-hint">Away from Campus record.</p>':''}
       </div>
       <div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button><div>${swap}${assignmentEdit}${edit}</div></div>`);
     $('detail-close').onclick = closeModal;
@@ -2205,6 +2218,7 @@
     $('swap-inbox-btn').classList.toggle('hidden',!currentUser);
     $('swap-inbox-btn').onclick=()=>window.PAWS_SWAP?.openQueue();
     window.PAWS_SWAP?.syncUser();
+    window.PAWS_TASKS?.refresh();
     $('teaching-assignments-btn').classList.toggle('hidden', !currentUser || !['faculty','hicc','visc','developer','owner','administrator','adfa_general','adfa_regular','admin'].includes(String(currentUser.role || '').trim().toLowerCase()));
     $('cal-admin-menu').classList.toggle('hidden',!showAdminTools);
     for(const id of ['my-teaching-btn','afc-request-btn','my-change-history-btn'])$(id).classList.toggle('hidden',!currentUser);

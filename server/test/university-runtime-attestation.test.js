@@ -108,7 +108,7 @@ test('runtime health preflight retains exact CORS allowlist behavior without cre
   assert.equal(allowed.status, 204);
   assert.equal(allowed.headers['access-control-allow-origin'], 'https://paws.example.edu');
   assert.equal(allowed.headers['access-control-allow-methods'], 'GET, POST, PATCH, PUT, OPTIONS');
-  assert.equal(allowed.headers['access-control-allow-headers'], 'Authorization, Content-Type');
+  assert.equal(allowed.headers['access-control-allow-headers'], 'Authorization, Content-Type, X-PAWS-Support-Context');
   assert.equal(allowed.headers['access-control-allow-credentials'], undefined);
   const denied = await request(port, '/api/health/runtime', { headers: { origin: 'https://evil.example' } });
   assert.equal(denied.status, 403);

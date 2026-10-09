@@ -66,6 +66,8 @@
       const url=apiOrigin+path;
       const buildInit=token=>{
         const headers={Authorization:'Bearer '+token,Accept:accept};
+        const support=root?.PAWS_SUPPORT?.contextId?.();
+        if(support&&!path.startsWith('/api/v1/support'))headers['X-PAWS-Support-Context']=support;
         const init={method,headers,credentials:'omit'};
         if(requestBody!==undefined){headers['Content-Type']='application/json';init.body=JSON.stringify(requestBody)}
         return init;
@@ -113,7 +115,9 @@
     }
 
     async function request(path,options={}){
-      return settle(await authenticatedResponse(path,options));
+      const body=await settle(await authenticatedResponse(path,options));
+      if(path==='/api/v1/me'&&typeof root?.dispatchEvent==='function'&&typeof root?.CustomEvent==='function')root.dispatchEvent(new root.CustomEvent('paws-profile',{detail:body}));
+      return body;
     }
 
     async function requestBinary(path,options={}){

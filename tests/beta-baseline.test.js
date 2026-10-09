@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Integrated P4 is current. DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='404e3bdf6a2cf3947ab76f41bb13ea9120c833a0';
+const BASELINE_COMMIT='05fbbfea17ded4ef9f656c863e31fc9279bdf313';
 const P4_PRODUCT_COMMIT='d62f5406ce1f89813bf928611e551e864ae165fc';
 const DOE_CALCULATOR_BASELINE_COMMIT='1fd064b0a1b2367cb2d3a58d71d6c8856fb1c74a';
 const AUTH1_PRODUCT_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';
@@ -247,12 +247,12 @@ test('the integrated P4 product frozen runtime reports zero protected drift',()=
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,65);
+  assert.equal(result.protected,68);
 });
 
-test('the current static manifest has exactly 65 protected files',()=>{
-  assert.equal(manifest().length,65);
-  assert.equal(freeze.protectedPaths({root}).length,65);
+test('the current static manifest has exactly 68 protected files',()=>{
+  assert.equal(manifest().length,68);
+  assert.equal(freeze.protectedPaths({root}).length,68);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -265,9 +265,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 65 current protected files are byte-identical to the immutable integrated P4 product blobs',()=>{
+test('all 68 current protected files are byte-identical to the immutable integrated P4 product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,65);
+  assert.equal(protectedFiles.length,68);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -499,7 +499,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,65);
+  assert.equal(protectedFiles.length,68);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -525,7 +525,7 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
 
 test('beta-baseline.json remains non-authoritative and records the stabilized Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,26);
+  assert.equal(Object.keys(baseline.sha256).length,29);
   assert.ok(baseline.sha256['faculty-admin-management.js']);
   assert.ok(baseline.sha256['afc-workflow.js']);
   assert.ok(baseline.sha256['afc-workflow-sql.js']);
@@ -544,10 +544,10 @@ test('API freeze shares the promoted integrated P4 static baseline and has zero 
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,65);
+  assert.equal(result.runtimeFiles.length,66);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,68);
+  assert.equal(result.protected,69);
   assert.ok(result.runtimeFiles.includes('server/src/auth/role-policy.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-calculator.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-course-catalog-2026-27.js'));

@@ -111,7 +111,10 @@ function createSqlDoePolicyRepository(db) {
     },
 
     async saveDraft({ policyVersionId, academicYear, expectedRevision, actorUid, bundle }) {
-      const serializedRules = (bundle.rules || []).map(rule => ({ ...rule, parameters: [...(rule.parameters || [])] }));
+      const serializedRules = (bundle.rules || []).map(rule => ({ ...rule,
+        selectors: (rule.selectors || []).map(selector => ({ ...selector,
+          ...(Array.isArray(selector.values) ? { valuesJson: JSON.stringify(selector.values) } : {}) })),
+        parameters: [...(rule.parameters || [])] }));
       if (bundle.reservePolicy) {
         const reserveRule = serializedRules.find(rule => text(rule.category).toLowerCase() === 'reserve');
         if (!reserveRule) throw Object.assign(new Error('DOE_RESERVE_RULE_REQUIRED'), { code: 'DOE_DRAFT_INVALID' });

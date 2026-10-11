@@ -6,11 +6,17 @@
       throw new TypeError('DOE Worksheet module dependencies are required.');
     }
     let worksheets = null;
+    let reviewPopover = null, reviewTrigger = null, reviewRequest = 0;
+    const reviewDetails = new Map();
     const esc = escapeHtml;
     const referenceBubble = (text, label = 'Reference') => `<details class="reference-bubble"><summary aria-label="${esc(label)} details"><span aria-hidden="true">ⓘ</span> ${esc(label)}</summary><div class="reference-bubble-content">${esc(text || 'Source not recorded')}</div></details>`;
 
-    function balanceBadge(remaining, status) {
-      if (remaining === null || status !== 'calculated') return '<span class="doe-status doe-under">Needs Review</span>';
+    function reviewButton(facultyId, field = 'DOE', count = 0) {
+      return `<button type="button" class="doe-status doe-under doe-review-trigger" data-doe-review="${esc(facultyId)}" aria-label="Needs Review: ${esc(field)} — show reasons" aria-haspopup="dialog">Needs Review${count > 0 ? ` (${count})` : ''}</button>`;
+    }
+
+    function balanceBadge(remaining, status, facultyId) {
+      if (remaining === null || status !== 'calculated') return reviewButton(facultyId, 'Remaining / Overage');
       const displayed = Number(remaining.toFixed(2));
       const label = displayed === 0 ? 'At DOE' : displayed > 0 ? 'Within DOE' : 'Over DOE';
       const tone = displayed === 0 ? 'doe-at' : displayed > 0 ? 'doe-within' : 'doe-over';
@@ -54,6 +60,78 @@
     }
 
     function finite(value) { return value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value); }
+
+    function closeReview() {
+      if (reviewPopover?.matches(':popover-open')) reviewPopover.hidePopover();
+      if (reviewTrigger?.isConnected) reviewTrigger.focus();
+    }
+
+    function positionReview() {
+      if (!reviewPopover || !reviewTrigger?.isConnected) return;
+      const anchor = reviewTrigger.getBoundingClientRect(), box = reviewPopover.getBoundingClientRect();
+      const left = Math.max(12, Math.min(anchor.left, window.innerWidth - box.width - 12));
+      const below = anchor.bottom + 8;
+      const top = below + box.height <= window.innerHeight - 12 ? below : Math.max(12, anchor.top - box.height - 8);
+      reviewPopover.style.left = `${left}px`;
+      reviewPopover.style.top = `${top}px`;
+    }
+
+    function reasonContent(worksheet) {
+      const lines = worksheet.lines || [], groups = new Map();
+      for (const error of worksheet.errors || []) {
+        const message = error.message || 'The server recorded a review issue without a description.';
+        const key = `${error.code || ''}|${message}`;
+        if (!groups.has(key)) groups.set(key, { code: error.code || '', message, scopes: new Set(), count: 0 });
+        const group = groups.get(key);
+        group.count++;
+        const line = lines.find(item => error.lineId && item.lineId === error.lineId || error.sourceEntityId && item.sourceEntityId === error.sourceEntityId);
+        if (line) {
+          const scope = [...new Set([line.roleType || line.activityType || line.category, line.courseCode, line.scopeText || line.subjectKey].filter(Boolean))].join(' · ');
+          if (scope) group.scopes.add(scope);
+        }
+      }
+      if (!groups.size) return '<p>No current review reasons were returned by the server. Refresh the DOE List to update its status.</p>';
+      return `<ul class="doe-review-reasons">${[...groups.values()].map(group => `<li><p>${esc(group.message)}</p>${group.scopes.size ? `<details class="doe-review-items"><summary>Affected items (${group.count})</summary><ul>${[...group.scopes].map(scope => `<li>${esc(scope)}</li>`).join('')}</ul></details>` : ''}${group.code ? `<details class="doe-review-diagnostic"><summary>Diagnostic details</summary><code>${esc(group.code)}</code></details>` : ''}</li>`).join('')}</ul>`;
+    }
+
+    async function openReview(button) {
+      const facultyId = button.dataset.doeReview, year = getAcademicYear();
+      const row = (worksheets || []).find(item => String(item.facultyId).toLowerCase() === String(facultyId).toLowerCase());
+      if (!row || !year) return;
+      const request = ++reviewRequest;
+      reviewTrigger = button;
+      if (!reviewPopover) {
+        reviewPopover = document.createElement('div');
+        reviewPopover.id = 'doe-review-popover';
+        reviewPopover.className = 'doe-review-popover';
+        reviewPopover.setAttribute('popover', 'auto');
+        reviewPopover.setAttribute('role', 'dialog');
+        reviewPopover.setAttribute('aria-labelledby', 'doe-review-title');
+        document.body.append(reviewPopover);
+        reviewPopover.addEventListener('click', event => {
+          if (event.target.closest('[data-doe-review-close]')) closeReview();
+          if (event.target.closest('[data-doe-review-retry]') && reviewTrigger?.isConnected) openReview(reviewTrigger);
+        });
+        reviewPopover.addEventListener('toggle', () => { if (reviewPopover.matches(':popover-open')) positionReview(); }, true);
+        window.addEventListener('resize', () => { if (reviewPopover.matches(':popover-open')) positionReview(); });
+      }
+      reviewPopover.innerHTML = `<div class="doe-review-head"><div><h2 id="doe-review-title">DOE review reasons</h2><p>${esc(row.displayName || facultyId)} · ${esc(year)}</p></div><button type="button" class="btn btn-small" data-doe-review-close aria-label="Close DOE review reasons">Close</button></div><div class="doe-review-body" aria-live="polite" aria-busy="true"><p>Loading current review reasons…</p></div>`;
+      if (!reviewPopover.matches(':popover-open')) reviewPopover.showPopover({ source: button });
+      positionReview();
+      reviewPopover.querySelector('[data-doe-review-close]').focus({ preventScroll: true });
+      const key = `${year}:${facultyId}`;
+      try {
+        const worksheet = reviewDetails.get(key) || await api.doeWorksheet({ facultyId, academicYear: year });
+        if (request !== reviewRequest || !reviewPopover.matches(':popover-open')) return;
+        reviewDetails.set(key, worksheet);
+        reviewPopover.querySelector('.doe-review-body').innerHTML = reasonContent(worksheet);
+      } catch (error) {
+        if (request !== reviewRequest || !reviewPopover.matches(':popover-open')) return;
+        reviewPopover.querySelector('.doe-review-body').innerHTML = `<p role="alert">Review reasons could not be loaded: ${esc(error.message || 'DOE service unavailable.')}</p><button type="button" class="btn btn-small" data-doe-review-retry>Retry</button>`;
+      }
+      reviewPopover.querySelector('.doe-review-body').setAttribute('aria-busy', 'false');
+      positionReview();
+    }
     async function loadDetail(facultyId, academicYear, panel, isStillSelected) {
       if (!panel) return;
       if (!academicYear) { panel.innerHTML = '<div class="warn-box">Academic year is unavailable; the server Worksheet cannot be loaded.</div>'; return; }
@@ -69,16 +147,18 @@
     function renderList() {
       const body = document.getElementById('doe-list-body');
       if (!body || !Array.isArray(worksheets)) return;
+      if (reviewPopover?.matches(':popover-open')) reviewPopover.hidePopover();
       const rosterRows = getFaculty() || [];
       const roster = new Map(rosterRows.map(row => [String(row.facultyId).toLowerCase(), row]));
       const rows = worksheets.filter(row => roster.get(String(row.facultyId).toLowerCase())?.active !== false).map(row => {
         const person = roster.get(String(row.facultyId).toLowerCase()) || {};
         const specialty = person.teachingArea || person.professionalCategory || '—';
         const assigned = finite(row.assignedTeachingDoe), target = finite(row.effectiveTargetDoe), remaining = finite(row.remainingDoe);
-        const remainingText = balanceBadge(remaining, row.status);
-        const state = row.status === 'calculated' ? 'Calculated' : [...new Set(row.issueCodes || [])].join(', ') || 'Needs Review';
+        const remainingText = balanceBadge(remaining, row.status, row.facultyId);
+        const state = row.status === 'calculated' ? 'Calculated' : reviewButton(row.facultyId, 'Calculation status', row.issueCount);
+        const value = (number, label) => finite(number) === null ? reviewButton(row.facultyId, label) : esc(formatDoe(number));
         const action = editAction(row.facultyId);
-        return `<tr><td><strong>${esc(row.displayName || person.displayName || row.facultyId)}</strong><div class="muted">${esc(row.facultyId)}</div></td><td>${esc([person.rank, specialty].filter(Boolean).join(' · ') || '—')}</td><td>${esc(formatDoe(target))}</td><td>${esc(formatDoe(row.scheduledTeachingDoe))}</td><td>${esc(formatDoe(row.roleDoe))}</td><td>${esc(formatDoe(row.rawSupervisionDoe))}</td><td>${esc(formatDoe(row.appliedSupervisionDoe))}</td><td>${esc(formatDoe(row.adjustmentDoe))}</td><td><strong>${esc(formatDoe(assigned))}</strong></td><td>${remainingText}</td><td>${policySummary(row)}</td><td>${esc(state)}${row.missingMappingCount ? ` · ${row.missingMappingCount} mapping issue(s)` : ''}</td><td><button type="button" class="btn btn-small" data-doe-view="${esc(row.facultyId)}">View DOE</button>${action}</td></tr>`;
+        return `<tr><td><strong>${esc(row.displayName || person.displayName || row.facultyId)}</strong><div class="muted">${esc(row.facultyId)}</div></td><td>${esc([person.rank, specialty].filter(Boolean).join(' · ') || '—')}</td><td>${value(target, 'Target DOE')}</td><td>${value(row.scheduledTeachingDoe, 'Scheduled teaching DOE')}</td><td>${value(row.roleDoe, 'Role DOE')}</td><td>${value(row.rawSupervisionDoe, 'Raw supervision DOE')}</td><td>${value(row.appliedSupervisionDoe, 'Applied supervision DOE')}</td><td>${value(row.adjustmentDoe, 'Adjustment DOE')}</td><td><strong>${value(assigned, 'Assigned DOE')}</strong></td><td>${remainingText}</td><td>${policySummary(row)}</td><td>${state}</td><td><button type="button" class="btn btn-small" data-doe-view="${esc(row.facultyId)}">View DOE</button>${action}</td></tr>`;
       });
       body.innerHTML = rows.join('') || '<tr><td colspan="13" class="empty">No Faculty Worksheets are available for the current Academic Year.</td></tr>';
     }
@@ -89,6 +169,9 @@
       const year = getAcademicYear();
       if (!year) { body.innerHTML = '<tr><td colspan="13" class="empty">Academic year is unavailable.</td></tr>'; if (note) note.textContent = 'DOE Worksheet requires an Academic Year.'; return; }
       if (worksheets && !force) return renderList();
+      reviewDetails.clear();
+      reviewRequest++;
+      if (reviewPopover?.matches(':popover-open')) reviewPopover.hidePopover();
       body.innerHTML = '<tr><td colspan="13" class="empty">Loading server-authoritative DOE Worksheets…</td></tr>';
       if (note) note.innerHTML = `VetMed-Ops DOE Worksheet · Academic Year ${esc(year)} <span class="doe-status doe-within">Within DOE</span> <span class="doe-status doe-at">At DOE</span> <span class="doe-status doe-over">Over DOE</span>`;
       try { worksheets = await api.doeWorksheets({ academicYear: year }); renderList(); }
@@ -97,11 +180,13 @@
 
     function bindList() {
       document.getElementById('doe-list-body')?.addEventListener('click', event => {
+        const review = event.target.closest('[data-doe-review]');
+        if (review) { openReview(review); return; }
         const button = event.target.closest('[data-doe-view]');
         if (button) onView(button.dataset.doeView);
       });
     }
-    return Object.freeze({ loadDetail, loadList, renderList, invalidate() { worksheets = null; }, bindList });
+    return Object.freeze({ loadDetail, loadList, renderList, invalidate() { worksheets = null; reviewDetails.clear(); reviewRequest++; if (reviewPopover?.matches(':popover-open')) reviewPopover.hidePopover(); }, bindList });
   }
 
   window.UCVM_FACULTY_DOE_WORKSHEET = Object.freeze({ create });

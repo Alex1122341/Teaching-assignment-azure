@@ -1,5 +1,10 @@
 # PAWS Locked Decisions
 
+## Owner-authorized Developer support — 2026-10-09
+
+Real active SQL Developer accounts may delegate into existing active accounts for 30-minute testing/support contexts. Real Firebase identity is always verified; SQL target role/scope remains authoritative. Captured business writes are atomic and audited with real actor and effective account. Undo restores only unchanged afterimages, refuses conflicts atomically, and retains original audit history. Credential/account operations and unsupported artifact writes are excluded. No manufactured accounts or privilege promotion. User authorized publication and delegated later implementation decisions. Released7256220; see developer-support release update for exact evidence and live acceptance limits.
+
+
 ## P1 controlled Beta writes — 2026-10-06
 
 **LOCKED FOR THIS BETA MILESTONE BY ARCHITECT #6:** P0's authenticated read-only platform remains accepted, but P1 is authorized to enable individually gated, audited Beta writes for existing-session scalar edits, session create/batch, safe canonical Faculty assignment replacement, AFC administrator single/batch entry, and Faculty/HICC/VISC self-service AFC submit/withdraw after each domain passes acceptance. This is a temporary Beta testing exception, not production authorization.

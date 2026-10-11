@@ -41,6 +41,10 @@ function createSqlFacultyAdminRepository(db) {
     AbvmaLicenseNumber: input.professionalProfile.abvmaLicenseNumber, AbvmaMemberType: input.professionalProfile.abvmaMemberType
   });
   return Object.freeze({
+    async updateRolePeriods(input) {
+      const rows = await run('SetRoleAppointmentPeriods', {RoleAssignmentId:input.roleAssignmentId,ExpectedVersion:input.expectedVersion,PeriodsJson:JSON.stringify(input.periods),ActorFirebaseUid:input.actorFirebaseUid});
+      return rows[0] || null;
+    },
     async updateFaculty(input) {
       const rows = await run('UpdateFaculty', paramsForUpdate(input));
       return facultyDto(rows[0]);

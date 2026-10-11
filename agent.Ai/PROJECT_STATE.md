@@ -1,6 +1,6 @@
-## Developer support deployment checkpoint — 2026-10-09
+## Developer support and Tasks published — 2026-10-09
 
-PR80/81 merged; exact-main485094deb7c46bca476f629d865f2039990f8293 CI37964488843 succeeded. Runtime66/static68 accepted against b200e27db7993b915b951641fe00e8f0d972e56e. SQL033 applied,61 reversible tables/63 capture triggers/0 support operations. SQL034 additive binary capture restores AfcManualRecord BatchPayloadHash using explicit hex style1; rolled-back schema/compiler plus generated SELECT/UPDATE/INSERT descriptors exit0,62 reversible tables. AfcArtifact remains excluded. Live789963e/PID10976 unchanged. Resume follow-up SQL034 PR/exact-main CI, persistent034, guarded runtime/Hosting release, read-only Tasks UI acceptance; no fabricated Developer login or business test writes.
+PR80/81/82 merged. Live725622029369a1b1fc97ed316701c16490cd275f, trust b200e27db7993b915b951641fe00e8f0d972e56e, API PID31904. Exact-main Beta37990808638 and migration37990808543 succeeded. SQL033/034 applied;62 reversible tables,0 support operations. Hosting68 files released; source66 attested. Chrome ADFA acceptance confirmed35 all-week tasks,571 search, close/reopen and Nov23 Prions detail/week jump. Existing Developer required for support entry; live write/Undo not exercised with ADFA. No business test records or guessed login. See updates/2026-10-09-developer-support-release-complete.md. Work complete; do not repeat migrations/imports/releases.
 
 ## Active Session SWAP release — 2026-10-09
 

@@ -101,6 +101,8 @@
     "paws_api.SubmitAfcRequest",
     "paws_api.WithdrawAfcRequest"
   ],
+  "rolePeriodReadObjects": ["paws.RoleAppointmentSchedule"],
+  "rolePeriodWriteProcedures": ["paws_api.SetRoleAppointmentPeriods"],
   "manualReadObjects": [
     "paws.Course",
     "paws.ManualDoeAssignment"

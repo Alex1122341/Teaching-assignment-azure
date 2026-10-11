@@ -20,7 +20,7 @@
       const attrs = `${options.max ? ` maxlength="${options.max}"` : ''}${options.step ? ` step="${options.step}"` : ''}`;
       return `<label class="field ${options.full || options.max >= 4000 ? 'full' : ''}"><span class="field-label">${esc(label)}</span>${options.max >= 4000 ? `<textarea class="textarea" rows="3" name="${esc(name)}"${attrs}>${esc(value ?? '')}</textarea>` : `<input class="input" name="${esc(name)}" type="${options.type || 'text'}" value="${esc(value ?? '')}"${attrs}>`}</label>`;
     }
-    function open(f, profile = {}) {
+    function open(f, profile = {}, detail = {}) {
       if (saving || !canWrite() || !f?.facultyId || !f.updatedAtUtc) return;
       ++editSequence;
       const p = profile || {}, roster = getFaculty();
@@ -50,7 +50,7 @@
       form.dataset.expectedProfileVersion = p.profileVersion || '';
       $('faculty-record-status').textContent = ''; $('faculty-record-save').disabled = false;
       if (!$('faculty-record-editor').open) $('faculty-record-editor').showModal();
-      if (typeof onEditOpen === 'function') onEditOpen(form, f, p);
+      if (typeof onEditOpen === 'function') onEditOpen(form, f, p, detail);
     }
     async function editById(facultyId) {
       if (!canWrite() || !facultyId || typeof getFacultyDetail !== 'function') return;
@@ -59,7 +59,7 @@
         const detail = await getFacultyDetail(facultyId);
         if (sequence !== editSequence) return;
         if (!detail?.faculty) throw new Error('Faculty detail could not be loaded from the PAWS University API.');
-        open(detail.faculty, detail.professionalProfile || {});
+        open(detail.faculty, detail.professionalProfile || {}, detail);
       } catch (error) { if (sequence === editSequence) notify(error?.message || 'Faculty detail could not be loaded.', true); }
     }
     function payload(form) {
@@ -123,7 +123,7 @@
           const detail = getSelectedDetail();
           const f = detail?.faculty;
           if (!f || !canWrite()) return;
-          if (action.hasAttribute('data-faculty-edit')) open(f,detail.professionalProfile || {});
+          if (action.hasAttribute('data-faculty-edit')) open(f,detail.professionalProfile || {}, detail);
           else if (action.hasAttribute('data-faculty-deactivate')) deactivate(f,detail.linkedRecords || {});
           else restore(f);
         });

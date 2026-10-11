@@ -341,7 +341,7 @@ test('50 / 51. no mutation handler is bound and the legacy writers are unreachab
 test('the read-only source message replaces the legacy workbook/Firestore claim', () => {
   assert.match(ADMIN_HTML, /PAWS University API/);
   assert.match(ADMIN_HTML, /VetMed-Ops teaching data/);
-  assert.match(ADMIN_HTML, /read-only/);
+  assert.match(ADMIN_HTML, /Status follows effective periods/);
   assert.equal(ADMIN_HTML.includes('All Faculty Summaries.xlsx'), false);
   assert.equal(ADMIN_HTML.includes('AFC Tracker Lookup'), false);
   assert.equal(ADMIN_HTML.includes('V9.7'), false);
@@ -360,7 +360,7 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 test('58–63. the Dashboard page runtime surface is bounded and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 18, 'script elements: 2 Firebase CDN + 16 local');
+  assert.equal(srcs, 19, 'script elements: 2 Firebase CDN + 17 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
   assert.equal(local.length, 16);
   assert.equal(RETIRED_SCRIPTS.length, 18);

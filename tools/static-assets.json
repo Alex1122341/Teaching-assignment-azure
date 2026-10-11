@@ -66,5 +66,6 @@
   "swap-workflow-sql.css",
   "developer-support.js",
   "workspace-tasks.js",
-  "workspace.css"
+  "workspace.css",
+  "faculty-role-periods.js"
 ]

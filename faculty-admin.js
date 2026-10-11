@@ -153,7 +153,7 @@
     on($('lookup-clear'), 'click', () => { selectedId = null; selectedDetail = null; ++detailLoadToken; renderLookup(); });
     document.querySelectorAll('.tab').forEach(tab => on(tab, 'click', () => selectTab(tab.dataset.tab)));
     on($('summary-search'), 'input', renderTeachingSummary); on($('roles-search'), 'input', renderRoles);
-    on($('role-type-filter'), 'change', renderRoles);
+    on($('role-type-filter'), 'change', renderRoles); on($('role-status-filter'), 'change', renderRoles); on($('role-as-of'), 'change', renderRoles); if ($('role-as-of')) $('role-as-of').value = window.PAWS_ROLE_PERIODS.today();
     on($('afc-search'), 'input', debounce(renderAfcRecords));
     on($('afc-reason-filter'), 'change', renderAfcRecords); on($('afc-active-filter'), 'change', renderAfcRecords); on($('afc-source-filter'), 'change', renderAfcRecords);
     on($('afc-record-form'), 'submit', submitAfcRecord);
@@ -346,8 +346,8 @@
   function fillRoleFilter() { fillSelect('role-type-filter', [...new Set((aggregateCache.roles || []).map(row => text(row.roleType)).filter(Boolean))].sort(), 'All role types'); }
   function renderRoles() {
     const body = $('roles-body'); if (!body) return; const query = norm($('roles-search')?.value), type = $('role-type-filter')?.value || '';
-    const rows = (aggregateCache.roles || []).filter(row => (!query || norm(`${row.displayName} ${row.roleType} ${row.courseOrSubjectOrRotation} ${row.courseName}`).includes(query)) && (!type || row.roleType === type));
-    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(facultyName(row, row.facultyId))}</button></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.details || '—')}</td><td>${esc(row.effectiveDate || '—')}</td><td>${esc(row.expirationDate || '—')}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.calculated)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(doe.source || row.doeSource || (doe.effective === null ? 'missing' : 'stored'))}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="14" class="empty">No role assignments.</td></tr>';
+    const rows = (aggregateCache.roles || []).filter(row => (!query || norm(`${row.displayName} ${row.roleType} ${row.courseOrSubjectOrRotation} ${row.courseName}`).includes(query)) && (!type || row.roleType === type) && (!$('role-status-filter')?.value || window.PAWS_ROLE_PERIODS.status(row, $('role-as-of')?.value || undefined).key === $('role-status-filter').value));
+    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(facultyName(row, row.facultyId))}</button></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.details || '—')}</td><td>${esc(window.PAWS_ROLE_PERIODS.status(row, $('role-as-of')?.value || undefined).label)}</td><td>${esc(window.PAWS_ROLE_PERIODS.summary(row))}</td><td>${rolePeriodsEditor.action(row)}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.calculated)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(doe.source || row.doeSource || (doe.effective === null ? 'missing' : 'stored'))}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="15" class="empty">No role assignments.</td></tr>';
     document.querySelectorAll('[data-summary-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.summaryPerson)));
   }
 
@@ -385,7 +385,7 @@
     const specialty = [profile?.teachingArea, profile?.boardCertification].filter(present);
     const specialtyHtml = specialty.length ? `<div class="specialty-box"><strong>Specialty / focus:</strong> ${specialty.map(esc).join(' · ')}</div>` : '';
     const joints = (Array.isArray(data.jointAppointments) ? data.jointAppointments : []).map((joint, index) => section(`Joint appointment ${index + 1}`, field('Home faculty', joint.homeFaculty) + field('Joint faculty', joint.jointFaculty) + field('FTE UCVM', joint.fteUcvm) + field('FTE other faculty', joint.fteOtherFaculty) + field('Expiry date', joint.expiryDate) + field('Notes', joint.notes, true))).join('');
-    const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Effective', 'Expires', 'Mapped DOE', 'Override DOE', 'Calculated DOE', 'Effective DOE', 'Source', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, role.effectiveDate, role.expirationDate, formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.calculated), formatDoe(effective.effective), effective.source || role.doeSource, role.doeOverrideReason, role.specialNotes]; })));
+    const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Status', 'Effective periods', 'Mapped DOE', 'Override DOE', 'Calculated DOE', 'Effective DOE', 'Source', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, window.PAWS_ROLE_PERIODS.status(role).label, window.PAWS_ROLE_PERIODS.summary(role), formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.calculated), formatDoe(effective.effective), effective.source || role.doeSource, role.doeOverrideReason, role.specialNotes]; })));
     const afcHtml = renderFacultyAfc(data.afcRecords);
     const scope = section('Identity / appointment metadata', field('Academic year', data.academicYear) + field('Teaching assignments', data.sessionCount) + field('Assignments needing time review', data.checkNeededCount), true);
     const canManage = !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled;
@@ -574,12 +574,22 @@
       if (activeTab === 'doe-overview') await loadDoeOverview();
     }
   });
+  const rolePeriodsEditor = (() => {
+    let editRoles = [];
+    const allRoles = () => [...(aggregateCache.roles || []), ...editRoles, ...(selectedDetail?.roles || []).map(r => ({...r,facultyId:selectedDetail.faculty.facultyId}))];
+    const editor = window.PAWS_ROLE_PERIODS.create({
+      canWrite: () => !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled,
+      getRoles: allRoles, notify: showToast,
+      onChanged: async id => { aggregateCache.roles = null; invalidateFacultyDetails(); await loadRoles(); if (selectedId === id) await selectFacultyDetail(id); }
+    });
+    return {...editor,remember: detail => {editRoles=(detail.roles||[]).map(r=>({...r,facultyId:detail.faculty.facultyId}));},rolesFor: id => allRoles().filter((r,i,a) => r.facultyId===id && a.findIndex(x=>x.roleAssignmentId===r.roleAssignmentId)===i)};
+  })();
   const facultyManagement = window.UCVM_FACULTY_ADMIN_MANAGEMENT.create({
     canWrite: () => !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled,
     getFaculty: () => faculty,
     getSelectedDetail: () => selectedDetail,
     getFacultyDetail: facultyId => UCVM_PAWS_DATA.dashboardFacultyById(facultyId),
-    onEditOpen: (form, f) => facultyDoeEdit?.mount(form, f),
+    onEditOpen: (form, f, p, detail) => { rolePeriodsEditor.remember(detail); facultyDoeEdit?.mount(form, f); const roles = rolePeriodsEditor.rolesFor(f.facultyId); form.querySelector('#faculty-record-fields')?.insertAdjacentHTML('beforeend', '<section class="form-section"><h3>Roles &amp; Appointments · effective periods</h3>' + roles.map(r => '<p>' + esc(r.roleType) + ' · ' + esc(r.courseOrSubjectOrRotation) + ' · ' + esc(window.PAWS_ROLE_PERIODS.status(r).label) + ' ' + rolePeriodsEditor.action(r) + '</p>').join('') + '</section>'); },
     notify: showToast,
     onChanged: async (id, requestedStatus) => {
       if (requestedStatus === 'inactive' && facultyStatus === 'active') facultyStatus = 'inactive';

@@ -607,6 +607,7 @@ function createSqlDashboardRepository(db) {
         db.query(
           `SELECT
                r.RoleAssignmentId AS roleAssignmentId,
+               rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),rs.ScheduleVersion,1) AS scheduleVersion,
                r.FacultyResolutionStatus AS facultyResolutionStatus,
                r.AcademicYear AS academicYear,
                r.RoleCategory AS roleCategory,
@@ -620,11 +621,11 @@ function createSqlDashboardRepository(db) {
                r.DoeOverrideValue AS doeOverrideValue,
                r.DoeOverrideReason AS doeOverrideReason,
                r.SpecialNotes AS specialNotes
-           FROM paws.RoleAssignment r
+           FROM paws.RoleAssignment r LEFT JOIN paws.RoleAppointmentSchedule rs ON rs.RoleAssignmentId=r.RoleAssignmentId
            WHERE r.FacultyId = @facultyId
              AND r.AcademicYear = @academicYear
            UNION ALL
-           SELECT m.AssignmentId,N'manual_adjustment',m.AcademicYear,N'Manual DOE adjustment',m.RoleType,
+           SELECT m.AssignmentId,NULL,NULL,N'manual_adjustment',m.AcademicYear,N'Manual DOE adjustment',m.RoleType,
                   m.ScopeText,COALESCE(m.CourseCode,m.SubjectKey),N'Negotiated manual adjustment (additive)',
                   NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
              FROM paws.ManualDoeAssignment m WHERE m.FacultyId=@facultyId AND m.AcademicYear=@academicYear AND m.Active=1
@@ -849,6 +850,8 @@ function createSqlDashboardRepository(db) {
         roles: roleRows.map(row => {
           const role = {
             roleAssignmentId: row.roleAssignmentId,
+            validityPeriods: row.validityPeriodsJson == null ? null : JSON.parse(row.validityPeriodsJson),
+            scheduleVersion: toText(row.scheduleVersion),
             facultyResolutionStatus: toText(row.facultyResolutionStatus),
             academicYear: toText(row.academicYear),
             roleCategory: toText(row.roleCategory),
@@ -1083,6 +1086,7 @@ function createSqlDashboardRepository(db) {
         `SELECT f.FacultyId AS facultyId,
                 ${facultyDisplayNameSql()} AS displayName,
                 r.RoleAssignmentId AS roleAssignmentId,
+                rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),rs.ScheduleVersion,1) AS scheduleVersion,
                 r.FacultyResolutionStatus AS facultyResolutionStatus,
                 r.AcademicYear AS academicYear,
                 r.RoleCategory AS roleCategory,
@@ -1096,12 +1100,12 @@ function createSqlDashboardRepository(db) {
                 r.DoeOverrideValue AS doeOverrideValue,
                 r.DoeOverrideReason AS doeOverrideReason,
                 r.SpecialNotes AS specialNotes
-           FROM paws.RoleAssignment r
+           FROM paws.RoleAssignment r LEFT JOIN paws.RoleAppointmentSchedule rs ON rs.RoleAssignmentId=r.RoleAssignmentId
            INNER JOIN paws.Faculty f ON f.FacultyId = r.FacultyId
           WHERE r.AcademicYear = @academicYear
             AND f.Active = 1
           UNION ALL
-          SELECT f.FacultyId,${facultyDisplayNameSql()},m.AssignmentId,N'manual_adjustment',m.AcademicYear,
+          SELECT f.FacultyId,${facultyDisplayNameSql()},m.AssignmentId,NULL,NULL,N'manual_adjustment',m.AcademicYear,
                  N'Manual DOE adjustment',m.RoleType,m.ScopeText,COALESCE(m.CourseCode,m.SubjectKey),
                  N'Negotiated manual adjustment (additive)',NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
             FROM paws.ManualDoeAssignment m
@@ -1115,6 +1119,8 @@ function createSqlDashboardRepository(db) {
           facultyId: row.facultyId,
           displayName: toText(row.displayName),
           roleAssignmentId: row.roleAssignmentId,
+          validityPeriods: row.validityPeriodsJson == null ? null : JSON.parse(row.validityPeriodsJson),
+          scheduleVersion: toText(row.scheduleVersion),
           facultyResolutionStatus: toText(row.facultyResolutionStatus),
           academicYear: toText(row.academicYear),
           roleCategory: toText(row.roleCategory),

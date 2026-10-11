@@ -35,6 +35,12 @@ function createDashboardFunctions({ api }) {
       const isAfcBatch = pathname === '/api/v1/dashboard/afc-records/batch';
       const facultyUpdate = /^\/api\/v1\/dashboard\/faculty\/([^/]+)$/.exec(pathname);
       const facultyAction = /^\/api\/v1\/dashboard\/faculty\/([^/]+)\/(restore|deactivate)$/.exec(pathname);
+      const rolePeriods = /^\/api\/v1\/dashboard\/roles\/([^/]+)\/periods$/.exec(pathname);
+      if (rolePeriods) {
+        if (request.method !== 'PUT') return {status:405,headers:{Allow:'PUT'},jsonBody:{error:{code:'METHOD_NOT_ALLOWED',message:'PUT required.'}}};
+        let payload; try {payload=await request.json();} catch {return {status:400,jsonBody:{error:{code:'INVALID_JSON',message:'Invalid JSON.'}}};}
+        const response=await api.updateRolePeriods(bearer(request),rolePeriods[1],payload);return {status:response.status,jsonBody:response.body};
+      }
       const isFacultyWrite = (!!facultyAction && request.method === 'POST') || (!!facultyUpdate && request.method === 'PATCH');
       if ((facultyAction && request.method !== 'POST') || (facultyUpdate && !['GET', 'PATCH'].includes(request.method))) {
         const allow = facultyAction ? 'POST' : 'GET, PATCH';

@@ -145,6 +145,8 @@ function createWorksheetService({ repository } = {}) {
       return {
         facultyId: row.facultyId, displayName: row.displayName, academicYear: row.academicYear,
         policyVersionId: row.policyVersionId, status: row.status, lastCalculatedAt: row.lastCalculatedAt,
+        targetPolicyVersionLabel: row.targetPolicyVersionLabel,
+        workloadSourceReference: row.workloadSourceReference, calculationBasis: row.calculationBasis,
         target: { ...(row.target || {}) }, roleAssignmentCount: roleAssignments.length, roleAssignments,
         teachingLineCount: lines.filter(line => lineSection(line.category) === 'scheduledTeaching').length,
         supervisionLineCount: lines.filter(line => lineSection(line.category) === 'supervision').length,

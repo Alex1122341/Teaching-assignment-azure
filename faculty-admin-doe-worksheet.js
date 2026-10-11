@@ -9,6 +9,25 @@
     const esc = escapeHtml;
     const referenceBubble = (text, label = 'Reference') => `<details class="reference-bubble"><summary aria-label="${esc(label)} details"><span aria-hidden="true">ⓘ</span> ${esc(label)}</summary><div class="reference-bubble-content">${esc(text || 'Source not recorded')}</div></details>`;
 
+    function balanceBadge(remaining, status) {
+      if (remaining === null || status !== 'calculated') return '<span class="doe-status doe-under">Needs Review</span>';
+      const displayed = Number(remaining.toFixed(2));
+      const label = displayed === 0 ? 'At DOE' : displayed > 0 ? 'Within DOE' : 'Over DOE';
+      const tone = displayed === 0 ? 'doe-at' : displayed > 0 ? 'doe-within' : 'doe-over';
+      const amount = displayed === 0 ? '0.00% remaining' : `${Math.abs(displayed).toFixed(2)}% ${displayed > 0 ? 'remaining' : 'over'}`;
+      return `<span class="doe-status ${tone}">${label}</span><div class="doe-balance-amount">${esc(amount)}</div>`;
+    }
+
+    function policySummary(row) {
+      const source = String(row.workloadSourceReference || '').trim();
+      const year = row.academicYear || 'Academic year not recorded';
+      const title = source ? source.split(/\s[·|]\s/)[0] : row.policyVersionId ? 'Annual DOE policy' : 'Policy source not recorded';
+      const updated = source.match(/updated\s+(\d{4}-\d{2}-\d{2})/i)?.[1];
+      const basis = row.calculationBasis === 'recorded_sources' ? 'Recorded sources' : row.policyVersionId ? 'Annual calculation' : '';
+      const details = [source, row.policyVersionId ? `Calculation policy: ${row.policyVersionId}` : 'No annual calculation policy recorded', row.targetPolicyVersionLabel ? `Target source: ${row.targetPolicyVersionLabel}` : '', row.target?.policyVersionId ? `Target policy ID: ${row.target.policyVersionId}` : ''].filter(Boolean).join(' · ');
+      return `<strong class="doe-policy-label">${esc(title)}</strong>${updated ? `<div class="muted">Updated ${esc(updated)}</div>` : ''}<div class="muted">Academic year ${esc(year)}</div>${basis ? `<div class="muted">${esc(basis)}</div>` : ''}${referenceBubble(details, 'Policy & source')}`;
+    }
+
     function renderWorksheet(worksheet) {
       const target = worksheet.target || {}, totals = worksheet.totals || {}, reserve = worksheet.reserve || {};
       const missingData = (worksheet.errors || []).some(error => ['SUPERVISION_DATA_UNAVAILABLE', 'DOE_TARGET_UNAVAILABLE', 'RESERVE_POLICY_INVALID'].includes(error.code));
@@ -56,10 +75,10 @@
         const person = roster.get(String(row.facultyId).toLowerCase()) || {};
         const specialty = person.teachingArea || person.professionalCategory || '—';
         const assigned = finite(row.assignedTeachingDoe), target = finite(row.effectiveTargetDoe), remaining = finite(row.remainingDoe);
-        const remainingText = remaining === null ? 'Needs Review' : remaining >= 0 ? `${remaining.toFixed(2)}% remaining` : `${Math.abs(remaining).toFixed(2)}% over`;
+        const remainingText = balanceBadge(remaining, row.status);
         const state = row.status === 'calculated' ? 'Calculated' : [...new Set(row.issueCodes || [])].join(', ') || 'Needs Review';
         const action = editAction(row.facultyId);
-        return `<tr><td><strong>${esc(row.displayName || person.displayName || row.facultyId)}</strong><div class="muted">${esc(row.facultyId)}</div></td><td>${esc([person.rank, specialty].filter(Boolean).join(' · ') || '—')}</td><td>${esc(formatDoe(target))}</td><td>${esc(formatDoe(row.scheduledTeachingDoe))}</td><td>${esc(formatDoe(row.roleDoe))}</td><td>${esc(formatDoe(row.rawSupervisionDoe))}</td><td>${esc(formatDoe(row.appliedSupervisionDoe))}</td><td>${esc(formatDoe(row.adjustmentDoe))}</td><td><strong>${esc(formatDoe(assigned))}</strong></td><td>${esc(remainingText)}</td><td>${esc(row.policyVersionId || 'unavailable')}</td><td>${esc(state)}${row.missingMappingCount ? ` · ${row.missingMappingCount} mapping issue(s)` : ''}</td><td><button type="button" class="btn btn-small" data-doe-view="${esc(row.facultyId)}">View DOE</button>${action}</td></tr>`;
+        return `<tr><td><strong>${esc(row.displayName || person.displayName || row.facultyId)}</strong><div class="muted">${esc(row.facultyId)}</div></td><td>${esc([person.rank, specialty].filter(Boolean).join(' · ') || '—')}</td><td>${esc(formatDoe(target))}</td><td>${esc(formatDoe(row.scheduledTeachingDoe))}</td><td>${esc(formatDoe(row.roleDoe))}</td><td>${esc(formatDoe(row.rawSupervisionDoe))}</td><td>${esc(formatDoe(row.appliedSupervisionDoe))}</td><td>${esc(formatDoe(row.adjustmentDoe))}</td><td><strong>${esc(formatDoe(assigned))}</strong></td><td>${remainingText}</td><td>${policySummary(row)}</td><td>${esc(state)}${row.missingMappingCount ? ` · ${row.missingMappingCount} mapping issue(s)` : ''}</td><td><button type="button" class="btn btn-small" data-doe-view="${esc(row.facultyId)}">View DOE</button>${action}</td></tr>`;
       });
       body.innerHTML = rows.join('') || '<tr><td colspan="13" class="empty">No Faculty Worksheets are available for the current Academic Year.</td></tr>';
     }
@@ -71,7 +90,7 @@
       if (!year) { body.innerHTML = '<tr><td colspan="13" class="empty">Academic year is unavailable.</td></tr>'; if (note) note.textContent = 'DOE Worksheet requires an Academic Year.'; return; }
       if (worksheets && !force) return renderList();
       body.innerHTML = '<tr><td colspan="13" class="empty">Loading server-authoritative DOE Worksheets…</td></tr>';
-      if (note) note.textContent = `VetMed-Ops DOE Worksheet · Academic Year ${year}`;
+      if (note) note.innerHTML = `VetMed-Ops DOE Worksheet · Academic Year ${esc(year)} <span class="doe-status doe-within">Within DOE</span> <span class="doe-status doe-at">At DOE</span> <span class="doe-status doe-over">Over DOE</span>`;
       try { worksheets = await api.doeWorksheets({ academicYear: year }); renderList(); }
       catch (error) { worksheets = null; body.innerHTML = `<tr><td colspan="13" class="empty">${esc(error.message || 'DOE List could not be loaded.')}</td></tr>`; if (note) note.textContent = 'The server DOE Worksheet service is unavailable.'; }
     }

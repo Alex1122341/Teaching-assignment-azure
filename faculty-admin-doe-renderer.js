@@ -5,6 +5,10 @@
     function referenceBubble(text, label = 'Source') {
       return `<details class="reference-bubble"><summary aria-label="${esc(label)} details"><span aria-hidden="true">ⓘ</span> ${esc(label)}</summary><div class="reference-bubble-content">${esc(text || 'Source not recorded')}</div></details>`;
     }
+    function apiTable(headers, rows) {
+      if (!rows.length) return '';
+      return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(header => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells => `<tr>${cells.map((cell, index) => `<td>${/source|reference/i.test(headers[index]) ? referenceBubble(display(cell)) : esc(display(cell))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    }
     function renderContractDoe(contractDoe, faculty = {}) {
       const data = contractDoe && typeof contractDoe === 'object' ? contractDoe : {};
       const categoryLabels = {
@@ -139,7 +143,7 @@
       return `<section class="section wide"><div class="section-title">Teaching / Courses</div>${body}</section>`;
     }
 
-    return Object.freeze({ renderContractDoe, renderDoeRuleBook, renderDoeSummary, renderTeachingCourses, referenceBubble });
+    return Object.freeze({ renderContractDoe, renderDoeRuleBook, renderDoeSummary, renderTeachingCourses, referenceBubble, apiTable });
   }
 
   window.UCVM_FACULTY_DOE_RENDERER = Object.freeze({ create });

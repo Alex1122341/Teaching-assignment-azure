@@ -535,7 +535,7 @@
     } finally { if (detailPending.get(id) === request) detailPending.delete(id); }
   }
 
-  function apiTable(headers, rows) { if (!rows.length) return ''; return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(header => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells => `<tr>${cells.map((cell, index) => `<td>${/source|reference/i.test(headers[index]) ? DOE_PROFILE_RENDERER.referenceBubble(display(cell)) : esc(display(cell))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
+  function apiTable(headers, rows) { return DOE_PROFILE_RENDERER.apiTable(headers, rows); }
   function apiSection(title, table) { return table ? `<section class="section wide"><div class="section-title">${esc(title)}</div>${table}</section>` : ''; }
   function display(value) { if (!present(value)) return '—'; if (typeof value === 'object') return JSON.stringify(value); return String(value); }
   function field(label, value, full = false) { return present(value) ? `<div class="field ${full ? 'full' : ''}"><div class="field-label">${esc(label)}</div><div class="field-value">${/source|reference/i.test(label) ? DOE_PROFILE_RENDERER.referenceBubble(display(value)) : esc(display(value))}</div></div>` : ''; }

@@ -109,7 +109,7 @@ test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
   const freeze=require('../tools/beta-freeze.js');
   const baseline=require('../tools/beta-baseline.json');
   assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
-  assert.equal(freeze.BASELINE_COMMIT,'b200e27db7993b915b951641fe00e8f0d972e56e');
+  assert.equal(freeze.BASELINE_COMMIT,'dfbd5bc11f7bc303732f6cb170d74563410eb4a8');
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);

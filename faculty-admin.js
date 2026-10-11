@@ -535,10 +535,10 @@
     } finally { if (detailPending.get(id) === request) detailPending.delete(id); }
   }
 
-  function apiTable(headers, rows) { if (!rows.length) return ''; return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(header => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells => `<tr>${cells.map(cell => `<td>${esc(display(cell))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
+  function apiTable(headers, rows) { return DOE_PROFILE_RENDERER.apiTable(headers, rows); }
   function apiSection(title, table) { return table ? `<section class="section wide"><div class="section-title">${esc(title)}</div>${table}</section>` : ''; }
   function display(value) { if (!present(value)) return '—'; if (typeof value === 'object') return JSON.stringify(value); return String(value); }
-  function field(label, value, full = false) { return present(value) ? `<div class="field ${full ? 'full' : ''}"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(display(value))}</div></div>` : ''; }
+  function field(label, value, full = false) { return present(value) ? `<div class="field ${full ? 'full' : ''}"><div class="field-label">${esc(label)}</div><div class="field-value">${/source|reference/i.test(label) ? DOE_PROFILE_RENDERER.referenceBubble(display(value)) : esc(display(value))}</div></div>` : ''; }
   function section(title, body, wide = false) { return body.trim() ? `<section class="section ${wide ? 'wide' : ''}"><div class="section-title">${esc(title)}</div><div class="field-grid">${body}</div></section>` : ''; }
   function detailFailureMessage(error) { const status = Number(error?.status) || 0, code = String(error?.code || ''); if (status === 404 || code === 'FACULTY_NOT_FOUND') return 'This faculty record was not found in the Dashboard data source.'; if (status === 401 || code === 'UNAUTHENTICATED') return 'Your Dashboard session could not be verified. Your sign-in is still active.'; if (status === 403 || ['ROLE_DENIED', 'PROFILE_REQUIRED', 'FACULTY_LINK_REQUIRED'].includes(code)) return error?.message || 'This account cannot read that faculty record.'; if (status === 503 || code === 'SQL_UNAVAILABLE' || status === 0) return 'Faculty data is temporarily unavailable. Your sign-in is still active.'; return error?.message || 'Faculty detail could not be loaded.'; }
   function cameFromTimetable(){

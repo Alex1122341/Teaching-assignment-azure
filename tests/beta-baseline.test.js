@@ -525,7 +525,7 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
 
 test('beta-baseline.json remains non-authoritative and records the stabilized Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,29);
+  assert.equal(Object.keys(baseline.sha256).length,69);
   assert.ok(baseline.sha256['faculty-admin-management.js']);
   assert.ok(baseline.sha256['afc-workflow.js']);
   assert.ok(baseline.sha256['afc-workflow-sql.js']);

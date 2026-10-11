@@ -131,6 +131,7 @@ function createHarness(overrides = {}) {
   vm.runInNewContext(DOE_RENDERER_SOURCE, context, { filename: 'faculty-admin-doe-renderer.js' });
   vm.runInNewContext(DOE_WORKSHEET_SOURCE, context, { filename: 'faculty-admin-doe-worksheet.js' });
   vm.runInNewContext(MANAGEMENT_SOURCE, context, { filename: 'faculty-admin-management.js' });
+  vm.runInNewContext(read('faculty-role-periods.js'), context);
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
     calls, errors, byId,
@@ -161,7 +162,7 @@ test('A / D. the page loads only the Firebase app+auth CDN and bounded local scr
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-admin.js']);
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'faculty-admin.js']);
   assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 18, '18 script elements total');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
@@ -451,7 +452,7 @@ test('AN. the opt-in timing hooks are preserved', () => {
 // 33: static page acceptance
 // ===========================================================================
 test('33. the page exposes the read-only Lookup experience and nothing retired', () => {
-  for (const present of ['Faculty Dashboard', 'PAWS University API', 'VetMed-Ops teaching data', 'read-only', 'id="kpi-total"', 'id="lookup-search"', 'id="filter-rank"', 'id="profile-pane"', 'index.html#approvals', 'user-management.html', 'password.html', 'id="signout-btn"']) {
+  for (const present of ['Faculty Dashboard', 'PAWS University API', 'VetMed-Ops teaching data', 'Status follows effective periods', 'id="kpi-total"', 'id="lookup-search"', 'id="filter-rank"', 'id="profile-pane"', 'index.html#approvals', 'user-management.html', 'password.html', 'id="signout-btn"']) {
     assert.equal(ADMIN_HTML.includes(present), true, `${present} must be present`);
   }
   for (const absent of ['firestore', 'xlsx', 'V9.7', 'data-general-only', 'edit-modal', 'derived-index', 'history-view', 'database-view', 'sessional-view']) {

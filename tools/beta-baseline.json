@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "51edeff6dd285a5062bb874117d24f4925889300",
+  "sourceCommit": "c756a20b96b76d8eef5561e9afbd17523969645c",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "index.html": "44fa12e39fa9b34841fa6e9b2abd86a4bc38cb8dd28b2ac3405e5bf126562398",
@@ -8,7 +8,7 @@
     "faculty-admin-management.js": "09f2bd9fac442345b551152114891a87f77f44ef1bab96a0f889d71301f4aa0e",
     "faculty-admin.html": "a801dbb5966830fdf463bf11105d23cd5be61433ea013fbf9e8f7ad5a1d45d9d",
     "faculty-admin.js": "0482e2403be02de81c0d58d450d3e5899e203851138373776aa04b0e67c66b6c",
-    "faculty-admin.css": "0c8ccf8f00d4dc405624a449d28ee29d92b7beb329700727c884f35938728585",
+    "faculty-admin.css": "baa5a3f1c0751b483b3620b4ee4390f3f0c68bec1c7973f2cbab621fb9ee8184",
     "dashboard-view-model.js": "742b81419eeca591c3a35a439e9964febc42c398d683f25700fb77d226492b43",
     "faculty-access.js": "74bb21e8da53d6129ef0115d83d3dc032487edcb3febc0fac517117065820015",
     "paws-api-origin.js": "e0b8546a6f973a9bd11d02aaf67739a44b7603d078aed3e9efc315549df06708",

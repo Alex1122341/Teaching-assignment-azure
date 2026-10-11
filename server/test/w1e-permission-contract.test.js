@@ -26,12 +26,12 @@ test('W1E permission contract covers every SQL repository object and stored proc
   procedures.push(...[...sources.matchAll(/\bexec\(\s*'([A-Za-z0-9_]+)'/g)]
     .map(match => `paws_api.${match[1]}`));
   const expectedObjects = [
-    ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects,
+    ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
     ...contract.readProcedures, ...contract.p2ReadProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
     ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat()
   ];
-  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects])].sort());
+  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
 });
 

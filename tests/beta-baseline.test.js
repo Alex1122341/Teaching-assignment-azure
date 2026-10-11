@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Integrated P4 is current. DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='97a4a6550fcca9525565f428cb3cc12b728a6583';
+const BASELINE_COMMIT='ad6ce0836853b91165fdf3d1efd637a71ab160d2';
 const P4_PRODUCT_COMMIT='d62f5406ce1f89813bf928611e551e864ae165fc';
 const DOE_CALCULATOR_BASELINE_COMMIT='1fd064b0a1b2367cb2d3a58d71d6c8856fb1c74a';
 const AUTH1_PRODUCT_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';

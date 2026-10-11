@@ -362,7 +362,7 @@ test('58–63. the Dashboard page runtime surface is bounded and makes no latenc
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
   assert.equal(srcs, 19, 'script elements: 2 Firebase CDN + 17 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 16);
+  assert.equal(local.length, 17);
   assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });

@@ -17,4 +17,3 @@ if(after.length!==14||after.some(r=>Math.abs(Number(r.DoeMappedValue)-plan.corre
 fs.writeFileSync(path.join(out,'correction-after.json'),JSON.stringify(after,null,2));
 console.log(JSON.stringify({correctedRoles:14,sourceSha256:plan.sourceSha256,policyPublished:false,rows}));
 }finally{await db.close()}})().catch(e=>{console.error(e.stack);process.exitCode=1;});
-

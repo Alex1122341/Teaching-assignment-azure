@@ -35,4 +35,3 @@ Approved annual source exceptions clear old-calculator discrepancy flags only wh
 Independent review found the500faculty truncation risk; explicit overflow rejection fixes it. Closure review reported no remaining findings. Syntax/diff checks passed; no additional tests run or added. Existing automated CI remains the release gate.
 
 Private receipts are on the authorized server under Acceptance/RuleBookRationalization-20261011; personal source records are not repository content. Do not rerun revision1 Draft import or14-role corrections. They are guarded against repeat application.
-

@@ -82,4 +82,3 @@ fs.writeFileSync(path.join(out,'after-policy.json'),JSON.stringify(await repo.ge
 fs.writeFileSync(path.join(out,'validation.json'),JSON.stringify(validation,null,2));
 console.log(JSON.stringify({savedDraftRevision:saved.version.revision,validation,roleDataApplied:false,policyPublished:false}));
 }finally{await db.close();}})().catch(e=>{console.error(e.stack);process.exitCode=1;});
-

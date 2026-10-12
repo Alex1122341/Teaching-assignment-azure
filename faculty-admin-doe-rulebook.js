@@ -120,6 +120,14 @@
       if(source==='other'||!source)return 'Entry point: determined by your conditions. Verify that Calendar or ADFA Dashboard supplies every declared fact before publication.';
       return 'Entry point: ADFA Dashboard · role/appointment, supervision, target or reserve facts. The rule is used when those matching assignment facts are calculated. Saving a Draft does not change the current faculty DOE; Impact Preview shows what would change.';
     }
+    function exampleResult(row){
+      const value=name=>{const p=(row.parameters||[]).find(p=>p.name===name);return p?.valueNumber==null||p.valueNumber===''?null:Number(p.valueNumber);};
+      const mode=row.calculationMode,fixed=value('fixed'),rate=value('rate');
+      if(mode==='fixed'&&Number.isFinite(fixed)&&fixed!==null)return `Using your value: each matching assignment returns ${fixed}% ${row.resultKind==='target'?'target':'DOE'}. Conditions and priority determine whether this rule is selected.`;
+      const units={per_hour:[2,'credited hours'],per_week:[4,'weeks'],per_shift:[2,'shifts'],per_trainee:[2,'trainees']};
+      if(units[mode]&&rate!==null&&Number.isFinite(rate)){const [quantity,label]=units[mode];return `Illustration using your rate: ${quantity} ${label} × ${rate} = ${Number((quantity*rate).toFixed(6))}% DOE. The quantity is an example, not a supplied assignment fact.`;}
+      return 'Enter your actual approved DOE value/rate. Complex formulas, bands, caps and reserve application must be checked with the server Impact Preview; this illustration does not save or apply a calculation.';
+    }
     function openRuleChoices(){
       if(locked||!canAddRule())return;
       editing=null;node('doe-rulebook-editor-title').textContent='Add Rule · choose its entry point';
@@ -153,7 +161,7 @@
       const fields=defs=>defs.map(d=>inputHtml({...d,required:d.required||key==='rules'&&editing.index<0&&['referenceId','priority'].includes(d.key)},row[d.key],'root',!editable())).join('');
       if(key==='rules'){
         const basics=['ruleLabel','calculationMode','referenceId','reviewStatus','enabled',...(editing.index<0?['priority']:[])];
-        node('doe-rulebook-editor-fields').innerHTML=`<div class="doe-entry-guide" id="${idPrefix}doe-rule-entry-guide">${esc(originGuide(row))}</div><section class="doe-editor-section"><h4>Rule essentials</h4><div class="doe-editor-grid doe-essentials">${fields(schemas.rules.filter(d=>basics.includes(d.key)))}</div></section><div class="doe-condition-summary"><span class="field-label">Applies when</span><p id="${idPrefix}doe-rule-condition-summary">${esc(conditionSummary(row))}</p><small>${editing.index<0?"Fill the matching conditions below.":"Edit conditions in Advanced settings."}</small></div>${editing.index<0?["selectors","inputs"].map(k=>nestedHtml(k,row[k]||[])).join(""):""}${nestedHtml('parameters',row.parameters||[])}<details class="doe-editor-disclosure" data-disclosure="formula" ${row.calculationMode==='formula'?'open':''}><summary>Formula</summary>${fields(schemas.rules.filter(d=>d.key==='formulaText'))}</details><details class="doe-editor-disclosure" data-disclosure="tiers" ${row.calculationMode==='tiered'?'open':''}><summary>DOE tiers · ${(row.tiers||[]).length}</summary>${nestedHtml('tiers',row.tiers||[])}</details><details class="doe-editor-disclosure" data-disclosure="advanced" ><summary>Advanced settings <span>Conditions, inputs & rule identifiers</span></summary><div class="doe-editor-grid">${fields(schemas.rules.filter(d=>!basics.includes(d.key)&&d.key!=='formulaText'))}</div>${editing.index<0?'':['selectors','inputs'].map(k=>nestedHtml(k,row[k]||[])).join('')}</details>`;
+        node('doe-rulebook-editor-fields').innerHTML=`<div class="doe-entry-guide" id="${idPrefix}doe-rule-entry-guide">${esc(originGuide(row))}</div><section class="doe-editor-section"><h4>Rule essentials</h4><div class="doe-editor-grid doe-essentials">${fields(schemas.rules.filter(d=>basics.includes(d.key)))}</div></section><div class="doe-condition-summary"><span class="field-label">Applies when</span><p id="${idPrefix}doe-rule-condition-summary">${esc(conditionSummary(row))}</p><small>${editing.index<0?"Fill the matching conditions below.":"Edit conditions in Advanced settings."}</small></div>${editing.index<0?["selectors","inputs"].map(k=>nestedHtml(k,row[k]||[])).join(""):""}${nestedHtml('parameters',row.parameters||[])}<aside class="doe-entry-guide"><strong>Result illustration ? not applied</strong><p id="${idPrefix}doe-rule-example-result">${esc(exampleResult(row))}</p></aside><details class="doe-editor-disclosure" data-disclosure="formula" ${row.calculationMode==='formula'?'open':''}><summary>Formula</summary>${fields(schemas.rules.filter(d=>d.key==='formulaText'))}</details><details class="doe-editor-disclosure" data-disclosure="tiers" ${row.calculationMode==='tiered'?'open':''}><summary>DOE tiers · ${(row.tiers||[]).length}</summary>${nestedHtml('tiers',row.tiers||[])}</details><details class="doe-editor-disclosure" data-disclosure="advanced" ><summary>Advanced settings <span>Conditions, inputs & rule identifiers</span></summary><div class="doe-editor-grid">${fields(schemas.rules.filter(d=>!basics.includes(d.key)&&d.key!=='formulaText'))}</div>${editing.index<0?'':['selectors','inputs'].map(k=>nestedHtml(k,row[k]||[])).join('')}</details>`;
       }else node('doe-rulebook-editor-fields').innerHTML=`<div class="doe-editor-grid">${fields(schemas[key])}</div>`;
       node('doe-rulebook-editor-fields').querySelectorAll('details[data-disclosure]').forEach(d=>{if(expanded.includes(d.dataset.disclosure))d.open=true;});
       node('doe-rulebook-editor-apply').hidden=!editable();
@@ -229,7 +237,7 @@
           element.querySelector('[data-field="values"]').required=set;
         });
         const current=readEditor(false);node('doe-rule-condition-summary').textContent=conditionSummary(current);
-        node('doe-rule-entry-guide').textContent=originGuide(current);
+        node('doe-rule-entry-guide').textContent=originGuide(current);node('doe-rule-example-result').textContent=exampleResult(current);
         if(current.calculationMode==='formula')node('doe-rulebook-editor-fields').querySelector('[data-disclosure="formula"]').open=true;
         if(current.calculationMode==='tiered')node('doe-rulebook-editor-fields').querySelector('[data-disclosure="tiers"]').open=true;
       });

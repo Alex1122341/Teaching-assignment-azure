@@ -608,6 +608,7 @@
   doeWorksheetView.bindList();
   doePolicyView = window.UCVM_FACULTY_DOE_POLICY?.create({
     api: UCVM_PAWS_DATA,
+    getFaculty: () => faculty,
     getAcademicYear: currentAcademicYear,
     canAdmin: () => !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.doeAdminWriteEnabled?.() === true,
     canPublish: () => !selfMode && dashboardGeneral(currentUser) && UCVM_PAWS_DATA.doePolicyPublishEnabled?.() === true,

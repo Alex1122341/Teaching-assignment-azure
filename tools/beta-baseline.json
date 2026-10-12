@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "22a4734b3ebcdb1aa4ccd6349e8c69adb9436b7d",
+  "sourceCommit": "277c3cdfb1b9aa4cb9002f686a76a29a73a7f57b",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "index.html": "44fa12e39fa9b34841fa6e9b2abd86a4bc38cb8dd28b2ac3405e5bf126562398",
@@ -7,7 +7,7 @@
     "timetable.css": "c63af5fe18a0f7001c1903829775bcb4c432111fc2b6d57e756f4649133c5c39",
     "faculty-admin-management.js": "09f2bd9fac442345b551152114891a87f77f44ef1bab96a0f889d71301f4aa0e",
     "faculty-admin.html": "a801dbb5966830fdf463bf11105d23cd5be61433ea013fbf9e8f7ad5a1d45d9d",
-    "faculty-admin.js": "0482e2403be02de81c0d58d450d3e5899e203851138373776aa04b0e67c66b6c",
+    "faculty-admin.js": "ef38db35de56fed42a659d7d69c9635a29598d1f117f53ead943fd015440226d",
     "faculty-admin.css": "80f12f9b4952f59234698ed4d4468fbc5dd2bbd463d6ac4909f24e270db01533",
     "dashboard-view-model.js": "742b81419eeca591c3a35a439e9964febc42c398d683f25700fb77d226492b43",
     "faculty-access.js": "74bb21e8da53d6129ef0115d83d3dc032487edcb3febc0fac517117065820015",
@@ -22,9 +22,9 @@
     "teaching-assignments.js": "84c3f2d7871258e89ebff618380c2d2d9cfbe1dd3cf50f86c37e9d8d658059e9",
     "faculty-admin-doe-worksheet.js": "2228dbc056eb0f0ff295927f410c9aa7b41bbdc9c1871a821745bd28f4ac8773",
     "faculty-admin-doe-manual.js": "992ff87c3a9e13c455d0e2a2cd8a9e43dd4256de610f38d6cb8cee9cb9f992de",
-    "faculty-admin-doe-policy.js": "547f62d7695a73b92ca0b71fd08c4e48627b2c24b421f944e934aba94174acab",
-    "faculty-admin-doe-rulebook.js": "31765954e5bcb68cd6ff352b3ad8d0e25ee7a5d20f8aea0d592075af4d0b5fd3",
-    "faculty-admin-doe-rulebook.css": "4fd23b28265947bb93085c0491582505088d88d6a495e2e6fdb76c0906dbc523",
+    "faculty-admin-doe-policy.js": "ea15b4936fd065bcddc42ae6c6dd3827f80bde6051c95148d76e31c94e461d6a",
+    "faculty-admin-doe-rulebook.js": "e5ae30580a7344403a39bc851782f4f145d489a75153b05cd1343cbc1c4227ea",
+    "faculty-admin-doe-rulebook.css": "1872bdf97745f7beea1d754063f7bc0660f44438c4ae44884d6cbfc20716db3c",
     "faculty-name.js": "85d22a5b28365b7017d4e77cc5f78f8a16ed7e3a1332e36aecc65590e36bbc03",
     "swap-workflow-sql.js": "85134023b54a3ac8e82e266048cb8934233d84fce5643115fa29aa39179f188c",
     "swap-workflow-sql.css": "43c9d4733a941ea3e845df917f1fdc8fe407939c2f98635d98f90d15b99448db",

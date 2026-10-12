@@ -1,6 +1,8 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { createSqlDoeWorksheetRepository } = require('./sql-doe-worksheet-repository');
+const { recordedDataset, datasetChecksum, projectRecordedSource } = require('../doe/doe-recorded-source-impact');
 
 const text = value => value === null || value === undefined ? '' : String(value).trim();
 const nullable = value => value === null || value === undefined || value === '' ? null : value;
@@ -255,7 +257,16 @@ function createSqlDoePolicyRepository(db) {
         }
       }
       const impactRunId = uid();
-      const inputDatasetChecksum = crypto.createHash('sha256').update(JSON.stringify(sources.map(row => [text(row.assignmentFactId), Number(row.revision), row.oldDoe === null ? null : Number(row.oldDoe)]))).digest('hex');
+      const recorded = recordedDataset(await createSqlDoeWorksheetRepository(db).listFacultyWorksheetSources(academicYear));
+      if (recorded.length + sources.length > 10000) throw Object.assign(new Error('DOE source impact exceeds the bounded 10000-line limit.'), { code: 'DOE_IMPACT_LIMIT_EXCEEDED' });
+      for (const sourceLine of recorded) {
+        const row = await projectRecordedSource({ ...sourceLine, calculate });
+        if (row.issueCode) { needsReview++; if (row.status === 'needs_mapping') mappingGaps++; }
+        else if (row.status !== 'unchanged') { assignmentsChanged++; affectedFaculty.add(text(row.facultyId)); }
+        if (row.deltaDoe !== null) totalDelta += row.deltaDoe;
+        rows.push(row);
+      }
+      const inputDatasetChecksum = datasetChecksum(sources, recorded);
       const rowJson = JSON.stringify(rows);
       const results = await db.query(
         `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;
@@ -278,7 +289,30 @@ function createSqlDoePolicyRepository(db) {
     },
 
     async publishPolicy({ policyVersionId, academicYear, revision, actorUid }) {
+      if (typeof db.transaction === 'function' && !db.isTransactionActive?.()) {
+        return db.transaction(() => this.publishPolicy({ policyVersionId, academicYear, revision, actorUid }));
+      }
       try {
+        // The real SQL adapter holds SERIALIZABLE source reads through publication.
+        if (typeof db.transaction === 'function') {
+          const impact = await db.query(`SELECT TOP(1) InputDatasetChecksum AS inputDatasetChecksum,NeedsReview AS needsReview
+            FROM paws.DoeImpactRun WHERE PolicyVersionId=@policyVersionId AND DraftRevision=@revision ORDER BY CreatedAtUtc DESC`,
+            { policyVersionId, revision });
+          const normalized = await db.query(`SELECT TOP (2001) a.AssignmentFactId AS assignmentFactId,a.FacultyId AS facultyId,a.AcademicYear AS academicYear,
+                a.Category AS category,a.RoleType AS roleType,a.ActivityType AS activityType,a.ScopeText AS scopeText,
+                a.CourseCode AS courseCode,a.SubjectKey AS subjectKey,a.SessionId AS sessionId,
+                a.SessionAssignmentId AS sessionAssignmentId,a.SourceEntityType AS sourceEntityType,
+                a.SourceEntityId AS sourceEntityId,a.Revision AS revision,c.ResultDoe AS oldDoe,
+                (SELECT i.InputName AS inputName,i.ValueType AS valueType,i.ValueText AS valueText,i.ValueNumber AS valueNumber
+                   FROM paws.DoeAssignmentFactInput i WHERE i.AssignmentFactId=a.AssignmentFactId FOR JSON PATH) AS inputsJson
+           FROM paws.DoeAssignmentFact a LEFT JOIN paws.DoeCalculationRecord c ON c.CalculationId=a.CurrentCalculationId
+          WHERE a.AcademicYear=@academicYear AND a.Active=1 ORDER BY a.AssignmentFactId`, { academicYear });
+          const recorded = recordedDataset(await createSqlDoeWorksheetRepository(db).listFacultyWorksheetSources(academicYear));
+          if (!impact.length || Number(impact[0].needsReview) !== 0 ||
+              impact[0].inputDatasetChecksum !== datasetChecksum(normalized, recorded)) {
+            throw Object.assign(new Error('Current DOE sources must pass a fresh complete Impact Preview before publication.'), { code: 'DOE_IMPACT_STALE_OR_INCOMPLETE' });
+          }
+        }
         const rows = await db.query(
           `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;
            DECLARE @checksum char(64),@impactRunId uniqueidentifier,@publicationId uniqueidentifier=NEWID(),@before nvarchar(max);

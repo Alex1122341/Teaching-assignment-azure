@@ -161,6 +161,7 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
   let pool;
   const transactions = new AsyncLocalStorage();
   return {
+    isTransactionActive() { return Boolean(transactions.getStore()); },
     async transaction(callback, {supportOperationId=null}={}) {
       if(transactions.getStore())throw Error('Nested request transaction is unsupported');
       if(!pool)await this.query('SELECT 1 AS ready');

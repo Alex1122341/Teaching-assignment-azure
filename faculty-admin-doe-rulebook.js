@@ -98,11 +98,22 @@
       node('doe-rulebook-add').disabled=locked||!editable();
       node('doe-rulebook-dirty').textContent=dirty?'Unsaved draft changes · Save Draft before validation or preview.':'Saved version';
     }
-    function nestedHtml(key,rows){return `<fieldset class="doe-nested"><legend>${esc(key==='inputs'?'Declared inputs':key)}</legend><div data-nested="${key}">${rows.map((raw,index)=>{const row=typeof raw==='string'?{inputName:raw,required:true}:raw;return `<div class="doe-nested-row" data-row="${index}">${schemas[key].map(d=>inputHtml(d,row[d.key],key,!editable())).join('')}<button class="btn btn-small" data-remove="${key}" data-row="${index}" type="button" ${editable()?'':'disabled'}>Remove</button></div>`;}).join('')}</div><button class="btn btn-small" data-add-nested="${key}" type="button" ${editable()?'':'disabled'}>Add ${esc(key==='inputs'?'input':key.replace(/s$/,''))}</button></fieldset>`;}
+    const friendly = value => text(value).replace(/([a-z])([A-Z])/g,'$1 $2').replace(/_/g,' ');
+    function conditionSummary(row){
+      const operators={equals:'is',not_equals:'is not',in:'is one of',not_in:'is not one of',gt:'is greater than',gte:'is at least',lt:'is less than',lte:'is at most'};
+      return (row.selectors||[]).map(s=>`${friendly(s.field)} ${operators[s.operator]||s.operator} ${['in','not_in'].includes(s.operator)?(Array.isArray(s.values)?s.values.join(', '):s.values||'unspecified'):s.valueNumber??s.valueText??'unspecified'}`).join(' · ')||'All matching contexts (no additional conditions)';
+    }
+    function nestedHtml(key,rows){return `<fieldset class="doe-nested"><legend>${esc(key==='inputs'?'Declared inputs':key==='parameters'?'DOE values & rates':key)}</legend><div data-nested="${key}">${rows.map((raw,index)=>{const row=typeof raw==='string'?{inputName:raw,required:true}:raw;const fields=key==='parameters'?`${inputHtml({...schemas.parameters[1],label:row.name==='fixed'?'Fixed DOE (%)':friendly(row.name)||'Numeric value'},row.valueNumber,key,!editable())}<details class="doe-parameter-details" data-disclosure="parameter-${index}"><summary>Parameter details</summary><div class="doe-editor-grid">${[schemas.parameters[0],schemas.parameters[2]].map(d=>inputHtml(d,row[d.key],key,!editable())).join('')}</div></details>`:schemas[key].map(d=>inputHtml(d,row[d.key],key,!editable())).join('');return `<div class="doe-nested-row ${key==='parameters'?'doe-parameter-row':''}" data-row="${index}">${fields}<button class="btn btn-small" data-remove="${key}" data-row="${index}" type="button" ${editable()?'':'disabled'}>Remove</button></div>`;}).join('')}</div><button class="btn btn-small" data-add-nested="${key}" type="button" ${editable()?'':'disabled'}>Add ${esc(key==='inputs'?'input':key.replace(/s$/,''))}</button></fieldset>`;}
     function drawEditor(){
       const {key,row}=editing;
+      const expanded=[...node('doe-rulebook-editor-fields').querySelectorAll('details[open][data-disclosure]')].map(d=>d.dataset.disclosure);
       node('doe-rulebook-editor-title').textContent=`${editable()?'Edit':'View'} ${labels[key]}`;
-      node('doe-rulebook-editor-fields').innerHTML=`<div class="doe-editor-grid">${schemas[key].map(d=>inputHtml(d,row[d.key],'root',!editable())).join('')}</div>${key==='rules'?['selectors','inputs','parameters','tiers'].map(k=>nestedHtml(k,row[k]||[])).join(''):''}`;
+      const fields=defs=>defs.map(d=>inputHtml(d,row[d.key],'root',!editable())).join('');
+      if(key==='rules'){
+        const basics=['ruleLabel','calculationMode','referenceId','reviewStatus','enabled'];
+        node('doe-rulebook-editor-fields').innerHTML=`<section class="doe-editor-section"><h4>Rule essentials</h4><div class="doe-editor-grid doe-essentials">${fields(schemas.rules.filter(d=>basics.includes(d.key)))}</div></section><div class="doe-condition-summary"><span class="field-label">Applies when</span><p id="doe-rule-condition-summary">${esc(conditionSummary(row))}</p><small>Edit conditions in Advanced settings.</small></div>${nestedHtml('parameters',row.parameters||[])}<details class="doe-editor-disclosure" data-disclosure="formula" ${row.calculationMode==='formula'?'open':''}><summary>Formula</summary>${fields(schemas.rules.filter(d=>d.key==='formulaText'))}</details><details class="doe-editor-disclosure" data-disclosure="tiers" ${row.calculationMode==='tiered'?'open':''}><summary>DOE tiers · ${(row.tiers||[]).length}</summary>${nestedHtml('tiers',row.tiers||[])}</details><details class="doe-editor-disclosure" data-disclosure="advanced" ${editing.index<0?'open':''}><summary>Advanced settings <span>Conditions, inputs & rule identifiers</span></summary><div class="doe-editor-grid">${fields(schemas.rules.filter(d=>!basics.includes(d.key)&&d.key!=='formulaText'))}</div>${['selectors','inputs'].map(k=>nestedHtml(k,row[k]||[])).join('')}</details>`;
+      }else node('doe-rulebook-editor-fields').innerHTML=`<div class="doe-editor-grid">${fields(schemas[key])}</div>`;
+      node('doe-rulebook-editor-fields').querySelectorAll('details[data-disclosure]').forEach(d=>{if(expanded.includes(d.dataset.disclosure))d.open=true;});
       node('doe-rulebook-editor-apply').hidden=!editable();
       node('doe-rulebook-editor-error').textContent='';
     }
@@ -132,7 +143,7 @@
       const row=clone(original||{reviewStatus:'needs_review',enabled:true});
       if(!original&&key!=='reservePolicy')row[key==='rules'?'ruleId':key==='references'?'referenceId':key==='exceptions'?'exceptionId':'mappingId']=crypto.randomUUID();
       if(key==='rules'&&!original){const groupCategory={assigned:'assigned_teaching',coordination:'course_coordination',clinical:'rotation',supervision:'supervision',hicc:'hicc',reserve:'reserve',other:'approved_activity'};const initialCategory=groupCategory[group]||(category==='role'?'course_coordination':category==='supervision'?'supervision':category==='target'?'target':'teaching');Object.assign(row,{category:initialCategory,calculationMode:'fixed',resultKind:initialCategory==='target'?'target':'credit',priority:0,selectors:[],inputs:[],parameters:[],tiers:[]});}
-      editing={key,index,row};drawEditor();node('doe-rulebook-editor').showModal();
+      editing={key,index,row};node('doe-rulebook-editor-fields').innerHTML='';drawEditor();node('doe-rulebook-editor').showModal();
     }
     function mount(host){
       root=host;
@@ -149,8 +160,20 @@
             if(button.dataset.addNested)editing.row[key].push(key==='inputs'?{required:true}:key==='selectors'?{operator:'equals',valueType:'text'}:key==='tiers'?{tierOrder:editing.row[key].length,fromValue:0}:{});
             else editing.row[key].splice(Number(button.dataset.row),1);
             drawEditor();
+            const added=node('doe-rulebook-editor-fields').querySelector(`[data-nested="${key}"]`);
+            for(let parent=added?.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+            if(button.dataset.addNested)added?.lastElementChild?.querySelector('details')?.setAttribute('open','');
           }
         }catch(error){node('doe-rulebook-editor-error').textContent=error.message;onError(error.message);}
+      });
+      node('doe-rulebook-editor-fields').addEventListener('invalid',event=>{
+        for(let parent=event.target.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+      },true);
+      node('doe-rulebook-editor-fields').addEventListener('input',()=>{
+        if(editing?.key!=='rules')return;
+        const current=readEditor(false);node('doe-rule-condition-summary').textContent=conditionSummary(current);
+        if(current.calculationMode==='formula')node('doe-rulebook-editor-fields').querySelector('[data-disclosure="formula"]').open=true;
+        if(current.calculationMode==='tiered')node('doe-rulebook-editor-fields').querySelector('[data-disclosure="tiers"]').open=true;
       });
       node('doe-rulebook-category').addEventListener('change',event=>{category=event.target.value;render();});
       node('doe-rulebook-group').addEventListener('change',event=>{group=event.target.value;render();});

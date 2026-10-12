@@ -728,7 +728,15 @@ function createSqlDashboardRepository(db) {
              FROM paws.DoeRuleSeed r
              INNER JOIN paws.DoePolicyVersion p ON p.PolicyVersionId = r.PolicyVersionId
             WHERE p.AcademicYear = @academicYear
-              AND p.Active = 1
+              AND (p.Active = 1 OR (
+                NOT EXISTS (SELECT 1 FROM paws.DoeRuleSeed activeSeed
+                  JOIN paws.DoePolicyVersion activeVersion ON activeVersion.PolicyVersionId=activeSeed.PolicyVersionId
+                  WHERE activeVersion.AcademicYear=@academicYear AND activeVersion.Active=1)
+                AND p.PolicyVersionId=(SELECT TOP(1) evidenceVersion.PolicyVersionId FROM paws.DoePolicyVersion evidenceVersion
+                  WHERE evidenceVersion.AcademicYear=@academicYear
+                    AND EXISTS (SELECT 1 FROM paws.DoeRuleSeed evidenceSeed WHERE evidenceSeed.PolicyVersionId=evidenceVersion.PolicyVersionId)
+                  ORDER BY evidenceVersion.CreatedAtUtc DESC, evidenceVersion.PolicyVersionId)
+              ))
             ORDER BY r.Category, r.SourceRow, r.DoeRuleSeedId`,
           { academicYear: resolvedYear }
         ),

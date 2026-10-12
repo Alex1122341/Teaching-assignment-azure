@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "a72cb80df1fc99cd71fd3d0b6c595f900c263452",
+  "sourceCommit": "e153ca6b3503d32083f742ab1b8b532f7d0df9ba",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "index.html": "44fa12e39fa9b34841fa6e9b2abd86a4bc38cb8dd28b2ac3405e5bf126562398",
@@ -23,7 +23,7 @@
     "faculty-admin-doe-worksheet.js": "2228dbc056eb0f0ff295927f410c9aa7b41bbdc9c1871a821745bd28f4ac8773",
     "faculty-admin-doe-manual.js": "992ff87c3a9e13c455d0e2a2cd8a9e43dd4256de610f38d6cb8cee9cb9f992de",
     "faculty-admin-doe-policy.js": "6527c369d862c68d8e1b690f8aa186259f909b6f2327fce6aad4c97419ab6479",
-    "faculty-admin-doe-rulebook.js": "e7f8ad10fe4de813637df29131a0ce39101b04b1a0994f70c7d1a6e1a95a9115",
+    "faculty-admin-doe-rulebook.js": "8d06322cf8ddf91c27e23c7f02c62846af1424357c0a4e1f29efecc64ce3b2b9",
     "faculty-admin-doe-rulebook.css": "acff4af42e4489b5cbf7ce4b1e5ba3e7f2b225876aabb21d8de25af5b74303c6",
     "faculty-name.js": "85d22a5b28365b7017d4e77cc5f78f8a16ed7e3a1332e36aecc65590e36bbc03",
     "swap-workflow-sql.js": "85134023b54a3ac8e82e266048cb8934233d84fce5643115fa29aa39179f188c",

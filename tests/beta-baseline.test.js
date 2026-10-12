@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Integrated P4 is current. DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='a72cb80df1fc99cd71fd3d0b6c595f900c263452';
+const BASELINE_COMMIT='e153ca6b3503d32083f742ab1b8b532f7d0df9ba';
 const P4_PRODUCT_COMMIT='d62f5406ce1f89813bf928611e551e864ae165fc';
 const DOE_CALCULATOR_BASELINE_COMMIT='1fd064b0a1b2367cb2d3a58d71d6c8856fb1c74a';
 const AUTH1_PRODUCT_COMMIT='ae8c822cb6594f0c4e789b7ea8f7d4c310a4b3f5';
@@ -544,10 +544,10 @@ test('API freeze shares the promoted integrated P4 static baseline and has zero 
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,66);
+  assert.equal(result.runtimeFiles.length,67);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,69);
+  assert.equal(result.protected,70);
   assert.ok(result.runtimeFiles.includes('server/src/auth/role-policy.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-calculator.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-course-catalog-2026-27.js'));

@@ -333,7 +333,15 @@ function createSqlDoePolicyRepository(db) {
       } catch (error) { throw policyError(error); }
     },
 
-    async clonePolicy({ sourcePolicyVersionId, sourceAcademicYear, academicYear, actorUid, includeExceptions = false }) {
+    async clonePolicy({ sourcePolicyVersionId, sourceAcademicYear, academicYear, actorUid, includeExceptions = false, reuseWorkingDraft = false }) {
+      if (reuseWorkingDraft) {
+        if (typeof db.transaction !== 'function') throw Object.assign(new Error('Atomic working Draft creation is unavailable.'), { code: 'DOE_UNAVAILABLE' });
+        if (!db.isTransactionActive?.()) return db.transaction(() => this.clonePolicy({sourcePolicyVersionId,sourceAcademicYear,academicYear,actorUid,includeExceptions,reuseWorkingDraft}));
+        const locked = await db.query(`SELECT PolicyVersionId FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@sourcePolicyVersionId AND AcademicYear=@academicYear AND Status=N'active'`, {sourcePolicyVersionId,academicYear});
+        if (!locked.length) throw Object.assign(new Error('The Active policy changed. Reload the Rule Book.'), {code:'ACTIVE_POLICY_REQUIRED'});
+        const existing = await db.query(`SELECT TOP(1) v.PolicyVersionId AS policyVersionId FROM paws.DoePolicyVersion v JOIN paws.DoeAuditEvent a ON a.PolicyVersionId=v.PolicyVersionId WHERE v.AcademicYear=@academicYear AND v.Status=N'draft' AND a.Action=N'working_draft_created' AND JSON_VALUE(a.AfterJson,'$.sourcePolicyVersionId')=@sourcePolicyVersionId ORDER BY v.CreatedAtUtc DESC`, {sourcePolicyVersionId,academicYear});
+        if (existing.length) return loadVersion(existing[0].policyVersionId);
+      }
       const source = await loadVersion(sourcePolicyVersionId);
       if (!source) throw Object.assign(new Error('DOE_POLICY_NOT_FOUND'), { code: 'DOE_POLICY_NOT_FOUND' });
       const newPolicyVersionId = uid();
@@ -349,7 +357,10 @@ function createSqlDoePolicyRepository(db) {
         for (const rows of [next.rules,next.references,next.courseMappings,next.subjectMappings]) for (const row of rows) row.reviewStatus = 'needs_review';
       }
       const id = next.version.policyVersionId;
-      return this.saveDraft({ policyVersionId: id, academicYear, expectedRevision: 0, actorUid, bundle: next, createVersion: true });
+      if (reuseWorkingDraft) next.version.versionLabel = `${text(source.version.versionLabel).slice(0,80)} · working Draft ${id.slice(0,8)}`;
+      const saved = await this.saveDraft({ policyVersionId: id, academicYear, expectedRevision: 0, actorUid, bundle: next, createVersion: true });
+      if (reuseWorkingDraft) await db.query(`INSERT INTO paws.DoeAuditEvent(AuditEventId,PolicyVersionId,AcademicYear,Action,EntityType,EntityId,ActorUid,AfterJson) VALUES(NEWID(),@policyVersionId,@academicYear,N'working_draft_created',N'doe_policy_version',CONVERT(nvarchar(128),@policyVersionId),@actorUid,(SELECT @sourcePolicyVersionId AS sourcePolicyVersionId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER))`, {policyVersionId:id,academicYear,actorUid,sourcePolicyVersionId});
+      return saved;
     },
 
     async getImpactPreview(policyVersionId) {

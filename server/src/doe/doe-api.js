@@ -147,7 +147,7 @@ function createDoeApi({ verifyToken, findUser, repository, calculationService, w
     },
     async copyPolicy(token, payload) {
       if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Object.keys(payload).some(key => !['sourcePolicyVersionId','academicYear','mode'].includes(key))) return fail(400, 'DOE_DRAFT_INVALID', 'Copy accepts a source policy, target Academic Year and optional clone mode.');
-      if (payload.mode !== undefined && payload.mode !== 'clone') return fail(400, 'DOE_DRAFT_INVALID', 'Unsupported policy copy mode.');
+      if (payload.mode !== undefined && !['clone','working_draft'].includes(payload.mode)) return fail(400, 'DOE_DRAFT_INVALID', 'Unsupported policy copy mode.');
       const year = canonicalYear(payload.academicYear);
       if (!year || !text(payload.sourcePolicyVersionId)) return fail(400, 'INVALID_ACADEMIC_YEAR', 'A source Rule Book and valid target Academic Year are required.');
       return invoke(token, true, async identity => {

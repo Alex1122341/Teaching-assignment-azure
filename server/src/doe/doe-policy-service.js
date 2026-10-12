@@ -116,9 +116,10 @@ function createDoePolicyService({ repository, calculationService } = {}) {
       if (!/^\d{4}-\d{2}$/.test(targetYear)) throw new DoePolicyLifecycleError('INVALID_ACADEMIC_YEAR', 'A canonical target Academic Year is required.');
       const source = await repository.getPolicyVersion(text(sourcePolicyVersionId));
       if (!source) throw new DoePolicyLifecycleError('DOE_POLICY_NOT_FOUND', 'Source Rule Book was not found.');
-      if (mode !== 'clone' && text(source.version.academicYear) === targetYear) throw new DoePolicyLifecycleError('DOE_COPY_YEAR_SAME', 'Copy must create a Draft for a different Academic Year.');
-      if (mode === 'clone' && text(source.version.academicYear) !== targetYear) throw new DoePolicyLifecycleError('DOE_DRAFT_INVALID', 'Clone stays within its source Academic Year. Use Copy for a different year.');
-      return repository.clonePolicy({ sourcePolicyVersionId, sourceAcademicYear: source.version.academicYear, academicYear: targetYear, actorUid, includeExceptions: false });
+      if (!['clone','working_draft'].includes(mode) && text(source.version.academicYear) === targetYear) throw new DoePolicyLifecycleError('DOE_COPY_YEAR_SAME', 'Copy must create a Draft for a different Academic Year.');
+      if (['clone','working_draft'].includes(mode) && text(source.version.academicYear) !== targetYear) throw new DoePolicyLifecycleError('DOE_DRAFT_INVALID', 'Clone stays within its source Academic Year. Use Copy for a different year.');
+      if (mode === 'working_draft' && text(source.version.status).toLowerCase() !== 'active') throw new DoePolicyLifecycleError('ACTIVE_POLICY_REQUIRED', 'Working Draft requires the current Active policy.');
+      return repository.clonePolicy({ sourcePolicyVersionId, sourceAcademicYear: source.version.academicYear, academicYear: targetYear, actorUid, includeExceptions: mode === 'working_draft', reuseWorkingDraft: mode === 'working_draft' });
     },
 
     listHistory(academicYear) { return repository.listHistory(text(academicYear)); },

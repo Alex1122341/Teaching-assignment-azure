@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Integrated P4 DOE runtime is the reviewed trust anchor.
+// Reviewed AFC record management / LAB runtime is the immutable trust anchor.
 // DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='277c3cdfb1b9aa4cb9002f686a76a29a73a7f57b';
+const BASELINE_COMMIT='fb2c625745957fa7d9990033f15a7b1ef91974a5';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

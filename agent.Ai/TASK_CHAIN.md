@@ -1,3 +1,11 @@
+## AFC/LAB PR94 — 2026-10-13
+
+Candidate: https://github.com/Alex1122341/Teaching-assignment-azure/pull/94, branch fix/afc-record-management-20261013. Product/trust fb2c625745957fa7d9990033f15a7b1ef91974a5; separate reviewed governance a1aed94f78bfdc757778434a5da917606c70735d. Latest-head CI/evidence are authoritative in PR94. No live SQL, data, permission, gate, merge or deployment operation. Resume from updates/2026-10-13-afc-lab-pr94.md; directed coordinated release remains pending.
+
+## AFC/LAB candidate — 2026-10-13
+
+User confirmed Teaching-assignment-azure / Beta. Branch fix/afc-record-management-20261013 from3f8db17; reviewed candidate adds capability refresh, name-only AFC labels, audited row cancellation and grouped LAB/SRL tables with explicit missing groups and per-row actions. Final PR/freeze verification pending. No live SQL, permission, gate, data, merge or deployment change. Resume from updates/2026-10-13-afc-record-management-lab-candidate.md and docs/afc-record-management-lab-release-20261013.md.
+
 ## Developer support and Tasks published — 2026-10-09
 
 PR80/81/82 merged. Live725622029369a1b1fc97ed316701c16490cd275f, trust b200e27db7993b915b951641fe00e8f0d972e56e, API PID31904. Exact-main Beta37990808638 and migration37990808543 succeeded. SQL033/034 applied;62 reversible tables,0 support operations. Hosting68 files released; source66 attested. Chrome ADFA acceptance confirmed35 all-week tasks,571 search, close/reopen and Nov23 Prions detail/week jump. Existing Developer required for support entry; live write/Undo not exercised with ADFA. No business test records or guessed login. See updates/2026-10-09-developer-support-release-complete.md. Work complete; do not repeat migrations/imports/releases.

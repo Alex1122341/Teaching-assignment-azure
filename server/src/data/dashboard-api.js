@@ -234,7 +234,8 @@ function normalizeAfcRecord(row = {}) {
     notes: row.notes === null || row.notes === undefined ? null : text(row.notes),
     legacyPurpose: row.legacyPurpose === null || row.legacyPurpose === undefined ? null : text(row.legacyPurpose),
     active: row.active !== false && row.active !== 0,
-    sourceKind: text(row.sourceKind) || 'manual'
+    sourceKind: text(row.sourceKind) || 'manual',
+    recordKey: text(row.recordKey), versionToken: text(row.versionToken)
   };
 }
 
@@ -326,6 +327,30 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
   }
 
   return {
+    async afcRecordWriteCapabilities(token) {
+      return guarded(token, scope => {
+        if (!scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot manage AFC records.');
+        return result(200, { writeCapabilities: { afcSingle: writeGates.afcSingle === true, afcBatch: writeGates.afcBatch === true, afcCancel: writeGates.afcCancel === true } });
+      });
+    },
+    async cancelAfcRecord(token, afcRecordId, payload = {}) {
+      const auth = await authorize(token);
+      if (auth.status) return auth;
+      if (!auth.scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot cancel AFC records.');
+      if (writeGates.afcCancel !== true) return writeDisabled();
+      if (!UUID.test(text(afcRecordId))) return error(400, 'INVALID_AFC_RECORD_ID', 'A valid AFC record is required.');
+      const sourceKind = text(payload?.sourceKind), expectedVersion = text(payload?.expectedVersion);
+      if (!['manual', 'import'].includes(sourceKind)) return error(400, 'INVALID_AFC_SOURCE', 'Select a manual or imported AFC record.');
+      if (!/^[0-9a-f]{16}$/i.test(expectedVersion)) return error(400, 'INVALID_AFC_VERSION', 'Refresh the AFC records before deleting.');
+      try {
+        const row = await writeRepository.cancelAfcRecord({ afcRecordId: text(afcRecordId), sourceKind, expectedVersion, actorFirebaseUid: auth.decoded.uid, actorName: auth.profile.displayName, requestId: randomUUID() });
+        if (!row) return error(503, 'SQL_UNAVAILABLE', 'The SQL write service is unavailable.');
+        return result(200, { afcRecord: normalizeAfcRecord(row) });
+      } catch (caught) {
+        const known = { 53602: [403, 'ROLE_DENIED', 'Administrator permission is required.'], 53603: [404, 'AFC_RECORD_NOT_FOUND', 'This AFC record no longer exists.'], 53604: [409, 'AFC_RECORD_CHANGED', 'This AFC record changed. Refresh and review it before deleting.'] }[Number(caught?.number)];
+        return known ? error(...known) : error(503, 'SQL_UNAVAILABLE', 'The SQL write service is unavailable.');
+      }
+    },
     async facultyAdminWriteCapabilities(token) {
       return guarded(token, scope => {
         if (!scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot administer Faculty records.');

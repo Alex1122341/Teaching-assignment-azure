@@ -1376,6 +1376,7 @@
 
   function openSessionDetail(id) {
     const s = renderedSessions.find(x => x.id === id) || sessions.find(x => x.id === id) || sessionCache.get(id); if (!s) return;
+    if (!s.isCcc && String(s.type).toUpperCase() === 'LAB' && window.UCVM_LAB_DETAIL) return openLabSessionDetail(s);
     const edit = !s.isCcc&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-primary" id="detail-edit">Edit Session</button>` : '';
     const assignmentEdit = !s.isCcc&&s.assignmentManagementAvailable===true&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-secondary" id="detail-assignments">Manage Instructors</button>` : '';
     const swap = !s.isCcc&&currentUser&&window.PAWS_SWAP&&scheduleSource==='azure-sql' ? `<button class="btn btn-primary" id="detail-swap">SWAP request</button>` : '';
@@ -1397,6 +1398,30 @@
     if ($('detail-swap')) $('detail-swap').onclick = () => {closeModal();window.PAWS_SWAP.openSession(s.id);};
     if ($('detail-assignments')) $('detail-assignments').onclick = () => openSqlSessionAssignmentForm(s);
     if ($('detail-edit')) $('detail-edit').onclick = () => openSqlSessionEditForm(s);
+  }
+
+  function openLabSessionDetail(seed) {
+    // Use only the session rows already returned under the current user's scope.
+    const withDisplay = row => ({ ...row, instructor: instructorDisplayText(row) || '', pendingSwap: window.PAWS_SWAP?.isPending(row.id) === true });
+    const available = [...renderedSessions, ...sessions, ...sessionCache.values()].map(withDisplay);
+    const model = window.UCVM_LAB_DETAIL.buildModel(withDisplay(seed), available);
+    const actions = row => {
+      const id = escapeHtml(row.id);
+      const edit = canEditExistingSqlSession() && window.UCVM_PAWS_DATA?.sessionEditEnabled?.();
+      return `${currentUser && window.PAWS_SWAP && scheduleSource === 'azure-sql' ? `<button class="btn btn-secondary" data-lab-action="swap" data-lab-id="${id}">SWAP request</button>` : ''}${edit && row.assignmentManagementAvailable === true ? `<button class="btn btn-secondary" data-lab-action="instructors" data-lab-id="${id}">Manage Instructors</button>` : ''}${edit ? `<button class="btn btn-primary" data-lab-action="edit" data-lab-id="${id}">Edit Session</button>` : ''}`;
+    };
+    const title = seed.courseName ? `${seed.course} - ${seed.courseName}` : `${seed.course} · LAB`;
+    const position = [seed.semester, seed.week ? `Week ${seed.week}` : ''].filter(Boolean).join(' ');
+    showModal(`<div class="modal-header"><div class="modal-title">🧪 ${escapeHtml(title)}</div><div class="modal-subtitle">${formatLongDate(parseYmd(seed.date))}${position ? ` · ${escapeHtml(position)}` : ''}</div></div><div class="modal-body">${window.UCVM_LAB_DETAIL.render(model,{actions})}</div><div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button></div>`);
+    $('modal').querySelector('.modal-box')?.classList.add('lab-detail-modal');
+    $('detail-close').onclick = closeModal;
+    const rows = [...model.stations, ...model.srl];
+    $('modal').querySelectorAll('[data-lab-action]').forEach(button => button.onclick = () => {
+      const row = rows.find(item => item.id === button.dataset.labId); if (!row) return;
+      if (button.dataset.labAction === 'edit') return openSqlSessionEditForm(row);
+      if (button.dataset.labAction === 'instructors') return openSqlSessionAssignmentForm(row);
+      closeModal(); window.PAWS_SWAP.openSession(row.id);
+    });
   }
 
   async function openSqlSessionAssignmentForm(session){

@@ -65,6 +65,7 @@ test('runtime attestation is direct, read-only, no-store, and reports all P1/P2 
   assert.deepEqual(body.writeGates, {
     swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false,
     afcBatch: false,
+    afcCancel: false,
     sessionEdit: false,
     sessionCreate: false,
     afcRequest: false,

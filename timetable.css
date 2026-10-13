@@ -163,3 +163,17 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .list-global-controls select{max-width:150px;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font:inherit}
 .list-partition-summary{margin:0 0 8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text-2);font-size:11px;font-weight:650}
 @media(max-width:760px){.list-global-controls{width:100%;justify-content:flex-end}.list-global-controls select{max-width:120px}.list-partition-summary{line-height:1.5}}
+:root .modal-box.lab-detail-modal{width:min(1180px,96vw)}
+.lab-detail-modal .modal-body{padding:16px 24px;overflow:auto;max-height:70vh}
+.lab-source-note{margin:0 0 12px;color:var(--text-3);font-size:12px;line-height:1.5}
+.lab-table-scroll{overflow-x:auto;margin-bottom:12px}
+.lab-detail-table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.5;min-width:640px}
+.lab-detail-table th,.lab-detail-table td{border:1px solid #dbe0e9;padding:10px;text-align:left;vertical-align:top}
+.lab-detail-table thead th{background:#f5f6fa;color:#667085;font-size:11px;text-transform:uppercase;white-space:nowrap}
+.lab-detail-table tbody th{font-weight:400;min-width:220px}
+.lab-instructor{color:#667085;font-size:12px;margin-top:3px;white-space:pre-line}
+.lab-not-scheduled{background:#f5f6fa}
+.lab-group-missing{display:inline-block;background:#eef0f4;color:#667085;border-radius:3px;padding:2px 6px;font-size:11px;white-space:nowrap}
+.lab-row-actions{display:flex;gap:5px;flex-wrap:wrap;min-width:170px}
+.lab-row-actions .btn{padding:5px 8px;font-size:11px}
+.lab-tables .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

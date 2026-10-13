@@ -497,7 +497,8 @@ function createSqlDashboardRepository(db) {
              u.SourceKind AS sourceKind,
              u.CreatedAtUtc AS createdAtUtc,
              u.CreatedByName AS createdByName,
-             u.RecordKey AS recordKey
+             u.RecordKey AS recordKey,
+              u.VersionToken AS versionToken
          FROM paws.vAfcRecordUnified u
          INNER JOIN paws.Faculty f ON f.FacultyId = u.FacultyId
          ${whereClause}
@@ -518,7 +519,8 @@ function createSqlDashboardRepository(db) {
         sourceKind: toText(row.sourceKind),
         createdAtUtc: row.createdAtUtc || null,
         createdByName: toText(row.createdByName),
-        recordKey: toText(row.recordKey)
+        recordKey: toText(row.recordKey),
+        versionToken: toText(row.versionToken)
       }));
     },
 

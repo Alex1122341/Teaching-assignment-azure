@@ -1,3 +1,7 @@
+## AFC release correction — 2026-10-13
+
+PR94 merged b9dc273; exact-main CI/artifact succeeded. Owner authorized release. SQL036 applied with cancellation closed; rollback acceptance exposed timestamp encoding. Reviewed037 passes encoding+manual rollback preview; 0 manual/803 active imported/0 cancellation audits. Public API remains a9b8061, candidateb9 on18789 only. Resume updates/2026-10-13-afc-version-encoding-hotfix.md for hotfix PR/CI and coordinated release. No imports or unrelated18788 stop.
+
 ## AFC/LAB PR94 — 2026-10-13
 
 Candidate: https://github.com/Alex1122341/Teaching-assignment-azure/pull/94, branch fix/afc-record-management-20261013. Product/trust fb2c625745957fa7d9990033f15a7b1ef91974a5; separate reviewed governance a1aed94f78bfdc757778434a5da917606c70735d. Latest-head CI/evidence are authoritative in PR94. No live SQL, data, permission, gate, merge or deployment operation. Resume from updates/2026-10-13-afc-lab-pr94.md; directed coordinated release remains pending.

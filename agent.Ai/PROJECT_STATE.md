@@ -1,3 +1,7 @@
+## AFC/LAB PR94 — 2026-10-13
+
+Candidate: https://github.com/Alex1122341/Teaching-assignment-azure/pull/94, branch fix/afc-record-management-20261013. Product/trust fb2c625745957fa7d9990033f15a7b1ef91974a5; separate reviewed governance a1aed94f78bfdc757778434a5da917606c70735d. Latest-head CI/evidence are authoritative in PR94. No live SQL, data, permission, gate, merge or deployment operation. Resume from updates/2026-10-13-afc-lab-pr94.md; directed coordinated release remains pending.
+
 ## AFC/LAB candidate — 2026-10-13
 
 User confirmed Teaching-assignment-azure / Beta. Branch fix/afc-record-management-20261013 from3f8db17; reviewed candidate adds capability refresh, name-only AFC labels, audited row cancellation and grouped LAB/SRL tables with explicit missing groups and per-row actions. Final PR/freeze verification pending. No live SQL, permission, gate, data, merge or deployment change. Resume from updates/2026-10-13-afc-record-management-lab-candidate.md and docs/afc-record-management-lab-release-20261013.md.

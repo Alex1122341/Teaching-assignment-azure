@@ -50,6 +50,7 @@ function dashboardHarness(currentUser){
   vm.runInNewContext(read('faculty-admin-doe-worksheet.js'),context);
   vm.runInNewContext(read('faculty-admin-management.js'),context);
   vm.runInNewContext(read('faculty-role-periods.js'),context);
+  vm.runInNewContext(read('faculty-admin-afc-records.js'),context);
   vm.runInNewContext(read('faculty-admin.js'),context);
   assert.equal(typeof authCallback,'function','Dashboard must register an auth callback');
   return{run:user=>authCallback(user),redirects,reads,signOuts:()=>signOuts,nodes};

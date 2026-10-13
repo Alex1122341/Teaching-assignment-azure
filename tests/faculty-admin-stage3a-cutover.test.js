@@ -257,6 +257,7 @@ function createHarness(overrides = {}) {
   vm.runInNewContext(read('faculty-admin-doe-worksheet.js'), context, { filename: 'faculty-admin-doe-worksheet.js' });
   vm.runInNewContext(read('faculty-admin-management.js'), context, { filename: 'faculty-admin-management.js' });
   vm.runInNewContext(read('faculty-role-periods.js'), context);
+  vm.runInNewContext(read('faculty-admin-afc-records.js'), context, { filename: 'faculty-admin-afc-records.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   assert.equal(typeof authCallback, 'function', 'faculty-admin.js must register an auth callback :: ' + errors.join(' | '));
 

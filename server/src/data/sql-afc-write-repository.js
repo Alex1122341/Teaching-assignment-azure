@@ -9,6 +9,14 @@ const CREATE_AFC_BATCH_PROCEDURE = 'paws_api.CreateAfcManualBatch';
 
 function createSqlAfcWriteRepository(db) {
   return {
+    async cancelAfcRecord({ afcRecordId, sourceKind, expectedVersion, actorFirebaseUid, actorName = null, requestId } = {}) {
+      const rows = await db.query(`EXEC paws_api.CancelAfcRecord
+        @AfcRecordId = @afcRecordId, @SourceKind = @sourceKind,
+        @ExpectedVersion = @expectedVersion, @ActorFirebaseUid = @actorFirebaseUid,
+        @ActorName = @actorName, @RequestId = @requestId`,
+      { afcRecordId, sourceKind, expectedVersion, actorFirebaseUid, actorName, requestId });
+      return rows[0] || null;
+    },
     async createAfcRecord({
       afcRecordId,
       facultyId,

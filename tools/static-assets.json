@@ -67,5 +67,7 @@
   "developer-support.js",
   "workspace-tasks.js",
   "workspace.css",
-  "faculty-role-periods.js"
+  "faculty-role-periods.js",
+  "faculty-admin-afc-records.js",
+  "lab-session-detail.js"
 ]

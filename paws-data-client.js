@@ -187,6 +187,22 @@
       sessionCreateEnabled:()=> writeCapabilities.sessionCreate===true,
       afcSingleWriteEnabled:()=> writeCapabilities.afcSingle===true,
       afcBatchWriteEnabled:()=> writeCapabilities.afcBatch===true,
+      afcCancelWriteEnabled:()=> writeCapabilities.afcCancel===true,
+      async refreshAfcRecordWriteCapabilities(){
+        try {
+          const body=await request('/api/v1/dashboard/afc-records/write-capabilities');
+          const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
+          writeCapabilities=Object.freeze({...writeCapabilities,afcSingle:value.afcSingle===true,afcBatch:value.afcBatch===true,afcCancel:value.afcCancel===true});
+        } catch (_) {
+          writeCapabilities=Object.freeze({...writeCapabilities,afcSingle:false,afcBatch:false,afcCancel:false});
+        }
+        return {afcSingle:writeCapabilities.afcSingle,afcBatch:writeCapabilities.afcBatch,afcCancel:writeCapabilities.afcCancel};
+      },
+      async cancelDashboardAfcRecord(afcRecordId,payload={}){
+        const id=String(afcRecordId??'').trim();if(!id)throw new Error('AFC record is required.');
+        const body=await request('/api/v1/dashboard/afc-records/'+encodeURIComponent(id)+'/cancel',{method:'POST',body:pickFields(payload,['sourceKind','expectedVersion'])});
+        return body.afcRecord;
+      },
       facultyAdminWriteEnabled:()=> facultyAdminWriteCapability===true,
       doeAdminWriteEnabled:()=> writeCapabilities.doeAdmin===true,
       doeManualAssignmentWriteEnabled:()=> writeCapabilities.doeManualAssignment===true,

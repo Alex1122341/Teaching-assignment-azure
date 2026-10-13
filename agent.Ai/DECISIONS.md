@@ -1,5 +1,9 @@
 # PAWS Locked Decisions
 
+## Owner-approved AFC cancellation and LAB layout — 2026-10-13
+
+Within controlled Beta, administrator AFC Delete cancels active availability while retaining records and audit snapshots. It requires a separate default-off server gate, exact manual/import key, SQL administrator authorization and optimistic rowversion. No hard deletion or faculty reason disclosure. Owner approved grouped same-course/date/year LAB tables with true source intervals, explicit missing rotation groups, and original per-row Edit/Manage Instructors/SWAP flows. User explicitly selected Teaching-assignment-azure over the Experimental repository. Candidate PR and directed release acceptance remain required.
+
 ## Owner-authorized Developer support — 2026-10-09
 
 Real active SQL Developer accounts may delegate into existing active accounts for 30-minute testing/support contexts. Real Firebase identity is always verified; SQL target role/scope remains authoritative. Captured business writes are atomic and audited with real actor and effective account. Undo restores only unchanged afterimages, refuses conflicts atomically, and retains original audit history. Credential/account operations and unsupported artifact writes are excluded. No manufactured accounts or privilege promotion. User authorized publication and delegated later implementation decisions. Released7256220; see developer-support release update for exact evidence and live acceptance limits.

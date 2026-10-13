@@ -1,4 +1,4 @@
-/* Run on a staging/accepted SQL database after migration 036. Every fixture
+/* Run on a staging/accepted SQL database after migrations 036 and 037. Every fixture
    and cancellation is rolled back, including audit rows. Never COMMIT this script. */
 :ON ERROR EXIT
 SET NOCOUNT ON;
@@ -11,7 +11,7 @@ DECLARE @Id uniqueidentifier=NEWID(),@Request uniqueidentifier=NEWID(),@Version 
 BEGIN TRY
  BEGIN TRANSACTION;
  EXEC paws_api.CreateAfcRecord @AfcRecordId=@Id,@FacultyId=@Faculty,@StartDate='2099-11-05',@EndDate='2099-11-06',@ReasonCode=N'vacation',@Notes=N'Rollback-only acceptance fixture',@ActorFirebaseUid=@Actor,@ActorName=N'Acceptance',@RequestId=@Request;
- SELECT @Version=CONVERT(varchar(16),AfcVersion,2) FROM paws.AfcManualRecord WHERE AfcRecordId=@Id;
+ SELECT @Version=VersionToken FROM paws.vAfcRecordUnified WHERE AfcRecordId=@Id AND SourceKind=N'manual';
  EXEC paws_api.CancelAfcRecord @AfcRecordId=@Id,@SourceKind=N'manual',@ExpectedVersion=@Version,@ActorFirebaseUid=@Actor,@ActorName=N'Untrusted client name',@RequestId=@Retry;
  EXEC paws_api.CancelAfcRecord @AfcRecordId=@Id,@SourceKind=N'manual',@ExpectedVersion=@Version,@ActorFirebaseUid=@Actor,@ActorName=N'Untrusted client name',@RequestId=@Retry;
  IF NOT EXISTS(SELECT 1 FROM paws.vAfcRecordUnified WHERE AfcRecordId=@Id AND SourceKind=N'manual' AND Active=0 AND StartDate='2099-11-05' AND EndDate='2099-11-06') THROW 53611,'Cancelled manual history was not retained.',1;

@@ -25,6 +25,7 @@ function Invoke-TestSql([string]$Sql,[string]$Database='master'){
 # Reset is confined to the inspected synthetic container. Never accept a Server argument.
 Invoke-TestSql "IF DB_ID(N'VetMed-Ops') IS NOT NULL BEGIN ALTER DATABASE [VetMed-Ops] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [VetMed-Ops]; END; CREATE DATABASE [VetMed-Ops];"
 Invoke-TestSql 'CREATE USER [paws_swa_beta] WITHOUT LOGIN; CREATE USER [paws-sql-beta-mi] WITHOUT LOGIN; CREATE USER [paws-calendar-test-runtime] WITHOUT LOGIN;' 'VetMed-Ops'
+Invoke-TestSql 'REVOKE VIEW ANY COLUMN ENCRYPTION KEY DEFINITION FROM public; REVOKE VIEW ANY COLUMN MASTER KEY DEFINITION FROM public;' 'VetMed-Ops'
 foreach($relativePath in $manifest.baseline){
  Write-Output "SQL_BASELINE $relativePath"
  $baselineSql=Get-Content -LiteralPath (Join-Path $repoPath $relativePath) -Raw

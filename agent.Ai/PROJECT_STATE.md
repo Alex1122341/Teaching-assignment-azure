@@ -1,3 +1,9 @@
+## AFC and grouped LAB published — 2026-10-14
+
+PR94/95 merged; live API and Hosting release ca465bf1401b457ca3b74048cfaf170bedc7694a, immutable product/trust fb2c625745957fa7d9990033f15a7b1ef91974a5, API PID17348 on18787. SQL036/037 and all manual/imported/stale/denied/concurrent rollback acceptance passed; exact narrow runtime role bound and afcCancel enabled. Existing gate values retained. Exact-main Beta38453614170 / SQL38453614145 succeeded; all71 protected public assets match the accepted artifact after Hosting-only CLI release. The old Hosting workflow stopped before deployment on its stale DOE-off check; its guard was not changed.
+
+Connected Chrome confirmed course206 /2026-10-16 grouped LAB/SRL tables, real intervals/instructors, explicit missing rooms/groups and row controls. AFC creation enabled, no GUID labels,803 Delete controls; confirmation dismissed and fresh read remains803. No real UI create/cancel. Last SQL counts803 active imported /0 manual /0 cancellation audits /0 invalid version tokens. Release complete; final documentation only. See updates/2026-10-14-afc-lab-release.md. Do not rerun migrations/imports/acceptance fixtures or redeploy; documentation-only main commits do not change the published release.
+
 ## AFC release correction — 2026-10-13
 
 PR94 merged b9dc273; exact-main CI/artifact succeeded. Owner authorized release. SQL036 applied with cancellation closed; rollback acceptance exposed timestamp encoding. Reviewed037 passes encoding+manual rollback preview; 0 manual/803 active imported/0 cancellation audits. Public API remains a9b8061, candidateb9 on18789 only. Resume updates/2026-10-13-afc-version-encoding-hotfix.md for hotfix PR/CI and coordinated release. No imports or unrelated18788 stop.

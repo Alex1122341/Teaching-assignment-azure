@@ -23,6 +23,21 @@ function Get-CalendarRecoveryHash([byte[]]$Bytes){
  $hash=[Security.Cryptography.SHA256]::Create()
  try{return ([BitConverter]::ToString($hash.ComputeHash($Bytes))).Replace('-','')}finally{$hash.Dispose()}
 }
+function Write-PrivateCalendarRecoveryFile([string]$Path,[byte[]]$Bytes){
+ $full=Get-PrivateCalendarRecoveryPath $Path
+ if($Bytes.Length -eq 0 -or $Bytes.Length -gt 16777216){throw 'A bounded recovery artifact is required.'}
+ $stream=[IO.File]::Open($full,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+ try{
+  $identity=[Security.Principal.WindowsIdentity]::GetCurrent().User
+  $acl=[Security.AccessControl.FileSecurity]::new();$acl.SetOwner($identity);$acl.SetAccessRuleProtection($true,$false)
+  foreach($sid in @($identity,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'),[Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))){
+   $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($sid,[Security.AccessControl.FileSystemRights]::FullControl,[Security.AccessControl.AccessControlType]::Allow))
+  }
+  if($PSVersionTable.PSEdition -eq 'Desktop'){[IO.File]::SetAccessControl($full,$acl)}
+  else{[IO.FileSystemAclExtensions]::SetAccessControl([IO.FileInfo]::new($full),$acl)}
+  $stream.Write($Bytes,0,$Bytes.Length)
+ }finally{$stream.Dispose()}
+}
 function Invoke-TrustedCalendarRecovery([string]$Procedure,[string]$ActorFirebaseUid,[guid]$ReceiptId,[string]$ExpectedSha256=''){
  if($Procedure -notin @('ExportCalendarActivityRecovery','RecoverCalendarActivityImport')){throw 'Unsupported recovery procedure.'}
  if([string]::IsNullOrWhiteSpace($ActorFirebaseUid) -or $ActorFirebaseUid.Length -gt 128){throw 'An authenticated administrator actor is required.'}
@@ -44,4 +59,4 @@ function Invoke-TrustedCalendarRecovery([string]$Procedure,[string]$ActorFirebas
   try{$connection.Open();[void]$adapter.Fill($table);return ,$table}finally{$adapter.Dispose();$command.Dispose()}
  }finally{$connection.Dispose()}
 }
-Export-ModuleMember -Function Get-PrivateCalendarRecoveryPath,Get-CalendarRecoveryHash,Invoke-TrustedCalendarRecovery
+Export-ModuleMember -Function Get-PrivateCalendarRecoveryPath,Get-CalendarRecoveryHash,Write-PrivateCalendarRecoveryFile,Invoke-TrustedCalendarRecovery

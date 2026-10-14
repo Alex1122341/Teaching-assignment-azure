@@ -12,6 +12,5 @@ $hash=Get-CalendarRecoveryHash $bytes
 if($hash -ne [string]$table.Rows[0].recoverySha256){throw 'Recovery artifact hash does not match SQL.'}
 $content=[string]$table.Rows[0].recoveryJson | ConvertFrom-Json
 if([guid]$content.receiptId -ne $ReceiptId){throw 'Recovery receipt mismatch.'}
-$stream=[IO.File]::Open($full,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
-try{$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
+Write-PrivateCalendarRecoveryFile $full $bytes
 Write-Output ([pscustomobject]@{ReceiptId=$ReceiptId;Path=$full;Sha256=$hash;Encoding='UTF-16LE without BOM'})

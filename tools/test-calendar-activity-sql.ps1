@@ -29,6 +29,8 @@ Invoke-TestSql 'REVOKE VIEW ANY COLUMN ENCRYPTION KEY DEFINITION FROM public; RE
 foreach($relativePath in $manifest.baseline){
  Write-Output "SQL_BASELINE $relativePath"
  $baselineSql=Get-Content -LiteralPath (Join-Path $repoPath $relativePath) -Raw
+ # Preserve one synthetic principal across historical default-name changes.
+ $baselineSql=[regex]::Replace($baselineSql,'(?m)^:setvar PAWS_API_PRINCIPAL [^\r\n]+\r?\n','')
  if($relativePath -eq 'database/azure-sql/015_afc_manual_batch.sql'){
   # Linux SQL cannot provision a Windows domain name. Adapt only the test copy
   # of this deployment-principal prerequisite; procedure logic/source stay intact.

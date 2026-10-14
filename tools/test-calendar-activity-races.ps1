@@ -42,10 +42,11 @@ function Wait-RaceCondition([string]$Sql,[string]$Label){
 $setup=Get-Content -LiteralPath (Join-Path (Split-Path $PSScriptRoot -Parent) 'server/test/fixtures/calendar-activity-race-setup.sql') -Raw
 [void](Invoke-RaceSql $setup)
 $row=3000
-foreach($kind in @('migration','timing','recovery','afc_create','afc_cancel','session')){
+foreach($kind in @('migration','timing','recovery','afc_create','afc_cancel','session','duplicate')){
  foreach($readerFirst in @($false,$true)){
   if($kind -eq 'afc_cancel' -and $readerFirst){continue}
   $row++;$name=$kind+$(if($readerFirst){'-swap-first'}else{'-writer-first'})
+  if($kind -eq 'duplicate'){$name='duplicate-'+$(if($readerFirst){'commit-first'}else{'insert-first'})}
   $first=if($readerFirst){1}else{0}
   [void](Invoke-RaceSql "EXEC dbo.PrepareCalendarActivityRace '$name','$kind',$row,$first;")
   $case=(Invoke-RaceSql "SELECT (SELECT * FROM dbo.CalendarActivityRaceCase WHERE TestName='$name' FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);") | ConvertFrom-Json
@@ -77,6 +78,7 @@ PRINT 'RACE_HOLDER_OK';
    if($holderSession -le 0){throw 'Synthetic holder session was not identified.'}
    $waiter=Start-RaceSql "$other PRINT 'RACE_WAITER_OK';" $waiterName
    $type=if($case.ExpectedWait -eq 'APPLICATION'){" AND locks.resource_type=N'APPLICATION'"}else{" AND locks.resource_type<>N'APPLICATION'"}
+   if($case.ExpectedWait -eq 'EXACT_AFC'){$type=" AND locks.resource_type<>N'APPLICATION' AND (locks.resource_associated_entity_id=OBJECT_ID(N'paws.AfcRecord') OR locks.resource_associated_entity_id IN(SELECT hobt_id FROM sys.partitions WHERE object_id=OBJECT_ID(N'paws.AfcRecord')))"}
    Wait-RaceCondition "SELECT CASE WHEN EXISTS(SELECT 1 FROM sys.dm_tran_locks locks JOIN sys.dm_exec_sessions sessions ON sessions.session_id=locks.request_session_id JOIN sys.dm_exec_requests requests ON requests.session_id=sessions.session_id WHERE sessions.host_name=N'$waiterName' AND requests.blocking_session_id=$holderSession AND locks.request_status IN(N'WAIT',N'CONVERT') $type) THEN 1 ELSE 0 END;" "$name observed-$($case.ExpectedWait)-wait"
    [void](Invoke-RaceSql "UPDATE dbo.CalendarActivityRaceBarrier SET ReleaseFlag=1 WHERE TestName='$name';")
    $holderOutput=Finish-RaceSql $holder;$waiterOutput=Finish-RaceSql $waiter
@@ -86,6 +88,10 @@ PRINT 'RACE_HOLDER_OK';
    }
    if($kind -eq 'recovery'){
     [void](Invoke-RaceSql "IF EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE FacultyId='$($case.FacultyId)') OR (SELECT COUNT(*) FROM paws.AfcRecord WHERE FacultyId='$($case.FacultyId)' AND Active=1)<>1 THROW 53891,'Recovery race left mixed AFC/activity state.',1;")
+   }
+   if($kind -eq 'duplicate'){
+    $expectedActivities=if($readerFirst){1}else{0};$expectedAfc=if($readerFirst){1}else{2}
+    [void](Invoke-RaceSql "IF (SELECT COUNT(*) FROM paws.CalendarActivity WHERE FacultyId='$($case.FacultyId)')<>$expectedActivities OR (SELECT COUNT(*) FROM paws.AfcRecord WHERE FacultyId='$($case.FacultyId)' AND Active=1)<>$expectedAfc THROW 53891,'Duplicate race violated the serialized match-set outcome.',1; IF $expectedActivities=0 AND (EXISTS(SELECT 1 FROM paws.CalendarActivityImportReceipt receipt JOIN staging.CalendarActivityImportItem item ON item.ImportBatchId=receipt.ImportBatchId WHERE item.FacultyId='$($case.FacultyId)') OR EXISTS(SELECT 1 FROM paws.AuditEvent audit JOIN staging.CalendarActivityImportItem item ON item.ImportBatchId=audit.ImportBatchId WHERE item.FacultyId='$($case.FacultyId)' AND audit.EventType=N'calendar_activity_import_committed')) THROW 53891,'Refused duplicate created a receipt or commit audit.',1;")
    }
    Write-Output "CALENDAR_RACE_OK $name actual-$($case.ExpectedWait)-wait"
   }catch{

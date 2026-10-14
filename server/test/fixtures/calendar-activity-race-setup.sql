@@ -19,7 +19,7 @@ BEGIN
   VALUES(@Assignment,@Session,@Outgoing,CONCAT(@Name,N' outgoing'),N'resolved',N'Primary',@Source,1);
  DECLARE @Writer nvarchar(max),@Receipt uniqueidentifier,@Activity uniqueidentifier,@ActivityVersion varchar(16),@Version varchar(16),@Manifest char(64),@Response nvarchar(max);
  DECLARE @Reply TABLE(responseJson nvarchar(max));
- IF @Kind IN('migration','timing','recovery')
+ IF @Kind IN('migration','timing','recovery','duplicate')
  BEGIN
   INSERT staging.AfcRecordRaw(ImportBatchId,ImportRowId,SourceRowNumber,FacultySourceName,StartDate,EndDate,Purpose,RawJson,ValidationStatus,ValidationErrorsJson)
    VALUES(@Source,@Raw,@Row,@Name,'2026-12-05','2026-12-06',N'CCC Day',N'{}',N'valid',N'[]');
@@ -28,7 +28,7 @@ BEGIN
   INSERT @Reply EXEC paws_api.StageCalendarActivityImport N'calendar-swap-admin',@Batch,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Rows;
   SELECT @Version=JSON_VALUE(responseJson,'$.previewVersion'),@Manifest=JSON_VALUE(responseJson,'$.manifestSha256') FROM @Reply;
   SET @Writer=CONCAT(N'EXEC paws_api.CommitCalendarActivityImport N''calendar-swap-admin'',''',CONVERT(char(36),@Batch),N''',''',@Version,N''',''',@Manifest,N''',''4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF'',''',CONVERT(char(36),@Key),N''',1;');
-  IF @Kind<>'migration'
+  IF @Kind NOT IN('migration','duplicate')
   BEGIN
    EXEC sys.sp_executesql @Writer;
    SELECT @Receipt=ReceiptId FROM paws.CalendarActivityImportReceipt WHERE ImportBatchId=@Batch;
@@ -50,6 +50,20 @@ BEGIN
     INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,SourceFacultyName,FacultyResolutionStatus,TeachingRole,SourceImportBatchId,SourceRow)
      VALUES(NEWID(),@Session,@Faculty,@Name,N'resolved',N'Secondary',@Source,2);
   END;
+ END;
+ IF @Kind='duplicate'
+ BEGIN
+  -- Prepare raw lineage before either connection starts: the observed wait must
+  -- be on the exact AFC match set, not on a raw-source insert or Faculty row.
+  INSERT staging.AfcRecordRaw(ImportBatchId,ImportRowId,SourceRowNumber,FacultySourceName,StartDate,EndDate,Purpose,RawJson,ValidationStatus,ValidationErrorsJson)
+   VALUES(@Source,NEWID(),@Row+9000,@Name,'2026-12-05','2026-12-06',N'CCC Day',N'{}',N'valid',N'[]');
+  DECLARE @Migration nvarchar(max)=@Writer;
+  SET @Writer=CONCAT(N'INSERT paws.AfcRecord(AfcRecordId,FacultyId,StartDate,EndDate,Purpose,Active,SourceImportBatchId,SourceRow) VALUES(NEWID(),''',CONVERT(char(36),@Faculty),N''',''2026-12-05'',''2026-12-06'',N''CCC Day'',1,''',CONVERT(char(36),@Source),N''',',CONVERT(varchar(12),@Row+9000),N');');
+  DECLARE @MigrationReader nvarchar(max)=CASE WHEN @ReaderFirst=1 THEN @Migration ELSE
+   N'DECLARE @Rejected bit=0;BEGIN TRY '+@Migration+N' END TRY BEGIN CATCH IF ERROR_NUMBER()=53804 SET @Rejected=1;ELSE THROW;END CATCH;IF @Rejected=0 THROW 53891,''Late duplicate did not invalidate the import.'',1;' END;
+  INSERT dbo.CalendarActivityRaceBarrier(TestName) VALUES(@TestName);
+  INSERT dbo.CalendarActivityRaceCase VALUES(@TestName,@Faculty,@Session,@Assignment,@Request,@Writer,@MigrationReader,'EXACT_AFC');
+  RETURN;
  END;
  IF @Kind IN('afc_create','afc_cancel')
  BEGIN

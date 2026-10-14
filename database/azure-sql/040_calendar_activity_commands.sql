@@ -94,6 +94,18 @@ BEGIN
     WHERE item.ImportBatchId=@ImportBatchId AND item.Status=N'accepted' AND
     (resolution.ResolutionStatus<>N'resolved' OR resolution.FacultyId<>item.FacultyId OR resolution.Tier<>item.ResolutionMethod
      OR resolution.IdentityDigest IS NULL OR resolution.IdentityDigest<>item.IdentityDigest)) THROW 53804,'Faculty identity evidence changed.',1;
+   -- Revalidate the whole preview predicate, including newly inserted matches.
+   -- Keep its key ranges locked until the receipt and exact deletion commit.
+   IF EXISTS(SELECT 1 FROM staging.CalendarActivityImportItem item
+    CROSS APPLY(SELECT COUNT(*) TargetCount,MIN(CONVERT(char(36),a.AfcRecordId)) TargetId,
+      MIN(CONVERT(varchar(16),CONVERT(binary(8),a.AfcVersion),2)) TargetVersion
+      FROM paws.AfcRecord a WITH(UPDLOCK,HOLDLOCK)
+      WHERE a.Active=1 AND a.FacultyId=item.FacultyId AND a.StartDate=item.StartDate AND a.EndDate=item.EndDate
+       AND paws_api.CalendarActivityTextKey(a.Purpose)=paws_api.CalendarActivityTextKey(item.OriginalLabel)) targets
+    WHERE item.ImportBatchId=@ImportBatchId AND item.Status=N'accepted' AND
+     (targets.TargetCount<>1 OR TRY_CONVERT(uniqueidentifier,targets.TargetId)<>item.AfcRecordId
+      OR TRY_CONVERT(binary(8),targets.TargetVersion,2)<>item.ExpectedAfcVersion))
+    THROW 53804,'The complete exact AFC match set changed.',1;
    IF EXISTS(SELECT 1 FROM staging.CalendarActivityImportItem item LEFT JOIN paws.AfcRecord a WITH(UPDLOCK,HOLDLOCK) ON a.AfcRecordId=item.AfcRecordId
     WHERE item.ImportBatchId=@ImportBatchId AND item.Status=N'accepted' AND
     (a.AfcRecordId IS NULL OR a.Active<>1 OR a.AfcVersion<>item.ExpectedAfcVersion OR a.FacultyId<>item.FacultyId OR a.StartDate<>item.StartDate OR a.EndDate<>item.EndDate

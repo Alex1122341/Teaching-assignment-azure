@@ -9,10 +9,11 @@ if($contextData[0].Endpoints.docker.Host -notmatch '^unix://' -and $contextData[
 $containerData=(& docker inspect $ContainerName | ConvertFrom-Json)
 if($LASTEXITCODE -ne 0 -or $containerData[0].Config.Labels.'paws.calendar-test' -ne '1' -or -not $containerData[0].State.Running){Fail-Disposable}
 if(-not $env:PAWS_SQL_TEST_PASSWORD){throw 'Synthetic SQL password is missing.'}
-function Start-RaceSql([string]$Sql){
+function Start-RaceSql([string]$Sql,[string]$Label='calendar-race-control'){
+ if($Label -notmatch '^calendar-race-[a-z0-9-]+$' -or $Label.Length -gt 128){throw 'Invalid synthetic connection label.'}
  $info=[Diagnostics.ProcessStartInfo]::new('docker');$info.UseShellExecute=$false;$info.CreateNoWindow=$true
  $info.RedirectStandardInput=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
- foreach($argument in @('exec','-e',"SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD",'-i',$ContainerName,'/opt/mssql-tools18/bin/sqlcmd','-S','localhost','-U','sa','-C','-I','-b','-d','VetMed-Ops','-h','-1','-y','4000','-w','65535','-i','/dev/stdin','-f','65001')){$info.ArgumentList.Add($argument)}
+ foreach($argument in @('exec','-e',"SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD",'-i',$ContainerName,'/opt/mssql-tools18/bin/sqlcmd','-S','localhost','-U','sa','-C','-I','-b','-d','VetMed-Ops','-H',$Label,'-h','-1','-y','4000','-w','65535','-i','/dev/stdin','-f','65001')){$info.ArgumentList.Add($argument)}
  $process=[Diagnostics.Process]::new();$process.StartInfo=$info;[void]$process.Start()
  $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
  $process.StandardInput.WriteLine(":ON ERROR EXIT`nSET NOCOUNT ON;`n"+$Sql);$process.StandardInput.Close()
@@ -68,13 +69,15 @@ COMMIT TRANSACTION;
 EXEC sys.sp_releaseapplock @Resource=N'$ready',@LockOwner=N'Session',@DbPrincipal=N'dbo';
 PRINT 'RACE_HOLDER_OK';
 "@
-  $holder=Start-RaceSql $holderSql;$waiter=$null
+  $holderName='calendar-race-holder-'+$name;$waiterName='calendar-race-waiter-'+$name
+  $holder=Start-RaceSql $holderSql $holderName;$waiter=$null
   try{
    Wait-RaceCondition "SELECT CASE WHEN APPLOCK_TEST(N'dbo',N'$ready',N'Shared',N'Session')=0 THEN 1 ELSE 0 END;" "$name holder-ready"
-   $context=[Convert]::ToHexString([Text.Encoding]::ASCII.GetBytes($name))
-   $waiter=Start-RaceSql "SET CONTEXT_INFO 0x$context; $other PRINT 'RACE_WAITER_OK';"
+   $holderSession=[int](Invoke-RaceSql "SELECT session_id FROM sys.dm_exec_sessions WHERE host_name=N'$holderName';")
+   if($holderSession -le 0){throw 'Synthetic holder session was not identified.'}
+   $waiter=Start-RaceSql "$other PRINT 'RACE_WAITER_OK';" $waiterName
    $type=if($case.ExpectedWait -eq 'APPLICATION'){" AND locks.resource_type=N'APPLICATION'"}else{" AND locks.resource_type<>N'APPLICATION'"}
-   Wait-RaceCondition "SELECT CASE WHEN EXISTS(SELECT 1 FROM sys.dm_tran_locks locks JOIN sys.dm_exec_sessions sessions ON sessions.session_id=locks.request_session_id WHERE sessions.context_info=0x$context AND locks.request_status IN(N'WAIT',N'CONVERT') $type) THEN 1 ELSE 0 END;" "$name observed-$($case.ExpectedWait)-wait"
+   Wait-RaceCondition "SELECT CASE WHEN EXISTS(SELECT 1 FROM sys.dm_tran_locks locks JOIN sys.dm_exec_sessions sessions ON sessions.session_id=locks.request_session_id JOIN sys.dm_exec_requests requests ON requests.session_id=sessions.session_id WHERE sessions.host_name=N'$waiterName' AND requests.blocking_session_id=$holderSession AND locks.request_status IN(N'WAIT',N'CONVERT') $type) THEN 1 ELSE 0 END;" "$name observed-$($case.ExpectedWait)-wait"
    [void](Invoke-RaceSql "UPDATE dbo.CalendarActivityRaceBarrier SET ReleaseFlag=1 WHERE TestName='$name';")
    $holderOutput=Finish-RaceSql $holder;$waiterOutput=Finish-RaceSql $waiter
    if($holderOutput -notmatch 'RACE_HOLDER_OK' -or $waiterOutput -notmatch 'RACE_WAITER_OK'){throw 'Race did not reach both durable outcomes.'}

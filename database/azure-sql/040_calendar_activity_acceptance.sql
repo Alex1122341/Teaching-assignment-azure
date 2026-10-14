@@ -25,10 +25,11 @@ BEGIN
  SELECT @Version=JSON_VALUE(responseJson,'$.previewVersion'),@Manifest=JSON_VALUE(responseJson,'$.manifestSha256') FROM @Response;
 END;
 GO
-DECLARE @Faculty uniqueidentifier,@Afc uniqueidentifier,@Batch uniqueidentifier,@Version varchar(16),@Manifest char(64),@Key uniqueidentifier,@Case int=1,@Expected int,@Rejected bit;
+DECLARE @Faculty uniqueidentifier,@Afc uniqueidentifier,@Batch uniqueidentifier,@Version varchar(16),@Manifest char(64),@Key uniqueidentifier,@Case int=1,@Expected int,@Rejected bit,@FixtureRow int;
 WHILE @Case<=6
 BEGIN
- EXEC dbo.CalendarActivityTestPrepare @Row=@Case,@Faculty=@Faculty OUTPUT,@Afc=@Afc OUTPUT,@Batch=@Batch OUTPUT,@Version=@Version OUTPUT,@Manifest=@Manifest OUTPUT;
+ SET @FixtureRow=@Case+100;
+ EXEC dbo.CalendarActivityTestPrepare @Row=@FixtureRow,@Faculty=@Faculty OUTPUT,@Afc=@Afc OUTPUT,@Batch=@Batch OUTPUT,@Version=@Version OUTPUT,@Manifest=@Manifest OUTPUT;
  SET @Key=NEWID();SET @Expected=53804;SET @Rejected=0;
  IF @Case=1 UPDATE paws.AfcRecord SET Active=0 WHERE AfcRecordId=@Afc;
  IF @Case=2 UPDATE paws.AfcRecord SET Purpose=N'Vacation' WHERE AfcRecordId=@Afc;

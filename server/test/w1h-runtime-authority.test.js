@@ -18,7 +18,8 @@ test('W1H adds three independent exact-lowercase true gates and preserves W1C ga
     swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
-    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false
+    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
+    calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   assert.deepEqual(createWriteGates({
     PAWS_AFC_SINGLE_WRITE_ENABLED: 'true',
@@ -31,7 +32,8 @@ test('W1H adds three independent exact-lowercase true gates and preserves W1C ga
     swapRequest: false, swapDecision: false, swapApply: false, afcSingle: true, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
     afcRequest: true, afcDecision: false, afcArtifact: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
-    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false
+    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
+    calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   for (const value of [undefined, 'false', 'TRUE', 'True', '1', 'yes', ' true', 'true ']) {
     const env = value === undefined ? {} : { PAWS_AFC_REQUEST_WRITE_ENABLED: value };

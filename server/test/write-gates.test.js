@@ -41,4 +41,11 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
 });
+test('calendar activity gates independently require exact lowercase environment true',()=>{
+ for(const [key,name] of [['calendarActivityStage','PAWS_CALENDAR_ACTIVITY_STAGE_ENABLED'],['calendarActivityCommit','PAWS_CALENDAR_ACTIVITY_COMMIT_ENABLED'],['calendarActivityTime','PAWS_CALENDAR_ACTIVITY_TIME_ENABLED']]){
+  for(const value of [undefined,false,true,1,'false','TRUE',' true '])assert.equal(createWriteGates({[name]:value})[key],false);
+  const gates=createWriteGates({[name]:'true'});assert.equal(gates[key],true);
+  for(const other of ['calendarActivityStage','calendarActivityCommit','calendarActivityTime'].filter(value=>value!==key))assert.equal(gates[other],false);
+ }
+});
 

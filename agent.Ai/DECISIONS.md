@@ -1,5 +1,9 @@
 # PAWS Locked Decisions
 
+## Approved Calendar working-activity design and sequential plan — 2026-10-14
+
+Owner approved PR97 design and the seven-task plan, choosing root sequential execution with one final independent whole-branch review. Preserve actual inclusive dates, no guessed course/year/clock/weekdays. OPA/leave/travel remain AFC; exact known work counterparts move atomically with receipt and restricted recovery. Missing per-day work timing yields Needs Review and blocks automatic SWAP apply even for Owner/Developer, including combined known conflicts. Departed-source exclusions remain hash/row-bound; no new identity is fabricated. Source deletion, live permission/gate activation and coordinated release require fresh concrete acceptance/approval after implementation. Current source of work remains Teaching-assignment-azure / Beta.
+
 ## Owner-approved AFC cancellation and LAB layout — 2026-10-13
 
 Within controlled Beta, administrator AFC Delete cancels active availability while retaining records and audit snapshots. It requires a separate default-off server gate, exact manual/import key, SQL administrator authorization and optimistic rowversion. No hard deletion or faculty reason disclosure. Owner approved grouped same-course/date/year LAB tables with true source intervals, explicit missing rotation groups, and original per-row Edit/Manage Instructors/SWAP flows. User explicitly selected Teaching-assignment-azure over the Experimental repository. Candidate PR and directed release acceptance remain required.

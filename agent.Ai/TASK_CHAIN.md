@@ -1,6 +1,6 @@
 ## Calendar activity implementation active — 2026-10-14
 
-Approved plan, sequential root execution and final fresh review. Draft PR98 includes Tasks1/2 accepted and Task3 in progress. Continue Tasks3–7 without re-asking approved design/plan questions. Latest checkpoint updates/2026-10-14-calendar-activity-implementation.md; live ca465bf/trustfb2c625 remains unchanged. No live source deletion or release authorized by this implementation approval.
+Approved plan, sequential root execution and final fresh review. Draft PR98 includes Tasks1–3 complete and Task4 semantics accepted with concurrency proof pending. Continue Task4–7 without re-asking approved design/plan questions. Follow canonical ledger for exact commits/CI proof; next diagnose missed DMV waiter observation, then finish all eleven races before Task4 completion. Latest checkpoint updates/2026-10-14-calendar-activity-implementation.md; live ca465bf/trustfb2c625 remains unchanged. No live source deletion or release authorized by this implementation approval.
 
 ## Historical: Calendar activity design approved; plan review pending — 2026-10-14
 

@@ -1,6 +1,6 @@
 ## Calendar activity implementation active — 2026-10-14
 
-Owner approved the seven-task plan and root sequential execution plus final independent review. Product draft PR98 on feat/calendar-working-activities-20261014; Tasks1/2 complete, Task3 atomic commands/recovery in progress. Real synthetic SQL038 and first040 acceptance pass; broader command fixtures pending. No live change. Resume updates/2026-10-14-calendar-activity-implementation.md and this plan's canonical ignored ledger; continue all seven tasks. Current freeze guard remains unchanged and whole-branch acceptance is pending.
+Owner approved the seven-task plan and root sequential execution plus final independent review. Product draft PR98 on feat/calendar-working-activities-20261014; Tasks1–3 complete, Task4 SWAP/concurrency in progress. Expanded real synthetic SQL038/040 acceptance and11 focused command/private recovery tests pass. Activity-aware SWAP semantics and5 Node/UI tests pass, including a corrected combined-AFC/unknown-time override regression. Two-connection proof is still pending: an actual helper timeout53809 was observed but the DMV wait predicate missed the waiter; live metadata diagnostics are being gathered. No live change. Resume updates/2026-10-14-calendar-activity-implementation.md and this plan's canonical ignored ledger; continue all seven tasks. Existing freeze and permission-inventory guards remain intact; whole-branch acceptance is pending.
 
 ## Historical: Calendar activity design approved; plan review pending — 2026-10-14
 

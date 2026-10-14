@@ -29,6 +29,9 @@ jobs:
       - name: Run existing prerequisites and activity foundation acceptance
         shell: pwsh
         run: ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-sql-test -Through 038
+      - name: Run atomic command acceptance
+        shell: pwsh
+        run: ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-sql-test -FeatureMigrations 038,040
       - name: Stop synthetic container
         if: always()
         shell: pwsh

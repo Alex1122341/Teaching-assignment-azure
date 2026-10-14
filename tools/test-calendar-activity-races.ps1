@@ -69,7 +69,7 @@ COMMIT TRANSACTION;
 EXEC sys.sp_releaseapplock @Resource=N'$ready',@LockOwner=N'Session',@DbPrincipal=N'dbo';
 PRINT 'RACE_HOLDER_OK';
 "@
-  $holderName='calendar-race-holder-'+$name;$waiterName='calendar-race-waiter-'+$name
+  $holderName='calendar-race-holder-'+$name.Replace('_','-');$waiterName='calendar-race-waiter-'+$name.Replace('_','-')
   $holder=Start-RaceSql $holderSql $holderName;$waiter=$null
   try{
    Wait-RaceCondition "SELECT CASE WHEN APPLOCK_TEST(N'dbo',N'$ready',N'Shared',N'Session')=0 THEN 1 ELSE 0 END;" "$name holder-ready"

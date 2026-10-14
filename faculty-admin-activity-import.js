@@ -44,5 +44,6 @@
   function clear(){generation++;preview=null;receipt=null;sourceFile=null;commitKey=null;stageKey=null;busy=false;stale=false;gates={};message='';initialized=false;initializedUid='';host.innerHTML='';}
   return Object.freeze({open,stageFile,refreshPreview,commit,clear});
  }
- return {createController};
+ function createAdminEntry(options){let controller=null;return Object.freeze({open(){const host=options.host;if(!host)return;const authorized=options.canAdmin();host.classList.toggle('hidden',!authorized);if(!authorized){controller?.clear();return;}if(!controller)controller=createController(options);return controller.open();},clear(){controller?.clear();options.host?.classList.add('hidden');}});}
+ return {createController,createAdminEntry};
 });

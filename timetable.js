@@ -1068,9 +1068,7 @@
       return {start:ymd(new Date(year,month,1)),end:ymd(new Date(year,month+1,1))};
     }
     if (viewMode === 'list') {
-      const match=String(listAcademicYear).match(/^(\d{4})-(\d{4})$/);
-      if(!match||Number(match[2])!==Number(match[1])+1)return null;
-      return {start:match[1]+'-05-01',end:match[2]+'-05-01'};
+      return window.PAWS_CALENDAR_ACTIVITIES?.academicRange(listAcademicYear)||null;
     }
     return {start:ymd(week),end:ymd(addDays(week,7))};
   }

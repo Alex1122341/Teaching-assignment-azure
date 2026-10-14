@@ -22,8 +22,10 @@
   function pawsTimingEnabled() { return window.__pawsDashboardTiming === true; }
   function pawsTimingLog(label, started) { if (pawsTimingEnabled() && typeof performance?.now === 'function') console.log(`[PAWS dashboard timing] ${label}=${Math.round(performance.now() - started)}ms`); }
 
-  let activityImportController = null;
-  let activityDetailToken = 0;
+  const workImport=window.PAWS_ACTIVITY_IMPORT?.createAdminEntry({api:UCVM_PAWS_DATA,host:$('calendar-activity-import'),notify:showToast,getUser:()=>currentUser,canAdmin:()=>!selfMode && dashboardAdmin(currentUser),onCommitted:async()=>{
+    workView?.clear();invalidateFacultyDetails();await loadAdminDashboard();await loadAfcRecords(true);if(selectedId)await selectFacultyDetail(selectedId);
+  }});
+  const workView = window.PAWS_CALENDAR_ACTIVITIES?.createFacultySchedule({getHost:()=>$('faculty-working-activities'),getUser:()=>currentUser,getSelected:()=>selectedId,isSelf:()=>selfMode});
   let auth = null;
   let currentUser = null;
   let faculty = [];
@@ -141,7 +143,7 @@
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {}); bindUI();
       if(cameFromTimetable())lock('Opening Dashboard…');
       auth.onAuthStateChanged(async user => {
-        if (!user) { currentUser = null; ++activityDetailToken;window.PAWS_CALENDAR_ACTIVITIES?.clear();activityImportController?.clear();$('calendar-activity-import')?.classList.add('hidden');lock('You are not signed in. Return to the timetable and sign in.'); return; }
+        if (!user) { currentUser = null; workView?.clear();workImport?.clear();lock('You are not signed in. Return to the timetable and sign in.'); return; }
         try {
           lock('Checking Dashboard access…'); const meStarted = typeof performance?.now === 'function' ? performance.now() : 0; const profile = await UCVM_PAWS_DATA.currentUser(); pawsTimingLog('me', meStarted);
           if (!profile || profile.active !== true) { lock('This Dashboard requires an active UCVM account.'); return; }
@@ -201,7 +203,7 @@
     if (activeTab === 'doe-overview') return loadDoeOverview();
     if (activeTab === 'doe-list') return loadDoeList();
     if (activeTab === 'doe-rules') return doePolicyView?.loadHistory();
-    if (activeTab === 'afc-records') { openActivityImport();return loadAfcRecords(); }
+    if (activeTab === 'afc-records') { workImport?.open();return loadAfcRecords(); }
     renderLookup();
   }
 
@@ -405,29 +407,7 @@
     const relationshipNote = canManage && facultyRecord.active !== false ? facultyManagement.relationshipWarning(linked) : '';
     pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyName(facultyRecord, facultyRecord.facultyId))}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div>${specialtyHtml}</div>${actions}</div>${relationshipNote}<div class="profile-sections"><section id="faculty-doe-worksheet" class="section wide"><div class="empty">Loading authoritative DOE Worksheet…</div></section>${renderContractDoe(data.contractDoe, facultyRecord)}${renderDoeRuleBook(data.doeRuleBook)}${afcHtml}${rolesHtml}${renderTeachingCourses(assignments)}<section id="faculty-working-activities" class="section wide" aria-live="polite"><p class="activity-notice">Loading working activities…</p></section>${section('Identity & contact', identity)}${section('Appointment', appointment)}${profile ? section('Specialty & education', professional, true) : ''}${joints}${scope}</div>`;
     loadDetailDoeWorksheet(facultyRecord.facultyId, text(data.academicYear) || currentAcademicYear());
-    loadFacultyWorkingActivities(facultyRecord.facultyId, text(data.academicYear) || currentAcademicYear());
-  }
-
-  async function loadFacultyWorkingActivities(facultyId, academicYear) {
-    const host=$('faculty-working-activities'),view=window.PAWS_CALENDAR_ACTIVITIES,token=++activityDetailToken,uid=currentUser?.uid;
-    if(!host||!view)return;
-    const match=String(academicYear).match(/^(\d{4})-(\d{4})$/);
-    if(!match||Number(match[2])!==Number(match[1])+1){host.textContent='Choose an academic year to view working activities.';return;}
-    const range={start:match[1]+'-05-01',end:match[2]+'-05-01'};
-    const current=()=>token===activityDetailToken&&uid===currentUser?.uid&&host===$('faculty-working-activities')&&String(selectedId).toLowerCase()===String(facultyId).toLowerCase();
-    try{const rows=await view.loadFacultyRange(facultyId, range, { self: selfMode });if(current())host.innerHTML=view.renderFacultyActivities(rows);}
-    catch(error){if(current())host.innerHTML='<p class="activity-notice activity-error" role="alert">Working activities could not be loaded. Teaching and profile data remain available.</p>';}
-  }
-
-  function openActivityImport() {
-    const host=$('calendar-activity-import');if(!host)return;
-    const authorized=!selfMode && dashboardAdmin(currentUser);host.classList.toggle('hidden',!authorized);
-    if(!authorized){activityImportController?.clear();return;}
-    if(!window.PAWS_ACTIVITY_IMPORT?.createController){host.textContent='Calendar import controls could not be loaded. AFC records remain available.';return;}
-    if(!activityImportController)activityImportController=window.PAWS_ACTIVITY_IMPORT.createController({api:UCVM_PAWS_DATA,host,notify:showToast,getUser:()=>currentUser,onCommitted:async()=>{
-      window.PAWS_CALENDAR_ACTIVITIES?.clear();invalidateFacultyDetails();await loadAdminDashboard();await loadAfcRecords(true);if(selectedId)await selectFacultyDetail(selectedId);
-    }});
-    activityImportController.open();
+    workView?.load(facultyRecord.facultyId, text(data.academicYear) || currentAcademicYear());
   }
 
   function renderFacultyAfc(records) {

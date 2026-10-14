@@ -3,6 +3,7 @@
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const validDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
  const validTime=value=>typeof value==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+ function academicRange(value){const match=String(value||'').match(/^(\d{4})-(\d{2}|\d{4})$/);if(!match)return null;const start=Number(match[1]),end=start+1;if(String(end).slice(-match[2].length)!==match[2])return null;return {start:start+'-05-01',end:end+'-05-01'};}
  const labels={ccc:'CCC',rotation_participant:'Fourth-year rotation',clinical_day:'Clinical day',vetm581_rounds:'VETM 581 rounds',vetm571_clinical_pharmacology:'VETM 571',vetm591_presentations:'VETM 591',teaching_excellence:'Teaching excellence',remote_work:'Remote work'};
  function times(row){const unique=new Map();for(const entry of Array.isArray(row.timeEvidence)?row.timeEvidence:[]){if(validDate(entry.date)&&entry.date>=row.startDate&&entry.date<=row.endDate&&validTime(entry.startTime)&&validTime(entry.endTime)&&entry.startTime<entry.endTime)unique.set(entry.date,{date:entry.date,startTime:entry.startTime,endTime:entry.endTime});}return [...unique.values()].sort((a,b)=>a.date.localeCompare(b.date));}
  function renderRangeLane(activities,{start,end,filters={}}={}){
@@ -40,7 +41,19 @@
    if(!key)return[];
    return loadRange({...range,facultyKey:key});
   }
-  return Object.freeze({loadRange,loadFacultyRange,renderRangeLane,renderFacultyActivities:activities=>renderRangeLane(activities),clear(){generation++;}});
+  const view={loadRange,loadFacultyRange,academicRange,renderRangeLane,renderFacultyActivities:activities=>renderRangeLane(activities),clear(){generation++;}};
+  return Object.freeze({...view,createFacultySchedule:options=>createFacultySchedule({...options,view})});
  }
- return {createCalendarActivityView,renderRangeLane};
+ function createFacultySchedule({view,getHost,getUser,getSelected,isSelf}){
+  let generation=0;
+  async function load(facultyId,year){
+   const host=getHost(),token=++generation,uid=getUser()?.uid;if(!host)return;
+   const range=academicRange(year);if(!range){host.textContent='Choose an academic year to view working activities.';return;}
+   const current=()=>token===generation&&uid===getUser()?.uid&&host===getHost()&&String(getSelected()).toLowerCase()===String(facultyId).toLowerCase();
+   try{const rows=await view.loadFacultyRange(facultyId,range,{self:isSelf()});if(current())host.innerHTML=view.renderFacultyActivities(rows);}
+   catch(error){if(current())host.innerHTML='<p class="activity-notice activity-error" role="alert">Working activities could not be loaded. Teaching and profile data remain available.</p>';}
+  }
+  return Object.freeze({load,clear(){generation++;view.clear();}});
+ }
+ return {createCalendarActivityView,renderRangeLane,academicRange};
 });

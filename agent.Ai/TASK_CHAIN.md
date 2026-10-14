@@ -1,6 +1,6 @@
 ## Calendar activity implementation active — 2026-10-14
 
-Approved plan, sequential root execution and final fresh review. Draft PR98 includes Tasks1–3 complete and Task4 semantics accepted with concurrency proof pending. Continue Task4–7 without re-asking approved design/plan questions. Follow canonical ledger for exact commits/CI proof; next diagnose missed DMV waiter observation, then finish all eleven races before Task4 completion. Latest checkpoint updates/2026-10-14-calendar-activity-implementation.md; live ca465bf/trustfb2c625 remains unchanged. No live source deletion or release authorized by this implementation approval.
+Tasks1–6 complete on feat/calendar-working-activities-20261014 / draft PR98; Task7 whole-module acceptance, fresh independent review and release preparation in progress. Actual SQL038–041 and eleven two-connection wait proofs passed38643556361; full server588pass/1SQL-environment skip. Calendar SQL range lane, authorized profile schedule and gated admin preview implemented, latest focused closure99/99. Whole root suite is not yet green: six old freeze checks await separately reviewed governance; other initial failures were corrected and focused-tested. No new live mutation or publication. Resume updates/2026-10-14-1610-calendar-activity-ui-acceptance.md and the canonical plan ledger. Preserve all rulings; continue final review and concrete release/source approvals.
 
 ## Historical: Calendar activity design approved; plan review pending — 2026-10-14
 

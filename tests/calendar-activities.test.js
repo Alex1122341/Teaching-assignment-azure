@@ -1,6 +1,12 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');const {createCalendarActivityView}=require('../calendar-activities');
 const row={activityId:'private-id',facultyKey:'public-key',facultyDisplayName:'Synthetic Faculty',category:'ccc',label:'CCC Day',startDate:'2026-04-29',endDate:'2026-05-03',timeStatus:'not_provided',timeEvidence:[]};
+test('academic context supports the existing short year and full year without assigning an activity year',()=>{
+ const {academicRange}=require('../calendar-activities');
+ assert.deepEqual(academicRange('2026-27'),{start:'2026-05-01',end:'2027-05-01'});
+ assert.deepEqual(academicRange('2026-2027'),academicRange('2026-27'));
+ assert.equal(academicRange('2026-28'),null);assert.equal(academicRange(''),null);
+});
 test('date-only ranges keep source dates and weekends without invented clocks or session actions',()=>{
  const view=createCalendarActivityView({api:{},getUser:()=>({uid:'synthetic'})});const html=view.renderRangeLane([row],{start:'2026-05-01',end:'2026-05-08',filters:{}});
  assert.match(html,/2026-04-29/);assert.match(html,/2026-05-03/);assert.match(html,/Not provided/);assert.match(html,/Needs Review/);assert.doesNotMatch(html,/07:30|17:00|data-session-id=|Edit Session|Manage Instructors|SWAP request|private-id|public-key/);

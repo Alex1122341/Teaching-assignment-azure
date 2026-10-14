@@ -20,15 +20,9 @@ test('timetable has day, week, month and future list views',()=>{
  assert.match(html,/roleIsFaculty/);
 });
 
-test('CCC records are opt-in and sourced from the sanitized public schedule document',()=>{
- assert.match(html,/id="show-ccc"/);
- assert.match(html,/collection\('public_schedule'\)\.doc\('ccc_events'\)/);
- assert.match(html,/function loadCccEvents/);
- assert.match(html,/showCcc\s*=\s*false/);
- const rules=fs.readFileSync(path.join(root,'firestore.rules'),'utf8');
- assert.match(rules,/match \/public_schedule\/\{id\}/);
- const admin=fs.readFileSync(path.join(root,'faculty-admin.js'),'utf8');
- assert.equal(admin.includes('syncCccPublicSchedule'),false,'the read-only Dashboard has no CCC sync path');
+test('CCC is opt-in SQL range data and never a generated teaching session',()=>{
+ assert.match(html,/id="show-ccc"/);assert.match(html,/renderRangeLane/);assert.doesNotMatch(html,/ccc_events|expandCccEvents|loadCccEvents/);
+ assert.match(fs.readFileSync(path.join(root,'calendar-activities.js'),'utf8'),/listCalendarActivities/);
 });
 
 test('CSV and calendar exports use filters and support date, academic, and all scopes',()=>{

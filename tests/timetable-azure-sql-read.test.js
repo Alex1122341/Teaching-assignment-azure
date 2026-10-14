@@ -17,9 +17,10 @@ test('working activity ranges use SQL outside the timed session grid and clear o
 
 test('faculty schedule uses self scope or the authorized administrator mapping and import is admin only',()=>{
   const dashboard=fs.readFileSync('faculty-admin.js','utf8');
-  assert.match(dashboard,/loadFacultyRange\(facultyId, range, \{ self: selfMode \}\)/);
-  assert.match(dashboard,/PAWS_ACTIVITY_IMPORT\.createController/);
-  assert.match(dashboard,/activityImportController\?\.clear/);
+  assert.match(dashboard,/createFacultySchedule/);
+  assert.match(fs.readFileSync('calendar-activities.js','utf8'),/loadFacultyRange\(facultyId,range,\{self:isSelf\(\)\}\)/);
+  assert.match(dashboard,/PAWS_ACTIVITY_IMPORT\?\.createAdminEntry/);
+  assert.match(dashboard,/workImport\?\.clear/);
   assert.match(dashboard,/!selfMode && dashboardAdmin\(currentUser\)/);
 });
 

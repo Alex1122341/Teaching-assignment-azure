@@ -26,3 +26,9 @@ test('malformed SQL JSON fails safely rather than manufacturing an empty success
  const repo=createSqlCalendarActivityRepository({query:async()=>[{responseJson:'{private broken'}]});
  await assert.rejects(()=>repo.getImport({actorFirebaseUid:'verified-admin',batchId:ID}),error=>error.code==='INVALID_CALENDAR_RESPONSE'&&!error.message.includes('private'));
 });
+test('activity projection strips accidental confidential columns and timing evidence notes',async()=>{
+ const repo=createSqlCalendarActivityRepository({query:async()=>[{responseJson:JSON.stringify({activities:[{activityId:ID,facultyKey:ID,facultyDisplayName:'Synthetic Faculty',category:'ccc',label:'CCC Day',startDate:'2026-11-05',endDate:'2026-11-06',courseCode:null,timeStatus:'partial',version:'0000000000000001',facultyId:ID,email:'private@example.test',ucid:'private',afcPurpose:'private',timeEvidence:[{date:'2026-11-05',startTime:'09:00',endTime:'10:00',evidenceNote:'private'}]}],nextCursor:null,privateNotes:'private'})}]});
+ const result=await repo.list({actorFirebaseUid:'verified-faculty',start:'2026-11-01',end:'2026-12-01'});
+ assert.equal(JSON.stringify(result).includes('private'),false);
+ assert.deepEqual(result.activities[0].timeEvidence,[{date:'2026-11-05',startTime:'09:00',endTime:'10:00'}]);
+});

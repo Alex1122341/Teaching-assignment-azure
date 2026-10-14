@@ -5,10 +5,18 @@ IF DB_NAME()<>N'VetMed-Ops' THROW 53890,'Wrong synthetic database.',1;
 IF OBJECT_ID(N'paws.CalendarActivity') IS NULL THROW 53890,'Calendar activity foundation is missing.',1;
 BEGIN TRANSACTION;
 DECLARE @Batch uniqueidentifier=NEWID(),@Faculty uniqueidentifier=NEWID(),@Other uniqueidentifier=NEWID(),@Afc uniqueidentifier=NEWID(),@Raw uniqueidentifier=NEWID(),@Request uniqueidentifier=NEWID();
+DECLARE @Inactive uniqueidentifier=NEWID(),@AmbiguousA uniqueidentifier=NEWID(),@AmbiguousB uniqueidentifier=NEWID();
 INSERT staging.ImportBatch(ImportBatchId,StartedAtUtc,Status,SourceManifestSha256,ImporterVersion,ValidationSummaryJson)
 VALUES(@Batch,SYSUTCDATETIME(),N'completed',REPLICATE('A',64),N'synthetic',N'{}');
 INSERT paws.Faculty(FacultyId,RecordType,PreferredFirstName,PreferredLastName,DisplayName,Active,SourceImportBatchId)
 VALUES(@Faculty,N'faculty',N'Alex',N'Synthetic',N'Alex Synthetic',1,@Batch),(@Other,N'faculty',N'Other',N'Synthetic',N'Other Synthetic',1,@Batch);
+INSERT paws.Faculty(FacultyId,RecordType,PreferredFirstName,PreferredLastName,DisplayName,Active,SourceImportBatchId)
+VALUES(@Inactive,N'faculty',N'Inactive',N'Synthetic',N'Inactive Synthetic',0,@Batch),
+(@AmbiguousA,N'faculty',N'AmbiguousA',N'Synthetic',N'AmbiguousA Synthetic',1,@Batch),
+(@AmbiguousB,N'faculty',N'AmbiguousB',N'Synthetic',N'AmbiguousB Synthetic',1,@Batch);
+INSERT paws.FacultyAlias(FacultyAliasId,FacultyId,AliasName,TargetPreferredSourceName,TargetDisplayName,Active,SourceImportBatchId)
+VALUES(NEWID(),@AmbiguousA,N'Ambiguous Synthetic',N'AmbiguousA Synthetic',N'AmbiguousA Synthetic',1,@Batch),
+(NEWID(),@AmbiguousB,N'Ambiguous  Synthetic',N'AmbiguousB Synthetic',N'AmbiguousB Synthetic',1,@Batch);
 INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword)
 VALUES(N'calendar-test-admin',N'admin@example.test',N'Synthetic Admin',N'owner',NULL,1,0),
 (N'calendar-test-faculty',N'faculty@example.test',N'Synthetic Faculty',N'faculty',@Faculty,1,0);
@@ -18,10 +26,13 @@ VALUES(@Batch,@Raw,2,N'Former Synthetic','2026-11-05','2026-11-06',N'CCC Day',N'
 INSERT paws.AfcRecord(AfcRecordId,FacultyId,StartDate,EndDate,Purpose,Active,SourceImportBatchId,SourceRow)
 VALUES(@Afc,@Faculty,'2026-11-05','2026-11-06',N'CCC Day',1,@Batch,2);
 DECLARE @Rows nvarchar(max)=N'[{"sourceRow":2,"facultySourceName":"Former Synthetic","startDate":"2026-11-05","endDate":"2026-11-06","originalLabel":"CCC Day","category":"ccc","treatment":"working_candidate","issues":[]},{"sourceRow":3,"facultySourceName":"Alex Synthetic","startDate":"2026-11-05","endDate":"2026-11-06","originalLabel":"OPA","category":null,"treatment":"retain_afc","issues":[]},{"sourceRow":267,"facultySourceName":"Departed Synthetic","startDate":"2026-11-05","endDate":"2026-11-06","originalLabel":"CCC Day","category":"ccc","treatment":"excluded","issues":[]}]';
+SET @Rows=JSON_MODIFY(@Rows,'append $',JSON_QUERY(N'{"sourceRow":4,"facultySourceName":"Inactive Synthetic","startDate":"2026-11-05","endDate":"2026-11-06","originalLabel":"CCC Day","category":"ccc","treatment":"working_candidate","issues":[]}'));
+SET @Rows=JSON_MODIFY(@Rows,'append $',JSON_QUERY(N'{"sourceRow":5,"facultySourceName":"Ambiguous Synthetic","startDate":"2026-11-05","endDate":"2026-11-06","originalLabel":"CCC Day","category":"ccc","treatment":"working_candidate","issues":[]}'));
+SET @Rows=JSON_MODIFY(@Rows,'append $',JSON_QUERY(N'{"sourceRow":6,"facultySourceName":"Unknown Synthetic","startDate":"2026-11-05","endDate":"2026-11-06","originalLabel":"CCC Day","category":"ccc","treatment":"working_candidate","issues":[]}'));
 DECLARE @Response table(responseJson nvarchar(max));
 INSERT @Response EXEC paws_api.StageCalendarActivityImport @ActorFirebaseUid=N'calendar-test-admin',@RequestId=@Request,@SourceSha256='4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@RowsJson=@Rows;
 DECLARE @Preview nvarchar(max)=(SELECT responseJson FROM @Response);
-IF JSON_VALUE(@Preview,'$.counts.accepted')<>N'1' OR JSON_VALUE(@Preview,'$.counts.retained')<>N'1' OR JSON_VALUE(@Preview,'$.counts.excluded')<>N'1' THROW 53890,'Source treatments or lineage resolution are incorrect.',1;
+IF JSON_VALUE(@Preview,'$.counts.accepted')<>N'1' OR JSON_VALUE(@Preview,'$.counts.retained')<>N'1' OR JSON_VALUE(@Preview,'$.counts.excluded')<>N'1' OR JSON_VALUE(@Preview,'$.counts.quarantined')<>N'3' THROW 53890,'Source treatments or lineage resolution are incorrect.',1;
 IF EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE ImportBatchId=@Request) THROW 53890,'Staged rows became live before commit.',1;
 IF paws_api.CalendarActivityNameKey(N'  Zoë'+NCHAR(160)+N' O''Connor ,'+NCHAR(9)+N' Jr  ')<>N'ZOË O''CONNOR, JR' THROW 53890,'Name normalization contract differs.',1;
 IF paws_api.CalendarActivityPurposeCategory(N'OPA') IS NOT NULL THROW 53890,'OPA became working activity.',1;

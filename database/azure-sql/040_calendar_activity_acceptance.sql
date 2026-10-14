@@ -25,6 +25,29 @@ BEGIN
  SELECT @Version=JSON_VALUE(responseJson,'$.previewVersion'),@Manifest=JSON_VALUE(responseJson,'$.manifestSha256') FROM @Response;
 END;
 GO
+CREATE PROCEDURE dbo.CalendarActivityTestProtected
+AS
+BEGIN
+ SET NOCOUNT ON;
+ DECLARE @Name sysname,@Sql nvarchar(max),@Hash binary(32),@State TABLE(objectName sysname,fingerprint binary(32));
+ DECLARE protectedTables CURSOR LOCAL FAST_FORWARD FOR
+  SELECT name FROM sys.tables WHERE schema_id=SCHEMA_ID(N'paws') AND
+   (name IN(N'Session',N'SessionAssignment') OR name LIKE N'Doe%' OR name LIKE N'TeachingAssignmentPublished%') ORDER BY name;
+ OPEN protectedTables;FETCH NEXT FROM protectedTables INTO @Name;
+ WHILE @@FETCH_STATUS=0
+ BEGIN
+  SET @Sql=N'SELECT @Result=HASHBYTES(''SHA2_256'',COALESCE(STRING_AGG(CONVERT(nvarchar(max),RowHash),N''|'') WITHIN GROUP(ORDER BY RowHash),N'''')) FROM '
+   +N'(SELECT CONVERT(varchar(64),HASHBYTES(''SHA2_256'',(SELECT t.* FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES)),2) RowHash FROM paws.'+QUOTENAME(@Name)+N' t) hashes;';
+  EXEC sys.sp_executesql @Sql,N'@Result binary(32) OUTPUT',@Result=@Hash OUTPUT;
+  INSERT @State VALUES(@Name,@Hash);
+  FETCH NEXT FROM protectedTables INTO @Name;
+ END;
+ CLOSE protectedTables;DEALLOCATE protectedTables;
+ SELECT objectName,fingerprint FROM @State ORDER BY objectName;
+END;
+GO
+DECLARE @ProtectedBefore TABLE(objectName sysname,fingerprint binary(32));
+INSERT @ProtectedBefore EXEC dbo.CalendarActivityTestProtected;
 DECLARE @Faculty uniqueidentifier,@Afc uniqueidentifier,@Batch uniqueidentifier,@Version varchar(16),@Manifest char(64),@Key uniqueidentifier,@Case int=1,@Expected int,@Rejected bit,@FixtureRow int;
 WHILE @Case<=10
 BEGIN
@@ -150,6 +173,35 @@ BEGIN TRY EXEC paws_api.RecoverCalendarActivityImport N'calendar-command-admin',
 BEGIN CATCH IF ERROR_NUMBER()=53804 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 OR EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Afc) OR NOT EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime WHERE ActivityId=@Activity)
  THROW 53890,'Recovery overwrote verified newer timing.',1;
+-- A new registered alias changes a previously provenance-only identity and must be rejected.
+EXEC dbo.CalendarActivityTestPrepare @Row=50,@Faculty=@Faculty OUTPUT,@Afc=@Afc OUTPUT,@Batch=@Batch OUTPUT,@Version=@Version OUTPUT,@Manifest=@Manifest OUTPUT;
+DECLARE @OldName nvarchar(256)=(SELECT DisplayName FROM paws.Faculty WHERE FacultyId=@Faculty),@NewFaculty uniqueidentifier=NEWID();
+UPDATE paws.Faculty SET DisplayName=CONCAT(DisplayName,N' renamed') WHERE FacultyId=@Faculty;
+DELETE @Reply;
+INSERT @Reply EXEC paws_api.PreviewCalendarActivityImport N'calendar-command-admin',@Batch,@Version;
+SELECT @Version=JSON_VALUE(responseJson,'$.previewVersion'),@Manifest=JSON_VALUE(responseJson,'$.manifestSha256') FROM @Reply;
+IF NOT EXISTS(SELECT 1 FROM staging.CalendarActivityImportItem WHERE ImportBatchId=@Batch AND ResolutionMethod=3 AND Status=N'accepted') THROW 53890,'Provenance fixture did not resolve.',1;
+INSERT paws.Faculty(FacultyId,RecordType,DisplayName,Active,SourceImportBatchId)
+ SELECT @NewFaculty,RecordType,CONCAT(DisplayName,N' other'),1,SourceImportBatchId FROM paws.Faculty WHERE FacultyId=@Faculty;
+INSERT paws.FacultyAlias(FacultyAliasId,FacultyId,AliasName,TargetPreferredSourceName,TargetDisplayName,Active,SourceImportBatchId)
+ SELECT NEWID(),@NewFaculty,@OldName,@OldName,DisplayName,1,SourceImportBatchId FROM paws.Faculty WHERE FacultyId=@NewFaculty;
+SET @Key=NEWID();SET @Rejected=0;
+BEGIN TRY EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1; END TRY
+BEGIN CATCH IF ERROR_NUMBER()=53804 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 OR NOT EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Afc) THROW 53890,'New alias evidence was not rechecked.',1;
+EXEC dbo.CalendarActivityTestPrepare @Row=51,@Faculty=@Faculty OUTPUT,@Afc=@Afc OUTPUT,@Batch=@Batch OUTPUT,@Version=@Version OUTPUT,@Manifest=@Manifest OUTPUT;
+CREATE TABLE dbo.CalendarActivityTestProtectedAfc(AfcRecordId uniqueidentifier NOT NULL REFERENCES paws.AfcRecord(AfcRecordId));
+INSERT dbo.CalendarActivityTestProtectedAfc VALUES(@Afc);
+SET @Key=NEWID();SET @Rejected=0;
+BEGIN TRY EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1; END TRY
+BEGIN CATCH IF ERROR_NUMBER()=53808 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 OR NOT EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Afc) THROW 53890,'Protected AFC reference was deleted.',1;
+DROP TABLE dbo.CalendarActivityTestProtectedAfc;
+DECLARE @ProtectedAfter TABLE(objectName sysname,fingerprint binary(32));
+INSERT @ProtectedAfter EXEC dbo.CalendarActivityTestProtected;
+IF EXISTS(SELECT * FROM @ProtectedBefore EXCEPT SELECT * FROM @ProtectedAfter) OR EXISTS(SELECT * FROM @ProtectedAfter EXCEPT SELECT * FROM @ProtectedBefore)
+ THROW 53890,'Unrelated Session, DOE or Published data changed.',1;
 PRINT 'CALENDAR_ACTIVITY_ATOMIC_ACCEPTANCE_OK';
 PRINT 'CALENDAR_ACTIVITY_RECOVERY_ACCEPTANCE_OK';
 DROP PROCEDURE dbo.CalendarActivityTestPrepare;
+DROP PROCEDURE dbo.CalendarActivityTestProtected;

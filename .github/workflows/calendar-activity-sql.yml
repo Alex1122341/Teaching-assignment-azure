@@ -38,6 +38,9 @@ jobs:
       - name: Prove two-connection serialization
         shell: pwsh
         run: ./tools/test-calendar-activity-races.ps1 -ContainerName paws-calendar-sql-test
+      - name: Rehearse guarded rollback in a fresh synthetic database
+        shell: pwsh
+        run: ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-sql-test -Through 041 -CheckRollback
       - name: Stop synthetic container
         if: always()
         shell: pwsh

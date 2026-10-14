@@ -1,4 +1,8 @@
-## Calendar activity design approved; plan review pending — 2026-10-14
+## Calendar activity implementation active — 2026-10-14
+
+Approved plan, sequential root execution and final fresh review. Draft PR98 includes Tasks1/2 accepted and Task3 in progress. Continue Tasks3–7 without re-asking approved design/plan questions. Latest checkpoint updates/2026-10-14-calendar-activity-implementation.md; live ca465bf/trustfb2c625 remains unchanged. No live source deletion or release authorized by this implementation approval.
+
+## Historical: Calendar activity design approved; plan review pending — 2026-10-14
 
 Owner approved PR97's written range-activity design and requested the implementation plan. Seven-task plan docs/superpowers/plans/2026-10-14-calendar-working-activities-implementation.md is ready and self-reviewed, with exact source-bound staging/atomic commands, activity-aware SWAP snapshots/locks, scoped API/Calendar/profile UI, synthetic acceptance and separate reviewed release/data operation. Proposed Native execution plus independent whole-branch review; owner plan review/method selection pending under writing-plans. No product code or live operation this turn. Draft PR97 remains documentation only. Runtime ca465bf/trustfb2c625 unchanged. Resume updates/2026-10-14-1040-calendar-activity-plan.md; do not repeat archived-person or prior release work.
 

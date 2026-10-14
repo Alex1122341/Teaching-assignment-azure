@@ -26,7 +26,7 @@ BEGIN
 END;
 GO
 DECLARE @Faculty uniqueidentifier,@Afc uniqueidentifier,@Batch uniqueidentifier,@Version varchar(16),@Manifest char(64),@Key uniqueidentifier,@Case int=1,@Expected int,@Rejected bit,@FixtureRow int;
-WHILE @Case<=6
+WHILE @Case<=10
 BEGIN
  SET @FixtureRow=@Case+100;
  EXEC dbo.CalendarActivityTestPrepare @Row=@FixtureRow,@Faculty=@Faculty OUTPUT,@Afc=@Afc OUTPUT,@Batch=@Batch OUTPUT,@Version=@Version OUTPUT,@Manifest=@Manifest OUTPUT;
@@ -45,11 +45,33 @@ BEGIN
  IF @Case=6
   INSERT paws.Faculty(FacultyId,RecordType,DisplayName,Active,SourceImportBatchId)
    SELECT NEWID(),RecordType,DisplayName,1,SourceImportBatchId FROM paws.Faculty WHERE FacultyId=@Faculty;
+ IF @Case=7 DELETE raw FROM staging.AfcRecordRaw raw JOIN paws.AfcRecord a ON a.SourceImportBatchId=raw.ImportBatchId AND a.SourceRow=raw.SourceRowNumber WHERE a.AfcRecordId=@Afc;
+ IF @Case=8 UPDATE staging.CalendarActivityImport SET ExpiresAtUtc=DATEADD(minute,1,ExpiresAtUtc) WHERE ImportBatchId=@Batch;
+ IF @Case=9 UPDATE staging.CalendarActivityImportItem SET Category=N'clinical_day' WHERE ImportBatchId=@Batch;
+ IF @Case=9 SET @Expected=53806;
+ IF @Case=10 UPDATE paws.Faculty SET DisplayName=CONCAT(DisplayName,N' changed') WHERE FacultyId=@Faculty;
  BEGIN TRY
   EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1;
  END TRY BEGIN CATCH IF ERROR_NUMBER()=@Expected SET @Rejected=1;ELSE THROW;END CATCH;
  IF @Rejected=0 OR NOT EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Afc) OR EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE ImportBatchId=@Batch)
   THROW 53890,'Stale/expired/ambiguous import was not rejected atomically.',1;
+ SET @Case+=1;
+END;
+-- Failure at either business write boundary must also preserve both sides.
+SET @Case=1;
+WHILE @Case<=2
+BEGIN
+ SET @FixtureRow=40+@Case;
+ EXEC dbo.CalendarActivityTestPrepare @Row=@FixtureRow,@Faculty=@Faculty OUTPUT,@Afc=@Afc OUTPUT,@Batch=@Batch OUTPUT,@Version=@Version OUTPUT,@Manifest=@Manifest OUTPUT;
+ SET @Key=NEWID();SET @Rejected=0;
+ IF @Case=1 EXEC(N'CREATE TRIGGER paws.TR_CalendarActivityTestRejectInsert ON paws.CalendarActivity AFTER INSERT AS THROW 53899,''Synthetic activity insert failure.'',1;');
+ ELSE EXEC(N'CREATE TRIGGER paws.TR_CalendarActivityTestRejectDelete ON paws.AfcRecord AFTER DELETE AS THROW 53899,''Synthetic AFC delete failure.'',1;');
+ BEGIN TRY EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1; END TRY
+ BEGIN CATCH IF ERROR_NUMBER()=53899 SET @Rejected=1;ELSE THROW;END CATCH;
+ IF @Case=1 DROP TRIGGER paws.TR_CalendarActivityTestRejectInsert;
+ ELSE DROP TRIGGER paws.TR_CalendarActivityTestRejectDelete;
+ IF @Rejected=0 OR NOT EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Afc AND Active=1) OR EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE ImportBatchId=@Batch)
+  OR EXISTS(SELECT 1 FROM paws.CalendarActivityImportReceipt WHERE ImportBatchId=@Batch) THROW 53890,'Business-write failure did not fully roll back.',1;
  SET @Case+=1;
 END;
 -- A failure injected into the durable commit audit must roll back insert and delete.
@@ -65,6 +87,14 @@ IF @Rejected=0 OR NOT EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Afc
 EXEC dbo.CalendarActivityTestPrepare @Row=21,@Faculty=@Faculty OUTPUT,@Afc=@Afc OUTPUT,@Batch=@Batch OUTPUT,@Version=@Version OUTPUT,@Manifest=@Manifest OUTPUT;
 SET @Key=NEWID();
 DECLARE @OriginalVersion binary(8)=(SELECT AfcVersion FROM paws.AfcRecord WHERE AfcRecordId=@Afc);
+DECLARE @OtherAfc uniqueidentifier=NEWID(),@UnknownAfc uniqueidentifier=NEWID(),@Manual uniqueidentifier=NEWID();
+INSERT paws.AfcRecord(AfcRecordId,FacultyId,StartDate,EndDate,Purpose,Active,SourceImportBatchId,SourceRow)
+ SELECT @OtherAfc,FacultyId,StartDate,EndDate,N'OPA',1,SourceImportBatchId,22 FROM paws.AfcRecord WHERE AfcRecordId=@Afc
+ UNION ALL SELECT @UnknownAfc,FacultyId,StartDate,EndDate,N'Unclassified synthetic',1,SourceImportBatchId,23 FROM paws.AfcRecord WHERE AfcRecordId=@Afc;
+INSERT paws.AfcManualRecord(AfcRecordId,FacultyId,StartDate,EndDate,ReasonCode,Notes,CreatedByFirebaseUid,RequestId)
+ VALUES(@Manual,@Faculty,'2026-11-05','2026-11-06',N'other',N'CCC Day',N'calendar-command-admin',NEWID());
+DECLARE @PreservedAfc binary(32)=HASHBYTES('SHA2_256',(SELECT * FROM paws.AfcRecord WHERE AfcRecordId<>@Afc ORDER BY AfcRecordId FOR JSON PATH,INCLUDE_NULL_VALUES));
+DECLARE @PreservedManual binary(32)=HASHBYTES('SHA2_256',(SELECT * FROM paws.AfcManualRecord ORDER BY AfcRecordId FOR JSON PATH,INCLUDE_NULL_VALUES));
 DECLARE @Reply TABLE(responseJson nvarchar(max));
 INSERT @Reply EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1;
 DECLARE @Receipt uniqueidentifier=(SELECT TRY_CONVERT(uniqueidentifier,JSON_VALUE(responseJson,'$.receiptId')) FROM @Reply);
@@ -74,12 +104,52 @@ DELETE @Reply;
 INSERT @Reply EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1;
 IF JSON_VALUE((SELECT responseJson FROM @Reply),'$.idempotentReplay')<>N'true' OR (SELECT COUNT(*) FROM paws.CalendarActivityImportReceipt WHERE IdempotencyKey=@Key)<>1
  THROW 53890,'Lost-response retry created duplicate work.',1;
+IF (SELECT COUNT(*) FROM paws.AuditEvent WHERE RequestId=@Key AND EventType=N'calendar_activity_import_committed')<>1 THROW 53890,'Retry duplicated commit audit.',1;
+SET @Rejected=0;
+DECLARE @DifferentKey uniqueidentifier=NEWID();
+BEGIN TRY EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@DifferentKey,1; END TRY
+BEGIN CATCH IF ERROR_NUMBER()=53807 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 53890,'Changed-key retry was accepted.',1;
+SET @Rejected=0;
+BEGIN TRY EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'0000000000000000000000000000000000000000000000000000000000000000',@Key,1; END TRY
+BEGIN CATCH IF ERROR_NUMBER()=53807 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 53890,'Changed-hash replay was accepted.',1;
 DECLARE @Recovery TABLE(recoveryJson nvarchar(max),recoverySha256 char(64));
 INSERT @Recovery EXEC paws_api.ExportCalendarActivityRecovery N'calendar-command-admin',@Receipt;
 DECLARE @RecoveryHash char(64)=(SELECT recoverySha256 FROM @Recovery);
 EXEC paws_api.RecoverCalendarActivityImport N'calendar-command-admin',@Receipt,@RecoveryHash,1;
 IF NOT EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Afc AND AfcVersion<>@OriginalVersion)
  OR EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE ImportBatchId=@Batch) THROW 53890,'Narrow recovery did not restore exact identity with a new version.',1;
+IF @PreservedAfc<>HASHBYTES('SHA2_256',(SELECT * FROM paws.AfcRecord WHERE AfcRecordId<>@Afc ORDER BY AfcRecordId FOR JSON PATH,INCLUDE_NULL_VALUES))
+ OR @PreservedManual<>HASHBYTES('SHA2_256',(SELECT * FROM paws.AfcManualRecord ORDER BY AfcRecordId FOR JSON PATH,INCLUDE_NULL_VALUES))
+ THROW 53890,'Retained, unrelated, manual or unclassified AFC changed.',1;
+-- Editing one verified date bumps the parent token and prevents overwriting it via recovery.
+EXEC dbo.CalendarActivityTestPrepare @Row=30,@Faculty=@Faculty OUTPUT,@Afc=@Afc OUTPUT,@Batch=@Batch OUTPUT,@Version=@Version OUTPUT,@Manifest=@Manifest OUTPUT;
+SET @Key=NEWID();DELETE @Reply;
+INSERT @Reply EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1;
+SELECT @Receipt=TRY_CONVERT(uniqueidentifier,JSON_VALUE(responseJson,'$.receiptId')) FROM @Reply;
+DECLARE @Activity uniqueidentifier,@ActivityVersion varchar(16);
+SELECT @Activity=ActivityId,@ActivityVersion=CONVERT(varchar(16),CONVERT(binary(8),ActivityVersion),2) FROM paws.CalendarActivity WHERE ImportBatchId=@Batch;
+SET @Rejected=0;
+BEGIN TRY EXEC paws_api.ResolveCalendarActivityDayTime N'calendar-command-admin',@Activity,@ActivityVersion,'2026-11-07','09:00','10:00',N'synthetic evidence',N'approved fixture'; END TRY
+BEGIN CATCH IF ERROR_NUMBER()=53802 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 53890,'Out-of-range timing was accepted.',1;
+DELETE @Reply;
+INSERT @Reply EXEC paws_api.ResolveCalendarActivityDayTime N'calendar-command-admin',@Activity,@ActivityVersion,'2026-11-05','09:00','10:00',N'synthetic evidence',N'private approved fixture';
+IF JSON_VALUE((SELECT responseJson FROM @Reply),'$.timeStatus')<>N'partial' OR (SELECT responseJson FROM @Reply) LIKE N'%private approved fixture%'
+ OR NOT EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE ActivityId=@Activity AND CONVERT(varchar(16),CONVERT(binary(8),ActivityVersion),2)<>@ActivityVersion)
+ THROW 53890,'Timing did not update exactly one date with a sanitized response and new token.',1;
+SET @Rejected=0;
+BEGIN TRY EXEC paws_api.ResolveCalendarActivityDayTime N'calendar-command-admin',@Activity,@ActivityVersion,'2026-11-06','09:00','10:00',N'synthetic evidence',N'approved fixture'; END TRY
+BEGIN CATCH IF ERROR_NUMBER()=53804 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 53890,'Stale timing token was accepted.',1;
+DELETE @Recovery;
+INSERT @Recovery EXEC paws_api.ExportCalendarActivityRecovery N'calendar-command-admin',@Receipt;
+SELECT @RecoveryHash=recoverySha256 FROM @Recovery;SET @Rejected=0;
+BEGIN TRY EXEC paws_api.RecoverCalendarActivityImport N'calendar-command-admin',@Receipt,@RecoveryHash,1; END TRY
+BEGIN CATCH IF ERROR_NUMBER()=53804 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 OR EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Afc) OR NOT EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime WHERE ActivityId=@Activity)
+ THROW 53890,'Recovery overwrote verified newer timing.',1;
 PRINT 'CALENDAR_ACTIVITY_ATOMIC_ACCEPTANCE_OK';
 PRINT 'CALENDAR_ACTIVITY_RECOVERY_ACCEPTANCE_OK';
 DROP PROCEDURE dbo.CalendarActivityTestPrepare;

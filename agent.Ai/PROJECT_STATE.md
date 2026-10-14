@@ -1,4 +1,8 @@
-## Calendar activity design approved; plan review pending — 2026-10-14
+## Calendar activity implementation active — 2026-10-14
+
+Owner approved the seven-task plan and root sequential execution plus final independent review. Product draft PR98 on feat/calendar-working-activities-20261014; Tasks1/2 complete, Task3 atomic commands/recovery in progress. Real synthetic SQL038 and first040 acceptance pass; broader command fixtures pending. No live change. Resume updates/2026-10-14-calendar-activity-implementation.md and this plan's canonical ignored ledger; continue all seven tasks. Current freeze guard remains unchanged and whole-branch acceptance is pending.
+
+## Historical: Calendar activity design approved; plan review pending — 2026-10-14
 
 Owner approved PR97's written range-activity design and requested the implementation plan. Seven-task plan docs/superpowers/plans/2026-10-14-calendar-working-activities-implementation.md is ready and self-reviewed, with exact source-bound staging/atomic commands, activity-aware SWAP snapshots/locks, scoped API/Calendar/profile UI, synthetic acceptance and separate reviewed release/data operation. Proposed Native execution plus independent whole-branch review; owner plan review/method selection pending under writing-plans. No product code or live operation this turn. Draft PR97 remains documentation only. Runtime ca465bf/trustfb2c625 unchanged. Resume updates/2026-10-14-1040-calendar-activity-plan.md; do not repeat archived-person or prior release work.
 

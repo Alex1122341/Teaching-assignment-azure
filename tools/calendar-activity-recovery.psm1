@@ -11,6 +11,9 @@ function Get-PrivateCalendarRecoveryPath([string]$Path){
   if(Test-Path -LiteralPath $parent){
    $item=Get-Item -LiteralPath $parent -Force
    if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Recovery path must not contain links or reparse points.'}
+   if($item.PSIsContainer -and ((Test-Path -LiteralPath (Join-Path $parent '.git')) -or $item.Name -in @('.deploy-static','.deploy-azure-api'))){
+    throw 'Recovery artifact must remain outside the repository and Hosting artifacts.'
+   }
   }
   $parent=[IO.Path]::GetDirectoryName($parent)
  }

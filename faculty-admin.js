@@ -423,6 +423,7 @@
     const host=$('calendar-activity-import');if(!host)return;
     const authorized=!selfMode && dashboardAdmin(currentUser);host.classList.toggle('hidden',!authorized);
     if(!authorized){activityImportController?.clear();return;}
+    if(!window.PAWS_ACTIVITY_IMPORT?.createController){host.textContent='Calendar import controls could not be loaded. AFC records remain available.';return;}
     if(!activityImportController)activityImportController=window.PAWS_ACTIVITY_IMPORT.createController({api:UCVM_PAWS_DATA,host,notify:showToast,getUser:()=>currentUser,onCommitted:async()=>{
       window.PAWS_CALENDAR_ACTIVITIES?.clear();invalidateFacultyDetails();await loadAdminDashboard();await loadAfcRecords(true);if(selectedId)await selectFacultyDetail(selectedId);
     }});

@@ -30,3 +30,13 @@ test('clear drops an outstanding preview and a double click commits once',async(
  await controller.open();const next=controller.stageFile(file);while(!host.innerHTML.includes('Validating'))await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));stageResolve(preview);await next;
  const first=controller.commit(true);await controller.commit(true);assert.equal(commits,1);commitResolve({insertedCount:1,deletedAfcCount:1});await first;assert.equal(refreshCount,1);
 });
+
+test('reopening during a commit preserves its receipt and new upload invalidates the prior preview',async()=>{
+ let complete,commits=0,controller;
+ const host={innerHTML:'',querySelector:()=>null};
+ const api={calendarActivityCapabilities:async()=>({writeCapabilities:{calendarActivityStage:true,calendarActivityCommit:true}}),stageCalendarActivityImport:async()=>preview,commitCalendarActivityImport:()=>{commits++;return new Promise(resolve=>{complete=resolve;});}};
+ controller=createController({api,host,hashFile:async()=>SHA,randomUUID:()=> 'key',onCommitted:()=>controller.open()});
+ await controller.open();await controller.stageFile(file);const pending=controller.commit(true);await controller.open();complete({insertedCount:1,deletedAfcCount:1});await pending;
+ assert.match(host.innerHTML,/Import completed/);assert.doesNotMatch(host.innerHTML,/Working…/);await controller.commit(true);assert.equal(commits,1);
+ await controller.stageFile({...file,name:'bad.txt'});await controller.commit(true);assert.equal(commits,1);assert.doesNotMatch(host.innerHTML,/Preview ready|data-activity-confirm/);
+});

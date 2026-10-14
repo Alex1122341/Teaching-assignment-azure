@@ -31,6 +31,12 @@ foreach($relativePath in $manifest.baseline){
  $baselineSql=Get-Content -LiteralPath (Join-Path $repoPath $relativePath) -Raw
  # Preserve one synthetic principal across historical default-name changes.
  $baselineSql=[regex]::Replace($baselineSql,'(?m)^:setvar PAWS_API_PRINCIPAL [^\r\n]+\r?\n','')
+ if($relativePath -eq 'database/azure-sql/006_teaching_responsibility_concurrent_assignees.sql'){
+  # On an empty schema SQL compiles the CHECK before the new column exists.
+  # Only a batch boundary is added; the source DDL and guards are unchanged.
+  $baselineSql=$baselineSql.Replace('IF NOT EXISTS (',"GO"+[Environment]::NewLine+'IF NOT EXISTS (')
+  Write-Output 'SQL_TEST_COMPILE_BOUNDARY_ADAPTER 006'
+ }
  if($relativePath -eq 'database/azure-sql/015_afc_manual_batch.sql'){
   # Linux SQL cannot provision a Windows domain name. Adapt only the test copy
   # of this deployment-principal prerequisite; procedure logic/source stay intact.

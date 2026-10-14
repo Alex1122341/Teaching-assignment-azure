@@ -20,3 +20,13 @@ test('a lost response retains the idempotency key and stale409 requires refresh'
 test('closed stage gate blocks upload and clear invalidates a late staging response',async()=>{
  const closed=harness({stage:false});await closed.controller.open();await closed.controller.stageFile(file);assert.equal(closed.calls.length,0);
 });
+
+test('clear drops an outstanding preview and a double click commits once',async()=>{
+ let stageResolve,commitResolve,refreshCount=0,commits=0;
+ const host={innerHTML:'',querySelector:()=>null};
+ const api={calendarActivityCapabilities:async()=>({writeCapabilities:{calendarActivityStage:true,calendarActivityCommit:true}}),stageCalendarActivityImport:()=>new Promise(resolve=>{stageResolve=resolve;}),commitCalendarActivityImport:()=>{commits++;return new Promise(resolve=>{commitResolve=resolve;});}};
+ const controller=createController({api,host,hashFile:async()=>SHA,randomUUID:()=> 'key',onCommitted:()=>{refreshCount++;}});
+ await controller.open();const pending=controller.stageFile(file);while(!stageResolve)await new Promise(resolve=>setImmediate(resolve));controller.clear();stageResolve(preview);await pending;assert.equal(host.innerHTML,'');
+ await controller.open();const next=controller.stageFile(file);while(!host.innerHTML.includes('Validating'))await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));stageResolve(preview);await next;
+ const first=controller.commit(true);await controller.commit(true);assert.equal(commits,1);commitResolve({insertedCount:1,deletedAfcCount:1});await first;assert.equal(refreshCount,1);
+});

@@ -25,10 +25,10 @@ function createSqlCalendarActivityRepository(db){
   async resolveTime({actorFirebaseUid,activityId,expectedVersion,date,startTime,endTime,evidenceRef,evidenceNote}){
    return publicActivity(await exec('ResolveCalendarActivityDayTime',{ActorFirebaseUid:actorFirebaseUid,ActivityId:activityId,ExpectedVersion:expectedVersion,ActivityDate:date,StartTime:startTime,EndTime:endTime,EvidenceRef:evidenceRef,EvidenceNote:evidenceNote}));
   },
-  async list({actorFirebaseUid,start,end,facultyKey=null,category=null,cursor=null,limit=100}){
-   const response=await exec('ListCalendarActivities',{ActorFirebaseUid:actorFirebaseUid,StartDate:start,EndExclusive:end,FacultyKey:facultyKey,Category:category,Cursor:cursor,Limit:limit});
+  async list({actorFirebaseUid,start,end,facultyKey=null,category=null,cursor=null,limit=100,includeFacultyKeys=false}){
+   const response=await exec('ListCalendarActivities',{ActorFirebaseUid:actorFirebaseUid,StartDate:start,EndExclusive:end,FacultyKey:facultyKey,Category:category,Cursor:cursor,Limit:limit,IncludeFacultyKeys:includeFacultyKeys});
    if(!Array.isArray(response.activities))throw Object.assign(new Error('The activity service returned an invalid response.'),{code:'INVALID_CALENDAR_RESPONSE'});
-   return {activities:response.activities.map(publicActivity),nextCursor:response.nextCursor??null};
+   return {activities:response.activities.map(publicActivity),nextCursor:response.nextCursor??null,...(includeFacultyKeys?{facultyKeys:(response.facultyKeys||[]).map(value=>({facultyId:value.facultyId,facultyKey:value.facultyKey}))}:{})};
   }
  });
 }

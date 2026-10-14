@@ -535,6 +535,16 @@
         }});
         return {requestId:body.requestId||String(input.requestId??''),idempotentReplay:body.idempotentReplay===true,rows:Array.isArray(body.rows)?body.rows:[]};
       },
+      async listCalendarActivities(input={}){
+        const query=new URLSearchParams();for(const key of ['start','end','facultyKey','category','cursor','limit','includeFacultyKeys'])if(input[key]!==undefined&&input[key]!==null&&input[key]!=='')query.set(key,String(input[key]));
+        return request('/api/v1/calendar-activities'+(query.size?'?'+query.toString():''));
+      },
+      calendarActivityCapabilities(){return request('/api/v1/calendar-activities/capabilities');},
+      stageCalendarActivityImport(input={}){return request('/api/v1/calendar-activity-imports',{method:'POST',body:pickFields(input,['requestId','sourceSha256','fileName','fileBase64'])});},
+      getCalendarActivityImport(batchId){return request('/api/v1/calendar-activity-imports/'+encodeURIComponent(String(batchId)));},
+      previewCalendarActivityImport(batchId,input={}){return request('/api/v1/calendar-activity-imports/'+encodeURIComponent(String(batchId))+'/preview',{method:'POST',body:pickFields(input,['expectedVersion'])});},
+      commitCalendarActivityImport(batchId,input={}){return request('/api/v1/calendar-activity-imports/'+encodeURIComponent(String(batchId))+'/commit',{method:'POST',body:pickFields(input,['expectedVersion','manifestSha256','sourceSha256','idempotencyKey','confirm'])});},
+      resolveCalendarActivityTime(activityId,input={}){return request('/api/v1/calendar-activities/'+encodeURIComponent(String(activityId))+'/time-evidence',{method:'POST',body:pickFields(input,['expectedVersion','date','startTime','endTime','evidenceRef','evidenceNote'])});},
       async listAfcRequests(){
         const body=await request('/api/v1/afc-requests');
         return Array.isArray(body.afcRequests)?body.afcRequests:[];

@@ -48,14 +48,17 @@ function createCalendarActivityApi({verifyToken,findUser,repository,parseWorkboo
  return Object.freeze({
   capabilities:token=>run(token,false,null,auth=>ok({readCapabilities:{calendarActivities:true,scope:auth.facultyScoped?'self':'authorized'},writeCapabilities:Object.fromEntries(['calendarActivityStage','calendarActivityCommit','calendarActivityTime'].map(key=>[key,auth.admin&&writeGates[key]===true]))})),
   list:(token,query={})=>run(token,false,null,async auth=>{
-   if(!onlyKeys(query,['start','end','facultyKey','category','cursor','limit']))return invalid();
+   if(!onlyKeys(query,['start','end','facultyKey','category','cursor','limit','includeFacultyKeys']))return invalid();
+   if(query.includeFacultyKeys!=null&&![true,false,'true','false'].includes(query.includeFacultyKeys))return invalid();
+   const includeFacultyKeys=query.includeFacultyKeys===true||query.includeFacultyKeys==='true';
+   if(includeFacultyKeys&&!auth.admin)return fail(403,'ROLE_DENIED','Administrator permission is required for faculty key mapping.');
    const range=normalizedRange(query),limit=query.limit==null?100:Number(query.limit);
    if(!range?.start||!range.end||!Number.isInteger(limit)||limit<1||limit>100||! /^(?:[1-9]\d?|100)$/.test(String(query.limit??100))
     ||query.facultyKey!=null&&!id(query.facultyKey)||query.category!=null&&!categories.has(query.category)
     ||query.cursor!=null&&(typeof query.cursor!=='string'||query.cursor.length!==47||!date(query.cursor.slice(0,10))||query.cursor[10]!=='|'||!id(query.cursor.slice(11))))return invalid();
-   const result=await repository.list({actorFirebaseUid:auth.uid,...range,facultyKey:query.facultyKey??null,category:query.category??null,cursor:query.cursor??null,limit});
+   const result=await repository.list({actorFirebaseUid:auth.uid,...range,facultyKey:query.facultyKey??null,category:query.category??null,cursor:query.cursor??null,limit,includeFacultyKeys});
    if(!Array.isArray(result?.activities))throw Error('Invalid activity response');
-   return ok({activities:result.activities.map(publicActivity),nextCursor:result.nextCursor??null});
+   return ok({activities:result.activities.map(publicActivity),nextCursor:result.nextCursor??null,...(includeFacultyKeys?{facultyKeys:(result.facultyKeys||[]).map(value=>({facultyId:value.facultyId,facultyKey:value.facultyKey}))}:{})});
   }),
   stage:(token,payload)=>run(token,true,'calendarActivityStage',async auth=>{
    if(!onlyKeys(payload,['requestId','sourceSha256','fileName','fileBase64'])||!id(payload.requestId)||!sha(payload.sourceSha256)

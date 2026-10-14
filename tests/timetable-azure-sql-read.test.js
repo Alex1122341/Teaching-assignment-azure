@@ -4,6 +4,25 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const src=fs.readFileSync('timetable.js','utf8');
 
+test('working activity ranges use SQL outside the timed session grid and clear on logout',()=>{
+  assert.doesNotMatch(src,/ccc_events|expandCccEvents|loadCccEvents|sessionsWithCcc/);
+  const body=functionBody('async function renderWorkingActivities','function layoutDaySessions');
+  assert.match(body,/loadRange/);assert.match(body,/renderRangeLane/);
+  assert.match(body,/Working activities could not be loaded/);
+  assert.match(src,/PAWS_CALENDAR_ACTIVITIES\?\.clear/);
+  const html=fs.readFileSync('index.html','utf8');
+  assert.match(html,/id="working-activities-lane"/);assert.match(html,/id="show-working-activities"/);
+  assert.ok(html.indexOf('calendar-activities.js')<html.indexOf('src="timetable.js"'));
+});
+
+test('faculty schedule uses self scope or the authorized administrator mapping and import is admin only',()=>{
+  const dashboard=fs.readFileSync('faculty-admin.js','utf8');
+  assert.match(dashboard,/loadFacultyRange\(facultyId, range, \{ self: selfMode \}\)/);
+  assert.match(dashboard,/PAWS_ACTIVITY_IMPORT\.createController/);
+  assert.match(dashboard,/activityImportController\?\.clear/);
+  assert.match(dashboard,/!selfMode && dashboardAdmin\(currentUser\)/);
+});
+
 function functionBody(name,nextName){
   const start=src.indexOf(name);
   assert.notEqual(start,-1,name);

@@ -12,7 +12,7 @@ function createCalendarActivityFunctions({api}){return async request=>{
   else return {status:404,jsonBody:{error:{code:'NOT_FOUND',message:'Route not found.'}}};
  }
  if(request.method!==verb)return {status:405,headers:{Allow:verb},jsonBody:{error:{code:'METHOD_NOT_ALLOWED',message:verb+' required.'}}};
- const allowed=method==='list'?new Set(['start','end','facultyKey','category','cursor','limit']):new Set();
+ const allowed=method==='list'?new Set(['start','end','facultyKey','category','cursor','limit','includeFacultyKeys']):new Set();
  if([...url.searchParams.keys()].some(key=>!allowed.has(key)||url.searchParams.getAll(key).length!==1))return {status:400,jsonBody:{error:{code:'INVALID_QUERY',message:'The query contains unsupported or duplicate fields.'}}};
  if(verb==='POST'){try{args.push(await request.json());}catch(_){return {status:400,jsonBody:{error:{code:'INVALID_JSON',message:'Valid JSON is required.'}}};}}
  const authorization=request.headers?.get?.('authorization')||'',token=/^Bearer /i.test(authorization)?authorization.slice(7):'';

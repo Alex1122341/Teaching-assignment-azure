@@ -69,5 +69,8 @@
   "workspace.css",
   "faculty-role-periods.js",
   "faculty-admin-afc-records.js",
-  "lab-session-detail.js"
+  "lab-session-detail.js",
+  "calendar-activities.js",
+  "calendar-activities.css",
+  "faculty-admin-activity-import.js"
 ]

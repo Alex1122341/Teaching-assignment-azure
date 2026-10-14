@@ -2,7 +2,7 @@
 
 Date: 2026-10-14. Repository: Alex1122341/Teaching-assignment-azure.
 Base: 0d4b4d9ea2e658719e87f16ef5132b82544bc6c1.
-Status: proposed design; not product implementation or migration authorization.
+Status: written design approved by owner2026-10-14; implementation plan awaiting review. Approval does not authorize a live migration or release.
 
 ## Outcome
 
@@ -26,7 +26,7 @@ The file has no separate course, academic year, clock-time, room, rotation type 
 2. Extend Session to represent date ranges and absent course/time/year. This would change many existing non-null contracts, write validators, SWAP logic and DOE consumers; substantially greater regression risk.
 3. Keep work records in AFC with display-only Calendar mirrors. This produces duplicate authority and does not meet the owner's AFC classification requirement.
 
-Review decision: choose approach1 or revise it before implementation planning.
+Owner decision2026-10-14: approach1 and this written design approved; proceed to implementation planning.
 
 ## Proposed domain contract
 
@@ -82,4 +82,4 @@ The unrelated Faculty archive API defect discovered today is persisted QUOTED_ID
 
 ## Next stage
 
-After owner review of this written design, prepare an exact file/interface/test implementation plan using writing-plans, then review that plan and select its execution method. No product code or new schema is written before those skill prerequisites are complete.
+Written-design review is complete. Review docs/superpowers/plans/2026-10-14-calendar-working-activities-implementation.md and select its execution method next. No product code or new schema is written before that skill prerequisite is complete.

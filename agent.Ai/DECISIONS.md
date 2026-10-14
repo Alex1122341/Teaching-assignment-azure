@@ -228,3 +228,7 @@ Owner approved reference Faculty Lookup/Edit and full annual Rule Book lifecycle
 - Course Calendar full replacement capability is requested; current Course Calendar data must not be replaced yet.
 - Four rows belonging to the departed unmatched source person are excluded; do not create an active identity. Archive existing departed Faculty using Inactive Faculty/Restore, preserving history and accounts. One requested existing archive completed and verified; no authorization for unrelated accounts or people follows from it.
 - New module migration/release remains separately reviewable; prior PR94 approval is not blanket authorization.
+
+## Owner approves range-activity written design — 2026-10-14
+
+The owner approved the written CalendarActivity design in PR97 and directed implementation planning. The first module uses SQL date ranges integrated into Calendar and faculty schedules with unknown time marked Needs Review before exact AFC cleanup. This approves design and plan preparation; implementation-plan review/execution selection and later live release/migration authorizations remain separate.

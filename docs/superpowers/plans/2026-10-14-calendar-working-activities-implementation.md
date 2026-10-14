@@ -48,7 +48,7 @@ Extend runtime/swa-sql-runtime.js, runtime/university-http-server.js, data/write
 - All versions are exact16-hex rowversion strings via CONVERT(binary(8),RowVersion) before text; never recover an old rowversion by inserting it.
 - Calendar SQL errors53801→403 ROLE_DENIED,53802→400 INVALID_SOURCE,53803→404 NOT_FOUND,53804→409 REVISION_CONFLICT,53805→409 PREVIEW_EXPIRED,53806→409 MANIFEST_CONFLICT,53807→409 IDEMPOTENCY_CONFLICT,53808→409 PROTECTED_REFERENCE,53809→409 AVAILABILITY_BUSY; response messages are fixed public-safe strings, not SQL exception text. Limit errors are413, malformed workbook400, unapproved hash409 APPROVED_SOURCE_REQUIRED.
 
-## Task1 — Bounded source parser and approved classification
+## Task 1 — Bounded source parser and approved classification
 
 **Files:** Create server/src/calendar/activity-import-policy.js, activity-workbook.js, activity-workbook-worker.js; server/test/calendar-activity-workbook.test.js and fixtures/calendar-activity-workbook.js. Modify server/package.json + package-lock.json and swa-api/package.json + package-lock.json for exact runtime exceljs4.4.0/unzipper0.10.14/jszip3.10.2. Root's existing dev dependencies are not a deployed server dependency.
 
@@ -69,7 +69,7 @@ Extend runtime/swa-sql-runtime.js, runtime/university-http-server.js, data/write
 - [ ] Add ZIP tests for forged metadata/CRC/truncation/expansion, worker timeout/cleanup, header trailing spaces, timezone/1904 dates, synthetic ignored-sheet external formulas and A–D cached-formula denial. Rerun the test file; expect all pass. Read the original approved workbook only for an optional private golden check; never commit it or overwrite it.
 - [ ] Commit parser, tests and both runtime lockfiles: `feat: validate approved activity workbooks`.
 
-## Task2 — SQL range domain, staged preview and sanitized reads
+## Task 2 — SQL range domain, staged preview and sanitized reads
 
 **Files:** Create database/azure-sql/038_calendar_activity_foundation.sql, rollback_038_calendar_activity_foundation.sql, 038_calendar_activity_acceptance.sql; server/src/data/sql-calendar-activity-repository.js; server/test/calendar-activity-schema.test.js and calendar-activity-repository.test.js; tools/test-calendar-activity-sql.ps1 + calendar-activity-sql-test-manifest.json.
 
@@ -89,7 +89,7 @@ SQL procedures StageCalendarActivityImport(@ActorFirebaseUid,@RequestId,@SourceS
 - [ ] Implement list using existing validateAuthorizedProfile and SQL equivalents: faculty/hicc/visc self-scoped, administrators/offices retain existing timetable scope; no broader faculty read. Filter start/end is required, paged by (StartDate,ActivityId), and normalizedRange's550-day cap. Public projection resolves existing sanitized SwapCandidate key/name only. Private timing evidence remains server/admin-only.
 - [ ] Implement disposable SQL runner: only a local Docker container bearing label paws.calendar-test=1; refuse arbitrary Server/live University addresses. Explicit manifest applies repository foundation scripts001–037 in reviewed dependency order, excluding rollbacks/proofs and source-data loaders; seed synthetic users/catalog/lineage only. Mutually exclusive -Through or -FeatureMigrations parameters select the new module files. Run `pwsh tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-sql-test -Through 038`; expect CALENDAR_ACTIVITY_FOUNDATION_ACCEPTANCE_OK and no active activity before commit. Run both node files; commit `feat: stage SQL calendar activities with scoped reads`.
 
-## Task3 — Atomic migration, timing resolution and narrow recovery
+## Task 3 — Atomic migration, timing resolution and narrow recovery
 
 **Files:** Create database/azure-sql/040_calendar_activity_commands.sql, rollback_040_calendar_activity_commands.sql, 040_calendar_activity_acceptance.sql; tools/export_calendar_activity_recovery.ps1 and recover_calendar_activity_import.ps1; server/test/calendar-activity-commands.test.js. Extend SQL repository fromTask2.
 **Interfaces:** repository.commit({actorFirebaseUid,batchId,expectedVersion,manifestSha256,sourceSha256,idempotencyKey,confirm:true})->Receipt; resolveTime({actorFirebaseUid,activityId,expectedVersion,date,startTime,endTime,evidenceRef,evidenceNote})->Activity.
@@ -108,7 +108,7 @@ SQL CommitCalendarActivityImport(same typed scalar parameters), ResolveCalendarA
 - [ ] Timing resolution requires an active administrator, current activity version, exact date inside its range, 00:00≤start<end≤23:59, nonblank evidence reference/note, and the shared faculty lock. Upsert only that date; bump parent version and audit. A range without verified timing for the target day remains Needs Review. No free-form override can turn unknown timing into availability.
 - [ ] In disposable SQL inject insert/delete/audit failures via test-only rollback fixtures, not production failure flags; assert full rollback and unrelated Session/AFC/manual/DOE/Published hashes unchanged. Assert same-key retry emits one receipt/audit, recovery conflict aborts, recovery success restores original IDs with new version tokens. Run runner `-FeatureMigrations 038,040` to test commands independently before Task4 exists; expect CALENDAR_ACTIVITY_ATOMIC_ACCEPTANCE_OK and CALENDAR_ACTIVITY_RECOVERY_ACCEPTANCE_OK. Run node tests and commit `feat: migrate matched work activities atomically`.
 
-## Task4 — Candidate and final SWAP availability, including concurrency
+## Task 4 — Candidate and final SWAP availability, including concurrency
 
 **Files:** Create database/azure-sql/039_calendar_activity_swap.sql, rollback_039_calendar_activity_swap.sql, 039_calendar_activity_swap_acceptance.sql; server/test/calendar-activity-swap.test.js and tests/calendar-activity-swap-ui.test.js. Modify swap-workflow-sql.js and server/src/data/sql-swap-repository.js only where DTO handling requires it. Extend disposable runner concurrency fixtures.
 **Interfaces:** paws_api.CalendarActivityAvailability(@FacultyId,@Date,@StartTime,@EndTime,@ExcludeSessionId=NULL) returns status, excluding the session being revised. Existing GetSessionSwapContext candidate adds availabilityStatus and preserves available=false for Needs Review; repository.context API signature stays unchanged. Existing DecideSessionSwap parameters/consent/state machine remain unchanged.
@@ -127,7 +127,7 @@ SQL CommitCalendarActivityImport(same typed scalar parameters), ResolveCalendarA
 - [ ] Add two-session SQL race fixtures: activity writer obtains lock first and SWAP rejects after waiting; SWAP obtains lock first and activity writer waits until final apply ends. Test concurrent timing resolution/recovery too; verify committed availability is never based on a half-migrated AFC/activity state. Existing AFC creation/cancellation and Session writers remain protected by final apply's existing serializable range reads; prove races against each rather than assuming it. A failed SQL assertion blocks release.
 - [ ] Run `node --test server/test/calendar-activity-swap.test.js tests/calendar-activity-swap-ui.test.js` and disposable runner `-Through 040`; expect CALENDAR_ACTIVITY_SWAP_SERIALIZED_OK plusTask3 markers. Commit `feat: protect SWAP with calendar activity availability`.
 
-## Task5 — Authenticated API, independent gates and least privilege
+## Task 5 — Authenticated API, independent gates and least privilege
 
 **Files:** Create server/src/calendar/calendar-activity-api.js, server/src/runtime/swa-calendar-activity-functions.js; database/azure-sql/041_calendar_activity_permissions.sql, rollback_041_calendar_activity_permissions.sql, 041_calendar_activity_permissions_acceptance.sql; server/test/calendar-activity-api.test.js, calendar-activity-runtime.test.js, calendar-activity-permissions.test.js. Modify data/write-gates.js, runtime/swa-sql-runtime.js, runtime/university-http-server.js, swa-api/index.js and existing write-gates/runtime/http tests.
 
@@ -146,7 +146,7 @@ SQL CommitCalendarActivityImport(same typed scalar parameters), ResolveCalendarA
 - [ ] Create dbo-owned roles paws_runtime_calendar_read (execute List only), paws_runtime_calendar_stage (stage/preview/getImport), paws_runtime_calendar_commit (commit), paws_runtime_calendar_time (resolve), paws_calendar_recovery_admin (trusted export/recover only). SQL procedures recheck actor role; no direct INSERT/UPDATE/DELETE grants, no browser recovery role. Prove staging/recovery reads denied under existing broad read memberships. Do not bind live memberships or retain db_owner silently: dedicated least-privilege runtime is a release prerequisite unless the owner approves a narrowly documented exception.
 - [ ] Run all three node files plus `node --test server/test/write-gates.test.js server/test/university-http-server.test.js server/test/runtime.test.js`; run disposable SQL through041 and expect CALENDAR_ACTIVITY_PERMISSION_BOUNDARY_OK. Commit `feat: expose gated calendar activity workflows`.
 
-## Task6 — Calendar ranges, faculty schedule and administrator preview
+## Task 6 — Calendar ranges, faculty schedule and administrator preview
 
 **Files:** Create calendar-activities.js, calendar-activities.css, faculty-admin-activity-import.js; tests/calendar-activities.test.js, calendar-activity-import-ui.test.js and calendar-activity-client.test.js. Modify paws-data-client.js, timetable.js, index.html, timetable.css, faculty-admin.js, faculty-admin.html, tools/static-assets.json and necessary existing asset/client tests.
 
@@ -167,7 +167,7 @@ window.PAWS_CALENDAR_ACTIVITIES exposes loadRange(range)->Promise<Activity[]>, r
 - [ ] Render safely without innerHTML of raw labels/names; escaping tests include HTML and spreadsheet payloads. Complete keyboard/disabled/loading/error states and private-ID-free visible labels. Add only exact new assets to static allowlist; never ship workbook/staging/recovery data.
 - [ ] Run `node --test tests/calendar-activities.test.js tests/calendar-activity-import-ui.test.js tests/calendar-activity-client.test.js tests/paws-data-client.test.js tests/timetable-azure-sql-read.test.js`; expect all pass. Commit `feat: display work ranges and reviewed migration previews`.
 
-## Task7 — Whole-module validation, reviewed freeze and separate release operation
+## Task 7 — Whole-module validation, reviewed freeze and separate release operation
 
 **Files:** Add docs/calendar-working-activities-release-20261014.md; extend tests/beta-runtime-artifact.test.js and relevant workflow test invocation for disposable SQL runner where supported; update agent.Ai continuity. Governance changes only after reviewed product commit: tools/beta-freeze.js, tools/beta-baseline.json and manifest-derived reporting governed by current freeze workflow. Do not add drift allowances or modify protected-file union logic.
 

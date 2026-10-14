@@ -1,7 +1,7 @@
 name: Calendar Activity SQL Acceptance
 on:
   pull_request:
-    paths: ['database/azure-sql/**','tools/*calendar*','server/src/calendar/**','server/src/data/sql-calendar-activity-repository.js','.github/workflows/calendar-activity-sql.yml']
+    paths: ['database/azure-sql/**','tools/*calendar*','server/src/calendar/**','server/src/data/sql-calendar-activity-repository.js','server/src/data/sql-swap-repository.js','server/test/calendar-activity*','server/test/fixtures/calendar-activity*','.github/workflows/calendar-activity-sql.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -35,6 +35,9 @@ jobs:
       - name: Run activity-aware SWAP acceptance
         shell: pwsh
         run: ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-sql-test -Through 040
+      - name: Prove two-connection serialization
+        shell: pwsh
+        run: ./tools/test-calendar-activity-races.ps1 -ContainerName paws-calendar-sql-test
       - name: Stop synthetic container
         if: always()
         shell: pwsh

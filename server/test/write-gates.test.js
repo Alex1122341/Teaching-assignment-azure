@@ -9,7 +9,8 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
-    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false
+    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
+    calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   assert.deepEqual(createWriteGates({
     PAWS_AFC_SINGLE_WRITE_ENABLED: 'true',
@@ -25,7 +26,8 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     swapRequest: false, swapDecision: false, swapApply: false, afcSingle: true, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
     taDraft: true, taReview: true, taFinal: false, taPublish: false, facultyAdmin: true,
-    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false
+    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
+    calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   assert.deepEqual(createWriteGates({
     PAWS_DOE_ADMIN_WRITE_ENABLED: 'true',
@@ -35,7 +37,8 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
-    doeAdmin: true, doeManualAssignment: false, doePolicyPublish: true, doeRecalculate: true
+    doeAdmin: true, doeManualAssignment: false, doePolicyPublish: true, doeRecalculate: true,
+    calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
 });
 

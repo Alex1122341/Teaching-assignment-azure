@@ -67,7 +67,7 @@ Functional release and browser acceptance complete. This documentation checkpoin
 
 ## 12. Next safe action / rollback
 
-Continue only under a concrete new owner task after acceptance. For a release fault disable afcCancel/remove only its role membership and restore the prior verified launcher/artifact. Keep timestamps and audits; do not delete business history.
+Continue only under a concrete new owner task after acceptance. For a release fault disable afcCancel/remove only its role membership and restore the prior verified launcher/artifact. Keep rowversion columns, business history and audits.
 
 ## 13. DO NOT REDO
 

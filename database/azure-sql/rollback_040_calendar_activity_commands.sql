@@ -10,5 +10,6 @@ DROP PROCEDURE IF EXISTS paws_api.RecoverCalendarActivityImport;
 DROP PROCEDURE IF EXISTS paws_api.ExportCalendarActivityRecovery;
 DROP PROCEDURE IF EXISTS paws_api.ResolveCalendarActivityDayTime;
 DROP PROCEDURE IF EXISTS paws_api.CommitCalendarActivityImport;
+DROP PROCEDURE IF EXISTS paws_api.CalendarActivityProtectedReferences;
 DROP PROCEDURE IF EXISTS paws_api.AcquireCalendarActivityFacultyLocks;
 COMMIT TRANSACTION;

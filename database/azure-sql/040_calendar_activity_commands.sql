@@ -34,6 +34,18 @@ BEGIN
  CLOSE facultyLocks;DEALLOCATE facultyLocks;
 END;
 GO
+/* Metadata visibility is evaluated as the object owner, without granting catalog or table access to callers. */
+CREATE PROCEDURE paws_api.CalendarActivityProtectedReferences @Target nvarchar(16),@Protected bit OUTPUT
+WITH EXECUTE AS OWNER
+AS
+BEGIN
+ SET NOCOUNT ON;
+ IF @Target IS NULL OR @Target COLLATE Latin1_General_100_BIN2 NOT IN(N'afc',N'activity') THROW 53808,'Unsupported protected-reference target.',1;
+ DECLARE @Object int=OBJECT_ID(CASE @Target WHEN N'afc' THEN N'paws.AfcRecord' ELSE N'paws.CalendarActivity' END),@DayTime int=OBJECT_ID(N'paws.CalendarActivityDayTime');
+ IF @Object IS NULL OR @DayTime IS NULL THROW 53808,'Protected-reference metadata is unavailable.',1;
+ SET @Protected=CASE WHEN EXISTS(SELECT 1 FROM sys.foreign_keys WHERE referenced_object_id=@Object AND (@Target=N'afc' OR parent_object_id<>@DayTime)) THEN 1 ELSE 0 END;
+END;
+GO
 CREATE PROCEDURE paws_api.CommitCalendarActivityImport
  @ActorFirebaseUid nvarchar(128),@ImportBatchId uniqueidentifier,@ExpectedVersion varchar(64),@ManifestSha256 char(64),
  @SourceSha256 char(64),@IdempotencyKey uniqueidentifier,@Confirm bit
@@ -91,7 +103,9 @@ BEGIN
    IF EXISTS(SELECT AfcRecordId FROM staging.CalendarActivityImportItem WHERE ImportBatchId=@ImportBatchId AND Status=N'accepted' GROUP BY AfcRecordId HAVING COUNT(*)<>1)
     THROW 53804,'Targets are not unique.',1;
    -- No current imported AFC foreign references exist. A future reference requires an explicit reviewed deletion policy.
-   IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE referenced_object_id=OBJECT_ID(N'paws.AfcRecord')) THROW 53808,'AFC references require a reviewed migration policy.',1;
+   DECLARE @ProtectedReferences bit;
+   EXEC paws_api.CalendarActivityProtectedReferences N'afc',@ProtectedReferences OUTPUT;
+   IF @ProtectedReferences=1 THROW 53808,'AFC references require a reviewed migration policy.',1;
    SET @Receipt=NEWID();
    INSERT paws.CalendarActivityImportReceipt(ReceiptId,ImportBatchId,Dataset,SourceSha256,ManifestSha256,IdempotencyKey,InsertedCount,DeletedAfcCount,ActorUid)
     VALUES(@Receipt,@ImportBatchId,@Dataset,@SourceSha256,@ManifestSha256,@IdempotencyKey,@Count,@Count,@ActorFirebaseUid);
@@ -204,8 +218,9 @@ BEGIN
     WHERE r.ReceiptId=@ReceiptId AND (a.ActivityId IS NULL OR a.ActivityVersion<>r.ImportedActivityVersion OR a.ImportBatchId<>@Batch
      OR EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime WITH(UPDLOCK,HOLDLOCK) WHERE ActivityId=r.ActivityId)
      OR EXISTS(SELECT 1 FROM paws.AfcRecord WITH(UPDLOCK,HOLDLOCK) WHERE AfcRecordId=r.OriginalAfcRecordId))) THROW 53804,'Newer activity or AFC state prevents recovery.',1;
-  IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE referenced_object_id=OBJECT_ID(N'paws.CalendarActivity') AND parent_object_id<>OBJECT_ID(N'paws.CalendarActivityDayTime'))
-   THROW 53808,'Activity references require a reviewed recovery policy.',1;
+  DECLARE @ProtectedReferences bit;
+  EXEC paws_api.CalendarActivityProtectedReferences N'activity',@ProtectedReferences OUTPUT;
+  IF @ProtectedReferences=1 THROW 53808,'Activity references require a reviewed recovery policy.',1;
   INSERT paws.AfcRecord(AfcRecordId,FacultyId,StartDate,EndDate,Purpose,Active,SourceImportBatchId,SourceRow)
    SELECT j.AfcRecordId,j.FacultyId,j.StartDate,j.EndDate,j.Purpose,j.Active,j.SourceImportBatchId,j.SourceRow
    FROM paws.CalendarActivityRecoveryRow r CROSS APPLY OPENJSON(r.BeforeAfcJson) WITH(AfcRecordId uniqueidentifier,FacultyId uniqueidentifier,StartDate date,EndDate date,Purpose nvarchar(1000),Active bit,SourceImportBatchId uniqueidentifier,SourceRow int) j WHERE r.ReceiptId=@ReceiptId;

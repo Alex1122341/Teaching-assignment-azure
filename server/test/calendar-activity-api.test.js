@@ -48,6 +48,15 @@ test('commit and evidence reject extra keys, unapproved hash, missing confirmati
  for(const patch of [{facultyId:ID},{date:'2026-02-30'},{startTime:'09:00:30'},{startTime:'10:00'},{endTime:'24:00'},{evidenceRef:''},{evidenceNote:' '},{evidenceNote:'x'.repeat(1001)}])assert.equal((await h.api.resolveTime('ok',ID,{...evidence,...patch})).status,400);
  assert.equal(h.calls.length,0);assert.equal((await h.api.commit('ok',ID,commit)).status,200);assert.equal((await h.api.resolveTime('ok',ID,evidence)).status,200);
 });
+test('identifier arrays are invalid JSON fields rather than being coerced into UUID strings',async()=>{
+ const h=harness();
+ assert.equal((await h.api.stage('ok',{...upload,requestId:[ID]})).status,400);
+ assert.equal((await h.api.commit('ok',ID,{...commit,idempotencyKey:[ID]})).status,400);
+ assert.equal((await h.api.getImport('ok',[ID])).status,400);
+ assert.equal((await h.api.resolveTime('ok',[ID],evidence)).status,400);
+ assert.equal((await h.api.list('ok',{start:'2026-11-01',end:'2026-11-08',facultyKey:[ID]})).status,400);
+ assert.equal(h.calls.length,0);assert.equal(h.parsed(),0);
+});
 for(const [number,status] of [[53801,403],[53802,400],[53803,404],[53804,409],[53805,409],[53806,409],[53807,409],[53808,409],[53809,409],[12345,503]]){
  test('SQL error '+number+' is fixed and sanitized',async()=>{const h=harness({failure:Object.assign(Error('private SQL server and note'),{number})});const out=await h.api.commit('ok',ID,commit);assert.equal(out.status,status);assert.doesNotMatch(JSON.stringify(out),/private/);});
 }

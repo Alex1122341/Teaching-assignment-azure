@@ -9,6 +9,7 @@ const {publicActivity}=require('../data/sql-calendar-activity-repository');
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
 const ok=(body,status=200)=>({status,body});
 const version=value=>typeof value==='string'&&/^[0-9a-f]{16}$/i.test(value);
+const id=value=>typeof value==='string'&&UUID.test(value);
 const sha=value=>typeof value==='string'&&/^[0-9a-f]{64}$/i.test(value);
 const date=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 const time=value=>typeof value==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -50,14 +51,14 @@ function createCalendarActivityApi({verifyToken,findUser,repository,parseWorkboo
    if(!onlyKeys(query,['start','end','facultyKey','category','cursor','limit']))return invalid();
    const range=normalizedRange(query),limit=query.limit==null?100:Number(query.limit);
    if(!range?.start||!range.end||!Number.isInteger(limit)||limit<1||limit>100||! /^(?:[1-9]\d?|100)$/.test(String(query.limit??100))
-    ||query.facultyKey!=null&&!UUID.test(query.facultyKey)||query.category!=null&&!categories.has(query.category)
-    ||query.cursor!=null&&(typeof query.cursor!=='string'||query.cursor.length!==47||!date(query.cursor.slice(0,10))||query.cursor[10]!=='|'||!UUID.test(query.cursor.slice(11))))return invalid();
+    ||query.facultyKey!=null&&!id(query.facultyKey)||query.category!=null&&!categories.has(query.category)
+    ||query.cursor!=null&&(typeof query.cursor!=='string'||query.cursor.length!==47||!date(query.cursor.slice(0,10))||query.cursor[10]!=='|'||!id(query.cursor.slice(11))))return invalid();
    const result=await repository.list({actorFirebaseUid:auth.uid,...range,facultyKey:query.facultyKey??null,category:query.category??null,cursor:query.cursor??null,limit});
    if(!Array.isArray(result?.activities))throw Error('Invalid activity response');
    return ok({activities:result.activities.map(publicActivity),nextCursor:result.nextCursor??null});
   }),
   stage:(token,payload)=>run(token,true,'calendarActivityStage',async auth=>{
-   if(!onlyKeys(payload,['requestId','sourceSha256','fileName','fileBase64'])||!UUID.test(payload.requestId||'')||!sha(payload.sourceSha256)
+   if(!onlyKeys(payload,['requestId','sourceSha256','fileName','fileBase64'])||!id(payload.requestId)||!sha(payload.sourceSha256)
     ||typeof payload.fileName!=='string'||payload.fileName.length>256||!/^[^\\/:*?"<>|\x00-\x1f]+\.xlsx$/i.test(payload.fileName)||typeof payload.fileBase64!=='string')return invalid();
    const policy=approvedActivityImportPolicy(payload.sourceSha256);
    if(payload.fileBase64.length>699052)return fail(413,'IMPORT_LIMIT','The workbook exceeds the import limits.');
@@ -69,20 +70,20 @@ function createCalendarActivityApi({verifyToken,findUser,repository,parseWorkboo
    if(parsed?.sourceSha256!==policy.sourceSha256)throw Error('Invalid parser binding');
    return ok(await repository.stage({actorFirebaseUid:auth.uid,parsed,requestId:payload.requestId}),201);
   }),
-  getImport:(token,batchId)=>run(token,true,null,async auth=>UUID.test(batchId||'')?ok(await repository.getImport({actorFirebaseUid:auth.uid,batchId})):invalid()),
+  getImport:(token,batchId)=>run(token,true,null,async auth=>id(batchId)?ok(await repository.getImport({actorFirebaseUid:auth.uid,batchId})):invalid()),
   preview:(token,batchId,payload)=>run(token,true,'calendarActivityStage',async auth=>{
-   if(!UUID.test(batchId||'')||!onlyKeys(payload,['expectedVersion'])||!version(payload.expectedVersion))return invalid();
+   if(!id(batchId)||!onlyKeys(payload,['expectedVersion'])||!version(payload.expectedVersion))return invalid();
    return ok(await repository.preview({actorFirebaseUid:auth.uid,batchId,expectedVersion:payload.expectedVersion}));
   }),
   commit:(token,batchId,payload)=>run(token,true,'calendarActivityCommit',async auth=>{
-   if(!UUID.test(batchId||'')||!onlyKeys(payload,['expectedVersion','manifestSha256','sourceSha256','idempotencyKey','confirm'])||!version(payload.expectedVersion)
-    ||!sha(payload.manifestSha256)||!sha(payload.sourceSha256)||!UUID.test(payload.idempotencyKey||'')||payload.confirm!==true)return invalid();
+   if(!id(batchId)||!onlyKeys(payload,['expectedVersion','manifestSha256','sourceSha256','idempotencyKey','confirm'])||!version(payload.expectedVersion)
+    ||!sha(payload.manifestSha256)||!sha(payload.sourceSha256)||!id(payload.idempotencyKey)||payload.confirm!==true)return invalid();
    let policy;try{policy=approvedActivityImportPolicy(payload.sourceSha256);}catch(_){return invalid();}
    const result=await repository.commit({actorFirebaseUid:auth.uid,batchId,...payload,sourceSha256:policy.sourceSha256});
    return ok(Object.fromEntries(['receiptId','batchId','sourceSha256','manifestSha256','insertedCount','deletedAfcCount','committedAtUtc','idempotentReplay'].map(key=>[key,result[key]])));
   }),
   resolveTime:(token,activityId,payload)=>run(token,true,'calendarActivityTime',async auth=>{
-   if(!UUID.test(activityId||'')||!onlyKeys(payload,['expectedVersion','date','startTime','endTime','evidenceRef','evidenceNote'])||!version(payload.expectedVersion)||!date(payload.date)
+   if(!id(activityId)||!onlyKeys(payload,['expectedVersion','date','startTime','endTime','evidenceRef','evidenceNote'])||!version(payload.expectedVersion)||!date(payload.date)
     ||!time(payload.startTime)||!time(payload.endTime)||payload.startTime>=payload.endTime||typeof payload.evidenceRef!=='string'||!payload.evidenceRef.trim()||payload.evidenceRef.length>512
     ||typeof payload.evidenceNote!=='string'||!payload.evidenceNote.trim()||payload.evidenceNote.length>1000)return invalid();
    return ok(publicActivity(await repository.resolveTime({actorFirebaseUid:auth.uid,activityId,...payload})));

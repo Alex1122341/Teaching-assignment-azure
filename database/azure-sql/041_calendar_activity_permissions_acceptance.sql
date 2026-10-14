@@ -22,6 +22,10 @@ DECLARE @Denied bit=0;
 DECLARE @Reply TABLE(responseJson nvarchar(max));
 EXECUTE AS USER=N'calendar_permission_read';
 INSERT @Reply EXEC paws_api.ListCalendarActivities N'calendar-permission-faculty','2026-11-01','2026-11-08';
+BEGIN TRY EXEC paws_api.ListCalendarActivities @ActorFirebaseUid=N'calendar-permission-faculty',@StartDate='2026-11-01',@EndExclusive='2026-11-08',@IncludeFacultyKeys=1; END TRY
+BEGIN CATCH IF ERROR_NUMBER()=53801 SET @Denied=1;ELSE THROW;END CATCH;
+IF @Denied=0 THROW 53890,'Faculty actor accessed the administrator key mapping.',1;
+SET @Denied=0;
 BEGIN TRY SELECT BeforeAfcJson FROM paws.CalendarActivityRecoveryRow; END TRY BEGIN CATCH IF ERROR_NUMBER()=229 SET @Denied=1;ELSE THROW;END CATCH;
 IF @Denied=0 THROW 53890,'Broad runtime read exposed recovery beforeimages.',1;
 SET @Denied=0;

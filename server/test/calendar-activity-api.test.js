@@ -57,6 +57,13 @@ test('identifier arrays are invalid JSON fields rather than being coerced into U
  assert.equal((await h.api.list('ok',{start:'2026-11-01',end:'2026-11-08',facultyKey:[ID]})).status,400);
  assert.equal(h.calls.length,0);assert.equal(h.parsed(),0);
 });
+test('faculty-key mapping is opt-in administrator-only and excludes accidental private metadata',async()=>{
+ const keys=[{facultyId:ID,facultyKey:ID,email:'private@example.test'}];let calls=0;
+ const make=baseRole=>createCalendarActivityApi({verifyToken:async()=>({uid:'verified'}),findUser:async()=>({active:true,baseRole,facultyId:ID}),repository:{list:async args=>{calls++;assert.equal(args.includeFacultyKeys,true);return {activities:[],nextCursor:null,facultyKeys:keys};}}});
+ const query={start:'2026-05-01',end:'2026-05-08',includeFacultyKeys:'true'};
+ assert.equal((await make('faculty').list('ok',query)).status,403);assert.equal(calls,0);
+ const result=await make('owner').list('ok',query);assert.equal(result.status,200);assert.deepEqual(result.body.facultyKeys,[{facultyId:ID,facultyKey:ID}]);assert.doesNotMatch(JSON.stringify(result.body),/private/);
+});
 for(const [number,status] of [[53801,403],[53802,400],[53803,404],[53804,409],[53805,409],[53806,409],[53807,409],[53808,409],[53809,409],[12345,503]]){
  test('SQL error '+number+' is fixed and sanitized',async()=>{const h=harness({failure:Object.assign(Error('private SQL server and note'),{number})});const out=await h.api.commit('ok',ID,commit);assert.equal(out.status,status);assert.doesNotMatch(JSON.stringify(out),/private/);});
 }

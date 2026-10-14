@@ -80,6 +80,11 @@ PRINT 'RACE_HOLDER_OK';
     [void](Invoke-RaceSql "IF EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE FacultyId='$($case.FacultyId)') OR (SELECT COUNT(*) FROM paws.AfcRecord WHERE FacultyId='$($case.FacultyId)' AND Active=1)<>1 THROW 53891,'Recovery race left mixed AFC/activity state.',1;")
    }
    Write-Output "CALENDAR_RACE_OK $name actual-$($case.ExpectedWait)-wait"
+  }catch{
+   $diagnostic=Invoke-RaceSql "SELECT TOP(10) sessions.session_id,DATALENGTH(sessions.context_info) contextBytes,LEFT(CONVERT(varchar(256),sessions.context_info,2),100) contextPrefix,requests.wait_type,requests.blocking_session_id,locks.resource_type,locks.request_status FROM sys.dm_exec_sessions sessions LEFT JOIN sys.dm_exec_requests requests ON requests.session_id=sessions.session_id LEFT JOIN sys.dm_tran_locks locks ON locks.request_session_id=sessions.session_id AND locks.request_status IN(N'WAIT',N'CONVERT') WHERE sessions.program_name LIKE N'%SQLCMD%' AND sessions.session_id<>@@SPID FOR JSON PATH,INCLUDE_NULL_VALUES;"
+   Write-Output "RACE_WAIT_DIAGNOSTIC $name $diagnostic"
+   if($waiter -and $waiter.Process.HasExited){Write-Output ('RACE_WAITER_EXIT '+$waiter.Process.ExitCode+' '+$waiter.Stdout.GetAwaiter().GetResult()+' '+$waiter.Stderr.GetAwaiter().GetResult())}
+   throw
   }finally{
    [void](Invoke-RaceSql "UPDATE dbo.CalendarActivityRaceBarrier SET ReleaseFlag=1 WHERE TestName='$name';")
    foreach($run in @($holder,$waiter)){

@@ -24,7 +24,9 @@ Disable the cancellation gate and remove only the new narrow role membership. Re
 
 ## Evidence boundary
 
-PR94 has merged as b9dc273 and exact-main CI has passed. Migration036 has applied with cancellation disabled. Rollback acceptance detected the timestamp conversion defect, and its synthetic fixtures/audits rolled back. Migration037 is the reviewed correction; its live application and extended acceptance remain pending at this checkpoint. The old University API continues serving the public port; no new Hosting release or cancellation activation has occurred. Local browser preview uses synthetic display data.
+Release completed2026-10-14. PR94 merged b9dc273 and SQL-only correction PR95 merged ca465bf1401b457ca3b74048cfaf170bedc7694a. SQL036/037, encoding/manual/imported/stale/denied/concurrent rollback acceptance and exact narrow runtime-role verification passed. University API and Hosting now serve ca465bf with product/trust anchor fb2c625745957fa7d9990033f15a7b1ef91974a5; afcCancel is enabled and existing gates retained. Exact-main Beta38453614170 and SQL38453614145 succeeded. All71 protected public static assets match the accepted CI artifact.
+
+Connected Chrome confirmed the actual grouped course206 /2026-10-16 LAB/SRL table, its real source intervals/instructors and per-row controls, explicit missing rooms/groups, enabled AFC creation and name-only labels. All803 active AFC records expose Delete; the native confirmation was dismissed and a fresh read remained803. No live UI create/cancel was performed. Final evidence and deployment-workflow limitation are recorded in agent.Ai/updates/2026-10-14-afc-lab-release.md. Do not rerun this release procedure merely to resume.
 
 ## Live acceptance correction
 

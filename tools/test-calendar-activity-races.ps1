@@ -12,7 +12,7 @@ if(-not $env:PAWS_SQL_TEST_PASSWORD){throw 'Synthetic SQL password is missing.'}
 function Start-RaceSql([string]$Sql){
  $info=[Diagnostics.ProcessStartInfo]::new('docker');$info.UseShellExecute=$false;$info.CreateNoWindow=$true
  $info.RedirectStandardInput=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
- foreach($argument in @('exec','-e',"SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD",'-i',$ContainerName,'/opt/mssql-tools18/bin/sqlcmd','-S','localhost','-U','sa','-C','-I','-b','-d','VetMed-Ops','-h','-1','-y','0','-i','/dev/stdin','-f','65001')){$info.ArgumentList.Add($argument)}
+ foreach($argument in @('exec','-e',"SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD",'-i',$ContainerName,'/opt/mssql-tools18/bin/sqlcmd','-S','localhost','-U','sa','-C','-I','-b','-d','VetMed-Ops','-h','-1','-y','4000','-w','65535','-i','/dev/stdin','-f','65001')){$info.ArgumentList.Add($argument)}
  $process=[Diagnostics.Process]::new();$process.StartInfo=$info;[void]$process.Start()
  $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
  $process.StandardInput.WriteLine(":ON ERROR EXIT`nSET NOCOUNT ON;`n"+$Sql);$process.StandardInput.Close()

@@ -55,12 +55,19 @@ EXEC paws_api.ResolveCalendarActivityDayTime N'calendar-swap-admin',@Activity,@A
 DECLARE @CoActivity uniqueidentifier=NEWID();
 INSERT paws.CalendarActivity(ActivityId,FacultyId,Category,OriginalLabel,StartDate,EndDate,ImportBatchId,ImportRowId,SourceSha256,SourceSheet,SourceRow,CreatedByUid)
  SELECT @CoActivity,@Co,Category,OriginalLabel,StartDate,EndDate,ImportBatchId,ImportRowId,SourceSha256,SourceSheet,201,N'calendar-swap-admin' FROM paws.CalendarActivity WHERE ActivityId=@Activity;
+DECLARE @CoManual uniqueidentifier=NEWID(),@CoManualRequest uniqueidentifier=NEWID(),@CoManualVersion varchar(16);
+EXEC paws_api.CreateAfcRecord @CoManual,@Co,'2026-11-05','2026-11-05',N'vacation',NULL,N'calendar-swap-admin',N'Synthetic Swap Admin',@CoManualRequest;
+IF paws_api.CalendarActivityAvailability(@Co,'2026-11-05','09:00','10:00',@Session)<>N'Needs Review'
+ THROW 53890,'Retained AFC must not mask unresolved activity timing and enable an override.',1;
 SET @Payload=JSON_MODIFY(@Payload,'$.expectedRevision',1);
 EXEC paws_api.SaveSessionSwap N'calendar-swap-admin',@Payload,1;
 SET @Rejected=0;
 BEGIN TRY EXEC paws_api.DecideSessionSwap N'calendar-swap-admin',@Request,2,N'approve',NULL,N'synthetic override',1; END TRY
 BEGIN CATCH IF ERROR_NUMBER()=53011 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 OR EXISTS(SELECT 1 FROM paws.SessionAssignment WHERE SessionAssignmentId=@Assignment AND FacultyId=@Faculty) THROW 53890,'Unknown co-instructor timing was overridden.',1;
+SELECT @CoManualVersion=CONVERT(varchar(16),CONVERT(binary(8),AfcVersion),2) FROM paws.AfcManualRecord WHERE AfcRecordId=@CoManual;
+SET @CoManualRequest=NEWID();
+EXEC paws_api.CancelAfcRecord @CoManual,N'manual',@CoManualVersion,N'calendar-swap-admin',N'Synthetic Swap Admin',@CoManualRequest;
 SELECT @ActivityVersion=CONVERT(varchar(16),CONVERT(binary(8),ActivityVersion),2) FROM paws.CalendarActivity WHERE ActivityId=@CoActivity;
 EXEC paws_api.ResolveCalendarActivityDayTime N'calendar-swap-admin',@CoActivity,@ActivityVersion,'2026-11-05','08:00','09:00',N'synthetic evidence',N'private co-instructor evidence';
 SET @Payload=JSON_MODIFY(@Payload,'$.expectedRevision',2);EXEC paws_api.SaveSessionSwap N'calendar-swap-admin',@Payload,1;

@@ -29,7 +29,8 @@ CREATE PROCEDURE dbo.CalendarActivityTestProtected
 AS
 BEGIN
  SET NOCOUNT ON;
- DECLARE @Name sysname,@Sql nvarchar(max),@Hash binary(32),@State TABLE(objectName sysname,fingerprint binary(32));
+ DECLARE @Name sysname,@Sql nvarchar(max),@Hash binary(32);
+ DECLARE @State TABLE(objectName sysname,fingerprint binary(32));
  DECLARE protectedTables CURSOR LOCAL FAST_FORWARD FOR
   SELECT name FROM sys.tables WHERE schema_id=SCHEMA_ID(N'paws') AND
    (name IN(N'Session',N'SessionAssignment') OR name LIKE N'Doe%' OR name LIKE N'TeachingAssignmentPublished%') ORDER BY name;

@@ -26,9 +26,14 @@ function Finish-RaceSql($Running,[int]$Timeout=30000){
 }
 function Invoke-RaceSql([string]$Sql){$run=Start-RaceSql $Sql;try{return Finish-RaceSql $run}finally{$run.Process.Dispose()}}
 function Wait-RaceCondition([string]$Sql,[string]$Label){
- $deadline=[DateTime]::UtcNow.AddSeconds(20)
+ $deadline=[DateTime]::UtcNow.AddSeconds(20);$sampled=$false
  while([DateTime]::UtcNow -lt $deadline){
   if((Invoke-RaceSql $Sql).Trim() -eq '1'){return}
+  if(-not $sampled -and $Label -match 'observed-'){
+   $sampled=$true
+   $sample=Invoke-RaceSql "SELECT TOP(8) sessions.session_id,DATALENGTH(sessions.context_info) contextBytes,LEFT(CONVERT(varchar(256),sessions.context_info,2),100) contextPrefix,requests.wait_type,requests.blocking_session_id,locks.resource_type,locks.request_status FROM sys.dm_exec_sessions sessions LEFT JOIN sys.dm_exec_requests requests ON requests.session_id=sessions.session_id LEFT JOIN sys.dm_tran_locks locks ON locks.request_session_id=sessions.session_id AND locks.request_status IN(N'WAIT',N'CONVERT') WHERE sessions.is_user_process=1 AND sessions.session_id<>@@SPID ORDER BY sessions.session_id DESC FOR JSON PATH,INCLUDE_NULL_VALUES;"
+   Write-Output "RACE_ACTIVE_WAIT_DIAGNOSTIC $Label $sample"
+  }
   Start-Sleep -Milliseconds 100
  }
  throw "Race barrier or expected wait was not observed: $Label"

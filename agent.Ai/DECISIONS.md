@@ -220,3 +220,11 @@ Do not reuse these without re-verification:
 
 ## 2026-10-09 — owner-directed Faculty / annual DOE administration
 Owner approved reference Faculty Lookup/Edit and full annual Rule Book lifecycle, retaining negotiated signed manual DOE separately, and instructed publication. This supersedes earlier P1 exclusions for the specifically accepted Faculty/DOE admin, policy publication and recalculation operations. Existing API role checks, audit, draft validation/impact revisions and explicit action confirmations remain. Deployment itself does not activate annual policies or recalculate allocations. Deferred Master targets remain blank. SQL writes use valid nvarchar(max); clone version+contents+audits are atomic. Immutable freeze promotion902a6cc is separately reviewed.
+
+## Owner source and departed faculty decisions — 2026-10-14
+
+- Continue Teaching-assignment-azure / Beta under the full development directive.
+- Actual working activities in the supplied AFC tracker move to Calendar, with exact matched AFC permanently removed in an atomic reviewed operation. OPA remains AFC with travel/vacation/RSL/leave.
+- Course Calendar full replacement capability is requested; current Course Calendar data must not be replaced yet.
+- Four rows belonging to the departed unmatched source person are excluded; do not create an active identity. Archive existing departed Faculty using Inactive Faculty/Restore, preserving history and accounts. One requested existing archive completed and verified; no authorization for unrelated accounts or people follows from it.
+- New module migration/release remains separately reviewable; prior PR94 approval is not blanket authorization.

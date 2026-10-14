@@ -28,6 +28,9 @@ Invoke-TestSql 'CREATE USER [paws_swa_beta] WITHOUT LOGIN; CREATE USER [paws-sql
 Invoke-TestSql 'REVOKE VIEW ANY COLUMN ENCRYPTION KEY DEFINITION FROM public; REVOKE VIEW ANY COLUMN MASTER KEY DEFINITION FROM public;' 'VetMed-Ops'
 foreach($relativePath in $manifest.baseline){
  Write-Output "SQL_BASELINE $relativePath"
+ if($relativePath -eq 'database/azure-sql/026_annual_doe_engine.sql'){
+  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/calendar-activity-doe-prerequisite.sql') -Raw) 'VetMed-Ops'
+ }
  $baselineSql=Get-Content -LiteralPath (Join-Path $repoPath $relativePath) -Raw
  # Preserve one synthetic principal across historical default-name changes.
  $baselineSql=[regex]::Replace($baselineSql,'(?m)^:setvar PAWS_API_PRINCIPAL [^\r\n]+\r?\n','')

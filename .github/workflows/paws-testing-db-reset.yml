@@ -1,0 +1,58 @@
+name: PAWS Testing Database Reset
+
+# Re-initialises the independent Testing database with the committed synthetic data set and
+# (re)provisions the Testing sign-in accounts. Never touches Production: the job runs only in the
+# GitHub Environment "testing", with Testing credentials, and the tool refuses any database that does
+# not carry the Testing marker (or is not completely empty).
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type RESET-TESTING to confirm
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: paws-testing-db
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    if: inputs.confirm == 'RESET-TESTING'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: testing
+    env:
+      PAWS_ENVIRONMENT: testing
+      PAWS_TESTING_ENVIRONMENT_ID: ${{ secrets.PAWS_TESTING_ENVIRONMENT_ID }}
+      FIREBASE_PROJECT_ID: ${{ vars.PAWS_TESTING_FIREBASE_PROJECT_ID }}
+      PAWS_SQL_CONNECTION_STRING: ${{ secrets.PAWS_TESTING_SQL_ADMIN_CONNECTION_STRING }}
+      PAWS_SQL_MI_CLIENT_ID: ${{ vars.PAWS_TESTING_SQL_ADMIN_CLIENT_ID }}
+      PAWS_TESTING_RUNTIME_PRINCIPAL: ${{ vars.PAWS_TESTING_RUNTIME_PRINCIPAL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --prefix server --ignore-scripts
+      - name: Log in to Azure (Testing identity only)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.PAWS_TESTING_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.PAWS_TESTING_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.PAWS_TESTING_AZURE_SUBSCRIPTION_ID }}
+      - name: Reset Testing database with synthetic data
+        run: node tools/testing-db/reset-testing-db.js --confirm-reset
+      - name: Provision Testing sign-in accounts
+        env:
+          PAWS_TEST_PERSONA_PASSWORD: ${{ secrets.PAWS_TEST_PERSONA_PASSWORD }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.PAWS_TESTING_FIREBASE_SERVICE_ACCOUNT }}
+          OPERATORS_JSON: ${{ secrets.PAWS_TESTING_OPERATORS_JSON }}
+        run: |
+          if [ -n "$OPERATORS_JSON" ]; then printf '%s' "$OPERATORS_JSON" > operators.json; node tools/testing-db/provision-test-accounts.js --operators operators.json; else node tools/testing-db/provision-test-accounts.js; fi
+          rm -f operators.json

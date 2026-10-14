@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const FIREBASE_CONFIG = { apiKey: 'AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY', authDomain: 'tester-teaching.firebaseapp.com', projectId: 'tester-teaching', storageBucket: 'tester-teaching.firebasestorage.app', messagingSenderId: '566638053186', appId: '1:566638053186:web:90e04b52251c4b859baadb', measurementId: 'G-F7HW5XX4JE' };
+  // Firebase web config comes only from the environment rendering (paws-api-origin.js).
+  const FIREBASE_CONFIG = (window.PAWS_ENVIRONMENT_CONFIG&&window.PAWS_ENVIRONMENT_CONFIG.firebase)||null;
   const facultyName = (record, fallback = '') => window.PAWS_FACULTY_NAME.format(record, fallback);
   const VIEW = window.PAWS_DASHBOARD_VIEW_MODEL || {};
   const number = value => value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value);
@@ -157,7 +158,7 @@
 
   function init() {
     try {
-      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); // null config: the Firebase SDK refuses to start (fail closed)
       auth = firebase.auth(); if (window.UCVMSessionGuard) window.UCVMSessionGuard.start(auth);
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {}); bindUI();
       if(cameFromTimetable())lock('Opening Dashboard…');

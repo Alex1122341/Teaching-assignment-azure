@@ -1,0 +1,208 @@
+'use strict';
+// Local live acceptance for the dual-environment design (Windows + SQL Server LocalDB).
+//
+// Builds two physically separate SQL Server instances on the developer machine and runs the REAL
+// University API twice, once per environment:
+//   * (localdb)\PAWSProdSim  -> "production" stand-in: synthetic data, NO Testing marker
+//   * (localdb)\MSSQLLocalDB -> Testing database created by reset-testing-db.js (marker + synthetic data)
+// Then exercises acceptance scenarios B, C, D and F of the dual-environment spec plus the start-up guards.
+// Firebase token verification is replaced by a local verifier ("syn-token:<uid>"); everything else
+// (HTTP server, runtime, authorization, SQL procedures) is production code.
+//
+//   node tools/testing-db/local-acceptance.js            (needs server/node_modules with msnodesqlv8)
+//
+// Output: JSON results on stdout and in .azure-testing/local-acceptance.json. Nothing outside the
+// two LocalDB instances is touched.
+const path = require('node:path');
+const fs = require('node:fs');
+const { execSync } = require('node:child_process');
+
+const ROOT = path.resolve(__dirname, '../..');
+const sql = require(path.join(ROOT, 'server/node_modules/mssql/msnodesqlv8'));
+const { createSwaSqlRuntime } = require(path.join(ROOT, 'server/src/runtime/swa-sql-runtime'));
+const { createUniversityHttpServer } = require(path.join(ROOT, 'server/src/runtime/university-http-server'));
+const resetTool = require('./reset-testing-db');
+
+const TESTING_INSTANCE = 'MSSQLLocalDB';
+const PROD_INSTANCE = 'PAWSProdSim';
+const TESTING_ID = '7e570000-0000-4000-8000-00000000c0de';
+const results = [];
+const log = (...a) => console.error(...a);
+
+function localdb(args) { return execSync(`SqlLocalDB.exe ${args}`, { encoding: 'utf8' }); }
+function pipeOf(instance) {
+  if (!new RegExp(`^${instance}$`, 'mi').test(localdb('info'))) localdb(`create ${instance}`);
+  if (!/State:\s+Running/i.test(localdb(`info ${instance}`))) localdb(`start ${instance}`);
+  return /Instance pipe name:\s*(\S+)/i.exec(localdb(`info ${instance}`))[1];
+}
+function driverName() {
+  const out = execSync('powershell -NoProfile -Command "(Get-OdbcDriver -Platform 64-bit).Name"', { encoding: 'utf8' }).split(/\r?\n/).map(s => s.trim());
+  return ['ODBC Driver 18 for SQL Server', 'ODBC Driver 17 for SQL Server', 'SQL Server'].find(n => out.includes(n));
+}
+const odbc = (instance, database) => `Driver={${driverName()}};Server=${pipeOf(instance)};Database=${database};Trusted_Connection=Yes;`;
+
+async function exec(instance, database, text) {
+  const pool = await new sql.ConnectionPool({ connectionString: odbc(instance, database) }).connect();
+  try { return (await pool.request().batch(text)).recordset || []; } finally { await pool.close(); }
+}
+async function recreateEmpty(instance) {
+  await exec(instance, 'master', `IF DB_ID(N'VetMed-Ops') IS NOT NULL BEGIN ALTER DATABASE [VetMed-Ops] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [VetMed-Ops]; END; CREATE DATABASE [VetMed-Ops];`);
+}
+
+function testingEnv(extra = {}) {
+  return { PAWS_ENVIRONMENT: 'testing', PAWS_TESTING_ENVIRONMENT_ID: TESTING_ID, FIREBASE_PROJECT_ID: 'paws-testing-local',
+    PAWS_SQL_CONNECTION_STRING: `Server=(localdb)\\${TESTING_INSTANCE};Database=VetMed-Ops`, ...extra };
+}
+function runtimeEnv(base, gatesOn) {
+  const env = { ...base, PAWS_SQL_DRIVER: 'msnodesqlv8', PAWS_SQL_CONNECTION_STRING: base.PAWS_SQL_CONNECTION_STRING + ';Encrypt=true',
+    PAWS_RELEASE_SHA: '0'.repeat(40), PAWS_RUNTIME_TRUST_ANCHOR: '0'.repeat(40), PAWS_API_HOST: '127.0.0.1' };
+  if (gatesOn) for (const g of ['SESSION_EDIT', 'SESSION_CREATE', 'AFC_SINGLE', 'AFC_BATCH', 'AFC_CANCEL', 'AFC_REQUEST', 'AFC_DECISION', 'AFC_ARTIFACT',
+    'SWAP_REQUEST', 'SWAP_DECISION', 'SWAP_APPLY', 'TA_DRAFT', 'TA_REVIEW', 'TA_FINAL', 'TA_PUBLISH', 'FACULTY_ADMIN', 'DOE_ADMIN', 'DOE_MANUAL_ASSIGNMENT']) env[`PAWS_${g}_WRITE_ENABLED`] = 'true';
+  return env;
+}
+function sqlFor(instance) {
+  // Test-only: route the runtime's connection to the given LocalDB instance through the installed ODBC driver.
+  const connectionString = odbc(instance, 'VetMed-Ops');
+  class LocalPool extends sql.ConnectionPool { constructor(config) { super({ ...config, connectionString, options: { ...(config.options || {}), encrypt: false } }); } }
+  return Object.assign(Object.create(sql), { ConnectionPool: LocalPool });
+}
+function admin(projectId) {
+  return { credential: { cert: () => ({}) }, initializeApp: () => ({}), auth: () => ({ async verifyIdToken(token) {
+    if (!String(token).startsWith('syn-token:')) throw new Error('invalid token');
+    return { uid: token.slice(10), aud: projectId, iss: `https://securetoken.google.com/${projectId}` };
+  } }) };
+}
+async function startApi(env, instance) {
+  const runtime = createSwaSqlRuntime({ env, admin: admin(env.FIREBASE_PROJECT_ID), sql: sqlFor(instance) });
+  await runtime.assertEnvironment();
+  const server = createUniversityHttpServer({ runtime, env, logger: { log() {}, error() {}, warn() {} } });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  return { base, close: async () => { await new Promise(r => server.close(r)); await runtime.close(); } };
+}
+async function call(api, uid, method, url, body, headers = {}) {
+  const h = { ...headers };
+  if (uid) h.authorization = `Bearer syn-token:${uid}`;
+  if (body !== undefined) h['content-type'] = 'application/json';
+  const res = await fetch(api.base + url, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) });
+  return { status: res.status, data: await res.json().catch(() => null) };
+}
+function check(scenario, name, pass, detail) { results.push({ scenario, name, pass: Boolean(pass), detail }); log(`${pass ? 'PASS' : 'FAIL'} [${scenario}] ${name}${detail ? ' :: ' + detail : ''}`); }
+async function expectReject(scenario, name, fn) {
+  try { await fn(); check(scenario, name, false, 'was accepted'); } catch (e) { check(scenario, name, e.code === 'ENVIRONMENT_MISCONFIGURED', e.message); }
+}
+const fingerprint = () => require('node:crypto').randomBytes(32).toString('hex');
+
+async function main() {
+  // 1. Two independent databases.
+  await recreateEmpty(TESTING_INSTANCE);
+  await resetTool.main(['--confirm-reset'], { ...testingEnv(), PAWS_TESTING_LOCAL_ODBC: odbc(TESTING_INSTANCE, 'VetMed-Ops') }, () => {});
+  check('setup', 'Testing database initialised with marker + synthetic data', true);
+  await expectReject('setup', 'reset refuses a database without the Testing marker', async () => {
+    const e = new Error('x');
+    try { await resetTool.main(['--confirm-reset'], { ...testingEnv({ PAWS_TESTING_ENVIRONMENT_ID: '7e570000-0000-4000-8000-0000000000aa' }), PAWS_TESTING_LOCAL_ODBC: odbc(TESTING_INSTANCE, 'VetMed-Ops') }, () => {}); }
+    catch (err) { if (/different environment/.test(err.message)) { e.code = 'ENVIRONMENT_MISCONFIGURED'; e.message = err.message; throw e; } throw err; }
+  });
+  await recreateEmpty(PROD_INSTANCE);
+  await resetTool.main(['--confirm-reset'], { ...testingEnv({ PAWS_TESTING_ENVIRONMENT_ID: '7e570000-0000-4000-8000-00000000beef', PAWS_SQL_CONNECTION_STRING: `Server=(localdb)\\${PROD_INSTANCE};Database=VetMed-Ops` }),
+    PAWS_TESTING_LOCAL_ODBC: odbc(PROD_INSTANCE, 'VetMed-Ops') }, () => {});
+  await exec(PROD_INSTANCE, 'VetMed-Ops', 'DROP TABLE paws_env.EnvironmentIdentity; DROP SCHEMA paws_env;');
+  check('setup', 'production stand-in built on a separate SQL instance without a Testing marker', true);
+  const prodFingerprint = async () => (await exec(PROD_INSTANCE, 'VetMed-Ops', `SELECT
+    (SELECT CHECKSUM_AGG(CHECKSUM(*)) FROM paws.Faculty) AS faculty, (SELECT CHECKSUM_AGG(CHECKSUM(*)) FROM paws.Session) AS sessions,
+    (SELECT CHECKSUM_AGG(CHECKSUM(*)) FROM paws.SessionAssignment) AS assignments, (SELECT COUNT(*) FROM paws.AuditEvent) AS audit,
+    (SELECT COUNT(*) FROM paws.SupportOperation) AS supportOps`))[0];
+  const prodBefore = await prodFingerprint();
+
+  // 2. Start-up guards (scenario F).
+  const prodEnv = runtimeEnv({ PAWS_ENVIRONMENT: 'production', FIREBASE_PROJECT_ID: 'paws-prod-sim', PAWS_SQL_CONNECTION_STRING: `Server=(localdb)\\${PROD_INSTANCE};Database=VetMed-Ops` }, false);
+  await expectReject('F', 'production runtime refuses the Testing database', async () => { const r = createSwaSqlRuntime({ env: prodEnv, admin: admin('paws-prod-sim'), sql: sqlFor(TESTING_INSTANCE) }); try { await r.assertEnvironment(); } finally { await r.close(); } });
+  await expectReject('F', 'testing runtime refuses the production database (no marker)', async () => { const r = createSwaSqlRuntime({ env: runtimeEnv(testingEnv(), true), admin: admin('paws-testing-local'), sql: sqlFor(PROD_INSTANCE) }); try { await r.assertEnvironment(); } finally { await r.close(); } });
+  await expectReject('F', 'testing runtime refuses a Testing DB with another environment id', async () => { const r = createSwaSqlRuntime({ env: runtimeEnv(testingEnv({ PAWS_TESTING_ENVIRONMENT_ID: '7e570000-0000-4000-8000-0000000000aa' }), true), admin: admin('paws-testing-local'), sql: sqlFor(TESTING_INSTANCE) }); try { await r.assertEnvironment(); } finally { await r.close(); } });
+  await expectReject('F', 'testing runtime refuses the production SQL server name', async () => createSwaSqlRuntime({ env: runtimeEnv(testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=ITAPPVETOPSDB01;Database=VetMed-Ops' }), true), admin: admin('x'), sql }));
+  await expectReject('F', 'testing runtime refuses the production Firebase project', async () => createSwaSqlRuntime({ env: runtimeEnv(testingEnv({ FIREBASE_PROJECT_ID: 'tester-teaching' }), true), admin: admin('x'), sql }));
+  await expectReject('F', 'missing PAWS_ENVIRONMENT refuses to start', async () => createSwaSqlRuntime({ env: { ...runtimeEnv(testingEnv(), true), PAWS_ENVIRONMENT: undefined }, admin: admin('x'), sql }));
+
+  const prod = await startApi(prodEnv, PROD_INSTANCE);
+  const test = await startApi(runtimeEnv(testingEnv(), true), TESTING_INSTANCE);
+  try {
+    const hp = await fetch(prod.base + '/api/health/runtime').then(r => r.json());
+    const ht = await fetch(test.base + '/api/health/runtime').then(r => r.json());
+    check('A', 'each API reports its own environment', hp.environment === 'production' && ht.environment === 'testing', `${hp.environment} / ${ht.environment}`);
+    const meT = await call(test, 'syn-admin', 'GET', '/api/v1/me');
+    check('A', 'Testing /me identifies the testing environment', meT.status === 200 && meT.data.environment.testing === true);
+
+    // Scenario B: modify test data.
+    const sessions = (await call(test, 'syn-admin', 'GET', '/api/v1/sessions?start=2026-09-01&end=2027-04-30')).data.sessions;
+    const target = sessions.find(s => s.sessionType === 'LEC');
+    const edit = await call(test, 'syn-admin', 'PATCH', `/api/v1/sessions/${target.id}`, { topic: 'Edited in Testing only' });
+    check('B', 'administrator edits a Testing session', edit.status === 200, `status ${edit.status}`);
+    const prodSession = (await call(prod, 'syn-admin', 'GET', '/api/v1/sessions?start=2026-09-01&end=2027-04-30')).data.sessions.find(s => s.id === target.id);
+    check('B', 'the edit is not visible in Production', prodSession && prodSession.topic !== 'Edited in Testing only', prodSession && prodSession.topic);
+    const prodWrite = await call(prod, 'syn-admin', 'PATCH', `/api/v1/sessions/${target.id}`, { topic: 'should be gated' });
+    check('B', 'Production keeps its own (disabled) write gates', prodWrite.status === 503 && prodWrite.data.error.code === 'WRITE_DISABLED');
+
+    // Scenario C: identity switching inside Testing.
+    const list = await call(test, 'syn-admin', 'GET', '/api/v1/support');
+    const accounts = (list.data && list.data.accounts) || [];
+    check('C', 'administrator sees persona list in Testing', list.status === 200 && list.data.mode === 'testing_persona', `${accounts.length} personas`);
+    check('C', 'persona list excludes higher-privileged accounts', !accounts.some(a => ['owner', 'adfa_general', 'developer'].includes(a.role)), accounts.map(a => a.role).join(','));
+    const esc = await call(test, 'syn-admin', 'POST', '/api/v1/support/start', { targetUid: 'syn-owner', reason: 'escalation attempt' });
+    check('C', 'escalation to a higher persona is rejected', esc.status === 403 && esc.data.error.code === 'SUPPORT_ESCALATION_DENIED', `${esc.status}`);
+    const facStart = await call(test, 'syn-admin', 'POST', '/api/v1/support/start', { targetUid: 'syn-faculty-a', reason: 'acceptance: faculty persona' });
+    const ctxF = facStart.data && facStart.data.contextId;
+    const H = id => ({ 'x-paws-support-context': id });
+    const meF = await call(test, 'syn-admin', 'GET', '/api/v1/me', undefined, H(ctxF));
+    check('C', 'faculty persona: effective role faculty, real actor retained', meF.status === 200 && meF.data.profile.role === 'faculty' && meF.data.support.actorName && meF.data.support.mode === 'testing_persona', meF.data && JSON.stringify(meF.data.support));
+    const fSessions = (await call(test, 'syn-admin', 'GET', '/api/v1/sessions?start=2026-09-01&end=2027-04-30', undefined, H(ctxF))).data.sessions;
+    check('C', 'faculty persona sees only own scoped timetable', fSessions.length > 0 && fSessions.length < sessions.length, `${fSessions.length}/${sessions.length}`);
+    const fSummary = await call(test, 'syn-admin', 'GET', '/api/v1/dashboard/summary?academicYear=2026-27', undefined, H(ctxF));
+    check('C', 'faculty persona is denied administrator data', fSummary.status === 403);
+    const fEdit = await call(test, 'syn-admin', 'PATCH', `/api/v1/sessions/${target.id}`, { topic: 'faculty cannot edit' }, H(ctxF));
+    check('C', 'faculty persona cannot use administrator writes', fEdit.status === 403);
+    const meA = (await call(test, 'syn-faculty-a', 'GET', '/api/v1/me')).data.profile;
+    const afc = await call(test, 'syn-admin', 'POST', '/api/v1/afc-requests', { startDate: '2027-03-08', endDate: '2027-03-09', reason: 'vacation', contactAddress: '1 Test Way', contactPhone: '403-555-0100',
+      termsAccepted: true, termsVersion: 'ucvm-afc-terms-page2-v1', termsSource: 'absence-from-campus-app.pdf#page=2',
+      applicantSignature: { mode: 'typed', name: meA.displayName, uid: 'syn-faculty-a', signedAt: new Date().toISOString(), fingerprint: fingerprint(), attested: true } }, H(ctxF));
+    check('C', 'faculty persona can use faculty self-service writes', [200, 201].includes(afc.status), `status ${afc.status} ${afc.data && afc.data.error ? afc.data.error.code : ''}`);
+    const ops = await exec(TESTING_INSTANCE, 'VetMed-Ops', `SELECT TOP 1 ActorUid, TargetUid FROM paws.SupportOperation ORDER BY CreatedAtUtc DESC`);
+    check('C', 'audit keeps the real administrator as actor', ops[0] && ops[0].ActorUid === 'syn-admin' && ops[0].TargetUid === 'syn-faculty-a', JSON.stringify(ops[0]));
+    await call(test, 'syn-admin', 'POST', '/api/v1/support/end', { contextId: ctxF });
+    const ended = await call(test, 'syn-admin', 'GET', '/api/v1/me', undefined, H(ctxF));
+    check('C', 'ended persona context is rejected', ended.status === 403);
+    const hStart = await call(test, 'syn-admin', 'POST', '/api/v1/support/start', { targetUid: 'syn-hicc', reason: 'acceptance: HICC persona' });
+    const ctxH = hStart.data && hStart.data.contextId;
+    const queue = await call(test, 'syn-admin', 'GET', '/api/v1/teaching-assignments/work-queue?academicYear=2026-27', undefined, H(ctxH));
+    check('C', 'HICC persona sees only its own packages', queue.status === 200 && queue.data.workQueue.length > 0, `${queue.data && queue.data.workQueue && queue.data.workQueue.length} packages`);
+    const hFaculty = await call(test, 'syn-admin', 'GET', '/api/v1/dashboard/faculty?academicYear=2026-27&status=all', undefined, H(ctxH));
+    check('C', 'HICC persona cannot read the full faculty roster', hFaculty.status === 403);
+    await exec(TESTING_INSTANCE, 'VetMed-Ops', `UPDATE paws.SupportContext SET ExpiresAtUtc = DATEADD(minute, -1, SYSUTCDATETIME()) WHERE ContextId = '${ctxH}'`);
+    const expired = await call(test, 'syn-admin', 'GET', '/api/v1/me', undefined, H(ctxH));
+    check('C', 'expired persona context is rejected', expired.status === 403 && expired.data.error.code === 'SUPPORT_CONTEXT_EXPIRED');
+    const self = await call(test, 'syn-admin', 'GET', '/api/v1/me');
+    check('C', 'returning to self restores the administrator', self.status === 200 && self.data.profile.role === 'adfa_regular' && !self.data.support);
+
+    // Scenario F: frontend-state manipulation.
+    const forged = await call(test, 'syn-faculty-a', 'GET', '/api/v1/me', undefined, H(ctxF));
+    check('F', 'a non-operator cannot use a persona context header', forged.status === 403);
+    const fSupport = await call(test, 'syn-faculty-a', 'POST', '/api/v1/support/start', { targetUid: 'syn-admin', reason: 'x' });
+    check('F', 'a faculty user cannot start identity switching', fSupport.status === 403);
+    const prodSupport = await call(prod, 'syn-admin', 'GET', '/api/v1/support');
+    check('F', 'Production identity switching is unchanged (developer only)', prodSupport.status === 403 && prodSupport.data.error.code === 'DEVELOPER_REQUIRED');
+    const prodDev = await call(prod, 'syn-developer', 'GET', '/api/v1/support');
+    check('F', 'Production developer support still works and reports production mode', prodDev.status === 200 && prodDev.data.mode === 'developer_support');
+
+    // Scenario D: Production unchanged.
+    const prodAfter = await prodFingerprint();
+    check('D', 'Production database unchanged after all Testing activity', JSON.stringify(prodBefore) === JSON.stringify(prodAfter), JSON.stringify(prodAfter));
+  } finally {
+    await prod.close(); await test.close();
+  }
+  const out = { ok: results.every(r => r.pass), total: results.length, passed: results.filter(r => r.pass).length, odbcDriver: driverName(), results };
+  fs.mkdirSync(path.join(ROOT, '.azure-testing'), { recursive: true });
+  fs.writeFileSync(path.join(ROOT, '.azure-testing', 'local-acceptance.json'), JSON.stringify(out, null, 2));
+  console.log(JSON.stringify({ ok: out.ok, total: out.total, passed: out.passed }));
+  process.exitCode = out.ok ? 0 : 1;
+}
+
+if (require.main === module) main().catch(error => { console.error('LOCAL_ACCEPTANCE_FAILED', error.stack); process.exit(1); });

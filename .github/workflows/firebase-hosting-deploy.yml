@@ -37,6 +37,8 @@ jobs:
   deploy_hosting:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    # Production release requires approval from the GitHub Environment "production" reviewers.
+    environment: production
     steps:
       - name: Checkout deployment workflow
         uses: actions/checkout@v4
@@ -123,6 +125,9 @@ jobs:
           grep -Fq 'Annual DOE Rule Book' .firebase-production/app/faculty-admin.html
           grep -Fq 'calculatedDoeCredit' .firebase-production/app/faculty-admin-doe-renderer.js
 
+      - name: Verify artifact is the Production environment build
+        run: node tools/verify-environment-config.js --artifact .firebase-production/app --environment production
+
       - name: Derive source API origin
         id: source_identity
         shell: bash
@@ -163,6 +168,7 @@ jobs:
             .status == "ok" and
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
+            ((.environment // "production") == "production") and
             (.writeGates | type == "object")
           ' predeploy-runtime.json > /dev/null
           if [ "$STATIC_ONLY" = "true" ]; then
@@ -291,6 +297,7 @@ jobs:
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
             .releaseSha == $expected and
+            ((.environment // "production") == "production") and
             (.writeGates | type == "object")
           ' postdeploy-runtime.json > /dev/null
           if [ "$STATIC_ONLY" != "true" ]; then

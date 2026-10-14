@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const FIREBASE_CONFIG = { apiKey: 'AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_Lk', authDomain: 'tester-teaching.firebaseapp.com', projectId: 'tester-teaching', storageBucket: 'tester-teaching.firebasestorage.app', messagingSenderId: '566638053186', appId: '1:566638053186:web:90e04b52251c4b859baadb' };
+  // Firebase web config comes only from the environment rendering (paws-api-origin.js).
+  const FIREBASE_CONFIG = (window.PAWS_ENVIRONMENT_CONFIG&&window.PAWS_ENVIRONMENT_CONFIG.firebase)||null;
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -272,7 +273,7 @@
     } catch (error) { console.error(error); showGate(apiError(error)); }
   }
   try {
-    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); // null config: the Firebase SDK refuses to start (fail closed)
     auth = firebase.auth(); window.UCVMSessionGuard?.start(auth); auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
     auth.onAuthStateChanged(start);
   } catch (error) { console.error(error); showGate('Firebase authentication could not be initialized.'); }

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const { createUniversityHttpServer } = require('../src/runtime/university-http-server');
 const TEST_RUNTIME_IDENTITY = Object.freeze({
+  PAWS_ENVIRONMENT: 'production',
   PAWS_RELEASE_SHA: 'a'.repeat(40),
   PAWS_RUNTIME_TRUST_ANCHOR: 'b'.repeat(40)
 });
@@ -210,6 +211,7 @@ test('local HTTP acceptance mounts the existing SQL health route and closes its 
     async close() { poolClosed = true; }
   }
   const env = {
+    PAWS_ENVIRONMENT: 'production',
     FIREBASE_PROJECT_ID: 'test-project',
     PAWS_SQL_CONNECTION_STRING: 'Server=localhost;Database=VetMed-Ops;Encrypt=true;',
     PAWS_SQL_DRIVER: 'tedious'
@@ -261,6 +263,7 @@ test('OPTIONS preflight permits only an exact allowlisted origin and headers', a
 test('actual PAWS runtime keeps anonymous /me and Dashboard requests unauthorized without SQL access', async t => {
   const { createSwaSqlRuntime } = require('../src/runtime/swa-sql-runtime');
   const env = {
+    PAWS_ENVIRONMENT: 'production',
     FIREBASE_PROJECT_ID: 'test-project',
     PAWS_SQL_CONNECTION_STRING: 'Server=localhost;Database=VetMed-Ops;Encrypt=true;',
     PAWS_SQL_DRIVER: 'tedious'

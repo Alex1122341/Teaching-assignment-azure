@@ -19,8 +19,15 @@ function start() {
   const host = env.PAWS_API_HOST || '127.0.0.1';
   let stopping = false;
 
-  server.listen(port, host, () => {
-    console.log(JSON.stringify({ event: 'paws_api_listening', host, port }));
+  // Refuse to listen until the SQL database declares the configured environment.
+  Promise.resolve(typeof runtime.assertEnvironment === 'function' ? runtime.assertEnvironment() : true).then(() => {
+    server.listen(port, host, () => {
+      console.log(JSON.stringify({ event: 'paws_api_listening', host, port, environment: runtime.environment }));
+    });
+  }, error => {
+    console.error(JSON.stringify({ event: 'paws_api_environment_rejected', code: error && error.code === 'ENVIRONMENT_MISCONFIGURED' ? error.code : 'SQL_UNAVAILABLE' }));
+    process.exitCode = 1;
+    runtime.close().catch(() => {});
   });
 
   const shutdown = signal => {

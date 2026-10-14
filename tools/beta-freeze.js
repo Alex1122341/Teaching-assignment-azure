@@ -101,9 +101,18 @@ function bytesMatch(expected,actual){
   return normalize(a).equals(normalize(b));
 }
 
+// Environment-specific artifacts differ from the repository in exactly one file: the rendered
+// environment configuration. For a Testing artifact the expected bytes of paws-api-origin.js are
+// rendered from config/environments/testing.json AS STORED IN THE FROZEN BASELINE COMMIT, and the
+// renderer plus that configuration must themselves be byte-identical to the baseline.
+const ENVIRONMENT_FILE='paws-api-origin.js';
+const ENVIRONMENT_INPUTS=Object.freeze(['tools/render-environment-config.js','config/environments/production.json','config/environments/testing.json']);
+
 function verifyFreeze(options={}){
   const root=options.root||defaultRoot();
   const baselineCommit=options.baselineCommit||BASELINE_COMMIT;
+  const environment=options.environment||'production';
+  if(!['production','testing'].includes(environment))throw new Error(`unknown environment ${environment}`);
   if(!options.skipCommitCheck&&!baselineCommitExists(root,baselineCommit)){
     throw new Error(`frozen baseline commit ${baselineCommit} is not available in this repository`);
   }
@@ -114,9 +123,24 @@ function verifyFreeze(options={}){
     readManifest:options.readManifest,
     readBaselineManifest:options.readBaselineManifest
   });
-  const readBaseline=options.readBaselineFile||(({file})=>readBaselineFile({root,baselineCommit,file}));
+  const readBaselineRaw=options.readBaselineFile||(({file})=>readBaselineFile({root,baselineCommit,file}));
   const readWorking=options.readWorking||(({file})=>readWorkingFile({root,file}));
   const drift=[];
+  let readBaseline=readBaselineRaw;
+  if(environment==='testing'){
+    for(const file of ENVIRONMENT_INPUTS){
+      let expected,actual;
+      try{expected=readBaselineRaw({root,baselineCommit,file});}catch(error){drift.push({file,reason:'missing-at-baseline'});continue;}
+      try{actual=readWorkingFile({root,file});}catch(error){drift.push({file,reason:'missing-in-verified-copy'});continue;}
+      if(!bytesMatch(expected,actual))drift.push({file,reason:'content-drift'});
+    }
+    readBaseline=args=>{
+      if(args.file!==ENVIRONMENT_FILE)return readBaselineRaw(args);
+      const {render}=require('./render-environment-config');
+      const config=JSON.parse(readBaselineRaw({...args,file:'config/environments/testing.json'}).toString('utf8'));
+      return Buffer.from(render(config),'utf8');
+    };
+  }
   for(const file of files){
     let baseline;
     try{
@@ -136,6 +160,7 @@ function verifyFreeze(options={}){
   }
   return {
     baselineCommit,
+    environment,
     protected:files.length,
     checked:files.length,
     drift,
@@ -145,6 +170,7 @@ function verifyFreeze(options={}){
 
 module.exports={
   BASELINE_COMMIT,
+  ENVIRONMENT_INPUTS,
   MANIFEST_PATH,
   baselineCommitExists,
   bytesMatch,
@@ -162,7 +188,13 @@ if(require.main===module){
   const argv=process.argv.slice(2);
   const artifactAt=argv.indexOf('--artifact');
   const baselineAt=argv.indexOf('--baseline');
+  const environmentAt=argv.indexOf('--environment');
   const options={};
+  if(environmentAt>=0){
+    options.environment=argv[environmentAt+1];
+    if(!['production','testing'].includes(options.environment)){console.error('--environment must be production or testing');process.exit(1);}
+    if(options.environment==='testing'&&artifactAt<0){console.error('--environment testing verifies a built Testing artifact; pass --artifact');process.exit(1);}
+  }
   if(baselineAt>=0&&argv[baselineAt+1]){
     options.baselineCommit=argv[baselineAt+1];
     if(options.baselineCommit!==BASELINE_COMMIT){
@@ -189,6 +221,7 @@ if(require.main===module){
   console.log(JSON.stringify({
     ok:true,
     baselineCommit:result.baselineCommit,
+    environment:result.environment,
     protected:result.protected
   }));
 }

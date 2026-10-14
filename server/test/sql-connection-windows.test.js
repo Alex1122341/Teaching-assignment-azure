@@ -108,7 +108,7 @@ test('runtime parses PAWS_SQL_ALLOW_SELF_SIGNED strictly', () => {
   for (const value of ['1', 'yes', 'TRUE-ish', '']) {
     assert.throws(
       () => createSwaSqlRuntime({
-        env: { FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint, PAWS_SQL_DRIVER: 'msnodesqlv8', PAWS_SQL_ALLOW_SELF_SIGNED: value },
+        env: { PAWS_ENVIRONMENT: 'production', FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint, PAWS_SQL_DRIVER: 'msnodesqlv8', PAWS_SQL_ALLOW_SELF_SIGNED: value },
         admin: {},
         sql: {}
       }),
@@ -119,7 +119,7 @@ test('runtime parses PAWS_SQL_ALLOW_SELF_SIGNED strictly', () => {
 
 test('runtime rejects an unknown driver selector before loading a driver', () => {
   assert.throws(
-    () => createSwaSqlRuntime({ env: { FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint, PAWS_SQL_DRIVER: 'other' }, admin: {} }),
+    () => createSwaSqlRuntime({ env: { PAWS_ENVIRONMENT: 'production', FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint, PAWS_SQL_DRIVER: 'other' }, admin: {} }),
     /unsupported.*driver|driver.*unsupported/i
   );
 });
@@ -137,13 +137,13 @@ test('runtime loads the Windows SQL module only for explicit Windows mode', () =
   };
   try {
     createSwaSqlRuntime({
-      env: { FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint },
+      env: { PAWS_ENVIRONMENT: 'production', FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint },
       admin: {}
     });
     assert.deepEqual(loaded, ['mssql']);
     loaded.length = 0;
     createSwaSqlRuntime({
-      env: { FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint, PAWS_SQL_DRIVER: 'msnodesqlv8' },
+      env: { PAWS_ENVIRONMENT: 'production', FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint, PAWS_SQL_DRIVER: 'msnodesqlv8' },
       admin: {}
     });
     assert.deepEqual(loaded, ['mssql/msnodesqlv8']);
@@ -155,7 +155,7 @@ test('runtime loads the Windows SQL module only for explicit Windows mode', () =
 test('runtime preserves an injected SQL driver in Windows mode', () => {
   const fake = { ConnectionPool: class {} };
   const runtime = createSwaSqlRuntime({
-    env: { FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint, PAWS_SQL_DRIVER: 'msnodesqlv8' },
+    env: { PAWS_ENVIRONMENT: 'production', FIREBASE_PROJECT_ID: 'tester-teaching', PAWS_SQL_CONNECTION_STRING: endpoint, PAWS_SQL_DRIVER: 'msnodesqlv8' },
     admin: {},
     sql: fake
   });

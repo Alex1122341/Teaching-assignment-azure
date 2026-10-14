@@ -1,0 +1,9 @@
+{
+  "environment": "testing",
+  "environmentLabel": "TESTING ENVIRONMENT",
+  "releaseLabel": "TESTING — SYNTHETIC DATA",
+  "apiOrigin": null,
+  "siteUrl": null,
+  "peerSiteUrl": "https://tester-teaching.web.app",
+  "firebase": null
+}

@@ -32,6 +32,8 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Production release requires approval from the GitHub Environment "production" reviewers.
+    environment: production
     timeout-minutes: 25
     steps:
       - name: Checkout exact requested main commit

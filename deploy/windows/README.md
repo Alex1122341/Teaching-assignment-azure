@@ -12,6 +12,7 @@ This directory documents a future service package only. Nothing here installs a 
 - Request bodies are limited to 64 KiB by default and at most 1 MiB by configuration.
 - CORS uses exact origins from `PAWS_API_ALLOWED_ORIGINS`. An unset value permits no cross-origin browser requests.
 - Shutdown drains HTTP connections, then closes the SQL pool.
+- **`PAWS_ENVIRONMENT=production` is required.** The runtime refuses to start when it is unset or not exactly `production` / `testing`, and it refuses to listen if the SQL database declares itself a Testing database (`paws_env.EnvironmentIdentity`). Never set `PAWS_TESTING_ENVIRONMENT_ID` or `PAWS_API_ALLOW_NON_LOOPBACK` on this server; the production runtime rejects both. See `docs/dual-environment/`.
 
 ## Future wrapper configuration
 

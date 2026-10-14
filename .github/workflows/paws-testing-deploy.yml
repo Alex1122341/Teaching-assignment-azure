@@ -1,0 +1,187 @@
+name: PAWS Testing Deploy
+
+# Automatically deploys every green main build to the independent Testing environment.
+# Same commit and source as Production; different frontend rendering, API instance, SQL database,
+# Firebase project and cloud identity. Data is never copied between environments and is not
+# reset by a deploy (use "PAWS Testing Database Reset").
+
+on:
+  workflow_run:
+    workflows: ["Azure Beta Build"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful Azure Beta Build push run ID from main
+        required: true
+        type: string
+      commit_sha:
+        description: Exact tested commit to deploy to Testing
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: paws-testing-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy_testing:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: testing
+    env:
+      SOURCE_RUN_ID: ${{ inputs.source_run_id || github.event.workflow_run.id }}
+      COMMIT_SHA: ${{ inputs.commit_sha || github.event.workflow_run.head_sha }}
+      TESTING_FIREBASE_PROJECT_ID: ${{ vars.PAWS_TESTING_FIREBASE_PROJECT_ID }}
+      TESTING_SITE_URL: ${{ vars.PAWS_TESTING_SITE_URL }}
+      TESTING_API_ORIGIN: ${{ vars.PAWS_TESTING_API_ORIGIN }}
+      TESTING_ACR_NAME: ${{ vars.PAWS_TESTING_ACR_NAME }}
+      TESTING_ACA_APP: ${{ vars.PAWS_TESTING_ACA_APP }}
+      TESTING_ACA_RESOURCE_GROUP: ${{ vars.PAWS_TESTING_ACA_RESOURCE_GROUP }}
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.COMMIT_SHA }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify source build provenance
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$COMMIT_SHA" origin/main
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}")"
+          test "$(jq -r '.repository.full_name' <<< "$run_json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.path' <<< "$run_json")" = ".github/workflows/azure-beta-build.yml"
+          test "$(jq -r '.event' <<< "$run_json")" = "push"
+          test "$(jq -r '.head_branch' <<< "$run_json")" = "main"
+          test "$(jq -r '.head_sha' <<< "$run_json")" = "$COMMIT_SHA"
+          test "$(jq -r '.conclusion' <<< "$run_json")" = "success"
+
+      - name: Verify Testing configuration matches this GitHub Environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/verify-environment-config.js --repository
+          node - <<'NODE'
+          const { loadConfig } = require('./tools/render-environment-config');
+          const t = loadConfig('testing');
+          const expect = (name, actual, wanted) => { if (!wanted || actual !== wanted) throw new Error(`${name} mismatch: config=${actual} environment=${wanted}`); };
+          expect('apiOrigin', t.apiOrigin, process.env.TESTING_API_ORIGIN);
+          expect('siteUrl', t.siteUrl, process.env.TESTING_SITE_URL);
+          expect('firebase.projectId', t.firebase && t.firebase.projectId, process.env.TESTING_FIREBASE_PROJECT_ID);
+          NODE
+
+      - name: Download exact tested Testing artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: paws-testing-${{ env.COMMIT_SHA }}
+          path: .azure-testing
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+
+      - name: Verify Testing artifact (environment guard + frozen runtime)
+        run: |
+          node tools/verify-environment-config.js --artifact .azure-testing/app --environment testing
+          node tools/beta-freeze.js --artifact .azure-testing/app --environment testing
+
+      - name: Log in to Azure (Testing identity only)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.PAWS_TESTING_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.PAWS_TESTING_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.PAWS_TESTING_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push Testing API image
+        shell: bash
+        run: |
+          set -euo pipefail
+          az acr login --name "$TESTING_ACR_NAME"
+          image="$TESTING_ACR_NAME.azurecr.io/paws-testing-api:$COMMIT_SHA"
+          docker build -f deploy/testing/Dockerfile -t "$image" .
+          docker push "$image"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+
+      - name: Activate Testing API revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Environment identity and SQL target live in the ACA app configuration (set once during
+          # provisioning); this deploy only changes the image and the attested release SHA.
+          app_env="$(az containerapp show -n "$TESTING_ACA_APP" -g "$TESTING_ACA_RESOURCE_GROUP" --query 'properties.template.containers[0].env' -o json)"
+          test "$(jq -r '.[] | select(.name=="PAWS_ENVIRONMENT") | .value' <<< "$app_env")" = "testing"
+          az containerapp update -n "$TESTING_ACA_APP" -g "$TESTING_ACA_RESOURCE_GROUP" --image "$IMAGE" \
+            --set-env-vars "PAWS_RELEASE_SHA=$COMMIT_SHA" "PAWS_RUNTIME_TRUST_ANCHOR=$(node -p "require('./tools/beta-freeze').BASELINE_COMMIT")"
+
+      - name: Verify Testing API identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 20); do
+            status="$(curl --silent --max-time 15 -o runtime.json -w '%{http_code}' "$TESTING_API_ORIGIN/api/health/runtime" || true)"
+            if [ "$status" = "200" ] && jq -e --arg c "$COMMIT_SHA" '.releaseSha == $c' runtime.json > /dev/null; then break; fi
+            sleep 15
+          done
+          node tools/verify-environment-config.js --health runtime.json --environment testing
+          jq -e --arg c "$COMMIT_SHA" '.releaseSha == $c' runtime.json > /dev/null
+          test "$(curl --silent --max-time 15 -o /dev/null -w '%{http_code}' "$TESTING_API_ORIGIN/api/health/sql")" = "200"
+          test "$(curl --silent --max-time 15 -o /dev/null -w '%{http_code}' "$TESTING_API_ORIGIN/api/v1/me")" = "401"
+
+      - name: Install locked Firebase CLI
+        run: npm ci --ignore-scripts
+
+      - name: Authenticate to the Testing Firebase project
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: '${{ secrets.PAWS_TESTING_FIREBASE_SERVICE_ACCOUNT }}'
+          project_id: ${{ vars.PAWS_TESTING_FIREBASE_PROJECT_ID }}
+
+      - name: Deploy Testing Hosting
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$TESTING_FIREBASE_PROJECT_ID" != "tester-teaching"
+          rm -rf .deploy-static && cp -r .azure-testing/app .deploy-static && rm -f .deploy-static/staticwebapp.config.json
+          ./node_modules/.bin/firebase deploy --only hosting --project "$TESTING_FIREBASE_PROJECT_ID" \
+            --config firebase.hosting-only.json --non-interactive --message "Testing release $COMMIT_SHA from build $SOURCE_RUN_ID"
+
+      - name: Verify Testing site serves the Testing build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            curl --silent --max-time 20 -o served-origin.js "$TESTING_SITE_URL/paws-api-origin.js?r=$COMMIT_SHA&a=$attempt" || true
+            if cmp -s .azure-testing/app/paws-api-origin.js served-origin.js; then exit 0; fi
+            sleep 10
+          done
+          echo 'TESTING_STATIC_CONVERGENCE_BLOCKER'; exit 1
+
+      - name: Write Testing deploy evidence
+        if: always()
+        shell: bash
+        run: |
+          jq -n --arg commitSha "$COMMIT_SHA" --arg sourceRunId "$SOURCE_RUN_ID" --arg siteUrl "$TESTING_SITE_URL" \
+            --arg apiOrigin "$TESTING_API_ORIGIN" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg status "${{ job.status }}" \
+            '{environment:"testing",commitSha:$commitSha,sourceRunId:$sourceRunId,siteUrl:$siteUrl,apiOrigin:$apiOrigin,deployedAtUtc:$at,status:$status}' > testing-deploy-evidence.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: paws-testing-deploy-${{ env.COMMIT_SHA }}
+          path: testing-deploy-evidence.json
+          retention-days: 14

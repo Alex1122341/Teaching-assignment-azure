@@ -125,6 +125,12 @@
       "paws_api.DecideSessionSwap"
     ]
   },
+  "calendarReadProcedures": ["paws_api.ListCalendarActivities", "paws_api.GetCalendarActivityImport"],
+  "calendarWriteSets": {
+    "stage": ["paws_api.StageCalendarActivityImport", "paws_api.PreviewCalendarActivityImport"],
+    "commit": ["paws_api.CommitCalendarActivityImport"],
+    "time": ["paws_api.ResolveCalendarActivityDayTime"]
+  },
   "afcCancelWriteSets": {
     "cancel": [
       "paws_api.CancelAfcRecord"

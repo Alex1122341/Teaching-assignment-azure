@@ -14,6 +14,7 @@ IF OBJECT_ID(N'paws_api.CommitCalendarActivityImport') IS NOT NULL THROW 53800,'
 BEGIN TRANSACTION;
 GO
 CREATE PROCEDURE paws_api.AcquireCalendarActivityFacultyLocks @FacultyIdsJson nvarchar(max)
+WITH EXECUTE AS OWNER
 AS
 BEGIN
  SET NOCOUNT ON;

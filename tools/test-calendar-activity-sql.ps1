@@ -19,12 +19,12 @@ $repoPath=Split-Path $PSScriptRoot -Parent
 $manifest=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'calendar-activity-sql-test-manifest.json') -Raw | ConvertFrom-Json
 $OutputEncoding=New-Object System.Text.UTF8Encoding($false)
 function Invoke-TestSql([string]$Sql,[string]$Database='master'){
- $Sql | & docker exec -e "SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD" -i $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -I -b -v PAWS_API_PRINCIPAL=paws_swa_beta -d $Database -i /dev/stdin -f 65001
+ $Sql | & docker exec -e "SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD" -i $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -I -b -v 'PAWS_API_PRINCIPAL=UC\sa-xinyu.zhu1' -d $Database -i /dev/stdin -f 65001
  if($LASTEXITCODE -ne 0){throw 'DISPOSABLE_SQL_ACCEPTANCE_FAILED'}
 }
 # Reset is confined to the inspected synthetic container. Never accept a Server argument.
 Invoke-TestSql "IF DB_ID(N'VetMed-Ops') IS NOT NULL BEGIN ALTER DATABASE [VetMed-Ops] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [VetMed-Ops]; END; CREATE DATABASE [VetMed-Ops];"
-Invoke-TestSql 'CREATE USER [paws_swa_beta] WITHOUT LOGIN;' 'VetMed-Ops'
+Invoke-TestSql 'CREATE USER [paws_swa_beta] WITHOUT LOGIN; CREATE USER [paws-sql-beta-mi] WITHOUT LOGIN; CREATE USER [UC\sa-xinyu.zhu1] WITHOUT LOGIN;' 'VetMed-Ops'
 foreach($relativePath in $manifest.baseline){
  Write-Output "SQL_BASELINE $relativePath"
  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath $relativePath) -Raw) 'VetMed-Ops'

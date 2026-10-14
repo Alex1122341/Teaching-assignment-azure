@@ -25,13 +25,14 @@ AS
 BEGIN
  IF @FacultyId IS NULL OR @Date IS NULL OR @StartTime IS NULL OR @EndTime IS NULL OR @StartTime>=@EndTime
   OR NOT EXISTS(SELECT 1 FROM paws.Faculty WHERE FacultyId=@FacultyId AND Active=1) RETURN N'Unavailable';
+ -- Unverified working time must not be hidden by a separately overridable known conflict.
+ IF EXISTS(SELECT 1 FROM paws.CalendarActivity a WHERE a.FacultyId=@FacultyId AND @Date BETWEEN a.StartDate AND a.EndDate
+  AND NOT EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId AND t.ActivityDate=@Date)) RETURN N'Needs Review';
  IF EXISTS(SELECT 1 FROM paws.vAfcRecordUnified WHERE FacultyId=@FacultyId AND Active=1 AND @Date BETWEEN StartDate AND EndDate) RETURN N'Unavailable';
  IF EXISTS(SELECT 1 FROM paws.SessionAssignment a JOIN paws.Session s ON s.SessionId=a.SessionId WHERE a.FacultyId=@FacultyId AND (@ExcludeSessionId IS NULL OR s.SessionId<>@ExcludeSessionId)
   AND (s.SessionDate IS NULL OR s.SessionDate=@Date AND (s.StartTime IS NULL OR s.EndTime IS NULL OR s.StartTime>=s.EndTime OR s.StartTime<@EndTime AND s.EndTime>@StartTime))) RETURN N'Unavailable';
  IF EXISTS(SELECT 1 FROM paws.CalendarActivity a JOIN paws.CalendarActivityDayTime t ON t.ActivityId=a.ActivityId AND t.ActivityDate=@Date
   WHERE a.FacultyId=@FacultyId AND @Date BETWEEN a.StartDate AND a.EndDate AND t.StartTime<@EndTime AND t.EndTime>@StartTime) RETURN N'Unavailable';
- IF EXISTS(SELECT 1 FROM paws.CalendarActivity a WHERE a.FacultyId=@FacultyId AND @Date BETWEEN a.StartDate AND a.EndDate
-  AND NOT EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId AND t.ActivityDate=@Date)) RETURN N'Needs Review';
  RETURN N'Available';
 END;
 GO

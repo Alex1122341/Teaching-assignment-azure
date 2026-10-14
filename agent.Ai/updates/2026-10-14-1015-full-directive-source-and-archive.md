@@ -43,7 +43,7 @@ Not performed: workbook import, permanent AFC deletion, Course replacement, DOE/
 
 ## 9. Current state
 
-Branch still documentation only at startingSHA plus working docs. No new PR. Published runtime unchanged. Refreshed source match541 worktargets; row812 nowexists and must not beinserted again.
+Draft documentation PR97 opened and attached: https://github.com/Alex1122341/Teaching-assignment-azure/pull/97. Reviewed documentation commit ad012710e4ac857414315d1e4e5cbb310e8fcd6b; this checkpoint adds only the PR identity. No merge. Published runtime unchanged. Refreshed source match541 worktargets; row812 nowexists and must not beinserted again.
 
 ## 10. Blockers / unresolved questions
 

@@ -8,6 +8,11 @@ function harness({failure=null,stage=true,commit=true}={}){
  const controller=createController({api,host,notify(){},onCommitted:()=>{refreshed++;},hashFile:async()=>SHA,randomUUID:()=> 'retry-key'});return {controller,host,calls,refreshed:()=>refreshed};
 }
 const file={name:'Synthetic.xlsx',size:9,arrayBuffer:async()=>new TextEncoder().encode('synthetic').buffer};
+test('destructive preview shows per-row categories and accepted versus source category totals',async()=>{
+ const first=preview.items[0].category,fourth=preview.items[3].category;preview.items[0].category='ccc';preview.items[3].category='ccc';
+ try{const h=harness();await h.controller.open();await h.controller.stageFile(file);assert.match(h.host.innerHTML,/Classification/);assert.match(h.host.innerHTML,/CCC/);assert.match(h.host.innerHTML,/1 accepted \/ 2 source/);assert.match(h.host.innerHTML,/<th>Category<\/th>/);}
+ finally{preview.items[0].category=first;preview.items[3].category=fourth;}
+});
 test('preview is escaped, truthful about source extent and preservation, and commit requires explicit confirmation',async()=>{
  const h=harness();await h.controller.open();await h.controller.stageFile(file);
  assert.match(h.host.innerHTML,/2026-04-29/);assert.match(h.host.innerHTML,/2026-05-03/);assert.match(h.host.innerHTML,/Retained|Preserved/);assert.match(h.host.innerHTML,/Excluded|Departed/);assert.match(h.host.innerHTML,/cross.*year/i);assert.match(h.host.innerHTML,/&lt;script/);assert.doesNotMatch(h.host.innerHTML,/<script|private-batch|private-receipt/);

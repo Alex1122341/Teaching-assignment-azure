@@ -50,7 +50,7 @@ GO
 DECLARE @ProtectedBefore TABLE(objectName sysname,fingerprint binary(32));
 INSERT @ProtectedBefore EXEC dbo.CalendarActivityTestProtected;
 DECLARE @Faculty uniqueidentifier,@Afc uniqueidentifier,@Batch uniqueidentifier,@Version varchar(16),@Manifest char(64),@Key uniqueidentifier,@Case int=1,@Expected int,@Rejected bit,@FixtureRow int;
-WHILE @Case<=10
+WHILE @Case<=11
 BEGIN
  SET @FixtureRow=@Case+100;
  EXEC dbo.CalendarActivityTestPrepare @Row=@FixtureRow,@Faculty=@Faculty OUTPUT,@Afc=@Afc OUTPUT,@Batch=@Batch OUTPUT,@Version=@Version OUTPUT,@Manifest=@Manifest OUTPUT;
@@ -74,11 +74,23 @@ BEGIN
  IF @Case=9 UPDATE staging.CalendarActivityImportItem SET Category=N'clinical_day' WHERE ImportBatchId=@Batch;
  IF @Case=9 SET @Expected=53806;
  IF @Case=10 UPDATE paws.Faculty SET DisplayName=CONCAT(DisplayName,N' changed') WHERE FacultyId=@Faculty;
+ IF @Case=11
+ BEGIN
+  INSERT staging.AfcRecordRaw(ImportBatchId,ImportRowId,SourceRowNumber,FacultySourceName,StartDate,EndDate,Purpose,RawJson,ValidationStatus,ValidationErrorsJson)
+   SELECT raw.ImportBatchId,NEWID(),raw.SourceRowNumber+9000,raw.FacultySourceName,raw.StartDate,raw.EndDate,raw.Purpose,raw.RawJson,raw.ValidationStatus,raw.ValidationErrorsJson
+   FROM staging.AfcRecordRaw raw JOIN paws.AfcRecord a ON a.SourceImportBatchId=raw.ImportBatchId AND a.SourceRow=raw.SourceRowNumber WHERE a.AfcRecordId=@Afc;
+  INSERT paws.AfcRecord(AfcRecordId,FacultyId,StartDate,EndDate,Purpose,Active,SourceImportBatchId,SourceRow)
+   SELECT NEWID(),FacultyId,StartDate,EndDate,Purpose,Active,SourceImportBatchId,SourceRow+9000 FROM paws.AfcRecord WHERE AfcRecordId=@Afc;
+ END;
  BEGIN TRY
   EXEC paws_api.CommitCalendarActivityImport N'calendar-command-admin',@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1;
  END TRY BEGIN CATCH IF ERROR_NUMBER()=@Expected SET @Rejected=1;ELSE THROW;END CATCH;
  IF @Rejected=0 OR NOT EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Afc) OR EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE ImportBatchId=@Batch)
   THROW 53890,'Stale/expired/ambiguous import was not rejected atomically.',1;
+ IF @Case=11 AND ((SELECT COUNT(*) FROM paws.AfcRecord WHERE FacultyId=@Faculty AND Active=1)<>2
+  OR EXISTS(SELECT 1 FROM paws.CalendarActivityImportReceipt WHERE ImportBatchId=@Batch)
+  OR EXISTS(SELECT 1 FROM paws.AuditEvent WHERE ImportBatchId=@Batch AND EventType=N'calendar_activity_import_committed'))
+  THROW 53890,'Late duplicate match was not preserved without receipt or commit audit.',1;
  SET @Case+=1;
 END;
 -- Failure at either business write boundary must also preserve both sides.

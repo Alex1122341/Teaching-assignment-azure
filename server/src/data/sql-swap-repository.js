@@ -7,7 +7,17 @@ function createSqlSwapRepository(db){
     return body;
   };
   return Object.freeze({
-    context:({actorFirebaseUid,sessionId})=>exec('GetSessionSwapContext',{ActorFirebaseUid:actorFirebaseUid,SessionId:sessionId}),
+    async context({actorFirebaseUid,sessionId}){
+      const body=await exec('GetSessionSwapContext',{ActorFirebaseUid:actorFirebaseUid,SessionId:sessionId});
+      if(body&&Array.isArray(body.candidates))body.candidates=body.candidates.map(candidate=>{
+        const status=candidate.availabilityStatus==null?(candidate.available===true?'Available':'Unavailable'):
+          ['Available','Unavailable','Needs Review'].includes(candidate.availabilityStatus)?candidate.availabilityStatus:'Needs Review';
+        return {candidateKey:candidate.candidateKey,displayName:candidate.displayName,availabilityStatus:status,
+          available:status==='Available'&&candidate.available===true,notifyAvailable:candidate.notifyAvailable===true,
+          notifyUnavailableReason:candidate.notifyUnavailableReason??null};
+      });
+      return body;
+    },
     queue:({actorFirebaseUid})=>exec('GetSessionSwapQueue',{ActorFirebaseUid:actorFirebaseUid}),
     detail:({actorFirebaseUid,requestId})=>exec('GetSessionSwap',{ActorFirebaseUid:actorFirebaseUid,RequestId:requestId}),
     create:({actorFirebaseUid,payload})=>exec('SaveSessionSwap',{ActorFirebaseUid:actorFirebaseUid,PayloadJson:JSON.stringify(payload),Revise:0}),

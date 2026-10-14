@@ -2,7 +2,6 @@
   "baseline": [
     "database/azure-sql/001_foundation.sql",
     "database/azure-sql/002_calendar_view.sql",
-    "database/azure-sql/003_app_permissions.sql",
     "database/azure-sql/004_swa_beta_permissions.sql",
     "database/azure-sql/005_teaching_assignment_authority_foundation.sql",
     "database/azure-sql/006_teaching_responsibility_concurrent_assignees.sql",

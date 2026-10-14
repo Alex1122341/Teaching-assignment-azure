@@ -17,7 +17,7 @@ jobs:
           $testPassword='Synthetic-'+[guid]::NewGuid().ToString()+'!Aa1'
           Write-Output "::add-mask::$testPassword"
           "PAWS_SQL_TEST_PASSWORD=$testPassword" >> $env:GITHUB_ENV
-          docker run --name paws-calendar-sql-test --label paws.calendar-test=1 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -d mcr.microsoft.com/mssql/server:2022-latest
+          docker run --name paws-calendar-sql-test --label paws.calendar-test=1 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -d mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
           if($LASTEXITCODE -ne 0){throw 'Container start failed.'}
           $ready=$false
           for($attempt=0;$attempt -lt 60;$attempt++){

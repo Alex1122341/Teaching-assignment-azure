@@ -45,6 +45,9 @@ const { createDoeWorkflowPreviewService } = require('../doe/doe-workflow-preview
 const { createDoeApi } = require('../doe/doe-api');
 const { createDoeFunctions } = require('./swa-doe-functions');
 const { createSupportService } = require('../support/support-service');
+const {createCalendarActivityApi}=require('../calendar/calendar-activity-api');
+const {createSqlCalendarActivityRepository}=require('../data/sql-calendar-activity-repository');
+const {createCalendarActivityFunctions}=require('./swa-calendar-activity-functions');
 
 function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
@@ -141,8 +144,10 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const swapRoutes = createSwapFunctions({api:createSwapApi({
     verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),writeGates
   })});
+  const calendarActivityRoutes=createCalendarActivityFunctions({api:createCalendarActivityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCalendarActivityRepository(db),writeGates})});
   const route = async request => {
     const pathname = new URL(request.url).pathname;
+    if (pathname==='/api/v1/calendar-activities'||pathname.startsWith('/api/v1/calendar-activities/')||pathname==='/api/v1/calendar-activity-imports'||pathname.startsWith('/api/v1/calendar-activity-imports/')) return calendarActivityRoutes(request);
     if (pathname === '/api/v1/swaps' || pathname.startsWith('/api/v1/swaps/')) return swapRoutes(request);
     if (pathname.startsWith('/api/v1/doe/')) return doeRoutes(request);
     if (pathname.startsWith('/api/v1/teaching-assignments/')) return teachingAssignmentRoutes(request);

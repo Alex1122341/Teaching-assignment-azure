@@ -43,7 +43,7 @@
     let panel=null;
     if(adminPreview){
       host.className='sql-swap-dialog sql-swap-adfa-dialog';
-      panel=root.PAWS_ADFA_SWAP.createController({host:host.querySelector('[data-adfa-panel]'),api:client(),session,assignments,candidates,isCurrent:()=>valid(token),onSelect:key=>{candidate.value=key;syncNotify();}});
+      panel=root.PAWS_ADFA_SWAP.createController({host:host.querySelector('[data-adfa-panel]'),api:client(),session,assignments,candidates,isCurrent:()=>valid(token),onSelect:key=>{candidate.value=key;syncNotify();},onReload:()=>request?openDetail(request.requestId):openSession(session.sessionId)});
       const assignment=host.querySelector('[data-assignment]');assignment.value=request?.assignmentId||assignments.find(row=>row.canReplace===true)?.assignmentId||'';
       assignment.onchange=()=>panel.open(assignment.value);panel.open(assignment.value).then(()=>{if(valid(token)&&changes.replacementCandidateKey)panel.select(changes.replacementCandidateKey);});
       host.querySelector('[data-standard-request]').onclick=()=>renderForm({...context,canPreviewDoe:false},detail,++generation);

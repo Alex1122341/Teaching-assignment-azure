@@ -5,6 +5,7 @@ const {isAdministratorRole}=require('../auth/role-policy');
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
 const number=value=>value===null||value===undefined||value===''?null:Number.isFinite(Number(value))?Number(value):null;
 const doeSummary=value=>({status:value?.status==='calculated'?'calculated':'needs_review',currentDoe:value?.status==='calculated'?number(value.totals?.assignedTeachingDoe):null,targetDoe:value?.status==='calculated'?number(value.totals?.effectiveTargetDoe):null,remainingDoe:value?.status==='calculated'?number(value.totals?.remainingDoe):null});
+const doePair=value=>{const current=doeSummary(value?.current),projected=value?.projected?doeSummary(value.projected):null;return{current,projected,deltaDoe:current.currentDoe!==null&&projected?.currentDoe!=null?Number((projected.currentDoe-current.currentDoe).toFixed(6)):null};};
 function createSwapApi({verifyToken,findUser,repository,workflowPreviewService,worksheetService,writeGates={}}){
   async function auth(token){
     let decoded;try{decoded=token&&await verifyToken(token);}catch(_){return {response:fail(401,'UNAUTHENTICATED','A valid bearer token is required.')};}
@@ -42,8 +43,8 @@ function createSwapApi({verifyToken,findUser,repository,workflowPreviewService,w
         return {status:200,body:{preview:{status:result.status==='calculated'?'calculated':'needs_review',academicYear:context.academicYear,
           assignment:{assignmentId:payload.assignmentId,displayName:context.outgoingDisplayName,teachingRole:context.teachingRole,persistedDoeCredit:number(context.persistedDoeCredit)},
           availability:{status,conflicts:(Array.isArray(live.conflicts)?live.conflicts:[]).map(row=>({courseCode:row.courseCode,date:row.date,startTime:row.startTime,endTime:row.endTime,topic:row.topic}))},
-          outgoing:{current:doeSummary(result.outgoing?.current),projected:result.outgoing?.projected?doeSummary(result.outgoing.projected):null},
-          incoming:result.incoming?{current:doeSummary(result.incoming.current),projected:doeSummary(result.incoming.projected)}:null,
+          outgoing:doePair(result.outgoing),
+          incoming:result.incoming?doePair(result.incoming):null,
           sessionDoeCredit:result.status==='calculated'?number(result.sessionDoeCredit):null,checkedAtUtc:new Date().toISOString(),evidencePersisted:false}}};
       }catch(error){
         const n=Number(error.number||error.code);

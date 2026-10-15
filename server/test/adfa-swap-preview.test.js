@@ -52,6 +52,8 @@ test('ADFA reads actual current and projected DOE through the authenticated SWAP
  assert.deepEqual(preview.incoming.current,{status:'calculated',currentDoe:5,targetDoe:20,remainingDoe:15});
  assert.deepEqual(preview.incoming.projected,{status:'calculated',currentDoe:7,targetDoe:20,remainingDoe:13});
  assert.equal(preview.sessionDoeCredit,2);
+ assert.equal(preview.outgoing.deltaDoe,-2);
+ assert.equal(preview.incoming.deltaDoe,2);
  assert.equal(preview.availability.status,'Available');
  assert.equal(preview.evidencePersisted,false);
  assert.doesNotMatch(JSON.stringify(preview),/PRIVATE|facultyId|44444444|55555555/);

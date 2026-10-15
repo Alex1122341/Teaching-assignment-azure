@@ -31,25 +31,22 @@ When sources disagree, use this order:
 
 Never silently “correct” the owner’s product choice with an older architecture report.
 
-## Current strategic priority
+## Current strategic priority — verified 2026-10-15
 
-The immediate Azure Beta priority is **not DOE** and **not a full P3.1 Azure rebuild**.
+The Beta is **already deployed as a University SQL-backed modular application**. The historical BETA-R1 connection milestone and old DOE-out-of-scope instruction are completed/superseded for later owner-approved modules, not today's task.
 
-The current priority is:
+Current documented deployment: Firebase Hosting (tester-teaching.web.app) -> Firebase Authentication -> temporary Cloudflare HTTPS ingress -> University Node.js API -> SQL Server ITAPPVETOPSDB01 / VetMed-Ops. SQL UserProfile is the role/scope authority. This is university-hosted SQL Server, not a direct browser-to-Azure-SQL connection.
 
-```text
-Existing Azure Beta frontend
-        ↓
-Firebase Authentication
-        ↓
-PAWS backend/API
-        ↓
-Existing Azure SQL database
-        ↓
-Beta users can read real SQL-backed timetable data
-```
+Review these active workstreams before implementing:
 
-DOE algorithm/engine development stays in the Experimental/Demo repository for now and must not be moved, redesigned or used to block the Beta connection task unless the owner explicitly changes scope.
+1. Preserve the accepted Oct14 AFC/LAB API + Hosting release ca465bf and its immutable trust anchor fb2c625; no repeat migration or deployment solely for continuity.
+2. DOE is a current Beta module (Worksheets, Rule Book Draft/Preview, manual/target operations, engine). The candidate 2026-27 Rule Book remains a **Draft** in the latest documented SQL receipts; do not claim published Active policy or run recalculation without separate authorization.
+3. Existing SQL Teaching Assignment, Session/SWAP, Faculty Dashboard, Role periods, Developer Support and Tasks are implemented subject to role/scope/write gates.
+4. Draft PR #97 (design), #98 (Calendar working activities/exact AFC migration), #99 (ADFA SWAP DOE preview), and #100 (Tasks conflicts) are **not in main and not live**. Read their exact HEADs, dependencies and CI before acting; #100 most recently had a failing Beta Build.
+5. Before any new Calendar/AFC migration or destructive source data operation: confirm dedicated narrow-permission service identity, exact preflight, review and owner-authorized release. Do not use existing temporary db_owner membership as evidence of least privilege.
+6. Graph Outlook and Brightspace/D2L synchronization are future interfaces, NOT verified PAWS implementations.
+
+Distinguish **present in source**, **merged**, **released**, and **live accepted** for every feature. Current main/ref, runtime gates, policy status and SQL counts are mutable and must be freshly verified. Read ARCHITECTURE.md, DOMAINS.md, WORKFLOWS.md, ALGORITHMS.md and the newest dated update for current diagrams and boundaries.
 
 ## Two-track rule
 

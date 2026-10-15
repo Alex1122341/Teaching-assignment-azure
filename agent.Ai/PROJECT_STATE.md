@@ -1,3 +1,50 @@
+# Current Beta checkpoint — 2026-10-15
+
+**Basis:** GitHub main 0d4b4d9ea2e658719e87f16ef5132b82544bc6c1, documentation review. The most recent **documented deployed API + Firebase Hosting** remains ca465bf1401b457ca3b74048cfaf170bedc7694a (2026-10-14); immutable product/trust anchor fb2c625745957fa7d9990033f15a7b1ef91974a5. The main commit is documentation-ahead of deployed runtime. Verify mutable live state and PR heads before acting. This document-only update is neither deployment nor SQL evidence.
+
+## Current architecture and authority
+
+- **Repository split:** Teaching-assignment-azure is stability-sensitive Beta; Teaching-assignment is Experimental/feature-forward. No automatic merge/parity.
+- **Actual Beta:** https://tester-teaching.web.app; Firebase Hosting (vanilla HTML/CSS/JS) -> Firebase Auth ID token -> temporary Cloudflare HTTPS Quick Tunnel -> Windows-loopback University Node.js API -> private university SQL Server ITAPPVETOPSDB01 / VetMed-Ops. Do not call this direct browser SQL or assume an Azure SQL Database.
+- **Business roles:** SQL paws.UserProfile.BaseRole/Active/MustChangePassword/FacultyId; developer, adfa_general, adfa_regular, faculty, hicc, visc, adc, lab. Role, linked Faculty, current TeachingResponsibility/group scope, exact-true API write gates and narrow SQL procedure grants jointly authorize changes. Firestore roles/UI controls are not SQL business permissions.
+- **Legacy:** account/old HICC group helpers still use some Firebase/Firestore features. Never add a Firestore business-data fallback for migrated SQL domains.
+- **Production risk:** temporary ingress and a previously observed over-privileged SQL runtime principal; need IT-approved nonpersonal least-privilege service identity, institutional HTTPS/certificate/host, supported restart, secure secrets, backup and monitoring.
+
+## Main/accepted functionality (subject to exact live capability checks)
+
+- SQL timetable Day/Week/Month/List, filters, CSV/ICS exports; gated Session edit/create/batch and Faculty assignment replacement.
+- Faculty Dashboard Lookup, Teaching Summary, role appointments/effective periods, DOE Overview/List/Worksheet, annual DOE Rule Book UI/API, Manual DOE and target overrides, Faculty Edit and admin AFC Records.
+- Scoped HICC/VISC/ADFAD Teaching Assignment suggestions, work queues, revisioned review/finalization and explicitly Published snapshots; final assignment remains in SessionAssignment.
+- AFC self-service request/signature/approval/artifact flows subject to gates; admin single/batch create and cancel. **Oct14 release:** SQL036/037, exact cancellation/version-token/audit rollback tests, browser name-only labels (no displayed UID), enabled Create/Delete controls and real grouped LAB/SRL data. Postflight reported 803 active imported AFC, 0 manual and 0 cancellations; no live UI create/cancel was executed.
+- SWAP released 2026-10-09 with form/queue read acceptance; actual live final approval/apply unproven, reviewer identities for some offices missing. Developer Support released with 30-minute audited contexts/guarded Undo; no live Undo operation exercised. All-year Tasks for quality/unpositioned sessions and SWAP released; full SQL conflict detection not yet live.
+- Outlook Microsoft Graph automated invites and D2L Brightspace synchronization **not implemented**; existing .ics/Outlook export is not automatic external synchronization.
+
+## DOE current evidence, not speculation
+
+- 34 Guidelines/reference entries in code; not all are automatically applied formulas. The deterministic calculator and SQL annual rule engine are separate layers.
+- A candidate **2026-27 Master/Guidelines Draft revision 2** was recorded: 58 rules, 56 course mappings, 25 literal subject groups, 25 assignment-scoped source allocations. Preview against 5282 records had zero changes/Needs Review/mapping gaps/delta **only for that Draft preview**.
+- Last documented SQL Active policy remained Faculty Master List/FTE snapshot-based. Do not equate Draft to Active or claim all live worksheets are complete without a fresh SQL read. Missing targets, HR/source facts and supervision remain Needs Review, not guessed zero. Signed manual DOE may be negative with an approved reason and is applied once after reserve; role dates do not auto-prorate DOE.
+- Current calculation reference detail: agent.Ai/ALGORITHMS.md; actual published policy must be verified separately.
+
+## Open implementation chain: all Draft / unmerged / not deployed
+
+- PR #97: owner-reviewed design and seven-step implementation plan (docs only).
+- PR #98: reviewed Calendar working activities and exact AFC counterpart migration candidate. No new live SQL Calendar objects, source deletion, gate activation, or new deployment. Dedicated narrow runtime identity/recovery and separate destructive-source approval are prerequisites.
+- PR #99: ADFA SWAP authoritative DOE + availability read-only preview candidate **stacked on #98**, not live.
+- PR #100: full SQL scheduling conflicts in Tasks, **stacked on #99/#98**; implementation/acceptance pending. At last check Azure Beta Build #386 (run 38771955326) failed; SQL migration and Calendar Activity acceptance tests had passed. Do not merge based on partial green CI.
+- Also unmerged older PR #73 (AFC/DOE draft) and #55 (Firestore rule publication). Do not presume any open PR is part of main.
+
+## Next safe action / DO NOT REDO
+
+- Recheck current main/PR heads, exact CI, actual live runtime gates and SQL Active DOE policy before assigning work; follow the latest owner/Architect directive rather than stale notes.
+- Do not rerun SQL reset/initial import, previously accepted corrections/SQL migrations 001–037, DOE source reconciliation, SQL036/037, or Oct14 Hosting/API release simply to resume.
+- Do not authorize destructive source migration, DOE Publish/Recalculate, new broad SQL grants, merge, deploy or Firebase rules updates from this documentation pass. Keep audit/history and rollback evidence.
+- Historical entries below remain append-only evidence, not a live status report. For current layered maps see ARCHITECTURE.md, DOMAINS.md, MODULE_MAP.md, DATA_MODEL.md and WORKFLOWS.md.
+
+---
+
+## Historical chronological checkpoints below (older "current" headings are superseded)
+
 ## AFC and grouped LAB published — 2026-10-14
 
 PR94/95 merged; live API and Hosting release ca465bf1401b457ca3b74048cfaf170bedc7694a, immutable product/trust fb2c625745957fa7d9990033f15a7b1ef91974a5, API PID17348 on18787. SQL036/037 and all manual/imported/stale/denied/concurrent rollback acceptance passed; exact narrow runtime role bound and afcCancel enabled. Existing gate values retained. Exact-main Beta38453614170 / SQL38453614145 succeeded; all71 protected public assets match the accepted artifact after Hosting-only CLI release. The old Hosting workflow stopped before deployment on its stale DOE-off check; its guard was not changed.

@@ -1,3 +1,34 @@
+# Current PAWS Beta task chain — 2026-10-15
+
+**Evidence boundary:** Beta main 0d4b4d9; last documented live API/Hosting ca465bf (2026-10-14). This is a documentation-only reconciliation, **not owner approval to merge/deploy/run live SQL**. Historical task chain is retained below.
+
+| Workstream | Status at review | Next safe action |
+| --- | --- | --- |
+| Beta infrastructure / security | Functioning Firebase Hosting -> Auth -> Cloudflare Quick Tunnel -> University Node API -> VetMed-Ops; temporary high-privilege runtime identity noted | Institutional hostname/ingress/cert, separate least-privileged service identity, exact SQL roles, service recovery, secrets and IT security review before production |
+| Identity and roles | SQL UserProfile server role/scope; developer/adfa_general/adfa_regular/faculty/hicc/visc/adc/lab | Preserve exact linkage, Faculty privacy and 20 write gates |
+| Timetable and Faculty | SQL Session and Dashboard UI; scoped create/edit/assignment and Faculty edit; Role effective periods | Verify actual gate, procedure and revision before writes; never fabricate missing time/Faculty/HR values |
+| Teaching Assignments | HICC draft -> VISC review -> HICC final submit -> ADFAD final -> explicit immutable Publish implemented | Use current stable responsibility/group assignee and revision; no automatic publish |
+| DOE | Worksheet, signed Manual, contract Target overrides, annual Rules Draft/Validate/Impact/Publish/Recalculate API/UI implemented | Fresh read-only SQL Active policy check. 58-rule revision2 Master/Guidelines policy is only a candidate Draft in last receipts; do not auto-publish/recalc |
+| AFC | Oct14 SQL036/037 accepted and admin Create/Cancel + grouped LAB UI deployed; no visible Faculty UID | Real UI create/cancel not exercised; owner-authorized synthetic end-to-end test only, no hard-delete |
+| SWAP | Oct09 published/read accepted, real final approval/apply unproven | Review actual reviewer configuration/availability, preserve stale checks |
+| Developer Support and Tasks | Published Oct09; time-limited audited Undo and all-year tasks | Live Undo not exercised; full collision Tasks remains unmerged |
+| Calendar working activities | Draft #97 design and #98 reviewed implementation; no live SQL migration/import/delete | Dedicated narrow SQL identity, exact preflight/recovery, reviewed source classification and separate authorization |
+| ADFA SWAP DOE/availability preview | Draft #99, stacked on #98 | Keep admin-only candidate view, preserve private DOE; no deployment until parent chain approved |
+| Scheduling conflicts / Tasks | Draft #100, stacked on #99/#98; latest inspected Beta Build #386 FAILED | Finish work, inspect failing CI; do not report live or release-ready |
+| D2L / Outlook calendar automation | Discussion/design only | Future scoped Graph/Brightspace integration; not a current deployed connector |
+
+## Non-negotiable release/data boundaries
+
+1. Latest owner directive and exact current GitHub HEAD/CI take precedence over this snapshot.
+2. Code implemented != merged != deployed != live accepted. The Oct14 live release and old historical migrations do not need to be repeated for handoff.
+3. No direct edits to main, no automatic Experimental -> Beta merge; separate product code, freeze promotion, test, approved merge and exact-main Hosting/API acceptance.
+4. Source migration under #98 may delete exact legacy AFC counterparts; never treat preview counts as destructive authorization or bypass the dedicated service account requirement.
+5. UI permissions are convenience; SQL UserProfile/Faculty/Responsibility/role/procedure/write gate remain authoritative. DOE Draft/Active and Work/Published distinctions are preserved.
+
+---
+
+## Archived chronological task entries below (historical evidence, not current priority order)
+
 ## AFC and grouped LAB published — 2026-10-14
 
 Owner-authorized release complete. PR94/95 merged; API/Hosting ca465bf1401b457ca3b74048cfaf170bedc7694a, trust fb2c625745957fa7d9990033f15a7b1ef91974a5, PID17348. SQL036/037 plus all rollback acceptance passed; narrow cancellation role membership and gate enabled. Final exact-main CI38453614170 /38453614145 green;71 public static assets verified against the accepted artifact. Hosting-only CLI used after the old workflow stopped before deployment on its stale DOE-off check; no workflow/gate workaround change.

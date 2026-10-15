@@ -1,3 +1,7 @@
+## Task03 repository reviewed; short design pending — 2026-10-15
+
+Now on separate branch feat/selected-schedule-export-20261015 from6ab3a52 (Task02 accepted candidate a356df1 plus docs only). Six-part review is docs/selected-schedule-export-review-20261015.md. Existing CSV/filter/selection/authorized reads are reusable; add read-only selection/preview and safe public CSV projection after the pending bounded-design approval. No Task03 product changes. Resume updates/2026-10-15-task03-repository-review.md. PR100 remains accepted draft/unmerged/undeployed; original plan workspace retained after automatic cleanup rejection, with verified Temp evidence copy.
+
 ## Task02 candidate accepted; Task03 next — 2026-10-15
 
 Tested candidate a356df1, immutable product a3dd9ca; draft PR100 remains unmerged/undeployed, stacked on99/98. Independent governance retry returned Ready with no findings. Exact-candidate Beta Build38806801078 and SQL38806807330 SUCCESS; root821pass/39skips, server609pass/4skips, emulator853pass/7browser skips, governance58/58; actual Chrome/adapter9/9 separate. Downloaded artifact12006518723 digest/inventories/static+API freezes verified. Resume updates/2026-10-15-task02-candidate-acceptance.md. Dedicated University service identity and explicit release authorization remain outstanding. Continue Task03 existing selected-schedule export flow, beginning with six-part repository review and short bounded design; preserve edit restrictions and safe public CSV fields. No grilling.

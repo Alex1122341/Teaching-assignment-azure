@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed ADFA SWAP preview runtime is the immutable trust anchor.
+// Reviewed Scheduling Tasks runtime is the immutable trust anchor.
 // DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='0f81c3e0b7e63a9b9357755b7e957406018894fd';
+const BASELINE_COMMIT='a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

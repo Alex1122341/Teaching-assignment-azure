@@ -55,7 +55,7 @@ if($CheckRollback){
  Invoke-TestSql @'
 CREATE TABLE dbo.CalendarActivityRollbackBaseline(ObjectName sysname PRIMARY KEY,DefinitionHash binary(32),UsesAnsiNulls bit,UsesQuotedIdentifier bit);
 INSERT dbo.CalendarActivityRollbackBaseline
-SELECT o.name,HASHBYTES('SHA2_256',CONVERT(varbinary(max),TRIM(CHAR(9)+CHAR(10)+CHAR(13)+CHAR(32) FROM REPLACE(REPLACE(m.definition,CHAR(13)+CHAR(10),CHAR(10)),N'CREATE OR ALTER PROCEDURE',N'CREATE PROCEDURE')))),m.uses_ansi_nulls,m.uses_quoted_identifier
+SELECT o.name,HASHBYTES('SHA2_256',CONVERT(varbinary(max),TRIM(CHAR(9)+CHAR(10)+CHAR(13)+CHAR(32) FROM STUFF(REPLACE(m.definition,CHAR(13)+CHAR(10),CHAR(10)),1,CHARINDEX(N'PROCEDURE',m.definition)-1,N'CREATE ')))),m.uses_ansi_nulls,m.uses_quoted_identifier
 FROM sys.sql_modules m JOIN sys.objects o ON o.object_id=m.object_id WHERE o.schema_id=SCHEMA_ID(N'paws_api') AND o.name IN(N'GetSessionSwapContext',N'SaveSessionSwap',N'DecideSessionSwap');
 IF (SELECT COUNT(*) FROM dbo.CalendarActivityRollbackBaseline)<>3 THROW 53891,'Rollback baseline is incomplete.',1;
 '@ 'VetMed-Ops'
@@ -110,12 +110,12 @@ PRINT 'CALENDAR_ACTIVITY_POPULATED_ROLLBACK_REFUSED_OK';
  }
  Invoke-TestSql @'
 SELECT b.ObjectName,CONVERT(varchar(64),b.DefinitionHash,2) originalHash,
-CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),TRIM(CHAR(9)+CHAR(10)+CHAR(13)+CHAR(32) FROM REPLACE(REPLACE(m.definition,CHAR(13)+CHAR(10),CHAR(10)),N'CREATE OR ALTER PROCEDURE',N'CREATE PROCEDURE')))),2) restoredHash,
+CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),TRIM(CHAR(9)+CHAR(10)+CHAR(13)+CHAR(32) FROM STUFF(REPLACE(m.definition,CHAR(13)+CHAR(10),CHAR(10)),1,CHARINDEX(N'PROCEDURE',m.definition)-1,N'CREATE ')))),2) restoredHash,
 b.UsesAnsiNulls originalAnsi,m.uses_ansi_nulls restoredAnsi,b.UsesQuotedIdentifier originalQuoted,m.uses_quoted_identifier restoredQuoted
 FROM dbo.CalendarActivityRollbackBaseline b JOIN sys.objects o ON o.schema_id=SCHEMA_ID(N'paws_api') AND o.name=b.ObjectName JOIN sys.sql_modules m ON m.object_id=o.object_id
 ORDER BY b.ObjectName FOR JSON PATH;
 IF EXISTS(SELECT 1 FROM dbo.CalendarActivityRollbackBaseline b LEFT JOIN sys.objects o ON o.schema_id=SCHEMA_ID(N'paws_api') AND o.name=b.ObjectName LEFT JOIN sys.sql_modules m ON m.object_id=o.object_id
-WHERE m.object_id IS NULL OR b.DefinitionHash<>HASHBYTES('SHA2_256',CONVERT(varbinary(max),TRIM(CHAR(9)+CHAR(10)+CHAR(13)+CHAR(32) FROM REPLACE(REPLACE(m.definition,CHAR(13)+CHAR(10),CHAR(10)),N'CREATE OR ALTER PROCEDURE',N'CREATE PROCEDURE')))) OR b.UsesAnsiNulls<>m.uses_ansi_nulls OR b.UsesQuotedIdentifier<>m.uses_quoted_identifier) THROW 53891,'Rollback changed the original SWAP definitions or SET metadata.',1;
+WHERE m.object_id IS NULL OR b.DefinitionHash<>HASHBYTES('SHA2_256',CONVERT(varbinary(max),TRIM(CHAR(9)+CHAR(10)+CHAR(13)+CHAR(32) FROM STUFF(REPLACE(m.definition,CHAR(13)+CHAR(10),CHAR(10)),1,CHARINDEX(N'PROCEDURE',m.definition)-1,N'CREATE ')))) OR b.UsesAnsiNulls<>m.uses_ansi_nulls OR b.UsesQuotedIdentifier<>m.uses_quoted_identifier) THROW 53891,'Rollback changed the original SWAP definitions or SET metadata.',1;
 IF EXISTS(SELECT 1 FROM sys.objects WHERE schema_id IN(SCHEMA_ID(N'paws'),SCHEMA_ID(N'paws_api'),SCHEMA_ID(N'staging')) AND name LIKE N'%CalendarActivity%')
  OR EXISTS(SELECT 1 FROM sys.database_principals WHERE name IN(N'paws_runtime_calendar_read',N'paws_runtime_calendar_stage',N'paws_runtime_calendar_commit',N'paws_runtime_calendar_time',N'paws_calendar_recovery_admin')) THROW 53891,'Rollback left feature objects or roles.',1;
 DROP TABLE dbo.CalendarActivityRollbackBaseline;

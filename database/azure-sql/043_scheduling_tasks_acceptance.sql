@@ -44,6 +44,24 @@ DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"
 IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR JSON_VALUE(@Json,'$.tasks[0].date') IS NOT NULL THROW 54390,'Undated schedule disappeared.',1;
 UPDATE paws.Session SET SessionDate='2026-11-06',StartTime='09:00',EndTime='10:00' WHERE SessionId=@B;
 PRINT 'SCHEDULING_TASK_QUALITY_OK';
+UPDATE paws.Session SET CourseCode=NULL WHERE SessionId=@A;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","type":"missing_schedule"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 THROW 54390,'Missing course was not reviewed.',1;
+UPDATE paws.Session SET CourseCode=N'TASK_TEST' WHERE SessionId=@A;
+DELETE paws.SessionAssignment WHERE SessionId=@B;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","type":"missing_schedule"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].displayName'),N'')<>N'Not provided' THROW 54390,'Unassigned session was not reviewed safely.',1;
+INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,FacultyResolutionStatus,SourceImportBatchId,SourceRow) VALUES(NEWID(),@B,@Faculty,N'resolved',@Batch,2);
+INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,SourceFacultyName,FacultyResolutionStatus,SourceImportBatchId,SourceRow) VALUES(@Extra,@A,NULL,N'PRIVATE UNRESOLVED NAME',N'unresolved',@Batch,8);
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","type":"missing_schedule"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR @Json LIKE N'%PRIVATE UNRESOLVED%' THROW 54390,'Unresolved assignment was missed or exposed.',1;
+DELETE paws.SessionAssignment WHERE SessionAssignmentId=@Extra;
+DECLARE @Undated uniqueidentifier=NEWID();
+INSERT paws.Session(SessionId,AcademicYear,CourseId,CourseCode,Topic,SessionType,SourceImportBatchId) VALUES(@Undated,N'ONLY-UNDATED',@Course,N'TASK_TEST',N'Undated',N'LEC',@Batch);
+INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,FacultyResolutionStatus,SourceImportBatchId,SourceRow) VALUES(NEWID(),@Undated,@Faculty,N'resolved',@Batch,9);
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"ONLY-UNDATED"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].severity'),N'')<>N'Needs Review' THROW 54390,'Undated-only academic year disappeared.',1;
+PRINT 'SCHEDULING_TASK_IDENTITY_QUALITY_OK';
 
 -- Ordinary faculty must not learn a co-instructor's AFC evidence.
 DECLARE @Other uniqueidentifier=NEWID(),@Absence uniqueidentifier=NEWID();

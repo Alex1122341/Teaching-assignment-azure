@@ -95,6 +95,8 @@ SET @Query=CONCAT(N'{"academicYear":"TASK-TEST","limit":1,"cursor":"',STRING_ESC
 DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',@Query;SELECT @Json=responseJson FROM @Reply;
 IF JSON_VALUE(@Json,'$.tasks[0].issueKey')=@FirstKey OR JSON_VALUE(@Json,'$.nextCursor') IS NOT NULL THROW 54390,'Cursor repeated or lost a page.',1;
 DECLARE @Rejected bit=0;
+-- Expected read rejection must not poison the synthetic fixture transaction.
+SET XACT_ABORT OFF;
 BEGIN TRY EXEC paws_api.ListSchedulingTasks N'task-faculty',@Query;END TRY BEGIN CATCH IF ERROR_NUMBER()=54310 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 THROW 54390,'Cursor crossed actor scope.',1;
 UPDATE paws.Session SET Room=N'Synthetic changed' WHERE SessionId=@A;

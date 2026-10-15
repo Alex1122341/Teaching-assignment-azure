@@ -17,6 +17,15 @@ INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":
 DECLARE @Json nvarchar(max)=(SELECT responseJson FROM @Reply);
 IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'instructor_overlap' OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].severity'),N'')<>N'Conflict'
  THROW 54390,'Overlapping assignments must produce exactly one confirmed pair.',1;
+-- Either course must discover the single pair, independent of GUID ordering.
+DECLARE @Related uniqueidentifier=TRY_CONVERT(uniqueidentifier,JSON_VALUE(@Json,'$.tasks[0].relatedSessions[0].id'));
+UPDATE paws.Session SET CourseCode=N'RELATED_TEST' WHERE SessionId=@Related;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","courseCode":"RELATED_TEST"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1
+ OR NOT EXISTS(SELECT 1 FROM OPENJSON(@Json,'$.filters.courses') WITH(courseCode nvarchar(32)) WHERE courseCode=N'RELATED_TEST')
+ THROW 54390,'Related course filtering or facets omitted the overlap.',1;
+UPDATE paws.Session SET CourseCode=N'TASK_TEST' WHERE SessionId=@Related;
+PRINT 'SCHEDULING_TASK_RELATED_COURSE_OK';
 UPDATE paws.Session SET StartTime='10:00',EndTime='11:00' WHERE SessionId=@B;
 DELETE @Reply;
 INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST"}';

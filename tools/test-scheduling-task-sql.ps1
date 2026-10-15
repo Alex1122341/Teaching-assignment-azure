@@ -6,8 +6,12 @@ $taskRollbackRequested=[bool]$CheckRollback
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/042_adfa_swap_preview.sql') -Raw) 'VetMed-Ops'
 $migrationPath=Join-Path $repoPath 'database/azure-sql/043_scheduling_tasks.sql'
 if(Test-Path -LiteralPath $migrationPath){Invoke-TestSql (Get-Content -LiteralPath $migrationPath -Raw) 'VetMed-Ops'}
-Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/043_scheduling_tasks_acceptance.sql') -Raw) 'VetMed-Ops'
-Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/043_scheduling_tasks_review_acceptance.sql') -Raw) 'VetMed-Ops'
+$taskFailures=@()
+foreach($taskAcceptance in @('043_scheduling_tasks_acceptance.sql','043_scheduling_tasks_review_acceptance.sql','043_scheduling_tasks_recreation_acceptance.sql')){
+ try{Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath "database/azure-sql/$taskAcceptance") -Raw) 'VetMed-Ops'}
+ catch{$taskFailures+=$taskAcceptance;Write-Output "SCHEDULING_TASK_ACCEPTANCE_FAILED $taskAcceptance"}
+}
+if($taskFailures.Count){throw ('DISPOSABLE_SQL_ACCEPTANCE_FAILED: '+($taskFailures -join ', '))}
 if($taskRollbackRequested){
  $rollbackPath=Join-Path $repoPath 'database/azure-sql/rollback_043_scheduling_tasks.sql'
  if(-not(Test-Path -LiteralPath $rollbackPath)){throw 'SCHEDULING_TASK_ROLLBACK_MISSING'}

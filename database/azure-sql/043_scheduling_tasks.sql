@@ -7,6 +7,7 @@ SET QUOTED_IDENTIFIER ON;
 IF DB_NAME()<>N'VetMed-Ops' OR OBJECT_ID(N'paws_api.GetAdfaSwapFacultyPreview') IS NULL
  THROW 54300,'Scheduling tasks require the reviewed Beta prerequisites.',1;
 IF OBJECT_ID(N'paws_api.SchedulingTaskIssues') IS NOT NULL OR OBJECT_ID(N'paws_api.ListSchedulingTasks') IS NOT NULL
+ OR OBJECT_ID(N'paws.SchedulingAssignmentRevision') IS NOT NULL OR OBJECT_ID(N'paws.SchedulingAssignmentChanged') IS NOT NULL
  THROW 54300,'Inspect existing scheduling task objects before applying.',1;
 IF EXISTS(SELECT 1 FROM sys.columns WHERE object_id IN(OBJECT_ID(N'paws.Session'),OBJECT_ID(N'paws.SessionAssignment')) AND system_type_id=189)
  THROW 54300,'Inspect existing scheduling source versions before applying.',1;
@@ -16,12 +17,33 @@ IF EXISTS(SELECT 1 FROM sys.schemas WHERE name IN(N'paws',N'paws_api') AND USER_
 BEGIN TRANSACTION;
 ALTER TABLE paws.Session ADD SchedulingVersion rowversion NOT NULL;
 ALTER TABLE paws.SessionAssignment ADD SchedulingVersion rowversion NOT NULL;
+-- Retained even when the last child is deleted. This is derived version metadata,
+-- deliberately absent from the business-support capture/Undo registry.
+CREATE TABLE paws.SchedulingAssignmentRevision(
+ SessionId uniqueidentifier NOT NULL PRIMARY KEY REFERENCES paws.Session(SessionId) ON DELETE CASCADE,
+ TouchedAtUtc datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME(),AssignmentVersion rowversion NOT NULL
+);
+INSERT paws.SchedulingAssignmentRevision(SessionId) SELECT SessionId FROM paws.Session;
 CREATE TABLE paws.SchedulingTaskReview(
  IssueKey varchar(64) NOT NULL PRIMARY KEY,EvidenceVersion varchar(64) NOT NULL,
  ReviewStatus nvarchar(16) NOT NULL CHECK(ReviewStatus IN(N'Unreviewed',N'Reviewed')),
  ActorFirebaseUid nvarchar(128) NOT NULL,UpdatedAtUtc datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
  ReviewVersion rowversion NOT NULL
 );
+GO
+CREATE TRIGGER paws.SchedulingAssignmentChanged ON paws.SessionAssignment
+AFTER INSERT,UPDATE,DELETE AS
+BEGIN
+ SET NOCOUNT ON;
+ DECLARE @Changed TABLE(SessionId uniqueidentifier PRIMARY KEY);
+ INSERT @Changed SELECT SessionId FROM inserted UNION SELECT SessionId FROM deleted;
+ -- Metadata changes are in the caller's transaction, including support Undo.
+ UPDATE v WITH(UPDLOCK,HOLDLOCK) SET TouchedAtUtc=SYSUTCDATETIME()
+ FROM paws.SchedulingAssignmentRevision v JOIN @Changed c ON c.SessionId=v.SessionId;
+ INSERT paws.SchedulingAssignmentRevision(SessionId)
+ SELECT c.SessionId FROM @Changed c
+ WHERE NOT EXISTS(SELECT 1 FROM paws.SchedulingAssignmentRevision v WITH(UPDLOCK,HOLDLOCK) WHERE v.SessionId=c.SessionId);
+END;
 GO
 CREATE FUNCTION paws_api.SchedulingTaskIssues(@AcademicYear nvarchar(32))
 RETURNS TABLE AS RETURN
@@ -77,10 +99,14 @@ WITH assigned AS (
 ), findings AS (
  SELECT * FROM pairs UNION ALL SELECT * FROM duplicateAssignments UNION ALL SELECT * FROM quality UNION ALL SELECT * FROM afc UNION ALL SELECT * FROM activities
 )
-SELECT CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),CONCAT(IssueType,N'|',SessionId,N'|',RelatedSessionId,N'|',FacultyId))),2) IssueKey,
- FacultyId,SessionId,RelatedSessionId,IssueType,Severity,
- CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),Evidence)),2) EvidenceVersion
-FROM findings;
+SELECT CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),CONCAT(i.IssueType,N'|',i.SessionId,N'|',i.RelatedSessionId,N'|',i.FacultyId))),2) IssueKey,
+ i.FacultyId,i.SessionId,i.RelatedSessionId,i.IssueType,i.Severity,
+ CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),CONCAT(Evidence,N'|',CONVERT(varchar(16),CONVERT(binary(8),v.AssignmentVersion),2),N'|',CONVERT(varchar(16),CONVERT(binary(8),r.AssignmentVersion),2),N'|',allAssignments.Versions))),2) EvidenceVersion
+FROM findings i
+LEFT JOIN paws.SchedulingAssignmentRevision v ON v.SessionId=i.SessionId
+LEFT JOIN paws.SchedulingAssignmentRevision r ON r.SessionId=i.RelatedSessionId
+OUTER APPLY(SELECT STRING_AGG(CONVERT(nvarchar(max),CONCAT(a.SessionAssignmentId,N':',CONVERT(varchar(16),CONVERT(binary(8),a.SchedulingVersion),2))),N'|') WITHIN GROUP(ORDER BY a.SessionAssignmentId) Versions
+ FROM paws.SessionAssignment a WHERE a.SessionId=i.SessionId OR a.SessionId=i.RelatedSessionId) allAssignments;
 GO
 CREATE PROCEDURE paws_api.ListSchedulingTasks @ActorFirebaseUid nvarchar(128),@QueryJson nvarchar(max)
 AS
@@ -123,7 +149,7 @@ BEGIN
   IF LEFT(@Cursor,65)<>@Snapshot+':' OR @Offset IS NULL OR @Offset<1 OR LEN(@Cursor)>85 THROW 54310,'Scheduling tasks changed; refresh the queue.',1;
  END;
  SELECT *,ROW_NUMBER() OVER(ORDER BY CASE Severity WHEN N'Conflict' THEN 0 ELSE 1 END,SessionDate,IssueKey) Position INTO #Filtered FROM #Issues
- WHERE (@FacultyKey IS NULL OR FacultyKey=@FacultyKey) AND (@Course IS NULL OR CourseCode=@Course) AND (@Type IS NULL OR IssueType=@Type) AND (@Status IS NULL OR ReviewStatus=@Status)
+ WHERE (@FacultyKey IS NULL OR FacultyKey=@FacultyKey) AND (@Course IS NULL OR CourseCode=@Course OR EXISTS(SELECT 1 FROM paws.Session related WHERE related.SessionId=#Issues.RelatedSessionId AND related.CourseCode=@Course)) AND (@Type IS NULL OR IssueType=@Type) AND (@Status IS NULL OR ReviewStatus=@Status)
  AND ((SessionDate IS NULL AND @Undated<>N'exclude') OR (SessionDate IS NOT NULL AND @Undated<>N'only' AND (@Start IS NULL OR SessionDate>=@Start AND SessionDate<@End)));
  DECLARE @Total int=(SELECT COUNT(*) FROM #Filtered);
  IF @Cursor IS NOT NULL AND @Offset>=@Total THROW 54310,'Scheduling tasks changed; refresh the queue.',1;
@@ -131,7 +157,7 @@ BEGIN
  CASE WHEN @Offset+@Limit<@Total THEN CONCAT(@Snapshot,':',@Offset+@Limit) END nextCursor,
  JSON_QUERY(@Years) academicYears,JSON_QUERY((SELECT CAST(IIF(@Role IN(N'owner',N'administrator',N'admin',N'adfa_general',N'adfa_regular',N'developer'),1,0) AS bit) canReview FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)) capabilities,
  JSON_QUERY((SELECT JSON_QUERY((SELECT DISTINCT FacultyKey facultyKey,DisplayName displayName FROM #Issues WHERE FacultyKey IS NOT NULL FOR JSON PATH)) faculty,
- JSON_QUERY((SELECT DISTINCT CourseCode courseCode FROM #Issues WHERE CourseCode IS NOT NULL FOR JSON PATH)) courses FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)) filters,
+ JSON_QUERY((SELECT courseCode FROM (SELECT CourseCode courseCode FROM #Issues WHERE CourseCode IS NOT NULL UNION SELECT s.CourseCode FROM #Issues i JOIN paws.Session s ON s.SessionId=i.RelatedSessionId WHERE s.CourseCode IS NOT NULL) courses FOR JSON PATH)) courses FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)) filters,
  JSON_QUERY((SELECT i.IssueKey issueKey,i.FacultyKey facultyKey,i.DisplayName displayName,i.CourseCode courseCode,
   i.SessionId sessionId,i.SessionDate date,CONVERT(char(5),i.StartTime,108) startTime,CONVERT(char(5),i.EndTime,108) endTime,
   i.IssueType type,i.Severity severity,i.ReviewStatus reviewStatus,i.EvidenceVersion evidenceVersion,i.ReviewVersion reviewVersion,

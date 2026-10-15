@@ -53,6 +53,8 @@ ROLLBACK;
 IF NOT EXISTS(SELECT 1 FROM paws_api.SchedulingTaskIssues(N'HISTORY-TEST') WHERE IssueKey=@Key AND EvidenceVersion=@Evidence) THROW 54390,'Rolled back assignment changed durable evidence.',1;
 PRINT 'SCHEDULING_TASK_UNRESOLVED_AND_TRANSACTION_OK';
 -- Retain no fixture history; the rollback lane deliberately requires empty review history.
+DECLARE @CreatedBatches TABLE(ImportBatchId uniqueidentifier);
+INSERT @CreatedBatches SELECT DISTINCT ImportBatchId FROM paws.AuditEvent WHERE ActorFirebaseUid=N'task-history-admin' AND ImportBatchId IS NOT NULL;
 DELETE paws.SupportChange WHERE OperationId=@Operation;
 DELETE paws.SupportOperation WHERE OperationId=@Operation;
 DELETE paws.SupportContext WHERE ContextId=@Context;
@@ -62,4 +64,4 @@ DELETE paws.SessionAssignment WHERE SessionId=@Session;
 DELETE paws.Session WHERE SessionId=@Session;
 DELETE paws.UserProfile WHERE FirebaseUid=N'task-history-admin';
 DELETE paws.Faculty WHERE FacultyId=@Faculty;
-DELETE staging.ImportBatch WHERE ImportBatchId=@Batch OR ImporterVersion=N'paws-api-p1-019-assignments' AND NOT EXISTS(SELECT 1 FROM paws.SessionAssignment a WHERE a.SourceImportBatchId=staging.ImportBatch.ImportBatchId);
+DELETE staging.ImportBatch WHERE ImportBatchId=@Batch OR ImportBatchId IN(SELECT ImportBatchId FROM @CreatedBatches);

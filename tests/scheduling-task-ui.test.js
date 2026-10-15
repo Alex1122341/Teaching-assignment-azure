@@ -18,9 +18,9 @@ async function harness(t){
     if(f.fail)throw Error('PRIVATE failure');
     if(query.cursor&&f.stalePage){f.stalePage=false;throw Object.assign(Error('stale'),{code:'SCHEDULING_TASK_STALE'});}
     if(f.defer)return new Promise(resolve=>{f.resolve=resolve;});
-    const filtered=f.tasks.filter(row=>(!query.type||row.type===query.type)&&(!query.facultyKey||row.facultyKey===query.facultyKey)&&(!query.courseCode||row.courseCode===query.courseCode)&&(!query.reviewStatus||row.reviewStatus===query.reviewStatus)&&(query.undated!=='only'||!row.date)&&(query.undated!=='exclude'||row.date));
+    const filtered=f.tasks.filter(row=>(!row.academicYear||row.academicYear===query.academicYear)&&(!query.type||row.type===query.type)&&(!query.facultyKey||row.facultyKey===query.facultyKey)&&(!query.courseCode||row.courseCode===query.courseCode)&&(!query.reviewStatus||row.reviewStatus===query.reviewStatus)&&(query.undated!=='only'||!row.date)&&(query.undated!=='exclude'||row.date));
     const offset=query.cursor?50:0;
-    return {tasks:filtered.slice(offset,offset+50).map(row=>({...row,canReview:f.canReview})),total:filtered.length,nextCursor:filtered.length>offset+50?'C'.repeat(64)+':50':null,snapshotVersion:'C'.repeat(64),academicYears:[{academicYear:'2026-27'}],filters:{faculty:[{facultyKey:facultyA,displayName:'Faculty Alpha'},{facultyKey:facultyB,displayName:'Faculty Beta'}],courses:[{courseCode:'206'},{courseCode:'207'}]},capabilities:{canReview:f.canReview}};
+    return {tasks:filtered.slice(offset,offset+50).map(row=>({...row,canReview:f.canReview})),total:filtered.length,nextCursor:filtered.length>offset+50?'C'.repeat(64)+':50':null,snapshotVersion:'C'.repeat(64),academicYears:f.academicYears||[{academicYear:'2026-27'}],filters:f.facetsByYear?.[query.academicYear]||{faculty:[{facultyKey:facultyA,displayName:'Faculty Alpha'},{facultyKey:facultyB,displayName:'Faculty Beta'}],courses:[{courseCode:'206'},{courseCode:'207'}]},capabilities:{canReview:f.canReview}};
    },
    async reviewSchedulingTask(key,body){const f=window.fixture;f.reviews.push({key,body});if(f.reviewStale)throw Object.assign(Error('stale'),{code:'SCHEDULING_TASK_STALE'});const row=f.tasks.find(row=>row.issueKey===key);row.reviewStatus=body.reviewStatus;return {...row};},
    async swapQueue(){return {requests:[{requestId:'request-one',courseCode:'209',status:'pending',nextStage:'adfa'}]};}
@@ -29,7 +29,7 @@ async function harness(t){
  });
  await page.addScriptTag({path:path.resolve(__dirname,'../workspace-tasks.js')});
  await page.evaluate(()=>{
-  window.PAWS_TASKS.configure({hasUser:()=>window.fixture.loggedIn,identity:()=>window.fixture.identity,academicYear:()=> '2026-27',allSessions:async()=>[{id:'undated',academicYear:'2026-27',date:null},{id:'early',academicYear:'2026-27',course:'206',date:'2026-11-05',start:'06:00',end:'07:00'}],disposition:s=>({disposition:s.id==='undated'?'invalid':'before'}),reason:()=> 'Outside calendar display hours',openSession:id=>{document.getElementById('opened').textContent=id;}});
+  window.PAWS_TASKS.configure({hasUser:()=>window.fixture.loggedIn,identity:()=>window.fixture.identity,academicYear:()=> '2026-27',allSessions:async()=>window.fixture.sessions||[{id:'undated',academicYear:'2026-27',date:null},{id:'early',academicYear:'2026-27',course:'206',date:'2026-11-05',start:'06:00',end:'07:00'}],disposition:s=>({disposition:s.id==='undated'?'invalid':'before'}),reason:()=> 'Outside calendar display hours',openSession:id=>{document.getElementById('opened').textContent=id;}});
   return window.PAWS_TASKS.refresh();
  });
  return {page,errors};
@@ -54,6 +54,41 @@ test('Tasks sidebar shows current issues, filters, both session links and durabl
  assert.match(await page.locator('.workspace-task-list').innerText(),/Needs Review/);
  assert.equal(await page.locator('[data-id="undated"]').count(),0);
  assert.deepEqual(errors,[]);
+});
+
+test('absent course/faculty selections stay visible after year and facet changes',{skip:!modulePath},async t=>{
+ const {page}=await harness(t);
+ await page.evaluate(async()=>{
+  window.fixture.academicYears=[{academicYear:'2026-27'},{academicYear:'2027-28'}];
+  window.fixture.sessions=[{id:'a',academicYear:'2026-27'},{id:'b',academicYear:'2027-28'}];
+  window.fixture.facetsByYear={'2027-28':{faculty:[],courses:[]}};
+  await window.PAWS_TASKS.refresh();
+ });
+ assert.equal(await page.getByLabel('Academic year',{exact:true}).locator('option[value="2027-28"]').count(),1);
+ await page.locator('summary').filter({hasText:'Schedule filters'}).click();
+ await page.getByLabel('Course',{exact:true}).selectOption('206');
+ await page.waitForFunction(()=>window.fixture.calls.at(-1).courseCode==='206'&&!document.querySelector('.workspace-task-caption').textContent.includes('Loading'));
+ await page.getByLabel('Faculty',{exact:true}).selectOption('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+ await page.waitForFunction(()=>window.fixture.calls.at(-1).facultyKey==='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'&&!document.querySelector('.workspace-task-caption').textContent.includes('Loading'));
+ await page.getByLabel('Academic year',{exact:true}).selectOption('2027-28');
+ await page.waitForFunction(()=>window.fixture.calls.at(-1).academicYear==='2027-28'&&!document.querySelector('.workspace-task-caption').textContent.includes('Loading'));
+ assert.equal(await page.getByLabel('Academic year',{exact:true}).inputValue(),'2027-28');
+ assert.equal(await page.getByLabel('Course',{exact:true}).inputValue(),'206');
+ assert.equal(await page.getByLabel('Faculty',{exact:true}).inputValue(),'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+ assert.match(await page.getByLabel('Course',{exact:true}).locator('option:checked').innerText(),/206.*not in current issues/i);
+ assert.match(await page.getByLabel('Faculty',{exact:true}).locator('option:checked').innerText(),/Faculty Beta.*not in current issues/i);
+ // Removing the selected faculty's final issue also cannot silently hide that filter.
+ await page.getByLabel('Academic year',{exact:true}).selectOption('2026-27');
+ await page.waitForFunction(()=>window.fixture.calls.at(-1).academicYear==='2026-27'&&!document.querySelector('.workspace-task-caption').textContent.includes('Loading'));
+ await page.evaluate(async()=>{window.fixture.facetsByYear['2026-27']={faculty:[],courses:[]};await window.PAWS_TASKS.refresh();});
+ assert.equal(await page.getByLabel('Course',{exact:true}).inputValue(),'206');
+ assert.match(await page.getByLabel('Faculty',{exact:true}).locator('option:checked').innerText(),/not in current issues/i);
+});
+
+test('server academic years supplement the schedule scope without discarding the selected year',{skip:!modulePath},async t=>{
+ const {page}=await harness(t);
+ await page.evaluate(async()=>{window.fixture.academicYears=[{academicYear:'2026-27'},{academicYear:'2027-28'}];await window.PAWS_TASKS.refresh();});
+ assert.equal(await page.getByLabel('Academic year',{exact:true}).locator('option[value="2027-28"]').count(),1);
 });
 
 test('reviewed incomplete data stays Needs Review and conflicting course/time are visible without hover',{skip:!modulePath},async t=>{

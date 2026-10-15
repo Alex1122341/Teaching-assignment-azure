@@ -410,8 +410,14 @@
   window.PAWS_SWAP?.configure({getUser:()=>currentUser,onChanged:async()=>{
     invalidateAllSessions();await Promise.all([refreshSessionScope(),window.PAWS_SWAP.refreshPending()]);render();window.PAWS_TASKS?.refresh();
   }});
-  window.PAWS_TASKS?.configure({hasUser:()=>Boolean(currentUser),identity:()=>currentUser?.uid||'',academicYear:()=>listAcademicYear,allSessions:ensureAllSessions,disposition:calendarTimingDisposition,reason:unpositionedReason,openSession:async id=>{
-    const session=sessionCache.get(id);if(!session)return;
+  window.PAWS_TASKS?.configure({hasUser:()=>Boolean(currentUser),identity:()=>currentUser?.uid||'',academicYear:()=>listAcademicYear,allSessions:()=>ensureAllSessions({refresh:true,notify:false}),disposition:calendarTimingDisposition,reason:unpositionedReason,openSession:async id=>{
+    const ownerUid=currentUser?.uid;
+    let rows;
+    try{rows=await ensureAllSessions({refresh:true,notify:false});}
+    catch(_){if(ownerUid&&currentUser?.uid===ownerUid)toast('The session could not be refreshed. Retry from Tasks.',true);return;}
+    if(!ownerUid||currentUser?.uid!==ownerUid)return;
+    const session=rows.find(row=>row.id===id);
+    if(!session){toast('This session is no longer available. Refresh Tasks.',true);return;}
     if(/^\d{4}-\d{2}-\d{2}$/.test(String(session.date||''))){
       const date=parseYmd(session.date);if(!Number.isNaN(date.getTime())){
         const position=academicPositionForDate(date);selectedSemester=position.semester;selectedWeek=Math.max(1,Math.min(WEEK_COUNT,position.week));selectedDayIndex=Math.max(0,Math.min(4,date.getDay()-1));
@@ -419,7 +425,7 @@
         document.querySelectorAll('[data-year]').forEach(b=>b.classList.toggle('active',b.dataset.year==='all'));document.querySelectorAll('[data-semester]').forEach(b=>b.classList.toggle('active',b.dataset.semester===selectedSemester));renderWeekControls();syncWeekUI();await refreshSessionScope();
       }
     }
-    openSessionDetail(id);
+    if(currentUser?.uid===ownerUid)openSessionDetail(id,session);
   }});
   pageDataSubscribers.add(()=>{window.PAWS_TASKS?.refresh();});
   let canonicalWriteFaculty = [];
@@ -590,11 +596,11 @@
   }
 
   function refreshSessionScope(){if(currentUser)return subscribeSessions();render();return Promise.resolve(true)}
-  async function ensureAllSessions(){
+  async function ensureAllSessions({refresh=false,notify=true}={}){
     const ownerUid=String(currentUser?.uid||'');
     if(!ownerUid)return[];
     const cached=fullSessionCacheForUser(currentUser);
-    if(cached)return cached.slice();
+    if(cached&&!refresh)return cached.slice();
     if(allSessionsLoading&&allSessionsLoadingUid===ownerUid)return allSessionsLoading;
     const generation=++allSessionsLoadGeneration;
     allSessionsLoadingUid=ownerUid;
@@ -603,7 +609,7 @@
       allSessionsCache=rows.slice();
       allSessionsOwnerUid=ownerUid;
       for(const row of rows)sessionCache.set(row.id,row);
-      publishPageData();
+      if(notify)publishPageData();
       return rows.slice();
     }).finally(()=>{
       if(generation===allSessionsLoadGeneration){allSessionsLoading=null;allSessionsLoadingUid='';}
@@ -1382,8 +1388,8 @@
     return false;
   }
 
-  function openSessionDetail(id) {
-    const s = renderedSessions.find(x => x.id === id) || sessions.find(x => x.id === id) || sessionCache.get(id); if (!s) return;
+  function openSessionDetail(id, currentSession = null) {
+    const s = currentSession || renderedSessions.find(x => x.id === id) || sessions.find(x => x.id === id) || sessionCache.get(id); if (!s) return;
     if (!s.isCcc && String(s.type).toUpperCase() === 'LAB' && window.UCVM_LAB_DETAIL) return openLabSessionDetail(s);
     const edit = !s.isCcc&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-primary" id="detail-edit">Edit Session</button>` : '';
     const assignmentEdit = !s.isCcc&&s.assignmentManagementAvailable===true&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-secondary" id="detail-assignments">Manage Instructors</button>` : '';

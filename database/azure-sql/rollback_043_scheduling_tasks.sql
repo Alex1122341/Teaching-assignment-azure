@@ -7,6 +7,7 @@ BEGIN TRANSACTION;
 IF OBJECT_ID(N'paws.SchedulingTaskReview',N'U') IS NULL OR OBJECT_ID(N'paws_api.ListSchedulingTasks',N'P') IS NULL
  OR OBJECT_ID(N'paws_api.ReviewSchedulingTask',N'P') IS NULL OR OBJECT_ID(N'paws_api.SchedulingTaskIssues',N'IF') IS NULL
  OR COL_LENGTH(N'paws.Session',N'SchedulingVersion') IS NULL OR COL_LENGTH(N'paws.SessionAssignment',N'SchedulingVersion') IS NULL
+ OR OBJECT_ID(N'paws.SchedulingAssignmentRevision',N'U') IS NULL OR OBJECT_ID(N'paws.SchedulingAssignmentChanged',N'TR') IS NULL
  THROW 54308,'Inspect the incomplete scheduling migration before rollback.',1;
 IF EXISTS(SELECT 1 FROM paws.SchedulingTaskReview)
  OR EXISTS(SELECT 1 FROM paws.AuditEvent WHERE EventType=N'SchedulingTaskReviewed')
@@ -20,6 +21,8 @@ DROP PROCEDURE paws_api.ReviewSchedulingTask;
 DROP PROCEDURE paws_api.ListSchedulingTasks;
 DROP FUNCTION paws_api.SchedulingTaskIssues;
 DROP TABLE paws.SchedulingTaskReview;
+DROP TRIGGER paws.SchedulingAssignmentChanged;
+DROP TABLE paws.SchedulingAssignmentRevision;
 ALTER TABLE paws.Session DROP COLUMN SchedulingVersion;
 ALTER TABLE paws.SessionAssignment DROP COLUMN SchedulingVersion;
 DROP ROLE paws_scheduling_task_review;

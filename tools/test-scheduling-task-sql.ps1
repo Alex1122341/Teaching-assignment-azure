@@ -29,5 +29,5 @@ if($taskRollbackRequested){
  Invoke-TestSql $guardTest 'VetMed-Ops'
  Invoke-TestSql "DELETE paws.SchedulingTaskReview WHERE ActorFirebaseUid=N'synthetic-rollback';" 'VetMed-Ops'
  Invoke-TestSql (Get-Content -LiteralPath $rollbackPath -Raw) 'VetMed-Ops'
- Invoke-TestSql "IF OBJECT_ID(N'paws_api.SchedulingTaskIssues') IS NOT NULL OR OBJECT_ID(N'paws_api.ListSchedulingTasks') IS NOT NULL OR COL_LENGTH(N'paws.Session',N'SchedulingVersion') IS NOT NULL OR COL_LENGTH(N'paws.SessionAssignment',N'SchedulingVersion') IS NOT NULL THROW 54390,'Rollback left scheduling objects.',1;PRINT 'SCHEDULING_TASK_ROLLBACK_OK';" 'VetMed-Ops'
+ Invoke-TestSql "IF OBJECT_ID(N'paws_api.SchedulingTaskIssues') IS NOT NULL OR OBJECT_ID(N'paws_api.ListSchedulingTasks') IS NOT NULL OR COL_LENGTH(N'paws.Session',N'SchedulingVersion') IS NOT NULL OR COL_LENGTH(N'paws.SessionAssignment',N'SchedulingVersion') IS NOT NULL OR OBJECT_ID(N'paws.SchedulingAssignmentRevision') IS NOT NULL OR OBJECT_ID(N'paws.SchedulingAssignmentChanged') IS NOT NULL THROW 54390,'Rollback left scheduling objects.',1;PRINT 'SCHEDULING_TASK_ROLLBACK_OK';" 'VetMed-Ops'
 }

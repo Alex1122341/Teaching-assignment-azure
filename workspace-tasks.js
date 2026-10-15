@@ -11,9 +11,10 @@
  function clearData(){tasks=[];navigation=[];requests=[];total=0;nextCursor=null;errors=[];reviewBusy=false;}
  function resetIdentity(){clearData();year='';years=[];params={};query='';mode='all';facets={faculty:[],courses:[]};started=false;panel.querySelector('[data-task-search]').value='';panel.querySelectorAll('[data-task-filter]').forEach(node=>{node.value='';});}
  function updateOptions(){
-  const options=(values,key,label,selected,placeholder)=>`${placeholder?'<option value="">'+esc(placeholder)+'</option>':''}`+values.map(row=>`<option value="${esc(row[key])}"${String(row[key])===selected?' selected':''}>${esc(row[label])}</option>`).join('');
+  const options=(values,key,label,selected,placeholder,selectedLabel)=>`${placeholder?'<option value="">'+esc(placeholder)+'</option>':''}`+values.map(row=>`<option value="${esc(row[key])}" data-label="${esc(row[label])}"${String(row[key])===selected?' selected':''}>${esc(row[label])}</option>`).join('')+(selected&&!values.some(row=>String(row[key])===selected)?`<option value="${esc(selected)}" data-label="${esc(selectedLabel||selected)}" selected>${esc(selectedLabel||selected)} (not in current issues)</option>`:'');
   panel.querySelector('[data-task-year]').innerHTML=options(years.map(academicYear=>({academicYear})),'academicYear','academicYear',year,'');
-  panel.querySelector('[data-task-filter="facultyKey"]').innerHTML=options(facets.faculty,'facultyKey','displayName',params.facultyKey,'All faculty in scope');
+  const facultySelect=panel.querySelector('[data-task-filter="facultyKey"]'),selectedFaculty=facultySelect.selectedOptions[0];
+  facultySelect.innerHTML=options(facets.faculty,'facultyKey','displayName',params.facultyKey,'All faculty in scope',selectedFaculty&&selectedFaculty.value===params.facultyKey?selectedFaculty.dataset.label:undefined);
   panel.querySelector('[data-task-filter="courseCode"]').innerHTML=options(facets.courses,'courseCode','courseCode',params.courseCode,'All courses');
  }
  function matchesSearch(item){return !query||[item.displayName,item.courseCode,item.date,item.type,item.title,item.reason,item.topic].join(' ').toLowerCase().includes(query);}
@@ -67,7 +68,7 @@
    if(results[1].status==='fulfilled')requests=(results[1].value.requests||[]).filter(row=>!['applied','approved','rejected','withdrawn'].includes(String(row.status).toLowerCase())).map(row=>({id:row.requestId,kind:'requests',title:'SWAP · '+(row.courseCode||'Session'),reason:[row.status,row.nextStage].filter(Boolean).join(' · '),date:row.date}));
    else errors.push('SWAP requests could not be loaded. Retry to refresh.');
    if(results[0].status==='fulfilled'){
-    const sessions=results[0].value;years=[...new Set(sessions.map(s=>String(s.academicYear||'')).filter(Boolean))].sort((a,b)=>b.localeCompare(a,undefined,{numeric:true}));
+    const sessions=results[0].value;years=[...new Set([...sessions.map(s=>String(s.academicYear||'')),year].filter(Boolean))].sort((a,b)=>b.localeCompare(a,undefined,{numeric:true}));
     if(!years.includes(year))year=years.includes(adapter.academicYear?.())?adapter.academicYear():years[0]||'';
     navigation=sessions.filter(s=>String(s.academicYear)===year&&['before','after'].includes(adapter.disposition(s).disposition)).map(s=>({id:s.id,kind:'schedule',title:'VETM '+(s.course||'Unknown course'),courseCode:s.course,topic:s.topic,reason:adapter.reason(s,adapter.disposition(s).disposition),date:s.date}));
    }else{year='';years=[];errors.push('Schedule scope could not be loaded. Retry to refresh.');}
@@ -79,6 +80,7 @@
     if(!current(token))return;
     if(!Array.isArray(data.tasks)||!Number.isInteger(data.total))throw Error('Invalid queue response');
     tasks=append?[...tasks,...data.tasks]:data.tasks;total=data.total;nextCursor=data.nextCursor||null;facets=data.filters||{faculty:[],courses:[]};
+    years=[...new Set([...years,...(data.academicYears||[]).map(row=>row.academicYear)].filter(Boolean))].sort((a,b)=>b.localeCompare(a,undefined,{numeric:true}));
    }
   }catch(error){
    if(!current(token))return;

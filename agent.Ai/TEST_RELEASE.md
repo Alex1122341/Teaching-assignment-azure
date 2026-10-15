@@ -1,3 +1,50 @@
+# PAWS Beta current test/release guidance — 2026-10-15
+
+This top section supersedes the older per-milestone "Current" labels below without removing their evidence. Reviewed Beta main: 0d4b4d9; most recent **documented deployed API + Firebase Hosting**: ca465bf1401b457ca3b74048cfaf170bedc7694a (2026-10-14), immutable product/trust anchor fb2c625745957fa7d9990033f15a7b1ef91974a5. No live release action occurs from a docs-only update.
+
+## Production-like Beta path
+
+- https://tester-teaching.web.app Firebase Hosting static site, Firebase Authentication, temporary Cloudflare HTTPS ingress, University Windows Node API, SQL Server ITAPPVETOPSDB01 / VetMed-Ops. No direct browser SQL, no Firestore fallback for migrated SQL business data.
+- The current release target is Firebase Hosting-only, not the retired historic Azure SWA deployment. Standard GitHub CI or a source merge does not deploy.
+- Runtime SQL identity still requires an institution-managed least-privilege replacement and proper ingress/host/hardening before production. Do not accept broad db_owner runtime membership as a permission verification substitute.
+
+## Latest accepted release evidence
+
+- PR #94/#95/#96 history: AFC record Create/Cancel controls and grouped LAB/SRL detail, SQL036/037 rowversion correction, final docs; deployed runtime ca465bf, trust fb2c625.
+- Exact-main Beta Build run38453614170 and migration run38453614145 passed; all 71 shipped static assets matched accepted artifact; SQL cancellation/encoding and stale/denied/concurrent rollback tests passed.
+- Authenticated Chrome read-only acceptance: actual grouped LAB/SRL rows, enabled Create AFC and 803 active Delete controls, Faculty labels with names and no GUID/UID displayed. Delete confirmation dismissed; a fresh read still showed 803. **No live business UI create/cancel operation occurred.**
+- Firebase Hosting workflow run38454750572 failed predeployment due to its stale DOE-off check. A separately authorized Hosting-only CLI release published the exact accepted artifact; **do not disable properly approved DOE gates to satisfy a stale workflow assumption**.
+- Earlier SWAP/Developer Support read-acceptance is not evidence of completed live SWAP application or Developer Undo.
+
+## Required ordered release gates
+
+1. Verify exact owner authorization, repo track, current main, PR/dependency HEADs, SQL/runtime state, and whether comparable code already exists. Never use a historic PR/CI result as fresh release proof.
+2. Implement on isolated feature branch/worktree; independent product/security review and tests. Document SQL source identity and privacy scope.
+3. Independently review immutable freeze promotion of shipped static and API paths, pin accepted product SHA and verify both Git repository and generated build artifacts against immutable Git blobs. Never use mutable baseline JSON or a drift waiver as authority.
+4. Require full expected PR CI, including JS/server, relevant emulators, migration syntax, actual SQL concurrency tests when needed, generated artifact/freeze checks; investigate failing jobs.
+5. Require owner-authorized PR merge; exact merged-main CI acceptance follows. CI PASS != deploy.
+6. For changed schema/API, stage approved narrow SQL migrations, least-privileged procedure roles, exact attested University runtime, runtime health/permissions/CORS and retained rollback version; activate only approved gates.
+7. Publish only the exact accepted static package to Firebase Hosting using authorized Hosting-only release. Do not publish Firestore rules/indexes/Functions or historic Azure SWA paths unless independently scoped.
+8. Live acceptance: public assets and SHA convergence, login and self-scope, anonymous /me -> 401, actual SQL-backed data, no leaked sensitive fields, stale-denied/rollback behavior, correct DOE source and policy labels, and preserved record counts; distinguish read UI review from actual mutation tests.
+9. Write a dated agent.Ai/updates/ record with exact SHA, runs, tests, verified live operations, negative claims, blockers and DO NOT REDO.
+
+## Current Draft/not-yet-releasable chain
+
+- PR #97: documentation/design only; #98: Calendar working activity and exact-source AFC counterpart migration candidate, code/review/CI prepared but not in main, no live SQL objects/import/deletion.
+- PR #99: ADFA SWAP DOE/availability preview on #98; draft/not released.
+- PR #100: scoped scheduling conflict Tasks on #99/#98; at last inspection Azure Beta Build #386 (run38771955326) failure, despite SQL and Calendar Activity acceptance checks passing. Not release-ready.
+- Before #98's irreversible source change: approved private recovery artifacts, exact source preflight, dedicated narrow runtime identity, SQL locks and explicit separate destructive-data authorization. No preview number is permission to delete.
+
+## DOE release boundary
+
+- 34 guidelines reference entries in code; candidate normalized 2026-27 Master/Guidelines annual Rule Book Draft revision2: 58 rules, 56 courses, 25 subjects, 25 scoped exceptions. Candidate impact across 5282 rows with zero delta is **not Active publication**.
+- Independently confirm current SQL Active policy, validated revision and source fingerprint before Publish or global Recalculate. Reviewer/admin UI availability alone does not prove these gates may be activated.
+- Signed manual DOE, reserved supervision, role effective periods, contract target and versioned result provenance remain independent; do not invent missing data.
+
+---
+
+## Historical test and release evidence below (the old "current" titles are milestone-specific)
+
 # PAWS Test and Release Guide
 
 ## Current — AFC Multi Input paste-date normalization

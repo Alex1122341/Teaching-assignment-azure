@@ -1,5 +1,18 @@
 # PAWS Agent Continuity Memory
 
+## Current entrypoint (2026-10-15 review)
+
+- **Active Beta site:** https://tester-teaching.web.app; Hosting + Firebase Auth + temporary HTTPS Cloudflare ingress + University Node API + VetMed-Ops SQL Server.
+- **Reviewed Beta main:** 0d4b4d9ea2e658719e87f16ef5132b82544bc6c1. **Last documented live API/Hosting:** ca465bf1401b457ca3b74048cfaf170bedc7694a (2026-10-14). Documentation and runtime can be different SHAs.
+- **Roles:** developer, adfa_general, adfa_regular, faculty, hicc, visc, adc, lab. SQL paws.UserProfile is the business authority; Firebase Auth proves identity.
+- **Live functional history:** Session/Faculty Dashboard, teaching assignment workflow, SWAP, DOE/Rule Book, AFC, LAB grouping, Tasks and Developer Support; exact write permissions depend on live gates and SQL.
+- **DOE:** 34 guidelines reference rules in code; 2026-27 rationalized 58-rule Master/Guidelines version is a **candidate Draft**, not automatically Active.
+- **Unmerged Drafts:** #97-#100; #99 depends on #98 and #100 is stacked; don't present them as live.
+- **Unimplemented integrations:** Microsoft Graph Outlook automated invites and D2L Brightspace synchronization.
+- **Current information:** ARCHITECTURE.md, DOMAINS.md, WORKFLOWS.md, ALGORITHMS.md, MODULE_MAP.md and top sections of PROJECT_STATE.md / TASK_CHAIN.md. Later sections are chronological history, not current runbooks.
+- **Release boundary:** no main mutation/merge/SQL changes/deployment based on docs alone. Freeze promotion, CI, explicit authorization, attestation and live acceptance remain separate.
+
+
 This directory is a **non-runtime continuity layer for AI agents and human handoff**.
 
 It exists so that work can continue safely when a chat reaches its context limit, when a different model/agent takes over, or when a task moves between computers. Nothing in this directory is intended to be imported by the application, used as runtime configuration, or treated as a database.

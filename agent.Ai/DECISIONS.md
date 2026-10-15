@@ -1,5 +1,9 @@
 # PAWS Locked Decisions
 
+## Scheduling review recreation and governance hold — 2026-10-15
+
+Owner approved a targeted amendment to the Task02 no-trigger plan: one transaction-bound SessionAssignment trigger maintains only retained assignment-version metadata. It covers empty→assigned→empty, unresolved changes and supported Undo, without changing business fields, DOE, grants or the support-capture registry. Product a3dd9ca passed actual SQL38771955259, browser/real-adapter9/9 and server610pass/3environment skips after four independent Important findings were reproduced and fixed. Separate immutable-freeze review failed on workspace credits before a final report; its preliminary progress is not acceptance. Keep the local governance promotion uncommitted until independent review completes. No new merge/live operation authorization.
+
 ## ADFA preview acceptance and automatic continuation — 2026-10-15
 
 ADFA uses authenticated read-only server DOE projection and SQL availability; no browser workload calculation or new apply authority. Candidate name search uses existing fields; missing specialty data is not invented. Product0f81c3e and independent governancec6dab5d accepted after synthetic UI/API/SQL checks. Continue sequentially to Task02; owner now permits essential questions but forbids grilling. Existing review/preparation-only release boundary and least-privilege account prerequisite remain in effect.

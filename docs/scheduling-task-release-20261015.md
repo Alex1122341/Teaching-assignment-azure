@@ -1,36 +1,34 @@
-# Scheduling Tasks candidate release preparation
+# Scheduling Tasks release preparation
 
-Status: implementation and synthetic acceptance in progress. This document is not deployment authorization or completed acceptance evidence.
+## Candidate and prerequisites
 
-Scope: Teaching-assignment-azure / Beta, draft PR100 stacked on PR99/98. Review Task02 against b53c23e1621c6a98c2d9b4c62198fdefdebeaf0f. The owner approved design and native sequential implementation with final independent review; only ADFA can mark reviewed/reopen. No live operation has occurred for Task02.
+Product `a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca`; draft PR100 depends on Calendar PR98 and ADFA PR99. The candidate is not deployed. A dedicated least-privilege University Windows service identity is unavailable; the present db_owner identity is not an approved exception. Final whole-repository/emulator CI, reviewed freeze promotion and exact-head artifact verification must pass before candidate acceptance. Merge and live activation need their own authorization.
 
-## SQL and runtime preparation
+## Prepared activation sequence
 
-Migration043 follows042 and all Calendar prerequisites. It adds SchedulingVersion rowversion to Session and SessionAssignment, typed derived findings, scoped list/review routines, review metadata and one narrow review execute role. Existing AFC/Calendar versions are reused through explicit binary(8) hex conversion. Existing business values and source provenance are retained.
+1. Establish the dedicated runtime identity and verify existing baseline/read/domain roles without db_owner, direct business DML or unrestricted SQL. Preserve reviewed Calendar/ADFA prerequisites038–042 and database/schema ownership.
+2. After explicit migration authorization and the institution's backup/change procedure, apply `database/azure-sql/043_scheduling_tasks.sql` once to VetMed-Ops. It refuses unexpected existing task objects or source rowversions. It adds Session/SessionAssignment SchedulingVersion, derived SchedulingAssignmentRevision metadata, one assignment-change trigger, the review table and three SQL interfaces. It creates no account membership and changes no business values. Take the existing initial migration/count verification evidence before proceeding.
+3. Verify metadata trigger enabled, source rowversions, read procedure and function, and execute-only `paws_scheduling_task_review`. No direct metadata/review/business DML is granted. ListSchedulingTasks is granted only to the existing paws_runtime_read role; bind the new review role only to the approved API identity under separate authorization.
+4. Coordinate the accepted University API and same-head static artifact. Keep `PAWS_SCHEDULING_TASK_REVIEW_ENABLED` unset/false until approved. Read capability works independently; only exact lowercase `true` enables the review route for verified ADFA/admin aliases. SQL repeats active-profile/role checks. Do not enable unrelated gates.
+5. Merge the approved PR, require exact-main CI and inspect the generated artifact/digest. Publish only the authorized Hosting artifact through the existing static-only Firebase release process. No Firestore business fallback or rules deployment.
+6. Perform authorized real-session smoke checks for scope/year, both courses, both navigation links, binary AFC availability, default-off review, and independent SWAP loading. Any mutation smoke test needs a specifically approved record; synthetic tests do not authorize live schedule/review changes.
 
-Column additions require schema locks and database capacity/time assessment before live application. Inspect existing versions, object ownership and permissions; an unexpected rowversion or conflicting object is a stop condition. Rehearse against the disposable baseline and capture object/row counts and recovery evidence. Do not modify source data or remove prior versions to make the migration apply.
+## API contract
 
-`paws_runtime_read` receives execute on ListSchedulingTasks. `paws_scheduling_task_review` receives execute only on ReviewSchedulingTask. Migration grants no account membership. Direct source/review-table writes are not required. Runtime gate `PAWS_SCHEDULING_TASK_REVIEW_ENABLED` defaults off; read availability is independent of review activation.
+- GET `/api/v1/scheduling-tasks`: academicYear required; optional start/end are paired, start inclusive/end exclusive, at most550 days; undated include/only/exclude; facultyKey, courseCode, type, reviewStatus; limit1–100 (UI50); opaque snapshot-bound cursor. Response has authorized tasks, total, nextCursor, academicYears, faculty/course facets and canReview capability.
+- POST `/api/v1/scheduling-tasks/{issueKey}/review`: academicYear, expectedEvidenceVersion, expectedReviewVersion, reviewStatus Reviewed/Unreviewed. Actor comes from verified authentication. Review persists status/audit only; active issues remain visible until corrected. Stale source/review/cursor returns409; invalid input400; denied role403; closed gate503. No browser DOE or AFC-purpose fields.
+- Faculty/HICC/VISC see only findings on their own linked FacultyId. Existing authorized administrative read scope is preserved. Only accepted ADFA/admin aliases review; ADC/LAB are read-only. Course facets/matching include both sides of an authorized pair once.
 
-The dedicated University service account remains unprepared. The existing db_owner identity is not proof of least privilege and is not an approved exception. Prepare and validate the narrow runtime principal before live activation under the approved release requirements.
+## Source versions and recovery
 
-## Candidate evidence to collect
+Source/evidence tokens include Session and assignment rowversions, all assignment identities/versions including unresolved entries, retained assignment revision and relevant AFC/Calendar versions. The trigger advances only derived metadata, in the same transaction as assignment INSERT/UPDATE/DELETE; it covers normal replacement and support Undo. Removing the last assignment retains a changed version. A failed/rolled-back source transaction restores metadata too. No support-capture registry entry is added for this derived metadata, so Undo cannot restore obsolete tokens.
 
-- Exact product commit, independent product review and resolved findings.
-- Actual SQL detection, quality, AFC/privacy, Calendar, filter/paging, review, permissions and observed two-connection race markers.
-- Guarded populated/bound rollback refusal and empty-state rollback success.
-- Root/server tests and appropriate existing emulator regressions with exact counts/skips.
-- Synthetic desktop/mobile/keyboard Tasks acceptance and existing SWAP navigation.
-- Separately reviewed immutable freeze promotion, actual protected file counts, exact-head CI artifact/digest and repository/artifact checks.
+Review serializes source ranges and the review row, then re-derives the finding before status/audit persistence. Unsupported direct privileged repairs are outside the supported command contract and require separate evidence review. Synthetic acceptance demonstrates correctness and observed waits, not production performance.
 
-These are acceptance requirements, not claims that they have all passed.
+`rollback_043_scheduling_tasks.sql` is prepared only for a complete, empty, unbound candidate. It refuses review rows, any SchedulingTaskReviewed audit history, role memberships or unexpected extra role permissions. It drops only043 interfaces/review/version metadata/trigger/source version columns/new role; it preserves business data and prior permissions. Never delete history or unbind a live account to force this rollback. Populated/bound deployments require reviewed forward repair. Retained assignment metadata alone is derived and can be removed by the guarded empty-review rollback.
 
-## Rollback and retained history
+For a runtime rollback, close the review gate first and restore the previous coordinated, accepted University API/static pair. Retain persisted review/audit records and source version metadata. Rehearse the explicit-column compatibility of that previous runtime before any authorized cutover; do not use schema rollback to erase a populated deployment.
 
-Runtime rollback first disables the review gate and restores the previously accepted coordinated API/static artifact. Existing review/audit records and source versions remain preserved. The prior runtime uses explicit source columns, but compatibility still requires rehearsal.
+## Candidate acceptance evidence
 
-The destructive schema rollback file is only for a verified empty, unbound candidate: it must refuse when review metadata, scheduling-review audit history or review-role memberships exist. Never delete review/audit data or detach a real runtime account merely to force this rollback. Populated deployments require a separately reviewed forward repair or retention-aware migration.
-
-## Integration boundary
-
-Account for PR98 and PR99 and their unfinished live prerequisites before integration. A feature push produces a candidate only. Merge needs directed authorization and reviewed checks; Hosting/API/SQL release needs exact-main CI and coordinated approved operations. Hosting remains `--only hosting` with the accepted generated artifact. Do not publish raw source, tests, workbook, recovery files or credentials.
+See `scheduling-task-acceptance-20261015.md` for exact test heads and remaining checks. No credentials, private workbooks, recovery files, test fixtures or real faculty evidence belong in either shipped artifact.

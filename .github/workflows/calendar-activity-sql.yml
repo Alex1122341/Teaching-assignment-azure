@@ -34,7 +34,10 @@ jobs:
         run: ./tools/test-scheduling-task-races.ps1 -ContainerName paws-calendar-sql-test
       - name: Check guarded scheduling rollback
         shell: pwsh
-        run: ./tools/test-scheduling-task-sql.ps1 -ContainerName paws-calendar-sql-test -CheckRollback
+        run: |
+          $output=./tools/test-scheduling-task-sql.ps1 -ContainerName paws-calendar-sql-test -CheckRollback
+          $output | Write-Output
+          if(($output -join "`n") -notmatch 'SCHEDULING_TASK_ROLLBACK_OK'){throw 'SCHEDULING_ROLLBACK_NOT_OBSERVED'}
       - name: Run existing prerequisites and activity foundation acceptance
         shell: pwsh
         run: ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-sql-test -Through 038

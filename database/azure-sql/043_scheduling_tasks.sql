@@ -24,47 +24,47 @@ CREATE FUNCTION paws_api.SchedulingTaskIssues(@AcademicYear nvarchar(32))
 RETURNS TABLE AS RETURN
 WITH assigned AS (
  SELECT a.SessionId,a.FacultyId,COUNT(*) AssignmentCount,
-  STRING_AGG(CONVERT(nvarchar(max),CONCAT(a.SessionAssignmentId,N':',CONVERT(varchar(16),a.SchedulingVersion,2))),N'|') WITHIN GROUP(ORDER BY a.SessionAssignmentId) AssignmentVersions
+  STRING_AGG(CONVERT(nvarchar(max),CONCAT(a.SessionAssignmentId,N':',CONVERT(varchar(16),CONVERT(binary(8),a.SchedulingVersion),2))),N'|') WITHIN GROUP(ORDER BY a.SessionAssignmentId) AssignmentVersions
  FROM paws.SessionAssignment a WHERE a.FacultyId IS NOT NULL GROUP BY a.SessionId,a.FacultyId
 ), pairs AS (
  SELECT a.FacultyId,s.SessionId,t.SessionId RelatedSessionId,
   CONVERT(nvarchar(40),CASE WHEN s.CourseCode=t.CourseCode AND s.StartTime=t.StartTime AND s.EndTime=t.EndTime AND s.SessionType=t.SessionType
    AND LOWER(LTRIM(RTRIM(COALESCE(s.Topic,N''))))=LOWER(LTRIM(RTRIM(COALESCE(t.Topic,N'')))) THEN N'duplicate_session_assignment' ELSE N'instructor_overlap' END) IssueType,
   CONVERT(nvarchar(16),N'Conflict') Severity,
-  CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',CONVERT(varchar(16),t.SchedulingVersion,2),N'|',a.AssignmentVersions,N'|',b.AssignmentVersions)) Evidence
+  CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),CONVERT(binary(8),s.SchedulingVersion),2),N'|',CONVERT(varchar(16),CONVERT(binary(8),t.SchedulingVersion),2),N'|',a.AssignmentVersions,N'|',b.AssignmentVersions)) Evidence
  FROM assigned a JOIN assigned b ON b.FacultyId=a.FacultyId AND b.SessionId>a.SessionId
  JOIN paws.Session s ON s.SessionId=a.SessionId JOIN paws.Session t ON t.SessionId=b.SessionId
  WHERE s.AcademicYear=@AcademicYear AND t.AcademicYear=@AcademicYear AND s.SessionDate=t.SessionDate
  AND s.StartTime<s.EndTime AND t.StartTime<t.EndTime AND s.StartTime<t.EndTime AND t.StartTime<s.EndTime
 ), duplicateAssignments AS (
  SELECT a.FacultyId,s.SessionId,CAST(NULL AS uniqueidentifier) RelatedSessionId,N'duplicate_assignment' IssueType,N'Conflict' Severity,
- CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',a.AssignmentVersions)) Evidence
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),CONVERT(binary(8),s.SchedulingVersion),2),N'|',a.AssignmentVersions)) Evidence
  FROM assigned a JOIN paws.Session s ON s.SessionId=a.SessionId WHERE s.AcademicYear=@AcademicYear AND a.AssignmentCount>1
 ), quality AS (
  SELECT a.FacultyId,s.SessionId,CAST(NULL AS uniqueidentifier) RelatedSessionId,
  CASE WHEN s.StartTime IS NOT NULL AND s.EndTime IS NOT NULL AND s.StartTime>=s.EndTime THEN N'invalid_schedule' ELSE N'missing_schedule' END IssueType,N'Needs Review' Severity,
- CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',a.AssignmentVersions)) Evidence
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),CONVERT(binary(8),s.SchedulingVersion),2),N'|',a.AssignmentVersions)) Evidence
  FROM paws.Session s LEFT JOIN assigned a ON a.SessionId=s.SessionId
  WHERE s.AcademicYear=@AcademicYear AND (s.SessionDate IS NULL OR s.StartTime IS NULL OR s.EndTime IS NULL OR s.StartTime>=s.EndTime OR NULLIF(LTRIM(RTRIM(s.CourseCode)),N'') IS NULL OR a.FacultyId IS NULL)
  UNION ALL
  SELECT CAST(NULL AS uniqueidentifier),s.SessionId,CAST(NULL AS uniqueidentifier),N'missing_schedule',N'Needs Review',
- CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(a.SessionAssignmentId,N':',CONVERT(varchar(16),a.SchedulingVersion,2))),N'|') WITHIN GROUP(ORDER BY a.SessionAssignmentId)))
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),CONVERT(binary(8),s.SchedulingVersion),2),N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(a.SessionAssignmentId,N':',CONVERT(varchar(16),CONVERT(binary(8),a.SchedulingVersion),2))),N'|') WITHIN GROUP(ORDER BY a.SessionAssignmentId)))
  FROM paws.Session s JOIN paws.SessionAssignment a ON a.SessionId=s.SessionId AND a.FacultyId IS NULL
  WHERE s.AcademicYear=@AcademicYear AND EXISTS(SELECT 1 FROM assigned own WHERE own.SessionId=s.SessionId)
  GROUP BY s.SessionId,s.SchedulingVersion
 ), absences AS (
- SELECT AfcRecordId,FacultyId,StartDate,EndDate,CONVERT(varchar(16),AfcVersion,2) SourceVersion,N'import' SourceKind FROM paws.AfcRecord WHERE Active=1
+ SELECT AfcRecordId,FacultyId,StartDate,EndDate,CONVERT(varchar(16),CONVERT(binary(8),AfcVersion),2) SourceVersion,N'import' SourceKind FROM paws.AfcRecord WHERE Active=1
  UNION ALL
- SELECT AfcRecordId,FacultyId,StartDate,EndDate,CONVERT(varchar(16),AfcVersion,2),N'manual' FROM paws.AfcManualRecord WHERE Active=1
+ SELECT AfcRecordId,FacultyId,StartDate,EndDate,CONVERT(varchar(16),CONVERT(binary(8),AfcVersion),2),N'manual' FROM paws.AfcManualRecord WHERE Active=1
 ), afc AS (
  SELECT a.FacultyId,s.SessionId,CAST(NULL AS uniqueidentifier) RelatedSessionId,N'afc_unavailable' IssueType,N'Conflict' Severity,
- CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',a.AssignmentVersions,N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(x.SourceKind,N':',x.AfcRecordId,N':',x.SourceVersion)),N'|') WITHIN GROUP(ORDER BY x.SourceKind,x.AfcRecordId))) Evidence
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),CONVERT(binary(8),s.SchedulingVersion),2),N'|',a.AssignmentVersions,N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(x.SourceKind,N':',x.AfcRecordId,N':',x.SourceVersion)),N'|') WITHIN GROUP(ORDER BY x.SourceKind,x.AfcRecordId))) Evidence
  FROM assigned a JOIN paws.Session s ON s.SessionId=a.SessionId JOIN absences x ON x.FacultyId=a.FacultyId AND s.SessionDate BETWEEN x.StartDate AND x.EndDate
  WHERE s.AcademicYear=@AcademicYear GROUP BY a.FacultyId,s.SessionId,s.SchedulingVersion,a.AssignmentVersions
 ), activities AS (
  SELECT a.FacultyId,s.SessionId,CAST(NULL AS uniqueidentifier) RelatedSessionId,k.IssueType,
  CASE WHEN k.IssueType=N'calendar_time_unknown' THEN N'Needs Review' ELSE N'Conflict' END Severity,
- CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',a.AssignmentVersions,N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(x.ActivityId,N':',CONVERT(varchar(16),x.ActivityVersion,2),N':',CONVERT(varchar(16),t.TimeVersion,2))),N'|') WITHIN GROUP(ORDER BY x.ActivityId))) Evidence
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),CONVERT(binary(8),s.SchedulingVersion),2),N'|',a.AssignmentVersions,N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(x.ActivityId,N':',CONVERT(varchar(16),CONVERT(binary(8),x.ActivityVersion),2),N':',CONVERT(varchar(16),CONVERT(binary(8),t.TimeVersion),2))),N'|') WITHIN GROUP(ORDER BY x.ActivityId))) Evidence
  FROM assigned a JOIN paws.Session s ON s.SessionId=a.SessionId
  JOIN paws.CalendarActivity x ON x.FacultyId=a.FacultyId AND s.SessionDate BETWEEN x.StartDate AND x.EndDate
  LEFT JOIN paws.CalendarActivityDayTime t ON t.ActivityId=x.ActivityId AND t.ActivityDate=s.SessionDate
@@ -107,7 +107,7 @@ BEGIN
  OR (@Status IS NOT NULL AND @Status NOT IN(N'Unreviewed',N'Reviewed')) THROW 54301,'Invalid scheduling task filters.',1;
  SELECT i.*,c.CandidateKey FacultyKey,COALESCE(f.DisplayName,N'Not provided') DisplayName,s.CourseCode,s.SessionDate,s.StartTime,s.EndTime,
  CONVERT(nvarchar(16),CASE WHEN r.EvidenceVersion=i.EvidenceVersion THEN r.ReviewStatus ELSE N'Unreviewed' END) ReviewStatus,
- COALESCE(CONVERT(varchar(16),r.ReviewVersion,2),'0000000000000000') ReviewVersion
+ COALESCE(CONVERT(varchar(16),CONVERT(binary(8),r.ReviewVersion),2),'0000000000000000') ReviewVersion
  INTO #Issues FROM paws_api.SchedulingTaskIssues(@Year) i JOIN paws.Session s ON s.SessionId=i.SessionId
  LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId LEFT JOIN paws.SwapCandidate c ON c.FacultyId=i.FacultyId
  LEFT JOIN paws.SchedulingTaskReview r ON r.IssueKey=i.IssueKey
@@ -164,7 +164,7 @@ BEGIN
   SELECT @Locks=COUNT_BIG(*) FROM paws.CalendarActivityDayTime WITH(UPDLOCK,HOLDLOCK) WHERE ActivityId IN(SELECT ActivityId FROM paws.CalendarActivity WHERE FacultyId IN(SELECT FacultyId FROM #Faculty));
   SELECT * INTO #CurrentIssue FROM paws_api.SchedulingTaskIssues(@AcademicYear) WHERE IssueKey=@IssueKey;
   SELECT @CurrentEvidence=EvidenceVersion FROM #CurrentIssue;
-  SELECT @CurrentReview=CONVERT(varchar(16),ReviewVersion,2),@Before=ReviewStatus FROM paws.SchedulingTaskReview WITH(UPDLOCK,HOLDLOCK) WHERE IssueKey=@IssueKey;
+  SELECT @CurrentReview=CONVERT(varchar(16),CONVERT(binary(8),ReviewVersion),2),@Before=ReviewStatus FROM paws.SchedulingTaskReview WITH(UPDLOCK,HOLDLOCK) WHERE IssueKey=@IssueKey;
   SET @CurrentReview=COALESCE(@CurrentReview,'0000000000000000');
   IF @CurrentEvidence IS NULL OR @CurrentEvidence<>@ExpectedEvidenceVersion OR @CurrentReview<>@ExpectedReviewVersion THROW 54310,'Scheduling task changed; refresh before reviewing.',1;
   IF @CurrentReview='0000000000000000'
@@ -176,7 +176,7 @@ BEGIN
    (SELECT @ReviewStatus reviewStatus,@CurrentEvidence evidenceVersion FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
   SELECT @Response=(SELECT i.IssueKey issueKey,c.CandidateKey facultyKey,COALESCE(f.DisplayName,N'Not provided') displayName,s.CourseCode courseCode,
    i.SessionId sessionId,s.SessionDate date,CONVERT(char(5),s.StartTime,108) startTime,CONVERT(char(5),s.EndTime,108) endTime,
-   i.IssueType type,i.Severity severity,r.ReviewStatus reviewStatus,i.EvidenceVersion evidenceVersion,CONVERT(varchar(16),r.ReviewVersion,2) reviewVersion,CAST(1 AS bit) canReview,
+   i.IssueType type,i.Severity severity,r.ReviewStatus reviewStatus,i.EvidenceVersion evidenceVersion,CONVERT(varchar(16),CONVERT(binary(8),r.ReviewVersion),2) reviewVersion,CAST(1 AS bit) canReview,
    JSON_QUERY((SELECT t.SessionId id,t.CourseCode courseCode,t.SessionDate date,CONVERT(char(5),t.StartTime,108) startTime,CONVERT(char(5),t.EndTime,108) endTime FROM paws.Session t WHERE t.SessionId=i.RelatedSessionId FOR JSON PATH,INCLUDE_NULL_VALUES)) relatedSessions
    FROM #CurrentIssue i JOIN paws.SchedulingTaskReview r ON r.IssueKey=i.IssueKey JOIN paws.Session s ON s.SessionId=i.SessionId
    LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId LEFT JOIN paws.SwapCandidate c ON c.FacultyId=i.FacultyId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES);

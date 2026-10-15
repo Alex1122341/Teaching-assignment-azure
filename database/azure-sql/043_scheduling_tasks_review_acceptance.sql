@@ -22,6 +22,7 @@ SELECT @Json=responseJson FROM @Reply;
 IF COALESCE(JSON_VALUE(@Json,'$.reviewStatus'),N'')<>N'Reviewed' THROW 54390,'Mark reviewed did not persist.',1;
 SET @Review=JSON_VALUE(@Json,'$.reviewVersion');
 PRINT CONCAT('SCHEDULING_REVIEW_SAVED_TOKEN_LENGTH ',LEN(@Review));
+IF @Review IS NULL OR LEN(@Review)<>16 OR @Review LIKE '%[^0-9A-F]%' THROW 54390,'Review version must be a portable 16-character hex token.',1;
 DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-review-admin',N'{"academicYear":"REVIEW-TEST"}';SELECT @Json=responseJson FROM @Reply;
 IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].reviewStatus'),N'')<>N'Reviewed' THROW 54390,'Review suppressed an unresolved conflict.',1;
 DECLARE @Rejected bit=0;

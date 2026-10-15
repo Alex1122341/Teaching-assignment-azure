@@ -35,3 +35,13 @@ Reviewer re-inspected the complete fix pass and returned Ready with all findings
 ## Release and data boundary
 
 Draft PR99 depends on unmerged Calendar PR98 and must be reviewed from parent a60aa98. No merge, deployment, live SQL migration, role binding, write-gate change, account creation or permanent AFC operation is performed. The dedicated least-privilege service-account prerequisite remains unresolved. Skipping questions does not supply missing identities or release authorization.
+
+## Final candidate acceptance — 2026-10-15
+
+Product0f81c3e0b7e63a9b9357755b7e957406018894fd; separate independently accepted governance/head c6dab5d39ba3e15fad825c587327dabf51974665. Beta Build38678006715 SUCCESS: root849 total/817 pass/32 skips, Linux server597/595 pass/2 environment skips, full Auth/Firestore emulator849/849 zero skips, container build, repository/artifact static+API freezes, governance57/57. Local Windows server597/596 pass/1 SQL-environment skip; final local root849/817 pass/32 emulator skips/0fail.
+
+Actual SQL run38678006632 SUCCESS includes thirteen observed two-connection races, populated/empty guarded rollback and ADFA_SWAP_PREVIEW_SQL_ACCEPTANCE_OK / ADFA_SWAP_PREVIEW_ROLLBACK_OK. Migration validation38678007053 SUCCESS. All three runs are associated with exact PR headc6dab5d (PR merge test artifact uses merge SHAc20beef615c61e41f0d781717a86e15ffeaea2dd).
+
+Downloaded artifact11947096027 SHA256a7504ea380c102594fd96cb80e9e27db28e28a9d7af7fca737fa287e52623ff6 matches GitHub's digest; expiry2026-10-22T03:49:52Z. Candidate static/API artifact blobs were checked separately against product0f81. Canonical Beta artifact contains76 app files (75 shipped runtime plus host config),74 API files (73 runtime plus artifact inventory), no repository/test/workbook/recovery/credential paths. The separate build-static output has only75 runtime assets and intentionally omits Azure host config; use canonical Beta app for the CLI artifact freeze check.
+
+Implementation, product review, governance review and synthetic acceptance are complete for this ADFA UI extension. Live release and the broader original Task01 transition-coverage audit are separate; no live acceptance is claimed. Continue full-directive Task02 in the existing Tasks interface. Owner now permits essential questions but still prohibits grilling.

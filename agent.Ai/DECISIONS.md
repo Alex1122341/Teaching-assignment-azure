@@ -1,5 +1,9 @@
 # PAWS Locked Decisions
 
+## ADFA preview acceptance and automatic continuation — 2026-10-15
+
+ADFA uses authenticated read-only server DOE projection and SQL availability; no browser workload calculation or new apply authority. Candidate name search uses existing fields; missing specialty data is not invented. Product0f81c3e and independent governancec6dab5d accepted after synthetic UI/API/SQL checks. Continue sequentially to Task02; owner now permits essential questions but forbids grilling. Existing review/preparation-only release boundary and least-privilege account prerequisite remain in effect.
+
 ## Calendar candidate review accepted; preparation-only boundary — 2026-10-14
 
 Owner confirmed dedicated Windows service account is not prepared and directed review/release preparation first. Accepted product7526e86 includes complete-current AFC target-set revalidation under locks and category context before permanent-delete confirmation. Separate reviewed governance protects immutable7526e86 with74 static/73 API runtime paths (76 API protected inputs), no exceptions or removed paths; deployment assertion9202ad0 follows that same anchor. Candidate CI and synthetic SQL/rollback acceptance are complete. Dedicated least-privilege runtime identity, restricted recovery storage, fresh live preview and explicit future release/source authorizations remain mandatory; no db_owner exception is authorized for this expansion. Formula-row quarantine vs workbook rejection and Reset defaults remain disclosed deferred minors. Task7 is not complete until release/source operation acceptance; retain workspace/rulings.

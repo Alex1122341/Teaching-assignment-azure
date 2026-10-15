@@ -77,24 +77,56 @@ CREATE PROCEDURE paws_api.ListSchedulingTasks @ActorFirebaseUid nvarchar(128),@Q
 AS
 BEGIN
  SET NOCOUNT ON;
- DECLARE @Role nvarchar(128),@Faculty uniqueidentifier,@Year nvarchar(32);
+ DECLARE @Role nvarchar(128),@Faculty uniqueidentifier,@Year nvarchar(32),@Start date,@End date,@Undated nvarchar(8),@Type nvarchar(40),@Status nvarchar(16),@Course nvarchar(32),@FacultyKey uniqueidentifier,@Limit int,@Cursor nvarchar(512),@Offset int=0;
  SELECT @Role=LOWER(LTRIM(RTRIM(BaseRole))),@Faculty=FacultyId FROM paws.UserProfile WHERE FirebaseUid=@ActorFirebaseUid AND Active=1 AND MustChangePassword=0;
  IF @Role IS NULL OR @Role NOT IN(N'owner',N'administrator',N'admin',N'adfa_general',N'adfa_regular',N'developer',N'adc',N'lab',N'faculty',N'hicc',N'visc')
   OR (@Role IN(N'faculty',N'hicc',N'visc') AND @Faculty IS NULL) THROW 54303,'Scheduling task access denied.',1;
- IF ISJSON(@QueryJson)<>1 THROW 54301,'Invalid scheduling task query.',1;
+ IF ISJSON(@QueryJson)<>1 OR LEFT(LTRIM(@QueryJson),1)<>N'{' THROW 54301,'Invalid scheduling task query.',1;
+ IF EXISTS(SELECT 1 FROM OPENJSON(@QueryJson) WHERE [key] NOT IN(N'academicYear',N'start',N'end',N'undated',N'facultyKey',N'courseCode',N'type',N'reviewStatus',N'cursor',N'limit') OR type NOT IN(1,2))
+  OR EXISTS(SELECT [key] FROM OPENJSON(@QueryJson) GROUP BY [key] HAVING COUNT(*)>1) THROW 54301,'Invalid scheduling task fields.',1;
  SET @Year=JSON_VALUE(@QueryJson,'$.academicYear');
- IF @Year IS NULL OR LEN(LTRIM(RTRIM(@Year)))=0 THROW 54301,'Academic year is required.',1;
- SELECT i.* INTO #Issues FROM paws_api.SchedulingTaskIssues(@Year) i
+ IF @Year IS NULL OR LEN(LTRIM(RTRIM(@Year)))=0 OR LEN(JSON_VALUE(@QueryJson,'$.academicYear'))>32 THROW 54301,'Academic year is required.',1;
+ SELECT @Start=TRY_CONVERT(date,JSON_VALUE(@QueryJson,'$.start'),23),@End=TRY_CONVERT(date,JSON_VALUE(@QueryJson,'$.end'),23),
+ @Undated=COALESCE(JSON_VALUE(@QueryJson,'$.undated'),N'include'),@Type=JSON_VALUE(@QueryJson,'$.type'),@Status=JSON_VALUE(@QueryJson,'$.reviewStatus'),
+ @Course=JSON_VALUE(@QueryJson,'$.courseCode'),@FacultyKey=TRY_CONVERT(uniqueidentifier,JSON_VALUE(@QueryJson,'$.facultyKey')),
+ @Limit=COALESCE(TRY_CONVERT(int,JSON_VALUE(@QueryJson,'$.limit')),50),@Cursor=JSON_VALUE(@QueryJson,'$.cursor');
+ IF (@Start IS NULL AND JSON_VALUE(@QueryJson,'$.start') IS NOT NULL) OR (@End IS NULL AND JSON_VALUE(@QueryJson,'$.end') IS NOT NULL)
+ OR (@Start IS NULL AND @End IS NOT NULL) OR (@Start IS NOT NULL AND @End IS NULL) OR @Start>=@End OR DATEDIFF(day,@Start,@End)>550
+ OR (@Start IS NOT NULL AND (CONVERT(char(10),@Start,23)<>JSON_VALUE(@QueryJson,'$.start') OR CONVERT(char(10),@End,23)<>JSON_VALUE(@QueryJson,'$.end')))
+ OR @Undated NOT IN(N'include',N'only',N'exclude') OR @Limit NOT BETWEEN 1 AND 100
+ OR (JSON_VALUE(@QueryJson,'$.limit') IS NOT NULL AND TRY_CONVERT(int,JSON_VALUE(@QueryJson,'$.limit')) IS NULL)
+ OR (JSON_VALUE(@QueryJson,'$.facultyKey') IS NOT NULL AND @FacultyKey IS NULL)
+ OR LEN(JSON_VALUE(@QueryJson,'$.courseCode'))>32 OR LEN(JSON_VALUE(@QueryJson,'$.type'))>40 OR LEN(JSON_VALUE(@QueryJson,'$.reviewStatus'))>16
+ OR (@Type IS NOT NULL AND @Type NOT IN(N'instructor_overlap',N'afc_unavailable',N'duplicate_assignment',N'duplicate_session_assignment',N'invalid_schedule',N'missing_schedule',N'calendar_activity_overlap',N'calendar_time_unknown'))
+ OR (@Status IS NOT NULL AND @Status NOT IN(N'Unreviewed',N'Reviewed')) THROW 54301,'Invalid scheduling task filters.',1;
+ SELECT i.*,c.CandidateKey FacultyKey,COALESCE(f.DisplayName,N'Not provided') DisplayName,s.CourseCode,s.SessionDate,s.StartTime,s.EndTime,
+ CONVERT(nvarchar(16),N'Unreviewed') ReviewStatus,CONVERT(varchar(16),'0000000000000000') ReviewVersion
+ INTO #Issues FROM paws_api.SchedulingTaskIssues(@Year) i JOIN paws.Session s ON s.SessionId=i.SessionId
+ LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId LEFT JOIN paws.SwapCandidate c ON c.FacultyId=i.FacultyId
  WHERE @Role NOT IN(N'faculty',N'hicc',N'visc') OR i.FacultyId=@Faculty;
- SELECT (SELECT (SELECT COUNT(*) FROM #Issues) total,
- JSON_QUERY((SELECT i.IssueKey issueKey,c.CandidateKey facultyKey,f.DisplayName displayName,s.CourseCode courseCode,
-  i.SessionId sessionId,s.SessionDate date,CONVERT(char(5),s.StartTime,108) startTime,CONVERT(char(5),s.EndTime,108) endTime,
-  i.IssueType type,i.Severity severity,N'Unreviewed' reviewStatus,i.EvidenceVersion evidenceVersion,'0000000000000000' reviewVersion,
-  CAST(0 AS bit) canReview,
+ DECLARE @Years nvarchar(max)=(SELECT DISTINCT s.AcademicYear academicYear FROM paws.Session s WHERE @Role NOT IN(N'faculty',N'hicc',N'visc') OR EXISTS(SELECT 1 FROM paws.SessionAssignment a WHERE a.SessionId=s.SessionId AND a.FacultyId=@Faculty) ORDER BY s.AcademicYear DESC FOR JSON PATH);
+ DECLARE @Snapshot varchar(64)=CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),CONCAT(@ActorFirebaseUid,N'|',@Role,N'|',@Faculty,N'|',@Year,N'|',@Start,N'|',@End,N'|',@Undated,N'|',@Type,N'|',@Status,N'|',@Course,N'|',@FacultyKey,N'|',@Limit,N'|',@Years,N'|',(SELECT * FROM #Issues ORDER BY IssueKey FOR JSON PATH,INCLUDE_NULL_VALUES)))),2);
+ IF @Cursor IS NOT NULL
+ BEGIN
+  SET @Offset=TRY_CONVERT(int,SUBSTRING(@Cursor,66,20));
+  IF LEFT(@Cursor,65)<>@Snapshot+':' OR @Offset IS NULL OR @Offset<1 OR LEN(@Cursor)>85 THROW 54310,'Scheduling tasks changed; refresh the queue.',1;
+ END;
+ SELECT *,ROW_NUMBER() OVER(ORDER BY CASE Severity WHEN N'Conflict' THEN 0 ELSE 1 END,SessionDate,IssueKey) Position INTO #Filtered FROM #Issues
+ WHERE (@FacultyKey IS NULL OR FacultyKey=@FacultyKey) AND (@Course IS NULL OR CourseCode=@Course) AND (@Type IS NULL OR IssueType=@Type) AND (@Status IS NULL OR ReviewStatus=@Status)
+ AND ((SessionDate IS NULL AND @Undated<>N'exclude') OR (SessionDate IS NOT NULL AND @Undated<>N'only' AND (@Start IS NULL OR SessionDate>=@Start AND SessionDate<@End)));
+ DECLARE @Total int=(SELECT COUNT(*) FROM #Filtered);
+ IF @Cursor IS NOT NULL AND @Offset>=@Total THROW 54310,'Scheduling tasks changed; refresh the queue.',1;
+ SELECT (SELECT @Total total,@Snapshot snapshotVersion,
+ CASE WHEN @Offset+@Limit<@Total THEN CONCAT(@Snapshot,':',@Offset+@Limit) END nextCursor,
+ JSON_QUERY(@Years) academicYears,JSON_QUERY(N'{"canReview":false}') capabilities,
+ JSON_QUERY((SELECT JSON_QUERY((SELECT DISTINCT FacultyKey facultyKey,DisplayName displayName FROM #Issues WHERE FacultyKey IS NOT NULL FOR JSON PATH)) faculty,
+ JSON_QUERY((SELECT DISTINCT CourseCode courseCode FROM #Issues WHERE CourseCode IS NOT NULL FOR JSON PATH)) courses FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)) filters,
+ JSON_QUERY((SELECT i.IssueKey issueKey,i.FacultyKey facultyKey,i.DisplayName displayName,i.CourseCode courseCode,
+  i.SessionId sessionId,i.SessionDate date,CONVERT(char(5),i.StartTime,108) startTime,CONVERT(char(5),i.EndTime,108) endTime,
+  i.IssueType type,i.Severity severity,i.ReviewStatus reviewStatus,i.EvidenceVersion evidenceVersion,i.ReviewVersion reviewVersion,CAST(0 AS bit) canReview,
   JSON_QUERY((SELECT t.SessionId id,t.CourseCode courseCode,t.SessionDate date,CONVERT(char(5),t.StartTime,108) startTime,CONVERT(char(5),t.EndTime,108) endTime
    FROM paws.Session t WHERE t.SessionId=i.RelatedSessionId FOR JSON PATH,INCLUDE_NULL_VALUES)) relatedSessions
- FROM #Issues i JOIN paws.Session s ON s.SessionId=i.SessionId LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId LEFT JOIN paws.SwapCandidate c ON c.FacultyId=i.FacultyId
- ORDER BY s.SessionDate,i.IssueKey FOR JSON PATH,INCLUDE_NULL_VALUES)) tasks
+ FROM #Filtered i WHERE Position>@Offset AND Position<=@Offset+@Limit ORDER BY Position FOR JSON PATH,INCLUDE_NULL_VALUES)) tasks
  FOR JSON PATH,WITHOUT_ARRAY_WRAPPER) responseJson;
 END;
 GO

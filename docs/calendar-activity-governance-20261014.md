@@ -1,4 +1,4 @@
-# Calendar activity freeze promotion — proposed governance
+# Calendar activity freeze promotion — reviewed candidate governance
 
 This candidate changes repository verification authority only. It does not merge, publish, activate University SQL/API changes, bind principals or enable write gates. The owner confirmed that a dedicated Windows service account is not yet prepared and requested review/release preparation first.
 
@@ -20,7 +20,9 @@ The implementation of protected-path union, immutable blob comparison, canonical
 
 ## Review and validation gate
 
-An independent review of this separate governance diff is required before accepting the promotion. Complete root/server/emulator CI and repository/artifact freeze checks must pass for the final branch head. Local Firestore emulator execution is unavailable because Java is absent; the Beta CI workflow provisions Java21 and runs that suite. Local Chrome used the real demo Auth emulator and synthetic repository/parser/hash fixtures; real SQL/source evidence is separate.
+Independent fresh-context review of fd50c2c..9f4290d found no actionable issue; all74 immutable Git-blob hashes and unchanged protection semantics were checked, with11/11 focused governance/attack checks passed. CI then exposed one omitted current-anchor assertion in tests/azure-deployment.test.js. Commit9202ad0 corrects only that expectation after observed RED; the full deployment suite passed14/14. This is accepted candidate verification governance, not live trust-anchor activation.
+
+Complete root/server/emulator CI and repository/artifact freeze checks must pass for the final branch head. Local Firestore emulator execution is unavailable because Java is absent; the Beta CI workflow provisions Java21 and runs that suite. Local Chrome used the real demo Auth emulator and synthetic repository/parser/hash fixtures; real SQL/source evidence is separate. See calendar-activity-review-20261014.md for the product review, fix-pass evidence, deferred minors and complete executor rulings.
 
 Two product review minors remain disclosed: formula cells are quarantined rather than rejecting the whole workbook before stage, and Reset does not restore the two new activity filters. No formula row can become an activity, the current approved workbook has no A–D formulas, and the fixed SHA rejects edited variants. The specific formula-before-stage Review Focus is not claimed to pass. Range-aware export and a graphical time-evidence editor remain outside this approved UI task; the authenticated evidence API remains gated.
 

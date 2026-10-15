@@ -169,6 +169,12 @@
 
     return Object.freeze({
       swapCapabilities:()=>request('/api/v1/swaps/capabilities'),
+      async swapFacultyPreview({sessionId,assignmentId,candidateKey,snapshotToken}={}){
+        const query=new URLSearchParams({sessionId:String(sessionId||''),assignmentId:String(assignmentId||''),snapshotToken:String(snapshotToken||'')});
+        if(candidateKey)query.set('candidateKey',String(candidateKey));
+        const body=await request('/api/v1/swaps/faculty-preview?'+query.toString());
+        return body.preview&&typeof body.preview==='object'&&!Array.isArray(body.preview)?body.preview:{};
+      },
       swapContext(sessionId){
         const id=String(sessionId??'').trim();if(!id)throw new Error('sessionId is required.');
         return request('/api/v1/swaps/context?'+new URLSearchParams({sessionId:id}));

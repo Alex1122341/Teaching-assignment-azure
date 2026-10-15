@@ -63,6 +63,7 @@
   "user-management.js",
   "faculty-name.js",
   "swap-workflow-sql.js",
+  "adfa-swap-panel.js",
   "swap-workflow-sql.css",
   "developer-support.js",
   "workspace-tasks.js",

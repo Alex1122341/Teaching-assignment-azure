@@ -41,6 +41,9 @@ jobs:
       - name: Rehearse guarded rollback in a fresh synthetic database
         shell: pwsh
         run: ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-sql-test -Through 041 -CheckRollback
+      - name: Check ADFA read-only SWAP preview and rollback
+        shell: pwsh
+        run: ./tools/test-adfa-swap-sql.ps1 -ContainerName paws-calendar-sql-test
       - name: Stop synthetic container
         if: always()
         shell: pwsh

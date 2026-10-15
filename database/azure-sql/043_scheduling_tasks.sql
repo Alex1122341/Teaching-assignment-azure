@@ -10,6 +10,9 @@ IF OBJECT_ID(N'paws_api.SchedulingTaskIssues') IS NOT NULL OR OBJECT_ID(N'paws_a
  THROW 54300,'Inspect existing scheduling task objects before applying.',1;
 IF EXISTS(SELECT 1 FROM sys.columns WHERE object_id IN(OBJECT_ID(N'paws.Session'),OBJECT_ID(N'paws.SessionAssignment')) AND system_type_id=189)
  THROW 54300,'Inspect existing scheduling source versions before applying.',1;
+IF EXISTS(SELECT 1 FROM sys.schemas WHERE name IN(N'paws',N'paws_api') AND USER_NAME(principal_id)<>N'dbo')
+ OR EXISTS(SELECT 1 FROM sys.objects WHERE object_id IN(OBJECT_ID(N'paws.Session'),OBJECT_ID(N'paws.SessionAssignment'),OBJECT_ID(N'paws.UserProfile'),OBJECT_ID(N'paws.AuditEvent'),OBJECT_ID(N'paws.Faculty'),OBJECT_ID(N'paws.AfcRecord'),OBJECT_ID(N'paws.AfcManualRecord'),OBJECT_ID(N'paws.CalendarActivity'),OBJECT_ID(N'paws.CalendarActivityDayTime')) AND principal_id IS NOT NULL AND USER_NAME(principal_id)<>N'dbo')
+ THROW 54300,'Scheduling tasks require the existing dbo ownership chain.',1;
 BEGIN TRANSACTION;
 ALTER TABLE paws.Session ADD SchedulingVersion rowversion NOT NULL;
 ALTER TABLE paws.SessionAssignment ADD SchedulingVersion rowversion NOT NULL;

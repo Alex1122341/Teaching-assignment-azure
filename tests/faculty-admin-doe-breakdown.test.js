@@ -50,7 +50,7 @@ test('Research and Service credit cannot enter classified Assigned Teaching DOE'
     other('service_admin','Service',10)
   ],totals:{rawSupervisionDoe:0,appliedSupervisionDoe:0,assignedTeachingDoe:25.6}});
   assert.equal(data.without,0.6);
-  assert.equal(data.withTrainees,0.6);
+  assert.equal(data.withTrainees,null);
   assert.equal(data.excluded.length,2);
   assert.equal(data.legacyTotal,25.6);
 });

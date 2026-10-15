@@ -132,7 +132,7 @@
   const without=allMapped?Number(teachingRows.reduce((sum,row)=>sum+row.amount,0).toFixed(6)):null;
   const applied=finite(worksheet?.totals?.appliedSupervisionDoe);
   const supervisionUnresolved=ordered[ordered.length-1].items.some(row=>row.needsReview);
-  const withTrainees=allMapped&&!supervisionUnresolved&&applied!==null?Number((without+applied).toFixed(6)):null;
+  const withTrainees=allMapped&&excluded.length===0&&!supervisionUnresolved&&applied!==null?Number((without+applied).toFixed(6)):null;
   return {groups:ordered,without,rawSupervision:finite(worksheet?.totals?.rawSupervisionDoe),appliedSupervision:applied,withTrainees,unclassified,excluded,legacyTotal:finite(worksheet?.totals?.assignedTeachingDoe),status:worksheet?.status};
 }
     function renderLookupBreakdown(worksheet) {
@@ -147,7 +147,7 @@
   const body=breakdown.groups.map(group=>`<tbody class="doe-excel-rows"><tr class="doe-excel-heading"><th colspan="3">${esc(group.title)}</th></tr>${group.items.map(item=>`<tr><td>${esc(item.label)}</td><td>${esc(quantity(item))}</td><td>${item.rows===0?'—':item.needsReview?'Needs Review':esc(pct(item.amount))}</td></tr>`).join('')}</tbody>`).join('');
   const warnings=[
     breakdown.unclassified.length?`${breakdown.unclassified.length} DOE source line(s) cannot be safely classified as Teaching. These records remain in the existing Worksheet and are not silently added to this breakdown.`:'',
-    breakdown.excluded.length?`${breakdown.excluded.length} source line(s) are explicitly Non-Teaching and excluded from this Teaching breakdown.`:'',
+    breakdown.excluded.length?`${breakdown.excluded.length} source line(s) are explicitly Non-Teaching. Teaching-only Total + Trainees is held for review because the existing server reserve may include these sources.`:'',
     breakdown.rawSupervision===null?'Confirmed raw supervision evidence is unavailable.':'',
     breakdown.without===null?'Total Without Trainees cannot be finalized until every applicable Teaching source is classified and resolved.':'',
     breakdown.status!=='calculated'?'The source Worksheet is not fully calculated; use its Needs Review details above.':''

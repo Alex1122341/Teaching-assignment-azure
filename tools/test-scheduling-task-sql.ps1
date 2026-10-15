@@ -10,7 +10,19 @@ Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sq
 if($CheckRollback){
  $rollbackPath=Join-Path $repoPath 'database/azure-sql/rollback_043_scheduling_tasks.sql'
  if(-not(Test-Path -LiteralPath $rollbackPath)){throw 'SCHEDULING_TASK_ROLLBACK_MISSING'}
- Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/043_scheduling_tasks_rollback_acceptance.sql') -Raw) 'VetMed-Ops'
+ $rollbackText=(Get-Content -LiteralPath $rollbackPath -Raw).Replace("`r`n","`n")
+ $rollbackText=[regex]::Replace($rollbackText,'(?m)^:[^\r\n]+\r?\n','')
+ $guardBatch=($rollbackText -split '(?m)^GO[ \t]*$')[0]
+ $guardLiteral=$guardBatch.Replace("'","''")
+ $guardTest="DECLARE @Rejected bit=0;BEGIN TRY EXEC(N'$guardLiteral');END TRY BEGIN CATCH DECLARE @Error int=ERROR_NUMBER();IF XACT_STATE()<>0 ROLLBACK;IF @Error=54308 SET @Rejected=1;ELSE THROW;END CATCH;IF XACT_STATE()<>0 ROLLBACK;IF @Rejected=0 THROW 54390,'Unsafe rollback was accepted.',1;"
+ Invoke-TestSql "INSERT paws.AuditEvent(AuditEventId,EventType,EntityType,EntityId,OccurredAtUtc) VALUES(NEWID(),N'SchedulingTaskReviewed',N'SchedulingTask',N'synthetic-rollback',SYSUTCDATETIME());" 'VetMed-Ops'
+ Invoke-TestSql $guardTest 'VetMed-Ops'
+ Invoke-TestSql "DELETE paws.AuditEvent WHERE EventType=N'SchedulingTaskReviewed' AND EntityId=N'synthetic-rollback';CREATE USER task_rollback_bound WITHOUT LOGIN;ALTER ROLE paws_scheduling_task_review ADD MEMBER task_rollback_bound;" 'VetMed-Ops'
+ Invoke-TestSql $guardTest 'VetMed-Ops'
+ Invoke-TestSql 'ALTER ROLE paws_scheduling_task_review DROP MEMBER task_rollback_bound;DROP USER task_rollback_bound;' 'VetMed-Ops'
+ Invoke-TestSql "INSERT paws.SchedulingTaskReview(IssueKey,EvidenceVersion,ReviewStatus,ActorFirebaseUid) VALUES(REPLICATE('A',64),REPLICATE('B',64),N'Reviewed',N'synthetic-rollback');" 'VetMed-Ops'
+ Invoke-TestSql $guardTest 'VetMed-Ops'
+ Invoke-TestSql "DELETE paws.SchedulingTaskReview WHERE ActorFirebaseUid=N'synthetic-rollback';" 'VetMed-Ops'
  Invoke-TestSql (Get-Content -LiteralPath $rollbackPath -Raw) 'VetMed-Ops'
  Invoke-TestSql "IF OBJECT_ID(N'paws_api.SchedulingTaskIssues') IS NOT NULL OR OBJECT_ID(N'paws_api.ListSchedulingTasks') IS NOT NULL OR COL_LENGTH(N'paws.Session',N'SchedulingVersion') IS NOT NULL OR COL_LENGTH(N'paws.SessionAssignment',N'SchedulingVersion') IS NOT NULL THROW 54390,'Rollback left scheduling objects.',1;PRINT 'SCHEDULING_TASK_ROLLBACK_OK';" 'VetMed-Ops'
 }

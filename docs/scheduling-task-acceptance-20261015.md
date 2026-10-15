@@ -1,8 +1,8 @@
 # Scheduling Tasks acceptance — 2026-10-15
 
-Status: product review fixes verified; separate freeze governance and final CI/artifact acceptance in progress. No merge, live SQL/data change, role/gate change or deployment has occurred.
+Status: **candidate acceptance complete** at governance commit `a356df195c10f0b5464dfaceed2125985f40b8a1`, protecting product `a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca`. No merge, live SQL/data change, role/gate change or deployment has occurred. This document records the tested candidate; subsequent documentation-only checkpoints do not change its runtime/artifact identity.
 
-The independent governance review was interrupted by an explicit workspace-credit error before a final report. The local promotion draft has not been committed or pushed. Do not infer acceptance from the reviewer's preliminary message.
+An initial independent-governance attempt stopped with a workspace-credit error. One retry succeeded and returned Ready with no findings; no billing/model/auth changes were needed. The separately reviewed governance promotion is committed and pushed. Preliminary progress was never used as approval.
 
 ## Independent review and correction
 
@@ -26,9 +26,28 @@ Fresh reviewer reviewed b53c23e1621c6a98c2d9b4c62198fdefdebeaf0f..277a51c05cd467
 - Final sequential local `npm test` with the proposed uncommitted governance draft:860 total,821pass,39 explicit emulator/browser-lane skips,0fail (225.5s). A prior overlapping manual build caused ENOTEMPTY in the existing shared artifact test; sequential execution passes without source changes. This local result is not exact-head remote/emulator CI.
 - After all tests finished, `node tools/build-static.js` and `node tools/build-beta-release.js` succeeded. Static repository/artifact freezes75/75; API repository/artifact freezes76 runtime/79 protected paths; zero drift against product a3dd9ca. Canonical local inventory153 files:76 app (75 manifest+host config),77 API (76 runtime+inventory). No private/workbook/test/recovery paths. Combined local normalized-path content SHA256 `71d64b84d8a0a9a7294a1b9c01b0601c071bb9f2b638d3fd5782916f8cb8cde6`; this is not a downloaded CI archive digest.
 
-## Remaining acceptance checks
+## Exact-candidate CI and downloaded artifact
 
-- Separate independent governance review of shared immutable product anchor,75 static files,76 API runtime/79 protected paths, exact deltas and unchanged attack/inventory checks.
-- Final full root, server, Auth/Firestore emulator, synthetic SQL and container-build CI at exact candidate head. Java is unavailable locally; emulator acceptance remains in CI after reviewed governance is pushed.
-- Canonical generated candidate and downloaded exact-head CI artifact digest/inventory/static+API freezes. Run artifact verification after test suites finish because existing tests create/remove the same generated output directory.
-- Release readiness remains conditional on dedicated least-privilege University identity and explicit merge/migration/activation/deployment authorization. Production-scale performance remains unmeasured.
+- Separate independent governance review Ready: all75 reporting hashes including binary PDF bytes, exact product anchor/deltas,75 static/79 API protected paths, immutable ADFA/Calendar history and unchanged safeguards checked; four targeted assertions pass.
+- [Beta Build38806801078](https://github.com/Alex1122341/Teaching-assignment-azure/actions/runs/38806801078), job116669635199, at exact candidate a356df1: SUCCESS. Root860/821pass/39 explicit emulator/browser skips; Linux server613/609pass/4 explicit platform/SQL-lane skips; Auth/Firestore emulator860/853pass/7 browser-lane skips; governance58/58; zero failures. Seven actual Chrome workflows separately passed, along with two shipped-adapter tests. Windows-only protected-export ACL test passes in the local Windows server suite; Linux deliberately skips it. Container build (no push), canonical artifact build and all repository/artifact freezes pass.
+- [SQL38806807330](https://github.com/Alex1122341/Teaching-assignment-azure/actions/runs/38806807330), job116669655948, at the same a356df1: SUCCESS, including all detection/review/recreation/Undo/privacy tests, seven observed lock waits, guarded rollback and prior Calendar/ADFA acceptance. Earlier migration-only tests38771955173 at the identical product SQL passed;043 was unchanged by governance.
+- Downloaded artifact12006518723, name azure-beta-a356df195c10f0b5464dfaceed2125985f40b8a1, expires2026-10-22T21:06:12Z. Actual ZIP SHA256 matches GitHub metadata: `2a02c0989b1954750ac428843496b1ecb19c4d0671468660c3cf5275bfbf703d`. Extracted static and API freezes pass against accepted Git blobs. Exact153-file inventory (app76/API77), source allowlist and secret/private/test/recovery/workbook exclusion checks pass. This archive digest is distinct from the local combined-content digest above.
+
+## Live-release prerequisites
+
+Dedicated least-privilege University identity and explicit merge/migration/activation/deployment authorization remain outstanding. Production-scale performance is unmeasured. Candidate acceptance does not authorize any of these actions. Keep draft PR100 stacked on99/98; the next development task may proceed independently.
+
+## Implementation decisions and limits
+
+1. Local Docker was absent, so actual SQL acceptance ran in the existing labeled CI container and its workflow step was introduced early. Cost: CI latency; no school database was substituted.
+2. The earlier Calendar workspace's installed Node22 was reused read-only. Cost: retain that tooling path; its plan artifacts remain unchanged.
+3. Guarded043 rollback acceptance moved into the durable-review slice because that store is what it protects. Cost: the first SQL slice alone was not complete rollback acceptance.
+4. API implementation began after real SQL contract acceptance while remote race/rollback verification continued. Cost: subsequent SQL contract findings could require API changes; one native implementer and full integration gates remained.
+5. Unreliable test context_info signaling was replaced by the existing application-lock readiness plus labeled-connection/DMV wait pattern. Cost: synthetic harness depends on those test-only facilities; no product timing shortcut.
+6. The existing timetable adapter gained an internal identity callback. Cost: caller must provide current identity to discard old-account filters/results; UID is not rendered or included in task DTOs.
+7. Service identity, live migration/release and gate/permission activation remain separate prerequisites. Cost: accepted code waits for the dedicated identity and directed release; no db_owner exception.
+8. Synthetic correctness/lock waits do not prove production-scale performance. Cost: production contention and latency remain unmeasured.
+9. Arbitrary privileged deletion/reinsertion of Calendar timing rows is outside supported commands; supported resolution advances ActivityVersion. Cost: direct repair needs separate evidence-reset review.
+10. Independent governance review covers the anchor/protection delta; full product behavior, suites, remote artifacts and release readiness have separate evidence. Cost: a Ready governance report alone cannot establish feature or deployment acceptance.
+
+No deferred Minor findings were reported. Four Important product findings were reproduced and fixed; both independent reviews and the author's final verification evidence are recorded above.

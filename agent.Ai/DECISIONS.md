@@ -1,5 +1,9 @@
 # PAWS Locked Decisions
 
+## Task02 candidate accepted and continuation — 2026-10-15
+
+Independent freeze review resumed successfully on one retry, with no account/billing/model/auth changes, and returned Ready without findings. Separate governance a356df1 protects product a3dd9ca; exact-candidate full Build38806801078/SQL38806807330 and downloaded artifact12006518723 accepted. PR100 remains draft/stacked/unmerged. Continue Task03 selected course/session schedule export using existing authorized reads/selection/CSV flow, preserving disabled batch edits, privacy projection and formula safety; no implementation before its bounded design approval. Dedicated runtime identity and directed release authorization remain separate prerequisites.
+
 ## Scheduling review recreation and governance hold — 2026-10-15
 
 Owner approved a targeted amendment to the Task02 no-trigger plan: one transaction-bound SessionAssignment trigger maintains only retained assignment-version metadata. It covers empty→assigned→empty, unresolved changes and supported Undo, without changing business fields, DOE, grants or the support-capture registry. Product a3dd9ca passed actual SQL38771955259, browser/real-adapter9/9 and server610pass/3environment skips after four independent Important findings were reproduced and fixed. Separate immutable-freeze review failed on workspace credits before a final report; its preliminary progress is not acceptance. Keep the local governance promotion uncommitted until independent review completes. No new merge/live operation authorization.

@@ -56,7 +56,7 @@
         const preview=await read(key);if(!valid(token)||pick!==selectionVersion)return false;
         rows.set(key,{preview});
         if(!['Available','Unavailable'].includes(preview.availability?.status)){clearSelection();render();return false;}
-        selected=key;outgoing=preview;onSelect(key);render();return true;
+        selected=key;outgoing=preview;onSelect(key,preview);render();return true;
       }catch(error){if(valid(token)&&pick===selectionVersion){if([401,403,409].includes(error?.status))failPreview(error);else{rows.set(key,{error});clearSelection();}render();}return false;}
     }
     async function verifySelection(key){if(!key)return true;if(selected!==key)return false;return select(key);}

@@ -37,11 +37,11 @@
     const groups=[{"title":"Lectures & Labs","items":[["lecture","Lectures","hours"],["srl","Self-Regulated Learning","hours"],["lab_primary","Labs (Primary)","hours"],["lab_secondary","Labs (Secondary)","hours"]]},{"title":"Course Coordination","items":[["course_coordinator","Course Coordination","courses"]]},{"title":"DVM HICC Course Development","items":[["hicc","HICC Development","units"]]},{"title":"VISC Coordination","items":[["visc","VISC Subjects","subjects"]]},{"title":"Clinical Rotations","items":[["rotation","Rotation Participant","weeks"],["ccc","Community Care Clinic","shifts"],["rotation_coordination","Designated Clinical Rotation Coordination","types"]]},{"title":"Other Approved Teaching","items":[["early_career","Early Career Development","approved"],["special","Special Activities","approved"]]},{"title":"Trainees & Supervision","items":[["undergrad","Undergraduate Students / Interns","trainees"],["vetm506","Undergraduate VETM 506","trainees"],["im","Undergraduate IM","trainees"],["preceptor","Fourth-Year Preceptor","trainees"],["grad_primary","Graduate Student (Primary)","trainees"],["grad_co","Graduate Student (Co-Supervised)","trainees"],["postdoc","Postdocs","trainees"],["supervision_unknown","Other Recorded Supervision","unavailable"]]}];
     function isReviewLine(line) {
   const status=String(line.status || '').toLowerCase();
-  return line.applicable !== false && (finite(line.resultDoe) === null || ['needs_review','needs-review','error'].includes(status));
+  return line.applicable !== false && (finite(line.resultDoe) === null || line.requiresReview === true || ['needs_review','needs-review','error','stored-calculation-mismatch'].includes(status));
 }
     function categoryForLine(line) {
   const category = String(line.category || '').toLowerCase();
-  if (['research','administration','admin','contract_admin','service','service_admin','clinical_activity_ppvm','clinical_teaching'].includes(category)) return 'non_teaching';
+  if (['research','administration','admin','contract_admin','service','service_admin','clinical_activity_ppvm'].includes(category)) return 'non_teaching';
   if (line.sourceEntityType === 'manual_doe_assignment') return 'unclassified';
   const role = String(line.roleType || '').trim().toLowerCase();
   const activity = String(line.activityType || '').trim().toLowerCase();

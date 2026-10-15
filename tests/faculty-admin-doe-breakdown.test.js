@@ -74,3 +74,12 @@ test('Quantity is unavailable if source fact does not provide it; never invert D
   assert.match(html,/0\.60%/);
   assert.doesNotMatch(html,/2 hrs/);
 });
+
+test('A stored credit with a source discrepancy remains Needs Review rather than completing Excel totals',()=>{
+  const view=worksheetView();
+  const suspect={...teaching('LEC','Lecture',2,0.6),status:'stored-calculation-mismatch',requiresReview:true};
+  const data=view.buildLookupBreakdown({status:'needs_review',lines:[suspect],
+    totals:{rawSupervisionDoe:0,appliedSupervisionDoe:0,assignedTeachingDoe:null}});
+  assert.equal(data.without,null);
+  assert.equal(data.withTrainees,null);
+});

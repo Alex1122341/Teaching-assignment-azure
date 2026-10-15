@@ -7,6 +7,9 @@ function createSqlSwapRepository(db){
     return body;
   };
   return Object.freeze({
+    facultyPreviewContext:({actorFirebaseUid,sessionId,assignmentId,candidateKey,snapshotToken})=>exec('GetAdfaSwapFacultyPreview',{
+      ActorFirebaseUid:actorFirebaseUid,SessionId:sessionId,AssignmentId:assignmentId,CandidateKey:candidateKey||null,ExpectedSnapshot:snapshotToken
+    }),
     async context({actorFirebaseUid,sessionId}){
       const body=await exec('GetSessionSwapContext',{ActorFirebaseUid:actorFirebaseUid,SessionId:sessionId});
       if(body&&Array.isArray(body.candidates))body.candidates=body.candidates.map(candidate=>{

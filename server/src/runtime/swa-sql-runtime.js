@@ -128,13 +128,14 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const doeTargetOverrideRepository = createSqlDoeTargetOverrideRepository(db);
   const doePolicyRepository = createSqlDoePolicyRepository(db);
   const doePolicyService = createDoePolicyService({ repository: { ...doeRepository, ...doePolicyRepository }, calculationService: doeCalculationService });
+  const doeWorkflowPreviewService=createDoeWorkflowPreviewService({repository:{...sessions,...doeAssignmentRepository},worksheetService:doeWorksheetService,calculationService:doeCalculationService});
   const doeRoutes = createDoeFunctions({ api: createDoeApi({
     verifyToken: verify,
     findUser: users.findByUid,
     repository: { ...doeRepository, ...doePolicyRepository },
     calculationService: doeCalculationService,
     worksheetService: doeWorksheetService,
-    workflowPreviewService: createDoeWorkflowPreviewService({ repository: { ...sessions, ...doeAssignmentRepository }, worksheetService: doeWorksheetService, calculationService: doeCalculationService }),
+    workflowPreviewService: doeWorkflowPreviewService,
     assignmentService: createDoeAssignmentService({ repository: doeAssignmentRepository, calculationService: doeCalculationService }),
     manualAssignmentService: createManualDoeService({ repository: createSqlManualDoeRepository(db) }),
     targetOverrideService: createDoeTargetOverrideService({ repository: doeTargetOverrideRepository }),
@@ -142,7 +143,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     writeGates
   }) });
   const swapRoutes = createSwapFunctions({api:createSwapApi({
-    verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),writeGates
+    verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),workflowPreviewService:doeWorkflowPreviewService,worksheetService:doeWorksheetService,writeGates
   })});
   const calendarActivityRoutes=createCalendarActivityFunctions({api:createCalendarActivityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCalendarActivityRepository(db),writeGates})});
   const route = async request => {

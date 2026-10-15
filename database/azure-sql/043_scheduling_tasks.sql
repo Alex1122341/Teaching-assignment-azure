@@ -17,23 +17,61 @@ GO
 CREATE FUNCTION paws_api.SchedulingTaskIssues(@AcademicYear nvarchar(32))
 RETURNS TABLE AS RETURN
 WITH assigned AS (
- SELECT a.SessionId,a.FacultyId,
+ SELECT a.SessionId,a.FacultyId,COUNT(*) AssignmentCount,
   STRING_AGG(CONVERT(nvarchar(max),CONCAT(a.SessionAssignmentId,N':',CONVERT(varchar(16),a.SchedulingVersion,2))),N'|') WITHIN GROUP(ORDER BY a.SessionAssignmentId) AssignmentVersions
  FROM paws.SessionAssignment a WHERE a.FacultyId IS NOT NULL GROUP BY a.SessionId,a.FacultyId
 ), pairs AS (
  SELECT a.FacultyId,s.SessionId,t.SessionId RelatedSessionId,
-  CONVERT(nvarchar(40),N'instructor_overlap') IssueType,
+  CONVERT(nvarchar(40),CASE WHEN s.CourseCode=t.CourseCode AND s.StartTime=t.StartTime AND s.EndTime=t.EndTime AND s.SessionType=t.SessionType
+   AND LOWER(LTRIM(RTRIM(COALESCE(s.Topic,N''))))=LOWER(LTRIM(RTRIM(COALESCE(t.Topic,N'')))) THEN N'duplicate_session_assignment' ELSE N'instructor_overlap' END) IssueType,
   CONVERT(nvarchar(16),N'Conflict') Severity,
   CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',CONVERT(varchar(16),t.SchedulingVersion,2),N'|',a.AssignmentVersions,N'|',b.AssignmentVersions)) Evidence
  FROM assigned a JOIN assigned b ON b.FacultyId=a.FacultyId AND b.SessionId>a.SessionId
  JOIN paws.Session s ON s.SessionId=a.SessionId JOIN paws.Session t ON t.SessionId=b.SessionId
  WHERE s.AcademicYear=@AcademicYear AND t.AcademicYear=@AcademicYear AND s.SessionDate=t.SessionDate
  AND s.StartTime<s.EndTime AND t.StartTime<t.EndTime AND s.StartTime<t.EndTime AND t.StartTime<s.EndTime
+), duplicateAssignments AS (
+ SELECT a.FacultyId,s.SessionId,CAST(NULL AS uniqueidentifier) RelatedSessionId,N'duplicate_assignment' IssueType,N'Conflict' Severity,
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',a.AssignmentVersions)) Evidence
+ FROM assigned a JOIN paws.Session s ON s.SessionId=a.SessionId WHERE s.AcademicYear=@AcademicYear AND a.AssignmentCount>1
+), quality AS (
+ SELECT a.FacultyId,s.SessionId,CAST(NULL AS uniqueidentifier) RelatedSessionId,
+ CASE WHEN s.StartTime IS NOT NULL AND s.EndTime IS NOT NULL AND s.StartTime>=s.EndTime THEN N'invalid_schedule' ELSE N'missing_schedule' END IssueType,N'Needs Review' Severity,
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',a.AssignmentVersions)) Evidence
+ FROM paws.Session s LEFT JOIN assigned a ON a.SessionId=s.SessionId
+ WHERE s.AcademicYear=@AcademicYear AND (s.SessionDate IS NULL OR s.StartTime IS NULL OR s.EndTime IS NULL OR s.StartTime>=s.EndTime OR NULLIF(LTRIM(RTRIM(s.CourseCode)),N'') IS NULL OR a.FacultyId IS NULL)
+ UNION ALL
+ SELECT CAST(NULL AS uniqueidentifier),s.SessionId,CAST(NULL AS uniqueidentifier),N'missing_schedule',N'Needs Review',
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(a.SessionAssignmentId,N':',CONVERT(varchar(16),a.SchedulingVersion,2))),N'|') WITHIN GROUP(ORDER BY a.SessionAssignmentId)))
+ FROM paws.Session s JOIN paws.SessionAssignment a ON a.SessionId=s.SessionId AND a.FacultyId IS NULL
+ WHERE s.AcademicYear=@AcademicYear AND EXISTS(SELECT 1 FROM assigned own WHERE own.SessionId=s.SessionId)
+ GROUP BY s.SessionId,s.SchedulingVersion
+), absences AS (
+ SELECT AfcRecordId,FacultyId,StartDate,EndDate,CONVERT(varchar(16),AfcVersion,2) SourceVersion,N'import' SourceKind FROM paws.AfcRecord WHERE Active=1
+ UNION ALL
+ SELECT AfcRecordId,FacultyId,StartDate,EndDate,CONVERT(varchar(16),AfcVersion,2),N'manual' FROM paws.AfcManualRecord WHERE Active=1
+), afc AS (
+ SELECT a.FacultyId,s.SessionId,CAST(NULL AS uniqueidentifier) RelatedSessionId,N'afc_unavailable' IssueType,N'Conflict' Severity,
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',a.AssignmentVersions,N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(x.SourceKind,N':',x.AfcRecordId,N':',x.SourceVersion)),N'|') WITHIN GROUP(ORDER BY x.SourceKind,x.AfcRecordId))) Evidence
+ FROM assigned a JOIN paws.Session s ON s.SessionId=a.SessionId JOIN absences x ON x.FacultyId=a.FacultyId AND s.SessionDate BETWEEN x.StartDate AND x.EndDate
+ WHERE s.AcademicYear=@AcademicYear GROUP BY a.FacultyId,s.SessionId,s.SchedulingVersion,a.AssignmentVersions
+), activities AS (
+ SELECT a.FacultyId,s.SessionId,CAST(NULL AS uniqueidentifier) RelatedSessionId,k.IssueType,
+ CASE WHEN k.IssueType=N'calendar_time_unknown' THEN N'Needs Review' ELSE N'Conflict' END Severity,
+ CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),s.SchedulingVersion,2),N'|',a.AssignmentVersions,N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(x.ActivityId,N':',CONVERT(varchar(16),x.ActivityVersion,2),N':',CONVERT(varchar(16),t.TimeVersion,2))),N'|') WITHIN GROUP(ORDER BY x.ActivityId))) Evidence
+ FROM assigned a JOIN paws.Session s ON s.SessionId=a.SessionId
+ JOIN paws.CalendarActivity x ON x.FacultyId=a.FacultyId AND s.SessionDate BETWEEN x.StartDate AND x.EndDate
+ LEFT JOIN paws.CalendarActivityDayTime t ON t.ActivityId=x.ActivityId AND t.ActivityDate=s.SessionDate
+ CROSS APPLY(SELECT CASE WHEN t.ActivityId IS NULL THEN N'calendar_time_unknown' ELSE N'calendar_activity_overlap' END IssueType) k
+ WHERE s.AcademicYear=@AcademicYear AND (t.ActivityId IS NULL OR s.StartTime<s.EndTime AND s.StartTime<t.EndTime AND t.StartTime<s.EndTime)
+ GROUP BY a.FacultyId,s.SessionId,s.SchedulingVersion,a.AssignmentVersions,k.IssueType
+), findings AS (
+ SELECT * FROM pairs UNION ALL SELECT * FROM duplicateAssignments UNION ALL SELECT * FROM quality UNION ALL SELECT * FROM afc UNION ALL SELECT * FROM activities
 )
 SELECT CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),CONCAT(IssueType,N'|',SessionId,N'|',RelatedSessionId,N'|',FacultyId))),2) IssueKey,
  FacultyId,SessionId,RelatedSessionId,IssueType,Severity,
  CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),Evidence)),2) EvidenceVersion
-FROM pairs;
+FROM findings;
 GO
 CREATE PROCEDURE paws_api.ListSchedulingTasks @ActorFirebaseUid nvarchar(128),@QueryJson nvarchar(max)
 AS

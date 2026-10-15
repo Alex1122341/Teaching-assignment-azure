@@ -13,6 +13,12 @@ IF EXISTS(SELECT 1 FROM sys.columns WHERE object_id IN(OBJECT_ID(N'paws.Session'
 BEGIN TRANSACTION;
 ALTER TABLE paws.Session ADD SchedulingVersion rowversion NOT NULL;
 ALTER TABLE paws.SessionAssignment ADD SchedulingVersion rowversion NOT NULL;
+CREATE TABLE paws.SchedulingTaskReview(
+ IssueKey varchar(64) NOT NULL PRIMARY KEY,EvidenceVersion varchar(64) NOT NULL,
+ ReviewStatus nvarchar(16) NOT NULL CHECK(ReviewStatus IN(N'Unreviewed',N'Reviewed')),
+ ActorFirebaseUid nvarchar(128) NOT NULL,UpdatedAtUtc datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
+ ReviewVersion rowversion NOT NULL
+);
 GO
 CREATE FUNCTION paws_api.SchedulingTaskIssues(@AcademicYear nvarchar(32))
 RETURNS TABLE AS RETURN
@@ -100,9 +106,11 @@ BEGIN
  OR (@Type IS NOT NULL AND @Type NOT IN(N'instructor_overlap',N'afc_unavailable',N'duplicate_assignment',N'duplicate_session_assignment',N'invalid_schedule',N'missing_schedule',N'calendar_activity_overlap',N'calendar_time_unknown'))
  OR (@Status IS NOT NULL AND @Status NOT IN(N'Unreviewed',N'Reviewed')) THROW 54301,'Invalid scheduling task filters.',1;
  SELECT i.*,c.CandidateKey FacultyKey,COALESCE(f.DisplayName,N'Not provided') DisplayName,s.CourseCode,s.SessionDate,s.StartTime,s.EndTime,
- CONVERT(nvarchar(16),N'Unreviewed') ReviewStatus,CONVERT(varchar(16),'0000000000000000') ReviewVersion
+ CONVERT(nvarchar(16),CASE WHEN r.EvidenceVersion=i.EvidenceVersion THEN r.ReviewStatus ELSE N'Unreviewed' END) ReviewStatus,
+ COALESCE(CONVERT(varchar(16),r.ReviewVersion,2),'0000000000000000') ReviewVersion
  INTO #Issues FROM paws_api.SchedulingTaskIssues(@Year) i JOIN paws.Session s ON s.SessionId=i.SessionId
  LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId LEFT JOIN paws.SwapCandidate c ON c.FacultyId=i.FacultyId
+ LEFT JOIN paws.SchedulingTaskReview r ON r.IssueKey=i.IssueKey
  WHERE @Role NOT IN(N'faculty',N'hicc',N'visc') OR i.FacultyId=@Faculty;
  DECLARE @Years nvarchar(max)=(SELECT DISTINCT s.AcademicYear academicYear FROM paws.Session s WHERE @Role NOT IN(N'faculty',N'hicc',N'visc') OR EXISTS(SELECT 1 FROM paws.SessionAssignment a WHERE a.SessionId=s.SessionId AND a.FacultyId=@Faculty) ORDER BY s.AcademicYear DESC FOR JSON PATH);
  DECLARE @Snapshot varchar(64)=CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),CONCAT(@ActorFirebaseUid,N'|',@Role,N'|',@Faculty,N'|',@Year,N'|',@Start,N'|',@End,N'|',@Undated,N'|',@Type,N'|',@Status,N'|',@Course,N'|',@FacultyKey,N'|',@Limit,N'|',@Years,N'|',(SELECT * FROM #Issues ORDER BY IssueKey FOR JSON PATH,INCLUDE_NULL_VALUES)))),2);
@@ -118,16 +126,72 @@ BEGIN
  IF @Cursor IS NOT NULL AND @Offset>=@Total THROW 54310,'Scheduling tasks changed; refresh the queue.',1;
  SELECT (SELECT @Total total,@Snapshot snapshotVersion,
  CASE WHEN @Offset+@Limit<@Total THEN CONCAT(@Snapshot,':',@Offset+@Limit) END nextCursor,
- JSON_QUERY(@Years) academicYears,JSON_QUERY(N'{"canReview":false}') capabilities,
+ JSON_QUERY(@Years) academicYears,JSON_QUERY((SELECT CAST(IIF(@Role IN(N'owner',N'administrator',N'admin',N'adfa_general',N'adfa_regular',N'developer'),1,0) AS bit) canReview FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)) capabilities,
  JSON_QUERY((SELECT JSON_QUERY((SELECT DISTINCT FacultyKey facultyKey,DisplayName displayName FROM #Issues WHERE FacultyKey IS NOT NULL FOR JSON PATH)) faculty,
  JSON_QUERY((SELECT DISTINCT CourseCode courseCode FROM #Issues WHERE CourseCode IS NOT NULL FOR JSON PATH)) courses FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)) filters,
  JSON_QUERY((SELECT i.IssueKey issueKey,i.FacultyKey facultyKey,i.DisplayName displayName,i.CourseCode courseCode,
   i.SessionId sessionId,i.SessionDate date,CONVERT(char(5),i.StartTime,108) startTime,CONVERT(char(5),i.EndTime,108) endTime,
-  i.IssueType type,i.Severity severity,i.ReviewStatus reviewStatus,i.EvidenceVersion evidenceVersion,i.ReviewVersion reviewVersion,CAST(0 AS bit) canReview,
+  i.IssueType type,i.Severity severity,i.ReviewStatus reviewStatus,i.EvidenceVersion evidenceVersion,i.ReviewVersion reviewVersion,
+  CAST(IIF(@Role IN(N'owner',N'administrator',N'admin',N'adfa_general',N'adfa_regular',N'developer'),1,0) AS bit) canReview,
   JSON_QUERY((SELECT t.SessionId id,t.CourseCode courseCode,t.SessionDate date,CONVERT(char(5),t.StartTime,108) startTime,CONVERT(char(5),t.EndTime,108) endTime
    FROM paws.Session t WHERE t.SessionId=i.RelatedSessionId FOR JSON PATH,INCLUDE_NULL_VALUES)) relatedSessions
  FROM #Filtered i WHERE Position>@Offset AND Position<=@Offset+@Limit ORDER BY Position FOR JSON PATH,INCLUDE_NULL_VALUES)) tasks
  FOR JSON PATH,WITHOUT_ARRAY_WRAPPER) responseJson;
 END;
+GO
+CREATE PROCEDURE paws_api.ReviewSchedulingTask
+ @ActorFirebaseUid nvarchar(128),@IssueKey varchar(64),@AcademicYear nvarchar(32),
+ @ExpectedEvidenceVersion varchar(64),@ExpectedReviewVersion varchar(16),@ReviewStatus nvarchar(16)
+AS
+BEGIN
+ SET NOCOUNT ON;
+ SET XACT_ABORT ON;
+ DECLARE @Role nvarchar(128),@ActorName nvarchar(260),@CurrentEvidence varchar(64),@CurrentReview varchar(16),@Before nvarchar(16),@Response nvarchar(max),@Locks bigint;
+ BEGIN TRY
+  BEGIN TRANSACTION;
+  SELECT @Role=LOWER(LTRIM(RTRIM(BaseRole))),@ActorName=DisplayName FROM paws.UserProfile WITH(UPDLOCK,HOLDLOCK)
+  WHERE FirebaseUid=@ActorFirebaseUid AND Active=1 AND MustChangePassword=0;
+  IF @Role IS NULL OR @Role NOT IN(N'owner',N'administrator',N'admin',N'adfa_general',N'adfa_regular',N'developer') THROW 54303,'Scheduling review requires administrator permission.',1;
+  IF @ReviewStatus IS NULL OR @ReviewStatus NOT IN(N'Unreviewed',N'Reviewed') OR @IssueKey IS NULL OR LEN(@IssueKey)<>64 OR @AcademicYear IS NULL OR LEN(LTRIM(RTRIM(@AcademicYear)))=0
+   OR @ExpectedEvidenceVersion IS NULL OR LEN(@ExpectedEvidenceVersion)<>64 OR @ExpectedReviewVersion IS NULL OR LEN(@ExpectedReviewVersion)<>16 THROW 54301,'Invalid scheduling review command.',1;
+  -- Protect source ranges including absent rows, not just the finding currently displayed.
+  SELECT @Locks=COUNT_BIG(*) FROM paws.Session WITH(UPDLOCK,HOLDLOCK) WHERE AcademicYear=@AcademicYear;
+  SELECT @Locks=COUNT_BIG(*) FROM paws.SessionAssignment a WITH(UPDLOCK,HOLDLOCK) JOIN paws.Session s ON s.SessionId=a.SessionId WHERE s.AcademicYear=@AcademicYear;
+  SELECT DISTINCT a.FacultyId INTO #Faculty FROM paws.SessionAssignment a JOIN paws.Session s ON s.SessionId=a.SessionId WHERE s.AcademicYear=@AcademicYear AND a.FacultyId IS NOT NULL;
+  SELECT @Locks=COUNT_BIG(*) FROM paws.AfcRecord WITH(UPDLOCK,HOLDLOCK) WHERE FacultyId IN(SELECT FacultyId FROM #Faculty);
+  SELECT @Locks=COUNT_BIG(*) FROM paws.AfcManualRecord WITH(UPDLOCK,HOLDLOCK) WHERE FacultyId IN(SELECT FacultyId FROM #Faculty);
+  SELECT @Locks=COUNT_BIG(*) FROM paws.CalendarActivity WITH(UPDLOCK,HOLDLOCK) WHERE FacultyId IN(SELECT FacultyId FROM #Faculty);
+  SELECT @Locks=COUNT_BIG(*) FROM paws.CalendarActivityDayTime WITH(UPDLOCK,HOLDLOCK) WHERE ActivityId IN(SELECT ActivityId FROM paws.CalendarActivity WHERE FacultyId IN(SELECT FacultyId FROM #Faculty));
+  SELECT * INTO #CurrentIssue FROM paws_api.SchedulingTaskIssues(@AcademicYear) WHERE IssueKey=@IssueKey;
+  SELECT @CurrentEvidence=EvidenceVersion FROM #CurrentIssue;
+  SELECT @CurrentReview=CONVERT(varchar(16),ReviewVersion,2),@Before=ReviewStatus FROM paws.SchedulingTaskReview WITH(UPDLOCK,HOLDLOCK) WHERE IssueKey=@IssueKey;
+  SET @CurrentReview=COALESCE(@CurrentReview,'0000000000000000');
+  IF @CurrentEvidence IS NULL OR @CurrentEvidence<>@ExpectedEvidenceVersion OR @CurrentReview<>@ExpectedReviewVersion THROW 54310,'Scheduling task changed; refresh before reviewing.',1;
+  IF @CurrentReview='0000000000000000'
+   INSERT paws.SchedulingTaskReview(IssueKey,EvidenceVersion,ReviewStatus,ActorFirebaseUid) VALUES(@IssueKey,@CurrentEvidence,@ReviewStatus,@ActorFirebaseUid);
+  ELSE UPDATE paws.SchedulingTaskReview SET EvidenceVersion=@CurrentEvidence,ReviewStatus=@ReviewStatus,ActorFirebaseUid=@ActorFirebaseUid,UpdatedAtUtc=SYSUTCDATETIME() WHERE IssueKey=@IssueKey;
+  INSERT paws.AuditEvent(AuditEventId,EventType,EntityType,EntityId,ActorFirebaseUid,ActorName,OccurredAtUtc,BeforeJson,AfterJson)
+  VALUES(NEWID(),N'SchedulingTaskReviewed',N'SchedulingTask',@IssueKey,@ActorFirebaseUid,@ActorName,SYSUTCDATETIME(),
+   (SELECT @Before reviewStatus FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES),
+   (SELECT @ReviewStatus reviewStatus,@CurrentEvidence evidenceVersion FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
+  SELECT @Response=(SELECT i.IssueKey issueKey,c.CandidateKey facultyKey,COALESCE(f.DisplayName,N'Not provided') displayName,s.CourseCode courseCode,
+   i.SessionId sessionId,s.SessionDate date,CONVERT(char(5),s.StartTime,108) startTime,CONVERT(char(5),s.EndTime,108) endTime,
+   i.IssueType type,i.Severity severity,r.ReviewStatus reviewStatus,i.EvidenceVersion evidenceVersion,CONVERT(varchar(16),r.ReviewVersion,2) reviewVersion,CAST(1 AS bit) canReview,
+   JSON_QUERY((SELECT t.SessionId id,t.CourseCode courseCode,t.SessionDate date,CONVERT(char(5),t.StartTime,108) startTime,CONVERT(char(5),t.EndTime,108) endTime FROM paws.Session t WHERE t.SessionId=i.RelatedSessionId FOR JSON PATH,INCLUDE_NULL_VALUES)) relatedSessions
+   FROM #CurrentIssue i JOIN paws.SchedulingTaskReview r ON r.IssueKey=i.IssueKey JOIN paws.Session s ON s.SessionId=i.SessionId
+   LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId LEFT JOIN paws.SwapCandidate c ON c.FacultyId=i.FacultyId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES);
+  COMMIT;
+  SELECT @Response responseJson;
+ END TRY
+ BEGIN CATCH
+  IF XACT_STATE()<>0 ROLLBACK;
+  THROW;
+ END CATCH;
+END;
+GO
+IF DATABASE_PRINCIPAL_ID(N'paws_scheduling_task_review') IS NOT NULL THROW 54300,'Inspect the existing scheduling review role.',1;
+CREATE ROLE paws_scheduling_task_review AUTHORIZATION dbo;
+GRANT EXECUTE ON OBJECT::paws_api.ListSchedulingTasks TO paws_runtime_read;
+GRANT EXECUTE ON OBJECT::paws_api.ReviewSchedulingTask TO paws_scheduling_task_review;
 GO
 COMMIT;

@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// AFC/LAB is current. P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
+// Calendar activities is current. AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='fb2c625745957fa7d9990033f15a7b1ef91974a5';
+const BASELINE_COMMIT='7526e86f295de062c228fb1ddee2f007706285c2';
+const AFC_LAB_PRODUCT_COMMIT='fb2c625745957fa7d9990033f15a7b1ef91974a5';
 const PREVIOUS_AFC_LAB_BASELINE_COMMIT='277c3cdfb1b9aa4cb9002f686a76a29a73a7f57b';
 const P4_PRODUCT_COMMIT='d62f5406ce1f89813bf928611e551e864ae165fc';
 const DOE_CALCULATOR_BASELINE_COMMIT='1fd064b0a1b2367cb2d3a58d71d6c8856fb1c74a';
@@ -44,8 +45,25 @@ function baselineJson(ref){
 const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:commit,readManifest:()=>baselineJson(commit)});
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
+test('Calendar activity freeze promotion pins the accepted product with no runtime exception',()=>{
+ assert.equal(freeze.BASELINE_COMMIT,'7526e86f295de062c228fb1ddee2f007706285c2');
+ assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
+});
+
+test('Calendar activity freeze promotion preserves AFC LAB coverage and names the exact runtime delta',()=>{
+ const previous='fb2c625745957fa7d9990033f15a7b1ef91974a5',accepted='7526e86f295de062c228fb1ddee2f007706285c2';
+ const before=historicalStaticPaths(previous),after=historicalStaticPaths(accepted),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(accepted);
+ assert.equal(before.length,71);assert.equal(after.length,74);assert.equal(oldApi.length,67);assert.equal(newApi.length,73);
+ assert.deepEqual(before.filter(file=>!after.includes(file)),[]);assert.deepEqual(oldApi.filter(file=>!newApi.includes(file)),[]);
+ assert.deepEqual(after.filter(file=>!before.includes(file)).sort(),['calendar-activities.css','calendar-activities.js','faculty-admin-activity-import.js']);
+ const changed=execFileSync('git',['diff','--name-only',previous,accepted],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+ assert.deepEqual(changed.filter(file=>after.includes(file)).sort(),['calendar-activities.css','calendar-activities.js','faculty-admin-activity-import.js','faculty-admin.html','faculty-admin.js','index.html','paws-data-client.js','swap-workflow-sql.js','timetable.js']);
+ assert.deepEqual(changed.filter(file=>newApi.includes(file)).sort(),['server/src/calendar/activity-import-policy.js','server/src/calendar/activity-workbook-worker.js','server/src/calendar/activity-workbook.js','server/src/calendar/calendar-activity-api.js','server/src/data/sql-calendar-activity-repository.js','server/src/data/sql-swap-repository.js','server/src/data/write-gates.js','server/src/runtime/swa-calendar-activity-functions.js','server/src/runtime/swa-sql-runtime.js','server/src/runtime/university-http-server.js','swa-api/index.js','swa-api/package-lock.json','swa-api/package.json']);
+ execFileSync('git',['merge-base','--is-ancestor',previous,accepted],{cwd:root});
+});
+
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the AFC and LAB product baseline',()=>{
+test('beta identity is pinned to the Calendar activity product baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://tester-teaching.web.app');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -243,17 +261,17 @@ test('W1H protected static and API paths retain W1F coverage and historical byte
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the AFC and LAB product frozen runtime reports zero protected drift',()=>{
+test('the Calendar activity product frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,71);
+  assert.equal(result.protected,74);
 });
 
-test('the current static manifest has exactly 71 protected files',()=>{
-  assert.equal(manifest().length,71);
-  assert.equal(freeze.protectedPaths({root}).length,71);
+test('the current static manifest has exactly 74 protected files',()=>{
+  assert.equal(manifest().length,74);
+  assert.equal(freeze.protectedPaths({root}).length,74);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -266,9 +284,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 71 current protected files are byte-identical to the immutable AFC and LAB product blobs',()=>{
+test('all 74 current protected files are byte-identical to the immutable Calendar activity product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,71);
+  assert.equal(protectedFiles.length,74);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -500,7 +518,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,71);
+  assert.equal(protectedFiles.length,74);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -526,7 +544,7 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
 
 test('beta-baseline.json remains non-authoritative and records the stabilized Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,71);
+  assert.equal(Object.keys(baseline.sha256).length,74);
   assert.ok(baseline.sha256['faculty-admin-management.js']);
   assert.ok(baseline.sha256['afc-workflow.js']);
   assert.ok(baseline.sha256['afc-workflow-sql.js']);
@@ -538,17 +556,17 @@ test('beta-baseline.json remains non-authoritative and records the stabilized Be
 });
 
 // G. Dual-runtime baseline ---------------------------------------------------
-test('API freeze shares the promoted AFC and LAB static baseline and has zero runtime drift',()=>{
+test('API freeze shares the promoted Calendar activity static baseline and has zero runtime drift',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
   assert.equal(apiFreeze.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,67);
+  assert.equal(result.runtimeFiles.length,73);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,70);
+  assert.equal(result.protected,76);
   assert.ok(result.runtimeFiles.includes('server/src/auth/role-policy.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-calculator.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-course-catalog-2026-27.js'));
@@ -723,14 +741,14 @@ test('the superseded anchor is retained as historical evidence only',()=>{
 
 test('AFC and LAB freeze promotion protects only the reviewed runtime delta',()=>{
   const previous=PREVIOUS_AFC_LAB_BASELINE_COMMIT;
-  const oldStatic=historicalStaticPaths(previous),newStatic=historicalStaticPaths(BASELINE_COMMIT);
+  const oldStatic=historicalStaticPaths(previous),newStatic=historicalStaticPaths(AFC_LAB_PRODUCT_COMMIT);
   assert.equal(oldStatic.length,69);assert.equal(newStatic.length,71);
   assert.deepEqual(oldStatic.filter(f=>!newStatic.includes(f)),[]);
   assert.deepEqual(newStatic.filter(f=>!oldStatic.includes(f)).sort(),['faculty-admin-afc-records.js','lab-session-detail.js']);
-  const oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(BASELINE_COMMIT);
+  const oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(AFC_LAB_PRODUCT_COMMIT);
   assert.deepEqual(oldApi,newApi);
-  const changed=execFileSync('git',['diff','--name-only',previous,BASELINE_COMMIT],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+  const changed=execFileSync('git',['diff','--name-only',previous,AFC_LAB_PRODUCT_COMMIT],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
   assert.deepEqual(changed.filter(f=>newStatic.includes(f)).sort(),['faculty-admin-afc-records.js','faculty-admin.html','faculty-admin.js','index.html','lab-session-detail.js','paws-data-client.js','timetable.css','timetable.js']);
   assert.deepEqual(changed.filter(f=>newApi.includes(f)).sort(),['server/src/data/dashboard-api.js','server/src/data/sql-afc-write-repository.js','server/src/data/sql-dashboard-repository.js','server/src/data/write-gates.js','server/src/runtime/swa-dashboard-functions.js']);
-  execFileSync('git',['merge-base','--is-ancestor',previous,BASELINE_COMMIT],{cwd:root});
+  execFileSync('git',['merge-base','--is-ancestor',previous,AFC_LAB_PRODUCT_COMMIT],{cwd:root});
 });

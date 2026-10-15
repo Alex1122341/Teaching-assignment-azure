@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed AFC record management / LAB runtime is the immutable trust anchor.
+// Reviewed Calendar activity runtime is the immutable trust anchor.
 // DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='fb2c625745957fa7d9990033f15a7b1ef91974a5';
+const BASELINE_COMMIT='7526e86f295de062c228fb1ddee2f007706285c2';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

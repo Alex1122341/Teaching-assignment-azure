@@ -48,9 +48,11 @@ foreach($case in $cases){
  $first=Start-TaskSql "SET NOCOUNT ON;SET XACT_ABORT ON;BEGIN TRANSACTION;$firstBody SET CONTEXT_INFO $firstContext;DECLARE @Deadline datetime2=DATEADD(second,30,SYSUTCDATETIME());WHILE NOT EXISTS(SELECT 1 FROM dbo.SchedulingTaskRaceSignal WITH(NOLOCK) WHERE Name=N'$name' AND Released=1) BEGIN IF SYSUTCDATETIME()>@Deadline THROW 54390,'Race barrier timeout.',1;WAITFOR DELAY '00:00:00.100';END;COMMIT;PRINT 'FIRST_COMMITTED';"
  $second=$null
  try{
-  Wait-TaskCondition "SET NOCOUNT ON;SELECT IIF(EXISTS(SELECT 1 FROM sys.dm_exec_sessions WHERE context_info=$firstContext),1,0);" "$name-ready"
+  Wait-TaskCondition "SET NOCOUNT ON;SELECT IIF(EXISTS(SELECT 1 FROM sys.dm_exec_sessions WHERE SUBSTRING(context_info,1,DATALENGTH($firstContext))=$firstContext),1,0);" "$name-ready"
+  $contextProof=Invoke-TaskSql "SELECT TOP(1) DATALENGTH(context_info) contextBytes,DATALENGTH($firstContext) markerBytes,IIF(context_info=$firstContext,1,0) exactMatch FROM sys.dm_exec_sessions WHERE SUBSTRING(context_info,1,DATALENGTH($firstContext))=$firstContext FOR JSON PATH,WITHOUT_ARRAY_WRAPPER;"
+  Write-Output "SCHEDULING_TASK_CONTEXT_PROOF $name $contextProof"
   $second=Start-TaskSql "SET NOCOUNT ON;SET CONTEXT_INFO $secondContext;$secondBody"
-  Wait-TaskCondition "SET NOCOUNT ON;SELECT IIF(EXISTS(SELECT 1 FROM sys.dm_exec_requests r JOIN sys.dm_exec_sessions s ON s.session_id=r.session_id JOIN sys.dm_exec_sessions blocker ON blocker.session_id=r.blocking_session_id WHERE s.context_info=$secondContext AND blocker.context_info=$firstContext AND r.wait_type LIKE 'LCK_M%'),1,0);" "$name-blocked"
+  Wait-TaskCondition "SET NOCOUNT ON;SELECT IIF(EXISTS(SELECT 1 FROM sys.dm_exec_requests r JOIN sys.dm_exec_sessions s ON s.session_id=r.session_id JOIN sys.dm_exec_sessions blocker ON blocker.session_id=r.blocking_session_id WHERE SUBSTRING(s.context_info,1,DATALENGTH($secondContext))=$secondContext AND SUBSTRING(blocker.context_info,1,DATALENGTH($firstContext))=$firstContext AND r.wait_type LIKE 'LCK_M%'),1,0);" "$name-blocked"
   Write-Output "SCHEDULING_TASK_WAIT_OBSERVED $name"
   [void](Invoke-TaskSql "UPDATE dbo.SchedulingTaskRaceSignal SET Released=1 WHERE Name=N'$name';")
   [void](Finish-TaskSql $first);$first=$null
@@ -60,7 +62,7 @@ foreach($case in $cases){
   if($count -ne $(if($case.FirstReview){'1'}else{'0'})){throw 'Race review audit count incorrect.'}
  }finally{
   [void](Invoke-TaskSql "UPDATE dbo.SchedulingTaskRaceSignal SET Released=1 WHERE Name=N'$name';")
-  foreach($running in @($first,$second)){if($null -ne $running){if(-not $running.Process.HasExited){$running.Process.Kill($true)};$running.Process.Dispose()}}
+  foreach($running in @($first,$second)){if($null -ne $running){if(-not $running.Process.HasExited){$running.Process.Kill($true)}else{Write-Output ('SCHEDULING_TASK_CHILD_OUTPUT '+$running.Stdout.GetAwaiter().GetResult()+' '+$running.Stderr.GetAwaiter().GetResult())};$running.Process.Dispose()}}
  }
 }
 Write-Output 'SCHEDULING_TASK_RACES_OK'

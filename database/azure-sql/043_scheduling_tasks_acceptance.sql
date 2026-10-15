@@ -73,5 +73,34 @@ INSERT paws.CalendarActivityDayTime(ActivityId,ActivityDate,StartTime,EndTime,Ev
 DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST"}';SELECT @Json=responseJson FROM @Reply;
 IF COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'calendar_activity_overlap' OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].severity'),N'')<>N'Conflict' OR @Json LIKE N'%PRIVATE%' THROW 54390,'Verified working overlap missed or private evidence leaked.',1;
 PRINT 'SCHEDULING_TASK_CALENDAR_OK';
+
+-- Filters and cursor operate on scoped findings, never on confidential directory data.
+UPDATE paws.AfcRecord SET Active=1 WHERE AfcRecordId=@Absence;
+DECLARE @FacultyKey uniqueidentifier=(SELECT CandidateKey FROM paws.SwapCandidate WHERE FacultyId=@Faculty),@Query nvarchar(max);
+SET @Query=CONCAT(N'{"academicYear":"TASK-TEST","facultyKey":"',@FacultyKey,N'","limit":1}');
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',@Query;SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'calendar_activity_overlap' THROW 54390,'Faculty filtering ignored.',1;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","type":"afc_unavailable"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'afc_unavailable' THROW 54390,'Type filtering ignored.',1;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","courseCode":"NO_SUCH_COURSE"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>0 THROW 54390,'Course filtering ignored.',1;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","start":"2026-11-06","end":"2026-11-07"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>0 THROW 54390,'Date filtering ignored.',1;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","reviewStatus":"Reviewed"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>0 THROW 54390,'Review status filtering ignored.',1;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","limit":1}';SELECT @Json=responseJson FROM @Reply;
+DECLARE @Cursor nvarchar(512)=JSON_VALUE(@Json,'$.nextCursor'),@FirstKey varchar(64)=JSON_VALUE(@Json,'$.tasks[0].issueKey');
+IF @Cursor IS NULL OR COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>2 OR (SELECT COUNT(*) FROM OPENJSON(@Json,'$.tasks'))<>1 THROW 54390,'Bounded paging/count missing.',1;
+SET @Query=CONCAT(N'{"academicYear":"TASK-TEST","limit":1,"cursor":"',STRING_ESCAPE(@Cursor,'json'),N'"}');
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',@Query;SELECT @Json=responseJson FROM @Reply;
+IF JSON_VALUE(@Json,'$.tasks[0].issueKey')=@FirstKey OR JSON_VALUE(@Json,'$.nextCursor') IS NOT NULL THROW 54390,'Cursor repeated or lost a page.',1;
+DECLARE @Rejected bit=0;
+BEGIN TRY EXEC paws_api.ListSchedulingTasks N'task-faculty',@Query;END TRY BEGIN CATCH IF ERROR_NUMBER()=54310 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54390,'Cursor crossed actor scope.',1;
+UPDATE paws.Session SET Room=N'Synthetic changed' WHERE SessionId=@A;
+SET @Rejected=0;
+BEGIN TRY EXEC paws_api.ListSchedulingTasks N'task-admin',@Query;END TRY BEGIN CATCH IF ERROR_NUMBER()=54310 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54390,'Cursor ignored source changes.',1;
+PRINT 'SCHEDULING_TASK_FILTER_PAGING_OK';
 ROLLBACK;
 PRINT 'SCHEDULING_TASK_DETECTION_OK';

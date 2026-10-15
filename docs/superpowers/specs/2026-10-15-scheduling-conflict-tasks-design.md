@@ -1,6 +1,6 @@
 # Task 02 — Scheduling conflicts in PAWS Tasks
 
-Status: proposed written design, awaiting owner review. No product implementation or release authorization.
+Status: written design approved by owner on 2026-10-15, including ADFA-only review authority. Approval permits implementation planning; no release authorization.
 
 Repository: Alex1122341/Teaching-assignment-azure (Beta). Branch: feat/scheduling-conflict-tasks-20261015. Starting commit: b53c23e1621c6a98c2d9b4c62198fdefdebeaf0f, stacked on PR99 and PR98.
 
@@ -63,7 +63,7 @@ For a faculty-scoped user, shared sessions must not reveal another instructor's 
 
 DTO fields are allowlisted: opaque issue/faculty keys, display names, course code, session IDs, authorized session date/time, conflict type, severity, review status, safe summary, version and navigation targets. Exclude UCID, email, canonical Faculty GUID, DOE, HR data, raw SQL/source payloads and AFC reasons/date ranges. An AFC item shows the affected session's date/time and `Unavailable`; it exposes no source absence detail. Filter options and counts obey the same scope.
 
-**Owner decision requested:** retain this conservative review authority (ADFA only) or explicitly authorize ADC/LAB review as well. The proposed implementation uses ADFA only.
+**Owner decision:** ADFA-only review authority approved. ADC/LAB retain read access but cannot mark reviewed or reopen review.
 
 ## 5. Detection contract
 
@@ -117,4 +117,4 @@ After implementation, obtain fresh independent product review, resolve findings,
 
 Self-review: checked for complete requirements, separation of review from resolution, missing-data classification, privacy scope, concurrency, obsolete SWAP scalar reuse and live-operation boundaries. No implementation plan or product code has been created for Task02 yet.
 
-Next: owner reviews this written design, including ADFA-only review authority. Then write the concrete sequential implementation plan and present it for review under the architectural workflow.
+Next: review the concrete sequential implementation plan in `docs/superpowers/plans/2026-10-15-scheduling-conflict-tasks-implementation.md` under the architectural workflow.

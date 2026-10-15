@@ -16,10 +16,12 @@ DECLARE @Reply TABLE(responseJson nvarchar(max));
 INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-review-admin',N'{"academicYear":"REVIEW-TEST"}';
 DECLARE @Json nvarchar(max)=(SELECT responseJson FROM @Reply),@Key varchar(64),@Evidence varchar(64),@Review varchar(16);
 SELECT @Key=JSON_VALUE(@Json,'$.tasks[0].issueKey'),@Evidence=JSON_VALUE(@Json,'$.tasks[0].evidenceVersion'),@Review=JSON_VALUE(@Json,'$.tasks[0].reviewVersion');
+PRINT CONCAT('SCHEDULING_REVIEW_INITIAL_TOKEN_LENGTHS ',LEN(@Key),'/',LEN(@Evidence),'/',LEN(@Review));
 DELETE @Reply;INSERT @Reply EXEC paws_api.ReviewSchedulingTask N'task-review-admin',@Key,N'REVIEW-TEST',@Evidence,@Review,N'Reviewed';
 SELECT @Json=responseJson FROM @Reply;
 IF COALESCE(JSON_VALUE(@Json,'$.reviewStatus'),N'')<>N'Reviewed' THROW 54390,'Mark reviewed did not persist.',1;
 SET @Review=JSON_VALUE(@Json,'$.reviewVersion');
+PRINT CONCAT('SCHEDULING_REVIEW_SAVED_TOKEN_LENGTH ',LEN(@Review));
 DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-review-admin',N'{"academicYear":"REVIEW-TEST"}';SELECT @Json=responseJson FROM @Reply;
 IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].reviewStatus'),N'')<>N'Reviewed' THROW 54390,'Review suppressed an unresolved conflict.',1;
 DECLARE @Rejected bit=0;
@@ -35,6 +37,7 @@ SET @Rejected=0;
 BEGIN TRY EXEC paws_api.ReviewSchedulingTask N'task-review-admin',@Key,N'REVIEW-TEST',@Evidence,@Review,N'Reviewed';END TRY BEGIN CATCH IF ERROR_NUMBER()=54310 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 THROW 54390,'Old source evidence was accepted.',1;
 SET @Evidence=JSON_VALUE(@Json,'$.tasks[0].evidenceVersion');
+PRINT CONCAT('SCHEDULING_REVIEW_RECREATED_TOKEN_LENGTHS ',LEN(@Evidence),'/',LEN(@Review));
 DECLARE @Roles TABLE(RoleName nvarchar(32),Allowed bit);
 INSERT @Roles VALUES(N'faculty',0),(N'hicc',0),(N'visc',0),(N'adc',0),(N'lab',0),(N'owner',1),(N'administrator',1),(N'admin',1),(N'adfa_general',1),(N'adfa_regular',1),(N'developer',1);
 DECLARE @Role nvarchar(32),@Allowed bit;
@@ -45,8 +48,13 @@ BEGIN
  UPDATE paws.UserProfile SET BaseRole=@Role WHERE FirebaseUid=N'task-review-reader';
  SET @Rejected=0;
  BEGIN TRY
-  DELETE @Reply;INSERT @Reply EXEC paws_api.ReviewSchedulingTask N'task-review-reader',@Key,N'REVIEW-TEST',@Evidence,@Review,N'Reviewed';
-  SELECT @Json=responseJson FROM @Reply;SET @Review=JSON_VALUE(@Json,'$.reviewVersion');
+  PRINT CONCAT('SCHEDULING_REVIEW_ROLE ',@Role,' ',LEN(@Evidence),'/',LEN(@Review));
+  IF @Allowed=1
+  BEGIN
+   DELETE @Reply;INSERT @Reply EXEC paws_api.ReviewSchedulingTask N'task-review-reader',@Key,N'REVIEW-TEST',@Evidence,@Review,N'Reviewed';
+   SELECT @Json=responseJson FROM @Reply;SET @Review=JSON_VALUE(@Json,'$.reviewVersion');
+  END
+  ELSE EXEC paws_api.ReviewSchedulingTask N'task-review-reader',@Key,N'REVIEW-TEST',@Evidence,@Review,N'Reviewed';
  END TRY BEGIN CATCH IF ERROR_NUMBER()=54303 SET @Rejected=1;ELSE THROW;END CATCH;
  IF @Rejected=1 AND @Allowed=1 OR @Rejected=0 AND @Allowed=0 THROW 54390,'Review role boundary failed.',1;
  FETCH NEXT FROM roles_cursor INTO @Role,@Allowed;

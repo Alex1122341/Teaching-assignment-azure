@@ -15,12 +15,63 @@ VALUES(NEWID(),@A,@Faculty,N'resolved',@Batch,1),(NEWID(),@B,@Faculty,N'resolved
 DECLARE @Reply TABLE(responseJson nvarchar(max));
 INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST"}';
 DECLARE @Json nvarchar(max)=(SELECT responseJson FROM @Reply);
-IF TRY_CONVERT(int,JSON_VALUE(@Json,'$.total'))<>1 OR JSON_VALUE(@Json,'$.tasks[0].type')<>N'instructor_overlap' OR JSON_VALUE(@Json,'$.tasks[0].severity')<>N'Conflict'
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'instructor_overlap' OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].severity'),N'')<>N'Conflict'
  THROW 54390,'Overlapping assignments must produce exactly one confirmed pair.',1;
 UPDATE paws.Session SET StartTime='10:00',EndTime='11:00' WHERE SessionId=@B;
 DELETE @Reply;
 INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST"}';
 SELECT @Json=responseJson FROM @Reply;
-IF TRY_CONVERT(int,JSON_VALUE(@Json,'$.total'))<>0 THROW 54390,'Adjacent sessions must not conflict.',1;
-ROLLBACK;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>0 THROW 54390,'Adjacent sessions must not conflict.',1;
 PRINT 'SCHEDULING_TASK_OVERLAP_OK';
+
+-- A duplicate assignment is an independent problem, not a self-overlap.
+DECLARE @Extra uniqueidentifier=NEWID();
+INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,FacultyResolutionStatus,SourceImportBatchId,SourceRow) VALUES(@Extra,@A,@Faculty,N'resolved',@Batch,3);
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'duplicate_assignment' OR COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 THROW 54390,'Duplicate assignment must produce one issue.',1;
+DELETE paws.SessionAssignment WHERE SessionAssignmentId=@Extra;
+UPDATE paws.Session SET StartTime='09:00',EndTime='10:00',Topic=N'A' WHERE SessionId=@B;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'duplicate_session_assignment' OR COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 THROW 54390,'Duplicate sessions must replace the generic pair issue.',1;
+UPDATE paws.Session SET StartTime=NULL WHERE SessionId=@B;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(JSON_VALUE(@Json,'$.tasks[0].severity'),N'')<>N'Needs Review' OR COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 THROW 54390,'Missing time is review evidence, not a confirmed overlap.',1;
+UPDATE paws.Session SET StartTime='12:00',EndTime='11:00' WHERE SessionId=@B;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","type":"invalid_schedule"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 THROW 54390,'Invalid interval must be a quality issue.',1;
+UPDATE paws.Session SET SessionDate=NULL WHERE SessionId=@B;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST","undated":"only"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>1 OR JSON_VALUE(@Json,'$.tasks[0].date') IS NOT NULL THROW 54390,'Undated schedule disappeared.',1;
+UPDATE paws.Session SET SessionDate='2026-11-06',StartTime='09:00',EndTime='10:00' WHERE SessionId=@B;
+PRINT 'SCHEDULING_TASK_QUALITY_OK';
+
+-- Ordinary faculty must not learn a co-instructor's AFC evidence.
+DECLARE @Other uniqueidentifier=NEWID(),@Absence uniqueidentifier=NEWID();
+INSERT paws.Faculty(FacultyId,RecordType,DisplayName,Active,SourceImportBatchId) VALUES(@Other,N'faculty',N'Synthetic Other Faculty',1,@Batch);
+INSERT paws.SwapCandidate(FacultyId) VALUES(@Other);
+INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword)
+VALUES(N'task-faculty',N'task-faculty@example.test',N'Synthetic Faculty',N'faculty',@Faculty,1,0),(N'task-other',N'task-other@example.test',N'Synthetic Other',N'faculty',@Other,1,0);
+INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,FacultyResolutionStatus,SourceImportBatchId,SourceRow) VALUES(NEWID(),@A,@Other,N'resolved',@Batch,4);
+INSERT paws.AfcRecord(AfcRecordId,FacultyId,StartDate,EndDate,Purpose,Active,SourceImportBatchId,SourceRow) VALUES(@Absence,@Other,'2026-11-01','2026-11-10',N'PRIVATE AFC REASON',1,@Batch,5);
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-faculty',N'{"academicYear":"TASK-TEST"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>0 OR @Json LIKE N'%Synthetic Other%' THROW 54390,'Co-instructor confidential issue leaked.',1;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-other',N'{"academicYear":"TASK-TEST"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'afc_unavailable' OR @Json LIKE N'%PRIVATE AFC%' OR @Json LIKE N'%2026-11-01%' OR @Json LIKE N'%@example.test%' OR @Json LIKE N'%'+CONVERT(nvarchar(36),@Other)+N'%' THROW 54390,'Own availability missing or private metadata leaked.',1;
+UPDATE paws.AfcRecord SET Active=0 WHERE AfcRecordId=@Absence;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-other',N'{"academicYear":"TASK-TEST"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(TRY_CONVERT(int,JSON_VALUE(@Json,'$.total')),-1)<>0 THROW 54390,'Cancelled absence still creates a conflict.',1;
+PRINT 'SCHEDULING_TASK_AFC_PRIVACY_OK';
+
+-- Calendar working activity time is evidence, never inferred from a date range.
+DECLARE @Activity uniqueidentifier=NEWID();
+INSERT paws.CalendarActivity(ActivityId,FacultyId,Category,OriginalLabel,StartDate,EndDate,ImportBatchId,ImportRowId,SourceSha256,SourceSheet,SourceRow,CreatedByUid)
+SELECT TOP(1) @Activity,@Faculty,N'ccc',N'PRIVATE ACTIVITY LABEL','2026-11-05','2026-11-05',ImportBatchId,ImportRowId,SourceSha256,N'synthetic-task',9991,N'task-admin' FROM paws.CalendarActivity;
+IF @@ROWCOUNT<>1 THROW 54390,'Calendar synthetic prerequisite missing.',1;
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'calendar_time_unknown' OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].severity'),N'')<>N'Needs Review' OR @Json LIKE N'%PRIVATE ACTIVITY%' THROW 54390,'Unknown working time classified or disclosed incorrectly.',1;
+INSERT paws.CalendarActivityDayTime(ActivityId,ActivityDate,StartTime,EndTime,EvidenceRef,EvidenceNote,ActorUid) VALUES(@Activity,'2026-11-05','09:30','10:30',N'synthetic',N'PRIVATE evidence',N'task-admin');
+DELETE @Reply;INSERT @Reply EXEC paws_api.ListSchedulingTasks N'task-admin',N'{"academicYear":"TASK-TEST"}';SELECT @Json=responseJson FROM @Reply;
+IF COALESCE(JSON_VALUE(@Json,'$.tasks[0].type'),N'')<>N'calendar_activity_overlap' OR COALESCE(JSON_VALUE(@Json,'$.tasks[0].severity'),N'')<>N'Conflict' OR @Json LIKE N'%PRIVATE%' THROW 54390,'Verified working overlap missed or private evidence leaked.',1;
+PRINT 'SCHEDULING_TASK_CALENDAR_OK';
+ROLLBACK;
+PRINT 'SCHEDULING_TASK_DETECTION_OK';

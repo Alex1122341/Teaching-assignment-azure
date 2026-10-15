@@ -12,10 +12,10 @@ if(-not $env:PAWS_SQL_TEST_PASSWORD){throw 'Synthetic password is required.'}
 function Start-TaskSql([string]$Sql){
  $info=[Diagnostics.ProcessStartInfo]::new('docker');$info.UseShellExecute=$false;$info.CreateNoWindow=$true
  $info.RedirectStandardInput=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
- foreach($argument in @('exec','-e',"SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD",'-i',$ContainerName,'/opt/mssql-tools18/bin/sqlcmd','-S','localhost','-U','sa','-C','-I','-b','-y','0','-h','-1','-w','65535','-d','VetMed-Ops')){[void]$info.ArgumentList.Add($argument)}
+ foreach($argument in @('exec','-e',"SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD",'-i',$ContainerName,'/opt/mssql-tools18/bin/sqlcmd','-S','localhost','-U','sa','-C','-I','-b','-y','4000','-h','-1','-w','65535','-d','VetMed-Ops','-i','/dev/stdin','-f','65001')){[void]$info.ArgumentList.Add($argument)}
  $process=[Diagnostics.Process]::new();$process.StartInfo=$info;[void]$process.Start()
  $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
- $process.StandardInput.WriteLine($Sql);$process.StandardInput.Close()
+ $process.StandardInput.WriteLine(":ON ERROR EXIT`nSET NOCOUNT ON;`n"+$Sql);$process.StandardInput.Close()
  return @{Process=$process;Stdout=$stdout;Stderr=$stderr}
 }
 function Finish-TaskSql($Running){

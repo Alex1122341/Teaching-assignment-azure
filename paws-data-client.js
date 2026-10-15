@@ -541,6 +541,11 @@
         }});
         return {requestId:body.requestId||String(input.requestId??''),idempotentReplay:body.idempotentReplay===true,rows:Array.isArray(body.rows)?body.rows:[]};
       },
+      schedulingTasks(input={}){
+        const query=new URLSearchParams();for(const key of ['academicYear','start','end','undated','facultyKey','courseCode','type','reviewStatus','cursor','limit'])if(input[key]!==undefined&&input[key]!==null&&input[key]!=='')query.set(key,String(input[key]));
+        return request('/api/v1/scheduling-tasks'+(query.size?'?'+query.toString():''));
+      },
+      reviewSchedulingTask(issueKey,input={}){return request('/api/v1/scheduling-tasks/'+encodeURIComponent(String(issueKey))+'/review',{method:'POST',body:pickFields(input,['academicYear','expectedEvidenceVersion','expectedReviewVersion','reviewStatus'])});},
       async listCalendarActivities(input={}){
         const query=new URLSearchParams();for(const key of ['start','end','facultyKey','category','cursor','limit','includeFacultyKeys'])if(input[key]!==undefined&&input[key]!==null&&input[key]!=='')query.set(key,String(input[key]));
         return request('/api/v1/calendar-activities'+(query.size?'?'+query.toString():''));

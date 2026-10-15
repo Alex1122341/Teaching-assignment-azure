@@ -7,6 +7,7 @@ const WRITE_DISABLED = Object.freeze({
 
 function createWriteGates(env = {}) {
   return Object.freeze({
+    schedulingTaskReview: env.PAWS_SCHEDULING_TASK_REVIEW_ENABLED === 'true',
     calendarActivityStage: env.PAWS_CALENDAR_ACTIVITY_STAGE_ENABLED === 'true',
     calendarActivityCommit: env.PAWS_CALENDAR_ACTIVITY_COMMIT_ENABLED === 'true',
     calendarActivityTime: env.PAWS_CALENDAR_ACTIVITY_TIME_ENABLED === 'true',

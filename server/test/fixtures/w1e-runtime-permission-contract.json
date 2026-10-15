@@ -126,6 +126,8 @@
       "paws_api.DecideSessionSwap"
     ]
   },
+  "schedulingReadProcedures": ["paws_api.ListSchedulingTasks"],
+  "schedulingWriteSets": {"schedulingTaskReview": ["paws_api.ReviewSchedulingTask"]},
   "calendarReadProcedures": ["paws_api.ListCalendarActivities", "paws_api.GetCalendarActivityImport"],
   "calendarWriteSets": {
     "stage": ["paws_api.StageCalendarActivityImport", "paws_api.PreviewCalendarActivityImport"],

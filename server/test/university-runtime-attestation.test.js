@@ -79,7 +79,7 @@ test('runtime attestation is direct, read-only, no-store, and reports all P1/P2 
     doeAdmin: false, doeManualAssignment: false,
     doePolicyPublish: false,
     doeRecalculate: false,
-    calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
+    schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   assert.equal(runtimeCalls, 0);
 });

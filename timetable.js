@@ -410,7 +410,7 @@
   window.PAWS_SWAP?.configure({getUser:()=>currentUser,onChanged:async()=>{
     invalidateAllSessions();await Promise.all([refreshSessionScope(),window.PAWS_SWAP.refreshPending()]);render();window.PAWS_TASKS?.refresh();
   }});
-  window.PAWS_TASKS?.configure({hasUser:()=>Boolean(currentUser),allSessions:ensureAllSessions,disposition:calendarTimingDisposition,reason:unpositionedReason,openSession:async id=>{
+  window.PAWS_TASKS?.configure({hasUser:()=>Boolean(currentUser),identity:()=>currentUser?.uid||'',academicYear:()=>listAcademicYear,allSessions:ensureAllSessions,disposition:calendarTimingDisposition,reason:unpositionedReason,openSession:async id=>{
     const session=sessionCache.get(id);if(!session)return;
     if(/^\d{4}-\d{2}-\d{2}$/.test(String(session.date||''))){
       const date=parseYmd(session.date);if(!Number.isNaN(date.getTime())){

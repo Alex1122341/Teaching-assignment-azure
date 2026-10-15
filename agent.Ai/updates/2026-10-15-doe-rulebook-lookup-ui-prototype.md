@@ -36,3 +36,17 @@
 - Example 7.50 LEC + 6 SRL + 24 LAB primary + 27 LAB secondary + 0.7 rotation = 15.97; 6 fourth-year preceptors = 4.50; 20.47 only if entire trainee credit is applied.
 - No invented quantity from DOE; missing values and ambiguous manual/legacy HICC are review items; Research/Service excluded.
 - Execute root/server tests, emulator, static build and freeze checks in PR CI. Protected drift is not a pass; preserve separate governance review and never deploy from this candidate alone.
+
+## Owner-approved usability refinement (2026-10-15, same feature branch)
+
+After the local UI preview, the owner approved simplifying the Rule Book as follows:
+
+- In **Annual DOE Rule Book**, expand a business Group and adjust a simple DOE Item through direct **Weight (%)** and **Credit Per** controls; Session-derived rules support Hour versus one credit per matched Faculty SessionAssignment. Other existing simple rates display their known unit (Week, Shift, Trainee, Assignment) and an editable Weight only where the mode is already supported.
+- **Restrictions/Conditions, match priority, canonical selectors, required source facts, formula, tiers, rule key and source details** are preserved but collapsed by default under **Advanced Settings**. Do not remove their backend validation or trust boundary. Admins should not need these for routine rate edits.
+- The **Active Rule Book** remains read-only. Inline changes are local working-Draft state only until **Save Draft**; publication is still separate **Validate → Impact Preview → authorized Publish**, followed by separately authorized recalculation. No change to database schema, live DOE credits or published rates.
+- Only uncomplicated credit rules with an existing supported mode have simple controls; unknown, tiered, complex and non-teaching/target/reserve rules stay advanced. Invalid or negative simple credit weights fail closed.
+- Preserve original Source Reference, selectors, rule identity, priority and annual approval indicators on a simple rate edit. All changes to actual rates still require source review, approved annual provenance and normal policy governance. Frontend controls do not grant SQL authority.
+- Inline editing must not discard open accordion state or create duplicates, alter an existing exception, or automatically publish.
+- No merge or deployment is authorized by this UI approval. The current product PR still requires independent design/code review, separate immutable freeze governance promotion, complete CI and an explicitly authorized release. Existing failed baseline tests are blocking until reviewed promotion, not an excuse to relax checks.
+
+**Review focus:** normal Admin sees only name, Weight and Unit; advanced operators can inspect and edit the full policy; ordinary Faculty and Active versions cannot write.

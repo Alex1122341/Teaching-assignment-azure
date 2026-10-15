@@ -126,13 +126,78 @@
   if (mode === 'formula') return 'Approved formula';
   return mode.replace(/_/g,' ') || 'Calculation mode not configured';
 }
-    function groupedRuleTable(rows) {
-  const ordered = ['Lectures & Labs','Course Coordination','HICC Course Development','VISC Coordination','Clinical Rotations & CCC','Other Approved Teaching','Trainees & Supervision','Reserve & Targets','Other / Advanced Rules'];
-  const visible = ordered.map(label => ({label,rows:rows.filter(({row}) => ruleGroupName(row) === label)})).filter(entry => entry.rows.length);
-  if (!visible.length) return '<div class="empty">No matching rules. Select a Policy Version or change your filters.</div>';
-  return `<div class="doe-excel-rule-groups">${visible.map(({label,rows},groupIndex) => `<details class="doe-excel-rule-group" ${groupIndex === 0 ? 'open' : ''}><summary><strong>${esc(label)}</strong><span>${rows.length} rule${rows.length === 1 ? '' : 's'} · click to expand</span></summary><div class="doe-excel-rule-items">${rows.map(({row,index}) => `<div class="doe-excel-rule-item"><div><strong>${esc(row.ruleLabel || row.ruleKey || 'Unnamed rule')}</strong><small>${esc(rateSummary(row))}</small><small>${esc(row.ruleKey || '')} · ${esc(row.reviewStatus || 'needs_review')}${row.enabled === false ? ' · disabled' : ''}</small></div><div class="doe-excel-rule-actions"><span class="doe-excel-rule-origin">${esc(refName(row.referenceId))}</span><button type="button" class="btn btn-small" data-edit="rules" data-index="${index}">${editable() ? 'Edit Weight / Rule' : 'View Rule'}</button></div></div>`).join('')}</div></details>`).join('')}</div>`;
+    function simpleWeightRule(row) {
+  return row && row.resultKind === 'credit'
+    && ['teaching','assigned_teaching','course_coordination','hicc','visc','rotation','supervision','approved_activity'].includes(row.category)
+    && ['fixed','per_hour','per_shift','per_week','per_trainee'].includes(row.calculationMode)
+    && !String(row.formulaText || '').trim()
+    && !(row.tiers || []).length
+    && (row.parameters || []).every(p => ['rate','fixed'].includes(p.name));
 }
-    function sessionWeightHtml(row) {
+    function simpleUnitLabel(mode) {
+  return ({fixed:'Assignment',per_hour:'Hour',per_week:'Week',per_shift:'Shift',per_trainee:'Trainee'})[mode] || 'Approved formula';
+}
+    function applySimpleRate(row,{mode,weight},validate=true) {
+  if(!simpleWeightRule(row)) throw new Error('This calculation requires Advanced Settings.');
+  const value=String(weight??'').trim(),number=value===''?null:Number(value);
+  if(validate && (number===null||!Number.isFinite(number)||number<0))throw new Error('Weight must be a nonnegative finite DOE percentage.');
+  const selected=mode||row.calculationMode;
+  if(selected!==row.calculationMode && !(sessionWeightRule(row)&&['fixed','per_hour'].includes(selected)))throw new Error('Changing this calculation unit requires Advanced Settings.');
+  const copy=clone(row);
+  if(copy.calculationMode!==selected)updateMode(copy,selected);
+  const name=selected==='fixed'?'fixed':'rate';
+  copy.parameters ||= [];
+  let param=copy.parameters.find(x=>x.name===name);
+  if(!param){param={name,valueNumber:null,valueText:null};copy.parameters.push(param);}
+  param.valueNumber=number!==null&&Number.isFinite(number)?number:null;
+  param.valueText=null;
+  return copy;
+}
+    function simpleWeightHtml(row) {
+  if(!simpleWeightRule(row))return '';
+  if(sessionWeightRule(row))return sessionWeightHtml(row);
+  const value=ruleWeight(row);
+  return `<div class="doe-session-weight doe-simple-editor"><label class="field"><span class="field-label">Weight (%)</span><input class="input" type="number" min="0" step="any" data-doe-simple-weight aria-label="DOE weight percentage" value="${value===null?'':esc(value)}" ${editable()?'':'disabled'} required><small class="doe-field-example">Approved DOE percentage points (for example, 0.50 means 0.50%).</small></label><label class="field"><span class="field-label">Credit Per</span><div class="doe-fixed-credit-unit">${esc(simpleUnitLabel(row.calculationMode))}</div><small class="doe-field-example">For a different unit or formula, use Advanced Settings.</small></label></div>`;
+}
+    function inlineWeightFields(row,index) {
+  if(!simpleWeightRule(row))return `<div class="doe-excel-complex-rate"><span>${esc(rateSummary(row))}</span><small>Use Advanced Settings for this formula.</small></div>`;
+  const value=ruleWeight(row),lockedFields=!editable()||locked;
+  return `<div class="doe-excel-inline-controls"><label class="field"><span class="field-label">Weight (%)</span><input type="number" min="0" step="any" class="input" data-doe-inline-weight data-rule-index="${index}" value="${value===null?'':esc(value)}" aria-label="Weight for ${esc(row.ruleLabel||row.ruleKey)}" ${lockedFields?'disabled':''}></label><label class="field"><span class="field-label">Credit Per</span>${sessionWeightRule(row)?`<select class="select" data-doe-inline-basis data-rule-index="${index}" aria-label="Credit unit for ${esc(row.ruleLabel||row.ruleKey)}" ${lockedFields?'disabled':''}><option value="per_hour" ${row.calculationMode==='per_hour'?'selected':''}>Hour</option><option value="per_session" ${row.calculationMode==='fixed'?'selected':''}>Session / Faculty assignment</option></select>`:`<span class="doe-fixed-credit-unit">${esc(simpleUnitLabel(row.calculationMode))}</span>`}</label></div>`;
+}
+    function handleInlineRateChange(target) {
+  if(!target.matches?.('[data-doe-inline-weight], [data-doe-inline-basis]'))return;
+  const item=target.closest('.doe-excel-rule-item');if(!item)return;
+  const index=Number(item.dataset.ruleIndex),old=bundle.rules?.[index];
+  const weightInput=item.querySelector('[data-doe-inline-weight]');
+  const basisInput=item.querySelector('[data-doe-inline-basis]');
+  const error=item.querySelector('.doe-inline-error');
+  if(!old||!simpleWeightRule(old)||!editable()||locked)return;
+  try {
+    const selected=basisInput?(basisInput.value==='per_session'?'fixed':'per_hour'):old.calculationMode;
+    const changed=applySimpleRate(old,{mode:selected,weight:weightInput.value});
+    if(changed.calculationMode===old.calculationMode&&ruleWeight(changed)===ruleWeight(old))return;
+    bundle.rules[index]=changed;if(error)error.textContent='';
+    item.querySelector('.doe-excel-rule-rate').textContent=rateSummary(changed);
+    mark();node('doe-rulebook-dirty').textContent='Unsaved Draft changes · Save Draft before validation or preview.';
+  }catch(e){
+    if(error)error.textContent=e.message;
+    if(weightInput)weightInput.value=ruleWeight(old)===null?'':String(ruleWeight(old));
+    if(basisInput)basisInput.value=old.calculationMode==='fixed'?'per_session':'per_hour';
+    onError(e.message);
+  }
+}
+    function editorRuleMarkup(row,editing,fields) {
+  const simple=simpleWeightRule(row);
+  const basicKeys=simple?['referenceId','reviewStatus','enabled']:['calculationMode','referenceId','reviewStatus','enabled'];
+  return `<section class="doe-editor-section"><h4>${esc(row.ruleLabel||'DOE rule')}</h4>${simple?simpleWeightHtml(row):'<p class="aux-note">This rule uses an advanced formula or tiered calculation. Change its parameters under Advanced Settings.</p>'}<div class="doe-editor-grid doe-essentials">${fields(schemas.rules.filter(d=>basicKeys.includes(d.key)))}</div></section><aside class="doe-entry-guide"><strong>Calculation example (not applied)</strong><p id="${idPrefix}doe-rule-example-result">${esc(exampleResult(row))}</p></aside><details class="doe-editor-disclosure" data-disclosure="advanced"><summary>Advanced Settings <span>Restrictions, matching conditions, inputs, priority and formula</span></summary><div class="doe-entry-guide" id="${idPrefix}doe-rule-entry-guide">${esc(originGuide(row))}</div><div class="doe-condition-summary"><span class="field-label">Applies when</span><p id="${idPrefix}doe-rule-condition-summary">${esc(conditionSummary(row))}</p><small>These conditions decide which assignments receive this rule; they are not login permissions.</small></div>${nestedHtml('selectors',row.selectors||[])}${selectionRule(row)?precedenceHtml(row):''}${!simple?nestedHtml('parameters',row.parameters||[]):''}<div class="doe-editor-grid">${fields(schemas.rules.filter(d=>!basicKeys.includes(d.key)&&d.key!=='formulaText'&&!(simple&&d.key==='calculationMode')))}</div>${nestedHtml('inputs',row.inputs||[])}<details class="doe-editor-disclosure" data-disclosure="formula"><summary>Formula</summary>${fields(schemas.rules.filter(d=>d.key==='formulaText'))}</details><details class="doe-editor-disclosure" data-disclosure="tiers" ${row.calculationMode==='tiered'?'open':''}><summary>DOE tiers · ${(row.tiers||[]).length}</summary>${nestedHtml('tiers',row.tiers||[])}</details></details>`;
+}
+    function groupedRuleTable(rows) {
+  const ordered=['Lectures & Labs','Course Coordination','HICC Course Development','VISC Coordination','Clinical Rotations & CCC','Other Approved Teaching','Trainees & Supervision','Reserve & Targets','Other / Advanced Rules'];
+  const visible=ordered.map(label=>({label,rows:rows.filter(({row})=>ruleGroupName(row)===label)})).filter(g=>g.rows.length);
+  if(!visible.length)return '<div class="empty">No matching rules. Choose a policy version or change the filters.</div>';
+  return `<div class="doe-excel-rule-groups">${visible.map(({label,rows},groupIndex)=>`<details class="doe-excel-rule-group" ${groupIndex===0?'open':''}><summary><strong>${esc(label)}</strong><span>${rows.length} ${rows.length===1?'item':'items'} · Expand</span></summary><div class="doe-excel-rule-items">${rows.map(({row,index})=>`<div class="doe-excel-rule-item" data-rule-index="${index}"><div class="doe-excel-rule-header"><div><strong>${esc(row.ruleLabel||row.ruleKey||'Unnamed DOE item')}</strong><small class="doe-excel-rule-rate">${esc(rateSummary(row))}</small></div><small>${row.enabled===false?'Disabled':row.reviewStatus==='approved'?'Source reviewed':'Source review required'}</small></div>${inlineWeightFields(row,index)}<p class="doe-inline-error" role="alert" aria-live="polite"></p><details class="doe-excel-rule-advanced"><summary>Advanced Settings</summary><p><strong>Applies when:</strong> ${esc(conditionSummary(row))}</p><p><strong>Source:</strong> ${esc(refName(row.referenceId))}</p><p><strong>Rule key:</strong> ${esc(row.ruleKey||'Not assigned')} · <strong>Priority:</strong> ${esc(row.priority??'Not configured')}</p><button class="btn btn-small" type="button" data-edit="rules" data-index="${index}">${editable()?'Edit Advanced Settings':'View Rule Details'}</button></details></div>`).join('')}</div></details>`).join('')}</div>`;
+}
+        function sessionWeightHtml(row) {
   const weight = ruleWeight(row);
   const chosen = row.calculationMode === 'fixed' ? 'per_session' : 'per_hour';
   return `<div class="doe-session-weight"><label class="field"><span class="field-label">Weight (%)</span><input class="input" type="number" min="0" step="any" data-doe-session-weight aria-label="DOE weight percentage" value="${weight === null ? '' : esc(weight)}" ${editable() ? '' : 'disabled'} required><small class="doe-field-example">Percentage points per selected unit, e.g. 0.30 means 0.30% DOE.</small></label><label class="field"><span class="field-label">Credit per</span><select class="select" data-doe-session-basis aria-label="DOE credit basis" ${editable() ? '' : 'disabled'}><option value="per_hour" ${chosen === 'per_hour' ? 'selected' : ''}>Credited hour</option><option value="per_session" ${chosen === 'per_session' ? 'selected' : ''}>Session / faculty assignment</option></select><small class="doe-field-example">Per session uses the engine's existing fixed credit once for each matching Faculty SessionAssignment.</small></label></div>`;
@@ -262,9 +327,7 @@
       node('doe-rulebook-editor-title').textContent=`${editing.index<0?'Add':editable()?'Edit':'View'} ${labels[key]}`;
       const fields=defs=>defs.map(d=>inputHtml({...d,...(d.key==='calculationMode'?{choices:modes.map(v=>[v,modeLabels[v]])}:{}),required:d.required||key==='rules'&&editing.index<0&&d.key==='referenceId'},row[d.key],'root',!editable())).join('');
       if(key==='rules'){
-        const quickSession = sessionWeightRule(row);
-        const basics=quickSession?['referenceId','reviewStatus','enabled']:['calculationMode','referenceId','reviewStatus','enabled'];
-        node('doe-rulebook-editor-fields').innerHTML=`<div class="doe-entry-guide" id="${idPrefix}doe-rule-entry-guide">${esc(originGuide(row))}</div><section class="doe-editor-section"><h4>${esc(row.ruleLabel||"Rule settings")}</h4><div class="doe-editor-grid doe-essentials">${fields(schemas.rules.filter(d=>basics.includes(d.key)))}</div>${quickSession?sessionWeightHtml(row):''}</section><div class="doe-condition-summary"><span class="field-label">Applies when</span><p id="${idPrefix}doe-rule-condition-summary">${esc(conditionSummary(row))}</p><small>${editing.index<0?"Fill the matching conditions below.":"Edit conditions in Advanced settings."}</small></div>${selectionRule(row)?nestedHtml('selectors',row.selectors||[]):''}${quickSession?'':nestedHtml('parameters',row.parameters||[])}${selectionRule(row)?precedenceHtml(row):""}<aside class="doe-entry-guide"><strong>Result illustration (not applied)</strong><p id="${idPrefix}doe-rule-example-result">${esc(exampleResult(row))}</p></aside><details class="doe-editor-disclosure" data-disclosure="formula" ><summary>Formula</summary>${fields(schemas.rules.filter(d=>d.key==='formulaText'))}</details><details class="doe-editor-disclosure" data-disclosure="tiers" ${row.calculationMode==='tiered'?'open':''}><summary>DOE tiers · ${(row.tiers||[]).length}</summary>${nestedHtml('tiers',row.tiers||[])}</details><details class="doe-editor-disclosure" data-disclosure="advanced" ><summary>Advanced settings <span>Conditions, inputs & rule identifiers</span></summary><div class="doe-editor-grid">${fields(schemas.rules.filter(d=>!basics.includes(d.key)&&d.key!=='formulaText'&&!(quickSession&&d.key==='calculationMode')))}</div>${selectionRule(row)?nestedHtml('inputs',row.inputs||[]):['selectors','inputs'].map(k=>nestedHtml(k,row[k]||[])).join('')}</details>`;
+        node('doe-rulebook-editor-fields').innerHTML=editorRuleMarkup(row,editing,fields);
       }else node('doe-rulebook-editor-fields').innerHTML=`<div class="doe-editor-grid">${fields(schemas[key])}</div>`;
       node('doe-rulebook-editor-fields').querySelectorAll('details[data-disclosure]').forEach(d=>{if(expanded.includes(d.dataset.disclosure))d.open=true;});
       node('doe-rulebook-editor-apply').hidden=!editable();
@@ -286,7 +349,15 @@
           }
         }
       }
-      if(key==='rules'&&sessionWeightRule(row)){result.parameters=clone(row.parameters||[]);applySessionWeight(result,row,node('doe-rulebook-editor-fields'),validate);}
+      if(key==='rules'&&simpleWeightRule(row)){
+        result.parameters=clone(row.parameters||[]);
+        const rootFields=node('doe-rulebook-editor-fields');
+        if(sessionWeightRule(row))applySessionWeight(result,row,rootFields,validate);
+        else {
+          const weight=rootFields.querySelector('[data-doe-simple-weight]')?.value;
+          Object.assign(result,applySimpleRate(result,{weight,mode:row.calculationMode},validate));
+        }
+      }
       if(key==='exceptions')result.facultyId=result.facultyId||null;
       return result;
     }
@@ -333,6 +404,7 @@
           }
         }catch(error){node('doe-rulebook-editor-error').textContent=error.message;onError(error.message);}
       });
+      root.addEventListener('change',event=>handleInlineRateChange(event.target));
       node('doe-rulebook-editor-fields').addEventListener('change',event=>{
         if(editing?.key!=='rules')return;
         const target=event.target;
@@ -390,7 +462,7 @@
       });
       render();
     }
-    return Object.freeze({mount,describeRule:row=>({group:ruleGroupName(row),rate:rateSummary(row),quickSession:sessionWeightRule(row)}),applySessionWeight,setBundle(value){bundle=clone(value||{});const reserve=(bundle.rules||[]).find(r=>r.category==='reserve');if(reserve){if(!bundle.reservePolicy)bundle.reservePolicy=Object.fromEntries((reserve.parameters||[]).filter(p=>reserveKeys.includes(p.name)&&p.valueNumber!=null).map(p=>[p.name,p.valueNumber]));bundle.reservePolicy={...bundle.reservePolicy,referenceId:reserve.referenceId,reviewStatus:reserve.reviewStatus};}dirty=false;node('doe-rulebook-editor')?.close();render();},refresh:render,isDirty:()=>dirty,editorOpen:()=>Boolean(node('doe-rulebook-editor')?.open),setLocked(value){locked=Boolean(value);render();},getPatch(){
+    return Object.freeze({mount,describeRule:row=>({group:ruleGroupName(row),rate:rateSummary(row),quickSession:sessionWeightRule(row),simple:simpleWeightRule(row),unit:simpleUnitLabel(row.calculationMode)}),applySessionWeight,applySimpleRate,renderSimpleRow:(row,index=0)=>inlineWeightFields(row,index),renderGroupedRows:rows=>groupedRuleTable(rows),setBundle(value){bundle=clone(value||{});const reserve=(bundle.rules||[]).find(r=>r.category==='reserve');if(reserve){if(!bundle.reservePolicy)bundle.reservePolicy=Object.fromEntries((reserve.parameters||[]).filter(p=>reserveKeys.includes(p.name)&&p.valueNumber!=null).map(p=>[p.name,p.valueNumber]));bundle.reservePolicy={...bundle.reservePolicy,referenceId:reserve.referenceId,reviewStatus:reserve.reviewStatus};}dirty=false;node('doe-rulebook-editor')?.close();render();},refresh:render,isDirty:()=>dirty,editorOpen:()=>Boolean(node('doe-rulebook-editor')?.open),setLocked(value){const next=Boolean(value);if(next!==locked){locked=next;render();}},getPatch(){
       const patch={};for(const key of ['rules','references','courseMappings','subjectMappings','exceptions'])patch[key]=clone(bundle[key]||[]);
       for(const rule of patch.rules)for(const selector of rule.selectors||[]){if(Array.isArray(selector.values))selector.valuesJson=JSON.stringify(selector.values);}
       for(const key of ['courseMappings','subjectMappings'])for(const row of patch[key])if(row.mappingFacts)row.mappingFactsJson=JSON.stringify(row.mappingFacts);

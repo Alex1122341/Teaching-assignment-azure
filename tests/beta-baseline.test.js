@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // AFC confirmation recovery is current. Prior DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='d049fe0fb4fb51e9fcefab3a4151c2600d3cc074';
+const BASELINE_COMMIT='3f53695778ea144d0e4ec53ab624d4b85f849a75';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
@@ -51,10 +51,26 @@ function baselineJson(ref){
 const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:commit,readManifest:()=>baselineJson(commit)});
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
-test('AFC confirmation recovery freeze protects only its reviewed three-file delta',()=>{
+test('working activity type filter freeze protects its reviewed four-file static delta',()=>{
+ const previous='d049fe0fb4fb51e9fcefab3a4151c2600d3cc074',product='3f53695778ea144d0e4ec53ab624d4b85f849a75';
+ assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(baseline.sourceCommit,product);assert.equal(BASELINE_COMMIT,product);
+ const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
+ assert.equal(before.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);
+ const apiFreeze=require('../tools/beta-api-freeze.js'),protectedApi=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
+ assert.equal(newApi.length,76);assert.equal(protectedApi.length,79);assert.deepEqual(newApi,oldApi);
+ const changed=execFileSync('git',['diff','--name-only',previous,product],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+ assert.deepEqual(changed.filter(file=>after.includes(file)).sort(),['calendar-activities.css','calendar-activities.js','index.html','timetable.js']);
+ assert.deepEqual(changed.filter(file=>protectedApi.includes(file)),[]);
+ for(const file of protectedApi)assert.equal(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:product,file})),true,file);
+ execFileSync('git',['merge-base','--is-ancestor','750db6edc5195ed5e30b92a0a302f152d7bcd362',product],{cwd:root});
+});
+
+test('historical AFC confirmation recovery freeze protects only its reviewed three-file delta',()=>{
  const previous=DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT,product='d049fe0fb4fb51e9fcefab3a4151c2600d3cc074';
- assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(baseline.sourceCommit,product);
- assert.equal(BASELINE_COMMIT,product);
+ const governance='2c39af86244b4e07fa5a678ecee53ff43cb7a0a5';
+ const source=execFileSync('git',['show',`${governance}:tools/beta-freeze.js`],{cwd:root,encoding:'utf8'});
+ const report=JSON.parse(execFileSync('git',['show',`${governance}:tools/beta-baseline.json`],{cwd:root,encoding:'utf8'}));
+ assert.ok(source.includes(`const BASELINE_COMMIT='${product}'`));assert.equal(report.sourceCommit,product);
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
  assert.equal(before.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);
  assert.equal(oldApi.length,76);assert.deepEqual(newApi,oldApi);

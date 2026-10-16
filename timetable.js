@@ -421,7 +421,7 @@
     if(/^\d{4}-\d{2}-\d{2}$/.test(String(session.date||''))){
       const date=parseYmd(session.date);if(!Number.isNaN(date.getTime())){
         const position=academicPositionForDate(date);selectedSemester=position.semester;selectedWeek=Math.max(1,Math.min(WEEK_COUNT,position.week));selectedDayIndex=Math.max(0,Math.min(4,date.getDay()-1));
-        $('filter-month').value='all';$('search-input').value='';$('filter-type').value='all';selectedYear='all';selectedCourses.clear();courseFilterActive=false;myTimetableOnly=false;populateCourseFilter();
+        $('filter-month').value='all';$('search-input').value='';activityTypeFilter.reset();selectedYear='all';selectedCourses.clear();courseFilterActive=false;myTimetableOnly=false;populateCourseFilter();
         document.querySelectorAll('[data-year]').forEach(b=>b.classList.toggle('active',b.dataset.year==='all'));document.querySelectorAll('[data-semester]').forEach(b=>b.classList.toggle('active',b.dataset.semester===selectedSemester));renderWeekControls();syncWeekUI();await refreshSessionScope();
       }
     }
@@ -439,7 +439,6 @@
   let selectedDayIndex = 0;
   let selectedCourses = new Set();
   let courseFilterActive = false;
-  let showCcc = false;
   let workingActivityRenderToken = 0;
   let renderedSessions = [];
   let colorsOn = true;
@@ -454,6 +453,7 @@
   let selectionDoeState = new Map();
 
   const $ = (id) => document.getElementById(id);
+  const activityTypeFilter = window.PAWS_CALENDAR_ACTIVITIES.createActivityTypeFilter({host:$('activity-type-filter'),onChange:()=>render()});
   const memoryStore = {};
   function storageGet(key) {
     try { return window.localStorage ? window.localStorage.getItem(key) : (memoryStore[key] ?? null); }
@@ -574,6 +574,7 @@
       const rows=cachedAll||await fetchAzureSessions(requestRange);
       if(cancelled)return false;
       sessions=rows;
+      activityTypeFilter.setSessionTypes(rows.map(row=>row.type));
       cacheSessionRange(range,rows);
       publishPageData();
       window.dispatchEvent(new Event('ucvm:sessions-updated'));
@@ -952,7 +953,7 @@
       refreshSessionScope();
     });
     $('week-mobile-select').addEventListener('change', e => { selectedWeek = Number(e.target.value); syncWeekUI(); refreshSessionScope(); });
-    ['search-input','filter-type'].forEach(id => $(id).addEventListener(id === 'search-input' ? 'input' : 'change', render));
+    $('search-input').addEventListener('input', render);
     $('filter-month').addEventListener('change', e => {
       if (e.target.value !== 'all') {
         { const m=Number(e.target.value); selectedSemester = m>=7 ? 'fall' : (m<=3 ? 'winter' : 'spring'); }
@@ -971,9 +972,6 @@
     $('cal-list-btn').addEventListener('click', () => switchCalendarView('list'));
     $('list-academic-year').addEventListener('change',event=>{listAcademicYear=event.target.value;render()});
     $('list-session-mode').addEventListener('change',event=>{listSessionMode=event.target.value;renderList()});
-    $('show-ccc').addEventListener('change', e=>{showCcc=e.target.checked;renderWorkingActivities()});
-    $('show-working-activities')?.addEventListener('change',()=>renderWorkingActivities());
-    $('activity-category-filter')?.addEventListener('change',()=>renderWorkingActivities());
     $('color-toggle').addEventListener('click', () => { colorsOn = !colorsOn; $('color-toggle').textContent = `Colors: ${colorsOn ? 'On' : 'Off'}`; render(); });
     $('dark-toggle').addEventListener('click', () => { document.documentElement.classList.toggle('dark'); $('dark-toggle').textContent = document.documentElement.classList.contains('dark') ? 'Light' : 'Moon'; });
     initializeScheduleFilters();
@@ -1013,8 +1011,8 @@
     selectedYear = 'all'; selectedSemester = 'fall';
     document.querySelectorAll('[data-year]').forEach(x => x.classList.toggle('active', x.dataset.year === 'all'));
     document.querySelectorAll('[data-semester]').forEach(x => x.classList.toggle('active', x.dataset.semester === 'fall'));
-    $('search-input').value = ''; $('filter-month').value = 'all'; $('filter-type').value = 'all';
-    selectedCourses.clear(); courseFilterActive=false; showCcc=false; $('show-ccc').checked=false; populateCourseFilter();
+    $('search-input').value = ''; $('filter-month').value = 'all'; activityTypeFilter.reset();
+    selectedCourses.clear(); courseFilterActive=false; populateCourseFilter();
     myTimetableOnly = roleIsFaculty(currentUser); if (currentUser) $('my-timetable-btn').textContent = myTimetableOnly ? 'Show All Timetable' : 'My Timetable';
     selectedWeek = 1; renderWeekControls();
     refreshSessionScope();
@@ -1042,16 +1040,15 @@
   }
 
   function filteredSessions(source=sessions, options={}) {
+    activityTypeFilter.setSessionTypes(source.map(row=>row.type));
     const q = $('search-input').value.trim().toLowerCase();
     const month = $('filter-month').value;
-    const type = $('filter-type').value;
     return source.filter(s => {
-      if(String(s.type||'').toUpperCase()==='CCC'&&!showCcc)return false;
+      if(!activityTypeFilter.matchesSession(s))return false;
       if (!options.ignorePeriod && selectedYear !== 'all' && String(s.year) !== selectedYear) return false;
       if (!options.ignorePeriod && s.semester !== selectedSemester) return false;
       if (!options.ignorePeriod && month !== 'all' && String(parseYmd(s.date).getMonth()) !== month) return false;
       if (courseFilterActive && !selectedCourses.has(String(s.course))) return false;
-      if (type !== 'all' && s.type !== type) return false;
       if (myTimetableOnly && currentUser && !sessionBelongsToCurrentFaculty(s)) return false;
       if (q && !`${s.course} ${s.topic} ${s.instructor} ${s.room} ${s.type}`.toLowerCase().includes(q)) return false;
       return true;
@@ -1084,8 +1081,8 @@
     if(!host)return;
     if(!currentUser||!view||reviewingSelection){view?.clear();host.innerHTML='';return;}
     const range=workingActivityRange();if(!range){host.textContent='Select an academic year to view working activities.';return;}
-    const filters={showCcc,showWorking:$('show-working-activities')?.checked!==false,category:$('activity-category-filter')?.value||'all',search:$('search-input').value.trim()};
-    if(!filters.showCcc&&!filters.showWorking){view.clear();host.innerHTML='';return;}
+    const filters={typeKeys:activityTypeFilter.selectedKeys(),search:$('search-input').value.trim()};
+    if(!filters.typeKeys.some(key=>key.startsWith('work:'))){view.clear();host.innerHTML='';return;}
     host.innerHTML='<p class="activity-notice" role="status">Loading working activities…</p>';
     try{
       const rows=myTimetableOnly
@@ -1856,6 +1853,10 @@
           profile.facultyId=sqlFacultyId;
           setLoginProgress('Loading your timetable...', true);
           const name = window.PAWS_FACULTY_NAME.format(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
+          sessions = [];
+          invalidateAllSessions();
+          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
+          activityTypeFilter.resetForUser();
           currentUser = {
             id: user.uid,
             uid: user.uid,
@@ -1872,8 +1873,6 @@
           canonicalWriteFaculty=[];
           try { await window.UCVM_PAWS_DATA.refreshWriteCapabilities(); }
           catch (capabilityError) { console.warn('[write capabilities]', capabilityError); }
-          invalidateAllSessions();
-          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
           publishPageData();
           viewMode = roleIsFaculty(currentUser) ? 'day' : 'week';
           setViewButtons();
@@ -1931,6 +1930,7 @@
         if (!user) {
           text.textContent = 'Firebase Auth + SQL Access Ready';
           currentUser = null;
+          activityTypeFilter.resetForUser();
           ++workingActivityRenderToken;window.PAWS_CALENDAR_ACTIVITIES?.clear();
           if($('working-activities-lane'))$('working-activities-lane').innerHTML='';
           viewMode = 'week'; setViewButtons();

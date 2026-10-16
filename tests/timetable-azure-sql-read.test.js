@@ -4,6 +4,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const src=fs.readFileSync('timetable.js','utf8');
 
+test('account bootstrap drops prior session data before resetting its type catalog or exposing the new identity',()=>{
+ const start=src.indexOf('async function bootstrapForUser'),identity=src.indexOf('currentUser = {',start);
+ const before=src.slice(start,identity),reset=before.indexOf('activityTypeFilter.resetForUser()');
+ assert.ok(before.indexOf('sessions = []')>0&&before.indexOf('sessions = []')<reset);
+ assert.ok(before.indexOf('invalidateAllSessions()')>0&&before.indexOf('invalidateAllSessions()')<reset);
+});
+
 test('working activity ranges use SQL outside the timed session grid and clear on logout',()=>{
   assert.doesNotMatch(src,/ccc_events|expandCccEvents|loadCccEvents|sessionsWithCcc/);
   const body=functionBody('async function renderWorkingActivities','function layoutDaySessions');
@@ -11,7 +18,8 @@ test('working activity ranges use SQL outside the timed session grid and clear o
   assert.match(body,/Working activities could not be loaded/);
   assert.match(src,/PAWS_CALENDAR_ACTIVITIES\?\.clear/);
   const html=fs.readFileSync('index.html','utf8');
-  assert.match(html,/id="working-activities-lane"/);assert.match(html,/id="show-working-activities"/);
+  assert.match(html,/id="working-activities-lane"/);assert.match(html,/id="activity-type-filter"/);
+  assert.doesNotMatch(html,/id="(?:show-working-activities|show-ccc|activity-category-filter|filter-type)"/);
   assert.ok(html.indexOf('calendar-activities.js')<html.indexOf('src="timetable.js"'));
 });
 

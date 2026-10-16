@@ -1853,6 +1853,9 @@
           profile.facultyId=sqlFacultyId;
           setLoginProgress('Loading your timetable...', true);
           const name = window.PAWS_FACULTY_NAME.format(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
+          sessions = [];
+          invalidateAllSessions();
+          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
           activityTypeFilter.resetForUser();
           currentUser = {
             id: user.uid,
@@ -1870,8 +1873,6 @@
           canonicalWriteFaculty=[];
           try { await window.UCVM_PAWS_DATA.refreshWriteCapabilities(); }
           catch (capabilityError) { console.warn('[write capabilities]', capabilityError); }
-          invalidateAllSessions();
-          sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
           publishPageData();
           viewMode = roleIsFaculty(currentUser) ? 'day' : 'week';
           setViewButtons();

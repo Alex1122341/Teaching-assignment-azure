@@ -67,14 +67,24 @@ test('A: an administrator role reads the Dashboard summary', async () => {
   assert.equal(response.jsonBody.summary.sessionCount, 1937);
 });
 
-test('B: exactly owner, administrator, adfa_general, adfa_regular and admin are administrators', () => {
-  assert.deepEqual([...ADMIN_ROLES].sort(), ['adfa_general', 'adfa_regular', 'admin', 'administrator', 'owner']);
+test('B: developer and the supported administrator aliases are administrators', () => {
+  assert.deepEqual([...ADMIN_ROLES].sort(), ['adfa_general', 'adfa_regular', 'admin', 'administrator', 'developer', 'owner']);
   for (const role of ADMIN_ROLES) {
     const scope = resolveScope(adminProfile(role));
     assert.equal(scope.status, undefined, role);
     assert.equal(scope.administrator, true, role);
     assert.equal(scope.facultyScoped, false, role);
   }
+});
+
+test('Developer Dashboard scope is administrative without bypassing the active SQL profile requirement', async () => {
+  const { app, calls } = harness(adminProfile('developer'));
+  const response = await app(request('/api/v1/dashboard/summary'));
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+  const inactive = harness({ ...adminProfile('developer'), active: false });
+  assert.equal((await inactive.app(request('/api/v1/dashboard/summary'))).status, 403);
+  assert.equal(inactive.calls.length, 0);
 });
 
 // C -------------------------------------------------------------------------
@@ -206,6 +216,25 @@ test('H: the faculty roster is the full roster for an administrator and one row 
   }
 });
 
+test('H2: all-status roster is admin-only and invalid status is rejected', async () => {
+  const admin = harness(adminProfile('adfa_general'));
+  const all = await admin.app(request('/api/v1/dashboard/faculty?status=all'));
+  assert.equal(all.status, 200);
+  assert.equal(admin.calls[0][1].status, 'all');
+
+  const faculty = harness(selfProfile('faculty'));
+  const denied = await faculty.app(request('/api/v1/dashboard/faculty?status=all'));
+  assert.equal(denied.status, 403);
+  assert.equal(denied.jsonBody.error.code, 'ROLE_DENIED');
+  assert.equal(faculty.calls.length, 0);
+
+  const invalid = harness(adminProfile('adfa_general'));
+  const badStatus = await invalid.app(request('/api/v1/dashboard/faculty?status=unknown'));
+  assert.equal(badStatus.status, 400);
+  assert.equal(badStatus.jsonBody.error.code, 'INVALID_FACULTY_STATUS');
+  assert.equal(invalid.calls.length, 0);
+});
+
 // I -------------------------------------------------------------------------
 test('I: a faculty-scoped caller may read only its own faculty record', async () => {
   const own = harness(selfProfile('hicc'));
@@ -284,7 +313,7 @@ test('M: a SQL failure is reported as 503 without leaking detail', async () => {
 });
 
 // N -------------------------------------------------------------------------
-test('N: every non-GET method on a dashboard path is 405 with Allow: GET', async () => {
+test('N: dashboard read routes reject unsupported methods and Faculty detail allows only PATCH as its write method', async () => {
   const { app, calls } = harness(adminProfile('administrator'));
   const urls = [
     '/api/v1/dashboard/summary',
@@ -294,8 +323,13 @@ test('N: every non-GET method on a dashboard path is 405 with Allow: GET', async
   for (const url of urls) {
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']) {
       const response = await app(request(url, { method }));
+      if (url.endsWith('/' + FACULTY_ID) && method === 'PATCH') {
+        assert.equal(response.status, 503, method + ' ' + url);
+        assert.equal(response.jsonBody.error.code, 'WRITE_DISABLED', method + ' ' + url);
+        continue;
+      }
       assert.equal(response.status, 405, method + ' ' + url);
-      assert.equal(response.headers.Allow, 'GET', method + ' ' + url);
+      assert.equal(response.headers.Allow, url.endsWith('/' + FACULTY_ID) ? 'GET, PATCH' : 'GET', method + ' ' + url);
       assert.equal(response.jsonBody.error.code, 'METHOD_NOT_ALLOWED', method + ' ' + url);
     }
   }

@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { createAfcRequestFunctions } = require('../src/runtime/swa-afc-request-functions');
+const TEST_RUNTIME_IDENTITY = { PAWS_RELEASE_SHA: 'a'.repeat(40), PAWS_RUNTIME_TRUST_ANCHOR: 'b'.repeat(40) };
 
 const REQUEST_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -88,7 +89,7 @@ test('actual SQL runtime mounts AFC requests and rejects anonymous callers befor
     PAWS_SQL_DRIVER: 'tedious'
   };
   const runtime = createSwaSqlRuntime({ env, admin: {}, sql: { ConnectionPool: FakePool } });
-  const server = createUniversityHttpServer({ runtime, env: {} });
+  const server = createUniversityHttpServer({ runtime, env: { ...TEST_RUNTIME_IDENTITY } });
   t.after(async () => {
     await new Promise(resolve => server.close(resolve));
     await runtime.close();

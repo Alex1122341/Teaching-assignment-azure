@@ -1,5 +1,7 @@
 'use strict';
 
+const { facultyDisplayNameSql } = require('./faculty-display-name');
+
 // BETA-R4D-10A2 — read-only Azure SQL repository for the Dashboard API.
 //
 // Scope and safety contract:
@@ -21,6 +23,11 @@ const {
   canonicalAcademicYear,
   resolveAcademicYear
 } = require('./academic-year');
+const {
+  DOE_NON_CREDIT_SESSION_TYPES,
+  resolveTeachingDoe,
+  resolveRoleDoe
+} = require('../domain/doe-calculator');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -56,7 +63,7 @@ const AFC_MAX_LIMIT = 2000;
 // "Coordinator" — because the source distinguishes the two values and fuzzy
 // matching would inflate the HICC count from 64 to 75.
 const VISC_ROLE_TYPES = ['VISC'];
-const HICC_ROLE_TYPES = ['Course Coordinator / HICC (legacy ambiguous)'];
+const HICC_ROLE_TYPES = ['Course Coordinator / HICC (legacy ambiguous)', 'HICC'];
 
 // Retained only so the R4D-10A export surface does not break. NOT used as a
 // query predicate — `RoleCategory` is the wrong axis (it is NULL live).
@@ -149,6 +156,121 @@ function toText(value) {
 
 function toBool(value) {
   return value === true || value === 1;
+}
+
+function emptyDoeGapBucket() {
+  return { gapCount: 0, calculatedCount: 0, unresolvedCount: 0, calculatedDoe: 0 };
+}
+
+function addDoeGap(map, facultyId, resolution) {
+  const key = String(facultyId);
+  const bucket = map.get(key) || emptyDoeGapBucket();
+  bucket.gapCount += 1;
+  if (resolution.effectiveDoe === null || resolution.effectiveDoe === undefined) {
+    bucket.unresolvedCount += 1;
+  } else {
+    bucket.calculatedCount += 1;
+    bucket.calculatedDoe += Number(resolution.effectiveDoe) || 0;
+  }
+  map.set(key, bucket);
+}
+
+function sumDoeGapMap(map) {
+  const total = emptyDoeGapBucket();
+  for (const bucket of map.values()) {
+    total.gapCount += bucket.gapCount;
+    total.calculatedCount += bucket.calculatedCount;
+    total.unresolvedCount += bucket.unresolvedCount;
+    total.calculatedDoe += bucket.calculatedDoe;
+  }
+  return total;
+}
+
+// Calculator gap queries remain read-only and bounded by the requested academic
+// year. Only rows with no stored DOE are loaded, so normal stored evidence never
+// fans out through the calculator and stored/override precedence is preserved.
+async function calculateDoeGapSummary(db, academicYear) {
+  const params = {
+    academicYear,
+    doeNa0: DOE_NON_CREDIT_SESSION_TYPES[0],
+    doeNa1: DOE_NON_CREDIT_SESSION_TYPES[1]
+  };
+  const [teachingRows, roleRows] = await Promise.all([
+    db.query(
+      `SELECT sa.FacultyId AS facultyId,
+              c.SessionType AS sessionType,
+              sa.TeachingRole AS teachingRole,
+              sa.CreditedHours AS creditedHours,
+              sa.DoeQuantity AS doeQuantity,
+              sa.DoeCredit AS doeCredit
+         FROM paws.SessionAssignment sa
+         INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId
+        WHERE c.AcademicYear = @academicYear
+          AND sa.DoeCredit IS NULL
+          AND (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1))`,
+      params
+    ),
+    db.query(
+      `SELECT r.FacultyId AS facultyId,
+              r.AcademicYear AS academicYear,
+              r.RoleType AS roleType,
+              r.CourseOrSubjectOrRotation AS courseOrSubjectOrRotation,
+              r.CourseName AS courseName,
+              r.Details AS details,
+              CONVERT(varchar(10), r.EffectiveDate, 23) AS effectiveDate,
+              CONVERT(varchar(10), r.ExpirationDate, 23) AS expirationDate,
+              r.DoeMappedValue AS doeMappedValue,
+              r.DoeOverrideValue AS doeOverrideValue,
+              r.SpecialNotes AS specialNotes
+         FROM paws.RoleAssignment r
+        WHERE r.AcademicYear = @academicYear
+          AND r.DoeMappedValue IS NULL
+          AND r.DoeOverrideValue IS NULL`,
+      { academicYear }
+    )
+  ]);
+
+  const teachingByFaculty = new Map();
+  for (const row of teachingRows) {
+    const resolution = resolveTeachingDoe({
+      sessionType: toText(row.sessionType),
+      teachingRole: toText(row.teachingRole),
+      creditedHours: toNumber(row.creditedHours),
+      doeQuantity: toNumber(row.doeQuantity),
+      doeCredit: null
+    });
+    addDoeGap(teachingByFaculty, row.facultyId, resolution);
+  }
+
+  const roleByFaculty = new Map();
+  for (const row of roleRows) {
+    const resolution = resolveRoleDoe({
+      academicYear: toText(row.academicYear),
+      roleType: toText(row.roleType),
+      courseOrSubjectOrRotation: toText(row.courseOrSubjectOrRotation),
+      courseName: toText(row.courseName),
+      details: toText(row.details),
+      effectiveDate: toText(row.effectiveDate),
+      expirationDate: toText(row.expirationDate),
+      doeMappedValue: null,
+      doeOverrideValue: null,
+      specialNotes: toText(row.specialNotes)
+    });
+    addDoeGap(roleByFaculty, row.facultyId, resolution);
+  }
+
+  return {
+    teachingByFaculty,
+    roleByFaculty,
+    teachingTotal: sumDoeGapMap(teachingByFaculty),
+    roleTotal: sumDoeGapMap(roleByFaculty)
+  };
+}
+
+function effectiveDoeSum(storedDoe, calculatedDoe, resolvedCount, lineCount) {
+  if (lineCount === 0) return 0;
+  if (resolvedCount === 0) return null;
+  return (storedDoe || 0) + (calculatedDoe || 0);
 }
 
 function createSqlDashboardRepository(db) {
@@ -249,10 +371,14 @@ function createSqlDashboardRepository(db) {
     // ---------------------------------------------------------------- faculty
     // Roster. Administrators receive the full active roster; a faculty-scoped
     // caller is narrowed by `facultyId` to exactly its own row.
-    async faculty({ academicYear: year, search = null, limit, facultyId = null } = {}) {
+    async faculty({ academicYear: year, search = null, limit, facultyId = null, status = 'active' } = {}) {
       const resolvedYear = resolveAcademicYear(year);
       const params = { academicYear: resolvedYear, limit: boundLimit(limit) };
-      const predicates = ['f.Active = 1'];
+      const predicates = [];
+
+      if (status === 'active') predicates.push('f.Active = 1');
+      else if (status === 'inactive') predicates.push('f.Active = 0');
+      else if (status !== 'all') throw new Error('Invalid Faculty status filter');
 
       if (facultyId) {
         predicates.push('f.FacultyId = @facultyId');
@@ -264,12 +390,14 @@ function createSqlDashboardRepository(db) {
         params.search = likePattern(search);
       }
 
+      const whereClause = predicates.length ? `WHERE ${predicates.join(' AND ')}` : '';
+
       const rows = await db.query(
         `SELECT TOP (@limit)
              f.FacultyId AS facultyId,
              f.PreferredFirstName AS preferredFirstName,
              f.PreferredLastName AS preferredLastName,
-             f.DisplayName AS displayName,
+             ${facultyDisplayNameSql()} AS displayName,
              f.Ucid AS ucid,
              f.Email AS email,
              f.RecordType AS recordType,
@@ -277,8 +405,9 @@ function createSqlDashboardRepository(db) {
              f.Rank AS rank,
              f.Fte AS fte,
              f.ReportsToFacultyId AS reportsToFacultyId,
-             manager.DisplayName AS reportsToName,
+             ${facultyDisplayNameSql('manager')} AS reportsToName,
              f.Active AS active,
+             CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc,
              profile.TeachingArea AS teachingArea,
              profile.ProfessionalCategory AS professionalCategory,
              (SELECT COUNT(DISTINCT c.SessionId)
@@ -299,7 +428,7 @@ function createSqlDashboardRepository(db) {
          FROM paws.Faculty f
          LEFT JOIN paws.Faculty manager ON manager.FacultyId = f.ReportsToFacultyId
          LEFT JOIN paws.FacultyProfessionalProfile profile ON profile.FacultyId = f.FacultyId
-         WHERE ${predicates.join(' AND ')}
+         ${whereClause}
          ORDER BY f.DisplayName, f.FacultyId`,
         params
       );
@@ -318,6 +447,7 @@ function createSqlDashboardRepository(db) {
         reportsToFacultyId: toText(row.reportsToFacultyId),
         reportsToName: toText(row.reportsToName),
         active: toBool(row.active),
+        updatedAtUtc: row.updatedAtUtc instanceof Date ? row.updatedAtUtc.toISOString() : toText(row.updatedAtUtc),
         teachingArea: toText(row.teachingArea),
         professionalCategory: toText(row.professionalCategory),
         sessionCount: toInt(row.sessionCount),
@@ -355,7 +485,7 @@ function createSqlDashboardRepository(db) {
         `SELECT TOP (@limit)
              u.AfcRecordId AS afcRecordId,
              u.FacultyId AS facultyId,
-             f.DisplayName AS facultyName,
+             ${facultyDisplayNameSql()} AS facultyName,
              CONVERT(varchar(10), u.StartDate, 23) AS startDate,
              CONVERT(varchar(10), u.EndDate, 23) AS endDate,
                u.ReasonCode AS reasonCode,
@@ -367,7 +497,8 @@ function createSqlDashboardRepository(db) {
              u.SourceKind AS sourceKind,
              u.CreatedAtUtc AS createdAtUtc,
              u.CreatedByName AS createdByName,
-             u.RecordKey AS recordKey
+             u.RecordKey AS recordKey,
+              u.VersionToken AS versionToken
          FROM paws.vAfcRecordUnified u
          INNER JOIN paws.Faculty f ON f.FacultyId = u.FacultyId
          ${whereClause}
@@ -388,17 +519,18 @@ function createSqlDashboardRepository(db) {
         sourceKind: toText(row.sourceKind),
         createdAtUtc: row.createdAtUtc || null,
         createdByName: toText(row.createdByName),
-        recordKey: toText(row.recordKey)
+        recordKey: toText(row.recordKey),
+        versionToken: toText(row.versionToken)
       }));
     },
 
     // -------------------------------------------------------------- facultyById
-    // Full single-faculty detail. Returns null when the FacultyId is unknown or
-    // the faculty record is inactive.
+    // Full single-faculty detail. Inactive records are available only when the
+    // caller has already been authorized as an administrator.
     //
     // The six required sections are returned as siblings of `faculty`, never
     // nested inside it.
-    async facultyById({ facultyId, academicYear: year } = {}) {
+    async facultyById({ facultyId, academicYear: year, includeInactive = false } = {}) {
       if (!isUuid(facultyId)) return null;
       const resolvedYear = resolveAcademicYear(year);
 
@@ -408,29 +540,33 @@ function createSqlDashboardRepository(db) {
              f.RecordType AS recordType,
              f.PreferredFirstName AS preferredFirstName,
              f.PreferredLastName AS preferredLastName,
-             f.DisplayName AS displayName,
+             ${facultyDisplayNameSql()} AS displayName,
              f.Ucid AS ucid,
              f.Email AS email,
              f.Stream AS stream,
              f.Rank AS rank,
              f.Fte AS fte,
+             f.DisplayName AS storedDisplayName,
+             f.HrName AS hrName,
+             f.HrNameSource AS hrNameSource,
              f.FteSourceReference AS fteSourceReference,
              f.FteSourceRow AS fteSourceRow,
              f.FteSourceUpdatedAtUtc AS fteSourceUpdatedAtUtc,
              f.ReportsToFacultyId AS reportsToFacultyId,
-             manager.DisplayName AS reportsToName,
-             f.Active AS active
+             ${facultyDisplayNameSql('manager')} AS reportsToName,
+             f.Active AS active,
+             CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc
          FROM paws.Faculty f
          LEFT JOIN paws.Faculty manager ON manager.FacultyId = f.ReportsToFacultyId
          WHERE f.FacultyId = @facultyId
-           AND f.Active = 1`,
-        { facultyId }
+           AND (@includeInactive = 1 OR f.Active = 1)`,
+        { facultyId, includeInactive: includeInactive ? 1 : 0 }
       );
 
       const record = rows[0];
       if (!record) return null;
 
-      const [profileRows, jointRows, roleRows, afcRows, assignmentRows, contractTargetRows, contractAllocationRows, doeRuleRows] = await Promise.all([
+      const [profileRows, jointRows, roleRows, afcRows, assignmentRows, contractTargetRows, contractAllocationRows, doeRuleRows, linkedRows] = await Promise.all([
         // ---------------------------------------------------- professional profile
         db.query(
           `SELECT
@@ -448,7 +584,8 @@ function createSqlDashboardRepository(db) {
                p.BoardCertification AS boardCertification,
                p.BoardCertificationCount AS boardCertificationCount,
                p.AbvmaLicenseNumber AS abvmaLicenseNumber,
-               p.AbvmaMemberType AS abvmaMemberType
+               p.AbvmaMemberType AS abvmaMemberType,
+               CONVERT(varchar(18), CONVERT(varbinary(8), p.ProfileVersion), 1) AS profileVersion
            FROM paws.FacultyProfessionalProfile p
            WHERE p.FacultyId = @facultyId`,
           { facultyId }
@@ -472,6 +609,7 @@ function createSqlDashboardRepository(db) {
         db.query(
           `SELECT
                r.RoleAssignmentId AS roleAssignmentId,
+               rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),rs.ScheduleVersion,1) AS scheduleVersion,
                r.FacultyResolutionStatus AS facultyResolutionStatus,
                r.AcademicYear AS academicYear,
                r.RoleCategory AS roleCategory,
@@ -485,10 +623,15 @@ function createSqlDashboardRepository(db) {
                r.DoeOverrideValue AS doeOverrideValue,
                r.DoeOverrideReason AS doeOverrideReason,
                r.SpecialNotes AS specialNotes
-           FROM paws.RoleAssignment r
+           FROM paws.RoleAssignment r LEFT JOIN paws.RoleAppointmentSchedule rs ON rs.RoleAssignmentId=r.RoleAssignmentId
            WHERE r.FacultyId = @facultyId
              AND r.AcademicYear = @academicYear
-           ORDER BY r.RoleCategory, r.RoleType, r.RoleAssignmentId`,
+           UNION ALL
+           SELECT m.AssignmentId,NULL,NULL,N'manual_adjustment',m.AcademicYear,N'Manual DOE adjustment',m.RoleType,
+                  m.ScopeText,COALESCE(m.CourseCode,m.SubjectKey),N'Negotiated manual adjustment (additive)',
+                  NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
+             FROM paws.ManualDoeAssignment m WHERE m.FacultyId=@facultyId AND m.AcademicYear=@academicYear AND m.Active=1
+           ORDER BY roleCategory, roleType, roleAssignmentId`,
           { facultyId, academicYear: resolvedYear }
         ),
         // ------------------------------------------------------------ AFC records
@@ -587,35 +730,71 @@ function createSqlDashboardRepository(db) {
              FROM paws.DoeRuleSeed r
              INNER JOIN paws.DoePolicyVersion p ON p.PolicyVersionId = r.PolicyVersionId
             WHERE p.AcademicYear = @academicYear
-              AND p.Active = 1
+              AND (p.Active = 1 OR (
+                NOT EXISTS (SELECT 1 FROM paws.DoeRuleSeed activeSeed
+                  JOIN paws.DoePolicyVersion activeVersion ON activeVersion.PolicyVersionId=activeSeed.PolicyVersionId
+                  WHERE activeVersion.AcademicYear=@academicYear AND activeVersion.Active=1)
+                AND p.PolicyVersionId=(SELECT TOP(1) evidenceVersion.PolicyVersionId FROM paws.DoePolicyVersion evidenceVersion
+                  WHERE evidenceVersion.AcademicYear=@academicYear
+                    AND EXISTS (SELECT 1 FROM paws.DoeRuleSeed evidenceSeed WHERE evidenceSeed.PolicyVersionId=evidenceVersion.PolicyVersionId)
+                  ORDER BY evidenceVersion.CreatedAtUtc DESC, evidenceVersion.PolicyVersionId)
+              ))
             ORDER BY r.Category, r.SourceRow, r.DoeRuleSeedId`,
           { academicYear: resolvedYear }
+        ),
+        db.query(
+          `SELECT
+              (SELECT COUNT_BIG(*) FROM paws.UserProfile u WHERE u.FacultyId=@facultyId AND u.Active=1) AS activeUserProfileCount,
+              (SELECT COUNT_BIG(*) FROM paws.SessionAssignment sa JOIN paws.vCalendarSession s ON s.SessionId=sa.SessionId
+                WHERE sa.FacultyId=@facultyId AND s.AcademicYear=@academicYear AND s.SessionDate>=CONVERT(date,SYSUTCDATETIME())) AS currentTeachingSessionCount,
+              (SELECT COUNT_BIG(*) FROM paws.RoleAssignment ra WHERE ra.FacultyId=@facultyId
+                AND (ra.EffectiveDate IS NULL OR ra.EffectiveDate<=CONVERT(date,SYSUTCDATETIME()))
+                AND (ra.ExpirationDate IS NULL OR CONVERT(date,SYSUTCDATETIME())<ra.ExpirationDate)) AS currentRoleCount,
+              (SELECT COUNT_BIG(*) FROM paws.TeachingResponsibilityAssignee a
+                WHERE a.FacultyId=@facultyId AND a.AcademicYear=@academicYear
+                  AND a.ActiveDate<=CONVERT(date,SYSUTCDATETIME())
+                  AND (a.ExpirationDate IS NULL OR CONVERT(date,SYSUTCDATETIME())<a.ExpirationDate)) AS currentTeachingResponsibilityCount`,
+          { facultyId, academicYear: resolvedYear }
         )
       ]);
 
       const profile = profileRows[0] || null;
-      const teachingAssignments = assignmentRows.map(row => ({
-        sessionAssignmentId: row.sessionAssignmentId,
-        sessionId: row.sessionId,
-        academicYear: toText(row.academicYear),
-        curriculumYear: toText(row.curriculumYear),
-        courseCode: toText(row.courseCode),
-        courseName: toText(row.courseName),
-        topic: toText(row.topic),
-        sessionType: toText(row.sessionType),
-        date: toText(row.date),
-        startTime: toText(row.startTime),
-        endTime: toText(row.endTime),
-        room: toText(row.room),
-        teachingRole: toText(row.teachingRole),
-        labLead: toText(row.labLead),
-        creditedHours: toNumber(row.creditedHours),
-        doeRate: toNumber(row.doeRate),
-        doeQuantity: toNumber(row.doeQuantity),
-        doeUnit: toText(row.doeUnit),
-        doeCredit: toNumber(row.doeCredit),
-        doeStatus: toText(row.doeStatus)
-      }));
+      const teachingAssignments = assignmentRows.map(row => {
+        const assignment = {
+          sessionAssignmentId: row.sessionAssignmentId,
+          sessionId: row.sessionId,
+          academicYear: toText(row.academicYear),
+          curriculumYear: toText(row.curriculumYear),
+          courseCode: toText(row.courseCode),
+          courseName: toText(row.courseName),
+          topic: toText(row.topic),
+          sessionType: toText(row.sessionType),
+          date: toText(row.date),
+          startTime: toText(row.startTime),
+          endTime: toText(row.endTime),
+          room: toText(row.room),
+          teachingRole: toText(row.teachingRole),
+          labLead: toText(row.labLead),
+          creditedHours: toNumber(row.creditedHours),
+          doeRate: toNumber(row.doeRate),
+          doeQuantity: toNumber(row.doeQuantity),
+          doeUnit: toText(row.doeUnit),
+          doeCredit: toNumber(row.doeCredit),
+          doeStatus: toText(row.doeStatus)
+        };
+        const doe = resolveTeachingDoe(assignment);
+        return {
+          ...assignment,
+          doeApplicable: doe.applicable,
+          calculatedDoeCredit: doe.calculatedDoe,
+          effectiveDoeCredit: doe.effectiveDoe,
+          doeCalculationStatus: doe.status,
+          doeReviewReason: doe.reviewReason,
+          doeRuleCode: doe.ruleCode || null,
+          doeCalculatorSource: doe.calculatorSource || null,
+          doeSource: doe.source
+        };
+      });
 
       const checkNeeded = teachingAssignments.filter(assignment => {
         const start = assignment.startTime;
@@ -632,6 +811,9 @@ function createSqlDashboardRepository(db) {
           preferredFirstName: toText(record.preferredFirstName),
           preferredLastName: toText(record.preferredLastName),
           displayName: toText(record.displayName),
+          storedDisplayName: toText(record.storedDisplayName),
+          hrName: toText(record.hrName),
+          hrNameSource: toText(record.hrNameSource),
           ucid: toText(record.ucid),
           email: toText(record.email),
           stream: toText(record.stream),
@@ -642,7 +824,8 @@ function createSqlDashboardRepository(db) {
           fteSourceUpdatedAtUtc: record.fteSourceUpdatedAtUtc || null,
           reportsToFacultyId: toText(record.reportsToFacultyId),
           reportsToName: toText(record.reportsToName),
-          active: toBool(record.active)
+          active: toBool(record.active),
+          updatedAtUtc: toText(record.updatedAtUtc)
         },
         academicYear: resolvedYear,
         professionalProfile: profile
@@ -661,7 +844,8 @@ function createSqlDashboardRepository(db) {
               boardCertification: toText(profile.boardCertification),
               boardCertificationCount: toNumber(profile.boardCertificationCount),
               abvmaLicenseNumber: toText(profile.abvmaLicenseNumber),
-              abvmaMemberType: toText(profile.abvmaMemberType)
+              abvmaMemberType: toText(profile.abvmaMemberType),
+              profileVersion: toText(profile.profileVersion)
             }
           : null,
         jointAppointments: jointRows.map(row => ({
@@ -673,23 +857,44 @@ function createSqlDashboardRepository(db) {
           expiryDate: toText(row.expiryDate),
           notes: toText(row.notes)
         })),
-        roles: roleRows.map(row => ({
-          roleAssignmentId: row.roleAssignmentId,
-          facultyResolutionStatus: toText(row.facultyResolutionStatus),
-          academicYear: toText(row.academicYear),
-          roleCategory: toText(row.roleCategory),
-          roleType: toText(row.roleType),
-          courseOrSubjectOrRotation: toText(row.courseOrSubjectOrRotation),
-          courseName: toText(row.courseName),
-          details: toText(row.details),
-          effectiveDate: toText(row.effectiveDate),
-          expirationDate: toText(row.expirationDate),
-          doeMappedValue: toNumber(row.doeMappedValue),
-          doeOverrideValue: toNumber(row.doeOverrideValue),
-          effectiveDoe: toNumber(row.doeOverrideValue) !== null ? toNumber(row.doeOverrideValue) : toNumber(row.doeMappedValue),
-          doeOverrideReason: toText(row.doeOverrideReason),
-          specialNotes: toText(row.specialNotes)
-        })),
+        roles: roleRows.map(row => {
+          const role = {
+            roleAssignmentId: row.roleAssignmentId,
+            validityPeriods: row.validityPeriodsJson == null ? null : JSON.parse(row.validityPeriodsJson),
+            scheduleVersion: toText(row.scheduleVersion),
+            facultyResolutionStatus: toText(row.facultyResolutionStatus),
+            academicYear: toText(row.academicYear),
+            roleCategory: toText(row.roleCategory),
+            roleType: toText(row.roleType),
+            courseOrSubjectOrRotation: toText(row.courseOrSubjectOrRotation),
+            courseName: toText(row.courseName),
+            details: toText(row.details),
+            effectiveDate: toText(row.effectiveDate),
+            expirationDate: toText(row.expirationDate),
+            doeMappedValue: toNumber(row.doeMappedValue),
+            doeOverrideValue: toNumber(row.doeOverrideValue),
+            doeOverrideReason: toText(row.doeOverrideReason),
+            specialNotes: toText(row.specialNotes)
+          };
+          const doe = role.facultyResolutionStatus === 'manual_adjustment'
+            ? { calculatedDoe: null, effectiveDoe: role.doeMappedValue, status: 'manual', source: 'manual_adjustment' }
+            : resolveRoleDoe(role);
+          return {
+            ...role,
+            calculatedDoe: doe.calculatedDoe,
+            effectiveDoe: doe.effectiveDoe,
+            doeCalculationStatus: doe.status,
+            doeReviewReason: doe.reviewReason,
+            doeRuleCode: doe.ruleCode || null,
+            doeCalculatorSource: doe.calculatorSource || null,
+            doeSource: doe.source,
+            doeCandidates: doe.candidates || null,
+            doeCandidateBasis: doe.candidateBasis || null,
+            doeCourseUnits: doe.courseUnits ?? null,
+            doeHiccDevelopmentApplicable: doe.hiccDevelopmentApplicable ?? null,
+            doeCourseEvidenceSource: doe.courseEvidenceSource || null
+          };
+        }),
         afcRecords: afcRows.map(row => ({
           afcRecordId: row.afcRecordId,
           startDate: toText(row.startDate),
@@ -739,7 +944,13 @@ function createSqlDashboardRepository(db) {
         },
         teachingAssignments,
         sessionCount: teachingAssignments.length,
-        checkNeededCount: checkNeeded
+        checkNeededCount: checkNeeded,
+        linkedRecords: {
+          activeUserProfileCount: toInt(linkedRows[0]?.activeUserProfileCount),
+          currentTeachingSessionCount: toInt(linkedRows[0]?.currentTeachingSessionCount),
+          currentRoleCount: toInt(linkedRows[0]?.currentRoleCount),
+          currentTeachingResponsibilityCount: toInt(linkedRows[0]?.currentTeachingResponsibilityCount)
+        }
       };
     },
 
@@ -749,13 +960,19 @@ function createSqlDashboardRepository(db) {
     // member's DOE lines are never multiplied by a cross-join.
     async teachingSummary({ academicYear: year } = {}) {
       const resolvedYear = resolveAcademicYear(year);
+      const doeParams = {
+        academicYear: resolvedYear,
+        doeNa0: DOE_NON_CREDIT_SESSION_TYPES[0],
+        doeNa1: DOE_NON_CREDIT_SESSION_TYPES[1]
+      };
       const rows = await db.query(
         `WITH teaching AS (
            SELECT sa.FacultyId,
                   SUM(sa.DoeCredit) AS assignedTeachingDoe,
-                  COUNT(sa.SessionAssignmentId) AS teachingLineCount,
-                  SUM(CASE WHEN sa.DoeCredit IS NOT NULL THEN 1 ELSE 0 END) AS teachingRecordedCount,
-                  SUM(CASE WHEN sa.DoeCredit IS NULL THEN 1 ELSE 0 END) AS teachingMissingCount,
+                  SUM(CASE WHEN c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1) THEN 1 ELSE 0 END) AS teachingLineCount,
+                  SUM(CASE WHEN (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1)) AND sa.DoeCredit IS NOT NULL THEN 1 ELSE 0 END) AS teachingRecordedCount,
+                  SUM(CASE WHEN (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1)) AND sa.DoeCredit IS NULL THEN 1 ELSE 0 END) AS teachingMissingCount,
+                  SUM(CASE WHEN c.SessionType IN (@doeNa0, @doeNa1) THEN 1 ELSE 0 END) AS teachingNotApplicableCount,
                   SUM(CASE WHEN TRY_CONVERT(int, c.CurriculumYear) = 1 OR CONVERT(varchar(20), c.CurriculumYear) = 'Year 1' THEN 1 ELSE 0 END) AS year1Assignments,
                   SUM(CASE WHEN TRY_CONVERT(int, c.CurriculumYear) = 2 OR CONVERT(varchar(20), c.CurriculumYear) = 'Year 2' THEN 1 ELSE 0 END) AS year2Assignments,
                   SUM(CASE WHEN TRY_CONVERT(int, c.CurriculumYear) = 3 OR CONVERT(varchar(20), c.CurriculumYear) = 'Year 3' THEN 1 ELSE 0 END) AS year3Assignments,
@@ -773,12 +990,18 @@ function createSqlDashboardRepository(db) {
                   COUNT(r.RoleAssignmentId) AS roleLineCount,
                   SUM(CASE WHEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL THEN 1 ELSE 0 END) AS roleRecordedCount,
                   SUM(CASE WHEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NULL THEN 1 ELSE 0 END) AS roleMissingCount
-             FROM paws.RoleAssignment r
+             FROM (
+               SELECT r.FacultyId,r.RoleAssignmentId,r.AcademicYear,r.DoeOverrideValue,r.DoeMappedValue
+                 FROM paws.RoleAssignment r WHERE r.AcademicYear=@academicYear
+               UNION ALL
+               SELECT m.FacultyId,m.AssignmentId,m.AcademicYear,NULL,m.DoeValue
+                 FROM paws.ManualDoeAssignment m WHERE m.AcademicYear=@academicYear AND m.Active=1
+             ) r
             WHERE r.AcademicYear = @academicYear
             GROUP BY r.FacultyId
          )
          SELECT f.FacultyId AS facultyId,
-                f.DisplayName AS displayName,
+                ${facultyDisplayNameSql()} AS displayName,
                 CASE WHEN COALESCE(t.teachingLineCount, 0) = 0 THEN 0 ELSE t.assignedTeachingDoe END AS assignedTeachingDoe,
                 CASE WHEN COALESCE(r.roleLineCount, 0) = 0 THEN 0 ELSE r.roleDoe END AS roleDoe,
                 CASE
@@ -789,6 +1012,7 @@ function createSqlDashboardRepository(db) {
                 COALESCE(t.teachingLineCount, 0) AS teachingLineCount,
                 COALESCE(t.teachingRecordedCount, 0) AS teachingRecordedCount,
                 COALESCE(t.teachingMissingCount, 0) AS teachingMissingCount,
+                COALESCE(t.teachingNotApplicableCount, 0) AS teachingNotApplicableCount,
                 COALESCE(r.roleLineCount, 0) AS roleLineCount,
                 COALESCE(r.roleRecordedCount, 0) AS roleRecordedCount,
                 COALESCE(r.roleMissingCount, 0) AS roleMissingCount,
@@ -805,29 +1029,63 @@ function createSqlDashboardRepository(db) {
            LEFT JOIN roles r ON r.FacultyId = f.FacultyId
           WHERE f.Active = 1
           ORDER BY f.DisplayName, f.FacultyId`,
-        { academicYear: resolvedYear }
+        doeParams
       );
-      return rows.map(row => ({
-        facultyId: row.facultyId,
-        displayName: toText(row.displayName),
-        assignedTeachingDoe: toNumber(row.assignedTeachingDoe),
-        roleDoe: toNumber(row.roleDoe),
-        recordedDoeTotal: toNumber(row.recordedDoeTotal),
-        teachingLineCount: toInt(row.teachingLineCount),
-        teachingRecordedCount: toInt(row.teachingRecordedCount),
-        teachingMissingCount: toInt(row.teachingMissingCount),
-        roleLineCount: toInt(row.roleLineCount),
-        roleRecordedCount: toInt(row.roleRecordedCount),
-        roleMissingCount: toInt(row.roleMissingCount),
-        doeComplete: toBool(row.doeComplete),
-        year1Assignments: toInt(row.year1Assignments),
-        year2Assignments: toInt(row.year2Assignments),
-        year3Assignments: toInt(row.year3Assignments),
-        year4Assignments: toInt(row.year4Assignments),
-        creditedHours: toNumber(row.creditedHours),
-        courseCount: toInt(row.courseCount),
-        sessionCount: toInt(row.sessionCount)
-      }));
+      const gaps = await calculateDoeGapSummary(db, resolvedYear);
+      return rows.map(row => {
+        const facultyKey = String(row.facultyId);
+        const teachingGap = gaps.teachingByFaculty.get(facultyKey) || emptyDoeGapBucket();
+        const roleGap = gaps.roleByFaculty.get(facultyKey) || emptyDoeGapBucket();
+        const teachingLineCount = toInt(row.teachingLineCount);
+        const roleLineCount = toInt(row.roleLineCount);
+        const teachingRecordedCount = toInt(row.teachingRecordedCount);
+        const roleRecordedCount = toInt(row.roleRecordedCount);
+        const teachingCalculatedCount = teachingGap.calculatedCount;
+        const roleCalculatedCount = roleGap.calculatedCount;
+        const teachingResolvedCount = teachingRecordedCount + teachingCalculatedCount;
+        const roleResolvedCount = roleRecordedCount + roleCalculatedCount;
+        const teachingMissingCount = Math.max(0, toInt(row.teachingMissingCount) - teachingCalculatedCount);
+        const roleMissingCount = Math.max(0, toInt(row.roleMissingCount) - roleCalculatedCount);
+        const recordedTeachingDoe = toNumber(row.assignedTeachingDoe);
+        const recordedRoleDoe = toNumber(row.roleDoe);
+        const assignedTeachingDoe = effectiveDoeSum(recordedTeachingDoe, teachingGap.calculatedDoe, teachingResolvedCount, teachingLineCount);
+        const roleDoe = effectiveDoeSum(recordedRoleDoe, roleGap.calculatedDoe, roleResolvedCount, roleLineCount);
+        const effectiveResolvedCount = teachingResolvedCount + roleResolvedCount;
+        const effectiveDoeTotal = teachingLineCount + roleLineCount === 0
+          ? 0
+          : effectiveResolvedCount === 0
+            ? null
+            : (assignedTeachingDoe || 0) + (roleDoe || 0);
+        return {
+          facultyId: row.facultyId,
+          displayName: toText(row.displayName),
+          recordedTeachingDoe,
+          assignedTeachingDoe,
+          recordedRoleDoe,
+          roleDoe,
+          recordedDoeTotal: toNumber(row.recordedDoeTotal),
+          effectiveDoeTotal,
+          teachingLineCount,
+          teachingRecordedCount,
+          teachingCalculatedCount,
+          teachingResolvedCount,
+          teachingMissingCount,
+          teachingNotApplicableCount: toInt(row.teachingNotApplicableCount),
+          roleLineCount,
+          roleRecordedCount,
+          roleCalculatedCount,
+          roleResolvedCount,
+          roleMissingCount,
+          doeComplete: teachingMissingCount + roleMissingCount === 0,
+          year1Assignments: toInt(row.year1Assignments),
+          year2Assignments: toInt(row.year2Assignments),
+          year3Assignments: toInt(row.year3Assignments),
+          year4Assignments: toInt(row.year4Assignments),
+          creditedHours: toNumber(row.creditedHours),
+          courseCount: toInt(row.courseCount),
+          sessionCount: toInt(row.sessionCount)
+        };
+      });
     },
 
     // --------------------------------------------------------------- roles
@@ -836,8 +1094,9 @@ function createSqlDashboardRepository(db) {
       const resolvedYear = resolveAcademicYear(year);
       const rows = await db.query(
         `SELECT f.FacultyId AS facultyId,
-                f.DisplayName AS displayName,
+                ${facultyDisplayNameSql()} AS displayName,
                 r.RoleAssignmentId AS roleAssignmentId,
+                rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),rs.ScheduleVersion,1) AS scheduleVersion,
                 r.FacultyResolutionStatus AS facultyResolutionStatus,
                 r.AcademicYear AS academicYear,
                 r.RoleCategory AS roleCategory,
@@ -851,61 +1110,96 @@ function createSqlDashboardRepository(db) {
                 r.DoeOverrideValue AS doeOverrideValue,
                 r.DoeOverrideReason AS doeOverrideReason,
                 r.SpecialNotes AS specialNotes
-           FROM paws.RoleAssignment r
+           FROM paws.RoleAssignment r LEFT JOIN paws.RoleAppointmentSchedule rs ON rs.RoleAssignmentId=r.RoleAssignmentId
            INNER JOIN paws.Faculty f ON f.FacultyId = r.FacultyId
           WHERE r.AcademicYear = @academicYear
             AND f.Active = 1
-          ORDER BY f.DisplayName, r.RoleType, r.RoleAssignmentId`,
+          UNION ALL
+          SELECT f.FacultyId,${facultyDisplayNameSql()},m.AssignmentId,NULL,NULL,N'manual_adjustment',m.AcademicYear,
+                 N'Manual DOE adjustment',m.RoleType,m.ScopeText,COALESCE(m.CourseCode,m.SubjectKey),
+                 N'Negotiated manual adjustment (additive)',NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
+            FROM paws.ManualDoeAssignment m
+            INNER JOIN paws.Faculty f ON f.FacultyId=m.FacultyId
+           WHERE m.AcademicYear=@academicYear AND m.Active=1 AND f.Active=1
+          ORDER BY displayName, roleType, roleAssignmentId`,
         { academicYear: resolvedYear }
       );
-      return rows.map(row => ({
-        facultyId: row.facultyId,
-        displayName: toText(row.displayName),
-        roleAssignmentId: row.roleAssignmentId,
-        facultyResolutionStatus: toText(row.facultyResolutionStatus),
-        academicYear: toText(row.academicYear),
-        roleCategory: toText(row.roleCategory),
-        roleType: toText(row.roleType),
-        courseOrSubjectOrRotation: toText(row.courseOrSubjectOrRotation),
-        courseName: toText(row.courseName),
-        details: toText(row.details),
-        effectiveDate: toText(row.effectiveDate),
-        expirationDate: toText(row.expirationDate),
-        doeMappedValue: toNumber(row.doeMappedValue),
-        doeOverrideValue: toNumber(row.doeOverrideValue),
-        effectiveDoe: toNumber(row.doeOverrideValue) !== null ? toNumber(row.doeOverrideValue) : toNumber(row.doeMappedValue),
-        doeOverrideReason: toText(row.doeOverrideReason),
-        specialNotes: toText(row.specialNotes)
-      }));
+      return rows.map(row => {
+        const role = {
+          facultyId: row.facultyId,
+          displayName: toText(row.displayName),
+          roleAssignmentId: row.roleAssignmentId,
+          validityPeriods: row.validityPeriodsJson == null ? null : JSON.parse(row.validityPeriodsJson),
+          scheduleVersion: toText(row.scheduleVersion),
+          facultyResolutionStatus: toText(row.facultyResolutionStatus),
+          academicYear: toText(row.academicYear),
+          roleCategory: toText(row.roleCategory),
+          roleType: toText(row.roleType),
+          courseOrSubjectOrRotation: toText(row.courseOrSubjectOrRotation),
+          courseName: toText(row.courseName),
+          details: toText(row.details),
+          effectiveDate: toText(row.effectiveDate),
+          expirationDate: toText(row.expirationDate),
+          doeMappedValue: toNumber(row.doeMappedValue),
+          doeOverrideValue: toNumber(row.doeOverrideValue),
+          doeOverrideReason: toText(row.doeOverrideReason),
+          specialNotes: toText(row.specialNotes)
+        };
+        const doe = role.facultyResolutionStatus === 'manual_adjustment'
+          ? { calculatedDoe: null, effectiveDoe: role.doeMappedValue, status: 'manual', source: 'manual_adjustment' }
+          : resolveRoleDoe(role);
+        return {
+          ...role,
+          calculatedDoe: doe.calculatedDoe,
+          effectiveDoe: doe.effectiveDoe,
+          doeCalculationStatus: doe.status,
+          doeReviewReason: doe.reviewReason,
+          doeRuleCode: doe.ruleCode || null,
+          doeCalculatorSource: doe.calculatorSource || null,
+          doeSource: doe.source,
+          doeCandidates: doe.candidates || null,
+          doeCandidateBasis: doe.candidateBasis || null,
+          doeCourseUnits: doe.courseUnits ?? null,
+          doeHiccDevelopmentApplicable: doe.hiccDevelopmentApplicable ?? null,
+          doeCourseEvidenceSource: doe.courseEvidenceSource || null
+        };
+      });
     },
 
     // ---------------------------------------------------------- DOE overview
     async doeOverview({ academicYear: year } = {}) {
       const resolvedYear = resolveAcademicYear(year);
-      const [rows, contractRows, allocationRows] = await Promise.all([db.query(
+      const doeOverviewParams = {
+        academicYear: resolvedYear,
+        doeNa0: DOE_NON_CREDIT_SESSION_TYPES[0],
+        doeNa1: DOE_NON_CREDIT_SESSION_TYPES[1]
+      };
+      const [rows, contractRows, allocationRows, gaps] = await Promise.all([db.query(
         `WITH teaching AS (
            SELECT sa.DoeCredit
              FROM paws.SessionAssignment sa
              INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId
             WHERE c.AcademicYear = @academicYear
          ), roles AS (
-           SELECT r.DoeMappedValue, r.DoeOverrideValue
+           SELECT r.RoleAssignmentId,r.DoeMappedValue, r.DoeOverrideValue,r.AcademicYear
              FROM paws.RoleAssignment r
             WHERE r.AcademicYear = @academicYear
+           UNION ALL SELECT m.AssignmentId,m.DoeValue,NULL,m.AcademicYear FROM paws.ManualDoeAssignment m WHERE m.AcademicYear=@academicYear AND m.Active=1
          )
          SELECT
-           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear) AS teachingLineCount,
-           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND sa.DoeCredit IS NULL) AS teachingMissingCount,
-           (SELECT SUM(sa.DoeCredit) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear) AS teachingDoe,
-           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND sa.DoeCredit IS NOT NULL) AS teachingRecordedCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear) AS roleLineCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeMappedValue IS NULL AND r.DoeOverrideValue IS NULL) AS roleMissingCount,
-           (SELECT SUM(COALESCE(r.DoeOverrideValue, r.DoeMappedValue)) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear) AS roleDoe,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL) AS roleRecordedCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue IS NOT NULL) AS overrideCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue = 0) AS overrideZeroCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue < 0) AS overrideNegativeCount`,
-        { academicYear: resolvedYear }
+           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1))) AS teachingLineCount,
+           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1)) AND sa.DoeCredit IS NULL) AS teachingMissingCount,
+           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND c.SessionType IN (@doeNa0, @doeNa1)) AS teachingNotApplicableCount,
+           (SELECT SUM(sa.DoeCredit) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1))) AS teachingDoe,
+           (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1)) AND sa.DoeCredit IS NOT NULL) AS teachingRecordedCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear) AS roleLineCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND r.DoeMappedValue IS NULL AND r.DoeOverrideValue IS NULL) AS roleMissingCount,
+           (SELECT SUM(COALESCE(r.DoeOverrideValue, r.DoeMappedValue)) FROM roles r WHERE r.AcademicYear = @academicYear) AS roleDoe,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL) AS roleRecordedCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue IS NOT NULL) AS overrideCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue = 0) AS overrideZeroCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue < 0) AS overrideNegativeCount`,
+        doeOverviewParams
       ), db.query(
         `SELECT COUNT(f.FacultyId) AS activeFacultyCount,
                 COUNT(t.DoeFacultyTargetId) AS teachingTargetCount
@@ -927,22 +1221,34 @@ function createSqlDashboardRepository(db) {
           GROUP BY a.CategoryCode
           ORDER BY a.CategoryCode`,
         { academicYear: resolvedYear }
-      )]);
+      ), calculateDoeGapSummary(db, resolvedYear)]);
       const row = rows[0] || {};
       const contractCoverageRow = contractRows[0] || {};
       const activeFacultyCount = toInt(contractCoverageRow.activeFacultyCount);
       const teachingTargetCount = toInt(contractCoverageRow.teachingTargetCount);
-      const teachingMissingCount = toInt(row.teachingMissingCount);
-      const roleMissingCount = toInt(row.roleMissingCount);
+      const teachingNotApplicableCount = toInt(row.teachingNotApplicableCount);
       const teachingLineCount = toInt(row.teachingLineCount);
       const roleLineCount = toInt(row.roleLineCount);
       const teachingRecordedCount = toInt(row.teachingRecordedCount);
       const roleRecordedCount = toInt(row.roleRecordedCount);
-      const teachingDoe = teachingLineCount === 0 ? 0 : toNumber(row.teachingDoe);
-      const roleDoe = roleLineCount === 0 ? 0 : toNumber(row.roleDoe);
+      const teachingCalculatedCount = gaps.teachingTotal.calculatedCount;
+      const roleCalculatedCount = gaps.roleTotal.calculatedCount;
+      const teachingResolvedCount = teachingRecordedCount + teachingCalculatedCount;
+      const roleResolvedCount = roleRecordedCount + roleCalculatedCount;
+      const teachingMissingCount = Math.max(0, toInt(row.teachingMissingCount) - teachingCalculatedCount);
+      const roleMissingCount = Math.max(0, toInt(row.roleMissingCount) - roleCalculatedCount);
+      const recordedTeachingDoe = teachingLineCount === 0 ? 0 : toNumber(row.teachingDoe);
+      const recordedRoleDoe = roleLineCount === 0 ? 0 : toNumber(row.roleDoe);
+      const teachingDoe = effectiveDoeSum(recordedTeachingDoe, gaps.teachingTotal.calculatedDoe, teachingResolvedCount, teachingLineCount);
+      const roleDoe = effectiveDoeSum(recordedRoleDoe, gaps.roleTotal.calculatedDoe, roleResolvedCount, roleLineCount);
       const recordedDoeTotal = teachingLineCount + roleLineCount === 0
         ? 0
         : teachingRecordedCount + roleRecordedCount === 0
+          ? null
+          : (recordedTeachingDoe || 0) + (recordedRoleDoe || 0);
+      const effectiveDoeTotal = teachingLineCount + roleLineCount === 0
+        ? 0
+        : teachingResolvedCount + roleResolvedCount === 0
           ? null
           : (teachingDoe || 0) + (roleDoe || 0);
       return {
@@ -960,16 +1266,24 @@ function createSqlDashboardRepository(db) {
         },
         teachingLineCount,
         teachingRecordedCount,
+        teachingCalculatedCount,
+        teachingResolvedCount,
         teachingMissingCount,
+        teachingNotApplicableCount,
+        recordedTeachingDoe,
         teachingDoe,
         roleLineCount,
         roleRecordedCount,
+        roleCalculatedCount,
+        roleResolvedCount,
         roleMissingCount,
+        recordedRoleDoe,
         roleDoe,
         recordedDoeTotal,
+        effectiveDoeTotal,
         doeStatus: teachingLineCount + roleLineCount === 0
           ? 'none'
-          : teachingRecordedCount + roleRecordedCount === 0
+          : teachingResolvedCount + roleResolvedCount === 0
             ? 'missing'
             : teachingMissingCount + roleMissingCount > 0 ? 'partial' : 'complete',
         overrideCount: toInt(row.overrideCount),

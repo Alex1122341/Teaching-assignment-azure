@@ -136,7 +136,7 @@ function createHarness(overrides = {}) {
   const element = id => ({
     id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '',
     disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null,
-    setAttribute() {}, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; }
+    setAttribute() {}, addEventListener(event, handler) { this[`on${event}`] = handler; }, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; }
   });
   const nodes = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
@@ -200,12 +200,21 @@ function createHarness(overrides = {}) {
     querySelector(selector) { return byId('query:' + selector); },
     querySelectorAll(selector) {
       if (selector === '.kpi-value') return KPI_IDS.map(byId);
-      if (selector === '.person-row') {
+      if (selector === '.person-select' || selector === '.person-row' || selector === '#result-list .person-row') {
         const html = byId('result-list').innerHTML || '';
         const ids = (html.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, ''));
         return ids.map(id => {
-          if (!rowStubs.has(id)) { const el = element('row:' + id); el.dataset.id = id; rowStubs.set(id, el); }
-          return rowStubs.get(id);
+          if (!rowStubs.has(id)) {
+            const el = element('row:' + id); el.dataset.id = id;
+            const button = element('select:' + id);
+            button.closest = selector => selector === '.person-row' ? el : null;
+            button.matches = selector => selector === '.person-select';
+            button.focus = () => { document.activeElement = button; };
+            el.querySelector = selector => selector === '.person-select' ? button : null;
+            el.selectButton = button; rowStubs.set(id, el);
+          }
+          const row = rowStubs.get(id);
+          return selector === '.person-select' ? row.selectButton : row;
         });
       }
       return [];
@@ -242,7 +251,13 @@ function createHarness(overrides = {}) {
   };
   context.globalThis = context;
 
+  vm.runInNewContext(read('faculty-name.js'), context, { filename: 'faculty-name.js' });
+  vm.runInNewContext(read('dashboard-view-model.js'), context, { filename: 'dashboard-view-model.js' });
   vm.runInNewContext(read('faculty-admin-doe-renderer.js'), context, { filename: 'faculty-admin-doe-renderer.js' });
+  vm.runInNewContext(read('faculty-admin-doe-worksheet.js'), context, { filename: 'faculty-admin-doe-worksheet.js' });
+  vm.runInNewContext(read('faculty-admin-management.js'), context, { filename: 'faculty-admin-management.js' });
+  vm.runInNewContext(read('faculty-role-periods.js'), context);
+  vm.runInNewContext(read('faculty-admin-afc-records.js'), context, { filename: 'faculty-admin-afc-records.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   assert.equal(typeof authCallback, 'function', 'faculty-admin.js must register an auth callback :: ' + errors.join(' | '));
 
@@ -254,12 +269,14 @@ function createHarness(overrides = {}) {
     ucvmInitCalls: () => ucvmInitCalls,
     signIn: async (user) => { await authCallback(user || { uid: 'u-1', email: 'admin@example.test' }); },
     rowIds: () => (byId('result-list').innerHTML.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')),
-    // Simulates the user clicking a rendered roster row.
+    // Activate the native selection button inside the rendered roster row.
     clickRow: async id => {
       const stub = rowStubs.get(id);
       assert.ok(stub, `row ${id} must have been rendered`);
-      assert.equal(typeof stub.onclick, 'function', `row ${id} must have a click handler`);
-      stub.onclick();
+      assert.equal(typeof stub.selectButton.onclick, 'function', `row ${id} must have a selection handler`);
+      stub.selectButton.focus();
+      stub.selectButton.onclick({ detail: 0 });
+      assert.equal(document.activeElement, stub.selectButton, 'keyboard selection retains focus');
       await flush();
     }
   };
@@ -417,39 +434,45 @@ test('re-selecting a cached faculty member does not refetch', async () => {
 
 test('the core flow never invokes the legacy Firestore loaders', () => {
   const bodies = [
-    ['loadAdminDashboard', slice('async function loadAdminDashboard', 'function indexedFaculty')],
-    ['selectFacultyDetail', slice('async function selectFacultyDetail', 'async function loadAdminDashboard')],
-    ['renderLookup', slice('function renderLookup', 'function field(')],
+    ['loadAdminDashboard', slice('async function loadAdminDashboard', 'function dashboardRawRole')],
+    ['selectFacultyDetail', slice('async function selectFacultyDetail', 'function apiTable')],
+    ['renderLookup', slice('function renderLookup', 'function teachingSummaryDoeStatus')],
     ['loadSelfFaculty', slice('async function loadSelfFaculty', 'async function enterSelfMode')],
     ['enterAdminMode', slice('function enterAdminMode', 'function dashboardAuthFailureMessage')]
   ];
   for (const [name, body] of bodies) {
+    assert.ok(body.length > 0, `${name} source boundary must resolve`);
     assert.doesNotMatch(body, /subscribeFaculty\(|subscribeSessions\(|loadFacultyDetail\(|listenFacultySessions\(|ensureFullFaculty\(|ensureFullSessions\(/, `${name} must not invoke legacy loaders`);
     assert.doesNotMatch(body, /db\.collection\(/, `${name} must not read Firestore`);
   }
 });
 
 test('AFC purpose appears only in the selected detail', () => {
-  assert.match(slice('function renderApiDetail', 'function renderDetailPending'), /Purpose/, 'AFC purpose is rendered in detail');
-  assert.doesNotMatch(slice('function renderLookup', 'function pawsTimingEnabled'), /purpose/i, 'the roster must not expose AFC purpose');
+  assert.match(slice('function renderFacultyAfc', 'function currentAcademicYear'), /record\.purpose/, 'AFC purpose is rendered in detail');
+  assert.doesNotMatch(slice('function renderLookup', 'function teachingSummaryDoeStatus'), /purpose/i, 'the roster must not expose AFC purpose');
   assert.doesNotMatch(read('faculty-admin.html'), /away purpose/);
   assert.doesNotMatch(slice('function updateKpis', 'function renderLookup'), /purpose/i, 'no global KPI exposes AFC purpose');
 });
 
-test('DOE values are displayed exactly as stored, with no client-side recomputation', async () => {
+test('stored DOE remains authoritative and the client never recomputes DOE', async () => {
   const h = await driveAdmin();
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
-  // doeRate 0.5 * doeQuantity 2.5 = 1.25, but the authoritative stored credit is
-  // 0.9, so the DOE unit/credit/status cells prove the stored value is displayed.
-  assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/, 'the stored DOE unit, credit and status render verbatim');
-  assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/, 'the DOE credit must not be recomputed from rate x quantity');
+  // The legacy fixture has rate 0.5 and quantity 2.5, but the authoritative
+  // stored credit is 0.9. The client must display Stored / Calculated /
+  // Effective evidence without deriving 1.25 in the browser.
+  assert.match(pane, /Stored DOE/);
+  assert.match(pane, /Calculated DOE/);
+  assert.match(pane, /Effective DOE/);
+  assert.match(pane, /<td>0\.90%<\/td><td>DOE unavailable<\/td><td>0\.90%<\/td>/, 'stored DOE remains the effective value when the server provides no calculator result');
+  assert.match(pane, /Confirmed/);
+  assert.doesNotMatch(pane, /1\.25%/, 'the browser must not recompute rate x quantity');
 
-  const detail = `${ADMIN_SOURCE}\n${read('faculty-admin-doe-renderer.js')}`;
-  for (const field of ['doeRate', 'doeQuantity', 'doeUnit', 'doeCredit', 'doeStatus', 'doeMappedValue', 'doeOverrideValue']) {
-    assert.match(detail, new RegExp(field), `DOE field ${field} must be rendered`);
+  const detail = `${ADMIN_SOURCE}\n${read('faculty-admin-doe-renderer.js')}\n${read('dashboard-view-model.js')}`;
+  for (const field of ['doeCredit', 'calculatedDoeCredit', 'effectiveDoeCredit', 'doeCalculationStatus', 'doeMappedValue', 'doeOverrideValue', 'calculatedDoe', 'effectiveDoe']) {
+    assert.match(detail, new RegExp(field), `DOE field ${field} must be represented by the client contract`);
   }
-  assert.doesNotMatch(detail, /doeRate\s*\*|\*\s*doeQuantity|doeCredit\s*=/, 'DOE must not be recomputed');
+  assert.doesNotMatch(detail, /doeRate\s*\*|\*\s*doeQuantity|doeCredit\s*=/, 'DOE calculation must remain server-side');
   assert.doesNotMatch(slice('function rosterRecord', 'async function loadAdminDashboard'), /doe[A-Z(]|doeRate|doeCredit|doeOverride/, 'the roster adapter must not invent DOE values');
 });
 

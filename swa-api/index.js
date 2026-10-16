@@ -19,3 +19,10 @@ app.http('paws-dashboard-roles',{methods:DASHBOARD_METHODS,authLevel:'anonymous'
 app.http('paws-dashboard-doe-overview',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/doe-overview',handler:handle});
 app.http('paws-dashboard-afc-records',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/afc-records',handler:handle});
 app.http('paws-dashboard-afc-records-batch',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/afc-records/batch',handler:handle});
+// The runtime owns method rejection and authentication for every activity route.
+for(const [name,route] of [
+ ['activities','v1/calendar-activities'],['activity-capabilities','v1/calendar-activities/capabilities'],
+ ['activity-imports','v1/calendar-activity-imports'],['activity-import','v1/calendar-activity-imports/{batchId}'],
+ ['activity-preview','v1/calendar-activity-imports/{batchId}/preview'],['activity-commit','v1/calendar-activity-imports/{batchId}/commit'],
+ ['activity-time','v1/calendar-activities/{activityId}/time-evidence']
+])app.http('paws-'+name,{methods:DASHBOARD_METHODS,authLevel:'anonymous',route,handler:handle});

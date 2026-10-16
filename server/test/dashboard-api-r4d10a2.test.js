@@ -320,10 +320,12 @@ test('R: source / import metadata stays isolated to the AFC unified projection',
     );
   }
   // Legacy DTO mappers must not emit provenance fields; the isolated AFC
-  // projection is explicitly allowed to carry source/audit metadata.
-  for (const forbidden of ["sourceImportBatchId", "sourceRow", "sourceFacultyName", "createdAtUtc", "updatedAtUtc"]) {
+  // projection is explicitly allowed to carry source/audit metadata. The
+  // canonical Faculty UpdatedAtUtc concurrency token is not provenance.
+  for (const forbidden of ["sourceImportBatchId", "sourceRow", "sourceFacultyName", "createdAtUtc"]) {
     assert.equal(legacyProjection.includes(forbidden), false, 'legacy DTO exposes ' + forbidden);
   }
+  assert.match(legacyProjection, /UpdatedAtUtc/);
   assert.match(source.slice(source.indexOf('// ------------------------------------------------------------- AFC list')), /u\.SourceKind AS sourceKind/);
 });
 
@@ -445,14 +447,19 @@ test('W2: the read-only proof recognises the expanded surface and keeps its disc
 });
 
 // Y ---------------------------------------------------------------------------
-test('Y: every non-GET method on a dashboard path is 405 with Allow: GET', async () => {
+test('Y: read-only Dashboard routes reject methods while Faculty detail exposes only the narrow PATCH method', async () => {
   const { app } = harness(adminProfile('administrator'));
   const urls = ['/api/v1/dashboard/summary', '/api/v1/dashboard/faculty', '/api/v1/dashboard/faculty/' + FACULTY_ID];
   for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
     for (const url of urls) {
       const response = await app(request(url, { method }));
+      if (url.endsWith('/' + FACULTY_ID) && method === 'PATCH') {
+        assert.equal(response.status, 503);
+        assert.equal(response.jsonBody.error.code, 'WRITE_DISABLED');
+        continue;
+      }
       assert.equal(response.status, 405, method + ' ' + url);
-      assert.equal(response.headers.Allow, 'GET', method + ' ' + url);
+      assert.equal(response.headers.Allow, url.endsWith('/' + FACULTY_ID) ? 'GET, PATCH' : 'GET', method + ' ' + url);
       assert.equal(response.jsonBody.error.code, 'METHOD_NOT_ALLOWED');
     }
   }
@@ -541,7 +548,7 @@ test('E7: hiccCount and viscCount are matched on RoleType, never RoleCategory', 
 });
 
 test('E8: the HICC / VISC vocabulary is exactly the two confirmed live values', () => {
-  assert.deepEqual(HICC_ROLE_TYPES, ['Course Coordinator / HICC (legacy ambiguous)']);
+  assert.deepEqual(HICC_ROLE_TYPES, ['Course Coordinator / HICC (legacy ambiguous)', 'HICC']);
   assert.deepEqual(VISC_ROLE_TYPES, ['VISC']);
 });
 
@@ -618,6 +625,29 @@ test('E4: a faculty-scoped roster query is narrowed by FacultyId', async () => {
   await repository.faculty({ academicYear: AY, facultyId: FACULTY_ID });
   assert.equal(queries[0].params.facultyId, FACULTY_ID);
   assert.equal(/f\.FacultyId = @facultyId/.test(queries[0].sql), true);
+});
+
+test('Faculty roster status filters build valid optional WHERE clauses', async () => {
+  const cases = [
+    { name: 'active', input: { status: 'active' }, where: /WHERE f\.Active = 1/ },
+    { name: 'inactive', input: { status: 'inactive' }, where: /WHERE f\.Active = 0/ },
+    { name: 'all with search', input: { status: 'all', search: 'fixture' }, where: /WHERE .*f\.DisplayName LIKE @search/ },
+    { name: 'all with FacultyId', input: { status: 'all', facultyId: FACULTY_ID }, where: /WHERE f\.FacultyId = @facultyId/ }
+  ];
+
+  for (const { name, input, where } of cases) {
+    let sql;
+    const repository = createSqlDashboardRepository({ query: async query => { sql = query; return []; } });
+    await repository.faculty({ academicYear: AY, ...input });
+    assert.match(sql, where, name);
+    assert.doesNotMatch(sql, /WHERE\s+ORDER BY/, name);
+  }
+
+  let unfilteredSql;
+  const repository = createSqlDashboardRepository({ query: async query => { unfilteredSql = query; return []; } });
+  await repository.faculty({ academicYear: AY, status: 'all' });
+  assert.doesNotMatch(unfilteredSql, /WHERE\s+ORDER BY/, 'unfiltered all-status roster must omit WHERE');
+  assert.match(unfilteredSql, /FROM paws\.Faculty f\s+LEFT JOIN/, 'unfiltered all-status roster still reads Faculty rows');
 });
 
 test('E5: facultyById returns null for an unknown / malformed id without querying', async () => {

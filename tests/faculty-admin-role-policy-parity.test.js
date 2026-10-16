@@ -17,6 +17,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
 const ACCESS_SOURCE = read('faculty-access.js');
 const SERVER_SOURCE = read('server/src/data/dashboard-api.js');
+const ROLE_POLICY = require('../server/src/auth/role-policy');
 
 const ADMIN_PROFILE = { displayName: 'Admin User', role: 'adfa_general', facultyId: null, active: true, mustChangePassword: false };
 const OTHER_OFFICE_PROFILE = { displayName: 'Office User', role: 'other_office', facultyId: null, active: true, mustChangePassword: false };
@@ -24,9 +25,9 @@ const GATE_DENIED = 'This account does not have Faculty Dashboard access.';
 
 // ---------------------------------------------------------- backend policy
 function backendRoleSet(name) {
-  const match = new RegExp(`const ${name}\\s*=\\s*new Set\\(\\[([^\\]]*)\\]\\)`).exec(SERVER_SOURCE);
-  assert.ok(match, `${name} must be declared in server/src/data/dashboard-api.js`);
-  return match[1].split(',').map(v => v.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+  const set = name === 'ADMIN_ROLES' ? ROLE_POLICY.ADMINISTRATOR_ROLES : ROLE_POLICY.SELF_SERVICE_ROLES;
+  assert.ok(set instanceof Set, `${name} must come from the shared server role policy`);
+  return [...set];
 }
 const BACKEND_ADMIN = backendRoleSet('ADMIN_ROLES');
 const BACKEND_SELF = backendRoleSet('SELF_SERVICE_ROLES');
@@ -65,7 +66,7 @@ function createHarness(currentUser) {
     const set = new Set();
     return { add(c) { set.add(c); }, remove(c) { set.delete(c); }, toggle(c, v) { if (v === undefined) { set.has(c) ? set.delete(c) : set.add(c); } else if (v) set.add(c); else set.delete(c); }, contains(c) { return set.has(c); } };
   };
-  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
+  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, addEventListener(event, handler) { this[`on${event}`] = handler; }, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
   const nodes = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
   const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = cb; }, async signOut() { signOuts += 1; } };
@@ -96,7 +97,13 @@ function createHarness(currentUser) {
     setTimeout, clearTimeout, Map, Set, Date, JSON, String, Number, Boolean, Array, Object, Math, Promise, RegExp, Error, TypeError, isNaN, parseInt, parseFloat
   };
   context.globalThis = context;
+  vm.runInNewContext(read('faculty-name.js'), context, { filename: 'faculty-name.js' });
+  vm.runInNewContext(read('dashboard-view-model.js'), context, { filename: 'dashboard-view-model.js' });
   vm.runInNewContext(read('faculty-admin-doe-renderer.js'), context, { filename: 'faculty-admin-doe-renderer.js' });
+  vm.runInNewContext(read('faculty-admin-doe-worksheet.js'), context, { filename: 'faculty-admin-doe-worksheet.js' });
+  vm.runInNewContext(read('faculty-admin-management.js'), context, { filename: 'faculty-admin-management.js' });
+  vm.runInNewContext(read('faculty-role-periods.js'), context);
+  vm.runInNewContext(read('faculty-admin-afc-records.js'), context, { filename: 'faculty-admin-afc-records.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
     calls, errors, byId,
@@ -108,17 +115,17 @@ function createHarness(currentUser) {
 // ===========================================================================
 // A / H / 14: frontend policy never exceeds the locked server policy
 // ===========================================================================
-test('H. the frontend ADMIN set matches the backend ADMIN set exactly', () => {
-  const candidates = ['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin', 'faculty', 'hicc', 'visc', 'other_office', 'editor', 'viewer', 'unknown_role', 'OTHER_OFFICE', 'Owner'];
+test('H. the frontend ADMIN set matches the shared backend ADMIN set exactly', () => {
+  const candidates = ['developer', 'owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin', 'faculty', 'hicc', 'visc', 'other_office', 'editor', 'viewer', 'unknown_role', 'OTHER_OFFICE', 'Owner'];
   const frontendAdmins = candidates.filter(role => FE.dashboardAdmin({ role }));
   const backendAdmins = candidates.filter(role => BACKEND_ADMIN.includes(role.toLowerCase()));
   assert.deepEqual(frontendAdmins.slice().sort(), backendAdmins.slice().sort(),
     'the frontend must authorize exactly the roles the Dashboard API authorizes');
-  assert.deepEqual(BACKEND_ADMIN.slice().sort(), ['adfa_general', 'adfa_regular', 'administrator', 'admin', 'owner'].sort());
+  assert.deepEqual(BACKEND_ADMIN.slice().sort(), ['developer', 'adfa_general', 'adfa_regular', 'administrator', 'admin', 'owner'].sort());
 });
 
 test('A / 14. the frontend never authorizes a role the Dashboard API denies', () => {
-  const candidates = ['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin', 'faculty', 'hicc', 'visc', 'other_office', 'editor', 'viewer', 'unknown_role'];
+  const candidates = ['developer', 'owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin', 'faculty', 'hicc', 'visc', 'other_office', 'editor', 'viewer', 'unknown_role'];
   for (const role of candidates) {
     const backendAdmin = BACKEND_ADMIN.includes(role);
     const backendSelf = BACKEND_SELF.includes(role);
@@ -141,7 +148,7 @@ test('A. dashboardAdmin(other_office) is false and other_office is denied by bot
 });
 
 test('G. the server policy still denies other_office without any change', () => {
-  assert.deepEqual(BACKEND_ADMIN.slice().sort(), ['adfa_general', 'adfa_regular', 'administrator', 'admin', 'owner'].sort());
+  assert.deepEqual(BACKEND_ADMIN.slice().sort(), ['developer', 'adfa_general', 'adfa_regular', 'administrator', 'admin', 'owner'].sort());
   assert.deepEqual(BACKEND_SELF.slice().sort(), ['faculty', 'hicc', 'visc'].sort());
   const resolveScope = SERVER_SOURCE.slice(SERVER_SOURCE.indexOf('function resolveScope'), SERVER_SOURCE.indexOf('function resolveYear'));
   assert.match(resolveScope, /DASHBOARD_ROLES\.has\(role\)/);
@@ -153,6 +160,7 @@ test('G. the server policy still denies other_office without any change', () => 
 // ===========================================================================
 test('I–P. the full role parity table is preserved', () => {
   const table = [
+    ['developer', 'developer', true, true, false],
     ['owner', 'adfa_general', true, true, false],
     ['adfa_general', 'adfa_general', true, true, false],
     ['administrator', 'adfa_regular', true, false, false],
@@ -178,6 +186,7 @@ test('display helpers still normalize and label the retired role harmlessly', ()
   assert.equal(FE.dashboardRoleLabel('adfa_general'), 'ADFAD Owner');
   assert.equal(FE.dashboardRoleLabel('adfa_regular'), 'ADFAD Admin');
   assert.equal(FE.dashboardRoleLabel('owner'), 'ADFAD Owner');
+  assert.equal(FE.dashboardRoleLabel('developer'), 'Developer');
   assert.equal(FE.dashboardRoleLabel('administrator'), 'ADFAD Admin');
   assert.equal(SHARED_ROLE_LABEL('adfa_general'), 'ADFAD Owner');
   assert.equal(SHARED_ROLE_LABEL('adfa_regular'), 'ADFAD Admin');
@@ -186,6 +195,7 @@ test('display helpers still normalize and label the retired role harmlessly', ()
   assert.equal(FE.dashboardRole('other_office'), 'other_office');
   assert.equal(FE.dashboardRoleLabel('other_office'), 'Other Office');
   assert.equal(FE.dashboardGeneral({ role: 'other_office' }), false);
+  assert.equal(FE.dashboardGeneral({ role: 'developer' }), true);
 });
 
 // ===========================================================================
@@ -236,8 +246,8 @@ test('a viewer profile is denied on both sides', async () => {
 test('the Stage 3C zero-Firestore contract is untouched by this fix', () => {
   const html = read('faculty-admin.html');
   const local = [...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin.js']);
-  assert.equal([...html.matchAll(/<script[^>]*>/g)].length, 10);
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'faculty-admin.js']);
+  assert.equal([...html.matchAll(/<script[^>]*>/g)].length, 22);
   for (const banned of ['firestore', 'faculty-access.js', 'UCVM_PAWS_DASHBOARD_API_ONLY']) {
     assert.equal(html.includes(banned), false, `${banned} must stay absent`);
   }

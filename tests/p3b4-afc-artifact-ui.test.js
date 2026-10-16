@@ -31,6 +31,7 @@ function uiHarness({rows,clientOverrides={},urlOverrides={}}={}){
   };
   const dataClient={
     async listAfcRequests(){calls.push(['list']);return effectiveRows},
+    async afcWriteCapabilities(){return{requestLifecycle:true,decisions:true,approvedArtifactCreation:true}},
     async getApprovedAfcArtifact(id){calls.push(['getArtifact',id]);return{bytes:Uint8Array.from([37,80,68,70]),contentType:'application/pdf',contentDisposition:`attachment; filename="afc-approved-${id}.pdf"`}},
     async createApprovedAfcArtifact(id){calls.push(['createArtifact',id]);return{bytes:Uint8Array.from([37,80,68,70]),contentType:'application/pdf',contentDisposition:`attachment; filename="afc-approved-${id}.pdf"`}},
     ...clientOverrides
@@ -50,6 +51,22 @@ test('SQL AFC workflow offers Download Approved PDF only for finally approved re
   assert.equal(h.buttons.length,1);
   assert.equal(typeof h.buttons[0].onclick,'function');
   assert.deepEqual(h.calls.filter(call=>call[0]!=='list'),[]);
+});
+
+test('disabled AFC write capabilities keep request reads and artifact GET while hiding and blocking writes',async()=>{
+  const h=uiHarness({clientOverrides:{
+    async afcWriteCapabilities(){return{requestLifecycle:false,decisions:false,approvedArtifactCreation:false}},
+    async getApprovedAfcArtifact(id){h.calls.push(['getArtifact',id]);throw Object.assign(Error('Missing'),{status:404,code:'ARTIFACT_NOT_FOUND'})}
+  }});
+  await h.load;
+  assert.deepEqual(h.calls,[['list']]);
+  assert.match(h.panel.innerHTML,/currently unavailable/);
+  assert.match(h.panel.innerHTML,/remain downloadable/);
+  assert.doesNotMatch(h.panel.innerHTML,/id="afc-sql-form"/);
+  assert.match(h.panel.innerHTML,/data-afc-download="11111111-2222-4333-8444-555555555555"/);
+  await assert.rejects(h.workflow.downloadApprovedArtifact(requestId),/creation is currently unavailable/i);
+  await assert.rejects(h.workflow.submit({}),/submissions are currently unavailable/i);
+  assert.deepEqual(h.calls,[['list'],['getArtifact',requestId]]);
 });
 
 test('approved PDF download GETs the stored artifact and saves exact bytes without changing request state',async()=>{

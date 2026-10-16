@@ -1,5 +1,5 @@
 'use strict';
-// Frozen Azure beta runtime enforcement.
+// Frozen PAWS Beta runtime enforcement.
 //
 // The immutable trust anchor is the frozen baseline Git commit, not any file in
 // the working tree. Every shipped application file listed by the static asset
@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// W1F immutable runtime/product anchor: accepted W1C + W1D runtime state at
-// the W1D product commit. W1E and W1F governance commits do not alter runtime.
-const BASELINE_COMMIT='da21223a1d92572ff72767796229a655d122efb4';
+// Reviewed Faculty Lookup teaching-summary layout is the immutable trust anchor.
+// Prior DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

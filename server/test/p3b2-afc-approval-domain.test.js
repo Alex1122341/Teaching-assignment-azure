@@ -64,7 +64,8 @@ function build({
         facultyId,
         displayName: 'Approver Example'
       }),
-      repository,
+    repository,
+    writeGates: { afcDecision: true },
       idFactory: () => DECISION_ID
     })
   };

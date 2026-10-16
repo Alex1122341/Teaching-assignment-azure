@@ -17,7 +17,9 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
+const MANAGEMENT_SOURCE = read('faculty-admin-management.js');
 const DOE_RENDERER_SOURCE = read('faculty-admin-doe-renderer.js');
+const DOE_WORKSHEET_SOURCE = read('faculty-admin-doe-worksheet.js');
 const AFC_BATCH_SOURCE = read('faculty-admin-afc-batch.js');
 const ADMIN_HTML = read('faculty-admin.html');
 const ACCESS_SOURCE = read('faculty-access.js');
@@ -72,7 +74,7 @@ function createHarness(overrides = {}) {
     const set = new Set();
     return { add(c) { set.add(c); }, remove(c) { set.delete(c); }, toggle(c, v) { if (v === undefined) { set.has(c) ? set.delete(c) : set.add(c); } else if (v) set.add(c); else set.delete(c); }, contains(c) { return set.has(c); } };
   };
-  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
+  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, addEventListener(event, handler) { this[`on${event}`] = handler; }, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
   const nodes = new Map(), rowStubs = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
   const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = cb; }, async signOut() { signOuts += 1; } };
@@ -90,18 +92,27 @@ function createHarness(overrides = {}) {
     querySelector: selector => byId('query:' + selector),
     querySelectorAll(selector) {
       if (selector === '.kpi-value') return KPI_IDS.map(byId);
-      if (selector === '.person-row') {
+      if (selector === '.person-select' || selector === '.person-row' || selector === '#result-list .person-row') {
         const html = byId('result-list').innerHTML || '';
         return (html.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')).map(id => {
-          if (!rowStubs.has(id)) { const el = element('row:' + id); el.dataset.id = id; rowStubs.set(id, el); }
-          return rowStubs.get(id);
+          if (!rowStubs.has(id)) {
+            const el = element('row:' + id); el.dataset.id = id;
+            const button = element('select:' + id);
+            button.closest = selector => selector === '.person-row' ? el : null;
+            button.matches = selector => selector === '.person-select';
+            button.focus = () => { document.activeElement = button; };
+            el.querySelector = selector => selector === '.person-select' ? button : null;
+            el.selectButton = button; rowStubs.set(id, el);
+          }
+          const row = rowStubs.get(id);
+          return selector === '.person-select' ? row.selectButton : row;
         });
       }
       return [];
     },
     createElement: () => element('created')
   };
-  const window = { UCVMSessionGuard: { start() { sessionGuardStarts += 1; } } };
+  const window = { confirm: () => true, UCVMSessionGuard: { start() { sessionGuardStarts += 1; } } };
   const context = {
     window, document,
     location: { href: '', pathname: '/faculty-admin.html', replace() {} },
@@ -115,7 +126,13 @@ function createHarness(overrides = {}) {
   };
   context.globalThis = context;
   // NOTE: context.UCVM is deliberately absent.
+  vm.runInNewContext(read('faculty-name.js'), context, { filename: 'faculty-name.js' });
+  vm.runInNewContext(read('dashboard-view-model.js'), context, { filename: 'dashboard-view-model.js' });
   vm.runInNewContext(DOE_RENDERER_SOURCE, context, { filename: 'faculty-admin-doe-renderer.js' });
+  vm.runInNewContext(DOE_WORKSHEET_SOURCE, context, { filename: 'faculty-admin-doe-worksheet.js' });
+  vm.runInNewContext(MANAGEMENT_SOURCE, context, { filename: 'faculty-admin-management.js' });
+  vm.runInNewContext(read('faculty-role-periods.js'), context);
+  vm.runInNewContext(read('faculty-admin-afc-records.js'), context, { filename: 'faculty-admin-afc-records.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
     calls, errors, byId,
@@ -124,7 +141,13 @@ function createHarness(overrides = {}) {
     hasAuthCallback: () => typeof authCallback === 'function',
     signIn: async () => { await authCallback({ uid: 'u-1', email: 'admin@example.test' }); },
     rowIds: () => (byId('result-list').innerHTML.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')),
-    clickRow: async id => { const stub = rowStubs.get(id); assert.ok(stub, `row ${id} must be rendered`); stub.onclick(); await flush(); }
+    clickRow: async id => {
+      const stub = rowStubs.get(id); assert.ok(stub, `row ${id} must be rendered`);
+      assert.equal(typeof stub.selectButton.onclick, 'function', 'selection button has a handler');
+      stub.selectButton.focus(); stub.selectButton.onclick({ detail: 0 });
+      assert.equal(document.activeElement, stub.selectButton, 'keyboard selection retains focus');
+      await flush();
+    }
   };
 }
 async function drive(overrides) { const h = createHarness(overrides); await h.signIn(); await flush(); return h; }
@@ -132,7 +155,7 @@ async function drive(overrides) { const h = createHarness(overrides); await h.si
 // ===========================================================================
 // A–D: final page runtime graph
 // ===========================================================================
-test('A / D. the page loads only the Firebase app+auth CDN and eight bounded local scripts', () => {
+test('A / D. the page loads only the Firebase app+auth CDN and bounded local scripts', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const cdn = srcs.filter(s => /^https?:/.test(s));
   const local = srcs.filter(s => !/^https?:/.test(s));
@@ -140,8 +163,8 @@ test('A / D. the page loads only the Firebase app+auth CDN and eight bounded loc
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin.js']);
-  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 10, '10 script elements total');
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'faculty-admin.js']);
+  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 22, '22 script elements total');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
 
@@ -230,7 +253,7 @@ test('O / P / Q / R / S. request counts are exactly as accepted, with no N+1', a
   assert.deepEqual(h.calls.filter(c => c.startsWith('dashboardFacultyById')), ['dashboardFacultyById:f-1', 'dashboardFacultyById:f-2'], 'S: one per distinct faculty, never a fanout');
 
   const load = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('async function loadAdminDashboard'), ADMIN_SOURCE.indexOf('function dashboardRawRole'));
-  assert.match(load, /await Promise\.all\(\[UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\)\]\)/, 'summary + roster stay parallel');
+  assert.match(load, /await Promise\.all\(\[\s*UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\{\s*status:\s*facultyStatus\s*\}\),/, 'summary + status-filtered roster stay parallel');
   assert.equal(load.split('await').length - 1, 1, 'no serial await precedes the parallel load');
 });
 
@@ -259,7 +282,8 @@ test('V / W. Lookup is API-only with no legacy fallback', async () => {
   assert.match(h.byId('result-list').innerHTML, /Ada One/);
   assert.match(h.byId('result-list').innerHTML, /12 sessions · 0 roles · 0 AFC/);
   assert.equal(/__api/.test(ADMIN_SOURCE), false, 'no API/legacy row discrimination remains');
-  const lookup = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('function renderLookup'), ADMIN_SOURCE.indexOf('function pawsTimingEnabled'));
+  const lookup = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('function renderLookup'), ADMIN_SOURCE.indexOf('function teachingSummaryDoeStatus'));
+  assert.ok(lookup.length > 0, 'Lookup source boundary must resolve');
   assert.doesNotMatch(lookup, /__index|liveRows|liveAssignedDOE|summaryOf|renderProfile|overrideBadge/, 'no legacy lookup fallback');
 });
 
@@ -274,7 +298,8 @@ test('Y. AFC purpose is detail-only', async () => {
   const h = await drive();
   assert.equal(h.byId('result-list').innerHTML.includes(AFC_PURPOSE), false, 'never in the roster');
   assert.equal(ADMIN_HTML.includes(AFC_PURPOSE), false);
-  const lookup = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('function renderLookup'), ADMIN_SOURCE.indexOf('function pawsTimingEnabled'));
+  const lookup = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('function renderLookup'), ADMIN_SOURCE.indexOf('function teachingSummaryDoeStatus'));
+  assert.ok(lookup.length > 0, 'Lookup privacy source boundary must resolve');
   assert.doesNotMatch(lookup, /purpose/i);
   const blob = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('function searchBlob'), ADMIN_SOURCE.indexOf('function filteredLookup'));
   assert.doesNotMatch(blob, /purpose/i, 'never in the Lookup search index');
@@ -282,13 +307,16 @@ test('Y. AFC purpose is detail-only', async () => {
   assert.match(h.byId('profile-pane').innerHTML, new RegExp(AFC_PURPOSE), 'shown in the selected detail');
 });
 
-test('Z. DOE is the stored API value, never recomputed', async () => {
+test('Z. stored DOE remains authoritative and the browser never recomputes DOE', async () => {
   const h = await drive();
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
-   assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/);
-   assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/);
-   assert.match(pane, /<td>12\.50%<\/td><td>10\.00%<\/td>/, 'roles render stored doeMappedValue / doeOverrideValue');
+  assert.match(pane, /Stored DOE/);
+  assert.match(pane, /Calculated DOE/);
+  assert.match(pane, /Effective DOE/);
+  assert.match(pane, /<td>0\.90%<\/td><td>DOE unavailable<\/td><td>0\.90%<\/td>/, 'stored teaching DOE remains effective when no server calculator result is supplied');
+  assert.doesNotMatch(pane, /1\.25%/, 'browser must not derive DOE from legacy rate and quantity');
+  assert.match(pane, /<td>12\.50%<\/td><td>10\.00%<\/td>/, 'roles preserve stored mapped and override DOE');
   assert.doesNotMatch(ADMIN_SOURCE, /doeRate\s*\*|\*\s*doeQuantity/, 'no browser DOE recomputation');
 });
 
@@ -299,7 +327,7 @@ test('77–83. the canonical API detail renders profile, joint appointments, rol
   const h = await drive();
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
-   assert.match(pane, /Professional Profile/i, '77');
+  assert.match(pane, /Specialty (?:&|&amp;) education/i, '77');
   assert.match(pane, /Renewal pending/, '78');
   assert.match(pane, /VETM 300/, '79');
   assert.match(pane, new RegExp(AFC_PURPOSE), '80');
@@ -417,7 +445,7 @@ test('AN. the opt-in timing hooks are preserved', () => {
   assert.match(ADMIN_SOURCE, /\[PAWS dashboard timing\]/);
    assert.match(ADMIN_SOURCE, /pawsTimingLog\('me'/);
    assert.match(ADMIN_SOURCE, /pawsTimingLog\('summary\+faculty'/);
-   assert.match(ADMIN_SOURCE, /pawsTimingLog\(`detail`/);
+  assert.match(ADMIN_SOURCE, /pawsTimingLog\('detail'/);
   assert.doesNotMatch(ADMIN_SOURCE, /sendBeacon|localStorage|sessionStorage|XMLHttpRequest|fetch\(/, 'no telemetry and no persistence');
 });
 
@@ -425,7 +453,7 @@ test('AN. the opt-in timing hooks are preserved', () => {
 // 33: static page acceptance
 // ===========================================================================
 test('33. the page exposes the read-only Lookup experience and nothing retired', () => {
-  for (const present of ['Faculty Dashboard', 'PAWS University API', 'VetMed-Ops teaching data', 'read-only', 'id="kpi-total"', 'id="lookup-search"', 'id="filter-rank"', 'id="profile-pane"', 'index.html#approvals', 'user-management.html', 'password.html', 'id="signout-btn"']) {
+  for (const present of ['Faculty Dashboard', 'PAWS University API', 'VetMed-Ops teaching data', 'Status follows effective periods', 'id="kpi-total"', 'id="lookup-search"', 'id="filter-rank"', 'id="profile-pane"', 'index.html#approvals', 'user-management.html', 'password.html', 'id="signout-btn"']) {
     assert.equal(ADMIN_HTML.includes(present), true, `${present} must be present`);
   }
   for (const absent of ['firestore', 'xlsx', 'V9.7', 'data-general-only', 'edit-modal', 'derived-index', 'history-view', 'database-view', 'sessional-view']) {
@@ -442,17 +470,20 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
   assert.equal(/\bfirestore\b/i.test(CONTINUITY_SOURCE), false, 'paws-auth-continuity.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(ADMIN_SOURCE), false, 'faculty-admin.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(DOE_RENDERER_SOURCE), false, 'faculty-admin-doe-renderer.js: no Firestore dependency');
+  const doeWorksheetSource = read('faculty-admin-doe-worksheet.js');
+  assert.equal(/\bfirestore\b/i.test(doeWorksheetSource), false, 'faculty-admin-doe-worksheet.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(AFC_BATCH_SOURCE), false, 'faculty-admin-afc-batch.js: no Firestore dependency');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-afc-batch.js', 'faculty-admin.js']);
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'faculty-admin.js']);
 });
 
 test('92 / 94 / 96. the controller stays bounded with contract DOE detail and overview', () => {
-  const bytes = fs.statSync(path.join(root, 'faculty-admin.js')).size;
+  // Git's canonical LF bytes keep the same bound on Windows CRLF checkouts.
+  const bytes = Buffer.byteLength(ADMIN_SOURCE.replace(/\r\n/g, '\n'), 'utf8');
   const named = [...ADMIN_SOURCE.matchAll(/function ([A-Za-z0-9_$]+)\(/g)].length;
-  // The released controller now includes the separately scoped Contract DOE
-  // read surface; keep the existing bound while allowing that reviewed UI.
-  assert.ok(bytes < 52000, `controller must remain bounded (actual ${bytes})`);
+  // Accepted DOE Calculator/P4 wiring plus sectioned reference profile, AFC
+  // archive and detail-generation guards keep the controller under 60 KB.
+  assert.ok(bytes < 60000, `controller must remain bounded after Faculty reference parity integration (actual ${bytes})`);
   assert.match(ADMIN_SOURCE, /function renderTeachingSummary\(/);
   assert.match(ADMIN_SOURCE, /function renderRoles\(/);
   assert.match(ADMIN_SOURCE, /function renderDoeOverview\(/);

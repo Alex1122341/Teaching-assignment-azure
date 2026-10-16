@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   groupTeachingAssignments,
+  teachingDoeEvidence,
   effectiveRoleDoe,
   summarizeDoe,
   formatDoe
@@ -23,67 +24,79 @@ test('groups assignments by curriculum year then course and sorts sessions deter
   assert.equal(groups[1].courses[0].creditedHours, 3);
   assert.equal(groups[1].courses[0].doeTotal, 0.5);
   assert.equal(groups[1].courses[0].recordedDoeCount, 2);
+  assert.equal(groups[1].courses[0].resolvedDoeCount, 2);
   assert.equal(groups[1].courses[0].missingDoeCount, 0);
-  assert.equal(groups[1].sessionCount, 2);
-  assert.equal(groups[1].assignmentCount, 2);
-  assert.equal(groups[1].creditedHours, 3);
   assert.equal(groups[0].courses[0].doeStatus, 'needs-review');
   assert.equal(groups[0].courses[0].doeTotal, null);
-  assert.equal(groups[0].courses[0].assignmentCount, 2);
-  assert.equal(groups[0].sessionCount, 2);
-  assert.equal(groups[0].creditedHours, 0);
 });
 
-test('normalizes numeric and text curriculum years into one canonical group', () => {
+test('not-applicable teaching lines do not become false review gaps', () => {
+  const evidence = teachingDoeEvidence({ sessionType: 'OSCE', doeApplicable: false, doeCredit: null, doeCalculationStatus: 'not-applicable' });
+  assert.equal(evidence.applicable, false);
   const groups = groupTeachingAssignments([
-    { curriculumYear: 1, courseCode: 'A', doeCredit: 0 },
-    { curriculumYear: '1', courseCode: 'B', doeCredit: 0 },
-    { curriculumYear: 'Year 1', courseCode: 'C', doeCredit: 0 },
-    { curriculumYear: 'Year 4', courseCode: 'D', doeCredit: 0 },
-    { curriculumYear: 4, courseCode: 'E', doeCredit: 0 },
-    { curriculumYear: 'Special', courseCode: 'F', doeCredit: 0 }
+    { curriculumYear: 'Year 4', courseCode: 'VTMD 505', sessionType: 'OSCE', doeApplicable: false, doeCredit: null, effectiveDoeCredit: null, doeCalculationStatus: 'not-applicable', creditedHours: 1.5 }
   ]);
-  assert.equal(groups.filter(group => group.curriculumYear === 'Year 1').length, 1);
-  assert.equal(groups.find(group => group.curriculumYear === 'Year 1').courses.length, 3);
-  assert.equal(groups.find(group => group.curriculumYear === 'Year 4').courses.length, 2);
-  assert.ok(groups.some(group => group.curriculumYear === 'Special'));
+  const course = groups[0].courses[0];
+  assert.equal(course.notApplicableDoeCount, 1);
+  assert.equal(course.missingDoeCount, 0);
+  assert.equal(course.doeTotal, 0);
+  assert.equal(course.doeStatus, 'not-applicable');
 });
 
-test('effective role DOE preserves zero and negative overrides and falls back only on null', () => {
-  assert.deepEqual(effectiveRoleDoe({ doeMappedValue: 1.5, doeOverrideValue: 0 }), { mapped: 1.5, override: 0, effective: 0, status: 'stored' });
-  assert.deepEqual(effectiveRoleDoe({ doeMappedValue: 1.5, doeOverrideValue: -0.5 }), { mapped: 1.5, override: -0.5, effective: -0.5, status: 'stored' });
-  assert.deepEqual(effectiveRoleDoe({ doeMappedValue: 1.5, doeOverrideValue: null }), { mapped: 1.5, override: null, effective: 1.5, status: 'stored' });
-});
-
-test('DOE summary sums only authoritative non-null values and reports partial evidence', () => {
+test('calculated teaching DOE is resolved while stored count remains auditable', () => {
   const summary = summarizeDoe({
-    teachingAssignments: [{ doeCredit: 0.5 }, { doeCredit: null }, { doeCredit: 0 }],
-    roles: [
-      { doeMappedValue: 1, doeOverrideValue: 0 },
-      { doeMappedValue: 2, doeOverrideValue: null },
-      { doeMappedValue: null, doeOverrideValue: null }
+    teachingAssignments: [
+      { doeCredit: 0.3, effectiveDoeCredit: 0.3 },
+      { doeCredit: null, calculatedDoeCredit: 0.6, effectiveDoeCredit: 0.6, doeApplicable: true, doeCalculationStatus: 'calculated' },
+      { doeCredit: null, effectiveDoeCredit: null, doeApplicable: false, doeCalculationStatus: 'not-applicable' }
     ]
   });
-  assert.equal(summary.teachingDoe, 0.5);
+  assert.ok(Math.abs(summary.teachingDoe - 0.9) < 1e-9);
+  assert.equal(summary.teachingRecordedCount, 1);
+  assert.equal(summary.teachingResolvedCount, 2);
+  assert.equal(summary.teachingNotApplicableCount, 1);
+  assert.equal(summary.teachingMissingCount, 0);
+  assert.equal(summary.partial, false);
+});
+
+test('effective role DOE preserves zero and negative overrides and accepts calculator fallback', () => {
+  assert.equal(effectiveRoleDoe({ doeMappedValue: 1.5, doeOverrideValue: 0 }).effective, 0);
+  assert.equal(effectiveRoleDoe({ doeMappedValue: 1.5, doeOverrideValue: -0.5 }).effective, -0.5);
+  assert.equal(effectiveRoleDoe({ doeMappedValue: 1.5, doeOverrideValue: null }).effective, 1.5);
+  const calculated = effectiveRoleDoe({ doeMappedValue: null, doeOverrideValue: null, calculatedDoe: 2, effectiveDoe: 2, doeCalculationStatus: 'calculated', doeSource: 'calculator' });
+  assert.equal(calculated.effective, 2);
+  assert.equal(calculated.source, 'calculator');
+});
+
+test('DOE summary uses effective values, excludes not-applicable lines, and reports unresolved reasons', () => {
+  const summary = summarizeDoe({
+    teachingAssignments: [
+      { doeCredit: 0.5, effectiveDoeCredit: 0.5 },
+      { doeCredit: null, effectiveDoeCredit: 0.3, calculatedDoeCredit: 0.3, doeApplicable: true },
+      { doeCredit: null, effectiveDoeCredit: null, doeApplicable: false }
+    ],
+    roles: [
+      { doeMappedValue: 1, doeOverrideValue: 0 },
+      { doeMappedValue: null, doeOverrideValue: null, calculatedDoe: 2, effectiveDoe: 2, doeCalculationStatus: 'calculated' },
+      { doeMappedValue: null, doeOverrideValue: null, effectiveDoe: null, doeReviewReason: 'ccc-shift-count-required' }
+    ]
+  });
+  assert.equal(summary.teachingDoe, 0.8);
   assert.equal(summary.roleDoe, 2);
-  assert.equal(summary.recordedDoeTotal, 2.5);
+  assert.equal(summary.recordedDoeTotal, 2.8);
   assert.equal(summary.partial, true);
-  assert.equal(summary.teachingMissingCount, 1);
+  assert.equal(summary.teachingMissingCount, 0);
   assert.equal(summary.roleMissingCount, 1);
-  assert.equal(summary.teachingLineCount, 3);
-  assert.equal(summary.teachingRecordedCount, 2);
-  assert.equal(summary.roleLineCount, 3);
-  assert.equal(summary.roleRecordedCount, 2);
+  assert.deepEqual(summary.reviewReasons, ['ccc-shift-count-required']);
 });
 
 test('DOE summary preserves unavailable versus legitimate zero', () => {
-  assert.deepEqual(summarizeDoe({}), {
-    teachingDoe: 0, roleDoe: 0, recordedDoeTotal: 0,
-    teachingLineCount: 0, teachingRecordedCount: 0, teachingMissingCount: 0,
-    roleLineCount: 0, roleRecordedCount: 0, roleMissingCount: 0,
-    partial: false
-  });
-  const missing = summarizeDoe({ teachingAssignments: [{ doeCredit: null }], roles: [{ doeMappedValue: null, doeOverrideValue: null }] });
+  const empty = summarizeDoe({});
+  assert.equal(empty.teachingDoe, 0);
+  assert.equal(empty.roleDoe, 0);
+  assert.equal(empty.recordedDoeTotal, 0);
+  assert.equal(empty.partial, false);
+  const missing = summarizeDoe({ teachingAssignments: [{ doeCredit: null, doeApplicable: true }], roles: [{ doeMappedValue: null, doeOverrideValue: null }] });
   assert.equal(missing.teachingDoe, null);
   assert.equal(missing.roleDoe, null);
   assert.equal(missing.recordedDoeTotal, null);

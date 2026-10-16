@@ -1,6 +1,6 @@
 # PAWS University API — future service identity and cutover runbook
 
-**Status:** preparation only; no service, SQL principal, permission, Firebase, or host configuration changed by W1E.
+**Status:** preparation only; W1E/W1M changed repository code and release governance only. No service, SQL principal, permission, Firebase, or host configuration was changed.
 **Target:** `ITAPPVETOPSDB01`; database `VetMed-Ops`.
 
 ## Required identity decision
@@ -11,7 +11,13 @@ Ask University IT to confirm/provision an organization-managed gMSA for the API 
 
 Before provisioning or changing a service, capture the reviewed release SHA and artifact hash, then install into a versioned, immutable directory such as `C:\PAWS\Runtime\Versions\<verified-release>`. Configure the `PAWSApi` service to run the approved Node executable with entry point `src/runtime/university-api.js`, that directory as its working directory, and loopback binding only. Require automatic startup, bounded restart-on-failure recovery, a documented reset interval, structured sanitized logs with rotation, and least-privilege ACLs for the selected service identity and administrators. No interactive session, developer checkout, secret-bearing command line, plaintext credential file, or bearer-token logging.
 
-Provide nonsecret environment settings through approved machine/service configuration. Current source can use Firebase Admin default credentials or `FIREBASE_SERVICE_ACCOUNT_JSON`; select an IT/security-approved managed or federated credential method before activation, and never commit its value. Keep SQL TLS encryption and certificate validation enabled. Keep `PAWS_AFC_SINGLE_WRITE_ENABLED`, `PAWS_AFC_BATCH_WRITE_ENABLED`, and `PAWS_SESSION_EDIT_WRITE_ENABLED` false during identity cutover.
+Provide nonsecret environment settings through approved machine/service configuration. Current source can use Firebase Admin default credentials or `FIREBASE_SERVICE_ACCOUNT_JSON`; select an IT/security-approved managed or federated credential method before activation, and never commit its value. Keep SQL TLS encryption and certificate validation enabled. `PAWS_RELEASE_SHA` must be the exact lowercase 40-character Git SHA of the installed product, and `PAWS_RUNTIME_TRUST_ANCHOR` must be the exact lowercase 40-character frozen baseline commit. The University HTTP adapter validates both at startup and refuses to construct the service if either value is absent or malformed. All seven gates default false: `PAWS_AFC_SINGLE_WRITE_ENABLED`, `PAWS_AFC_BATCH_WRITE_ENABLED`, `PAWS_SESSION_EDIT_WRITE_ENABLED`, `PAWS_SESSION_CREATE_WRITE_ENABLED`, `PAWS_AFC_REQUEST_WRITE_ENABLED`, `PAWS_AFC_DECISION_WRITE_ENABLED`, and `PAWS_AFC_ARTIFACT_WRITE_ENABLED`. The temporary P1 Beta exception and its per-domain acceptance requirements are documented in `paws-p1-temporary-beta-writes.md`; it does not authorize production or replace the future least-privilege cutover requirements in this runbook.
+
+## Runtime attestation contract
+
+`GET /api/health/runtime` is served directly by the loopback University HTTP adapter. It does not invoke the generic runtime, Firebase, or SQL. The no-store JSON response identifies service `paws-university-api`, business authority `vetmed-ops-sql`, configured release SHA, configured trust-anchor SHA, and the seven booleans produced by the `createWriteGates(env)` parser. Gates default false; a domain gate may be true only under its explicitly accepted Beta or later authorization. The route is GET-only (other methods receive 405), uses the adapter's existing exact-origin CORS policy, and sends `X-Content-Type-Options: nosniff`.
+
+This endpoint is an operational self-report from the process. The two SHA values are configuration claims; they are not signed, independently measured, or cryptographic proof that deployed files match a Git object. Static release governance additionally verifies immutable repository/artifact freezes, source run identity, SQL health, anonymous authorization, CORS, and public static-byte convergence before recording acceptance. The static workflow derives the API origin from the checked-out `paws-api-origin.js`; it does not alter the API origin or deploy/restart the API.
 
 ## Ordered cutover evidence
 
@@ -26,7 +32,7 @@ Provide nonsecret environment settings through approved machine/service configur
 
 ## Rollback boundary
 
-If service startup, authentication, health, or read checks fail, stop the new service, restore the recorded prior release/configuration through the change owner, and re-verify the previous read-only behavior. Remove a newly mapped application principal/role membership only through a reviewed, reversible DBA rollback. Never remove the owner's DBA login or alter the three default-off gates as an emergency shortcut.
+If service startup, authentication, health, or read checks fail, stop the new service, restore the recorded prior release/configuration through the change owner, and re-verify the previous read-only behavior. Remove a newly mapped application principal/role membership only through a reviewed, reversible DBA rollback. Never remove the owner's DBA login or alter the six default-off gates as an emergency shortcut.
 
 ## Current pre-cutover blockers
 

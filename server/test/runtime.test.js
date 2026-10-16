@@ -38,15 +38,15 @@ test('only faculty, HICC and VISC are Faculty-scoped', () => {
   assert.deepEqual([...FACULTY_SCOPED_ROLES].sort(), ['faculty', 'hicc', 'visc']);
 });
 
-test('HICC requires FacultyId while current viewer office accounts do not', async () => {
+test('HICC requires FacultyId and unsupported viewer role fails closed', async () => {
   let scope;
   const base = { verifyToken: async () => ({ uid: 'u' }), listSessions: async args => { scope = args; return []; } };
   let api = createDataApi({ ...base, findUser: async () => ({ active: true, mustChangePassword: false, baseRole: 'hicc', facultyId: null }) });
   assert.equal((await api.sessions('ok', {})).status, 403);
 
   api = createDataApi({ ...base, findUser: async () => ({ active: true, mustChangePassword: false, baseRole: 'viewer', facultyId: null }) });
-  assert.equal((await api.sessions('ok', {})).status, 200);
-  assert.equal(scope.facultyId, null);
+  assert.equal((await api.sessions('ok', {})).status, 403);
+  assert.equal(scope, undefined);
 });
 
 test('Faculty-scoped session reads pass FacultyId to repository', async () => {
@@ -78,14 +78,22 @@ test('unbounded GET sessions is allowed for the canonical dataset', async () => 
   assert.equal(out.body.sessions.length, 1937);
 });
 
-test('HTTP wrapper exposes only GET routes and safe errors', async () => {
+test('HTTP wrapper exposes authenticated read and explicitly scoped write routes', async () => {
   const api = {
     health: async () => ({ status: 503, body: { error: { code: 'SQL_UNAVAILABLE', message: 'safe' } } }),
     currentUser: async () => ({ status: 200, body: { profile: {} } }),
-    sessions: async () => ({ status: 200, body: { sessions: [] } })
+    sessions: async () => ({ status: 200, body: { sessions: [] } }),
+    updateExistingSession: async () => ({ status: 200, body: { session: {} } }),
+    createSession: async () => ({ status: 201, body: { session: {} } }),
+    createSessionBatch: async () => ({ status: 201, body: { sessions: [] } }),
+    replaceSessionAssignments: async () => ({ status: 200, body: { session: {} } })
   };
   const app = createSwaFunctions({ api });
   assert.equal((await app(request('/api/v1/me'))).status, 200);
   assert.equal((await app(request('/api/v1/sessions'))).status, 200);
-  assert.equal((await app({ ...request('/api/v1/sessions'), method: 'POST' })).status, 405);
+  assert.equal((await app({ ...request('/api/v1/sessions'), method: 'POST', json: async () => ({}) })).status, 201);
+  assert.equal((await app({ ...request('/api/v1/sessions/batch'), method: 'POST', json: async () => ({}) })).status, 201);
+  assert.equal((await app({ ...request('/api/v1/sessions/id'), method: 'PATCH', json: async () => ({ topic: 'test' }) })).status, 200);
+  assert.equal((await app({ ...request('/api/v1/sessions/id/assignments'), method: 'PATCH', json: async () => ({ assignments: [] }) })).status, 200);
+  assert.equal((await app({ ...request('/api/v1/sessions'), method: 'DELETE' })).status, 405);
 });

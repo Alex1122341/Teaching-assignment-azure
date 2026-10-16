@@ -3,18 +3,18 @@ window.UCVM=(()=>{
  const config={apiKey:'AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY',authDomain:'tester-teaching.firebaseapp.com',projectId:'tester-teaching',storageBucket:'tester-teaching.firebasestorage.app',messagingSenderId:'566638053186',appId:'1:566638053186:web:90e04b52251c4b859baadb'};
  const rawRole=r=>String((r&&typeof r==='object'?r.role:r)||'').toLowerCase();
  const role=r=>({owner:'adfa_general',administrator:'adfa_regular',other_office:'other_office',adfa_general:'adfa_general',adfa_regular:'adfa_regular',admin:'adfa_regular',editor:'faculty',viewer:'faculty'}[rawRole(r)]||rawRole(r));
- const admin=p=>['adfa_general','adfa_regular','other_office'].includes(role(p?.role));
- const general=p=>role(p?.role)==='adfa_general';
+ const admin=p=>['developer','adfa_general','adfa_regular'].includes(role(p?.role));
+ const general=p=>['developer','adfa_general'].includes(role(p?.role));
  // BETA-R4D-12B2A1: Dashboard navigation capability. Administrators reach the
  // administrative Dashboard; faculty/hicc/visc reach the same page in its
  // server-authorized self-service form ("My Faculty Profile"). Server authorization
  // stays authoritative - this is navigation convenience only.
  // `other_office` is retired in the current PAWS architecture and must fail closed
  // at this explicit capability boundary even though legacy UCVM.admin() still knows it.
- const DASHBOARD_ROLES=['adfa_general','adfa_regular','faculty','hicc','visc'];
+ const DASHBOARD_ROLES=['developer','adfa_general','adfa_regular','faculty','hicc','visc'];
  function canOpenFacultyDashboard(p){return DASHBOARD_ROLES.includes(role(p?.role));}
- const historyAll=p=>['adfa_general','adfa_regular'].includes(role(p?.role));
- const label=r=>({owner:'ADFAD Owner',adfa_general:'ADFAD Owner',administrator:'ADFAD Admin',adfa_regular:'ADFAD Admin',admin:'ADFAD Admin',other_office:'Other Office',hicc:'HICC',visc:'VISC',faculty:'Faculty',editor:'Faculty',viewer:'Faculty'}[rawRole(r)]||rawRole(r));
+ const historyAll=p=>['developer','adfa_general','adfa_regular'].includes(role(p?.role));
+ const label=r=>({developer:'Developer',owner:'ADFAD Owner',adfa_general:'ADFAD Owner',administrator:'ADFAD Admin',adfa_regular:'ADFAD Admin',admin:'ADFAD Admin',other_office:'Other Office',hicc:'HICC',visc:'VISC',faculty:'Faculty',editor:'Faculty',viewer:'Faculty'}[rawRole(r)]||rawRole(r));
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const number=v=>{if(v===undefined||v===null||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null};
  function installWeekTimeAlignmentFix(){if(document.getElementById('ucvm-week-time-alignment-fix'))return;const style=document.createElement('style');style.id='ucvm-week-time-alignment-fix';style.textContent='.tg-track{top:0!important;bottom:0!important}.tg-block{position:absolute!important}';document.head.appendChild(style)}

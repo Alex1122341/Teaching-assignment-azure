@@ -58,19 +58,24 @@ test('named canonical writers contain no direct Firestore session, AFC, or Facul
 
 test('public schedule remains read-only in the browser and public information retains its documented Firestore function',()=>{
  const timetable=read('timetable.js'),info=read('information-center.js'),rules=read('firestore.rules');
- assert.match(timetable,/db\.collection\(['"]public_schedule['"]\)\.doc\(['"]ccc_events['"]\)\.get\(\)/);
+ assert.doesNotMatch(timetable,/ccc_events|loadCccEvents|expandCccEvents/);
+ assert.match(timetable,/PAWS_CALENDAR_ACTIVITIES/);
+ assert.match(read('calendar-activities.js'),/listCalendarActivities/);
  assert.doesNotMatch(timetable,/db\.collection\(['"]public_schedule['"]\)\.doc\(['"]ccc_events['"]\)\.(?:set|update|delete)\(/);
  assert.match(info,/db\.doc\(['"]public_info\/information_center['"]\)\.set\(/);
  assert.match(rules,/match \/public_info\/\{id\}/);
 });
 
-test('W1C remains default-disabled and the SQL data client has no Firestore fallback',()=>{
- const data=read('paws-data-client.js'),gates=read('server/src/data/write-gates.js');
- assert.match(data,/sessionWritesEnabled:\(\)=>\s*false/);
- assert.match(data,/afcSingleWriteEnabled:\(\)=>\s*false/);
- assert.match(data,/afcBatchWriteEnabled:\(\)=>\s*false/);
- assert.match(gates,/===\s*'true'/);
- assert.doesNotMatch(data,/fallback.*firestore|firestore.*fallback/i);
+test('legacy schedule writes remain closed while gated SQL API capabilities default closed',()=>{
+  const data=read('paws-data-client.js'),gates=read('server/src/data/write-gates.js');
+  assert.match(data,/sessionWritesEnabled:\(\)=>\s*false/);
+  assert.match(data,/afcSingleWriteEnabled:\(\)=> writeCapabilities\.afcSingle===true/);
+  assert.match(data,/afcBatchWriteEnabled:\(\)=> writeCapabilities\.afcBatch===true/);
+  assert.match(data,/let writeCapabilities=Object\.freeze\(\{\}\)/);
+  assert.match(data,/sessionCreateEnabled:\(\)=> writeCapabilities\.sessionCreate===true/);
+  assert.match(data,/sessionEditEnabled:\(\)=> writeCapabilities\.sessionEdit===true/);
+  assert.match(gates,/===\s*'true'/);
+  assert.doesNotMatch(data,/fallback.*firestore|firestore.*fallback/i);
 });
 
 module.exports={SQL_CANONICAL_PATHS};

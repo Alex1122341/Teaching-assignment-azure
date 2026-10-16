@@ -120,7 +120,7 @@ test('AFC batch authorizes the server profile before calling the write repositor
 });
 
 test('AFC batch allows both ADFAD internal roles and denies Faculty, HICC, VISC, and inactive profiles', async () => {
-  for (const role of ['adfa_general', 'adfa_regular']) {
+  for (const role of ['developer', 'adfa_general', 'adfa_regular']) {
     const { api, calls } = makeApi({ role });
     const response = await api.createAfcManualBatch('token', { requestId: REQUEST_ID, rows: [ROW] });
     assert.equal(response.status, 201, role);

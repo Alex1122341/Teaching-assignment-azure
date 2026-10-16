@@ -16,7 +16,7 @@ test('Firebase identity is mapped through the SQL UserProfile; token and client 
     verifyToken: async () => ({ uid: 'firebase-uid', role: 'admin', baseRole: 'owner', facultyId: 'forged-faculty' }),
     findUser: async uid => {
       lookupUid = uid;
-      return { displayName: 'Faculty', baseRole: 'faculty', facultyId: FACULTY_ID, active: true, mustChangePassword: false };
+      return { email: 'canonical@example.test', displayName: 'Faculty', baseRole: 'faculty', facultyId: FACULTY_ID, active: true, mustChangePassword: false };
     },
     listSessions: async scope => { sessionScope = scope; return []; }
   });
@@ -27,6 +27,7 @@ test('Firebase identity is mapped through the SQL UserProfile; token and client 
   assert.equal(lookupUid, 'firebase-uid');
   assert.equal(me.status, 200);
   assert.equal(me.body.profile.role, 'faculty');
+  assert.equal(me.body.profile.email, 'canonical@example.test');
   assert.equal(sessions.status, 200);
   assert.equal(sessionScope.facultyId, FACULTY_ID);
 });
@@ -42,6 +43,34 @@ test('SQL administrator authority is not reduced or selected from Firebase/Fires
   const result = await api.sessions('valid-token', { role: 'faculty', facultyId: 'forged-faculty' });
   assert.equal(result.status, 200);
   assert.equal(sessionScope.facultyId, null);
+});
+
+test('authenticated /me returns canonical Developer identity and SQL role, not a lower Firestore compatibility role', async () => {
+  const api = createDataApi({
+    verifyToken: async () => ({ uid: 'firebase-uid', role: 'adfa_general', email: 'forged@example.test' }),
+    findUser: async () => ({ email: 'xinyu.zhu1@ucalgary.ca', displayName: 'Xinyu Zhu', baseRole: 'developer', active: true, mustChangePassword: false }),
+    listSessions: async () => []
+  });
+  const result = await api.currentUser('valid-token');
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.profile, {
+    email: 'xinyu.zhu1@ucalgary.ca', displayName: 'Xinyu Zhu', role: 'developer',
+    facultyId: null, active: true, mustChangePassword: false
+  });
+});
+
+test('a lower-privilege Firestore compatibility role never substitutes for the SQL Developer profile', async () => {
+  let reads = 0;
+  const api = createDashboardApi({
+    verifyToken: async () => ({ uid: 'firebase-uid', role: 'adfa_general' }),
+    findUser: async () => ({ baseRole: 'faculty', facultyId: 'faculty-1', active: true, mustChangePassword: false }),
+    repository: { summary: async () => { reads++; return {}; } }
+  });
+
+  const result = await api.summary('valid-token');
+  assert.equal(result.status, 403);
+  assert.equal(result.body.error.code, 'ROLE_DENIED');
+  assert.equal(reads, 0);
 });
 
 test('dashboard faculty scope is derived only from the SQL profile and rejects forged target FacultyId', async () => {

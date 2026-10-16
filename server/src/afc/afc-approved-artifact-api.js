@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { writeDisabled } = require('../data/write-gates');
 const { authorizeProfile } = require('./afc-request-api');
 const {
   renderApprovedAfcArtifact,
@@ -98,7 +99,7 @@ function validateRenderedArtifact(rendered, sourceSnapshotSha256) {
   };
 }
 
-function createAfcApprovedArtifactApi({ verifyToken, findUser, repository, renderer = renderApprovedAfcArtifact }) {
+function createAfcApprovedArtifactApi({ verifyToken, findUser, repository, renderer = renderApprovedAfcArtifact, writeGates = {} }) {
   if (typeof verifyToken !== 'function' || typeof findUser !== 'function' || !repository
       || typeof repository.getApprovedArtifact !== 'function'
       || typeof repository.getApprovedArtifactSource !== 'function'
@@ -153,6 +154,7 @@ function createAfcApprovedArtifactApi({ verifyToken, findUser, repository, rende
       if (auth.status) return auth;
       const afcRequestId = validRequestId(requestId);
       if (!afcRequestId) return error(400, 'INVALID_REQUEST_ID', 'AFC request id is not a valid identifier.');
+      if (writeGates.afcArtifact !== true) return writeDisabled();
       if (!isEmptyBody(body)) return error(400, 'ARTIFACT_BODY_NOT_ALLOWED', 'AFC artifact creation does not accept a request body.');
 
       const repositoryInput = { afcRequestId, actorFirebaseUid: auth.uid };

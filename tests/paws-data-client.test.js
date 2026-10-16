@@ -14,6 +14,64 @@ test('PAWS client is fixed to VetMed-Ops mode and exposes no backend selector or
   assert.doesNotMatch(source,/UCVM_PAWS_SESSION_BACKEND|backend\s*:\s*['\"]/i);
 });
 
+test('P4 DOE methods use the authenticated University API and send assignment facts without calculated DOE',async()=>{
+  const calls=[];
+  const client=createPawsAzureDataClient({tokenProvider:async()=>'doe-token',fetchImpl:async(url,init)=>{
+    calls.push({url,init});
+    return {ok:true,json:async()=>({writeCapabilities:{doeAdmin:true,doeManualAssignment:false,doePolicyPublish:false,doeRecalculate:false},policy:{version:{policyVersionId:'p1'}},preview:{resultDoe:12,ruleKey:'hicc-course-unit'},worksheet:{status:'calculated'},worksheets:[{facultyId:'f1'}],assignment:{assignmentFactId:'a1',resultDoe:12},target:{effectiveTargetDoe:25}})};
+  }});
+  assert.deepEqual(await client.refreshDoeWriteCapabilities(),{doeAdmin:true,doeManualAssignment:false,doePolicyPublish:false,doeRecalculate:false});
+  assert.equal(client.doeAdminWriteEnabled(),true);
+  assert.equal((await client.doeActivePolicy({academicYear:'2026-27'})).version.policyVersionId,'p1');
+  assert.equal((await client.doePreview({academicYear:'2026-27',facts:{category:'hicc',roleType:'HICC',courseCode:'VTMD 204',doeCredit:99,resultDoe:99}})).resultDoe,12);
+  await client.doeWorkflowPreview({sessionId:'11111111-1111-4111-8111-111111111111',outgoingFacultyId:'22222222-2222-4222-8222-222222222222',incomingFacultyId:'33333333-3333-4333-8333-333333333333'});
+  assert.equal((await client.doeWorksheet({facultyId:'f/1',academicYear:'2026-27'})).status,'calculated');
+  assert.deepEqual(await client.doeWorksheets({academicYear:'2026-27'}),[{facultyId:'f1'}]);
+  const facts={category:'hicc',roleType:'HICC',activityType:'HICC',courseCode:'VTMD 204',scopeText:'VTMD 204',doeCredit:99,resultDoe:99};
+  await client.saveDoeAssignment({academicYear:'2026-27',facultyId:'f1',facts,notes:'basis'});
+  await client.updateDoeAssignment('a/1',{academicYear:'2026-27',facultyId:'f1',expectedRevision:2,facts,notes:'updated'});
+  await client.deactivateDoeAssignment('a/1',{academicYear:'2026-27',facultyId:'f1',expectedRevision:3});
+  await client.saveDoeTargetOverride('f/1',{academicYear:'2026-27',override:{value:25,reason:'RSL'}});
+  assert.equal(calls[0].url,API_ORIGIN+'/api/v1/doe/write-capabilities');
+  assert.equal(calls[1].url,API_ORIGIN+'/api/v1/doe/policy?academicYear=2026-27');
+  assert.equal(calls[3].url,API_ORIGIN+'/api/v1/doe/workflow-preview');
+  assert.deepEqual(JSON.parse(calls[3].init.body),{sessionId:'11111111-1111-4111-8111-111111111111',outgoingFacultyId:'22222222-2222-4222-8222-222222222222',incomingFacultyId:'33333333-3333-4333-8333-333333333333'});
+  assert.match(calls[4].url,/facultyId=f%2F1/);
+  assert.equal(calls[6].init.method,'POST');
+  assert.equal(calls[7].init.method,'PATCH');
+  assert.equal(calls[8].init.method,'DELETE');
+  assert.equal(calls[9].init.method,'PUT');
+  const body=JSON.parse(calls[6].init.body);
+  assert.equal(body.facts.category,'hicc');
+  assert.equal(Object.hasOwn(body.facts,'doeCredit'),false);
+  assert.equal(Object.hasOwn(body.facts,'resultDoe'),false);
+  assert.equal(calls[6].init.headers.Authorization,'Bearer doe-token');
+});
+
+test('P4 Rule Book lifecycle methods use narrow authenticated API routes and revision preconditions',async()=>{
+  const calls=[];
+  const client=createPawsAzureDataClient({tokenProvider:async()=>'policy-token',fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({policy:{version:{policyVersionId:'p1',revision:2}},history:[],validation:{valid:true},impact:{},publication:{},recalculation:{}})}}});
+  await client.doePolicyVersion({policyVersionId:'p/1'});
+  await client.doePolicyHistory({academicYear:'2026-27'});
+  await client.createDoePolicyDraft({academicYear:'2026-27'});
+  await client.copyDoePolicy({sourcePolicyVersionId:'p1',academicYear:'2027-28'});
+  await client.saveDoePolicyDraft('p/1',{expectedRevision:1,patch:{rules:[]}});
+  await client.validateDoePolicyDraft('p/1',{expectedRevision:2});
+  await client.previewDoePolicyImpact('p/1',{expectedRevision:2});
+  await client.publishDoePolicyDraft('p/1',{expectedRevision:2});
+  await client.archiveDoePolicy('p/1',{expectedRevision:3});
+  await client.recalculateDoe({academicYear:'2026-27',limit:25});
+  assert.match(calls[0].url,/\/api\/v1\/doe\/policy-version\?policyVersionId=p%2F1$/);
+  assert.match(calls[1].url,/\/api\/v1\/doe\/history\?academicYear=2026-27$/);
+  assert.deepEqual(calls.slice(2).map(call=>call.init.method),['POST','POST','PUT','POST','POST','POST','POST','POST']);
+  assert.equal(JSON.parse(calls[4].init.body).expectedRevision,1);
+  assert.equal(JSON.parse(calls[5].init.body).expectedRevision,2);
+  assert.equal(JSON.parse(calls[6].init.body).expectedRevision,2);
+  assert.equal(JSON.parse(calls[7].init.body).expectedRevision,2);
+  assert.equal(JSON.parse(calls[8].init.body).expectedRevision,3);
+  assert.equal(calls.every(call=>call.init.credentials==='omit'&&call.init.headers.Authorization==='Bearer policy-token'),true);
+});
+
 test('current user and sessions use the University-origin bearer GET requests',async()=>{
   const calls=[];
   const origin=API_ORIGIN;
@@ -148,9 +206,50 @@ test('Dashboard client exposes explicit AFC methods without Firestore fallback',
   const source=fs.readFileSync('paws-data-client.js','utf8');
   const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
-    'afcBatchWriteEnabled','afcSingleWriteEnabled','approveAfcRequest','createApprovedAfcArtifact','createDashboardAfcManualBatch','createDashboardAfcRecord','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','getApprovedAfcArtifact','listAfcRequests','listSessions','patchSession','recommendAfcRequest','rejectAfcRequest','sessionBackend','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','withdrawAfcRequest'
-  ]);
+    'schedulingTasks','reviewSchedulingTask',
+    'listCalendarActivities','calendarActivityCapabilities','stageCalendarActivityImport','getCalendarActivityImport','previewCalendarActivityImport','commitCalendarActivityImport','resolveCalendarActivityTime',
+    'afcCancelWriteEnabled','cancelDashboardAfcRecord','refreshAfcRecordWriteCapabilities','addTeachingAssignmentContribution','afcBatchWriteEnabled','afcSingleWriteEnabled','afcWriteCapabilities','approveAfcRequest','archiveDoePolicy','copyDoePolicy','createApprovedAfcArtifact','createDashboardAfcManualBatch','createDashboardAfcRecord','createDoePolicyDraft','createSession','createSessionBatch','currentUser','dashboardAfcRecords','dashboardDoeOverview','dashboardFaculty','dashboardFacultyById','dashboardRoles','dashboardSummary','dashboardTeachingSummary','deactivateDashboardFaculty','deactivateDoeAssignment','deactivateManualDoeAssignment','doeActivePolicy','doeAdminWriteEnabled','doeManualAssignmentWriteEnabled','doePolicyHistory','doePolicyPublishEnabled','doePolicyVersion','doePreview','doeRecalculateEnabled','doeWorkflowPreview','doeWorksheet','doeWorksheets','facultyAdminWriteEnabled','finalSubmitTeachingAssignment','getApprovedAfcArtifact','listAfcRequests','listSessions','manualDoeScopeSuggestions','patchSession','previewDoePolicyImpact','publishDoePolicyDraft','publishTeachingAssignmentRelease','recalculateDoe','recommendAfcRequest','refreshDoeWriteCapabilities','refreshFacultyAdminWriteCapabilities','refreshWriteCapabilities','rejectAfcRequest','replaceSessionAssignments','restoreDashboardFaculty','reviewTeachingAssignment','saveDoeAssignment','saveDoePolicyDraft','saveDoeTargetOverride','saveManualDoeAssignment','saveTeachingAssignmentDraft','saveTeachingAssignmentFinalization','sessionBackend','sessionCreateEnabled','sessionEditEnabled','sessionWritesEnabled','submitAfcRequest','submitTeachingAssignment','teachingAssignmentContributionTargets','teachingAssignmentHistory','teachingAssignmentPackage','teachingAssignmentPublicationHistory','teachingAssignmentPublished','teachingAssignmentWorkQueue','teachingAssignmentWriteCapabilities','updateDashboardFaculty','updateRolePeriods','updateDoeAssignment','validateDoePolicyDraft','withdrawAfcRequest','swapFacultyPreview','swapCapabilities','swapContext','swapQueue','swapDetail','createSwap','reviseSwap','decideSwap','withdrawSwap'
+  ].sort());
   assert.doesNotMatch(source,/firestore/i);
+});
+
+test('AFC write capabilities use an authenticated read-only GET and accept only explicit booleans',async()=>{
+  const calls=[];
+  const client=createPawsAzureDataClient({
+    tokenProvider:async()=>'capability-token',
+    fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({writeCapabilities:{requestLifecycle:true,decisions:'true',approvedArtifactCreation:false}})}}
+  });
+  assert.deepEqual(await client.afcWriteCapabilities(),{requestLifecycle:true,decisions:false,approvedArtifactCreation:false});
+  assert.equal(calls[0].url,`${API_ORIGIN}/api/v1/afc-requests/write-capabilities`);
+  assert.equal(calls[0].init.method,'GET');
+  assert.equal(calls[0].init.credentials,'omit');
+  assert.equal(calls[0].init.headers.Authorization,'Bearer capability-token');
+});
+
+test('session create capabilities are fetched explicitly and legacy Firestore writes stay disabled',async()=>{
+  const client=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async()=>({ok:true,json:async()=>({writeCapabilities:{sessionEdit:true,sessionCreate:true,afcSingle:true,afcBatch:'true'}})})});
+  assert.equal(client.sessionWritesEnabled(),false);
+  assert.equal(client.sessionCreateEnabled(),false);
+  const capabilities=await client.refreshWriteCapabilities();
+  assert.deepEqual(capabilities,{sessionEdit:true,sessionCreate:true,afcSingle:true,afcBatch:false,requestLifecycle:false,decisions:false,approvedArtifactCreation:false});
+  assert.equal(client.sessionEditEnabled(),true);
+  assert.equal(client.sessionCreateEnabled(),true);
+  assert.equal(client.sessionWritesEnabled(),false);
+  assert.equal(client.afcSingleWriteEnabled(),true);
+  assert.equal(client.afcBatchWriteEnabled(),false);
+});
+
+test('session create, batch and assignment client methods use narrow API routes and allowlists',async()=>{
+  const calls=[];const client=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({session:{id:'s'},sessions:[{id:'s'}]})}}});
+  await client.createSession({academicYear:'2026-27',courseCode:'315',actorFirebaseUid:'forged'});
+  await client.createSessionBatch({requestId:'request',sessions:[{date:'2026-10-06',doeCredit:9}]});
+  await client.replaceSessionAssignments('session/1',[{facultyId:'faculty-1',teachingRole:'Lecture',displayName:'forged'}]);
+  assert.deepEqual(calls.map(call=>[new URL(call.url).pathname,call.init.method]),[
+    ['/api/v1/sessions','POST'],['/api/v1/sessions/batch','POST'],['/api/v1/sessions/session%2F1/assignments','PATCH']
+  ]);
+  assert.deepEqual(JSON.parse(calls[0].init.body),{academicYear:'2026-27',courseCode:'315'});
+  assert.deepEqual(JSON.parse(calls[1].init.body),{requestId:'request',sessions:[{date:'2026-10-06'}]});
+  assert.deepEqual(JSON.parse(calls[2].init.body),{assignments:[{facultyId:'faculty-1',teachingRole:'Lecture'}]});
 });
 
 test('existing-session scalar edits use the authenticated University API PATCH route',async()=>{
@@ -168,6 +267,12 @@ test('existing-session scalar edits use the authenticated University API PATCH r
   assert.equal(calls[0].init.credentials,'omit');
   assert.equal(calls[0].init.headers.Authorization,'Bearer session-edit-token');
   assert.deepEqual(JSON.parse(calls[0].init.body),{topic:'Updated',room:'VET 123'});
+});
+
+test('session writes preserve server DOE status so the UI can disclose Needs Review',async()=>{
+  const client=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async()=>({ok:true,json:async()=>({session:{id:'s1'},doe:{status:'needs_review',issueCodes:['COURSE_MAPPING_REQUIRED']}})})});
+  const saved=await client.patchSession('s1',{topic:'Updated'});
+  assert.deepEqual(saved.doeRecalculation,{status:'needs_review',issueCodes:['COURSE_MAPPING_REQUIRED']});
 });
 
 test('session PATCH replays once only after explicit 401 and never on other failures', async () => {

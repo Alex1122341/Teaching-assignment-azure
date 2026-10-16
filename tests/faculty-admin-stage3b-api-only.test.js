@@ -16,6 +16,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
+const MANAGEMENT_SOURCE = read('faculty-admin-management.js');
 const ADMIN_HTML = read('faculty-admin.html');
 const ACCESS_SOURCE = read('faculty-access.js');
 const KPI_IDS = ['kpi-total', 'kpi-sessions', 'kpi-assignments', 'kpi-courses', 'kpi-roles', 'kpi-hicc', 'kpi-visc', 'kpi-afc', 'kpi-grid', 'kpi-check'];
@@ -75,7 +76,7 @@ function createHarness(overrides = {}) {
     const set = new Set();
     return { add(c) { set.add(c); }, remove(c) { set.delete(c); }, toggle(c, v) { if (v === undefined) { set.has(c) ? set.delete(c) : set.add(c); } else if (v) set.add(c); else set.delete(c); }, contains(c) { return set.has(c); } };
   };
-  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
+  const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, addEventListener(event, handler) { this[`on${event}`] = handler; }, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
   const nodes = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
   const rowStubs = new Map();
@@ -94,18 +95,27 @@ function createHarness(overrides = {}) {
     querySelector: selector => byId('query:' + selector),
     querySelectorAll(selector) {
       if (selector === '.kpi-value') return KPI_IDS.map(byId);
-      if (selector === '.person-row') {
+      if (selector === '.person-select' || selector === '.person-row' || selector === '#result-list .person-row') {
         const html = byId('result-list').innerHTML || '';
         return (html.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')).map(id => {
-          if (!rowStubs.has(id)) { const el = element('row:' + id); el.dataset.id = id; rowStubs.set(id, el); }
-          return rowStubs.get(id);
+          if (!rowStubs.has(id)) {
+            const el = element('row:' + id); el.dataset.id = id;
+            const button = element('select:' + id);
+            button.closest = selector => selector === '.person-row' ? el : null;
+            button.matches = selector => selector === '.person-select';
+            button.focus = () => { document.activeElement = button; };
+            el.querySelector = selector => selector === '.person-select' ? button : null;
+            el.selectButton = button; rowStubs.set(id, el);
+          }
+          const row = rowStubs.get(id);
+          return selector === '.person-select' ? row.selectButton : row;
         });
       }
       return [];
     },
     createElement: () => element('created')
   };
-  const window = { dispatchEvent(e) { events.push(e && e.type ? e.type : String(e)); }, UCVMSessionGuard: { start() { sessionGuardStarts += 1; } } };
+  const window = { dispatchEvent(e) { events.push(e && e.type ? e.type : String(e)); }, confirm: () => true, UCVMSessionGuard: { start() { sessionGuardStarts += 1; } } };
   const context = {
     window, document,
     location: { href: '', pathname: '/faculty-admin.html', replace() {} },
@@ -127,7 +137,13 @@ function createHarness(overrides = {}) {
     setTimeout, clearTimeout, Map, Set, Date, JSON, String, Number, Boolean, Array, Object, Math, Promise, RegExp, Error, TypeError, isNaN, parseInt, parseFloat
   };
   context.globalThis = context;
+  vm.runInNewContext(read('faculty-name.js'), context, { filename: 'faculty-name.js' });
+  vm.runInNewContext(read('dashboard-view-model.js'), context, { filename: 'dashboard-view-model.js' });
   vm.runInNewContext(read('faculty-admin-doe-renderer.js'), context, { filename: 'faculty-admin-doe-renderer.js' });
+  vm.runInNewContext(read('faculty-admin-doe-worksheet.js'), context, { filename: 'faculty-admin-doe-worksheet.js' });
+  vm.runInNewContext(MANAGEMENT_SOURCE, context, { filename: 'faculty-admin-management.js' });
+  vm.runInNewContext(read('faculty-role-periods.js'), context);
+  vm.runInNewContext(read('faculty-admin-afc-records.js'), context, { filename: 'faculty-admin-afc-records.js' });
   vm.runInNewContext(ADMIN_SOURCE, context, { filename: 'faculty-admin.js' });
   return {
     calls, events, errors, byId,
@@ -138,7 +154,13 @@ function createHarness(overrides = {}) {
     hasAuthCallback: () => typeof authCallback === 'function',
     signIn: async () => { await authCallback({ uid: 'u-1', email: 'admin@example.test' }); },
     rowIds: () => (byId('result-list').innerHTML.match(/data-id="[^"]*"/g) || []).map(s => s.replace(/^data-id="|"$/g, '')),
-    clickRow: async id => { const stub = rowStubs.get(id); assert.ok(stub, `row ${id} must be rendered`); stub.onclick(); await flush(); }
+    clickRow: async id => {
+      const stub = rowStubs.get(id); assert.ok(stub, `row ${id} must be rendered`);
+      assert.equal(typeof stub.selectButton.onclick, 'function', 'selection button has a handler');
+      stub.selectButton.focus(); stub.selectButton.onclick({ detail: 0 });
+      assert.equal(document.activeElement, stub.selectButton, 'keyboard selection retains focus');
+      await flush();
+    }
   };
 }
 
@@ -156,9 +178,9 @@ test('A. admin API core still runs with no Firestore global at all', async () =>
   assert.equal(h.byId('sync-status').textContent.length > 0, true);
 });
 
-test('Q. summary and roster are still requested through one parallel Promise.all', async () => {
+test('Q. summary and status-filtered roster are still requested through one parallel Promise.all', async () => {
   const load = slice('async function loadAdminDashboard', 'function dashboardRawRole');
-  assert.match(load, /await Promise\.all\(\s*\[\s*UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\)\s*\]\)/s, 'both requests must be started together');
+  assert.match(load, /await Promise\.all\(\s*\[\s*UCVM_PAWS_DATA\.dashboardSummary\(\),\s*UCVM_PAWS_DATA\.dashboardFaculty\(\{\s*status:\s*facultyStatus\s*\}\),/s, 'summary and roster must be started together');
   assert.equal((load.match(/await Promise\.all/g) || []).length, 1, 'summary and roster use one parallel aggregate load');
   const h = createHarness();
   await h.signIn();
@@ -177,7 +199,7 @@ test('R / S. detail stays lazy, single, and cached; no N+1', async () => {
   assert.deepEqual(h.calls.filter(c => c.startsWith('dashboardFacultyById')), ['dashboardFacultyById:f-1'], 'one detail request, then cached');
 });
 
-test('T / U. AFC purpose stays detail-only and DOE stays the stored value', async () => {
+test('T / U. AFC purpose stays detail-only and stored DOE keeps precedence over client-side derivation', async () => {
   const h = createHarness();
   await h.signIn();
   await flush();
@@ -185,8 +207,9 @@ test('T / U. AFC purpose stays detail-only and DOE stays the stored value', asyn
   await h.clickRow('f-1');
   const pane = h.byId('profile-pane').innerHTML;
   assert.match(pane, new RegExp(AFC_PURPOSE), 'AFC purpose is shown in the selected detail');
-  assert.match(pane, /<td>percent<\/td><td>0\.90%<\/td><td>Confirmed<\/td>/, 'stored DOE credit is displayed with canonical percentage formatting');
-  assert.doesNotMatch(pane, /<td>percent<\/td><td>1\.25%<\/td>/);
+  assert.match(pane, /<td>0\.90%<\/td><td>DOE unavailable<\/td><td>0\.90%<\/td>/, 'stored DOE credit remains the effective value when no server calculator result is supplied');
+  assert.match(pane, /Confirmed/);
+  assert.doesNotMatch(pane, /1\.25%/, 'client must not derive DOE from legacy rate and quantity');
 });
 
 test('V / W. a 503 still has no Firestore fallback and never signs out', async () => {
@@ -264,7 +287,7 @@ test('M. approval workflow remains available as a dormant artifact but is not dy
 test('28 / 29. the final local script set includes the modular view model', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const local = srcs.filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local.sort(), ['dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-doe-renderer.js', 'faculty-admin.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'session-guard.js'].sort());
+  assert.deepEqual(local.sort(), ['faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'faculty-admin.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'developer-support.js', 'session-guard.js'].sort());
   assert.equal(srcs.filter(s => /gstatic\.com\/firebasejs/.test(s)).length, 2, 'only the app and auth compat SDKs remain');
   const inline = [...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].map(m => m[1].trim());
   assert.deepEqual(inline, [], 'no inline script remains');
@@ -276,7 +299,8 @@ test('28 / 29. the final local script set includes the modular view model', () =
 test('30–35. read-only Dashboard tabs are exposed without legacy write surfaces', () => {
   assert.match(ADMIN_HTML, /<section id="lookup-view" class="panel">/);
   for (const tab of ['data-tab="lookup"', 'data-tab="summary"', 'data-tab="roles"', 'data-tab="doe-overview"']) assert.equal(ADMIN_HTML.includes(tab), true, `${tab} must remain available`);
-  for (const retired of ['sessional-view', 'database-view', 'history-view', 'faculty-audit', 'Import Full Faculty JSON', 'DOE Rule Book']) assert.equal(ADMIN_HTML.includes(retired), false, `${retired} must be gone`);
+  for (const retired of ['sessional-view', 'database-view', 'history-view', 'faculty-audit', 'Import Full Faculty JSON']) assert.equal(ADMIN_HTML.includes(retired), false, `${retired} must be gone`);
+  assert.equal(ADMIN_HTML.includes('data-tab="doe-rules"'), true, 'Annual DOE Rule Book is an authorized separate admin tab');
 });
 
 test('36 / 37 / 38. the selected canonical API detail still renders roles, teaching and AFC', async () => {
@@ -298,7 +322,7 @@ test('39–49. no unsupported mutation control ships on the Dashboard page', () 
     assert.equal(ADMIN_HTML.includes(id), false, `${id} must not ship on the API-only Dashboard`);
   }
   assert.equal(ADMIN_HTML.includes('data-general-only'), false);
-  for (const label of ['Import Away from Campus', 'Replace &amp; Sync', 'Import Workload', '+ Add Faculty', 'Import Full Faculty JSON', 'Edit Faculty', 'Export JSON', 'Export CSV', 'Rebuild Derived Indexes']) {
+  for (const label of ['Import Away from Campus', 'Replace &amp; Sync', 'Import Workload', '+ Add Faculty', 'Import Full Faculty JSON', 'Export JSON', 'Export CSV', 'Rebuild Derived Indexes']) {
     assert.equal(ADMIN_HTML.includes(label), false, `${label} must not ship`);
   }
 });
@@ -318,7 +342,7 @@ test('50 / 51. no mutation handler is bound and the legacy writers are unreachab
 test('the read-only source message replaces the legacy workbook/Firestore claim', () => {
   assert.match(ADMIN_HTML, /PAWS University API/);
   assert.match(ADMIN_HTML, /VetMed-Ops teaching data/);
-  assert.match(ADMIN_HTML, /read-only/);
+  assert.match(ADMIN_HTML, /Status follows effective periods/);
   assert.equal(ADMIN_HTML.includes('All Faculty Summaries.xlsx'), false);
   assert.equal(ADMIN_HTML.includes('AFC Tracker Lookup'), false);
   assert.equal(ADMIN_HTML.includes('V9.7'), false);
@@ -337,9 +361,9 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 test('58–63. the Dashboard page runtime surface is bounded and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 10, 'script elements: 2 Firebase CDN + 8 local');
+  assert.equal(srcs, 22, 'script elements: 2 Firebase CDN + 20 local');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 8);
+  assert.equal(local.length, 20);
   assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });
@@ -348,7 +372,7 @@ test('64. performance timing hooks are preserved', () => {
   assert.match(ADMIN_SOURCE, /window\.__pawsDashboardTiming\s*===\s*true/);
   assert.match(ADMIN_SOURCE, /\[PAWS dashboard timing\]/);
   assert.match(ADMIN_SOURCE, /pawsTimingLog\('summary\+faculty'/);
-  assert.match(ADMIN_SOURCE, /pawsTimingLog\(`detail`/);
+  assert.match(ADMIN_SOURCE, /pawsTimingLog\('detail'/);
 });
 
 // ===========================================================================

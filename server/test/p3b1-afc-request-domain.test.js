@@ -48,6 +48,7 @@ function harness({ role = 'faculty', facultyId = FACULTY_ID, uid = 'uid-faculty'
       displayName: 'Faculty Example'
     }),
     repository,
+    writeGates: { afcRequest: true },
     idFactory: () => REQUEST_ID
   });
   return { api, calls };

@@ -24,7 +24,7 @@ function dashboardHarness(currentUser){
   let authCallback=null,signOuts=0;
   const redirects=[],reads=[];
   const classList={add(){},remove(){},toggle(){}};
-  const element=()=>({classList,dataset:{},style:{},value:'',textContent:'',innerHTML:'',click(){},appendChild(){},remove(){}});
+  const element=()=>({classList,dataset:{},style:{},value:'',textContent:'',innerHTML:'',click(){},addEventListener(event,handler){this[`on${event}`]=handler},appendChild(){},remove(){}});
   const nodes=new Map();
   const byId=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)};
   const auth={
@@ -44,7 +44,13 @@ function dashboardHarness(currentUser){
     Event:class{constructor(type){this.type=type}},
     console:{error(){}},setTimeout,clearTimeout,Map,Set,Date,JSON,String,Number,Array,Object,Math,Blob:class{},URL:{createObjectURL(){return''},revokeObjectURL(){}},confirm:()=>false
   };
+  vm.runInNewContext(read('faculty-name.js'), context, { filename: 'faculty-name.js' });
+  vm.runInNewContext(read('dashboard-view-model.js'),context);
   vm.runInNewContext(read('faculty-admin-doe-renderer.js'),context);
+  vm.runInNewContext(read('faculty-admin-doe-worksheet.js'),context);
+  vm.runInNewContext(read('faculty-admin-management.js'),context);
+  vm.runInNewContext(read('faculty-role-periods.js'),context);
+  vm.runInNewContext(read('faculty-admin-afc-records.js'),context);
   vm.runInNewContext(read('faculty-admin.js'),context);
   assert.equal(typeof authCallback,'function','Dashboard must register an auth callback');
   return{run:user=>authCallback(user),redirects,reads,signOuts:()=>signOuts,nodes};

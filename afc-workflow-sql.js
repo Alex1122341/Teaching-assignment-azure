@@ -38,7 +38,7 @@
     const ask=options.prompt||((message)=>root.prompt?.(message));
     const FormDataCtor=options.FormData||root.FormData||globalThis.FormData;
     const escape=options.escapeHtml||((value)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
-    let requests=[],loaded=false,busy=false,panelId='afc-panel',applicantSignature=null,submitInFlight=false,submitOutcomeUnconfirmed=false;
+    let requests=[],writeCapabilities={requestLifecycle:false,decisions:false,approvedArtifactCreation:false},loaded=false,busy=false,panelId='afc-panel',applicantSignature=null,submitInFlight=false,submitOutcomeUnconfirmed=false;
     const downloadInFlight=new Map();
     const panel=()=>doc?.getElementById?.(panelId)||null;
     function syncSubmitButton(){const currentForm=doc?.getElementById?.('afc-sql-form'),button=currentForm?.querySelector?.('button[type="submit"]');if(button)button.disabled=submitInFlight||submitOutcomeUnconfirmed;}
@@ -50,9 +50,16 @@
     const e=escape;
 
     function actionsFor(request){return requestActions(request,{uid:uid(),role:actorRole()})}
+    function unavailableMessage(){
+      const messages=[];
+      if(!writeCapabilities.requestLifecycle)messages.push('Submitting and withdrawing AFC requests are currently unavailable.');
+      if(!writeCapabilities.decisions)messages.push('AFC recommendations and decisions are currently unavailable.');
+      if(!writeCapabilities.approvedArtifactCreation)messages.push('Creating a missing approved AFC PDF is currently unavailable; existing approved PDFs remain downloadable.');
+      return messages.length?'<p class="afc-note" role="status">'+messages.map(e).join(' ')+'</p>':'';
+    }
     function statusLabel(value){return({pending_report_to:'Pending Reports To approval',pending_admin:'Pending ADMIN approval',approved:'Approved',rejected:'Rejected',withdrawn:'Withdrawn'}[value]||value||'Unknown')}
     function formHtml(){
-      if(!SELF_ROLES.has(actorRole()))return'';
+      if(!SELF_ROLES.has(actorRole())||!writeCapabilities.requestLifecycle)return'';
       const displayName=profile().displayName||user()?.displayName||user()?.email||'Signed-in account';
       return '<details class="afc-new"><summary>New AFC request</summary><form id="afc-sql-form">'+
         '<p class="afc-autofill">Submitting as '+e(displayName)+'. The University API determines faculty identity and workflow routing.</p>'+
@@ -77,10 +84,10 @@
       if(request.rejectionReason)details.push('<p class="error"><b>Rejected:</b> '+e(request.rejectionReason)+'</p>');
       if(status==='approved')details.push('<p class="afc-note" role="status">Approved.</p>');
       const controls=[];
-      if(a.canWithdraw)controls.push('<button type="button" data-afc-withdraw="'+e(id)+'">Withdraw request</button>');
-      if(a.canRecommend)controls.push('<button type="button" data-afc-action="recommend" data-afc-id="'+e(id)+'">Sign &amp; recommend</button>');
-      if(a.canApprove)controls.push('<button type="button" data-afc-action="approve" data-afc-id="'+e(id)+'">Sign &amp; approve</button>');
-      if(a.canReject)controls.push('<button type="button" data-afc-action="reject" data-afc-id="'+e(id)+'">Sign &amp; reject</button>');
+      if(a.canWithdraw&&writeCapabilities.requestLifecycle)controls.push('<button type="button" data-afc-withdraw="'+e(id)+'">Withdraw request</button>');
+      if(a.canRecommend&&writeCapabilities.decisions)controls.push('<button type="button" data-afc-action="recommend" data-afc-id="'+e(id)+'">Sign &amp; recommend</button>');
+      if(a.canApprove&&writeCapabilities.decisions)controls.push('<button type="button" data-afc-action="approve" data-afc-id="'+e(id)+'">Sign &amp; approve</button>');
+      if(a.canReject&&writeCapabilities.decisions)controls.push('<button type="button" data-afc-action="reject" data-afc-id="'+e(id)+'">Sign &amp; reject</button>');
       if(status==='approved'&&AFC_REQUEST_UUID.test(id))controls.push('<button type="button" data-afc-download="'+e(id)+'">Download Approved PDF</button>');
       if(a.canRecommend&&ADMIN_ROLES.has(actorRole()))details.push('<p class="afc-note">An administrator may sign on behalf of Reports To; the server remains authoritative.</p>');
       return '<article class="afc-card"><header><strong>'+e(request.facultyName)+'</strong><span class="afc-status '+e(status)+'">'+e(statusLabel(status))+'</span></header>'+
@@ -91,7 +98,7 @@
     function render(){
       const target=panel();if(!target)return;
       target.innerHTML='<div class="dashboard-heading"><div><h2>Absence from Campus</h2><p>Requests and approvals are stored in VetMed-Ops.</p></div><button type="button" id="afc-sql-refresh">Refresh</button></div>'+
-        formHtml()+'<div class="afc-list">'+(requests.map(card).join('')||'<p>No AFC requests are visible to this account.</p>')+'</div>';
+        unavailableMessage()+formHtml()+'<div class="afc-list">'+(requests.map(card).join('')||'<p>No AFC requests are visible to this account.</p>')+'</div>';
       bind();
     }
 
@@ -99,6 +106,8 @@
     function requireAction(id,action){
       const row=findRequest(id);if(!row)throw Error('This AFC request is not in the current server-scoped list. Refresh the list before acting.');
       const allowed=actionsFor(row);
+      if(action==='withdraw'&&!writeCapabilities.requestLifecycle)throw Error('AFC request lifecycle writes are currently unavailable.');
+      if(['recommend','approve','reject'].includes(action)&&!writeCapabilities.decisions)throw Error('AFC decisions are currently unavailable.');
       if(action==='withdraw'&&allowed.canWithdraw)return row;
       if(action==='recommend'&&allowed.canRecommend)return row;
       if(action==='approve'&&allowed.canApprove)return row;
@@ -111,7 +120,12 @@
     async function load(force=false){
       if((loaded&&!force)||busy)return requests;
       busy=true;const target=panel();if(target)target.innerHTML='<p class="afc-loading">Loading AFC requests…</p>';
-      try{const rows=await client().listAfcRequests();requests=Array.isArray(rows)?rows:[];loaded=true;if(force&&submitOutcomeUnconfirmed)submitOutcomeUnconfirmed=false;render();return requests}
+      try{
+        const api=client();const rows=await api.listAfcRequests();requests=Array.isArray(rows)?rows:[];
+        try{writeCapabilities=await api.afcWriteCapabilities()}catch(_){writeCapabilities={requestLifecycle:false,decisions:false,approvedArtifactCreation:false}}
+        if(!writeCapabilities||typeof writeCapabilities!=='object')writeCapabilities={requestLifecycle:false,decisions:false,approvedArtifactCreation:false};
+        loaded=true;if(force&&submitOutcomeUnconfirmed)submitOutcomeUnconfirmed=false;render();return requests
+      }
       catch(error){if(target)target.innerHTML='<p class="error">'+e(error?.message||'AFC requests could not be loaded.')+'</p>';throw error}
       finally{busy=false}
     }
@@ -138,6 +152,7 @@
 
     async function submit(payload){
       if(!SELF_ROLES.has(actorRole()))throw Error('Only Faculty, HICC, or VISC accounts may submit an AFC request.');
+      if(!writeCapabilities.requestLifecycle)throw Error('AFC request submissions are currently unavailable.');
       const result=await performWrite(()=>client().submitAfcRequest(payload),'submission');
       applicantSignature=null;
       return result;
@@ -200,6 +215,7 @@
           try{artifact=await client().getApprovedAfcArtifact(requestId)}
           catch(error){
             if(error?.code!=='ARTIFACT_NOT_FOUND')throw error;
+            if(!writeCapabilities.approvedArtifactCreation)throw Error('An approved PDF has not been created, and PDF creation is currently unavailable.');
             artifact=await client().createApprovedAfcArtifact(requestId);
           }
           const saved=saveApprovedPdf(requestId,artifact);

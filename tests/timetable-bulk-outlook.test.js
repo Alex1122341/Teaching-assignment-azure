@@ -26,10 +26,11 @@ test('latest updates is removed and exports use a compact bottom bar',()=>{
  assert.match(timetable,/id="outlook-invite-btn"/);
 });
 
-test('bulk session editor cannot be opened or saved from the browser',()=>{
- assert.match(timetable,/sessionWritesEnabled\(\)/);
- assert.match(timetable,/async function saveBulkSessions\(\)\{[\s\S]*?future PAWS University API operation[\s\S]*?return false/);
- assert.doesNotMatch(timetable,/async function saveBulkSessions\(\)[\s\S]*?batch\.commit\(\)/);
+test('bulk session editor is capability-gated and writes only through the authenticated University API',()=>{
+ assert.match(timetable,/async function openBulkSessionForm\(\)[\s\S]*?sessionCreateEnabled\?\.\(\)/);
+ assert.match(timetable,/async function saveBulkSessions\(rows\)[\s\S]*?UCVM_PAWS_DATA\.createSessionBatch\(/);
+ assert.match(timetable,/MAX_BULK_SESSION_ROWS\s*=\s*200/);
+ assert.doesNotMatch(timetable,/async function saveBulkSessions\(rows\)[\s\S]*?batch\.commit\(\)/);
 });
 
 test('Outlook invitation package is filtered, reviewable, and contains attendees',()=>{

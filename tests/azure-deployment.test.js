@@ -109,18 +109,19 @@ test('deploy delegates frozen baseline authority to beta-freeze.js',()=>{
   const freeze=require('../tools/beta-freeze.js');
   const baseline=require('../tools/beta-baseline.json');
   assert.equal(freeze.BASELINE_COMMIT,baseline.sourceCommit);
-  assert.equal(freeze.BASELINE_COMMIT,'da21223a1d92572ff72767796229a655d122efb4');
+  assert.equal(freeze.BASELINE_COMMIT,'3cd51cacbd7de32367c55bf203a47801d5763abf');
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js\s*(?:\r?\n|$)/);
   assert.match(workflow,/run:\s*node tools\/beta-freeze\.js --artifact \.azure-production\/app/);
   assert.doesNotMatch(workflow,/--baseline(?:\s+|$)/);
   assert.doesNotMatch(workflow,/2b10aca5b9ab26ffecdffb685bddd33ae4de70f5/);
 });
 
-test('static deploy evidence records the promoted W1F integration trust anchor',()=>{
+test('legacy Azure static deploy derives the promoted integrated P4 trust anchor and verifies API attestation',()=>{
   const workflow=read('.github/workflows/azure-beta-static-deploy.yml');
-  const freeze=require('../tools/beta-freeze.js');
-  assert.match(workflow,new RegExp(freeze.BASELINE_COMMIT));
-  // The active evidence must advance with the promotion, not lag on the superseded anchor.
+  assert.match(workflow,/require\('\.\/tools\/beta-freeze\.js'\)\.BASELINE_COMMIT/);
+  assert.match(workflow,/runtimeTrustAnchor/);
+  assert.match(workflow,/api\/health\/runtime/);
+  // The active evidence derives the trust anchor from the immutable repository authority.
   assert.doesNotMatch(workflow,/65766bcf9fc57e50ff8b4fe7dd7cedcffb6825be/);
   assert.doesNotMatch(workflow,/f2d76449a4881cb24196289ebf63fd4cfaaa7d05/);
   assert.doesNotMatch(workflow,/5a7f8a535caaf42992598c6fc8fe301818075e67/);
@@ -192,3 +193,5 @@ test('setup docs label this repository beta and forbid automatic test promotion'
   assert.match(setup,/no automatic sync|not automatically sync/i);
   assert.doesNotMatch(setup,/GitHub Pages.*deploy|Pages test site.*this repository/i);
 });
+
+

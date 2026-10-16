@@ -5,9 +5,10 @@ function publicActivity(row){
  result.timeEvidence=Array.isArray(row.timeEvidence)?row.timeEvidence.map(value=>({date:value.date,startTime:value.startTime,endTime:value.endTime})):[];
  return result;
 }
-function createSqlCalendarActivityRepository(db){
+function createSqlCalendarActivityRepository(db,{importDb=db}={}){
  async function exec(name,params){
-  const rows=await db.query('EXEC paws_api.'+name+' '+Object.keys(params).map(key=>'@'+key+'=@'+key).join(','),params);
+  const connection=['StageCalendarActivityImport','PreviewCalendarActivityImport','CommitCalendarActivityImport'].includes(name)?importDb:db;
+  const rows=await connection.query('EXEC paws_api.'+name+' '+Object.keys(params).map(key=>'@'+key+'=@'+key).join(','),params);
   try{
    const value=JSON.parse(rows[0]?.responseJson);
    if(!value||typeof value!=='object'||Array.isArray(value))throw Error();

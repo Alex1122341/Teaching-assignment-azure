@@ -1,3 +1,7 @@
+## Tasks12–14 active: all work categories; filters live — 2026-10-16
+
+Eight source categories identified,541active imported AFC work candidates (inventory only). PR108 filters live e74bdba;75/75public and actualChrome clear/all/count/Reset passed after candidate/main CI. One812row source batch staged, then preview15s native driver timeout; no businessmigration. Dedicated90s pool product0be7e75 independently Ready and root872/923+51skip/server614/617+3skip,0fail; separate governanceReady. Continue API correction exactcandidate/mainCI→attestedAPIrelease withgatesclosed→refreshsamebatchpreview→private recovery/exactmanifest confirmation→atomiccommit, not historical541deletion. OPA/travel/vacation/RSL/leave/manual/excludedquarantine preserved. FullCourseCalendar/CCC replacement and rotation-subtype unknowns remain separate. Resume updates/2026-10-16-work-filter-release-and-import-timeout.md; sameExcelupdatepending.
+
 ## Fresh release/workbook reconciliation — 2026-10-16
 
 Release recheck complete; accepted code already liveab8b587, public75/75 matches, API9ebhealthy, fresh root863pass/49skip/0fail. Same Excel reconciled:18checks/6pass/11open/1N/A. Continue unresolved full live SWAP/Tasks/Calendar checks, source preview/recovery/atomic migration, human export signoff and DOE D01/D02; do not repeat deployed code publication or perform unapproved source deletion. Details: updates/2026-10-16-beta-release-recheck-workbook.md.

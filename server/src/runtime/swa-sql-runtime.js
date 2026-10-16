@@ -63,6 +63,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   });
   const sqlClient = sql || require(driver === 'msnodesqlv8' ? 'mssql/msnodesqlv8' : 'mssql');
   const db = createSqlConnection({ config: connectionConfig, sql: sqlClient });
+  const calendarImportDb = createSqlConnection({ config: connectionConfig, sql: sqlClient, requestTimeoutMs: 90000 });
   const users = createSqlUserRepository(db);
   const sessions = createSqlSessionRepository(db);
   const dashboard = {
@@ -148,7 +149,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const swapRoutes = createSwapFunctions({api:createSwapApi({
     verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),workflowPreviewService:doeWorkflowPreviewService,worksheetService:doeWorksheetService,writeGates
   })});
-  const calendarActivityRoutes=createCalendarActivityFunctions({api:createCalendarActivityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCalendarActivityRepository(db),writeGates})});
+  const calendarActivityRoutes=createCalendarActivityFunctions({api:createCalendarActivityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCalendarActivityRepository(db,{importDb:calendarImportDb}),writeGates})});
   const schedulingTaskRoutes=createSchedulingTaskFunctions({api:createSchedulingTaskApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlSchedulingTaskRepository(db),writeGates})});
   const route = async request => {
     const pathname = new URL(request.url).pathname;
@@ -163,7 +164,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     return timetable(request);
   };
   const handler = request => support.handle(request,route);
-  handler.close = () => db.close();
+  handler.close = () => Promise.all([db.close(), calendarImportDb.close()]);
   return handler;
 }
 module.exports={createSwaSqlRuntime};

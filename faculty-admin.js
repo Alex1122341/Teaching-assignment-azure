@@ -42,6 +42,7 @@
   let afcRecords = [];
   let afcLoaded = false;
   let afcSubmitInFlight = false;
+  let afcSingleOutcomeUnconfirmed = false;
   const afcActions = window.UCVM_AFC_RECORDS.createActions({
     api: UCVM_PAWS_DATA, facultyName,
     canCancel: () => !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true,
@@ -240,10 +241,12 @@
       afcLoaded = true;
       renderAfcRecords();
       const note = $('afc-load-note'); if (note) note.textContent = `Unified AFC view · ${afcRecords.length} record${afcRecords.length === 1 ? '' : 's'} loaded · maximum 2,000.`;
+      return afcRecords;
     } catch (error) {
       afcLoaded = false;
       afcRecords = [];
       if (body) body.innerHTML = `<tr><td colspan="8" class="empty">${esc(detailFailureMessage(error))}</td></tr>`;
+      return null;
     }
   }
 
@@ -287,7 +290,7 @@
 
   function validateAfcForm(values) {
     if (!values.facultyId) return 'Select an active faculty member.';
-    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !window.UCVM_AFC_BATCH.normalizePastedDate(value, 'Date').error;
     if (!validDate(values.startDate) || !validDate(values.endDate)) return 'Enter valid start and end dates.';
     if (values.endDate < values.startDate) return 'End date cannot be before start date.';
     if (!Object.prototype.hasOwnProperty.call(AFC_REASON_LABELS, values.reasonCode)) return 'Select a recognised AFC reason.';
@@ -303,20 +306,26 @@
 
   async function submitAfcRecord(event) {
     event?.preventDefault?.();
-    if (afcSubmitInFlight) return;
+    if (afcSubmitInFlight || afcSingleOutcomeUnconfirmed) return;
     const values = afcFormValues(); const validation = validateAfcForm(values);
     if (validation) { setAfcFormStatus(validation, true); return; }
     const submit = $('afc-submit');
     afcSubmitInFlight = true; if (submit) { submit.disabled = true; submit.textContent = 'Saving…'; }
     setAfcFormStatus('Saving AFC record…');
     try {
-      await UCVM_PAWS_DATA.createDashboardAfcRecord(values);
+      const created = await UCVM_PAWS_DATA.createDashboardAfcRecord(values);
+      if (!created?.afcRecordId) throw Object.assign(new Error('AFC save response incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
+      let confirmed = false;
+      for (let attempt = 0; attempt < 2 && !confirmed; attempt++) confirmed = (await loadAfcRecords(true))?.some(row => String(row.afcRecordId) === String(created.afcRecordId));
+      if (!confirmed) throw Object.assign(new Error('AFC readback incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
       $('afc-record-form')?.reset();
-      setAfcFormStatus('AFC record created.');
       await loadAdminDashboard();
-      await loadAfcRecords(true);
-    } catch (error) { setAfcFormStatus(error?.message || 'AFC record could not be created.', true); }
-    finally { afcSubmitInFlight = false; if (submit) { submit.disabled = false; submit.textContent = 'Create AFC Record'; } }
+      setAfcFormStatus('AFC record created and confirmed in the AFC list.');
+    } catch (error) {
+      afcSingleOutcomeUnconfirmed = !(error?.code === 'WRITE_DISABLED' && Number(error.status) === 503) && (error?.code === 'OUTCOME_UNCONFIRMED' || !Number(error?.status) || Number(error.status) >= 500);
+      setAfcFormStatus(afcSingleOutcomeUnconfirmed ? 'Save unconfirmed. Check the AFC list before reloading or submitting again.' : error?.message || 'AFC record could not be created.', true);
+    }
+    finally { afcSubmitInFlight = false; if (submit) { submit.disabled = afcSingleOutcomeUnconfirmed; submit.textContent = 'Create AFC Record'; } }
   }
 
   function updateFilters() { fillSelect('filter-rank', unique('rank'), 'All ranks'); }

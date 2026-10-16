@@ -7,7 +7,7 @@ const nameContext = { window: {} };
 vm.runInNewContext(fs.readFileSync('faculty-name.js','utf8'),nameContext);
 const name = nameContext.window.PAWS_FACULTY_NAME;
 const ID = '11111111-1111-4111-8111-111111111111';
-async function dashboard({ enabled = true, confirm = true } = {}) {
+async function dashboard({ enabled = true, confirm = true, apiOverrides = {} } = {}) {
   const elements = new Map(), caps = {}, cancellations = [];
   const records = [{ afcRecordId: ID, facultyId: ID, facultyName: 'Ada One', startDate: '2026-11-05', endDate: '2026-11-06', active: true, sourceKind: 'manual', versionToken: '00000000000000AB' }];
   const element = id => {
@@ -25,7 +25,8 @@ async function dashboard({ enabled = true, confirm = true } = {}) {
     afcBatchWriteEnabled: () => caps.afcBatch === true,
     afcCancelWriteEnabled: () => caps.afcCancel === true,
     dashboardAfcRecords: async () => records,
-    cancelDashboardAfcRecord: async (id, payload) => { cancellations.push({id,...payload}); records[0].active=false; return records[0]; }
+    cancelDashboardAfcRecord: async (id, payload) => { cancellations.push({id,...payload}); records[0].active=false; return records[0]; },
+    ...apiOverrides
   };
   const auth = { setPersistence: async()=>{}, onAuthStateChanged: fn => { auth.changed=fn; } };
   const authFn = () => auth; authFn.Auth = { Persistence: { LOCAL: 'local' } };
@@ -49,6 +50,61 @@ test('Dashboard refreshes AFC capabilities after authentication and enables the 
   const {element}=await dashboard();
   assert.equal(element('afc-submit').disabled,false);
   assert.doesNotMatch(element('afc-form-status').textContent,/disabled/);
+});
+
+function fillAfcForm(element) {
+  for (const [key,value] of Object.entries({'afc-faculty':ID,'afc-start-date':'2027-02-01','afc-end-date':'2027-02-02','afc-reason':'vacation','afc-notes':''})) element(key).value=value;
+}
+
+test('an incomplete AFC save response preserves the form and prevents a duplicate create', async()=>{
+  let posts=0,resets=0;
+  const {element}=await dashboard({apiOverrides:{createDashboardAfcRecord:async()=>{posts++;return {};}}});
+  fillAfcForm(element);element('afc-record-form').reset=()=>resets++;
+  await element('afc-record-form').listeners.submit({preventDefault(){}});
+  await element('afc-record-form').listeners.submit({preventDefault(){}});
+  assert.equal(posts,1);assert.equal(resets,0);
+  assert.equal(element('afc-submit').disabled,true);
+  assert.match(element('afc-form-status').textContent,/unconfirmed/i);
+});
+
+for (const confirmed of [true,false]) test(`AFC save requires an exact record ID in list readback: ${confirmed}`, async()=>{
+  let posts=0,reads=0,resets=0;
+  const {element}=await dashboard({apiOverrides:{
+    createDashboardAfcRecord:async()=>{posts++;return {afcRecordId:ID};},
+    dashboardAfcRecords:async()=>{reads++;return [{afcRecordId:confirmed?ID:'different-record',facultyName:'Ada One'}];}
+  }});
+  fillAfcForm(element);element('afc-record-form').reset=()=>resets++;
+  await element('afc-record-form').listeners.submit({preventDefault(){}});
+  assert.equal(posts,1);assert.equal(reads,confirmed?1:2);
+  assert.equal(resets,confirmed?1:0);assert.equal(element('afc-submit').disabled,!confirmed);
+  assert.equal(/created and confirmed/i.test(element('afc-form-status').textContent),confirmed);
+});
+
+test('AFC readback retries a transient GET without replaying the accepted POST', async()=>{
+  let posts=0,reads=0;
+  const {element}=await dashboard({apiOverrides:{
+    createDashboardAfcRecord:async()=>{posts++;return {afcRecordId:ID};},
+    dashboardAfcRecords:async()=>{if(++reads===1)throw Object.assign(Error('Read unavailable'),{status:503});return [{afcRecordId:ID}];}
+  }});
+  fillAfcForm(element);await element('afc-record-form').listeners.submit({preventDefault(){}});
+  assert.equal(posts,1);assert.equal(reads,2);assert.match(element('afc-form-status').textContent,/created and confirmed/i);
+});
+
+for (const [status,code,locked] of [[503,'SQL_UNAVAILABLE',true],[503,'WRITE_DISABLED',false],[400,'VALIDATION_FAILED',false]]) test(`AFC create retry safety for ${status} ${code}`, async()=>{
+  let posts=0;
+  const {element}=await dashboard({apiOverrides:{createDashboardAfcRecord:async()=>{posts++;throw Object.assign(Error(code),{status,code});}}});
+  fillAfcForm(element);await element('afc-record-form').listeners.submit({preventDefault(){}});
+  assert.equal(element('afc-submit').disabled,locked);
+  await element('afc-record-form').listeners.submit({preventDefault(){}});
+  assert.equal(posts,locked?1:2);
+});
+
+test('AFC form rejects an impossible Gregorian date before sending a create', async()=>{
+  let posts=0;
+  const {element}=await dashboard({apiOverrides:{createDashboardAfcRecord:async()=>{posts++;return {afcRecordId:ID};}}});
+  fillAfcForm(element);element('afc-start-date').value='2027-02-30';element('afc-end-date').value='2027-03-01';
+  await element('afc-record-form').listeners.submit({preventDefault(){}});
+  assert.equal(posts,0);assert.match(element('afc-form-status').textContent,/valid start and end dates/i);
 });
 test('Dashboard keeps AFC creation closed when the server denies its capability', async()=>{
   const {element}=await dashboard({enabled:false});

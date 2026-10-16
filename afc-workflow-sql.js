@@ -134,7 +134,8 @@
       let result;
       try{result=await send()}
       catch(cause){
-        if(typeof cause?.status==='number'||['UNAUTHENTICATED','TOKEN_REFRESH_FAILED'].includes(cause?.code))throw cause;
+        const status=Number(cause?.status);
+        if((status>=400&&status<500)||(status===503&&cause?.code==='WRITE_DISABLED')||['UNAUTHENTICATED','TOKEN_REFRESH_FAILED'].includes(cause?.code))throw cause;
         const error=Error('The '+description+' outcome could not be confirmed. Refresh the request list before trying again.');
         error.code='OUTCOME_UNCONFIRMED';error.cause=cause;throw error;
       }
@@ -232,7 +233,7 @@
 
     async function captureDecision(id,action){
       requireAction(id,action);
-      const activeUser=user(),signer=profile().displayName||activeUser?.displayName||activeUser?.email||uid();
+      const activeUser=user(),signer=profile().displayName||activeUser?.displayName||activeUser?.email||'Signed-in account';
       const signature=await signatureCapture({name:signer,email:activeUser?.email||'',uid:uid(),title:'Sign AFC '+action});
       if(!signature)return null;
       let rejectionReason='';

@@ -51,8 +51,20 @@ VALUES(@Activity,'2026-05-01','09:00','10:00',N'synthetic-ref',N'private evidenc
 DELETE FROM @Response;
 INSERT @Response EXEC paws_api.ListCalendarActivities @ActorFirebaseUid=N'calendar-test-faculty',@StartDate='2026-05-01',@EndExclusive='2026-05-02';
 DECLARE @Public nvarchar(max)=(SELECT responseJson FROM @Response);
-IF JSON_VALUE(@Public,'$.activities[0].startDate')<>N'2026-04-29' OR JSON_VALUE(@Public,'$.activities[0].endDate')<>N'2026-05-03' THROW 53890,'Range intersection clipped original dates.',1;
+IF JSON_QUERY(@Public,'$.activities') IS NULL OR (SELECT COUNT(*) FROM OPENJSON(@Public,'$.activities'))<>1
+ THROW 53890,'A populated Calendar range must return an activities array.',1;
+IF COALESCE(JSON_VALUE(@Public,'$.activities[0].startDate'),N'')<>N'2026-04-29' OR COALESCE(JSON_VALUE(@Public,'$.activities[0].endDate'),N'')<>N'2026-05-03' THROW 53890,'Range intersection clipped original dates.',1;
 IF @Public LIKE N'%private%' OR @Public LIKE N'%facultyId%' OR @Public LIKE N'%ucid%' OR @Public LIKE N'%email%' OR @Public LIKE N'%sourceRow%' OR @Public LIKE N'%evidenceRef%' THROW 53890,'Private activity metadata leaked.',1;
-IF JSON_VALUE(@Public,'$.activities[0].timeStatus')<>N'partial' THROW 53890,'Incomplete range timing was labeled verified.',1;
+IF COALESCE(JSON_VALUE(@Public,'$.activities[0].timeStatus'),N'')<>N'partial' THROW 53890,'Incomplete range timing was labeled verified.',1;
+DELETE FROM @EmptyResponse;
+INSERT @EmptyResponse EXEC paws_api.ListCalendarActivities @ActorFirebaseUid=N'calendar-test-faculty',@StartDate='2027-01-01',@EndExclusive='2027-01-02';
+SET @EmptyJson=(SELECT responseJson FROM @EmptyResponse);
+IF JSON_QUERY(@EmptyJson,'$.activities') IS NULL OR JSON_QUERY(@EmptyJson,'$.activities')<>N'[]'
+ THROW 53890,'An empty filtered Calendar range must return an activities array.',1;
+DELETE FROM @EmptyResponse;
+INSERT @EmptyResponse EXEC paws_api.ListCalendarActivities @ActorFirebaseUid=N'calendar-test-admin',@StartDate='2026-05-01',@EndExclusive='2026-05-02',@Category=N'clinical_day';
+SET @EmptyJson=(SELECT responseJson FROM @EmptyResponse);
+IF JSON_QUERY(@EmptyJson,'$.activities') IS NULL OR JSON_QUERY(@EmptyJson,'$.activities')<>N'[]'
+ THROW 53890,'An empty Calendar category must return an activities array.',1;
 ROLLBACK TRANSACTION;
 PRINT 'CALENDAR_ACTIVITY_FOUNDATION_ACCEPTANCE_OK';

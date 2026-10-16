@@ -66,6 +66,8 @@ foreach($number in $selected){
  if(-not $feature){throw 'Feature migration manifest is incomplete.'}
  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath $feature.migration) -Raw) 'VetMed-Ops'
 }
+# Exercise the current read contract at every supported foundation depth.
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/044_calendar_empty_activity_array.sql') -Raw) 'VetMed-Ops'
 if($CheckRollback){
  function Assert-RollbackRefuses([string]$RelativePath){
   $body=(Get-Content -LiteralPath (Join-Path $repoPath $RelativePath) -Raw).Replace("`r`n","`n")

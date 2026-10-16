@@ -30,6 +30,15 @@ function harness(overrides={}){
   return{workflow,calls,panel,rows};
 }
 
+test('an AFC decision signature uses a readable fallback name while retaining the authenticated UID',async()=>{
+  let captured;
+  const button={dataset:{afcId:'r1',afcAction:'recommend'}};
+  const panel={innerHTML:'',querySelectorAll(selector){return selector==='[data-afc-action]'?[button]:[]}};
+  const {workflow}=harness({document:{getElementById:()=>panel},auth:{currentUser:{uid:'u2'}},profile:()=>({role:'faculty'}),signatureCapture:async input=>{captured=input;return null}});
+  await workflow.load(true);await button.onclick();
+  assert.equal(captured.uid,'u2');assert.equal(captured.name,'Signed-in account');
+});
+
 test('SQL AFC workflow lists scoped API rows, escapes content, and never references a Firestore request or PDF path',async()=>{
   const {workflow,calls,panel}=harness();
   await workflow.load(true);
@@ -233,4 +242,12 @@ test('SQL AFC form keeps submit locked after an ambiguous transport outcome unti
   await h.refresh.onclick();
   assert.equal(h.submitButton.disabled,false,'a successful refresh resolves the pending outcome');
   assert.equal(h.calls.submissions,1);
+});
+
+test('SQL AFC form treats a numeric server failure as uncertain and does not replay the request',async()=>{
+  const h=await submitUiHarness({submitAfcRequest:()=>{throw Object.assign(Error('SQL unavailable'),{status:503,code:'SQL_UNAVAILABLE'})}});
+  const event={preventDefault(){}};
+  await h.form.onsubmit(event);await h.form.onsubmit(event);
+  assert.equal(h.calls.submissions,1);assert.equal(h.submitButton.disabled,true);
+  assert.match(h.status.textContent,/Refresh the request list before trying again/);
 });

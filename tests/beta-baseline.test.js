@@ -9,11 +9,12 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// DOE Rule Book / Faculty Lookup layout follow-up is current. Prior DOE UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
+// AFC confirmation recovery is current. Prior DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
+const BASELINE_COMMIT='d049fe0fb4fb51e9fcefab3a4151c2600d3cc074';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
+const DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
 const SCHEDULING_PRODUCT_COMMIT='a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca';
 const ADFA_PRODUCT_COMMIT='0f81c3e0b7e63a9b9357755b7e957406018894fd';
 const CALENDAR_PRODUCT_COMMIT='7526e86f295de062c228fb1ddee2f007706285c2';
@@ -50,9 +51,29 @@ function baselineJson(ref){
 const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:commit,readManifest:()=>baselineJson(commit)});
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
-test('DOE Lookup summary layout freeze preserves the reviewed single-file delta',()=>{
- const previous=DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT,product=BASELINE_COMMIT;
+test('AFC confirmation recovery freeze protects only its reviewed three-file delta',()=>{
+ const previous=DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT,product='d049fe0fb4fb51e9fcefab3a4151c2600d3cc074';
  assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(baseline.sourceCommit,product);
+ assert.equal(BASELINE_COMMIT,product);
+ const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
+ assert.equal(before.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);
+ assert.equal(oldApi.length,76);assert.deepEqual(newApi,oldApi);
+ const apiFreeze=require('../tools/beta-api-freeze.js');
+ const apiProtected=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
+ assert.equal(apiProtected.length,79);
+ const changed=execFileSync('git',['diff','--name-only',previous,product],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+ assert.deepEqual(changed.filter(file=>after.includes(file)).sort(),['afc-workflow-sql.js','faculty-admin-afc-records.js','faculty-admin.js']);
+ assert.deepEqual(changed.filter(file=>apiProtected.includes(file)),[]);
+ for(const file of apiProtected)assert.equal(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:product,file})),true,file);
+ execFileSync('git',['merge-base','--is-ancestor','d75d8eb97f0172c25deddaeed87327216631ecd6',product],{cwd:root});
+});
+
+test('historical DOE Lookup summary layout freeze preserves its reviewed single-file delta',()=>{
+ const previous=DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT,product=DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT;
+ const governance='4082c6253c25ff6b8bedb76172042700084ea705';
+ const historicalSource=execFileSync('git',['show',`${governance}:tools/beta-freeze.js`],{cwd:root,encoding:'utf8'});
+ const historicalReport=JSON.parse(execFileSync('git',['show',`${governance}:tools/beta-baseline.json`],{cwd:root,encoding:'utf8'}));
+ assert.ok(historicalSource.includes(`const BASELINE_COMMIT='${product}'`));assert.equal(historicalReport.sourceCommit,product);
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
  assert.equal(before.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);
  assert.equal(oldApi.length,76);assert.deepEqual(newApi,oldApi);

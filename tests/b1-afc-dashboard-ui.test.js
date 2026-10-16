@@ -7,6 +7,7 @@ const afcBatch = require('../faculty-admin-afc-batch');
 
 const html = fs.readFileSync('faculty-admin.html', 'utf8');
 const js = fs.readFileSync('faculty-admin.js', 'utf8');
+const recordsJs = fs.readFileSync('faculty-admin-afc-records.js', 'utf8');
 
 test('B1 admin dashboard exposes an isolated AFC Records tab and create form', () => {
   assert.match(html, /data-tab="afc-records"/);
@@ -25,12 +26,16 @@ test('B1 admin dashboard exposes an isolated AFC Records tab and create form', (
 
 test('B1 AFC UI uses explicit Azure client methods and protects submit state', () => {
   assert.match(js, /UCVM_PAWS_DATA\.dashboardAfcRecords\(/);
-  assert.match(js, /UCVM_PAWS_DATA\.createDashboardAfcRecord\(/);
-  assert.match(js, /Saving…/);
-  assert.match(js, /facultyId/);
+  assert.match(js, /UCVM_AFC_RECORDS\.createSingleActions\(\{\s*api: UCVM_PAWS_DATA/);
+  assert.match(recordsJs, /api\.createDashboardAfcRecord\(/);
+  assert.match(recordsJs, /Saving…/);
+  assert.match(recordsJs, /facultyId/);
   assert.match(js, /afcSubmitInFlight/);
-  assert.match(js, /reasonCode/);
+  assert.match(recordsJs, /reasonCode/);
   assert.doesNotMatch(js, /db\.collection\(/);
+  assert.doesNotMatch(recordsJs, /db\.collection\(/);
+  const helperAt=html.indexOf('faculty-admin-afc-records.js'),controllerAt=html.indexOf('faculty-admin.js');
+  assert.ok(helperAt>=0&&controllerAt>=0&&helperAt<controllerAt);
 });
 
 test('AFC multi-input UI supports Excel paste, canonical searchable Faculty, row review, and batch submit', () => {

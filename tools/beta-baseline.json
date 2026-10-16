@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "6b1d2fe200b756f08049ae6cb30d1ba0194a18d5",
+  "sourceCommit": "3cd51cacbd7de32367c55bf203a47801d5763abf",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -28,7 +28,7 @@
     "faculty-account-planner.js": "0cc4130e1ddeaec7419698ea65ca0d9800839a93156031f994cb73fb38ff1bf1",
     "faculty-doe.js": "9eed9943a21bf57bedbaf1020230e1e69ec25ca05117f8d0201c50f68afcf4c1",
     "faculty-admin-enhancements.js": "dd3786a53c3c21a3aff23e03d01d66541a7bdb063773ea356da41a8015638f76",
-    "faculty-admin.css": "80f12f9b4952f59234698ed4d4468fbc5dd2bbd463d6ac4909f24e270db01533",
+    "faculty-admin.css": "22b7d6732395b631ad36d1f0472b2ebe0f1b56af01acf6df122f9e206e49bb7e",
     "faculty-admin-afc-batch.js": "a57b84ce4942d0549b8c28739899f7a3c998dd97c9c960d7c1d83e920320cb33",
     "faculty-admin.html": "7ddf6b73b12de98c844fbca2709b5ec1f85a81d30c4b5cf32cf7f4c7e61ae725",
     "faculty-admin.js": "c4ac7003adb38697c71c70eb2e38a73e7121b331c7b723448a117c7b571cbbd0",

@@ -70,6 +70,16 @@ BEGIN TRY EXEC paws_api.CommitCalendarActivityImport @Actor,@Batch,@Version,@Man
 BEGIN CATCH IF ERROR_NUMBER()=53806 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 OR EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE ImportBatchId=@Batch) OR NOT EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Remote)
  THROW 54590,'Old v1 migration was not rejected before business writes.',1;
+-- Even a recomputed v2 manifest cannot turn a retained purpose back into work.
+UPDATE staging.CalendarActivityImport SET PolicyVersion=N'afc-working-activities-v2',ManifestSha256=CONVERT(varchar(64),HASHBYTES('SHA2_256',
+ CONCAT(SourceSha256,N'|',Dataset,N'|',N'afc-working-activities-v2',N'|',CONVERT(char(10),StartDate,23),N'|',CONVERT(char(10),EndDate,23),N'|',@ManifestRows)),2) WHERE ImportBatchId=@Batch;
+SELECT @Version=CONVERT(varchar(16),CONVERT(binary(8),ImportVersion),2),@Manifest=ManifestSha256 FROM staging.CalendarActivityImport WHERE ImportBatchId=@Batch;
+SET @Rejected=0;
+BEGIN TRY EXEC paws_api.CommitCalendarActivityImport @Actor,@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1;END TRY
+BEGIN CATCH IF ERROR_NUMBER()=53806 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54590,'A retained purpose bypassed the canonical work classifier.',1;
+UPDATE staging.CalendarActivityImport SET PolicyVersion=N'afc-working-activities-v1',ManifestSha256=@OldManifest WHERE ImportBatchId=@Batch;
+SELECT @Version=CONVERT(varchar(16),CONVERT(binary(8),ImportVersion),2) FROM staging.CalendarActivityImport WHERE ImportBatchId=@Batch;
 DELETE @Response;INSERT @Response EXEC paws_api.PreviewCalendarActivityImport @Actor,@Batch,@Version;
 SELECT @Json=responseJson,@Version=JSON_VALUE(responseJson,'$.previewVersion'),@Manifest=JSON_VALUE(responseJson,'$.manifestSha256') FROM @Response;
 IF @Manifest=@OldManifest OR JSON_VALUE(@Json,'$.policyVersion')<>N'afc-working-activities-v2' OR JSON_VALUE(@Json,'$.counts.accepted')<>N'1'

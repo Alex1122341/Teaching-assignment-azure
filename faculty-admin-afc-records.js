@@ -8,13 +8,52 @@
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const text=value=>String(value??'').trim();
   const norm=value=>String(value??'').trim().toLowerCase();
-  function updateWriteControls(api, $, afcSubmitInFlight) {
+  const unconfirmedMessage='Save unconfirmed. Check the AFC list before reloading or submitting again.';
+  function updateWriteControls(api, $, afcSubmitInFlight, unconfirmed=false) {
     const single = api.afcSingleWriteEnabled?.() === true;
     const batch = api.afcBatchWriteEnabled?.() === true;
-    if ($('afc-submit')) $('afc-submit').disabled = !single || afcSubmitInFlight;
-    if ($('afc-form-status')) $('afc-form-status').textContent = single ? '' : 'AFC creation is unavailable. Your administrator permissions must be verified by the server.';
+    if ($('afc-submit')) $('afc-submit').disabled = !single || afcSubmitInFlight || unconfirmed;
+    if ($('afc-form-status')) $('afc-form-status').textContent = unconfirmed ? unconfirmedMessage : single ? '' : 'AFC creation is unavailable. Your administrator permissions must be verified by the server.';
     if (!batch && $('afc-batch-submit')) $('afc-batch-submit').disabled = true;
     if ($('afc-batch-status')) $('afc-batch-status').textContent = batch ? '' : 'AFC batch creation is unavailable. Your administrator permissions must be verified by the server.';
+  }
+  function createSingleActions({api,$,reasonLabels,normalizeDate,isBusy,setBusy,refreshRecords,refreshDashboard}) {
+    let unconfirmed=false;
+    function status(message,error=false) {
+      const node=$('afc-form-status');if(!node)return;
+      node.textContent=message;node.classList.toggle('error',error);
+    }
+    function values() {
+      return {facultyId:text($('afc-faculty')?.value),startDate:text($('afc-start-date')?.value),endDate:text($('afc-end-date')?.value),reasonCode:text($('afc-reason')?.value),notes:text($('afc-notes')?.value)};
+    }
+    function validate(input) {
+      if(!input.facultyId)return 'Select an active faculty member.';
+      const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!normalizeDate(value,'Date').error;
+      if(!validDate(input.startDate)||!validDate(input.endDate))return 'Enter valid start and end dates.';
+      if(input.endDate<input.startDate)return 'End date cannot be before start date.';
+      if(!Object.prototype.hasOwnProperty.call(reasonLabels,input.reasonCode))return 'Select a recognised AFC reason.';
+      if((input.reasonCode==='special'||input.reasonCode==='other')&&!input.notes)return 'Notes are required for Special and Other reasons.';
+      if(input.notes.length>1000)return 'Notes must be 1,000 characters or fewer.';
+      return '';
+    }
+    async function submit(event) {
+      event?.preventDefault?.();if(isBusy()||unconfirmed)return;
+      const input=values(),error=validate(input);if(error){status(error,true);return;}
+      const button=$('afc-submit');setBusy(true);if(button){button.disabled=true;button.textContent='Saving…';}
+      status('Saving AFC record…');
+      try {
+        const created=await api.createDashboardAfcRecord(input);
+        if(!created?.afcRecordId)throw Object.assign(Error('AFC save response incomplete.'),{code:'OUTCOME_UNCONFIRMED'});
+        let confirmed=false;
+        for(let attempt=0;attempt<2&&!confirmed;attempt++)confirmed=(await refreshRecords())?.some(row=>String(row.afcRecordId)===String(created.afcRecordId));
+        if(!confirmed)throw Object.assign(Error('AFC readback incomplete.'),{code:'OUTCOME_UNCONFIRMED'});
+        $('afc-record-form')?.reset();await refreshDashboard();status('AFC record created and confirmed in the AFC list.');
+      } catch(error) {
+        unconfirmed=!(error?.code==='WRITE_DISABLED'&&Number(error.status)===503)&&(error?.code==='OUTCOME_UNCONFIRMED'||!Number(error?.status)||Number(error.status)>=500);
+        status(unconfirmed?unconfirmedMessage:error?.message||'AFC record could not be created.',true);
+      } finally {setBusy(false);if(button){button.disabled=unconfirmed||api.afcSingleWriteEnabled?.()!==true;button.textContent='Create AFC Record';}}
+    }
+    return {submit,isUnconfirmed:()=>unconfirmed};
   }
   function renderRows(rows,{facultyName,canCancel:allowed=false,busy=()=>false}={}) {
     return rows.map(row => {
@@ -64,5 +103,5 @@
     }
     return null;
   }
-  return Object.freeze({updateWriteControls,renderRows,createActions,facultyLabel,resolveFaculty});
+  return Object.freeze({updateWriteControls,createSingleActions,renderRows,createActions,facultyLabel,resolveFaculty});
 });

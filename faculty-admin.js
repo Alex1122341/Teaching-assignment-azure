@@ -42,7 +42,6 @@
   let afcRecords = [];
   let afcLoaded = false;
   let afcSubmitInFlight = false;
-  let afcSingleOutcomeUnconfirmed = false;
   const afcActions = window.UCVM_AFC_RECORDS.createActions({
     api: UCVM_PAWS_DATA, facultyName,
     canCancel: () => !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true,
@@ -188,7 +187,7 @@
     updateAfcWriteControls();
   }
 
-  function updateAfcWriteControls() { window.UCVM_AFC_RECORDS.updateWriteControls(UCVM_PAWS_DATA, $, afcSubmitInFlight); }
+  function updateAfcWriteControls() { window.UCVM_AFC_RECORDS.updateWriteControls(UCVM_PAWS_DATA, $, afcSubmitInFlight, afcSingleActions.isUnconfirmed()); }
 
   function selectTab(tabName) {
     if (selfMode) return;
@@ -230,6 +229,11 @@
   }
 
   const AFC_REASON_LABELS = Object.freeze({ university_travel: 'University Travel', vacation: 'Vacation', rsl: 'RSL', medical: 'Medical', mat: 'MAT', special: 'Special', other: 'Other' });
+  const afcSingleActions = window.UCVM_AFC_RECORDS.createSingleActions({
+    api: UCVM_PAWS_DATA, $, reasonLabels: AFC_REASON_LABELS, normalizeDate: (value, field) => window.UCVM_AFC_BATCH.normalizePastedDate(value, field),
+    isBusy: () => afcSubmitInFlight, setBusy: value => { afcSubmitInFlight = value; },
+    refreshRecords: () => loadAfcRecords(true), refreshDashboard: () => loadAdminDashboard()
+  });
 
   async function loadAfcRecords(force = false) {
     const body = $('afc-records-body');
@@ -284,49 +288,7 @@
 
   function cancelAfcRecord(key) { return afcActions.cancel(key); }
 
-  function afcFormValues() {
-    return { facultyId: text($('afc-faculty')?.value), startDate: text($('afc-start-date')?.value), endDate: text($('afc-end-date')?.value), reasonCode: text($('afc-reason')?.value), notes: text($('afc-notes')?.value) };
-  }
-
-  function validateAfcForm(values) {
-    if (!values.facultyId) return 'Select an active faculty member.';
-    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !window.UCVM_AFC_BATCH.normalizePastedDate(value, 'Date').error;
-    if (!validDate(values.startDate) || !validDate(values.endDate)) return 'Enter valid start and end dates.';
-    if (values.endDate < values.startDate) return 'End date cannot be before start date.';
-    if (!Object.prototype.hasOwnProperty.call(AFC_REASON_LABELS, values.reasonCode)) return 'Select a recognised AFC reason.';
-    if ((values.reasonCode === 'special' || values.reasonCode === 'other') && !values.notes) return 'Notes are required for Special and Other reasons.';
-    if (values.notes.length > 1000) return 'Notes must be 1,000 characters or fewer.';
-    return '';
-  }
-
-  function setAfcFormStatus(message, error = false) {
-    const status = $('afc-form-status'); if (!status) return;
-    status.textContent = message; status.classList.toggle('error', error);
-  }
-
-  async function submitAfcRecord(event) {
-    event?.preventDefault?.();
-    if (afcSubmitInFlight || afcSingleOutcomeUnconfirmed) return;
-    const values = afcFormValues(); const validation = validateAfcForm(values);
-    if (validation) { setAfcFormStatus(validation, true); return; }
-    const submit = $('afc-submit');
-    afcSubmitInFlight = true; if (submit) { submit.disabled = true; submit.textContent = 'Saving…'; }
-    setAfcFormStatus('Saving AFC record…');
-    try {
-      const created = await UCVM_PAWS_DATA.createDashboardAfcRecord(values);
-      if (!created?.afcRecordId) throw Object.assign(new Error('AFC save response incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
-      let confirmed = false;
-      for (let attempt = 0; attempt < 2 && !confirmed; attempt++) confirmed = (await loadAfcRecords(true))?.some(row => String(row.afcRecordId) === String(created.afcRecordId));
-      if (!confirmed) throw Object.assign(new Error('AFC readback incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
-      $('afc-record-form')?.reset();
-      await loadAdminDashboard();
-      setAfcFormStatus('AFC record created and confirmed in the AFC list.');
-    } catch (error) {
-      afcSingleOutcomeUnconfirmed = !(error?.code === 'WRITE_DISABLED' && Number(error.status) === 503) && (error?.code === 'OUTCOME_UNCONFIRMED' || !Number(error?.status) || Number(error.status) >= 500);
-      setAfcFormStatus(afcSingleOutcomeUnconfirmed ? 'Save unconfirmed. Check the AFC list before reloading or submitting again.' : error?.message || 'AFC record could not be created.', true);
-    }
-    finally { afcSubmitInFlight = false; if (submit) { submit.disabled = afcSingleOutcomeUnconfirmed; submit.textContent = 'Create AFC Record'; } }
-  }
+  function submitAfcRecord(event) { return afcSingleActions.submit(event); }
 
   function updateFilters() { fillSelect('filter-rank', unique('rank'), 'All ranks'); }
   function updateStatus() { const summary = dashboardSummary || {}, show = key => present(summary[key]) ? summary[key] : '—'; const status = $('sync-status'); if (status) status.textContent = `Faculty ${faculty.length} · sessions ${show('sessionCount')} · assignments ${show('assignmentCount')} · roles ${show('roleAssignmentCount')} · HICC ${show('hiccCount')} · VISC ${show('viscCount')} · AFC ${show('afcRecordCount')} · check needed ${show('checkNeededCount')}`; const note = $('summary-load-note'); if (note) note.textContent = `VetMed-Ops summary · academic year ${summary.academicYear || 'current'}`; }

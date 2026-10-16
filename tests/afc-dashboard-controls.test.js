@@ -106,6 +106,17 @@ test('AFC form rejects an impossible Gregorian date before sending a create', as
   await element('afc-record-form').listeners.submit({preventDefault(){}});
   assert.equal(posts,0);assert.match(element('afc-form-status').textContent,/valid start and end dates/i);
 });
+
+test('a confirmed AFC save preserves a refreshed closed write capability', async()=>{
+  let allowed=true;
+  const {element}=await dashboard({apiOverrides:{
+    afcSingleWriteEnabled:()=>allowed,
+    createDashboardAfcRecord:async()=>{allowed=false;return {afcRecordId:ID};}
+  }});
+  fillAfcForm(element);await element('afc-record-form').listeners.submit({preventDefault(){}});
+  assert.equal(element('afc-submit').disabled,true);
+  assert.match(element('afc-form-status').textContent,/created and confirmed/i);
+});
 test('Dashboard keeps AFC creation closed when the server denies its capability', async()=>{
   const {element}=await dashboard({enabled:false});
   assert.equal(element('afc-submit').disabled,true);

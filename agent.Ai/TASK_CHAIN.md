@@ -1,3 +1,7 @@
+## PR73 wiring test follows accepted module split — 2026-10-16
+
+CI408 on2c39af8 found one obsolete static-wiring assertion (912 total,862pass,49skip,1fail); it still required the create call in the main controller. Updated the test to verify actual controller API injection, helper create call, both Firestore denials and present/ordered script references. Both test-only reviews Ready;64/64 focused flow/controller/wiring and12/12 final B1 checks passed. Runtime product/anchor d049fe0 unchanged. Fresh candidate CI/artifact and exact-main CI remain required before release. See updates/2026-10-16-pr73-module-wiring-test-followup.md. No failed candidate was merged or released.
+
 ## PR73 corrected candidate; full verification running — 2026-10-16
 
 Previous candidate CI407 and local root each found one controller-size failure (60,938 LF bytes; limit below 60,000). No merge/release. Corrective product `d049fe0` moves manual AFC confirmation into the existing AFC records module; controller 58,397 bytes. Refreshed server capability now survives final button updates. Both corrective product reviews Ready; 52/52 focused checks pass. Separate three-file static promotion RED→GREEN (1/1), same 75 static / 76 API runtime / 79 protected API inputs, API bytes unchanged. Final full-root/build and corrected governance review pending. See updates/2026-10-16-pr73-controller-bound-correction.md. PR55 is merged with main CI406 passed; Hosting remains accepted DOE release21c2db7; Excel D03pass, Task22partial.

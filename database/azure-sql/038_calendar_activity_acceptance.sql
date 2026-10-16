@@ -53,6 +53,12 @@ INSERT @Response EXEC paws_api.ListCalendarActivities @ActorFirebaseUid=N'calend
 DECLARE @Public nvarchar(max)=(SELECT responseJson FROM @Response);
 IF JSON_QUERY(@Public,'$.activities') IS NULL OR (SELECT COUNT(*) FROM OPENJSON(@Public,'$.activities'))<>1
  THROW 53890,'A populated Calendar range must return an activities array.',1;
+IF COALESCE(JSON_VALUE(@Public,'$.activities[0].activityId'),N'')<>CONVERT(nvarchar(36),@Activity)
+ OR JSON_QUERY(@Public,'$.activities[0].timeEvidence') IS NULL
+ OR COALESCE(JSON_VALUE(@Public,'$.activities[0].timeEvidence[0].date'),N'')<>N'2026-05-01'
+ OR COALESCE(JSON_VALUE(@Public,'$.activities[0].timeEvidence[0].startTime'),N'')<>N'09:00'
+ OR COALESCE(JSON_VALUE(@Public,'$.activities[0].timeEvidence[0].endTime'),N'')<>N'10:00'
+ THROW 53890,'A populated Calendar range lost its activity or timing evidence.',1;
 IF COALESCE(JSON_VALUE(@Public,'$.activities[0].startDate'),N'')<>N'2026-04-29' OR COALESCE(JSON_VALUE(@Public,'$.activities[0].endDate'),N'')<>N'2026-05-03' THROW 53890,'Range intersection clipped original dates.',1;
 IF @Public LIKE N'%private%' OR @Public LIKE N'%facultyId%' OR @Public LIKE N'%ucid%' OR @Public LIKE N'%email%' OR @Public LIKE N'%sourceRow%' OR @Public LIKE N'%evidenceRef%' THROW 53890,'Private activity metadata leaked.',1;
 IF COALESCE(JSON_VALUE(@Public,'$.activities[0].timeStatus'),N'')<>N'partial' THROW 53890,'Incomplete range timing was labeled verified.',1;

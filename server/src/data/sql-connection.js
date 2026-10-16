@@ -156,7 +156,10 @@ function buildSqlConnectionConfig({ connectionString, miClientId, driver, allowS
   };
 }
 
-function createSqlConnection({ connectionString, miClientId, driver, allowSelfSigned = false, config, sql }) {
+function createSqlConnection({ connectionString, miClientId, driver, allowSelfSigned = false, config, sql, requestTimeoutMs }) {
+  if (requestTimeoutMs !== undefined && (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1000 || requestTimeoutMs > 120000)) {
+    throw Error('SQL request timeout must be an integer from 1000 to 120000 milliseconds');
+  }
   const connectionConfig = config || buildSqlConnectionConfig({ connectionString, miClientId, driver, allowSelfSigned });
   let pool;
   const transactions = new AsyncLocalStorage();
@@ -190,7 +193,11 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
       } else {
         const connectStarted = timing ? timing.start('sql_connect') : null;
         try {
-          pool = pool || await new sql.ConnectionPool(connectionConfig).connect();
+          const candidate = new sql.ConnectionPool(connectionConfig);
+          // msnodesqlv8 reads the pool budget, not request.timeout. Configure this
+          // private pool once before connecting; never change a shared live pool.
+          if (requestTimeoutMs !== undefined) candidate.config.requestTimeout = requestTimeoutMs;
+          pool = pool || await candidate.connect();
         } finally {
           if (timing) timing.end('sql_connect', connectStarted, 'cold');
         }

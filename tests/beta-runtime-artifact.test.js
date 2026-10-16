@@ -14,6 +14,8 @@ test('combined release artifact is deterministic and contains app plus managed A
  assert.ok(fs.existsSync(path.join(out,'api/server/src/data/sql-dashboard-repository.js')));
  assert.ok(fs.existsSync(path.join(out,'api/server/src/data/dashboard-api.js')));
  assert.ok(fs.existsSync(path.join(out,'api/server/src/runtime/swa-dashboard-functions.js')));
+ for(const file of ['app/calendar-activities.js','app/calendar-activities.css','app/faculty-admin-activity-import.js','api/server/src/calendar/activity-workbook.js','api/server/src/calendar/activity-workbook-worker.js','api/server/src/calendar/activity-import-policy.js','api/server/src/calendar/calendar-activity-api.js','api/server/src/data/sql-calendar-activity-repository.js','api/server/src/runtime/swa-calendar-activity-functions.js'])assert.ok(fs.existsSync(path.join(out,file)),file);
+ for(const route of ['v1/calendar-activities','v1/calendar-activity-imports','v1/calendar-activity-imports/{batchId}/commit','v1/calendar-activities/{activityId}/time-evidence'])assert.ok(entry.includes(route),route);
 });
 test('artifact excludes migration evidence and secrets',()=>{
  const inventory=files(out);assert.equal(inventory.some(f=>/\.(?:xlsx?|paws-import\.jsonl?)$/i.test(f)||/(?:^|\/)(?:database|docs|tools|azure-sql-import-private)(?:\/|$)/i.test(f)),false);

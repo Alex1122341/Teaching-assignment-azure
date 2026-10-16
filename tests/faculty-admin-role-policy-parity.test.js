@@ -246,8 +246,8 @@ test('a viewer profile is denied on both sides', async () => {
 test('the Stage 3C zero-Firestore contract is untouched by this fix', () => {
   const html = read('faculty-admin.html');
   const local = [...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'faculty-admin.js']);
-  assert.equal([...html.matchAll(/<script[^>]*>/g)].length, 20);
+  assert.deepEqual(local, ['session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'faculty-admin.js']);
+  assert.equal([...html.matchAll(/<script[^>]*>/g)].length, 22);
   for (const banned of ['firestore', 'faculty-access.js', 'UCVM_PAWS_DASHBOARD_API_ONLY']) {
     assert.equal(html.includes(banned), false, `${banned} must stay absent`);
   }

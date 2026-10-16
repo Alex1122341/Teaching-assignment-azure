@@ -162,7 +162,7 @@ function createUniversityHttpServer({
     }
 
     try {
-      const bodyLimitForRequest = requestPath === '/api/v1/sessions/batch'
+      const bodyLimitForRequest = requestPath === '/api/v1/sessions/batch' || (incoming.method==='POST' && requestPath==='/api/v1/calendar-activity-imports')
         ? BATCH_MAX_BODY_BYTES
         : bodyLimit;
       const body = await readBody(incoming, bodyLimitForRequest);

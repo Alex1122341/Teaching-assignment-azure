@@ -63,11 +63,15 @@
   "user-management.js",
   "faculty-name.js",
   "swap-workflow-sql.js",
+  "adfa-swap-panel.js",
   "swap-workflow-sql.css",
   "developer-support.js",
   "workspace-tasks.js",
   "workspace.css",
   "faculty-role-periods.js",
   "faculty-admin-afc-records.js",
-  "lab-session-detail.js"
+  "lab-session-detail.js",
+  "calendar-activities.js",
+  "calendar-activities.css",
+  "faculty-admin-activity-import.js"
 ]

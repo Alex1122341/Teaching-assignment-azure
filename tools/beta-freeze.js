@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed Selected Schedule Export runtime is the immutable trust anchor.
-// DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='bb6b86611a1c9eba2479f158ba864d63626b0b4d';
+// Reviewed DOE Rule Book / Faculty Lookup runtime is the immutable trust anchor.
+// Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

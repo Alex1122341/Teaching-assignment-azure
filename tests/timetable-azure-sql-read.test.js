@@ -11,7 +11,8 @@ test('working activity ranges use SQL outside the timed session grid and clear o
   assert.match(body,/Working activities could not be loaded/);
   assert.match(src,/PAWS_CALENDAR_ACTIVITIES\?\.clear/);
   const html=fs.readFileSync('index.html','utf8');
-  assert.match(html,/id="working-activities-lane"/);assert.match(html,/id="show-working-activities"/);
+  assert.match(html,/id="working-activities-lane"/);assert.match(html,/id="activity-type-filter"/);
+  assert.doesNotMatch(html,/id="(?:show-working-activities|show-ccc|activity-category-filter|filter-type)"/);
   assert.ok(html.indexOf('calendar-activities.js')<html.indexOf('src="timetable.js"'));
 });
 

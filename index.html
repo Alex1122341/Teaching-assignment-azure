@@ -123,24 +123,9 @@
             <details class="course-multi" id="course-filter-details"><summary id="course-filter-summary">All Courses</summary><div class="course-multi-options" id="filter-course-options"></div></details>
           </div>
           <div class="fbar-item">
-            <span class="fbar-label">Type</span>
-            <div class="fbar-select-wrap">
-              <select class="fbar-select" id="filter-type">
-                <option value="all">All Types</option>
-                <option value="LEC">LEC</option>
-                <option value="LAB">LAB</option>
-                <option value="SRL">SRL</option>
-                <option value="Quiz/Midterm">Quiz/Midterm</option>
-                <option value="OSCE">OSCE</option>
-                <option value="Exam">Exam</option>
-                <option value="CCC">CCC</option>
-              </select>
-              <span class="fbar-arrow">v</span>
-            </div>
+            <span class="fbar-label">Activity type</span>
+            <div id="activity-type-filter"></div>
           </div>
-          <label class="ccc-toggle"><input type="checkbox" id="show-ccc"> Show CCC</label>
-          <label class="ccc-toggle"><input type="checkbox" id="show-working-activities" checked> Working activities</label>
-          <label class="activity-filter-label">Activity category<select id="activity-category-filter"><option value="all">All categories</option><option value="ccc">CCC</option><option value="rotation_participant">Fourth-year rotation</option><option value="clinical_day">Clinical day</option><option value="vetm581_rounds">VETM 581 rounds</option><option value="vetm571_clinical_pharmacology">VETM 571</option><option value="vetm591_presentations">VETM 591</option><option value="teaching_excellence">Teaching excellence</option><option value="remote_work">Remote work</option></select></label>
           <button class="fbar-reset" id="reset-filters">Reset</button>
         </div>
       </div>

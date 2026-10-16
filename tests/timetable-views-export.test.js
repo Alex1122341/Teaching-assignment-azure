@@ -20,8 +20,8 @@ test('timetable has day, week, month and future list views',()=>{
  assert.match(html,/roleIsFaculty/);
 });
 
-test('CCC is opt-in SQL range data and never a generated teaching session',()=>{
- assert.match(html,/id="show-ccc"/);assert.match(html,/renderRangeLane/);assert.doesNotMatch(html,/ccc_events|expandCccEvents|loadCccEvents/);
+test('CCC and work activities share the complete type picker and never become generated teaching sessions',()=>{
+ assert.match(html,/id="activity-type-filter"/);assert.match(html,/renderRangeLane/);assert.doesNotMatch(html,/ccc_events|expandCccEvents|loadCccEvents/);
  assert.match(fs.readFileSync(path.join(root,'calendar-activities.js'),'utf8'),/listCalendarActivities/);
 });
 

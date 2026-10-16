@@ -1,4 +1,50 @@
-## Task03 repository reviewed; short design pending — 2026-10-15
+## Owner directs acceptance then release with existing Beta identity — 2026-10-15
+
+Latest explicit instructions: all current development proceeds without requiring a new dedicated University runtime account; publish once acceptance passes, and focus acceptance now. This supersedes the dedicated-account prerequisite for this controlled Beta milestone in earlier decisions/release notes. Use the existing authorized environment; do not claim least privilege was verified or change account credentials/authority. Future production identity hardening remains debt. Exact integrated-main CI/artifact, coherent API/Hosting cutover, live acceptance, independent domain gates and rollback remain required. The owner has already authorized merge/publication of accepted scope; no repeat permission question is needed. Fresh source-bound Calendar/AFC import and permanent counterpart deletion remain a separate operation requiring exact preview/recovery acceptance. PR103 stays separate. Do not advance Task04 during this acceptance/release phase.
+
+## Current 25-task checklist — 2026-10-15
+
+Owner-facing local tracker: C:/Users/xinyu.zhu1/Desktop/PAWS进度管理/outputs/paws-20261015/PAWS任务进度.xlsx. It contains all25 tasks and15 outstanding acceptance items, with separate candidate/release/migration status. Update this existing workbook when progress changes, preserving manual reviewer/date/result entries. This is a manually maintained local file, not an automatic GitHub/live-state feed.
+
+This is the current evidence-based status, superseding the initial2026-10-14 assessment where noted. Candidate acceptance is not a live release. Fresh PR/CI/artifact/SQL-health observations are recorded in updates/2026-10-15-task03-technical-candidate-accepted.md. Task03 technical candidate acceptance advanced; no merge or release occurred.
+
+| Task | Scope | Current progress | Remaining work |
+|---|---|---|---|
+| 01 | Teaching Assignment SWAP | ADFA enhancement remains accepted candidate PR99. Independent full-directive audit S01 NOT PASSED: source exists but complete faculty/multi-office/search/concurrency/history evidence is missing | Fill specific gaps in docs/task01-acceptance-gaps-20261015.md; do not count ADFA extension as full Task01 acceptance; release remains separate |
+| 02 | Scheduling conflicts and Tasks | Development candidate accepted in draft PR100; independent product/governance review, SQL races, CI and artifact verification complete | Live prerequisites, authorized merge/release and live acceptance |
+| 03 | Selected course/session export | Technical candidate accepted in draft PR104 (stacked on100); product bb6b866, separate reviewed governance e76878c;29/29 focused incl9Chrome, exact-candidate CI38838908757 and downloaded artifact12020660903 verified | Actual user/live acceptance and coordinated release after accepted stack integration; no Task04 continuation |
+| 04 | VISC Calendar filters | Initial audit complete; no dedicated implementation yet | Confirm authoritative subject/session mappings, then filter UI/API; initial coverage incomplete |
+| 05 | HICC/VISC directory button | Existing responsibility/assignee foundations audited | Sanitized searchable directory and button; verify authoritative assignment coverage |
+| 06 | Active Roles & Appointments Calendar tab | Existing appointment-period foundations audited | Public-field projection, read-only tab/filter and temporal/privacy acceptance |
+| 07 | VISC faculty lookup | Existing lookup and authority foundations audited | Verified VISC associations and multiselect; no inferred specialty mappings |
+| 08 | Faculty lookup table/export | New requested flow not implemented | Selected/all copy, CSV/XLSX, sorting and authorized public-field export; depends07 |
+| 09 | My Change History export | Legacy shell/audit foundations exist | SQL affected-faculty history projection and export, coverage notice and privacy tests |
+| 10 | Faculty-visible timetable Changes | New requested tab not implemented | Durable sanitized SQL history, Changes tab and authorized scope |
+| 11 | Change-history filters/downloads | Legacy filtering foundations exist | Shared SQL filters and CSV/XLSX; depends09/10 and confirmed VISC mapping |
+| 12 | AFC form upload | Existing generated-artifact foundation only | Separate authenticated upload/preview/download lifecycle and permission acceptance |
+| 13 | Working activities out of AFC | Exact-match atomic Calendar/AFC migration candidate reviewed/tested in draft PR98; release preparation accepted | Fresh live source-bound preview, runtime/recovery prerequisites, separate migration authorization and live acceptance |
+| 14 | CCC Excel full replacement | Shared parser/range/staging foundations implemented by PR98 | Separate complete dataset/year replacement semantics, implementation and acceptance; PR98 is not full replacement |
+| 15 | Course Calendar full replacement | Existing import foundations audited; new replacement flow not implemented | Staged atomic replacement capability with protected-reference checks; owner instructed no current data replacement |
+| 16 | Fourth-year rotation Calendar | Shared working-range Calendar/profile/availability candidate accepted in PR98 | Release/import acceptance and confirmation of remaining full rotation fields/coverage; missing times/groups stay explicit |
+| 17 | Rotation full replacement + AFC cleanup | Shared atomic exact-counterpart migration foundation in PR98 | Complete replacement scope/dataset semantics and acceptance; full replacement not yet delivered |
+| 18 | Faculty trainee breakdown | Existing supervision snapshot/worksheet foundations audited | Category/count/year/source presentation and own/admin privacy acceptance |
+| 19 | All-faculty trainee report | Aggregate foundations exist | Confirm Tosin source/categories/format, consolidated report and exports |
+| 20 | Special activities/exceptions report | Existing allocations/exceptions foundations audited | Approved workload-source coverage and report; activity dates alone are not DOE evidence |
+| 21 | DOE override report/export | Existing override/adjustment sources audited | Unified source-discriminated report and safe exports, preserving additive/replacement semantics |
+| 22 | DOE reconciliation | PR101 architecture refresh and PR102 DOE_MAPPING merged; three calculation/output paths documented. Prior DOE handoff and separate draft PR103 UI candidate are recorded, not backend migration acceptance | Read-only same-Faculty/year/source/API/UI reconciliation, fresh Active-policy/source verification, Reserve/override/dedup/missing-evidence checks. PR103 review/governance/CI/browser remain separate; no policy publication/global recalc |
+| 23 | Visual query builder | New requested subsystem not implemented | Approved field registry, typed bounded query model and authorization design |
+| 24 | Report source selection | Domain readers exist; unified registry missing | Approved source/adaptor registry with row/field scope and provenance |
+| 25 | Report preview/columns/download | New builder output not implemented | Preview/export parity, column order/sort/copy/CSV/XLSX and limits; depends23/24 |
+
+Task03 technical candidate is accepted after independent product/fix-pass and separate governance, exact-candidate full CI and downloaded-artifact checks. Current workbook saved/verified25tasks/18acceptance items/4passed/14open;2tasks have fully accepted technical candidates (02/03), while01/13/16 remain partial-scope candidates. Actual E05user/live acceptance and release are pending. Owner now explicitly authorizes release after acceptance using the existing Beta identity; the new dedicated account is no longer a prerequisite. Stack integration and activity recovery/fresh exact source confirmation remain prerequisites; historical counts never authorize deletion. Task22 status uses merged101/102 plus prior handoff; separate103runtime remains untouched. No Task04 implementation.
+
+## Task03 local responsive export slice verified; stop at this small stage — 2026-10-15
+
+Owner approved the bounded design/TDD and later requested stopping after this current small stage. On feat/selected-schedule-export-20261015 / HEAD fcb2bda, initial export model/modal and desktop/mobile layout are local/uncommitted. Focused22/22 including5 actual Chrome tests passed. Whole-feature review, remaining authorization/paging/race acceptance, separate governance, candidate CI/artifact and PR remain future work. No Task04 continuation until requested. See updates/2026-10-15-task03-responsive-slice.md; preserve external untracked SQL fixture and prior accepted draft stack.
+
+Full local npm test869:823pass/44skips/2fail, both immutable static-freeze assertions for current unpromoted runtime changes. Do not bypass/promote governance in this small stage.
+
+## Historical: Task03 repository reviewed; short design pending — 2026-10-15
 
 Now on separate branch feat/selected-schedule-export-20261015 from6ab3a52 (Task02 accepted candidate a356df1 plus docs only). Six-part review is docs/selected-schedule-export-review-20261015.md. Existing CSV/filter/selection/authorized reads are reusable; add read-only selection/preview and safe public CSV projection after the pending bounded-design approval. No Task03 product changes. Resume updates/2026-10-15-task03-repository-review.md. PR100 remains accepted draft/unmerged/undeployed; original plan workspace retained after automatic cleanup rejection, with verified Temp evidence copy.
 

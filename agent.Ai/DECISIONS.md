@@ -1,5 +1,17 @@
 # PAWS Locked Decisions
 
+## Owner directs acceptance then release with existing Beta identity — 2026-10-15
+
+Latest explicit instructions: all current development proceeds without requiring a new dedicated University runtime account; publish once acceptance passes, and focus acceptance now. This supersedes the dedicated-account prerequisite for this controlled Beta milestone in earlier decisions/release notes. Use the existing authorized environment; do not claim least privilege was verified or change account credentials/authority. Future production identity hardening remains debt. Exact integrated-main CI/artifact, coherent API/Hosting cutover, live acceptance, independent domain gates and rollback remain required. The owner has already authorized merge/publication of accepted scope; no repeat permission question is needed. Fresh source-bound Calendar/AFC import and permanent counterpart deletion remain a separate operation requiring exact preview/recovery acceptance. PR103 stays separate. Do not advance Task04 during this acceptance/release phase.
+
+## Acceptance and conditional release scope — 2026-10-15
+
+Owner authorized accepting currently reviewable items then publishing, then explicitly confirmed the dedicated least-privilege University service account is not prepared and selected independent acceptance first. No db_owner exception is implied. Frontend server migration only is deferred; existing Firebase UI may still be accepted/published once prerequisites hold. Task03 technical candidate is accepted; actual user/live publication remains pending. Full Task01 cannot be marked complete because its narrow ADFA extension passed. Task22 status uses merged docs101/102 and prior handoff/separate103 candidate; do not modify unrelated DOE UI or publish/recalculate policy. Keep account/source-migration prerequisites and stack integration visible.
+
+## Task03 bounded design approved; small-stage stopping point — 2026-10-15
+
+Owner approved read-only multi-course/session selection in the existing export modal, exact selected public-field preview, chronological CSV, unavailable VISC marked Not provided, and the proposed TDD seams. Preserve API-resolved scope and existing edit restrictions. Later the owner corrected the stopping scope to the current small stage, then resumed; complete responsive layout/interaction verification and record the breakpoint, without automatically advancing full Task03 acceptance or Task04. No new merge/live-operation authorization.
+
 ## Task02 candidate accepted and continuation — 2026-10-15
 
 Independent freeze review resumed successfully on one retry, with no account/billing/model/auth changes, and returned Ready without findings. Separate governance a356df1 protects product a3dd9ca; exact-candidate full Build38806801078/SQL38806807330 and downloaded artifact12006518723 accepted. PR100 remains draft/stacked/unmerged. Continue Task03 selected course/session schedule export using existing authorized reads/selection/CSV flow, preserving disabled batch edits, privacy projection and formula safety; no implementation before its bounded design approval. Dedicated runtime identity and directed release authorization remain separate prerequisites.

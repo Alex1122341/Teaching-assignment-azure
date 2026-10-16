@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed Faculty Lookup teaching-summary layout is the immutable trust anchor.
+// Reviewed AFC confirmation recovery is the immutable trust anchor.
 // Prior DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
+const BASELINE_COMMIT='9898266d842912eed8dc95016fa881fa90ba13c4';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

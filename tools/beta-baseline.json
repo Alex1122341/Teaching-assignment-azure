@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "3cd51cacbd7de32367c55bf203a47801d5763abf",
+  "sourceCommit": "9898266d842912eed8dc95016fa881fa90ba13c4",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -9,7 +9,7 @@
     "afc-pdf-browser.js": "d74f7b3ce90584b4eb7c80de481cec94149f0e2786c57c62af3f2af7d6d806b5",
     "afc-timetable-panel.js": "554d407cc66a6c360d3bbb52e8919f10be3d795777fe7d046c7bf1dd2b2b6de2",
     "afc-workflow.js": "91404b1899f057594584a8110bde358a1328d4c4ef167786edbfd2208c17b314",
-    "afc-workflow-sql.js": "ac08e7b903440e27eae3b2d42ef76bf3d10c990ed3ce4bce635d9dfc47f725ce",
+    "afc-workflow-sql.js": "e246cdb7c4afeecfd9485e9d82b6a92f07a191faf9aa3eeeb56b8c9fbabf33b1",
     "approval-scheduling.js": "af9621a2d9d16bfdc2dbeb2986a9306c439eb162ead13925954be7d3c0b6d071",
     "approval-workflow.js": "4d85569abb2802f49e3328e8e3b096a2c45c750e18a666549b552562917268a2",
     "asset-loader.js": "d298a3c820f4e935465f73a747b960bceabf0af6c4edb3f0b5162272760242dc",
@@ -31,7 +31,7 @@
     "faculty-admin.css": "22b7d6732395b631ad36d1f0472b2ebe0f1b56af01acf6df122f9e206e49bb7e",
     "faculty-admin-afc-batch.js": "a57b84ce4942d0549b8c28739899f7a3c998dd97c9c960d7c1d83e920320cb33",
     "faculty-admin.html": "7ddf6b73b12de98c844fbca2709b5ec1f85a81d30c4b5cf32cf7f4c7e61ae725",
-    "faculty-admin.js": "c4ac7003adb38697c71c70eb2e38a73e7121b331c7b723448a117c7b571cbbd0",
+    "faculty-admin.js": "57294604ffcfc5b7397e30643dbaf54273587a906f79057ccb2c06460693d2b0",
     "faculty-admin-management.js": "09f2bd9fac442345b551152114891a87f77f44ef1bab96a0f889d71301f4aa0e",
     "faculty-admin-doe-renderer.js": "65a65a863f08ddc9fb01f2f629f7108bcaf8548d98ddee07dc353f3b1854deb3",
     "faculty-admin-doe-edit.js": "eba0c0129290f701c672724e69c24ca8879f61cf2396c78d1e54630347eec204",

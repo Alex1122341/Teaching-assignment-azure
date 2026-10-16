@@ -1,3 +1,7 @@
+## PR55 complete; PR73 bounded AFC candidate — 2026-10-16
+
+PR55 updated, independently reviewed and merged asd75d8eb;candidate405/main406CIallpass,153runtimefiles unchanged from accepted21c. PR73 retains useful AFC confirmation/uncertain-write/date/signature safeguards only;obsoleteDOEcode replaced bycurrentmain. Product9898266 (5d3a7e8 plusPR55integration),focused25/25andbothproductreviewsReady. Separate75static/76APIruntime79inputfreeze proposalhasexact2staticdelta,APIunchanged;promotionRED→GREEN1/1;fullrootandfinalgovernancereviewpending. Resumeupdates/2026-10-16-pr73-afc-candidate-and-pr55-closeout.md. NoAPI/SQL/rules/policy/gatemutation. PriorDOEUI/Excelacceptanceintact.
+
 ## DOE UI live accepted; PR73/55 triage active — 2026-10-16
 
 PR103/106 completed release and actual Chrome acceptance on main21c2db7. Exact-main CI404: root851/899,server609/613,emulator883/899,governance61/61,zero failures. Downloaded153file artifact verified and Hosting-only published;75public files match. Three-column31row summary fits;Active read-only;Worksheet bottom;Working Activities preserved. Same Excel updated:18checks,5pass,12open,1N/A;Task22partial,D01/D02pending. See updates/2026-10-16-1505-pr103-106-live-acceptance-and-pr-triage.md. PR55 current-main integration/docs-test refresh under verification; PR73 independent unique-value audit underway. No SQL/API/rules/policy/gate mutation.

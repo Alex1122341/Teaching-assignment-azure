@@ -1,13 +1,27 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');const {createController}=require('../faculty-admin-activity-import');
 const SHA='4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF';
-const preview={batchId:'private-batch',sourceSha256:SHA,previewVersion:'version1',manifestSha256:'manifest',expiresAtUtc:'2099-01-01',startDate:'2026-04-29',endDate:'2026-05-03',counts:{accepted:1,retained:1,quarantined:1,excluded:1},items:[{sourceRow:2,status:'accepted',displayName:'<script>Synthetic</script>',startDate:'2026-04-29',endDate:'2026-05-03',targetCount:1},{sourceRow:3,status:'retained'},{sourceRow:4,status:'quarantined',issues:['BAD_DATE']},{sourceRow:5,status:'excluded'}]};
-function harness({failure=null,stage=true,commit=true}={}){
+const preview={batchId:'private-batch',sourceSha256:SHA,policyVersion:'afc-working-activities-v2',previewVersion:'version1',manifestSha256:'manifest',expiresAtUtc:'2099-01-01',startDate:'2026-04-29',endDate:'2026-05-03',counts:{accepted:1,retained:1,quarantined:1,excluded:1},items:[{sourceRow:2,status:'accepted',displayName:'<script>Synthetic</script>',startDate:'2026-04-29',endDate:'2026-05-03',targetCount:1},{sourceRow:3,status:'retained'},{sourceRow:4,status:'quarantined',issues:['BAD_DATE']},{sourceRow:5,status:'excluded'}]};
+function harness({failure=null,stage=true,commit=true,policyVersion=preview.policyVersion}={}){
  const nodes=new Map();const host={innerHTML:'',querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{disabled:false,checked:false,value:'',addEventListener(){},textContent:''});return nodes.get(selector);}};const calls=[];let refreshed=0;
- const api={calendarActivityCapabilities:async()=>({writeCapabilities:{calendarActivityStage:stage,calendarActivityCommit:commit}}),stageCalendarActivityImport:async payload=>{calls.push({method:'stage',payload});return preview;},previewCalendarActivityImport:async(batch,payload)=>{calls.push({method:'preview',payload});return {...preview,previewVersion:'version2'};},commitCalendarActivityImport:async(batch,payload)=>{calls.push({method:'commit',payload});if(failure)throw failure;return {receiptId:'private-receipt',insertedCount:1,deletedAfcCount:1};}};
+ const api={calendarActivityCapabilities:async()=>({writeCapabilities:{calendarActivityStage:stage,calendarActivityCommit:commit}}),stageCalendarActivityImport:async payload=>{calls.push({method:'stage',payload});return {...preview,policyVersion};},previewCalendarActivityImport:async(batch,payload)=>{calls.push({method:'preview',payload});return {...preview,previewVersion:'version2'};},commitCalendarActivityImport:async(batch,payload)=>{calls.push({method:'commit',payload});if(failure)throw failure;return {receiptId:'private-receipt',insertedCount:1,deletedAfcCount:1};}};
  const controller=createController({api,host,notify(){},onCommitted:()=>{refreshed++;},hashFile:async()=>SHA,randomUUID:()=> 'retry-key'});return {controller,host,calls,refreshed:()=>refreshed};
 }
 const file={name:'Synthetic.xlsx',size:9,arrayBuffer:async()=>new TextEncoder().encode('synthetic').buffer};
+
+test('Away abnormalities keep their review warning and original issue while Remote work is preserved',async()=>{
+ const h=harness();await h.controller.open();await h.controller.stageFile(file);
+ assert.match(h.host.innerHTML,/Away[^<]*needs review/i);assert.match(h.host.innerHTML,/BAD_DATE/);
+ assert.match(h.host.innerHTML,/Remote work.*remain in AFC/i);
+ assert.doesNotMatch(h.host.innerHTML,/Quarantined — no change/);
+});
+
+test('a legacy policy preview cannot commit until refreshed under the owner revision',async()=>{
+ const h=harness({policyVersion:'afc-working-activities-v1'});await h.controller.open();await h.controller.stageFile(file);
+ await h.controller.commit(true);assert.equal(h.calls.filter(x=>x.method==='commit').length,0);
+ assert.match(h.host.innerHTML,/classification.*changed.*refresh/i);
+ await h.controller.refreshPreview();await h.controller.commit(true);assert.equal(h.calls.filter(x=>x.method==='commit').length,1);
+});
 test('destructive preview shows per-row categories and accepted versus source category totals',async()=>{
  const first=preview.items[0].category,fourth=preview.items[3].category;preview.items[0].category='ccc';preview.items[3].category='ccc';
  try{const h=harness();await h.controller.open();await h.controller.stageFile(file);assert.match(h.host.innerHTML,/Classification/);assert.match(h.host.innerHTML,/CCC/);assert.match(h.host.innerHTML,/1 accepted \/ 2 source/);assert.match(h.host.innerHTML,/<th>Category<\/th>/);}

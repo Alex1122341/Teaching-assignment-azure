@@ -4,14 +4,21 @@ const assert=require('node:assert/strict');
 const {createActivityTypeFilter,renderRangeLane}=require('../calendar-activities');
 const vm=require('node:vm'),sourceFunction=require('../test-support/source-function');
 
-test('all teaching and all eight source work categories are visible by default',()=>{
+test('owner revision excludes Remote work from work filters and selection',()=>{
+ const filter=createActivityTypeFilter();assert.equal(filter.options().filter(x=>x.group==='work').length,7);
+ assert.equal(filter.options().some(x=>x.key==='work:remote_work'),false);
+ assert.equal(filter.matchesActivity({category:'remote_work'}),false);
+ filter.setSelected(['work:remote_work']);assert.deepEqual(filter.selectedKeys(),[]);
+});
+
+test('all teaching and all seven source work categories are visible by default',()=>{
  const filter=createActivityTypeFilter();
  assert.equal(filter.summary(),'All activity types');
  assert.deepEqual(filter.options().filter(x=>x.group==='work').map(x=>x.label),[
   'CCC','Rotation participant','Clinical day / PPVM','VETM 581 clinical rounds',
-  'VETM 571 clinical pharmacology','VETM 591 IM presentations','Teaching excellence','Remote work'
+  'VETM 571 clinical pharmacology','VETM 591 IM presentations','Teaching excellence'
  ]);
- assert.equal(filter.options().length,14);
+ assert.equal(filter.options().length,13);
  assert.equal(filter.matchesSession({type:'LAB'}),true);
  assert.equal(filter.matchesActivity({category:'ccc'}),true);
  assert.equal(filter.matchesActivity({category:'rotation_participant'}),true);
@@ -31,7 +38,7 @@ test('the shipped timetable and ordinary export filter use the same mixed type s
 test('mixed selection applies to teaching, legacy CCC and source activity ranges',()=>{
  const filter=createActivityTypeFilter();
  filter.setSelected(['teaching:LAB','work:rotation_participant','work:clinical_day']);
- assert.equal(filter.summary(),'3 of 14 activity types');
+ assert.equal(filter.summary(),'3 of 13 activity types');
  assert.equal(filter.matchesSession({type:'LAB'}),true);
  assert.equal(filter.matchesSession({type:'LEC'}),false);
  assert.equal(filter.matchesSession({type:'CCC'}),false);
@@ -72,6 +79,6 @@ test('All dates filtering discovers later and missing teaching types without sil
 
 test('changing account removes dynamically discovered types and the previous user selection',()=>{
  const filter=createActivityTypeFilter();filter.setSessionTypes(['Private source type']);filter.setSelected(['teaching:Private source type']);
- filter.resetForUser();assert.equal(filter.options().length,14);assert.equal(filter.summary(),'All activity types');
+ filter.resetForUser();assert.equal(filter.options().length,13);assert.equal(filter.summary(),'All activity types');
  assert.equal(filter.options().some(x=>x.label==='Private source type'),false);
 });

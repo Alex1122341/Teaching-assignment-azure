@@ -2,3 +2,47 @@
 .doe-editor-section h4{margin:18px 0 0;font-size:14px;color:#174e73}.doe-essentials{grid-template-columns:repeat(2,minmax(0,1fr))}.doe-rule-dialog .field{min-width:0}.doe-rule-dialog .input,.doe-rule-dialog .select{box-sizing:border-box;width:100%}.doe-condition-summary{padding:14px 16px;border-left:3px solid #174e73;border-radius:6px;background:#f3f7fa}.doe-condition-summary p{margin:6px 0;overflow-wrap:anywhere}.doe-condition-summary small,.doe-editor-disclosure summary span{color:#617080;font-size:12px}.doe-editor-disclosure{border:1px solid #dce3ea;border-radius:8px;margin:12px 0;padding:14px}.doe-editor-disclosure>summary{cursor:pointer;font-weight:600}.doe-editor-disclosure summary span{display:block;margin:5px 0 0 17px;font-weight:400}.doe-editor-disclosure[open]>summary{margin-bottom:14px}.doe-editor-disclosure .doe-nested{margin-bottom:0}.doe-parameter-row{grid-template-columns:minmax(0,1fr) auto;align-items:end}.doe-parameter-details{grid-column:1/-1;grid-row:2}.doe-parameter-details summary{cursor:pointer;font-size:12px;color:#617080}.doe-parameter-details .doe-editor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.doe-rule-dialog .form-actions{position:sticky;bottom:-24px;background:#fff;border-top:1px solid #e4e9ef;padding:14px 0;margin-top:20px;display:flex;justify-content:flex-end;gap:8px}.doe-rule-dialog .error:empty{display:none}@media(max-width:700px){.doe-essentials,.doe-parameter-details .doe-editor-grid{grid-template-columns:1fr}.doe-rule-dialog .form-actions{bottom:-16px}.doe-editor-disclosure{padding:12px}}
 .doe-field-example{display:block;font-size:12px;line-height:1.5;color:#617080;font-weight:400;text-transform:none;margin-top:6px}.doe-rule-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}.doe-rule-choice{display:flex;flex-direction:column;align-items:flex-start;gap:9px;text-align:left;padding:18px;border:1px solid #dce3ea;border-radius:10px;background:#fff;color:#192b3c;font:inherit;cursor:pointer}.doe-rule-choice:hover,.doe-rule-choice:focus-visible{border-color:#174e73;background:#f3f7fa}.doe-rule-choice strong{font-size:16px}.doe-rule-choice>span:not(.doe-origin-tag){font-size:13px;line-height:1.5;color:#536475}.doe-rule-choice small{color:#174e73}.doe-origin-tag{display:inline-block;border-radius:20px;padding:4px 9px;background:#e8f1f8;color:#174e73;font-size:11px;font-weight:700}.doe-entry-guide,.doe-choice-note{padding:14px 16px;border-radius:7px;background:#f3f7fa;font-size:13px;line-height:1.6;color:#174e73}.doe-active-banner{padding:16px;border:1px solid #cddbcf;border-radius:8px;background:#f7fbf7;margin:16px 0}.doe-active-banner>summary{cursor:pointer;font-weight:700;color:#22552d}.doe-draft-heading{margin:22px 0 14px}.doe-draft-heading h2{font-size:20px;margin:0 0 8px}.doe-draft-heading p{font-size:13px;color:#617080;margin:0}@media(max-width:700px){.doe-rule-choices{grid-template-columns:1fr}.doe-rule-choice{padding:14px}}
 .doe-scope-add{display:flex;align-items:end;gap:12px;margin-top:12px}.doe-scope-add .field{flex:1}.doe-precedence{margin:16px 0;padding:14px;background:#f3f7fa;border-radius:8px}.doe-rule-dialog select[multiple]{min-height:125px}.doe-parameter-row>.doe-parameter-details{grid-column:1/-1}@media(max-width:700px){.doe-scope-add{align-items:stretch;flex-direction:column}}
+
+/* Excel-style annual rule groups; all rate changes remain in Draft. */
+.doe-excel-rule-groups{display:grid;gap:12px;margin-top:12px}
+.doe-excel-rule-group{border:1px solid #dce3ea;border-radius:9px;overflow:hidden;background:#fff}
+.doe-excel-rule-group>summary{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 18px;cursor:pointer;background:#f6f8fb}
+.doe-excel-rule-group>summary strong{font-size:15px}
+.doe-excel-rule-group>summary span{font-size:12px;color:#617080}
+.doe-excel-rule-item{display:flex;justify-content:space-between;gap:16px;align-items:center;border-top:1px solid #e4e9ef;padding:14px 18px}
+.doe-excel-rule-item strong,.doe-excel-rule-item small{display:block}
+.doe-excel-rule-item small{font-size:12px;color:#617080;margin-top:4px}
+.doe-excel-rule-actions{text-align:right;display:grid;justify-items:end;gap:7px;max-width:38%}
+.doe-excel-rule-origin{font-size:11px;color:#617080;overflow-wrap:anywhere}
+.doe-session-weight{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px;padding:14px;background:#f3f7fa;border-radius:8px}
+.doe-session-weight .field{min-width:0}
+.doe-excel-summary{margin-top:24px;border-top:2px solid #c9d7e1;padding-top:20px}
+.doe-excel-summary h3{font-size:18px;margin:0 0 8px}
+.doe-excel-summary-table{width:100%}
+.doe-excel-summary-table th:nth-child(2),.doe-excel-summary-table td:nth-child(2){text-align:right}
+.doe-excel-summary-table th:last-child,.doe-excel-summary-table td:last-child{text-align:right;white-space:nowrap}
+.doe-excel-heading th{background:#f3f7fa;font-size:14px}
+.doe-excel-totals th,.doe-excel-totals td{font-weight:700;background:#f8fafc}
+.doe-excel-summary .warn-box p{margin:4px 0}
+@media(max-width:700px){.doe-excel-rule-group>summary,.doe-excel-rule-item{align-items:flex-start;flex-direction:column}.doe-excel-rule-actions{max-width:100%;text-align:left;justify-items:start}.doe-session-weight{grid-template-columns:1fr}.doe-excel-summary-table{font-size:12px}}
+
+/* Simple first: current Draft weights and units; expert rule selectors remain collapsed. */
+.doe-excel-rule-item{display:flex;flex-direction:column;align-items:stretch;gap:9px}
+.doe-excel-rule-header{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.doe-excel-rule-header>div{min-width:0}
+.doe-excel-rule-header>small{white-space:nowrap;font-size:12px;color:#536475}
+.doe-excel-inline-controls{display:grid;grid-template-columns:minmax(130px,1fr) minmax(180px,1.4fr);gap:14px;max-width:640px}
+.doe-excel-inline-controls .field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.doe-excel-inline-controls .field-label{font-size:12px;color:#536475}
+.doe-excel-inline-controls .input,.doe-excel-inline-controls .select{width:100%;min-width:0;box-sizing:border-box}
+.doe-excel-inline-controls :disabled{background:#eef2f6;color:#4f5f6e}
+.doe-excel-rule-advanced{width:100%;margin-top:2px;border-top:1px solid #e4e9ef;padding-top:7px}
+.doe-excel-rule-advanced>summary{width:fit-content;cursor:pointer;color:#174e73;font-size:12px}
+.doe-excel-rule-advanced[open]{padding-bottom:9px}
+.doe-excel-rule-advanced p{font-size:12px;line-height:1.5;color:#4f5f6e;margin:6px 0;overflow-wrap:anywhere}
+.doe-inline-error:not(:empty){background:#fff1f0;color:#9f242e;border-left:3px solid #bd3a43;padding:7px 10px;margin:0;font-size:12px}
+.doe-inline-error:empty{display:none}
+.doe-fixed-credit-unit{display:flex;align-items:center;min-height:36px;padding:8px 10px;border:1px solid #dce3ea;border-radius:6px;background:#f3f7fa;font-size:13px;box-sizing:border-box}
+.doe-excel-complex-rate{font-size:13px;color:#4f5f6e}
+.doe-excel-complex-rate small{display:block;margin-top:4px}
+@media(max-width:700px){.doe-excel-rule-header{align-items:flex-start;flex-direction:column;gap:4px}.doe-excel-inline-controls{grid-template-columns:1fr;max-width:none}}

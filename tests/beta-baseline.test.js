@@ -9,9 +9,11 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// Selected Schedule Export is current. Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
+// DOE Rule Book / Faculty Lookup is current. Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='bb6b86611a1c9eba2479f158ba864d63626b0b4d';
+const BASELINE_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
+const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
+const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const SCHEDULING_PRODUCT_COMMIT='a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca';
 const ADFA_PRODUCT_COMMIT='0f81c3e0b7e63a9b9357755b7e957406018894fd';
 const CALENDAR_PRODUCT_COMMIT='7526e86f295de062c228fb1ddee2f007706285c2';
@@ -48,9 +50,32 @@ function baselineJson(ref){
 const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:commit,readManifest:()=>baselineJson(commit)});
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
-test('Selected Schedule Export freeze preserves exact static coverage and unchanged API bytes',()=>{
- const product='bb6b86611a1c9eba2479f158ba864d63626b0b4d',previous='a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca';
+test('DOE Rule Book / Faculty Lookup freeze preserves exact coverage and promotes only the reviewed UI delta',()=>{
+ const previous='bb6b86611a1c9eba2479f158ba864d63626b0b4d',product=DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT;
  assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(baseline.sourceCommit,product);
+ assert.equal(freeze.baselineCommitExists(root,product),true);
+ execFileSync('git',['merge-base','--is-ancestor','85d0cb9202e34724882c02ece01f33c5910fe91d',product],{cwd:root});
+ execFileSync('git',['merge-base','--is-ancestor','d8b2109dbf07f2b2500bb1be79ad06572683af66',product],{cwd:root});
+ const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
+ assert.equal(before.length,75);assert.deepEqual(after,before);assert.equal(manifest().length,75);
+ assert.deepEqual(manifest().slice().sort(),after);
+ assert.equal(oldApi.length,76);assert.deepEqual(newApi,oldApi);
+ const apiFreeze=require('../tools/beta-api-freeze.js');
+ const apiProtected=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
+ assert.equal(apiProtected.length,79);
+ const changed=execFileSync('git',['diff','--name-only',previous,product],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+ assert.deepEqual(changed.filter(file=>after.includes(file)).sort(),[
+  'faculty-admin-doe-rulebook.css','faculty-admin-doe-rulebook.js','faculty-admin-doe-worksheet.js','faculty-admin.js'
+ ]);
+ assert.deepEqual(changed.filter(file=>apiProtected.includes(file)),[]);
+ for(const file of apiProtected)assert.equal(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:product,file})),true,file);
+});
+
+test('Selected Schedule Export remains pinned as historical governance evidence',()=>{
+ const product='bb6b86611a1c9eba2479f158ba864d63626b0b4d',previous='a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca';
+ const historicalSource=execFileSync('git',['show',`${SELECTED_SCHEDULE_GOVERNANCE_COMMIT}:tools/beta-freeze.js`],{cwd:root,encoding:'utf8'});
+ const historicalReport=JSON.parse(execFileSync('git',['show',`${SELECTED_SCHEDULE_GOVERNANCE_COMMIT}:tools/beta-baseline.json`],{cwd:root,encoding:'utf8'}));
+ assert.ok(historicalSource.includes(`const BASELINE_COMMIT='${product}'`));assert.equal(historicalReport.sourceCommit,product);
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
  assert.equal(before.length,75);assert.deepEqual(after,before);assert.equal(oldApi.length,76);assert.deepEqual(newApi,oldApi);
  const changed=execFileSync('git',['diff','--name-only',previous,product],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
@@ -107,7 +132,7 @@ test('Calendar activity freeze promotion preserves AFC LAB coverage and names th
 });
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the Selected Schedule Export product baseline',()=>{
+test('beta identity is pinned to the DOE Rule Book / Faculty Lookup product baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://tester-teaching.web.app');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -305,7 +330,7 @@ test('W1H protected static and API paths retain W1F coverage and historical byte
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the Selected Schedule Export product frozen runtime reports zero protected drift',()=>{
+test('the DOE Rule Book / Faculty Lookup product frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
@@ -328,7 +353,7 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 75 current protected files are byte-identical to the immutable Selected Schedule Export product blobs',()=>{
+test('all 75 current protected files are byte-identical to the immutable DOE Rule Book / Faculty Lookup product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
   assert.equal(protectedFiles.length,75);
   for(const name of protectedFiles){
@@ -600,7 +625,7 @@ test('beta-baseline.json remains non-authoritative and records the stabilized Be
 });
 
 // G. Dual-runtime baseline ---------------------------------------------------
-test('API freeze shares the promoted Selected Schedule Export static baseline and has zero runtime drift',()=>{
+test('API freeze shares the promoted DOE Rule Book / Faculty Lookup static baseline and has zero runtime drift',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
   assert.equal(apiFreeze.BASELINE_COMMIT,freeze.BASELINE_COMMIT);

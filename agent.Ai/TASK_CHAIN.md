@@ -89,7 +89,13 @@ Current task is the owner-selected Teaching-assignment-azure / Beta full25-task 
 
 One owner-authorized existing Faculty archive completed with original SQL guards/audit through a parameterized admin batch. Active119/inactive2, one archive audit; Sessions1937/Assignments4970 unchanged; Chrome Inactive Faculty proof saved. Existing DeactivateFaculty stored metadata has QUOTED_IDENTIFIER0, causing SQL1934/API503; no module/schema repair or gate/permission expansion performed. Do not repeat archive. See updates/2026-10-14-1015-full-directive-source-and-archive.md. Next: review written activity design, then plan; separately prepare reviewed Faculty SQL metadata correction.
 
-# Current PAWS Beta task chain — 2026-10-15
+# Current PAWS Beta breakpoint — 2026-10-16
+
+PR103 product `6b1d2fe` integrates main `d8b2109` and reviewed DOE UI fixes. Product and separate governance reviews passed; focused20/20, root850/898+48environment/browser skips, server610/613+3SQL-environment skips, canonical build and both repository/artifact freezes passed, all0fail. Exact-candidate CI/artifact still pending. The next actions are governance commit/push, exact-candidate acceptance, authorized expected-head merge, exact-main CI/artifact, then verified Beta Hosting-only publication and read-only live acceptance. No new dedicated runtime account is required for this owner-authorized Beta milestone. No DOE policy publish/recalculate, SQL/source migration, or API deployment is part of PR103.
+
+After this phase, inspect open PR73 and PR55: close if obsolete; otherwise improve, review and merge accepted value. Preserve Task22's merged PR101/102 documentation and the limited UI scope of PR103. Resume `updates/2026-10-16-pr103-reviewed-product-and-freeze-candidate.md`; do not repeat finished product implementation/reviews or prior releases.
+
+# Historical PAWS Beta task chain — 2026-10-15
 
 **Evidence boundary:** Beta main 0d4b4d9; last documented live API/Hosting ca465bf (2026-10-14). This is a documentation-only reconciliation, **not owner approval to merge/deploy/run live SQL**. Historical task chain is retained below.
 

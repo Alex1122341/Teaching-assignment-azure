@@ -34,6 +34,130 @@
       return `<strong class="doe-policy-label">${esc(title)}</strong>${updated ? `<div class="muted">Updated ${esc(updated)}</div>` : ''}<div class="muted">Academic year ${esc(year)}</div>${basis ? `<div class="muted">${esc(basis)}</div>` : ''}${referenceBubble(details, 'Policy & source')}`;
     }
 
+    const groups=[{"title":"Lectures & Labs","items":[["lecture","Lectures","hours"],["srl","Self-Regulated Learning","hours"],["lab_primary","Labs (Primary)","hours"],["lab_secondary","Labs (Secondary)","hours"]]},{"title":"Course Coordination","items":[["course_coordinator","Course Coordination","courses"]]},{"title":"DVM HICC Course Development","items":[["hicc","HICC Development","units"]]},{"title":"VISC Coordination","items":[["visc","VISC Subjects","subjects"]]},{"title":"Clinical Rotations","items":[["rotation","Rotation Participant","weeks"],["ccc","Community Care Clinic","shifts"],["rotation_coordination","Designated Clinical Rotation Coordination","types"]]},{"title":"Other Approved Teaching","items":[["early_career","Early Career Development","approved"],["special","Special Activities","approved"]]},{"title":"Trainees & Supervision","items":[["undergrad","Undergraduate Students / Interns","trainees"],["vetm506","Undergraduate VETM 506","trainees"],["im","Undergraduate IM","trainees"],["preceptor","Fourth-Year Preceptor","trainees"],["grad_primary","Graduate Student (Primary)","trainees"],["grad_co","Graduate Student (Co-Supervised)","trainees"],["postdoc","Postdocs","trainees"],["supervision_unknown","Other Recorded Supervision","unavailable"]]}];
+    function isReviewLine(line) {
+  const status=String(line.status || '').toLowerCase();
+  return line.applicable !== false && (finite(line.resultDoe) === null || line.requiresReview === true || ['needs_review','needs-review','error','stored-calculation-mismatch'].includes(status));
+}
+    function categoryForLine(line) {
+  const category = String(line.category || '').toLowerCase();
+  if (['research','administration','admin','contract_admin','service','service_admin','clinical_activity_ppvm'].includes(category)) return 'non_teaching';
+  if (line.sourceEntityType === 'manual_doe_assignment') return 'unclassified';
+  const role = String(line.roleType || '').trim().toLowerCase();
+  const activity = String(line.activityType || '').trim().toLowerCase();
+  const fact = line.facts || {};
+  const sessionType = String(fact.sessionType || '').trim().toLowerCase();
+  const label = [role,activity,String(line.ruleKey || '').toLowerCase()].join(' ');
+  if (['supervision','trainee_supervision'].includes(category)) {
+    if (/vetm[\s_-]*506/.test(label)) return 'vetm506';
+    if (/(^|\W)im($|\W)/.test(label)) return 'im';
+    if (/4th|fourth|preceptor/.test(label)) return 'preceptor';
+    if (/undergrad|summer student/.test(label)) return 'undergrad';
+    if (/co.supervis|co_supervis|cosupervis/.test(label)) return 'grad_co';
+    if (/graduate|primary supervisor/.test(label)) return 'grad_primary';
+    if (/postdoc/.test(label)) return 'postdoc';
+    return 'supervision_unknown';
+  }
+  if (/coordinator\s*\/\s*hicc|hicc.*coordinator|legacy ambiguous/.test(role)) return 'unclassified';
+  if (role === 'course coordinator' || category === 'course_coordination') return 'course_coordinator';
+  if (role === 'hicc' || category === 'hicc') return 'hicc';
+  if (role === 'visc' || category === 'visc') return 'visc';
+  if (role === 'ccc' || /community care clinic/.test(role)) return 'ccc';
+  if (/rotation participant/.test(role) || (category === 'rotation' && /participant/.test(label))) return 'rotation';
+  if (/designated rotation coordinat|designated clinical rotation coordinat/.test(label)) return 'rotation_coordination';
+  if (category === 'approved_activity' && /early career/.test(label)) return 'early_career';
+  if (category === 'approved_activity' && /special activit/.test(label)) return 'special';
+  if (['teaching','assigned_teaching'].includes(category)) {
+    if (sessionType === 'srl' || /\bsrl\b|self.regulat/.test(label)) return 'srl';
+    if (sessionType === 'lab' || /\blab\b|laboratory/.test(label)) {
+      if (/secondary|co.instructor|lab_secondary/.test(label)) return 'lab_secondary';
+      if (/primary|lead|lab_primary/.test(label)) return 'lab_primary';
+      return 'unclassified';
+    }
+    if (sessionType === 'lec' || sessionType === 'lecture' || /lecture|lecturer|teaching_lecture/.test(label)) return 'lecture';
+  }
+  return 'unclassified';
+}
+    function quantityForLine(line,defaultUnit) {
+  if (defaultUnit === 'unavailable') return {unit:'unavailable',value:null};
+  const facts = line.facts || {};
+  const inputs = line.inputs || {};
+  const rule = line.rule || {};
+  const sessionLike = ['legacy_session_assignment','session_assignment'].includes(String(line.sourceEntityType || ''));
+  if (defaultUnit === 'hours' && sessionLike && String(rule.calculationMode || '') === 'fixed') return {unit:'session',value:1};
+  if (defaultUnit === 'hours' && line.sourceEntityType === 'legacy_session_assignment') {
+    const value=finite(line.doeQuantity ?? line.creditedHours);
+    return {unit:'hours',value:value!==null&&value>=0?value:null};
+  }
+  const fields={
+    hours:['hours','creditedHours','doeQuantity'],
+    units:['units','unitCount','quantity'],
+    weeks:['weeks'],
+    shifts:['shifts'],
+    courses:['courses','courseCount','quantity'],
+    subjects:['subjectCount','subjects'],
+    types:['uniqueRotationTypes','rotationTypes','rotationTypeCount','quantity'],
+    trainees:['trainees','traineeCount','count'],
+    approved:['approvedDoe','percentage','quantity']
+  };
+  for (const field of fields[defaultUnit] || []) {
+    for (const obj of [inputs,facts,line]) {
+      const raw=obj && obj[field];
+      if (raw!==null&&raw!==undefined&&raw!==''&&Number.isFinite(Number(raw))&&Number(raw)>=0) return {unit:defaultUnit,value:Number(raw)};
+    }
+  }
+  return {unit:defaultUnit,value:null};
+}
+    function buildLookupBreakdown(worksheet) {
+  const lines=Array.isArray(worksheet?.lines)?worksheet.lines:[];
+  const mapped=new Map(),excluded=[],unclassified=[];
+  for(const line of lines){
+    if(line.applicable===false && finite(line.resultDoe)===null) continue;
+    const item=categoryForLine(line);
+    if(item==='non_teaching'){excluded.push(line);continue;}
+    if(item==='unclassified'){unclassified.push(line);continue;}
+    if(!mapped.has(item))mapped.set(item,[]);
+    mapped.get(item).push(line);
+  }
+  const ordered=groups.map(group=>({
+    title:group.title,
+    items:group.items.map(([key,label,unit])=>{
+      const rows=mapped.get(key)||[];
+      const quantities=rows.map(line=>quantityForLine(line,unit));
+      const units=[...new Set(quantities.map(q=>q.unit))];
+      const allQuantities=rows.length>0&&units.length===1&&quantities.every(q=>finite(q.value)!==null);
+      const complete=rows.length>0&&rows.every(line=>!isReviewLine(line));
+      const amount=complete?Number(rows.reduce((sum,line)=>sum+Number(line.resultDoe),0).toFixed(6)):null;
+      return {key,label,rows:rows.length,unit:units.length===1?units[0]:'mixed',quantity:allQuantities?Number(quantities.reduce((sum,q)=>sum+q.value,0).toFixed(6)):null,amount,needsReview:rows.some(isReviewLine)};
+    })
+  }));
+  const teachingRows=ordered.slice(0,-1).flatMap(group=>group.items).filter(row=>row.rows>0);
+  const allMapped=unclassified.length===0&&teachingRows.every(row=>!row.needsReview)&&teachingRows.length>0;
+  const without=allMapped?Number(teachingRows.reduce((sum,row)=>sum+row.amount,0).toFixed(6)):null;
+  const applied=finite(worksheet?.totals?.appliedSupervisionDoe);
+  const supervisionUnresolved=ordered[ordered.length-1].items.some(row=>row.needsReview);
+  const withTrainees=allMapped&&excluded.length===0&&!supervisionUnresolved&&applied!==null?Number((without+applied).toFixed(6)):null;
+  return {groups:ordered,without,rawSupervision:finite(worksheet?.totals?.rawSupervisionDoe),appliedSupervision:applied,withTrainees,unclassified,excluded,legacyTotal:finite(worksheet?.totals?.assignedTeachingDoe),status:worksheet?.status};
+}
+    function renderLookupBreakdown(worksheet) {
+  const breakdown=buildLookupBreakdown(worksheet);
+  const pct=value=>value===null?'Needs Review':formatDoe(value);
+  const quantity=item=>{
+    if(!item.rows)return '—';
+    if(item.quantity===null)return 'Source quantity unavailable';
+    const labels={hours:'hrs',session:'sessions',units:'units',weeks:'weeks',shifts:'shifts',courses:'courses',subjects:'subjects',types:'types',trainees:'trainees',approved:'% allocated'};
+    return `${Number(item.quantity.toFixed(2))} ${labels[item.unit] || item.unit}`;
+  };
+  const body=breakdown.groups.map(group=>`<tbody class="doe-excel-rows"><tr class="doe-excel-heading"><th colspan="3">${esc(group.title)}</th></tr>${group.items.map(item=>`<tr><td>${esc(item.label)}</td><td>${esc(quantity(item))}</td><td>${item.rows===0?'—':item.needsReview?'Needs Review':esc(pct(item.amount))}</td></tr>`).join('')}</tbody>`).join('');
+  const warnings=[
+    breakdown.unclassified.length?`${breakdown.unclassified.length} DOE source line(s) cannot be safely classified as Teaching. These records remain in the existing Worksheet and are not silently added to this breakdown.`:'',
+    breakdown.excluded.length?`${breakdown.excluded.length} source line(s) are explicitly Non-Teaching. Teaching-only Total + Trainees is held for review because the existing server reserve may include these sources.`:'',
+    breakdown.rawSupervision===null?'Confirmed raw supervision evidence is unavailable.':'',
+    breakdown.without===null?'Total Without Trainees cannot be finalized until every applicable Teaching source is classified and resolved.':'',
+    breakdown.status!=='calculated'?'The source Worksheet is not fully calculated; use its Needs Review details above.':''
+  ].filter(Boolean);
+  return `<section class="doe-excel-summary"><h3>Assigned Teaching DOE · Excel-style Breakdown</h3><p class="aux-note">Source: current Faculty DOE Worksheet · ${esc(worksheet.academicYear||'Academic year unavailable')}. Each quantity comes from the linked assignment; no missing quantity is back-calculated from DOE.</p><div class="table-wrap"><table class="data-table doe-excel-summary-table"><thead><tr><th>Item</th><th>Quantity</th><th>Calculated DOE</th></tr></thead>${body}<tbody class="doe-excel-totals"><tr><th>Total Without Trainees</th><td></td><td>${esc(pct(breakdown.without))}</td></tr><tr><th>Trainee Actual (Raw)</th><td></td><td>${esc(pct(breakdown.rawSupervision))}</td></tr><tr><th>Trainee Applied after Reserve</th><td></td><td>${esc(pct(breakdown.appliedSupervision))}</td></tr><tr><th>Total + Applied Trainees</th><td></td><td>${esc(pct(breakdown.withTrainees))}</td></tr></tbody></table></div>${warnings.length?`<div class="warn-box">${warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</div>`:''}<p class="aux-note">Current saved Worksheet Total Assigned: ${esc(pct(breakdown.legacyTotal))}. This may differ from the classified Teaching subtotal until all legacy and manual sources have an approved Teaching/Non-Teaching classification. The existing server calculation is not overwritten.</p></section>`;
+}
     function renderWorksheet(worksheet) {
       const target = worksheet.target || {}, totals = worksheet.totals || {}, reserve = worksheet.reserve || {};
       const missingData = (worksheet.errors || []).some(error => ['SUPERVISION_DATA_UNAVAILABLE', 'DOE_TARGET_UNAVAILABLE', 'RESERVE_POLICY_INVALID'].includes(error.code));
@@ -56,7 +180,7 @@
       const targetPolicy = worksheet.targetPolicyVersionLabel || target.policyVersionId;
       const policyText = worksheet.policyVersionId ? `Calculation policy ${worksheet.policyVersionId}` : worksheet.workloadSourceReference ? `Workload policy ${worksheet.workloadSourceReference}` : 'Annual calculation policy not recorded';
       const calculationText = worksheet.lastCalculatedAt ? `latest calculation evidence ${worksheet.lastCalculatedAt}` : 'No annual calculation record; line values retain their recorded source';
-      return `<div class="p4-doe-worksheet"><div class="section-title">Faculty DOE Worksheet · ${esc(worksheet.academicYear || 'Academic Year unavailable')}</div><p class="aux-note">Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</p><div class="p4-doe-worksheet-summary">${cards}</div>${reserveSummary}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div></div>`;
+      return `<div class="p4-doe-worksheet"><div class="section-title">Faculty DOE Worksheet · ${esc(worksheet.academicYear || 'Academic Year unavailable')}</div><p class="aux-note">Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</p><div class="p4-doe-worksheet-summary">${cards}</div>${reserveSummary}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div>${renderLookupBreakdown(worksheet)}</div>`;
     }
 
     function finite(value) { return value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value); }
@@ -186,7 +310,7 @@
         if (button) onView(button.dataset.doeView);
       });
     }
-    return Object.freeze({ loadDetail, loadList, renderList, invalidate() { worksheets = null; reviewDetails.clear(); reviewRequest++; if (reviewPopover?.matches(':popover-open')) reviewPopover.hidePopover(); }, bindList });
+    return Object.freeze({ loadDetail, loadList, renderList, buildLookupBreakdown, renderLookupBreakdown, invalidate() { worksheets = null; reviewDetails.clear(); reviewRequest++; if (reviewPopover?.matches(':popover-open')) reviewPopover.hidePopover(); }, bindList });
   }
 
   window.UCVM_FACULTY_DOE_WORKSHEET = Object.freeze({ create });

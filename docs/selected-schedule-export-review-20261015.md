@@ -1,6 +1,6 @@
 # Task03 — Selected schedule export: repository review
 
-Status: read-only pre-implementation review. Branch feat/selected-schedule-export-20261015 from6ab3a52 (Task02 candidate a356df1 plus documentation-only acceptance records). Short bounded design presented for owner approval under brainstorming; no Task03 product code changed.
+Status: owner approved the bounded design and TDD seams on2026-10-15. Initial local implementation and responsive interaction slice are present on feat/selected-schedule-export-20261015 from6ab3a52 (Task02 candidate a356df1 plus documentation-only acceptance records). The review below records the pre-implementation findings. Whole-feature acceptance, independent review and freeze promotion remain pending; this is not a release.
 
 ## 1. Existing functionality
 

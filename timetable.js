@@ -2289,8 +2289,10 @@
       <div class="form-grid" id="export-date-fields">${input('export-start','Start date','date',today)}${input('export-end','End date','date','2027-08-31')}</div>
       <div class="form-grid hidden" id="export-academic-fields">${select('export-semester','Semester',['fall','winter','spring'],selectedSemester)}${select('export-week','Week',['all',...Array.from({length:WEEK_COUNT},(_,i)=>String(i+1))],'all')}${select('export-year','Year',['all','1','2','3','4'],selectedYear)}</div>
       <p class="form-hint">${format==='ics'?'Produces a standard .ics file for Outlook, Apple Calendar and Google Calendar.':'Produces one complete row per matching teaching session.'}</p>
+      ${format==='csv'?'<button type="button" class="btn btn-secondary" id="export-choose-sessions">Choose courses / sessions</button>':''}
     </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="export-cancel">Cancel</button><button class="btn btn-primary" type="submit">Export</button></div></form>`);
     $('export-cancel').onclick=closeModal;
+    if($('export-choose-sessions'))$('export-choose-sessions').onclick=openSelectedScheduleExport;
     document.querySelectorAll('input[name="scope"]').forEach(r=>r.onchange=()=>{$('export-date-fields').classList.toggle('hidden',r.value!=='date'||!r.checked);$('export-academic-fields').classList.toggle('hidden',r.value!=='academic'||!r.checked)});
     $('export-form').onsubmit=async e=>{
       e.preventDefault();const button=e.submitter;button.disabled=true;button.textContent='Preparing...';
@@ -2305,6 +2307,70 @@
         format==='ics'?exportCalendar(rows):exportCsv(rows);closeModal();toast(`${rows.length} schedule records exported.`);
       }catch(err){console.error('[schedule export]',err);toast('Export failed while reading the complete schedule.',true);button.disabled=false;button.textContent='Export'}
     };
+  }
+  async function openSelectedScheduleExport(){
+    if(!currentUser?.uid){toast('Sign in to export your authorized schedule.',true);return;}
+    const scope=()=>JSON.stringify([currentUser?.uid,currentUser?.role,currentUser?.profile?.facultyId||'']);
+    const ownerScope=scope();
+    showModal('<div class="modal-header"><div class="modal-title">Selected Schedule CSV</div><div class="modal-subtitle">Choose from your complete authorized teaching timetable across dates. Preview the exact selected records before downloading.</div></div><div class="modal-body" id="export-selection-body"><p role="status">Loading authorized sessions…</p></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="export-selection-cancel">Cancel</button><button type="button" class="btn btn-primary" id="export-selection-download" disabled>Download selected CSV</button></div>');
+    $('modal').querySelector('.modal-box').classList.add('selected-export-modal');
+    const host=$('export-selection-body'),download=$('export-selection-download');
+    $('export-selection-cancel').onclick=closeModal;
+    let inactive=false;
+    const authorized=()=>!inactive&&host.isConnected&&scope()===ownerScope;
+    const detach=()=>{pageDataSubscribers.delete(onScopeChange);observer.disconnect();};
+    const invalidate=message=>{inactive=true;if(host.isConnected){host.innerHTML='<p role="alert">'+escapeHtml(message)+'</p>';download.disabled=true;download.textContent='Download selected CSV';}detach();};
+    const onScopeChange=()=>{if(!host.isConnected)detach();else if(scope()!==ownerScope)invalidate('Your account changed. Reopen export to load the current authorized schedule.');};
+    const observer=new MutationObserver(()=>{if(!host.isConnected)detach();});
+    observer.observe($('modal'),{childList:true});pageDataSubscribers.add(onScopeChange);
+    try{
+      const source=await ensureAllSessions({refresh:true,notify:false});
+      if(!authorized())return;
+      const model=window.UCVM_TIMETABLE_SELECTION.createExport(source),items=model.items();
+      if(selectedCourses.size)model.selectCourses([...selectedCourses]);
+      const courses=[...new Set(items.map(row=>row.courseCode))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+      let shown=100,previewed=false,downloading=false;
+      host.innerHTML=`<div class="export-selection-toolbar"><strong id="export-selection-count" aria-live="polite"></strong><button type="button" class="btn btn-secondary" id="export-selection-all">Select all sessions</button><button type="button" class="btn btn-secondary" id="export-selection-clear">Clear selection</button><button type="button" class="btn btn-secondary" id="export-selection-preview-button">Preview selected</button></div><p class="form-hint">Select up to 5,000 sessions. Course checkboxes select all sessions in that course. Missing information is shown as Not provided.</p><p role="alert" id="export-selection-error"></p><div class="export-selection-layout"><fieldset class="export-selection-courses"><legend>Courses</legend>${courses.map(code=>`<label><input type="checkbox" data-export-course="${escapeHtml(code)}" aria-label="Select course ${escapeHtml(code||'Not provided')}"> ${escapeHtml(code||'Not provided')} <small>(${items.filter(row=>row.courseCode===code).length})</small></label>`).join('')}</fieldset><div><p id="export-selection-visible" class="form-hint"></p><div class="user-table-wrap"><table class="user-table export-session-table"><thead><tr><th>Select</th><th>Date / Time</th><th>Course / Session</th><th>Faculty</th><th>Room</th></tr></thead><tbody id="export-selection-rows"></tbody></table></div><button type="button" class="btn btn-secondary" id="export-selection-more">Show more sessions</button></div></div><div id="export-selection-preview" hidden></div>`;
+      const guard=()=>{if(authorized())return true;if(!inactive)invalidate('Your account changed. Reopen export to load the current authorized schedule.');return false;};
+      const sync=()=>{
+        $('export-selection-count').textContent=`${model.size} selected · ${items.length} available`;
+        $('export-selection-preview-button').disabled=model.size===0;
+        download.disabled=downloading||!previewed||model.size===0;
+        host.querySelectorAll('[data-export-session]').forEach(box=>{box.checked=model.has(box.dataset.exportSession);});
+        host.querySelectorAll('[data-export-course]').forEach(box=>{const rows=items.filter(row=>row.courseCode===box.dataset.exportCourse),count=rows.filter(row=>model.has(row.id)).length;box.checked=count===rows.length;box.indeterminate=count>0&&count<rows.length;});
+      };
+      const change=action=>{if(!guard())return;try{action();previewed=false;$('export-selection-preview').hidden=true;$('export-selection-preview').textContent='';$('export-selection-error').textContent='';}catch(_){$('export-selection-error').textContent='Selection exceeds the 5,000-session limit. Select fewer courses or individual sessions.';}sync();};
+      const renderRows=()=>{
+        $('export-selection-rows').innerHTML=items.slice(0,shown).map(row=>`<tr><td><input type="checkbox" data-export-session="${escapeHtml(row.id)}" aria-label="Select session ${escapeHtml([row.courseCode,row.date,row.topic||'Untitled'].join(' '))}"></td><td>${escapeHtml(row.date||'Date not provided')}<br><small>${escapeHtml(row.startTime&&row.endTime?row.startTime+'–'+row.endTime:'Time not provided')}</small></td><td><strong>${escapeHtml(row.courseCode||'Not provided')}</strong> ${escapeHtml(row.courseName)}<br>${escapeHtml(row.topic||'Not provided')}<br><small>${escapeHtml(row.type||'Not provided')}</small></td><td>${escapeHtml(row.faculty||'Not provided')}</td><td>${escapeHtml(row.room||'Not provided')}</td></tr>`).join('');
+        $('export-selection-visible').textContent=`Showing ${Math.min(shown,items.length)} of ${items.length} authorized sessions`;
+        $('export-selection-more').hidden=shown>=items.length;
+        host.querySelectorAll('[data-export-session]').forEach(box=>{box.onchange=()=>change(()=>model.toggle(box.dataset.exportSession));});sync();
+      };
+      host.querySelectorAll('[data-export-course]').forEach(box=>{box.onchange=()=>change(()=>model.setCourse(box.dataset.exportCourse,box.checked));});
+      $('export-selection-all').onclick=()=>change(()=>model.selectAll());$('export-selection-clear').onclick=()=>change(()=>model.clear());
+      $('export-selection-more').onclick=()=>{if(guard()){shown+=100;renderRows();}};
+      $('export-selection-preview-button').onclick=()=>{
+        if(!guard()||!model.size)return;
+        const rows=model.preview(),labels=['Course Code','Course Name','Session Date','Start Time','End Time','Topic','Session Type','Faculty','Room','VISC'],keys=['courseCode','courseName','date','startTime','endTime','topic','type','faculty','room','visc'];
+        const preview=$('export-selection-preview');preview.hidden=false;preview.innerHTML=`<h3>Preview · ${rows.length} selected sessions</h3><div class="user-table-wrap"><table class="user-table export-preview-table"><thead><tr>${labels.map(label=>`<th>${label}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${keys.map(key=>`<td>${escapeHtml(row[key]||'Not provided')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+        previewed=true;sync();
+      };
+      download.onclick=async()=>{
+        if(!guard()||!previewed||!model.size||downloading)return;
+        const csv=model.csv(),ids=items.filter(row=>model.has(row.id)).map(row=>row.id);
+        downloading=true;download.disabled=true;download.textContent='Revalidating…';
+        try{
+          const fresh=window.UCVM_TIMETABLE_SELECTION.createExport(await ensureAllSessions({refresh:true,notify:false}));
+          if(!guard())return;
+          if(!previewed||csv!==model.csv()){$('export-selection-error').textContent='Selection changed. Preview again before downloading.';previewed=false;return;}
+          ids.forEach(id=>fresh.toggle(id));
+          if(fresh.csv()!==csv){previewed=false;invalidate('The schedule changed. Reopen export and preview the current records.');return;}
+          downloadFile(csv,'text/csv;charset=utf-8','ucvm-selected-timetable.csv');toast(`${model.size} selected schedule records exported.`);
+        }catch(_){if(authorized()){previewed=false;invalidate('The authorized schedule could not be revalidated. Reopen export to retry.');}}
+        finally{downloading=false;if(authorized()){download.textContent='Download selected CSV';download.disabled=!previewed||!model.size;}}
+      };
+      renderRows();
+    }catch(_){if(authorized())invalidate('The authorized schedule could not be loaded. Close and reopen export to retry.');}
   }
   function exportFilteredRows(all,options){
     const source=all;

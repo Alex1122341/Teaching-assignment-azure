@@ -39,6 +39,36 @@ window.UCVM_TIMETABLE_SELECTION=(()=>{
    has:id=>selected.has(text(id)),clear:()=>selected.clear(),ids:()=>[...selected],get size(){return selected.size}
   };
  }
+ function createExport(source,max=5000){
+  const scalar=value=>typeof value==='string'||typeof value==='number'?String(value).trim():'';
+  const seen=new Set();
+  const rows=new Map((source||[]).filter(row=>row&&!row.isCcc&&text(row.id)).map(row=>{const id=text(row.id);if(seen.has(id))throw Error('Duplicate session identity in export scope.');seen.add(id);return[id,{
+   courseCode:scalar(row.course),courseName:scalar(row.courseName),date:scalar(row.date),startTime:row.timeUnknown?'':scalar(row.start),endTime:row.timeUnknown?'':scalar(row.end),
+   topic:scalar(row.topic),type:scalar(row.type),faculty:scalar(row.instructor),room:scalar(row.room),visc:'Not provided'
+  }];}));
+  const selection=create(max);
+  return{
+   items(){return [...rows].map(([id,row])=>({id,...row})).sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||a.startTime.localeCompare(b.startTime)||a.courseCode.localeCompare(b.courseCode)||a.id.localeCompare(b.id));},
+   has:id=>selection.has(id),
+   setCourse(code,checked){
+    const ids=[...rows].filter(([,row])=>row.courseCode===text(code)).map(([id])=>id),next=new Set(selection.ids());
+    ids.forEach(id=>checked?next.add(id):next.delete(id));if(next.size>max)throw Error(`Select at most ${max} sessions.`);
+    selection.clear();next.forEach(id=>selection.toggle(id));
+   },
+   selectAll(){if(rows.size>max)throw Error(`Select at most ${max} sessions.`);selection.clear();for(const id of rows.keys())selection.toggle(id);},
+   clear:()=>selection.clear(),
+   selectCourses(codes){const chosen=new Set(codes.map(text)),ids=[...rows].filter(([,row])=>chosen.has(row.courseCode)).map(([id])=>id);if(ids.length>max)throw Error(`Select at most ${max} sessions.`);selection.clear();ids.forEach(id=>selection.toggle(id));},
+   toggle(id){if(!rows.has(text(id)))throw Error('Session is not in the authorized export scope.');return selection.toggle(id);},
+   preview(){return this.items().filter(row=>selection.has(row.id)).map(({id,...row})=>row);},
+   csv(){
+    const keys=['courseCode','courseName','date','startTime','endTime','topic','type','faculty','room','visc'];
+    const header=['Course Code','Course Name','Session Date','Start Time','End Time','Topic','Session Type','Faculty','Room','VISC'];
+    const cell=value=>{let valueText=String(value??'');if(/^[=+\-@]/.test(valueText))valueText="'"+valueText;return '"'+valueText.replace(/"/g,'""')+'"';};
+    return '\uFEFF'+[header,...this.preview().map(row=>keys.map(key=>row[key]))].map(row=>row.map(cell).join(',')).join('\r\n');
+   },
+   get size(){return selection.size}
+  };
+ }
  function validateRow(row,rowNumber,facultyById){
   const prefix=`Row ${rowNumber}: `,errors=[],ids=facultyIds(row),timing=scheduling.validateSessionTiming(row);
   if(!scheduling.normalizeDate(row?.date))errors.push(prefix+'date must be a valid YYYY-MM-DD value.');
@@ -81,5 +111,5 @@ window.UCVM_TIMETABLE_SELECTION=(()=>{
   try{await store.afterCommit()}catch(error){error.committed=true;throw error}
   return{committed:true,operations:plan.updates.length+plan.logs.length,errors:[]};
  }
- return{create,createViewFlow,validateRow,selectedRows,planChanges,commitPlan};
+ return{create,createExport,createViewFlow,validateRow,selectedRows,planChanges,commitPlan};
 })();

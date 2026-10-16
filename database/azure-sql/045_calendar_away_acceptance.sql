@@ -19,7 +19,7 @@ INSERT paws.AfcRecord(AfcRecordId,FacultyId,StartDate,EndDate,Purpose,Active,Sou
  VALUES(@Work,@Faculty,'2026-11-05','2026-11-06',N'CCC Day',1,@Source,2),
  (@Remote,@Faculty,'2026-11-05','2026-11-06',N'Remote Work (approved)',1,@Source,3),
  (@Opa,@Faculty,'2026-11-05','2026-11-06',N'OPA',1,@Source,4),
- (@Manual,@Faculty,'2026-11-05','2026-11-06',N'Vacation',1,NULL,NULL);
+ (@Manual,@Faculty,'2026-11-05','2026-11-06',N'Vacation',1,@Source,NULL);
 DECLARE @Protected TABLE(Id uniqueidentifier PRIMARY KEY,Version binary(8));
 INSERT @Protected SELECT AfcRecordId,CONVERT(binary(8),AfcVersion) FROM paws.AfcRecord WHERE AfcRecordId IN(@Remote,@Opa,@Manual);
 DECLARE @Rows nvarchar(max)=(SELECT r.SourceRow sourceRow,@Name facultySourceName,N'2026-11-05' startDate,N'2026-11-06' endDate,r.Purpose originalLabel,

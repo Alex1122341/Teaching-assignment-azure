@@ -52,10 +52,10 @@
     if (/vetm[\s_-]*506/.test(label)) return 'vetm506';
     if (/(^|\W)im($|\W)/.test(label)) return 'im';
     if (/4th|fourth|preceptor/.test(label)) return 'preceptor';
+    if (/undergrad|summer student/.test(label)) return 'undergrad';
     if (/co.supervis|co_supervis|cosupervis/.test(label)) return 'grad_co';
     if (/graduate|primary supervisor/.test(label)) return 'grad_primary';
     if (/postdoc/.test(label)) return 'postdoc';
-    if (/undergrad|summer student|intern/.test(label)) return 'undergrad';
     return 'supervision_unknown';
   }
   if (/coordinator\s*\/\s*hicc|hicc.*coordinator|legacy ambiguous/.test(role)) return 'unclassified';
@@ -85,6 +85,10 @@
   const rule = line.rule || {};
   const sessionLike = ['legacy_session_assignment','session_assignment'].includes(String(line.sourceEntityType || ''));
   if (defaultUnit === 'hours' && sessionLike && String(rule.calculationMode || '') === 'fixed') return {unit:'session',value:1};
+  if (defaultUnit === 'hours' && line.sourceEntityType === 'legacy_session_assignment') {
+    const value=finite(line.doeQuantity ?? line.creditedHours);
+    return {unit:'hours',value:value!==null&&value>=0?value:null};
+  }
   const fields={
     hours:['hours','creditedHours','doeQuantity'],
     units:['units','unitCount','quantity'],
@@ -92,7 +96,7 @@
     shifts:['shifts'],
     courses:['courses','courseCount','quantity'],
     subjects:['subjectCount','subjects'],
-    types:['rotationTypes','rotationTypeCount','quantity'],
+    types:['uniqueRotationTypes','rotationTypes','rotationTypeCount','quantity'],
     trainees:['trainees','traineeCount','count'],
     approved:['approvedDoe','percentage','quantity']
   };

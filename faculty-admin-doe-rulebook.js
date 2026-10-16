@@ -49,6 +49,7 @@
   }
   function create({onChange=()=>{},editable=()=>false,getFaculty=()=>[],canAddRule=editable,onStartDraft=async()=>false,idPrefix='',onError=()=>{}}={}) {
     let root=null,bundle={},dirty=false,panel='rules',category='all',group='all',search='',editing=null,locked=false,helpSequence=0;
+    const inlineModeInputHistory=new Map();
     const node = id => root?.querySelector(`#${idPrefix}${id}`);
     const refName = id => {const r=(bundle.references||[]).find(r=>r.referenceId===id);return r?[r.title,r.section&&`§${r.section}`,r.tableName,r.pageNumber!=null&&`p.${r.pageNumber}`].filter(Boolean).join(' · '):id||'Reference required';};
     function mark(){dirty=true;onChange();}
@@ -137,14 +138,14 @@
     function simpleUnitLabel(mode) {
   return ({fixed:'Assignment',per_hour:'Hour',per_week:'Week',per_shift:'Shift',per_trainee:'Trainee'})[mode] || 'Approved formula';
 }
-    function applySimpleRate(row,{mode,weight},validate=true) {
+    function applySimpleRate(row,{mode,weight},validate=true,inputHistory={}) {
   if(!simpleWeightRule(row)) throw new Error('This calculation requires Advanced Settings.');
   const value=String(weight??'').trim(),number=value===''?null:Number(value);
   if(validate && (number===null||!Number.isFinite(number)||number<0))throw new Error('Weight must be a nonnegative finite DOE percentage.');
   const selected=mode||row.calculationMode;
   if(selected!==row.calculationMode && !(sessionWeightRule(row)&&['fixed','per_hour'].includes(selected)))throw new Error('Changing this calculation unit requires Advanced Settings.');
   const copy=clone(row);
-  if(copy.calculationMode!==selected)updateMode(copy,selected);
+  if(copy.calculationMode!==selected)transitionCalculationMode(copy,selected,inputHistory);
   const name=selected==='fixed'?'fixed':'rate';
   copy.parameters ||= [];
   let param=copy.parameters.find(x=>x.name===name);
@@ -174,7 +175,10 @@
   if(!old||!simpleWeightRule(old)||!editable()||locked)return;
   try {
     const selected=basisInput?(basisInput.value==='per_session'?'fixed':'per_hour'):old.calculationMode;
-    const changed=applySimpleRate(old,{mode:selected,weight:weightInput.value});
+    const historyKey=`${index}:${old.ruleId||old.ruleKey||''}`;
+    const modeInputHistory=inlineModeInputHistory.get(historyKey)||{};
+    const changed=applySimpleRate(old,{mode:selected,weight:weightInput.value},true,modeInputHistory);
+    inlineModeInputHistory.set(historyKey,modeInputHistory);
     if(changed.calculationMode===old.calculationMode&&ruleWeight(changed)===ruleWeight(old))return;
     bundle.rules[index]=changed;if(error)error.textContent='';
     item.querySelector('.doe-excel-rule-rate').textContent=rateSummary(changed);
@@ -189,7 +193,7 @@
     function editorRuleMarkup(row,editing,fields) {
   const simple=simpleWeightRule(row);
   const basicKeys=simple?['referenceId','reviewStatus','enabled']:['calculationMode','referenceId','reviewStatus','enabled'];
-  return `<section class="doe-editor-section"><h4>${esc(row.ruleLabel||'DOE rule')}</h4>${simple?simpleWeightHtml(row):'<p class="aux-note">This rule uses an advanced formula or tiered calculation. Change its parameters under Advanced Settings.</p>'}<div class="doe-editor-grid doe-essentials">${fields(schemas.rules.filter(d=>basicKeys.includes(d.key)))}</div></section><aside class="doe-entry-guide"><strong>Calculation example (not applied)</strong><p id="${idPrefix}doe-rule-example-result">${esc(exampleResult(row))}</p></aside><details class="doe-editor-disclosure" data-disclosure="advanced"><summary>Advanced Settings <span>Restrictions, matching conditions, inputs, priority and formula</span></summary><div class="doe-entry-guide" id="${idPrefix}doe-rule-entry-guide">${esc(originGuide(row))}</div><div class="doe-condition-summary"><span class="field-label">Applies when</span><p id="${idPrefix}doe-rule-condition-summary">${esc(conditionSummary(row))}</p><small>These conditions decide which assignments receive this rule; they are not login permissions.</small></div>${nestedHtml('selectors',row.selectors||[])}${selectionRule(row)?precedenceHtml(row):''}${!simple?nestedHtml('parameters',row.parameters||[]):''}<div class="doe-editor-grid">${fields(schemas.rules.filter(d=>!basicKeys.includes(d.key)&&d.key!=='formulaText'&&!(simple&&d.key==='calculationMode')))}</div>${nestedHtml('inputs',row.inputs||[])}<details class="doe-editor-disclosure" data-disclosure="formula"><summary>Formula</summary>${fields(schemas.rules.filter(d=>d.key==='formulaText'))}</details><details class="doe-editor-disclosure" data-disclosure="tiers" ${row.calculationMode==='tiered'?'open':''}><summary>DOE tiers · ${(row.tiers||[]).length}</summary>${nestedHtml('tiers',row.tiers||[])}</details></details>`;
+  return `<section class="doe-editor-section"><h4>${esc(row.ruleLabel||'DOE rule')}</h4>${simple?simpleWeightHtml(row):'<p class="aux-note">This rule uses an advanced formula or tiered calculation. Change its parameters under Advanced Settings.</p>'}<div class="doe-editor-grid doe-essentials">${fields(schemas.rules.filter(d=>basicKeys.includes(d.key)))}</div></section><aside class="doe-entry-guide"><strong>Calculation example (not applied)</strong><p id="${idPrefix}doe-rule-example-result">${esc(exampleResult(row))}</p></aside><details class="doe-editor-disclosure" data-disclosure="advanced"><summary>Advanced Settings <span>Restrictions, matching conditions, inputs, priority and formula</span></summary><div class="doe-entry-guide" id="${idPrefix}doe-rule-entry-guide">${esc(originGuide(row))}</div><div class="doe-condition-summary"><span class="field-label">Applies when</span><p id="${idPrefix}doe-rule-condition-summary">${esc(conditionSummary(row))}</p><small>These conditions decide which assignments receive this rule; they are not login permissions.</small></div>${nestedHtml('selectors',row.selectors||[])}${selectionRule(row)?precedenceHtml(row):''}${!simple?nestedHtml('parameters',row.parameters||[]):''}<div class="doe-editor-grid">${fields(schemas.rules.filter(d=>!basicKeys.includes(d.key)&&d.key!=='formulaText'))}</div>${nestedHtml('inputs',row.inputs||[])}<details class="doe-editor-disclosure" data-disclosure="formula"><summary>Formula</summary>${fields(schemas.rules.filter(d=>d.key==='formulaText'))}</details><details class="doe-editor-disclosure" data-disclosure="tiers" ${row.calculationMode==='tiered'?'open':''}><summary>DOE tiers · ${(row.tiers||[]).length}</summary>${nestedHtml('tiers',row.tiers||[])}</details></details>`;
 }
     function groupedRuleTable(rows) {
   const ordered=['Lectures & Labs','Course Coordination','HICC Course Development','VISC Coordination','Clinical Rotations & CCC','Other Approved Teaching','Trainees & Supervision','Reserve & Targets','Other / Advanced Rules'];
@@ -269,13 +273,23 @@
       const main=isSet?`<label class="field"><span class="field-label">${esc(selectorLabels[row.field])}</span><select class="select" multiple data-field="values" data-path="selectors" aria-label="${esc(selectorLabels[row.field])}" ${editable()?'':'disabled'} required>${[...choices.filter(([v])=>v),...(Array.isArray(row.values)?row.values:[]).filter(v=>!choices.some(([known])=>known===v)).map(v=>[v,v])].map(([v,l])=>`<option value="${esc(v)}" ${row.values?.includes(v)?'selected':''}>${esc(l)}</option>`).join('')}</select><small class="doe-field-example">Select all applicable options. Each selected value uses the same DOE rule.</small></label>${inputHtml({...schemas.selectors[3],type:'text'},row.valueText,key,true)}`:inputHtml({...schemas.selectors[3],type:'select',label:selectorLabels[row.field],choices,required:true,help:'Choose the matching workload item from existing options. The saved value uses its canonical identifier.'},row.valueText,key,!editable());
       return `${inputHtml({...schemas.selectors[1],label:'Applies to',help:'Choose one item, several items, or exclude selected items.',choices:[['equals','Only this option'],['not_equals','All except this option'],['in','Any of selected options'],['not_in','All except selected options']]},row.operator,key,!editable())}${main}<details class="doe-parameter-details" data-disclosure="selector-${index}"><summary>Advanced condition</summary><div class="doe-editor-grid">${schemas.selectors.filter(d=>!['valueText','operator'].includes(d.key)&&(!isSet||d.key!=='values')).map(d=>inputHtml(d,row[d.key],key,!editable())).join('')}</div></details>`;
     }
-    function updateMode(row,mode){
+    function updateMode(row,mode,modeInputHistory={}){
       const oldInputs=new Set(modeInputs[row.calculationMode]||[]),oldParams=new Set(modeParams[row.calculationMode]||[]);row.calculationMode=mode;
       if(!modeInputs[mode])return;
       const retained=(row.inputs||[]).filter(i=>!oldInputs.has(typeof i==='string'?i:i.inputName));
-      row.inputs=[...retained,...modeInputs[mode].filter(name=>!retained.some(i=>(typeof i==='string'?i:i.inputName)===name)).map(name=>(row.inputs||[]).find(i=>(typeof i==='string'?i:i.inputName)===name)||{inputName:name,required:true,source:''})];
+      const priorForMode=modeInputHistory[mode]||[];
+      const inputFor=name=>retained.find(i=>(typeof i==='string'?i:i.inputName)===name)
+        ||(row.inputs||[]).find(i=>(typeof i==='string'?i:i.inputName)===name)
+        ||priorForMode.find(i=>(typeof i==='string'?i:i.inputName)===name)
+        ||{inputName:name,required:true,source:''};
+      row.inputs=[...retained,...modeInputs[mode].filter(name=>!retained.some(i=>(typeof i==='string'?i:i.inputName)===name)).map(inputFor)];
       row.parameters=(row.parameters||[]).filter(p=>!oldParams.has(p.name)||modeParams[mode].includes(p.name));
       for(const name of modeParams[mode])if(!(row.parameters||[]).some(p=>p.name===name))row.parameters.push({name,valueNumber:null,valueText:null});
+    }
+    function transitionCalculationMode(row,mode,inputHistory={}){
+      inputHistory[row.calculationMode]=clone(row.inputs||[]);
+      updateMode(row,mode,inputHistory);
+      return row;
     }
     function precedenceHtml(row){return `<label class="field doe-precedence"><span class="field-label">When another rule also matches</span><select class="select" data-precedence aria-label="Existing matching rules" ${editable()?'':'disabled'} ${editing.index<0?'required':''}>${[['','Choose how to handle existing rules…'],['keep','Keep current precedence'],['normal','Prefer existing higher-priority rules'],['first','Use this rule before other matching rules']].filter(([v])=>v!=='keep'||editing.index>=0).map(([v,l])=>`<option value="${v}" ${(editing.precedence??(editing.index>=0?'keep':''))===v?'selected':''}>${l}</option>`).join('')}</select><small class="doe-field-example">This sets matching precedence without entering a priority number. Approved exceptions still take precedence. Check Impact Preview before publishing.</small></label>`;}
     function originGuide(row){
@@ -336,7 +350,8 @@
     function readEditor(validate=true){
       const {key,row}=editing,result=readFields(node('doe-rulebook-editor-fields'),schemas[key],row,validate);
       if(key==='rules')for(const nested of ['selectors','inputs','parameters','tiers']){
-        result[nested]=[...node('doe-rulebook-editor-fields').querySelectorAll(`[data-nested="${nested}"] > [data-row]`)].map((element,index)=>readFields(element,schemas[nested],typeof row[nested]?.[index]==='string'?{inputName:row[nested][index]}:row[nested]?.[index]||{},validate));
+        const container=node('doe-rulebook-editor-fields').querySelector(`[data-nested="${nested}"]`);
+        result[nested]=container?[...container.querySelectorAll(':scope > [data-row]')].map((element,index)=>readFields(element,schemas[nested],typeof row[nested]?.[index]==='string'?{inputName:row[nested][index]}:row[nested]?.[index]||{},validate)):clone(row[nested]||[]);
       }
       if(key==='rules'){
         result.mappingRequirement=result.mappingRequirement||null;
@@ -349,7 +364,7 @@
           }
         }
       }
-      if(key==='rules'&&simpleWeightRule(row)){
+      if(key==='rules'&&simpleWeightRule(row)&&simpleWeightRule(result)&&result.calculationMode===row.calculationMode){
         result.parameters=clone(row.parameters||[]);
         const rootFields=node('doe-rulebook-editor-fields');
         if(sessionWeightRule(row))applySessionWeight(result,row,rootFields,validate);
@@ -369,7 +384,7 @@
       if(!original&&key!=='reservePolicy')row[key==='rules'?'ruleId':key==='references'?'referenceId':key==='exceptions'?'exceptionId':'mappingId']=crypto.randomUUID();
       if(key==='rules'&&!original){const groupCategory={assigned:'assigned_teaching',coordination:'course_coordination',clinical:'rotation',supervision:'supervision',hicc:'hicc',reserve:'reserve',other:'approved_activity'};const initialCategory=groupCategory[group]||(category==='role'?'course_coordination':category==='supervision'?'supervision':category==='target'?'target':'teaching');Object.assign(row,{category:initialCategory,calculationMode:'fixed',resultKind:initialCategory==='target'?'target':'credit',priority:0,selectors:[],inputs:[],parameters:[],tiers:[]});}
       if(template)templateRow(template,row);
-      editing={key,index,row,initialPriority:row.priority};node('doe-rulebook-editor-fields').innerHTML='';drawEditor();node('doe-rulebook-editor').showModal();
+      editing={key,index,row,initialPriority:row.priority,modeInputHistory:{}};node('doe-rulebook-editor-fields').innerHTML='';drawEditor();node('doe-rulebook-editor').showModal();
     }
     function mount(host){
       root=host;
@@ -415,8 +430,12 @@
             if(target.value==='normal')row.priority=0;
             if(target.value==='first'){row.priority=Math.max(0,...(bundle.rules||[]).map(r=>Number(r.priority)||0))+1;if(!Number.isSafeInteger(row.priority)||row.priority>2147483647)throw new Error('Current priorities require advanced review.');}
             editing.row=row;drawEditor();
-          }else if(target.dataset.field==='calculationMode'&&modeInputs[editing.row.calculationMode]){
-            const current=readEditor(false),mode=current.calculationMode;current.calculationMode=editing.row.calculationMode;updateMode(current,mode);editing.row=current;drawEditor();
+          }else if(target.dataset.field==='calculationMode'&&modes.includes(target.value)){
+            const mode=target.value;
+            // Collect pending Weight/Unit edits before replacing their controls.
+            target.value=editing.row.calculationMode;
+            const current=readEditor(false);target.value=mode;
+            transitionCalculationMode(current,mode,editing.modeInputHistory);editing.row=current;drawEditor();
           }else if(target.dataset.field==='operator'&&target.dataset.path==='selectors'){
             editing.row=readEditor(false);drawEditor();
           }
@@ -462,7 +481,7 @@
       });
       render();
     }
-    return Object.freeze({mount,describeRule:row=>({group:ruleGroupName(row),rate:rateSummary(row),quickSession:sessionWeightRule(row),simple:simpleWeightRule(row),unit:simpleUnitLabel(row.calculationMode)}),applySessionWeight,applySimpleRate,renderSimpleRow:(row,index=0)=>inlineWeightFields(row,index),renderGroupedRows:rows=>groupedRuleTable(rows),setBundle(value){bundle=clone(value||{});const reserve=(bundle.rules||[]).find(r=>r.category==='reserve');if(reserve){if(!bundle.reservePolicy)bundle.reservePolicy=Object.fromEntries((reserve.parameters||[]).filter(p=>reserveKeys.includes(p.name)&&p.valueNumber!=null).map(p=>[p.name,p.valueNumber]));bundle.reservePolicy={...bundle.reservePolicy,referenceId:reserve.referenceId,reviewStatus:reserve.reviewStatus};}dirty=false;node('doe-rulebook-editor')?.close();render();},refresh:render,isDirty:()=>dirty,editorOpen:()=>Boolean(node('doe-rulebook-editor')?.open),setLocked(value){const next=Boolean(value);if(next!==locked){locked=next;render();}},getPatch(){
+    return Object.freeze({mount,describeRule:row=>({group:ruleGroupName(row),rate:rateSummary(row),quickSession:sessionWeightRule(row),simple:simpleWeightRule(row),unit:simpleUnitLabel(row.calculationMode)}),applySessionWeight,applySimpleRate,transitionCalculationMode,renderSimpleRow:(row,index=0)=>inlineWeightFields(row,index),renderGroupedRows:rows=>groupedRuleTable(rows),setBundle(value){bundle=clone(value||{});inlineModeInputHistory.clear();const reserve=(bundle.rules||[]).find(r=>r.category==='reserve');if(reserve){if(!bundle.reservePolicy)bundle.reservePolicy=Object.fromEntries((reserve.parameters||[]).filter(p=>reserveKeys.includes(p.name)&&p.valueNumber!=null).map(p=>[p.name,p.valueNumber]));bundle.reservePolicy={...bundle.reservePolicy,referenceId:reserve.referenceId,reviewStatus:reserve.reviewStatus};}dirty=false;node('doe-rulebook-editor')?.close();render();},refresh:render,isDirty:()=>dirty,editorOpen:()=>Boolean(node('doe-rulebook-editor')?.open),setLocked(value){const next=Boolean(value);if(next!==locked){locked=next;render();}},getPatch(){
       const patch={};for(const key of ['rules','references','courseMappings','subjectMappings','exceptions'])patch[key]=clone(bundle[key]||[]);
       for(const rule of patch.rules)for(const selector of rule.selectors||[]){if(Array.isArray(selector.values))selector.valuesJson=JSON.stringify(selector.values);}
       for(const key of ['courseMappings','subjectMappings'])for(const row of patch[key])if(row.mappingFacts)row.mappingFactsJson=JSON.stringify(row.mappingFacts);

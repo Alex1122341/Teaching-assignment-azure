@@ -119,6 +119,25 @@ test('Simplified updates retain scope and source when switching from per hour to
   assert.throws(()=>view.applySimpleRate(source,{weight:-1,mode:'fixed'}),/nonnegative/);
   assert.throws(()=>view.applySimpleRate(source,{weight:'',mode:'fixed'}),/nonnegative/);
 });
+test('Advanced mode transitions restore the original input source when returning to per-hour',()=>{
+  const view=book(),row=lecture(),history={};
+  row.inputs=[{inputName:'hours',required:true,source:'SessionAssignment.CreditedHours'}];
+  view.transitionCalculationMode(row,'fixed',history);
+  assert.deepEqual(JSON.parse(JSON.stringify(row.inputs)),[]);
+  view.transitionCalculationMode(row,'per_hour',history);
+  assert.deepEqual(JSON.parse(JSON.stringify(row.inputs)),[
+    {inputName:'hours',required:true,source:'SessionAssignment.CreditedHours'}
+  ]);
+});
+test('Inline Credit Per round trips restore the hours source instead of creating a blank input',()=>{
+  const view=book(),source=lecture(),history={};
+  source.inputs=[{inputName:'hours',required:true,source:'SessionAssignment.CreditedHours'}];
+  const perSession=view.applySimpleRate(source,{mode:'fixed',weight:'1.25'},true,history);
+  const perHour=view.applySimpleRate(perSession,{mode:'per_hour',weight:'0.3'},true,history);
+  assert.deepEqual(JSON.parse(JSON.stringify(perHour.inputs)),[
+    {inputName:'hours',required:true,source:'SessionAssignment.CreditedHours'}
+  ]);
+});
 test('Advanced-only and non-teaching rules cannot be edited with the simple Weight control',()=>{
   const view=book();
   const base=lecture();

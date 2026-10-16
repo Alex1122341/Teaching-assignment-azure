@@ -83,3 +83,48 @@ test('A stored credit with a source discrepancy remains Needs Review rather than
   assert.equal(data.without,null);
   assert.equal(data.withTrainees,null);
 });
+
+test('Canonical undergraduate supervision stays separate from graduate and co-supervised trainees',()=>{
+  const view=worksheetView();
+  const data=view.buildLookupBreakdown({status:'calculated',lines:[
+    other('supervision','Undergraduate Supervision',1,{trainees:2}),
+    other('supervision','Undergraduate co-supervised intern',0.5,{trainees:1}),
+    other('supervision','Graduate Primary Supervisor',2,{trainees:1}),
+    other('supervision','Graduate Co-supervisor',1,{trainees:1})
+  ],totals:{rawSupervisionDoe:4.5,appliedSupervisionDoe:4.5}});
+  const trainees=data.groups.find(group=>group.title==='Trainees & Supervision').items;
+  assert.equal(trainees.find(row=>row.key==='undergrad').amount,1.5);
+  assert.equal(trainees.find(row=>row.key==='undergrad').quantity,3);
+  assert.equal(trainees.find(row=>row.key==='grad_primary').amount,2);
+  assert.equal(trainees.find(row=>row.key==='grad_co').amount,1);
+});
+
+test('A generic intern label does not override explicit graduate co-supervision',()=>{
+  const view=worksheetView();
+  const data=view.buildLookupBreakdown({status:'calculated',lines:[
+    other('supervision','Graduate Co-supervised Intern',0.5,{trainees:1})
+  ],totals:{rawSupervisionDoe:0.5,appliedSupervisionDoe:0.5}});
+  const trainees=data.groups.find(group=>group.title==='Trainees & Supervision').items;
+  assert.equal(trainees.find(row=>row.key==='undergrad').amount,null);
+  assert.equal(trainees.find(row=>row.key==='grad_co').amount,0.5);
+});
+
+test('Legacy teaching quantity uses the same explicit DOE override as the authoritative calculator',()=>{
+  const view=worksheetView();
+  const line={...teaching('LEC','Lecture',2,0.3),doeQuantity:1};
+  const data=view.buildLookupBreakdown({status:'calculated',lines:[line],totals:{rawSupervisionDoe:0,appliedSupervisionDoe:0}});
+  assert.equal(data.groups[0].items.find(row=>row.key==='lecture').quantity,1);
+  const zero=view.buildLookupBreakdown({status:'calculated',lines:[{...line,doeQuantity:0}],totals:{}});
+  assert.equal(zero.groups[0].items.find(row=>row.key==='lecture').quantity,0);
+});
+
+test('Rotation coordination quantity uses the calculator input uniqueRotationTypes',()=>{
+  const view=worksheetView();
+  const data=view.buildLookupBreakdown({status:'calculated',lines:[{
+    category:'rotation',sourceEntityType:'doe_assignment',roleType:'Designated Rotation Coordinator',
+    inputs:{uniqueRotationTypes:3},resultDoe:6,status:'calculated'
+  }],totals:{rawSupervisionDoe:0,appliedSupervisionDoe:0}});
+  const item=data.groups.find(group=>group.title==='Clinical Rotations').items.find(row=>row.key==='rotation_coordination');
+  assert.equal(item.quantity,3);
+  assert.equal(item.amount,6);
+});

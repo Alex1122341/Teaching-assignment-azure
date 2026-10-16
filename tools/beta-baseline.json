@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "d049fe0fb4fb51e9fcefab3a4151c2600d3cc074",
+  "sourceCommit": "3f53695778ea144d0e4ec53ab624d4b85f849a75",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -46,7 +46,7 @@
     "dashboard-view-model.js": "742b81419eeca591c3a35a439e9964febc42c398d683f25700fb77d226492b43",
     "faculty-swap-handoff.js": "1b68dcf3e287c97097640051a26634b95d321c89e392600a9e97bc45c97d3ce7",
     "faculty-swap-safe.js": "558c3150444f2a9ad66ac54437618297f6e45632d0375d502816e3eda331649c",
-    "index.html": "5ea435d52121b9fcd55107cd29b0d036a9fcc29b9f81f931be08e6e594d8c72f",
+    "index.html": "c9b29e470167112b9411b7704356ba8b80b429672efda37214d97c9c270734d7",
     "information-center.js": "d739a75f1893994048854678c25bc562d17099a912189213a5cef487b500acc0",
     "maintenance-state.js": "5b3c31bd41385322776f2eeab88a46827f7b0095f7cd26ac03aa44c267d1f1df",
     "password.html": "0ec6f0635e0fe94c8a49f4fd9428607bb174d673d41875d82bb32e5c266e8d6c",
@@ -60,7 +60,7 @@
     "scheduling-core.js": "d8e1321c42aa63c617668d86787d562fc1ba347ba8f5001c9671faf6b3e8ae3a",
     "timetable.css": "19eebdeb52d0df393b24e41b92741e8859f4c625d58cb55fe17146bbea91b166",
     "timetable-selection.js": "a6085d77bb2e11ecba8a8d043765166c446ad3ca9c10a4f86bdb5b170227b5c2",
-    "timetable.js": "152f21d6779a0ba986a68e08e3622c36fb71423b2da9844068f36f418e695a89",
+    "timetable.js": "5b6f34eab33421e3c0f0cc3f890c0a17a85375da89402a79f7b9964227d68c84",
     "user-management.html": "ffb9402cb4c482d7da2301a28dd1acde43f0aad7699787823e69c22a72b2d55b",
     "user-management.css": "de65cb308772e82be4f551ad505ae7b718736c0cdfd531dedf7b971c089cfe02",
     "user-management.js": "4986db09f4a7e03c6ea44ba0a91f4bf2dceacf8edafc2db8f7f19f98782006d4",
@@ -74,8 +74,8 @@
     "faculty-role-periods.js": "b4dee985428629d7f09b1434b3269ad219b05d2d3be39fc38512a4c297bb3f80",
     "faculty-admin-afc-records.js": "1bbf0a1e7932f414eea779e6d149ee00c6ed97543e350f817cac3bfb14fd509e",
     "lab-session-detail.js": "54501dd05ef403cf1865bc872c051356514f26262d439797ed36831c382d15f9",
-    "calendar-activities.js": "37ff08d693dfda417b1d44c4b5065cdea525c9e3df9816254186eb0b0d46cd22",
-    "calendar-activities.css": "1354e99ff316d4d002e52eed2000a88d040a7b649d821c0ac05f8ea42805b5eb",
+    "calendar-activities.js": "4c933b998f5abfb112eb682506fa7eebabf6d9055df3758bb2e5ecae8ed3a837",
+    "calendar-activities.css": "49f5bed0355d578b0a8fab6db0b8c3c950ea5ce2ff5370cca9b3650af8b93eae",
     "faculty-admin-activity-import.js": "2e85b202a78175ce407581b157f67e7b9ef718f64f16ad58d6c67a0a1116d24d"
   }
 }

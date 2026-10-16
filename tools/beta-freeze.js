@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed AFC confirmation recovery is the immutable trust anchor.
-// Prior DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='d049fe0fb4fb51e9fcefab3a4151c2600d3cc074';
+// Reviewed unified work activity type filtering is the immutable trust anchor.
+// Prior AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='3f53695778ea144d0e4ec53ab624d4b85f849a75';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

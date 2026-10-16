@@ -1,6 +1,16 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
 const modulePath=process.env.PAWS_UI_PLAYWRIGHT_MODULE;
+test('the real timetable entry point initializes the picker without a startup error',{skip:!modulePath},async t=>{
+ const {chromium}=require(modulePath),browser=await chromium.launch({channel:'chrome',headless:true});t.after(()=>browser.close());
+ const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const source=require('node:fs').readFileSync('index.html','utf8');
+ await page.setContent(source.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
+ for(const match of source.matchAll(/<script src="([^"]+)"/g)){if(!match[1].startsWith('https:'))await page.addScriptTag({path:path.resolve(match[1])});}
+ assert.deepEqual(errors,[]);
+ assert.equal(await page.getByText('All activity types',{exact:true}).count(),1);
+ assert.equal(await page.locator('#activity-type-filter input[type=checkbox]').count(),14);
+});
 test('grouped type picker supports real checkbox events, all, clear, Reset and safe dynamic labels',{skip:!modulePath},async t=>{
  const {chromium}=require(modulePath),browser=await chromium.launch({channel:'chrome',headless:true});t.after(()=>browser.close());
  const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));

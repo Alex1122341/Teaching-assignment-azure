@@ -7,6 +7,7 @@
  const labels={ccc:'CCC',rotation_participant:'Rotation participant',clinical_day:'Clinical day / PPVM',vetm581_rounds:'VETM 581 clinical rounds',vetm571_clinical_pharmacology:'VETM 571 clinical pharmacology',vetm591_presentations:'VETM 591 IM presentations',teaching_excellence:'Teaching excellence',remote_work:'Remote work'};
  function createActivityTypeFilter({host=null,onChange=()=>{}}={}){
   const options=[...['LEC','LAB','SRL','Quiz/Midterm','OSCE','Exam'].map(label=>({key:'teaching:'+label,label,group:'teaching'})),...Object.entries(labels).map(([category,label])=>({key:'work:'+category,label,group:'work'}))];
+  const defaults=options.slice();
   let selected=new Set(options.map(x=>x.key));
   const summary=()=>!selected.size?'No activity types':selected.size===options.length?'All activity types':`${selected.size} of ${options.length} activity types`;
   function position(){if(!host||!host.querySelector('details')?.open)return;const panel=host.querySelector('.activity-type-options'),anchor=host.getBoundingClientRect(),width=panel.getBoundingClientRect().width,viewport=host.ownerDocument.defaultView.innerWidth;panel.style.left=`${Math.max(16,Math.min(anchor.left,viewport-width-16))-anchor.left}px`;}
@@ -14,9 +15,10 @@
   function render(){if(!host)return;const open=host.querySelector('details')?.open;host.innerHTML=`<details class="activity-type-picker" ${open?'open':''}><summary data-type-summary>${esc(summary())}</summary><div class="activity-type-options"><div class="activity-type-actions"><button type="button" data-type-action="all">Select all types</button><button type="button" data-type-action="clear">Clear types</button></div>${[['teaching','Teaching sessions'],['work','Work activities']].map(([group,title])=>`<fieldset><legend>${title}</legend>${options.filter(x=>x.group===group).map(x=>`<label><input type="checkbox" data-type-key value="${esc(x.key)}" ${selected.has(x.key)?'checked':''}><span>${esc(x.label)}</span></label>`).join('')}</fieldset>`).join('')}</div></details>`;position();}
   const changed=()=>{sync();onChange();},selectAll=()=>{selected=new Set(options.map(x=>x.key));changed();};
   const api=Object.freeze({options:()=>options.map(x=>({...x})),selectedKeys:()=>[...selected],selectAll,reset:selectAll,clear(){selected.clear();changed();},
-   setSessionTypes(types){let added=false;const all=selected.size===options.length;for(const value of types){const label=String(value||'').trim(),key='teaching:'+label;if(!label||label.toUpperCase()==='CCC'||options.some(x=>x.key===key))continue;options.push({key,label,group:'teaching'});if(all)selected.add(key);added=true;}if(added)render();},
+   setSessionTypes(types){let added=false;const all=selected.size===options.length;for(const value of types){const type=String(value||'').trim(),key='teaching:'+type;if(type.toUpperCase()==='CCC'||options.some(x=>x.key===key))continue;options.push({key,label:type||'Teaching type not provided',group:'teaching'});if(all)selected.add(key);added=true;}if(added)render();},
+   resetForUser(){options.splice(0,options.length,...defaults);selected=new Set(options.map(x=>x.key));render();},
    setSelected(keys){selected=new Set(keys.filter(key=>options.some(x=>x.key===key)));changed();},summary,
-   matchesSession:row=>selected.has(String(row.type||'').toUpperCase()==='CCC'?'work:ccc':'teaching:'+String(row.type||'')),
+   matchesSession:row=>selected.has(String(row.type||'').trim().toUpperCase()==='CCC'?'work:ccc':'teaching:'+String(row.type||'').trim()),
    matchesActivity:row=>selected.has('work:'+row.category)});
   host?.addEventListener('change',event=>{const input=event.target.closest('[data-type-key]');if(!input||!host.contains(input))return;if(input.checked)selected.add(input.value);else selected.delete(input.value);changed();});
   host?.addEventListener('click',event=>{const action=event.target.closest('[data-type-action]');if(!action||!host.contains(action))return;if(action.dataset.typeAction==='all')api.selectAll();else api.clear();});

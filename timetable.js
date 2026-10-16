@@ -439,7 +439,6 @@
   let selectedDayIndex = 0;
   let selectedCourses = new Set();
   let courseFilterActive = false;
-  const activityTypeFilter = window.PAWS_CALENDAR_ACTIVITIES.createActivityTypeFilter({host:$('activity-type-filter'),onChange:()=>render()});
   let workingActivityRenderToken = 0;
   let renderedSessions = [];
   let colorsOn = true;
@@ -454,6 +453,7 @@
   let selectionDoeState = new Map();
 
   const $ = (id) => document.getElementById(id);
+  const activityTypeFilter = window.PAWS_CALENDAR_ACTIVITIES.createActivityTypeFilter({host:$('activity-type-filter'),onChange:()=>render()});
   const memoryStore = {};
   function storageGet(key) {
     try { return window.localStorage ? window.localStorage.getItem(key) : (memoryStore[key] ?? null); }
@@ -1040,6 +1040,7 @@
   }
 
   function filteredSessions(source=sessions, options={}) {
+    activityTypeFilter.setSessionTypes(source.map(row=>row.type));
     const q = $('search-input').value.trim().toLowerCase();
     const month = $('filter-month').value;
     return source.filter(s => {
@@ -1852,6 +1853,7 @@
           profile.facultyId=sqlFacultyId;
           setLoginProgress('Loading your timetable...', true);
           const name = window.PAWS_FACULTY_NAME.format(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
+          activityTypeFilter.resetForUser();
           currentUser = {
             id: user.uid,
             uid: user.uid,
@@ -1927,6 +1929,7 @@
         if (!user) {
           text.textContent = 'Firebase Auth + SQL Access Ready';
           currentUser = null;
+          activityTypeFilter.resetForUser();
           ++workingActivityRenderToken;window.PAWS_CALENDAR_ACTIVITIES?.clear();
           if($('working-activities-lane'))$('working-activities-lane').innerHTML='';
           viewMode = 'week'; setViewButtons();

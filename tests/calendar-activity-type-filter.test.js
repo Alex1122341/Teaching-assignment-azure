@@ -51,8 +51,27 @@ test('clear is an empty selection, Reset restores all and newly observed teachin
  assert.equal(filter.options().filter(x=>x.key==='work:ccc').length,1);
  assert.equal(filter.matchesSession({type:'Workshop'}),false);
  filter.reset();assert.equal(filter.summary(),'All activity types');assert.equal(filter.matchesSession({type:'Workshop'}),true);
+ assert.equal(filter.matchesSession({type:' Workshop '}),true);
  filter.setSelected(['work:ccc']);filter.setSessionTypes(['Workshop','Seminar']);
  assert.equal(filter.matchesSession({type:'Seminar'}),false);
  filter.selectAll();assert.equal(filter.matchesSession({type:'Seminar'}),true);
  const options=filter.options();options[0].label='changed';assert.equal(filter.options()[0].label,'LEC');
+});
+
+test('All dates filtering discovers later and missing teaching types without silently losing export rows',()=>{
+ const activityTypeFilter=createActivityTypeFilter();
+ const fields={'search-input':{value:''},'filter-month':{value:'all'}};
+ const context={activityTypeFilter,$:id=>fields[id],selectedYear:'all',selectedSemester:'fall',courseFilterActive:false,myTimetableOnly:false};
+ vm.createContext(context);vm.runInContext(sourceFunction('timetable.js','filteredSessions'),context);
+ const rows=['LAB','Workshop',''].map((type,i)=>({id:i,type,semester:'fall'}));
+ assert.deepEqual(Array.from(context.filteredSessions(rows),x=>x.id),[0,1,2]);
+ assert.ok(activityTypeFilter.options().some(x=>x.label==='Teaching type not provided'));
+ activityTypeFilter.setSelected(['teaching:LAB']);assert.deepEqual(Array.from(context.filteredSessions(rows),x=>x.id),[0]);
+ activityTypeFilter.reset();assert.equal(context.filteredSessions(rows).length,3);
+});
+
+test('changing account removes dynamically discovered types and the previous user selection',()=>{
+ const filter=createActivityTypeFilter();filter.setSessionTypes(['Private source type']);filter.setSelected(['teaching:Private source type']);
+ filter.resetForUser();assert.equal(filter.options().length,14);assert.equal(filter.summary(),'All activity types');
+ assert.equal(filter.options().some(x=>x.label==='Private source type'),false);
 });

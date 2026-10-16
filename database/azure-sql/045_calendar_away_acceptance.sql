@@ -18,10 +18,12 @@ INSERT staging.AfcRecordRaw(ImportBatchId,ImportRowId,SourceRowNumber,FacultySou
 INSERT paws.AfcRecord(AfcRecordId,FacultyId,StartDate,EndDate,Purpose,Active,SourceImportBatchId,SourceRow)
  VALUES(@Work,@Faculty,'2026-11-05','2026-11-06',N'CCC Day',1,@Source,2),
  (@Remote,@Faculty,'2026-11-05','2026-11-06',N'Remote Work (approved)',1,@Source,3),
- (@Opa,@Faculty,'2026-11-05','2026-11-06',N'OPA',1,@Source,4),
- (@Manual,@Faculty,'2026-11-05','2026-11-06',N'Vacation',1,@Source,NULL);
+ (@Opa,@Faculty,'2026-11-05','2026-11-06',N'OPA',1,@Source,4);
+INSERT paws.AfcManualRecord(AfcRecordId,FacultyId,StartDate,EndDate,ReasonCode,Active,CreatedByFirebaseUid,RequestId)
+ VALUES(@Manual,@Faculty,'2026-11-05','2026-11-06',N'vacation',1,@Actor,NEWID());
 DECLARE @Protected TABLE(Id uniqueidentifier PRIMARY KEY,Version binary(8));
-INSERT @Protected SELECT AfcRecordId,CONVERT(binary(8),AfcVersion) FROM paws.AfcRecord WHERE AfcRecordId IN(@Remote,@Opa,@Manual);
+INSERT @Protected SELECT AfcRecordId,CONVERT(binary(8),AfcVersion) FROM paws.AfcRecord WHERE AfcRecordId IN(@Remote,@Opa)
+ UNION ALL SELECT AfcRecordId,CONVERT(binary(8),AfcVersion) FROM paws.AfcManualRecord WHERE AfcRecordId=@Manual;
 DECLARE @Rows nvarchar(max)=(SELECT r.SourceRow sourceRow,@Name facultySourceName,N'2026-11-05' startDate,N'2026-11-06' endDate,r.Purpose originalLabel,
  CASE WHEN r.SourceRow=4 THEN N'retain_afc' ELSE N'working_candidate' END treatment,JSON_QUERY(N'[]') issues
  FROM(VALUES(2,N'CCC Day'),(3,N'Remote Work (approved)'),(4,N'OPA'))r(SourceRow,Purpose) FOR JSON PATH);
@@ -94,7 +96,7 @@ DELETE @Response;INSERT @Response EXEC paws_api.CommitCalendarActivityImport @Ac
 DECLARE @Receipt uniqueidentifier=(SELECT TRY_CONVERT(uniqueidentifier,JSON_VALUE(responseJson,'$.receiptId')) FROM @Response);
 IF @Receipt IS NULL OR (SELECT InsertedCount FROM paws.CalendarActivityImportReceipt WHERE ReceiptId=@Receipt)<>1 OR (SELECT DeletedAfcCount FROM paws.CalendarActivityImportReceipt WHERE ReceiptId=@Receipt)<>1
  OR EXISTS(SELECT 1 FROM paws.AfcRecord WHERE AfcRecordId=@Work) OR (SELECT COUNT(*) FROM paws.CalendarActivity WHERE ImportBatchId=@Batch)<>1
- OR EXISTS(SELECT 1 FROM @Protected p LEFT JOIN paws.AfcRecord a ON a.AfcRecordId=p.Id WHERE a.AfcRecordId IS NULL OR CONVERT(binary(8),a.AfcVersion)<>p.Version)
+ OR EXISTS(SELECT 1 FROM @Protected p LEFT JOIN (SELECT AfcRecordId,AfcVersion FROM paws.AfcRecord UNION ALL SELECT AfcRecordId,AfcVersion FROM paws.AfcManualRecord) a ON a.AfcRecordId=p.Id WHERE a.AfcRecordId IS NULL OR CONVERT(binary(8),a.AfcVersion)<>p.Version)
  THROW 54590,'Work-only commit changed retained Remote work, OPA or manual AFC.',1;
 IF (SELECT COUNT(*) FROM staging.CalendarActivityImportItem WHERE ImportBatchId=@Batch AND Status=N'quarantined')<>12
  OR (SELECT COUNT(*) FROM paws.CalendarActivityRecoveryRow WHERE ReceiptId=@Receipt)<>1

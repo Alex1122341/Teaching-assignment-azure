@@ -154,3 +154,11 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .reference-bubble-content{display:block;margin-top:6px;padding:10px 12px;border:1px solid #d5dce4;border-radius:10px;background:#fff;box-shadow:0 3px 12px rgba(28,45,65,.08);max-width:48rem;white-space:normal;overflow-wrap:anywhere;color:#526174;user-select:text}
 .doe-profile-source{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding:7px 10px}
 @media print{.reference-bubble-content{display:block!important;box-shadow:none}.reference-bubble>summary{border:0;padding:0}}
+
+/* The three-column teaching summary fits inside the selected Faculty profile. */
+.data-table.doe-excel-summary-table{min-width:0;table-layout:fixed}
+.doe-excel-summary-table th,.doe-excel-summary-table td{white-space:normal;overflow-wrap:anywhere}
+.doe-excel-summary-table thead th:first-child{width:46%}
+.doe-excel-summary-table thead th:nth-child(2){width:30%}
+.doe-excel-summary-table thead th:last-child{width:24%}
+.doe-excel-summary-table tbody th{position:static}

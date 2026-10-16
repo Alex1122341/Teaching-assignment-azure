@@ -9,9 +9,10 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// Scheduling Tasks is current. ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
+// Selected Schedule Export is current. Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca';
+const BASELINE_COMMIT='bb6b86611a1c9eba2479f158ba864d63626b0b4d';
+const SCHEDULING_PRODUCT_COMMIT='a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca';
 const ADFA_PRODUCT_COMMIT='0f81c3e0b7e63a9b9357755b7e957406018894fd';
 const CALENDAR_PRODUCT_COMMIT='7526e86f295de062c228fb1ddee2f007706285c2';
 const AFC_LAB_PRODUCT_COMMIT='fb2c625745957fa7d9990033f15a7b1ef91974a5';
@@ -47,15 +48,27 @@ function baselineJson(ref){
 const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:commit,readManifest:()=>baselineJson(commit)});
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
-test('Scheduling Tasks freeze pins the reviewed product and preserves exact static and API coverage',()=>{
- assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
- assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
- const before=historicalStaticPaths(ADFA_PRODUCT_COMMIT),after=historicalStaticPaths(BASELINE_COMMIT),oldApi=historicalApiPaths(ADFA_PRODUCT_COMMIT),newApi=historicalApiPaths(BASELINE_COMMIT);
+test('Selected Schedule Export freeze preserves exact static coverage and unchanged API bytes',()=>{
+ const product='bb6b86611a1c9eba2479f158ba864d63626b0b4d',previous='a3dd9ca9e5324cc6889d09c7a0a1ad08993c8bca';
+ assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(baseline.sourceCommit,product);
+ const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
+ assert.equal(before.length,75);assert.deepEqual(after,before);assert.equal(oldApi.length,76);assert.deepEqual(newApi,oldApi);
+ const changed=execFileSync('git',['diff','--name-only',previous,product],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+ assert.deepEqual(changed.filter(file=>after.includes(file)).sort(),['timetable-selection.js','timetable.css','timetable.js']);
+ assert.deepEqual(changed.filter(file=>newApi.includes(file)),[]);
+ for(const file of newApi)assert.equal(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:product,file})),true,file);
+});
+
+test('historical Scheduling Tasks freeze pins the reviewed product and preserves exact static and API coverage',()=>{
+ const historicalSource=execFileSync('git',['show','a356df195c10f0b5464dfaceed2125985f40b8a1:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});
+ const historicalReport=JSON.parse(execFileSync('git',['show','a356df195c10f0b5464dfaceed2125985f40b8a1:tools/beta-baseline.json'],{cwd:root,encoding:'utf8'}));
+ assert.ok(historicalSource.includes("const BASELINE_COMMIT='"+SCHEDULING_PRODUCT_COMMIT+"'"));assert.equal(historicalReport.sourceCommit,SCHEDULING_PRODUCT_COMMIT);
+ const before=historicalStaticPaths(ADFA_PRODUCT_COMMIT),after=historicalStaticPaths(SCHEDULING_PRODUCT_COMMIT),oldApi=historicalApiPaths(ADFA_PRODUCT_COMMIT),newApi=historicalApiPaths(SCHEDULING_PRODUCT_COMMIT);
  assert.equal(before.length,75);assert.equal(after.length,75);assert.equal(oldApi.length,73);assert.equal(newApi.length,76);
  assert.deepEqual(before.filter(file=>!after.includes(file)),[]);assert.deepEqual(oldApi.filter(file=>!newApi.includes(file)),[]);
  assert.deepEqual(after.filter(file=>!before.includes(file)),[]);
  assert.deepEqual(newApi.filter(file=>!oldApi.includes(file)).sort(),['server/src/data/sql-scheduling-task-repository.js','server/src/runtime/swa-scheduling-task-functions.js','server/src/scheduling/scheduling-task-api.js']);
- const changed=execFileSync('git',['diff','--name-only',ADFA_PRODUCT_COMMIT,BASELINE_COMMIT],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+ const changed=execFileSync('git',['diff','--name-only',ADFA_PRODUCT_COMMIT,SCHEDULING_PRODUCT_COMMIT],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
  assert.deepEqual(changed.filter(file=>after.includes(file)).sort(),['paws-data-client.js','timetable.js','workspace-tasks.js','workspace.css']);
  assert.deepEqual(changed.filter(file=>newApi.includes(file)).sort(),['server/src/data/sql-scheduling-task-repository.js','server/src/data/write-gates.js','server/src/runtime/swa-scheduling-task-functions.js','server/src/runtime/swa-sql-runtime.js','server/src/scheduling/scheduling-task-api.js']);
 });
@@ -94,7 +107,7 @@ test('Calendar activity freeze promotion preserves AFC LAB coverage and names th
 });
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the Scheduling Tasks product baseline',()=>{
+test('beta identity is pinned to the Selected Schedule Export product baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://tester-teaching.web.app');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -292,7 +305,7 @@ test('W1H protected static and API paths retain W1F coverage and historical byte
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the ADFA SWAP product frozen runtime reports zero protected drift',()=>{
+test('the Selected Schedule Export product frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
@@ -315,7 +328,7 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 75 current protected files are byte-identical to the immutable Scheduling Tasks product blobs',()=>{
+test('all 75 current protected files are byte-identical to the immutable Selected Schedule Export product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
   assert.equal(protectedFiles.length,75);
   for(const name of protectedFiles){
@@ -587,7 +600,7 @@ test('beta-baseline.json remains non-authoritative and records the stabilized Be
 });
 
 // G. Dual-runtime baseline ---------------------------------------------------
-test('API freeze shares the promoted Scheduling Tasks static baseline and has zero runtime drift',()=>{
+test('API freeze shares the promoted Selected Schedule Export static baseline and has zero runtime drift',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   assert.equal(apiFreeze.BASELINE_COMMIT,BASELINE_COMMIT);
   assert.equal(apiFreeze.BASELINE_COMMIT,freeze.BASELINE_COMMIT);

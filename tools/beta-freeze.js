@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed bounded Calendar import timeout is the immutable trust anchor.
+// Reviewed work/Away classification revision is the immutable trust anchor.
 // Prior AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='0be7e75c483b497cc566c24a3d9366ad32827f8c';
+const BASELINE_COMMIT='3d983cf317147a20415e8e5cfd0d3f17532af27f';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

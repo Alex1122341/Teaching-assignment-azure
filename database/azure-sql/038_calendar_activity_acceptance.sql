@@ -21,6 +21,12 @@ INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,
 VALUES(N'calendar-test-admin',N'admin@example.test',N'Synthetic Admin',N'owner',NULL,1,0),
 (N'calendar-test-faculty',N'faculty@example.test',N'Synthetic Faculty',N'faculty',@Faculty,1,0);
 INSERT paws.SwapCandidate(FacultyId) VALUES(@Faculty),(@Other);
+DECLARE @EmptyResponse table(responseJson nvarchar(max));
+INSERT @EmptyResponse EXEC paws_api.ListCalendarActivities @ActorFirebaseUid=N'calendar-test-faculty',@StartDate='2026-05-01',@EndExclusive='2026-05-02';
+DECLARE @EmptyJson nvarchar(max)=(SELECT responseJson FROM @EmptyResponse);
+IF JSON_QUERY(@EmptyJson,'$.activities') IS NULL OR JSON_QUERY(@EmptyJson,'$.activities')<>N'[]'
+ THROW 53890,'An authorized empty Calendar range must return an activities array.',1;
+PRINT 'CALENDAR_ACTIVITY_EMPTY_RANGE_OK';
 INSERT staging.AfcRecordRaw(ImportBatchId,ImportRowId,SourceRowNumber,FacultySourceName,StartDate,EndDate,Purpose,RawJson,ValidationStatus,ValidationErrorsJson)
 VALUES(@Batch,@Raw,2,N'Former Synthetic','2026-11-05','2026-11-06',N'CCC Day',N'{}',N'valid',N'[]');
 INSERT paws.AfcRecord(AfcRecordId,FacultyId,StartDate,EndDate,Purpose,Active,SourceImportBatchId,SourceRow)

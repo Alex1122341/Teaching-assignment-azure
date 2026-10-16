@@ -1,3 +1,94 @@
+## Owner directs acceptance then release with existing Beta identity — 2026-10-15
+
+Latest explicit instructions: all current development proceeds without requiring a new dedicated University runtime account; publish once acceptance passes, and focus acceptance now. This supersedes the dedicated-account prerequisite for this controlled Beta milestone in earlier decisions/release notes. Use the existing authorized environment; do not claim least privilege was verified or change account credentials/authority. Future production identity hardening remains debt. Exact integrated-main CI/artifact, coherent API/Hosting cutover, live acceptance, independent domain gates and rollback remain required. The owner has already authorized merge/publication of accepted scope; no repeat permission question is needed. Fresh source-bound Calendar/AFC import and permanent counterpart deletion remain a separate operation requiring exact preview/recovery acceptance. PR103 stays separate. Do not advance Task04 during this acceptance/release phase.
+
+## Current 25-task checklist — 2026-10-15
+
+Owner-facing local tracker: C:/Users/xinyu.zhu1/Desktop/PAWS进度管理/outputs/paws-20261015/PAWS任务进度.xlsx. It contains all25 tasks and15 outstanding acceptance items, with separate candidate/release/migration status. Update this existing workbook when progress changes, preserving manual reviewer/date/result entries. This is a manually maintained local file, not an automatic GitHub/live-state feed.
+
+This is the current evidence-based status, superseding the initial2026-10-14 assessment where noted. Candidate acceptance is not a live release. Fresh PR/CI/artifact/SQL-health observations are recorded in updates/2026-10-15-task03-technical-candidate-accepted.md. Task03 technical candidate acceptance advanced; no merge or release occurred.
+
+| Task | Scope | Current progress | Remaining work |
+|---|---|---|---|
+| 01 | Teaching Assignment SWAP | ADFA enhancement remains accepted candidate PR99. Independent full-directive audit S01 NOT PASSED: source exists but complete faculty/multi-office/search/concurrency/history evidence is missing | Fill specific gaps in docs/task01-acceptance-gaps-20261015.md; do not count ADFA extension as full Task01 acceptance; release remains separate |
+| 02 | Scheduling conflicts and Tasks | Development candidate accepted in draft PR100; independent product/governance review, SQL races, CI and artifact verification complete | Live prerequisites, authorized merge/release and live acceptance |
+| 03 | Selected course/session export | Technical candidate accepted in draft PR104 (stacked on100); product bb6b866, separate reviewed governance e76878c;29/29 focused incl9Chrome, exact-candidate CI38838908757 and downloaded artifact12020660903 verified | Actual user/live acceptance and coordinated release after accepted stack integration; no Task04 continuation |
+| 04 | VISC Calendar filters | Initial audit complete; no dedicated implementation yet | Confirm authoritative subject/session mappings, then filter UI/API; initial coverage incomplete |
+| 05 | HICC/VISC directory button | Existing responsibility/assignee foundations audited | Sanitized searchable directory and button; verify authoritative assignment coverage |
+| 06 | Active Roles & Appointments Calendar tab | Existing appointment-period foundations audited | Public-field projection, read-only tab/filter and temporal/privacy acceptance |
+| 07 | VISC faculty lookup | Existing lookup and authority foundations audited | Verified VISC associations and multiselect; no inferred specialty mappings |
+| 08 | Faculty lookup table/export | New requested flow not implemented | Selected/all copy, CSV/XLSX, sorting and authorized public-field export; depends07 |
+| 09 | My Change History export | Legacy shell/audit foundations exist | SQL affected-faculty history projection and export, coverage notice and privacy tests |
+| 10 | Faculty-visible timetable Changes | New requested tab not implemented | Durable sanitized SQL history, Changes tab and authorized scope |
+| 11 | Change-history filters/downloads | Legacy filtering foundations exist | Shared SQL filters and CSV/XLSX; depends09/10 and confirmed VISC mapping |
+| 12 | AFC form upload | Existing generated-artifact foundation only | Separate authenticated upload/preview/download lifecycle and permission acceptance |
+| 13 | Working activities out of AFC | Exact-match atomic Calendar/AFC migration candidate reviewed/tested in draft PR98; release preparation accepted | Fresh live source-bound preview, runtime/recovery prerequisites, separate migration authorization and live acceptance |
+| 14 | CCC Excel full replacement | Shared parser/range/staging foundations implemented by PR98 | Separate complete dataset/year replacement semantics, implementation and acceptance; PR98 is not full replacement |
+| 15 | Course Calendar full replacement | Existing import foundations audited; new replacement flow not implemented | Staged atomic replacement capability with protected-reference checks; owner instructed no current data replacement |
+| 16 | Fourth-year rotation Calendar | Shared working-range Calendar/profile/availability candidate accepted in PR98 | Release/import acceptance and confirmation of remaining full rotation fields/coverage; missing times/groups stay explicit |
+| 17 | Rotation full replacement + AFC cleanup | Shared atomic exact-counterpart migration foundation in PR98 | Complete replacement scope/dataset semantics and acceptance; full replacement not yet delivered |
+| 18 | Faculty trainee breakdown | Existing supervision snapshot/worksheet foundations audited | Category/count/year/source presentation and own/admin privacy acceptance |
+| 19 | All-faculty trainee report | Aggregate foundations exist | Confirm Tosin source/categories/format, consolidated report and exports |
+| 20 | Special activities/exceptions report | Existing allocations/exceptions foundations audited | Approved workload-source coverage and report; activity dates alone are not DOE evidence |
+| 21 | DOE override report/export | Existing override/adjustment sources audited | Unified source-discriminated report and safe exports, preserving additive/replacement semantics |
+| 22 | DOE reconciliation | PR101 architecture refresh and PR102 DOE_MAPPING merged; three calculation/output paths documented. Prior DOE handoff and separate draft PR103 UI candidate are recorded, not backend migration acceptance | Read-only same-Faculty/year/source/API/UI reconciliation, fresh Active-policy/source verification, Reserve/override/dedup/missing-evidence checks. PR103 review/governance/CI/browser remain separate; no policy publication/global recalc |
+| 23 | Visual query builder | New requested subsystem not implemented | Approved field registry, typed bounded query model and authorization design |
+| 24 | Report source selection | Domain readers exist; unified registry missing | Approved source/adaptor registry with row/field scope and provenance |
+| 25 | Report preview/columns/download | New builder output not implemented | Preview/export parity, column order/sort/copy/CSV/XLSX and limits; depends23/24 |
+
+Task03 technical candidate is accepted after independent product/fix-pass and separate governance, exact-candidate full CI and downloaded-artifact checks. Current workbook saved/verified25tasks/18acceptance items/4passed/14open;2tasks have fully accepted technical candidates (02/03), while01/13/16 remain partial-scope candidates. Actual E05user/live acceptance and release are pending. Owner now explicitly authorizes release after acceptance using the existing Beta identity; the new dedicated account is no longer a prerequisite. Stack integration and activity recovery/fresh exact source confirmation remain prerequisites; historical counts never authorize deletion. Task22 status uses merged101/102 plus prior handoff; separate103runtime remains untouched. No Task04 implementation.
+
+## Task03 local responsive export slice verified; stop at this small stage — 2026-10-15
+
+Owner approved the bounded design/TDD and later requested stopping after this current small stage. On feat/selected-schedule-export-20261015 / HEAD fcb2bda, initial export model/modal and desktop/mobile layout are local/uncommitted. Focused22/22 including5 actual Chrome tests passed. Whole-feature review, remaining authorization/paging/race acceptance, separate governance, candidate CI/artifact and PR remain future work. No Task04 continuation until requested. See updates/2026-10-15-task03-responsive-slice.md; preserve external untracked SQL fixture and prior accepted draft stack.
+
+Full local npm test869:823pass/44skips/2fail, both immutable static-freeze assertions for current unpromoted runtime changes. Do not bypass/promote governance in this small stage.
+
+## Historical: Task03 repository reviewed; short design pending — 2026-10-15
+
+Now on separate branch feat/selected-schedule-export-20261015 from6ab3a52 (Task02 accepted candidate a356df1 plus docs only). Six-part review is docs/selected-schedule-export-review-20261015.md. Existing CSV/filter/selection/authorized reads are reusable; add read-only selection/preview and safe public CSV projection after the pending bounded-design approval. No Task03 product changes. Resume updates/2026-10-15-task03-repository-review.md. PR100 remains accepted draft/unmerged/undeployed; original plan workspace retained after automatic cleanup rejection, with verified Temp evidence copy.
+
+## Task02 candidate accepted; Task03 next — 2026-10-15
+
+Tested candidate a356df1, immutable product a3dd9ca; draft PR100 remains unmerged/undeployed, stacked on99/98. Independent governance retry returned Ready with no findings. Exact-candidate Beta Build38806801078 and SQL38806807330 SUCCESS; root821pass/39skips, server609pass/4skips, emulator853pass/7browser skips, governance58/58; actual Chrome/adapter9/9 separate. Downloaded artifact12006518723 digest/inventories/static+API freezes verified. Resume updates/2026-10-15-task02-candidate-acceptance.md. Dedicated University service identity and explicit release authorization remain outstanding. Continue Task03 existing selected-schedule export flow, beginning with six-part repository review and short bounded design; preserve edit restrictions and safe public CSV fields. No grilling.
+
+## Task02 review fixes verified; freeze review unavailable — 2026-10-15
+
+Product a3dd9ca pushed to draft PR100; four Important findings reproduced and fixed. Actual SQL38771955259 SUCCESS, Chrome/real-adapter9/9, server610pass/3environment skips. Proposed governance tests69/69 and sequential full root821pass/39environment skips/0fail. Canonical local static/API builds and repository/artifact freezes pass (75static/76API,79API protected paths);153-file inventory checked. Independent freeze reviewer failed on workspace credits before final report; preserve uncommitted governance draft and do not promote it. Final exact-head CI/emulator/downloaded artifact remains after review; Java unavailable locally. Resume updates/2026-10-15-task02-review-fixes-and-governance-hold.md. No live operation.
+
+## Task02 product implemented; independent review active — 2026-10-15
+
+Draft PR100, branch feat/scheduling-conflict-tasks-20261015, review base b53c23e/product277a51c. SQL detection/review, seven observed races and guarded rollback passed38769250842; API focused46/46, full Windows server610pass/613 with3environment skips, actual Chrome UI5/5. Root suite still finishing; immutable governance not promoted. Reviewer /root/review_scheduling_tasks is active; preliminary possible empty-assignment review-evidence gap awaits final review/fix pass. Supplemental identity-quality SQL tests being added. Resume updates/2026-10-15-task02-product-review-active.md and this plan's ledger. No live operation; preserve external fixture and earlier Calendar workspace.
+
+## Task02 design approved; implementation plan ready — 2026-10-15
+
+Owner approved written design and ADFA-only review. Five-task plan docs/superpowers/plans/2026-10-15-scheduling-conflict-tasks-implementation.md is self-reviewed and awaits concrete plan approval. Sequential native execution plus final independent review already selected. No product/live changes. Resume updates/2026-10-15-task02-implementation-plan.md; do not repeat design approval or ask for execution method again.
+
+## Task02 written design ready for owner review — 2026-10-15
+
+On feat/scheduling-conflict-tasks-20261015 from b53c23e, repository review and proposed design are saved in docs/superpowers/specs/2026-10-15-scheduling-conflict-tasks-design.md. Extend existing Tasks with scoped SQL issues and review metadata; reviewed unresolved issues stay visible. ADFA-only review authority is proposed. Existing SWAP availability scalar cannot classify all unknown times as Task02 confirmed conflicts. Written-design review pending; no implementation plan/product code/live operations. Resume updates/2026-10-15-task02-written-design.md. Preserve external untracked SQL fixture and accepted PR98/99 work. No grilling.
+
+## ADFA SWAP candidate accepted; Task02 next — 2026-10-15
+
+ADFA current/projected DOE and availability extension is implemented and independently reviewed in draft PR99, stacked on PR98. Product0f81c3e; separate reviewed governancec6dab5d. Exact-head Beta38678006715, SQL38678006632 and migration38678007053 passed; emulator849/849, thirteen observed SQL races and ADFA read-preview/rollback accepted. Static75/API73 runtime files protected. Downloaded artifact digest and both freezes verified. See updates/2026-10-15-adfa-swap-acceptance.md. No merge or live release; dedicated least-privilege principal prerequisite remains unresolved. Next: extend existing Tasks for Task02 after repository reuse/gap review. Owner permits essential questions, prohibits grilling, and requests automatic continuation. Preserve external untracked SQL fixture and prior Calendar live-phase workspace.
+
+## Calendar review and release preparation accepted — 2026-10-14
+
+Tasks1–6 complete; Task7 review/preparation accepted, live release/data phase incomplete. Owner confirmed no dedicated Windows service account and requested preparation only. Accepted runtime7526e86, independently reviewed governance9f4290d plus test-only correction9202ad0. Candidate CI38671919004 passed root799/831+32 skips, server588/590+2 skips, full Auth/Firestore831/831 zero skips, build/container/freeze; SQL38671919009 passed13 real races and guarded rollback. Windows server589/590+1 SQL skip; positive Windows ACL acceptance.74 static/73 API runtime files protected. Read updates/2026-10-14-2045-calendar-review-release-preparation.md and docs/calendar-working-activities-release-20261014.md. Draft PR98 unmerged; no live schema/data/role/gate/release change. Dedicated least-privilege principal, private recovery destination, fresh exact preview and separate authorizations remain prerequisites. Preserve ledger/workspace and unrelated untracked fixture; do not repeat completed implementation/review/archive/row812/prior release.
+## Calendar activity implementation active — 2026-10-14
+
+Tasks1–6 complete on feat/calendar-working-activities-20261014 / draft PR98; Task7 whole-module acceptance, fresh independent review and release preparation in progress. Actual SQL038–041 and eleven two-connection wait proofs passed38643556361; full server588pass/1SQL-environment skip. Calendar SQL range lane, authorized profile schedule and gated admin preview implemented, latest focused closure99/99. Whole root suite is not yet green: six old freeze checks await separately reviewed governance; other initial failures were corrected and focused-tested. No new live mutation or publication. Resume updates/2026-10-14-1610-calendar-activity-ui-acceptance.md and the canonical plan ledger. Preserve all rulings; continue final review and concrete release/source approvals.
+
+## Historical: Calendar activity design approved; plan review pending — 2026-10-14
+
+Owner approved PR97's written range-activity design and requested the implementation plan. Seven-task plan docs/superpowers/plans/2026-10-14-calendar-working-activities-implementation.md is ready and self-reviewed, with exact source-bound staging/atomic commands, activity-aware SWAP snapshots/locks, scoped API/Calendar/profile UI, synthetic acceptance and separate reviewed release/data operation. Proposed Native execution plus independent whole-branch review; owner plan review/method selection pending under writing-plans. No product code or live operation this turn. Draft PR97 remains documentation only. Runtime ca465bf/trustfb2c625 unchanged. Resume updates/2026-10-14-1040-calendar-activity-plan.md; do not repeat archived-person or prior release work.
+
+## Full directive audit, source exclusions and Archive — 2026-10-14
+
+Current task is the owner-selected Teaching-assignment-azure / Beta full25-task directive. Branch docs/paws-directive-assessment-20261014 from main0d4b4d9. Full matrix and first activity-import design are independently reviewed in draft PR97; documentation commit ad01271. No new product implementation/merge/release. Runtime remains ca465bf/trustfb2c625. Source workbook hash4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF; raw812 rows, OPA retained, actual work moves to Calendar atomically with exact AFC deletion, Course Calendar capability only. Four rows of one departed unmatched person are excluded by owner; no new active identity. Refreshed SELECT-only reconciliation still541 exact work targets; previously-new retained row812 nowexists. Concurrent AFC changes require fresh commit preview.
+
+One owner-authorized existing Faculty archive completed with original SQL guards/audit through a parameterized admin batch. Active119/inactive2, one archive audit; Sessions1937/Assignments4970 unchanged; Chrome Inactive Faculty proof saved. Existing DeactivateFaculty stored metadata has QUOTED_IDENTIFIER0, causing SQL1934/API503; no module/schema repair or gate/permission expansion performed. Do not repeat archive. See updates/2026-10-14-1015-full-directive-source-and-archive.md. Next: review written activity design, then plan; separately prepare reviewed Faculty SQL metadata correction.
+
 # Current PAWS Beta task chain — 2026-10-15
 
 **Evidence boundary:** Beta main 0d4b4d9; last documented live API/Hosting ca465bf (2026-10-14). This is a documentation-only reconciliation, **not owner approval to merge/deploy/run live SQL**. Historical task chain is retained below.

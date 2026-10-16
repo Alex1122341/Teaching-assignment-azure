@@ -1,5 +1,36 @@
 # PAWS Locked Decisions
 
+## Owner directs acceptance then release with existing Beta identity — 2026-10-15
+
+Latest explicit instructions: all current development proceeds without requiring a new dedicated University runtime account; publish once acceptance passes, and focus acceptance now. This supersedes the dedicated-account prerequisite for this controlled Beta milestone in earlier decisions/release notes. Use the existing authorized environment; do not claim least privilege was verified or change account credentials/authority. Future production identity hardening remains debt. Exact integrated-main CI/artifact, coherent API/Hosting cutover, live acceptance, independent domain gates and rollback remain required. The owner has already authorized merge/publication of accepted scope; no repeat permission question is needed. Fresh source-bound Calendar/AFC import and permanent counterpart deletion remain a separate operation requiring exact preview/recovery acceptance. PR103 stays separate. Do not advance Task04 during this acceptance/release phase.
+
+## Acceptance and conditional release scope — 2026-10-15
+
+Owner authorized accepting currently reviewable items then publishing, then explicitly confirmed the dedicated least-privilege University service account is not prepared and selected independent acceptance first. No db_owner exception is implied. Frontend server migration only is deferred; existing Firebase UI may still be accepted/published once prerequisites hold. Task03 technical candidate is accepted; actual user/live publication remains pending. Full Task01 cannot be marked complete because its narrow ADFA extension passed. Task22 status uses merged docs101/102 and prior handoff/separate103 candidate; do not modify unrelated DOE UI or publish/recalculate policy. Keep account/source-migration prerequisites and stack integration visible.
+
+## Task03 bounded design approved; small-stage stopping point — 2026-10-15
+
+Owner approved read-only multi-course/session selection in the existing export modal, exact selected public-field preview, chronological CSV, unavailable VISC marked Not provided, and the proposed TDD seams. Preserve API-resolved scope and existing edit restrictions. Later the owner corrected the stopping scope to the current small stage, then resumed; complete responsive layout/interaction verification and record the breakpoint, without automatically advancing full Task03 acceptance or Task04. No new merge/live-operation authorization.
+
+## Task02 candidate accepted and continuation — 2026-10-15
+
+Independent freeze review resumed successfully on one retry, with no account/billing/model/auth changes, and returned Ready without findings. Separate governance a356df1 protects product a3dd9ca; exact-candidate full Build38806801078/SQL38806807330 and downloaded artifact12006518723 accepted. PR100 remains draft/stacked/unmerged. Continue Task03 selected course/session schedule export using existing authorized reads/selection/CSV flow, preserving disabled batch edits, privacy projection and formula safety; no implementation before its bounded design approval. Dedicated runtime identity and directed release authorization remain separate prerequisites.
+
+## Scheduling review recreation and governance hold — 2026-10-15
+
+Owner approved a targeted amendment to the Task02 no-trigger plan: one transaction-bound SessionAssignment trigger maintains only retained assignment-version metadata. It covers empty→assigned→empty, unresolved changes and supported Undo, without changing business fields, DOE, grants or the support-capture registry. Product a3dd9ca passed actual SQL38771955259, browser/real-adapter9/9 and server610pass/3environment skips after four independent Important findings were reproduced and fixed. Separate immutable-freeze review failed on workspace credits before a final report; its preliminary progress is not acceptance. Keep the local governance promotion uncommitted until independent review completes. No new merge/live operation authorization.
+
+## ADFA preview acceptance and automatic continuation — 2026-10-15
+
+ADFA uses authenticated read-only server DOE projection and SQL availability; no browser workload calculation or new apply authority. Candidate name search uses existing fields; missing specialty data is not invented. Product0f81c3e and independent governancec6dab5d accepted after synthetic UI/API/SQL checks. Continue sequentially to Task02; owner now permits essential questions but forbids grilling. Existing review/preparation-only release boundary and least-privilege account prerequisite remain in effect.
+
+## Calendar candidate review accepted; preparation-only boundary — 2026-10-14
+
+Owner confirmed dedicated Windows service account is not prepared and directed review/release preparation first. Accepted product7526e86 includes complete-current AFC target-set revalidation under locks and category context before permanent-delete confirmation. Separate reviewed governance protects immutable7526e86 with74 static/73 API runtime paths (76 API protected inputs), no exceptions or removed paths; deployment assertion9202ad0 follows that same anchor. Candidate CI and synthetic SQL/rollback acceptance are complete. Dedicated least-privilege runtime identity, restricted recovery storage, fresh live preview and explicit future release/source authorizations remain mandatory; no db_owner exception is authorized for this expansion. Formula-row quarantine vs workbook rejection and Reset defaults remain disclosed deferred minors. Task7 is not complete until release/source operation acceptance; retain workspace/rulings.
+## Approved Calendar working-activity design and sequential plan — 2026-10-14
+
+Owner approved PR97 design and the seven-task plan, choosing root sequential execution with one final independent whole-branch review. Preserve actual inclusive dates, no guessed course/year/clock/weekdays. OPA/leave/travel remain AFC; exact known work counterparts move atomically with receipt and restricted recovery. Missing per-day work timing yields Needs Review and blocks automatic SWAP apply even for Owner/Developer, including combined known conflicts. Departed-source exclusions remain hash/row-bound; no new identity is fabricated. Source deletion, live permission/gate activation and coordinated release require fresh concrete acceptance/approval after implementation. Current source of work remains Teaching-assignment-azure / Beta.
+
 ## Status reconciliation — 2026-10-15 (documentation only; no new owner decision)
 
 Read older headings below as decisions **within their dated milestone**. The later owner-approved work, current implementation, and dated deployment receipts supersede old descriptions of what was still prohibited or unimplemented:
@@ -232,3 +263,15 @@ Do not reuse these without re-verification:
 
 ## 2026-10-09 — owner-directed Faculty / annual DOE administration
 Owner approved reference Faculty Lookup/Edit and full annual Rule Book lifecycle, retaining negotiated signed manual DOE separately, and instructed publication. This supersedes earlier P1 exclusions for the specifically accepted Faculty/DOE admin, policy publication and recalculation operations. Existing API role checks, audit, draft validation/impact revisions and explicit action confirmations remain. Deployment itself does not activate annual policies or recalculate allocations. Deferred Master targets remain blank. SQL writes use valid nvarchar(max); clone version+contents+audits are atomic. Immutable freeze promotion902a6cc is separately reviewed.
+
+## Owner source and departed faculty decisions — 2026-10-14
+
+- Continue Teaching-assignment-azure / Beta under the full development directive.
+- Actual working activities in the supplied AFC tracker move to Calendar, with exact matched AFC permanently removed in an atomic reviewed operation. OPA remains AFC with travel/vacation/RSL/leave.
+- Course Calendar full replacement capability is requested; current Course Calendar data must not be replaced yet.
+- Four rows belonging to the departed unmatched source person are excluded; do not create an active identity. Archive existing departed Faculty using Inactive Faculty/Restore, preserving history and accounts. One requested existing archive completed and verified; no authorization for unrelated accounts or people follows from it.
+- New module migration/release remains separately reviewable; prior PR94 approval is not blanket authorization.
+
+## Owner approves range-activity written design — 2026-10-14
+
+The owner approved the written CalendarActivity design in PR97 and directed implementation planning. The first module uses SQL date ranges integrated into Calendar and faculty schedules with unknown time marked Needs Review before exact AFC cleanup. This approves design and plan preparation; implementation-plan review/execution selection and later live release/migration authorizations remain separate.

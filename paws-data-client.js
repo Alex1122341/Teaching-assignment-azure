@@ -169,6 +169,12 @@
 
     return Object.freeze({
       swapCapabilities:()=>request('/api/v1/swaps/capabilities'),
+      async swapFacultyPreview({sessionId,assignmentId,candidateKey,snapshotToken}={}){
+        const query=new URLSearchParams({sessionId:String(sessionId||''),assignmentId:String(assignmentId||''),snapshotToken:String(snapshotToken||'')});
+        if(candidateKey)query.set('candidateKey',String(candidateKey));
+        const body=await request('/api/v1/swaps/faculty-preview?'+query.toString());
+        return body.preview&&typeof body.preview==='object'&&!Array.isArray(body.preview)?body.preview:{};
+      },
       swapContext(sessionId){
         const id=String(sessionId??'').trim();if(!id)throw new Error('sessionId is required.');
         return request('/api/v1/swaps/context?'+new URLSearchParams({sessionId:id}));
@@ -535,6 +541,21 @@
         }});
         return {requestId:body.requestId||String(input.requestId??''),idempotentReplay:body.idempotentReplay===true,rows:Array.isArray(body.rows)?body.rows:[]};
       },
+      schedulingTasks(input={}){
+        const query=new URLSearchParams();for(const key of ['academicYear','start','end','undated','facultyKey','courseCode','type','reviewStatus','cursor','limit'])if(input[key]!==undefined&&input[key]!==null&&input[key]!=='')query.set(key,String(input[key]));
+        return request('/api/v1/scheduling-tasks'+(query.size?'?'+query.toString():''));
+      },
+      reviewSchedulingTask(issueKey,input={}){return request('/api/v1/scheduling-tasks/'+encodeURIComponent(String(issueKey))+'/review',{method:'POST',body:pickFields(input,['academicYear','expectedEvidenceVersion','expectedReviewVersion','reviewStatus'])});},
+      async listCalendarActivities(input={}){
+        const query=new URLSearchParams();for(const key of ['start','end','facultyKey','category','cursor','limit','includeFacultyKeys'])if(input[key]!==undefined&&input[key]!==null&&input[key]!=='')query.set(key,String(input[key]));
+        return request('/api/v1/calendar-activities'+(query.size?'?'+query.toString():''));
+      },
+      calendarActivityCapabilities(){return request('/api/v1/calendar-activities/capabilities');},
+      stageCalendarActivityImport(input={}){return request('/api/v1/calendar-activity-imports',{method:'POST',body:pickFields(input,['requestId','sourceSha256','fileName','fileBase64'])});},
+      getCalendarActivityImport(batchId){return request('/api/v1/calendar-activity-imports/'+encodeURIComponent(String(batchId)));},
+      previewCalendarActivityImport(batchId,input={}){return request('/api/v1/calendar-activity-imports/'+encodeURIComponent(String(batchId))+'/preview',{method:'POST',body:pickFields(input,['expectedVersion'])});},
+      commitCalendarActivityImport(batchId,input={}){return request('/api/v1/calendar-activity-imports/'+encodeURIComponent(String(batchId))+'/commit',{method:'POST',body:pickFields(input,['expectedVersion','manifestSha256','sourceSha256','idempotencyKey','confirm'])});},
+      resolveCalendarActivityTime(activityId,input={}){return request('/api/v1/calendar-activities/'+encodeURIComponent(String(activityId))+'/time-evidence',{method:'POST',body:pickFields(input,['expectedVersion','date','startTime','endTime','evidenceRef','evidenceNote'])});},
       async listAfcRequests(){
         const body=await request('/api/v1/afc-requests');
         return Array.isArray(body.afcRequests)?body.afcRequests:[];

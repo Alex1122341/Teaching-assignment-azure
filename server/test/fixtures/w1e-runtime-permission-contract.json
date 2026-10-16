@@ -112,6 +112,7 @@
     "paws.ManualDoeAssignment"
   ],
   "swapReadProcedures": [
+    "paws_api.GetAdfaSwapFacultyPreview",
     "paws_api.GetSessionSwapContext",
     "paws_api.GetSessionSwap",
     "paws_api.GetSessionSwapQueue"
@@ -124,6 +125,14 @@
     "decision": [
       "paws_api.DecideSessionSwap"
     ]
+  },
+  "schedulingReadProcedures": ["paws_api.ListSchedulingTasks"],
+  "schedulingWriteSets": {"schedulingTaskReview": ["paws_api.ReviewSchedulingTask"]},
+  "calendarReadProcedures": ["paws_api.ListCalendarActivities", "paws_api.GetCalendarActivityImport"],
+  "calendarWriteSets": {
+    "stage": ["paws_api.StageCalendarActivityImport", "paws_api.PreviewCalendarActivityImport"],
+    "commit": ["paws_api.CommitCalendarActivityImport"],
+    "time": ["paws_api.ResolveCalendarActivityDayTime"]
   },
   "afcCancelWriteSets": {
     "cancel": [

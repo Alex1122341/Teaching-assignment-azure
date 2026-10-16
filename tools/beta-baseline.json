@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "9898266d842912eed8dc95016fa881fa90ba13c4",
+  "sourceCommit": "d049fe0fb4fb51e9fcefab3a4151c2600d3cc074",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -31,7 +31,7 @@
     "faculty-admin.css": "22b7d6732395b631ad36d1f0472b2ebe0f1b56af01acf6df122f9e206e49bb7e",
     "faculty-admin-afc-batch.js": "a57b84ce4942d0549b8c28739899f7a3c998dd97c9c960d7c1d83e920320cb33",
     "faculty-admin.html": "7ddf6b73b12de98c844fbca2709b5ec1f85a81d30c4b5cf32cf7f4c7e61ae725",
-    "faculty-admin.js": "57294604ffcfc5b7397e30643dbaf54273587a906f79057ccb2c06460693d2b0",
+    "faculty-admin.js": "4d44a6fd2f42860acf9c48960e7d0faf2e6d52943b9f97a6b5b931900bdd4a42",
     "faculty-admin-management.js": "09f2bd9fac442345b551152114891a87f77f44ef1bab96a0f889d71301f4aa0e",
     "faculty-admin-doe-renderer.js": "65a65a863f08ddc9fb01f2f629f7108bcaf8548d98ddee07dc353f3b1854deb3",
     "faculty-admin-doe-edit.js": "eba0c0129290f701c672724e69c24ca8879f61cf2396c78d1e54630347eec204",
@@ -72,7 +72,7 @@
     "workspace-tasks.js": "6e87bba27702b78b185f7b2b970873b5b1ace4f702b6525de99d8630323db3db",
     "workspace.css": "031da8fa7c98c99eea8bf3bf27a7c83de5682eb117a92048082cbdb59782ca99",
     "faculty-role-periods.js": "b4dee985428629d7f09b1434b3269ad219b05d2d3be39fc38512a4c297bb3f80",
-    "faculty-admin-afc-records.js": "476660cccb68abf8b76f1c96e2340a4a219fc3e32f40b5c8e02d10c6c6b2645a",
+    "faculty-admin-afc-records.js": "1bbf0a1e7932f414eea779e6d149ee00c6ed97543e350f817cac3bfb14fd509e",
     "lab-session-detail.js": "54501dd05ef403cf1865bc872c051356514f26262d439797ed36831c382d15f9",
     "calendar-activities.js": "37ff08d693dfda417b1d44c4b5065cdea525c9e3df9816254186eb0b0d46cd22",
     "calendar-activities.css": "1354e99ff316d4d002e52eed2000a88d040a7b649d821c0ac05f8ea42805b5eb",

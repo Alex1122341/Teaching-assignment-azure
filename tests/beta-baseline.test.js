@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // AFC confirmation recovery is current. Prior DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='9898266d842912eed8dc95016fa881fa90ba13c4';
+const BASELINE_COMMIT='d049fe0fb4fb51e9fcefab3a4151c2600d3cc074';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
@@ -51,8 +51,8 @@ function baselineJson(ref){
 const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:commit,readManifest:()=>baselineJson(commit)});
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
-test('AFC confirmation recovery freeze protects only its reviewed two-file delta',()=>{
- const previous=DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT,product='9898266d842912eed8dc95016fa881fa90ba13c4';
+test('AFC confirmation recovery freeze protects only its reviewed three-file delta',()=>{
+ const previous=DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT,product='d049fe0fb4fb51e9fcefab3a4151c2600d3cc074';
  assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(baseline.sourceCommit,product);
  assert.equal(BASELINE_COMMIT,product);
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
@@ -62,7 +62,7 @@ test('AFC confirmation recovery freeze protects only its reviewed two-file delta
  const apiProtected=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
  assert.equal(apiProtected.length,79);
  const changed=execFileSync('git',['diff','--name-only',previous,product],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
- assert.deepEqual(changed.filter(file=>after.includes(file)).sort(),['afc-workflow-sql.js','faculty-admin.js']);
+ assert.deepEqual(changed.filter(file=>after.includes(file)).sort(),['afc-workflow-sql.js','faculty-admin-afc-records.js','faculty-admin.js']);
  assert.deepEqual(changed.filter(file=>apiProtected.includes(file)),[]);
  for(const file of apiProtected)assert.equal(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:product,file})),true,file);
  execFileSync('git',['merge-base','--is-ancestor','d75d8eb97f0172c25deddaeed87327216631ecd6',product],{cwd:root});

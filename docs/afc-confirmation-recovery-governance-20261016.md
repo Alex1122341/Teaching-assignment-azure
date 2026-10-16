@@ -37,18 +37,38 @@ Ready/no remaining findings. No live AFC write was used to manufacture evidence.
 
 ## Separate immutable promotion
 
-The proposed anchor `9898266d` follows released layout product `3cd51ca`. It protects
+The corrected proposed anchor `d049fe0` follows released layout product `3cd51ca`. It protects
 the same 75 static paths and 76 API runtime / 79 API-build-package inputs. The exact
-protected static delta is only `afc-workflow-sql.js` and `faculty-admin.js`;
+protected static delta is only `afc-workflow-sql.js`, `faculty-admin.js` and
+`faculty-admin-afc-records.js`;
 all 79 API-protected files remain byte-identical. The new test was observed RED
 before anchor promotion, then GREEN (1/1, zero skips). Both separate
 governance reviewers returned Ready with no blocking findings. The prior CSS-only promotion is
 independently pinned at governance `4082c625`, the original DOE UI at `7a903318`,
 and all earlier historical anchors remain intact. Reporting JSON changes only
-sourceCommit and the two accepted file hashes, not protection coverage.
+sourceCommit and the three accepted file hashes, not protection coverage.
 
 Full suite, exact candidate/main CI, package comparison, Hosting-only release
 and public/read-only UI verification remain pending at this checkpoint. The
 already accepted #103 / #106 release and workbook status are not undone. No API
 rollout, SQL mutation/import, rules publication, policy publication/recalculation
 or permission/gate change is part of this candidate.
+
+## Corrective review after CI407
+
+Local root and candidate CI407 both reported 911 total, 861 passed, 49 skipped
+and one failure: the existing controller limit was exceeded (60,938 canonical
+LF bytes versus a limit below 60,000). That gate was preserved. Corrective
+product `d049fe0fb4fb51e9fcefab3a4151c2600d3cc074` moves the manual form
+validation, confirmation and uncertainty state into the existing AFC records
+module. The controller is 58,397 bytes; date normalization remains lazy.
+
+Standards review additionally found that the final button update could override
+a refreshed closed write capability. A public DOM-event regression was observed
+RED then GREEN; the button now preserves both the capability and uncertainty
+lock while leaving the saved success message visible. The orphaned controller
+flag was removed. Both corrective product reviews returned Ready, and the 52
+focused public-flow/controller-contract checks passed with zero skips. The
+corrected three-file promotion was observed RED before the new anchor, then
+GREEN (1/1). Its separate governance review and fresh full CI remain required.
+The old candidate was neither merged nor released.

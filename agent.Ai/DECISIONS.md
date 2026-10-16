@@ -31,6 +31,18 @@ Owner confirmed dedicated Windows service account is not prepared and directed r
 
 Owner approved PR97 design and the seven-task plan, choosing root sequential execution with one final independent whole-branch review. Preserve actual inclusive dates, no guessed course/year/clock/weekdays. OPA/leave/travel remain AFC; exact known work counterparts move atomically with receipt and restricted recovery. Missing per-day work timing yields Needs Review and blocks automatic SWAP apply even for Owner/Developer, including combined known conflicts. Departed-source exclusions remain hash/row-bound; no new identity is fabricated. Source deletion, live permission/gate activation and coordinated release require fresh concrete acceptance/approval after implementation. Current source of work remains Teaching-assignment-azure / Beta.
 
+## Status reconciliation — 2026-10-15 (documentation only; no new owner decision)
+
+Read older headings below as decisions **within their dated milestone**. The later owner-approved work, current implementation, and dated deployment receipts supersede old descriptions of what was still prohibited or unimplemented:
+
+- September BETA-R1's "DOE stays in Experimental" and "session writes disabled" were restrictions for that initial connection milestone; by October 8-12 DOE Worksheet, manual adjustment, annual rulebook lifecycle, and approved Faculty/SWAP/session domains were implemented and selectively gated in Beta. Their expansion does not waive per-operation authorization, data provenance or freeze rules.
+- The 2026-10-06 P1 bullets excluding Faculty/DOE/role administration are superseded **only for later specifically approved and released operations**, per the existing 2026-10-09 owner-directed decision at the end of this file. Not a blanket grant to enable all gates.
+- The 2026-10-13 AFC cancellation and LAB decision was released in the 2026-10-14 ca465bf API/Hosting cutover. Delete is soft cancellation with SQL audit and version checks, not permanent data removal.
+- Firebase Hosting + Auth -> temporary Cloudflare ingress -> University Node API -> ITAPPVETOPSDB01 / VetMed-Ops is the documented active Beta; old Azure SWA/Firestore and initial Azure SQL laboratory descriptions are historical. The backend database is university-hosted SQL Server; do not label it Azure SQL solely from the repository name.
+- No new merge, deployment, import, destructive migration or DOE policy publication is authorized by this continuity reconciliation. Open Draft PRs #97-#100 remain candidate-only. No Outlook/D2L Graph/Brightspace integration has been accepted.
+- Immutable product/trust anchor, deployed SHA, PR HEADs, runtime identity/gates and SQL counts are time-varying; historical frozen baseline numbers below apply to their dated release, not all future releases.
+
+
 ## Owner-approved AFC cancellation and LAB layout — 2026-10-13
 
 Within controlled Beta, administrator AFC Delete cancels active availability while retaining records and audit snapshots. It requires a separate default-off server gate, exact manual/import key, SQL administrator authorization and optimistic rowversion. No hard deletion or faculty reason disclosure. Owner approved grouped same-course/date/year LAB tables with true source intervals, explicit missing rotation groups, and original per-row Edit/Manage Instructors/SWAP flows. User explicitly selected Teaching-assignment-azure over the Experimental repository. Candidate PR and directed release acceptance remain required.

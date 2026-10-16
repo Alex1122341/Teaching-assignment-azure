@@ -1,196 +1,78 @@
-# PAWS Architecture
+# PAWS Beta Architecture — current authoritative overview
 
-## 1. Big picture
+**Review baseline:** 2026-10-15 (America/Edmonton), Beta main 0d4b4d9ea2e658719e87f16ef5132b82544bc6c1. This is a documentation snapshot, not a deployment claim. **Last documented live API + Hosting release:** ca465bf1401b457ca3b74048cfaf170bedc7694a (2026-10-14), frozen product/trust anchor fb2c625745957fa7d9990033f15a7b1ef91974a5. Recheck mutable refs and the actual live process before a change.
 
-PAWS is the UCVM Teaching Assignment / Scheduling / Faculty Workload / AFC / workflow system.
+## 1. Two repositories, no implicit synchronization
 
-The project deliberately has two tracks.
+- **Beta / controlled real-user track:** Alex1122341/Teaching-assignment-azure (this repository). Prioritize safety, exact releases, stable data, SQL authority.
+- **Experimental / feature-forward track:** Alex1122341/Teaching-assignment. Investigate reusable code, but port through separately scoped, reviewed work. Never automatically merge its main or PRs into Beta.
+- The old BETA-R1 / Azure Static Web Apps / Firestore runtime descriptions in historical updates record previous phases, **not today's active deployment**.
 
-```text
-                    PAWS
-                     │
-        ┌────────────┴────────────┐
-        │                         │
-Experimental / Demo          Azure Beta
-Teaching-assignment          Teaching-assignment-azure
-        │                         │
-Firebase/Firestore            Azure-hosted Beta frontend
-Feature-forward               stability-sensitive
-DOE engine/algorithm          Azure SQL migration/runtime
-P3.1 experiments              deliberate feature ports
-```
+## 2. Active Beta deployment and data flow
 
-There is no automatic repository parity.
+~~~mermaid
+flowchart TD
+  U[Developer / ADFAD / Faculty / HICC / VISC / ADC / LAB]
+  F[Firebase Hosting: tester-teaching.web.app]
+  UI[Vanilla HTML / CSS / JavaScript]
+  AUTH[Firebase Authentication: ID token]
+  T[Temporary Cloudflare HTTPS Quick Tunnel]
+  NODE[University PAWS Node.js API: Windows loopback host]
+  RBAC[Firebase token verification + paws.UserProfile role and scope]
+  BIZ[Modules: Sessions / Faculty / AFC / SWAP / Teaching Assignments / DOE / Support]
+  DB[SQL Server ITAPPVETOPSDB01 / VetMed-Ops: paws and paws_api]
+  OLD[Limited legacy Firebase / Firestore account and group tooling]
+  U --> F --> UI
+  UI <--> AUTH
+  UI --> T --> NODE --> RBAC --> BIZ --> DB
+  UI -. legacy account/group use only .-> OLD
+~~~
 
-## 2. Current Beta connection target
+- Browser never connects directly to SQL and never receives database credentials. All activated SQL-backed business domains fail closed rather than falling back to Firestore.
+- Main user-facing Beta: https://tester-teaching.web.app. Historic Azure SWA and its deployment workflows remain in the repository but are not the active P1 release target.
+- Frontend: index.html/timetable.js, faculty-admin.html/js, teaching-assignments.html/js, user-management.html/js, password.html/js, paws-data-client.js and supporting modules.
+- Backend composition: server/src/runtime/university-api.js, university-http-server.js, swa-sql-runtime.js. The API uses authenticated scoped commands and SQL views/stored procedures; it is a modular monolith.
+- Current configured API origin is the temporary Cloudflare Quick Tunnel in paws-api-origin.js. A university-owned HTTPS hostname, managed ingress, certificate and production deployment decision are still required.
+- SQL Server is the **university-hosted VetMed-Ops SQL Server**, not automatically an Azure SQL Database merely because the repository is named Teaching-assignment-azure.
+- Runtime Windows identity remains a hardening issue: recorded pre-cutover principal was broad/db_owner. Require dedicated institution-managed least-privilege identity and exact grants before production and before expanding high-risk operations. Do not remove legitimate DBA access.
 
-Immediate target:
+## 3. Trust and role boundaries
 
-```text
-Browser
-  │
-  │ Firebase Authentication / ID token
-  ▼
-PAWS Beta API
-  │
-  ▼
-Azure SQL
-teaching-assignment-lab
-```
+1. Firebase Auth authenticates a user; Firebase UID is matched exactly to SQL paws.UserProfile.
+2. SQL UserProfile.BaseRole, Active, MustChangePassword and FacultyId establish SQL API authorization; UI controls, Firebase claims and Firestore user roles cannot grant SQL business access.
+3. Role-policy aliases: owner to adfa_general; administrator/admin to adfa_regular. Supported roles: developer, adfa_general, adfa_regular, faculty, hicc, visc, adc, lab. Retired other_office and viewer do not authorize SQL business access.
+4. Faculty/HICC/VISC read their own Faculty-linked SQL data; special HICC/VISC actions additionally require scoped current TeachingResponsibility/Group assignee. ADC/LAB are office contribution roles, not final assignment authority.
+5. SQL stored procedures, scoped views, transactions, expected revisions, immutable audit and exact-true domain write gates enforce write authority; hiding UI is not a security boundary.
+6. Developer support is available only to actual developer SQL roles; delegated contexts are time-bound and audited and keep effective target permissions/gates. Do not treat Developer as an automatic substitute for business approval.
 
-The browser never receives SQL credentials and never connects directly to SQL.
+## 4. Primary domain boundaries
 
-For BETA-R1 the API is a thin read-only bridge, not a redesign of the product.
+- **Session** is a canonical working teaching activity; SessionAssignment is the authoritative final Faculty assignment, including changes applied by ADFAD/SWAP. A Session may involve multiple Faculty.
+- **TeachingResponsibility** is stable and distinct from person, role label, and temporal assignee. Assignment is based on academic year, course/subject, group and effective assignee.
+- **TeachingAssignmentGroup** is distinct from legacy Firestore faculty_groups (old swap/member structure).
+- **Contribution != final assignment.** ADC/LAB/HICC suggestions are not authoritative. VISC reviews HICC packages; ADFAD finalizes. **Finalization != explicit publication.**
+- Published teaching assignments are an immutable year/release snapshot. Faculty must not silently see unapproved working proposal data in place of published data.
+- **AFC** historical/manual records, self-service request, approval, approved artifact and availability are distinct. Other faculty only receive Available/Unavailable, not AFC reasons.
+- **SWAP/change request** is independent of the HICC/VISC Teaching Assignment lifecycle and must revalidate time, source, authorization, revision and availability at apply.
+- **DOE** is an independent policy/calculation domain. Targets, source worksheet lines, signed manual adjustments, reserve application, annual policy lifecycle and recorded values have separate authority/provenance.
 
-## 3. Current vs target state
+## 5. Deployed vs candidate inventory
 
-### Current deployed Beta
+**Merged and last documented published by 2026-10-14:** timetable SQL reads, scoped Faculty Dashboard, Session create/edit/assignment APIs subject to gates, teaching-assignment SQL workflow, DOE worksheet and annual rulebook UI/API, manual DOE/target operations subject to gates, role/appointment effective periods, AFC requests and admin records, SQL SWAP, Tasks, Developer Support, and grouped LAB/SRL. Oct14 release updated AFC name-only labels, creation/cancellation controls and grouped LAB table. Read acceptance does not prove every write was exercised in live UI.
 
-At the last verified deployed-state checkpoint:
+**Not in main / not live at this checkpoint:** Draft PR #97 (design), #98 (working Calendar activities with exact source/AFC migration), #99 (ADFA SWAP DOE and availability comparison), #100 (SQL scheduling conflict Tasks). #99 depends on #98; #100 is stacked on both. No merge, deploy, SQL import/delete, or gate enablement follows from their green tests or draft state. #100 Beta Build last seen failed during development.
 
-```text
-Azure Static Web App
-      │
-      ├─ Firebase Authentication
-      └─ Firestore tester-teaching business data
-```
+**Not an implemented integration:** automatic Outlook Microsoft Graph invites/calendar writes or Brightspace/D2L API synchronization. A CSV/ICS/Outlook export entry is not automated external-system mutation.
 
-### BETA-R1 candidate, not yet deployed
+## 6. Controlled release architecture
 
-```text
-Azure Static Web App
-      │
-      ├─ Firebase Authentication
-      │       │
-      │       └─ Firebase ID token
-      │
-      └─ same-origin managed API
-               │
-               ├─ /api/v1/me
-               └─ /api/v1/sessions
-                       │
-                       ▼
-                Azure SQL
-```
+- Work on feature branches/worktrees and reviewed PRs, not on Beta main.
+- Immutable freeze: tools/beta-freeze.js and tools/static-assets.json protect shipped static and API modules against the pinned product/trust anchor; any intended byte change requires separately reviewed freeze promotion. No bypass/whitelist.
+- Implementation → independent review → PR CI → authorized merge → exact-main CI → versioned API/runtime/SQL verification → separately authorized Firebase Hosting-only release → authenticated live acceptance.
+- Hosting workflow's old DOE-off gate blocked Oct14 run; an separately authorized Hosting-only CLI deployed the accepted artifact. **Do not disable approved DOE gates just to make that old workflow pass.**
+- Production blockers: nonpersonal service identity/least privilege, stable university ingress and host, secure secrets, monitored service recovery/backup, formal IT/privacy/security review.
+- Keep previous version/rollback evidence. Never rerun completed SQL migrations/source imports simply to resume a conversation.
 
-Session writes are disabled/fail-closed in BETA-R1.
+## 7. Evidence links
 
-## 4. Long-term direction, without making it the current task
-
-The broader target remains:
-
-- Firebase Authentication may remain.
-- Azure SQL becomes the Beta business persistence layer as domains are deliberately ported.
-- Firestore remains the Experimental/Demo implementation.
-- Do not force all future P3.1/DOE work into the first Beta connection milestone.
-- No direct browser SQL.
-- No silent Firestore fallback for a domain once that domain is activated on the Azure SQL path.
-
-## 5. Application shape
-
-Preferred shape is a modular monolith, not microservices.
-
-Logical modules:
-
-- Identity / account access
-- Faculty / directory
-- Course / Subject catalogs
-- Working timetable
-- Session assignments
-- Teaching responsibility / group / review (future Beta port)
-- LAB (future Beta port)
-- AFC
-- Change Request / SWAP
-- DOE (Experimental for now)
-- Published timetable (future Beta port)
-- Audit / delivery
-
-Each module owns its business invariants even if deployed in one application.
-
-## 6. Data layers
-
-### Azure SQL foundation already loaded
-
-Canonical base data:
-
-- Faculty
-- Course
-- Session
-- SessionAssignment
-- RoleDefinition / RoleAssignment
-- historical AFC
-- raw/typed staging evidence
-- Calendar SQL view
-
-### Firestore current Beta runtime
-
-Until BETA-R1 is activated, current deployed Beta still uses Firestore for its existing runtime.
-
-### Experimental-only/future structures
-
-P3.1 entities such as TeachingResponsibility, TeachingAssignmentGroup, TeachingAssignmentSubmission and SessionAssignmentContribution are future feature architecture and are not a prerequisite for the first SQL-backed Beta timetable read.
-
-## 7. Authority boundaries
-
-Core principles retained across tracks:
-
-- Person != Responsibility.
-- Responsibility != role label.
-- UI capability != backend authorization.
-- Working timetable != Published timetable.
-- Contribution suggestion != final Faculty assignment.
-- HICC/VISC review != Change Request.
-- Topic != Subject.
-- ADFAD finalization != Publish.
-- SessionAssignment is the authoritative final assignment result.
-- DOE is an independent domain.
-
-## 8. Read/write ownership
-
-### BETA-R1
-
-Reads:
-
-- profile → `paws.UserProfile`
-- timetable → `paws.vCalendarSession`
-- Faculty-scoped timetable filtering → `paws.SessionAssignment`
-
-Writes:
-
-- timetable writes disabled
-- no Firestore fallback
-- no DOE changes
-- no live provisioning inside the implementation PR
-
-### Future write enablement
-
-When writes are added, they must be domain commands, not generic CRUD, with:
-
-- server-owned actor
-- authorization
-- expected/current version checks
-- transactional domain update
-- audit
-- no alternate privileged writer bypassing the same invariants
-
-## 9. Repository/release architecture
-
-Azure Beta is intentionally stability-sensitive.
-
-- no feature work directly on `main`;
-- feature branch/worktree + PR;
-- exact-SHA build/release controls;
-- no automatic Experimental → Beta merge;
-- no deployment merely because a PR is green;
-- live apply/deploy is a separate owner-authorized operation.
-
-## 10. Documentation/evidence layers
-
-Always distinguish:
-
-- live Azure SQL state;
-- Draft SQL design/PR state;
-- current deployed Firestore runtime;
-- future Experimental/P3.1 target.
-
-The word “implemented” alone is not sufficient to describe live state.
+Root AGENTS.md; agent.Ai/PROJECT_STATE.md and TASK_CHAIN.md; agent.Ai/updates/2026-10-14-afc-lab-release.md; docs/afc-record-management-lab-release-20261013.md; docs/doe-source-rationalization-20261011.md; docs/current-doe-rulebook-import-20261011.md; server/src/auth/role-policy.js; server/src/data/write-gates.js. Mutable facts must be reverified against live GitHub/runtime/SQL.

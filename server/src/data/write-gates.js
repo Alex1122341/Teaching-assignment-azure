@@ -7,8 +7,16 @@ const WRITE_DISABLED = Object.freeze({
 
 function createWriteGates(env = {}) {
   return Object.freeze({
+    schedulingTaskReview: env.PAWS_SCHEDULING_TASK_REVIEW_ENABLED === 'true',
+    calendarActivityStage: env.PAWS_CALENDAR_ACTIVITY_STAGE_ENABLED === 'true',
+    calendarActivityCommit: env.PAWS_CALENDAR_ACTIVITY_COMMIT_ENABLED === 'true',
+    calendarActivityTime: env.PAWS_CALENDAR_ACTIVITY_TIME_ENABLED === 'true',
+    swapRequest: env.PAWS_SWAP_REQUEST_WRITE_ENABLED === 'true',
+    swapDecision: env.PAWS_SWAP_DECISION_WRITE_ENABLED === 'true',
+    swapApply: env.PAWS_SWAP_APPLY_WRITE_ENABLED === 'true',
     afcSingle: env.PAWS_AFC_SINGLE_WRITE_ENABLED === 'true',
     afcBatch: env.PAWS_AFC_BATCH_WRITE_ENABLED === 'true',
+    afcCancel: env.PAWS_AFC_CANCEL_WRITE_ENABLED === 'true',
     sessionEdit: env.PAWS_SESSION_EDIT_WRITE_ENABLED === 'true',
     sessionCreate: env.PAWS_SESSION_CREATE_WRITE_ENABLED === 'true',
     afcRequest: env.PAWS_AFC_REQUEST_WRITE_ENABLED === 'true',
@@ -20,6 +28,7 @@ function createWriteGates(env = {}) {
     taPublish: env.PAWS_TA_PUBLISH_WRITE_ENABLED === 'true',
     facultyAdmin: env.PAWS_FACULTY_ADMIN_WRITE_ENABLED === 'true',
     doeAdmin: env.PAWS_DOE_ADMIN_WRITE_ENABLED === 'true',
+    doeManualAssignment: env.PAWS_DOE_MANUAL_ASSIGNMENT_WRITE_ENABLED === 'true',
     doePolicyPublish: env.PAWS_DOE_POLICY_PUBLISH_ENABLED === 'true',
     doeRecalculate: env.PAWS_DOE_RECALC_WRITE_ENABLED === 'true'
   });

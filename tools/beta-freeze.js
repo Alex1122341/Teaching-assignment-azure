@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Integrated P4 DOE runtime is the reviewed trust anchor.
-// DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='d62f5406ce1f89813bf928611e551e864ae165fc';
+// Reviewed Faculty Lookup teaching-summary layout is the immutable trust anchor.
+// Prior DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

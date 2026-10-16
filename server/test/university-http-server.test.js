@@ -60,6 +60,15 @@ test('loopback adapter preserves runtime route response and Firebase bearer head
   assert.equal(calls.length, 1);
 });
 
+test('only exact activity upload POST uses the existing 1 MiB cap',async t=>{
+ const seen=[];const server=createUniversityHttpServer({runtime:async request=>{seen.push(new URL(request.url).pathname);return {status:201,jsonBody:{received:(await request.json()).fileBase64.length}};},env:{...TEST_RUNTIME_IDENTITY}});
+ t.after(()=>server.close());const port=await listen(server);const body=JSON.stringify({fileBase64:'A'.repeat(80000)});const headers={'content-type':'application/json'};
+ assert.equal((await get(port,'/api/v1/calendar-activity-imports',{method:'POST',headers,body})).status,201);
+ for(const [method,path] of [['PUT','/api/v1/calendar-activity-imports'],['POST','/api/v1/calendar-activity-imports/'],['POST','/api/v1/calendar-activity-imports/id/commit'],['POST','/api/v1/dashboard/afc-records']])assert.equal((await get(port,path,{method,headers,body})).status,413);
+ assert.deepEqual(seen,['/api/v1/calendar-activity-imports']);
+ const tooLarge=JSON.stringify({fileBase64:'A'.repeat(1048577)});assert.equal((await get(port,'/api/v1/calendar-activity-imports',{method:'POST',headers,body:tooLarge})).status,413);
+});
+
 test('unset CORS allowlist denies browser cross-origin requests', async t => {
   const server = createUniversityHttpServer({ runtime: async () => ({ status: 200, jsonBody: {} }), env: { ...TEST_RUNTIME_IDENTITY } });
   t.after(() => server.close());
@@ -230,8 +239,8 @@ test('OPTIONS preflight permits only an exact allowlisted origin and headers', a
     }
   });
   assert.equal(allowed.status, 204);
-  assert.equal(allowed.headers['access-control-allow-methods'], 'GET, POST, PATCH, OPTIONS');
-  assert.equal(allowed.headers['access-control-allow-headers'], 'Authorization, Content-Type');
+  assert.equal(allowed.headers['access-control-allow-methods'], 'GET, POST, PATCH, PUT, OPTIONS');
+  assert.equal(allowed.headers['access-control-allow-headers'], 'Authorization, Content-Type, X-PAWS-Support-Context');
   const denied = await get(port, '/api/v1/me', {
     method: 'OPTIONS',
     headers: {
@@ -278,3 +287,4 @@ test('service port configuration fails closed outside the valid TCP range', () =
     assert.throws(() => listenPort({ PAWS_API_PORT: value }), /PAWS_API_PORT/);
   }
 });
+

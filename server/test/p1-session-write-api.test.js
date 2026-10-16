@@ -33,10 +33,11 @@ function makeApi({ role = 'administrator', gates = {}, overrides = {} } = {}) {
 
 test('session create gate is independent, exact-true, and fail-closed by default', () => {
   assert.deepEqual(createWriteGates({}), {
-    afcSingle: false, afcBatch: false, sessionEdit: false, sessionCreate: false,
+    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
-    doeAdmin: false, doePolicyPublish: false, doeRecalculate: false
+    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
+    schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   assert.equal(createWriteGates({ PAWS_SESSION_CREATE_WRITE_ENABLED: 'TRUE' }).sessionCreate, false);
   assert.equal(createWriteGates({ PAWS_SESSION_CREATE_WRITE_ENABLED: 'true' }).sessionCreate, true);
@@ -190,8 +191,8 @@ test('session list includes canonical assignment identities only for explicit ad
   await repository.list({ includeAssignmentTargets: false });
   await repository.list({ includeAssignmentTargets: true });
   assert.match(calls[0].sql, /CAST\(N'\[\]' AS nvarchar\(max\)\) AS assignmentsJson/);
-  assert.doesNotMatch(calls[0].sql, /f\.DisplayName AS displayName/);
-  assert.match(calls[1].sql, /f\.DisplayName AS displayName/);
+  assert.doesNotMatch(calls[0].sql, /REPLACE\([\s\S]*?f\.PreferredFirstName[\s\S]*? AS displayName/);
+  assert.match(calls[1].sql, /REPLACE\([\s\S]*?f\.PreferredFirstName[\s\S]*? AS displayName/);
   assert.match(calls[1].sql, /unresolvedAssignmentCount/);
 });
 

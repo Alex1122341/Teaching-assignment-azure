@@ -163,3 +163,53 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .list-global-controls select{max-width:150px;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font:inherit}
 .list-partition-summary{margin:0 0 8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text-2);font-size:11px;font-weight:650}
 @media(max-width:760px){.list-global-controls{width:100%;justify-content:flex-end}.list-global-controls select{max-width:120px}.list-partition-summary{line-height:1.5}}
+:root .modal-box.lab-detail-modal{width:min(1180px,96vw)}
+.lab-detail-modal .modal-body{padding:16px 24px;overflow:auto;max-height:70vh}
+.lab-source-note{margin:0 0 12px;color:var(--text-3);font-size:12px;line-height:1.5}
+.lab-table-scroll{overflow-x:auto;margin-bottom:12px}
+.lab-detail-table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.5;min-width:640px}
+.lab-detail-table th,.lab-detail-table td{border:1px solid #dbe0e9;padding:10px;text-align:left;vertical-align:top}
+.lab-detail-table thead th{background:#f5f6fa;color:#667085;font-size:11px;text-transform:uppercase;white-space:nowrap}
+.lab-detail-table tbody th{font-weight:400;min-width:220px}
+.lab-instructor{color:#667085;font-size:12px;margin-top:3px;white-space:pre-line}
+.lab-not-scheduled{background:#f5f6fa}
+.lab-group-missing{display:inline-block;background:#eef0f4;color:#667085;border-radius:3px;padding:2px 6px;font-size:11px;white-space:nowrap}
+.lab-row-actions{display:flex;gap:5px;flex-wrap:wrap;min-width:170px}
+.lab-row-actions .btn{padding:5px 8px;font-size:11px}
+.lab-tables .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Read-only selected schedule export */
+.modal-box.selected-export-modal{width:min(1120px,96vw)}
+.selected-export-modal .modal-header{padding-right:54px}
+.selected-export-modal .modal-footer{flex-wrap:wrap;gap:10px}
+.selected-export-modal .btn:disabled{opacity:.5;cursor:default}
+.selected-export-modal :is(button,input):focus-visible{outline:2px solid var(--accent-mid);outline-offset:3px}
+.export-selection-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0}
+.export-selection-toolbar strong{margin-right:auto;color:var(--accent);font-variant-numeric:tabular-nums}
+.export-selection-toolbar .btn{padding:7px 10px;font-size:12px}
+#export-selection-error:not(:empty){margin:10px 0;padding:10px;border:1px solid var(--danger);border-radius:var(--radius);color:var(--danger)}
+.export-selection-layout{display:grid;grid-template-columns:190px minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+.export-selection-layout>div{min-width:0}
+.export-selection-courses{min-width:0;max-height:430px;overflow:auto;padding:8px;border:1px solid var(--border);border-radius:var(--radius)}
+.export-selection-courses legend{padding:0 6px;font-size:12px;font-weight:700;color:var(--text-2)}
+.export-selection-courses label{display:flex;align-items:center;gap:8px;min-height:40px;padding:6px;border-radius:4px;cursor:pointer;overflow-wrap:anywhere}
+.export-selection-courses label:hover{background:var(--surface-2)}
+.export-selection-courses small{margin-left:auto;color:var(--text-3)}
+.selected-export-modal input[type=checkbox]{width:17px;height:17px;flex-shrink:0;accent-color:var(--accent)}
+.selected-export-modal .user-table-wrap{max-width:100%;margin:6px 0 10px}
+.export-session-table{min-width:640px}
+.export-session-table td{overflow-wrap:anywhere;max-width:280px}
+.export-session-table small{color:var(--text-3)}
+.export-session-table td:first-child{vertical-align:middle;text-align:center}
+#export-selection-preview{margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+#export-selection-preview h3{font-size:14px;margin-bottom:8px}
+.export-preview-table{min-width:1000px}
+.export-preview-table td{max-width:260px;overflow-wrap:anywhere}
+@media(max-width:600px){
+ .selected-export-modal .modal-header{padding-left:16px}
+ .selected-export-modal .modal-body,.selected-export-modal .modal-footer{padding-left:16px;padding-right:16px}
+ .export-selection-layout{grid-template-columns:minmax(0,1fr);gap:12px}
+ .export-selection-courses{max-height:180px}
+ .export-selection-toolbar strong{flex-basis:100%}
+ .selected-export-modal .modal-footer .btn{flex:1 1 auto}
+}

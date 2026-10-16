@@ -171,7 +171,7 @@ function createSqlDoeAssignmentRepository(db) {
         `SET XACT_ABORT ON;
          BEGIN TRY
            BEGIN TRANSACTION;
-           DECLARE @beforeJson nvarchar(8000)=NULL;
+           DECLARE @beforeJson nvarchar(max)=NULL;
            IF NOT EXISTS (
              SELECT 1 FROM paws.DoePolicyVersion WITH (UPDLOCK,HOLDLOCK)
               WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'active' AND Revision=@policyRevision
@@ -253,7 +253,7 @@ function createSqlDoeAssignmentRepository(db) {
         `SET XACT_ABORT ON;
          BEGIN TRY
            BEGIN TRANSACTION;
-           DECLARE @policyVersionId uniqueidentifier=NULL,@beforeJson nvarchar(8000);
+           DECLARE @policyVersionId uniqueidentifier=NULL,@beforeJson nvarchar(max);
            SELECT TOP (1) @policyVersionId=PolicyVersionId FROM paws.DoePolicyVersion WITH (HOLDLOCK)
             WHERE AcademicYear=@academicYear AND Status=N'active';
            SELECT @beforeJson=(SELECT AssignmentFactId AS assignmentFactId,FacultyId AS facultyId,Category AS category,

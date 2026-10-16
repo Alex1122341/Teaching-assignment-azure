@@ -15,10 +15,11 @@ const adminAuth = { verifyToken: auth.verifyToken, findUser: async () => ({ ...p
 
 test('W1H adds three independent exact-lowercase true gates and preserves W1C gates', () => {
   assert.deepEqual(createWriteGates({}), {
-    afcSingle: false, afcBatch: false, sessionEdit: false, sessionCreate: false,
+    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
-    doeAdmin: false, doePolicyPublish: false, doeRecalculate: false
+    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
+    schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   assert.deepEqual(createWriteGates({
     PAWS_AFC_SINGLE_WRITE_ENABLED: 'true',
@@ -28,10 +29,11 @@ test('W1H adds three independent exact-lowercase true gates and preserves W1C ga
     PAWS_AFC_DECISION_WRITE_ENABLED: 'True',
     PAWS_AFC_ARTIFACT_WRITE_ENABLED: '1'
   }), {
-    afcSingle: true, afcBatch: false, sessionEdit: false, sessionCreate: false,
+    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: true, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
     afcRequest: true, afcDecision: false, afcArtifact: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
-    doeAdmin: false, doePolicyPublish: false, doeRecalculate: false
+    doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
+    schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   for (const value of [undefined, 'false', 'TRUE', 'True', '1', 'yes', ' true', 'true ']) {
     const env = value === undefined ? {} : { PAWS_AFC_REQUEST_WRITE_ENABLED: value };

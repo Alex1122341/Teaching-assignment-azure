@@ -15,6 +15,7 @@ const finite = value => {
   return Number.isFinite(number) ? number : null;
 };
 const round = value => Number(Number(value).toFixed(6));
+const teachingFocused = stream => ['teaching_focused', 'teaching-focused', 'teaching focused'].includes(String(stream || '').trim().toLowerCase());
 
 function requireNumber(policy, key, { min = 0, max = Infinity } = {}) {
   const value = finite(policy?.[key]);
@@ -40,26 +41,19 @@ function normalizePolicy(policy = {}) {
 
 function applyTeachingReserve({ teachingTarget, stream, rawSupervision, assignedTeaching, policy } = {}) {
   const config = normalizePolicy(policy);
-  if (!String(stream ?? '').trim()) throw new DoeReservePolicyError('RESERVE_STREAM_REQUIRED', 'An authoritative faculty stream is required for trainee reserve calculation.');
-  // Canonical contract values only. Add aliases only with approved source/SQL evidence.
-  const streamKey = String(stream).trim().toLowerCase();
-  const teachingFocused = streamKey === 'teaching_focused';
-  if (!teachingFocused && !['clinical', 'research'].includes(streamKey)) {
-    throw new DoeReservePolicyError('RESERVE_STREAM_UNRESOLVED', 'Faculty stream is not recognized; confirm its reserve classification.');
-  }
   const target = finite(teachingTarget), supervision = finite(rawSupervision), assigned = finite(assignedTeaching);
   if (target === null || target < 0 || supervision === null || supervision < 0 || assigned === null || assigned < 0) {
     throw new DoeReservePolicyError('RESERVE_INPUT_INVALID', 'Teaching target, supervision, and assigned teaching must be finite non-negative numbers.');
   }
 
   let initialTraineeReserve;
-  if (teachingFocused) initialTraineeReserve = Math.min(target, config.teachingFocusedTraineeCeiling);
+  if (teachingFocused(stream)) initialTraineeReserve = Math.min(target, config.teachingFocusedTraineeCeiling);
   else if (target <= config.splitThreshold) initialTraineeReserve = target * config.splitRatio;
   else initialTraineeReserve = Math.min(target, config.highTeachingTraineeCeiling);
 
   const initialAssignedTeachingReserve = Math.max(0, target - initialTraineeReserve);
   const roomAfterAssigned = Math.max(0, target - assigned);
-  const flexible = !teachingFocused && target <= config.splitThreshold;
+  const flexible = !teachingFocused(stream) && target <= config.splitThreshold;
   const supervisionCeiling = flexible ? target : initialTraineeReserve;
   const appliedSupervision = Math.min(supervision, supervisionCeiling, roomAfterAssigned);
   const maxAssignedTeaching = Math.max(0, target - appliedSupervision);

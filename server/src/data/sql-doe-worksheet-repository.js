@@ -1,6 +1,8 @@
 'use strict';
 
 const { resolveTeachingDoe, resolveRoleDoe } = require('../domain/doe-calculator');
+const engine = require('../domain/doe-policy-engine');
+const { sourceFacts } = require('../doe/doe-recorded-source-impact');
 
 function resolutionEvidence(resolved) {
   return {
@@ -33,8 +35,8 @@ function createSqlDoeWorksheetRepository(db) {
   if (!db || typeof db.query !== 'function') throw new TypeError('A SQL query adapter is required.');
 
   async function loadSources(academicYear, facultyId = null) {
-    const params = { academicYear, facultyId: text(facultyId), limit: 500 };
-    const [facultyRows, targetRows, policyRows, reserveRows, assignmentRows, sessionRows, legacyRoleRows] = await Promise.all([
+    const params = { academicYear, facultyId: text(facultyId), limit: 501 };
+    const [facultyRows, targetRows, policyRows, reserveRows, assignmentRows, sessionRows, legacyRoleRows, supervisionSourceRows, manualRows] = await Promise.all([
       db.query(
         `SELECT TOP (@limit) f.FacultyId AS facultyId, f.DisplayName AS displayName, f.Stream AS stream, f.Active AS facultyActive
            FROM paws.Faculty AS f
@@ -44,8 +46,9 @@ function createSqlDoeWorksheetRepository(db) {
         `SELECT t.FacultyId AS facultyId, t.ContractTeachingDoe AS contractTeachingDoe,
                 t.OverrideDoe AS overrideDoe, t.OverrideReason AS overrideReason,
                 t.OverrideNotes AS overrideNotes, t.EffectiveTargetDoe AS effectiveTargetDoe,
-                t.Source AS source, t.PolicyVersionId AS policyVersionId
+                t.Source AS source, t.PolicyVersionId AS policyVersionId, v.VersionLabel AS targetPolicyVersionLabel
            FROM paws.DoeFacultyTarget AS t
+           LEFT JOIN paws.DoePolicyVersion AS v ON v.PolicyVersionId=t.PolicyVersionId
           WHERE t.AcademicYear=@academicYear AND t.Active=1
             AND (@facultyId=N'' OR t.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))`, params),
       db.query(
@@ -96,19 +99,50 @@ function createSqlDoeWorksheetRepository(db) {
                 r.DoeMappedValue AS doeMappedValue, r.DoeOverrideValue AS doeOverrideValue,
                 r.DoeOverrideReason AS doeOverrideReason, r.SpecialNotes AS specialNotes,
                 r.EffectiveDate AS effectiveDate, r.ExpirationDate AS expirationDate,
-                r.AcademicYear AS academicYear, r.CourseName AS courseName, r.Details AS details
+                r.AcademicYear AS academicYear, r.CourseName AS courseName, r.Details AS details,
+                (SELECT e.ExceptionId AS exceptionId,e.Category AS category,e.ScopeType AS scopeType,e.ScopeKey AS scopeKey,
+                  e.FacultyId AS facultyId,e.FixedDoe AS fixedDoe,e.Reason AS reason,e.SourceReference AS sourceReference,
+                  e.Enabled AS enabled,e.EffectiveStart AS effectiveStart,e.EffectiveEnd AS effectiveEnd,v.PolicyVersionId AS policyVersionId
+                  FROM paws.DoePolicyException e JOIN paws.DoePolicyVersion v ON v.PolicyVersionId=e.PolicyVersionId
+                  WHERE v.AcademicYear=@academicYear AND v.Status=N'active' AND e.Enabled=1 AND e.ReviewStatus=N'approved'
+                    AND (e.FacultyId IS NULL OR e.FacultyId=r.FacultyId)
+                    AND ((e.ScopeType IN(N'source_entity',N'assignment') AND e.ScopeKey=CONVERT(nvarchar(128),r.RoleAssignmentId))
+                      OR e.ScopeType NOT IN(N'source_entity',N'assignment'))
+                  FOR JSON PATH) AS annualExceptionsJson
            FROM paws.RoleAssignment AS r
           WHERE (r.AcademicYear=@academicYear OR r.AcademicYear IS NULL)
             AND r.FacultyId IS NOT NULL AND (@facultyId=N'' OR r.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))
-          ORDER BY r.FacultyId, r.RoleAssignmentId`, params)
+          ORDER BY r.FacultyId, r.RoleAssignmentId`, params),
+      db.query(
+        `SELECT w.ParametersJson AS parametersJson, w.SourceReference AS workloadSourceReference,
+                w.SourceSha256 AS workloadSourceSha256, s.SnapshotId AS snapshotId,
+                s.FacultyId AS facultyId, s.RawDoe AS rawDoe, s.EvidenceJson AS evidenceJson,
+                s.SourceReference AS sourceReference, s.CreatedAtUtc AS calculatedAt
+           FROM paws.DoeWorkloadSource AS w
+           LEFT JOIN paws.DoeSupervisionSourceSnapshot AS s ON s.AcademicYear=w.AcademicYear
+             AND (@facultyId=N'' OR s.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))
+          WHERE w.AcademicYear=@academicYear`, params),
+      db.query(`SELECT AssignmentId AS assignmentFactId,FacultyId AS facultyId,RoleType AS roleType,
+        ScopeText AS scopeText,CourseCode AS courseCode,SubjectKey AS subjectKey,DoeValue AS resultDoe,
+        Notes AS notes,Revision AS revision,UpdatedAtUtc AS calculatedAt
+        FROM paws.ManualDoeAssignment WHERE AcademicYear=@academicYear AND Active=1
+          AND (@facultyId=N'' OR FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))
+        ORDER BY FacultyId,CreatedAtUtc,AssignmentId`, params)
     ]);
 
+    if (facultyRows.length > 500) throw Object.assign(new Error('DOE source coverage exceeds 500 faculty; complete coverage is required before producing worksheet or publication evidence.'), { code: 'DOE_SOURCE_LIMIT_EXCEEDED' });
     const policy = policyRows.length === 1 ? policyRows[0] : null;
     const targets = new Map(targetRows.map(row => [text(row.facultyId).toLowerCase(), row]));
     const reservePolicy = {};
     for (const row of reserveRows) {
       const name = text(row.name);
       if (RESERVE_PARAMETERS.has(name)) reservePolicy[name] = row.valueNumber === null ? row.valueText : Number(row.valueNumber);
+    }
+    const workloadSource = supervisionSourceRows[0] || null;
+    const sourceReservePolicy = parseObject(workloadSource?.parametersJson);
+    // Explicit, owner-supplied policy evidence fills only absent annual parameters.
+    if (sourceReservePolicy) for (const name of RESERVE_PARAMETERS) {
+      if (reservePolicy[name] === undefined) reservePolicy[name] = sourceReservePolicy[name];
     }
     const assignmentsByFaculty = new Map();
     const pushLine = (faculty, line) => {
@@ -136,10 +170,20 @@ function createSqlDoeWorksheetRepository(db) {
       });
     }
 
+    for (const row of manualRows) pushLine(row.facultyId, {
+      lineId: text(row.assignmentFactId), assignmentFactId: text(row.assignmentFactId), sourceEntityId: text(row.assignmentFactId),
+      sourceEntityType: 'manual_doe_assignment', category: 'role', roleType: text(row.roleType),
+      scopeText: text(row.scopeText), courseCode: text(row.courseCode), subjectKey: text(row.subjectKey),
+      resultDoe: number(row.resultDoe), status: 'manual', doeSource: 'manual_adjustment', active: true,
+      revision: Number(row.revision), notes: text(row.notes), calculatedAt: row.calculatedAt,
+      calculationText: 'Negotiated manual adjustment; additive to existing DOE.', reference: { title: 'Administrator-entered negotiated DOE' }
+    });
+
     for (const row of sessionRows) pushLine(row.facultyId, {
       lineId: text(row.sessionAssignmentId), sourceEntityType: 'legacy_session_assignment',
       sourceEntityId: text(row.sessionAssignmentId), category: 'teaching', roleType: text(row.teachingRole),
       sessionId: text(row.sessionId), legacyResultDoe: number(row.doeCredit), legacyDoeStatus: text(row.doeStatus),
+      facts: { sessionType: text(row.sessionType) },
       creditedHours: number(row.creditedHours), doeQuantity: number(row.doeQuantity),
       ...resolutionEvidence(resolveTeachingDoe(row))
     });
@@ -148,14 +192,39 @@ function createSqlDoeWorksheetRepository(db) {
       if (assignmentRows.some(a => text(a.sourceEntityType).toLowerCase() === 'role_assignment'
           && text(a.facultyId).toLowerCase() === text(row.facultyId).toLowerCase()
           && text(a.sourceEntityId).toLowerCase() === text(row.roleAssignmentId).toLowerCase())) continue;
+      const resolved = resolutionEvidence(resolveRoleDoe({ ...row, academicYear: row.academicYear || academicYear, courseOrSubjectOrRotation: row.scopeText }));
+      const facts = sourceFacts({ facultyId: row.facultyId, academicYear }, {
+        lineId: row.roleAssignmentId, sourceEntityId: row.roleAssignmentId, sourceEntityType: 'legacy_role_assignment',
+        roleType: row.roleType, scopeText: row.scopeText
+      });
+      let exceptionRows = [];
+      try { exceptionRows = JSON.parse(row.annualExceptionsJson || '[]'); } catch (_) {}
+      const exception = (Array.isArray(exceptionRows) ? exceptionRows : []).filter(e => engine.exceptionMatches({ ...e, enabled: bool(e.enabled) }, facts));
+      // An approved annual exception only clears a review when it agrees with the recorded allocation.
+      const accepted = exception.length === 1 && number(resolved.resultDoe) !== null &&
+        Math.abs(Number(exception[0].fixedDoe) - Number(resolved.resultDoe)) < 0.000001 ? exception[0] : null;
       pushLine(row.facultyId, {
       lineId: text(row.roleAssignmentId), sourceEntityType: 'legacy_role_assignment',
       sourceEntityId: text(row.roleAssignmentId), category: 'role', roleType: text(row.roleType),
-      scopeText: text(row.scopeText),
+      scopeText: text(row.scopeText), facts: { sourceDetails: text(row.details) },
       legacyResultDoe: number(row.doeOverrideValue) ?? number(row.doeMappedValue), notes: text(row.specialNotes),
-      ...resolutionEvidence(resolveRoleDoe({ ...row, academicYear: row.academicYear || academicYear, courseOrSubjectOrRotation: row.scopeText })),
+      ...resolved,
+      ...(accepted ? { status: 'annual_exception', requiresReview: false, reviewReason: null, errorCode: null,
+        doeSource: 'annual_exception', policyVersionId: text(accepted.policyVersionId),
+        reference: { title: text(accepted.sourceReference), reason: text(accepted.reason), exceptionId: text(accepted.exceptionId) } } : {}),
       overrideReason: text(row.doeOverrideReason), effectiveDate: row.effectiveDate || null, expirationDate: row.expirationDate || null
     });
+    }
+
+    for (const row of supervisionSourceRows) {
+      if (!row.facultyId || assignmentRows.some(a => text(a.facultyId).toLowerCase() === text(row.facultyId).toLowerCase()
+          && ['supervision', 'trainee_supervision'].includes(text(a.category).toLowerCase()))) continue;
+      pushLine(row.facultyId, {
+        lineId: text(row.snapshotId), sourceEntityId: text(row.snapshotId), sourceEntityType: 'supervision_source_snapshot',
+        category: 'supervision', activityType: 'trainee_supervision', scopeText: '# Trainees · current-year source snapshot',
+        resultDoe: number(row.rawDoe), status: 'source_snapshot', calculatedAt: row.calculatedAt,
+        facts: parseObject(row.evidenceJson), reference: { title: text(row.sourceReference) }
+      });
     }
 
     return facultyRows.map(row => {
@@ -167,6 +236,10 @@ function createSqlDoeWorksheetRepository(db) {
       return {
         facultyId: text(row.facultyId), displayName: text(row.displayName), stream: text(row.stream), facultyActive: bool(row.facultyActive),
         academicYear, policyStatus,
+        // Target snapshot provenance is not an annual calculation policy.
+        targetPolicyVersionLabel: text(targetRow?.targetPolicyVersionLabel),
+        workloadSourceReference: text(workloadSource?.workloadSourceReference),
+        supervisionDataAvailable: lines.some(line => ['supervision', 'trainee_supervision'].includes(text(line.category).toLowerCase())),
         target: targetRow ? {
           contractTeachingDoe: number(targetRow.contractTeachingDoe), overrideDoe: number(targetRow.overrideDoe),
           overrideReason: text(targetRow.overrideReason), overrideNotes: text(targetRow.overrideNotes),

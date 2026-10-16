@@ -33,7 +33,7 @@ function createSqlDoeTargetOverrideRepository(db) {
            BEGIN TRANSACTION;
            IF NOT EXISTS (SELECT 1 FROM paws.Faculty WITH (UPDLOCK,HOLDLOCK) WHERE FacultyId=@facultyId)
              THROW 51041, 'FACULTY_NOT_FOUND', 1;
-           DECLARE @beforeJson nvarchar(8000),@targetId uniqueidentifier;
+           DECLARE @beforeJson nvarchar(max),@targetId uniqueidentifier;
            SELECT TOP (1) @targetId=DoeFacultyTargetId,
                           @beforeJson=(SELECT DoeFacultyTargetId AS targetId,ContractTeachingDoe AS contractTeachingDoe,
                                               OverrideDoe AS overrideDoe,OverrideReason AS overrideReason,OverrideNotes AS overrideNotes

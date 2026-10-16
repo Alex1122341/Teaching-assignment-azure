@@ -66,11 +66,19 @@ function Invoke-Query([System.Data.SqlClient.SqlConnection]$Connection, [string]
     } finally { $command.Dispose() }
 }
 
-$payload = Get-Content -LiteralPath $InputPath -Raw | ConvertFrom-Json
+# Import payloads are UTF-8 JSON, including Unicode range punctuation.
+# Windows PowerShell 5.1 otherwise decodes BOM-less files as the ANSI code page.
+$payload = Get-Content -LiteralPath $InputPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ([string]$payload.academicYear -ne $AcademicYear) { throw 'DOE source academic year is not 2026-27.' }
 if ([string]$payload.sourceFileName -ne $AcceptedWorkbookName -or [string]$payload.sourceFileSha256 -ne $AcceptedWorkbookSha256) { throw 'DOE source file identity does not match the accepted sanitized CSV.' }
 if (@($payload.sourceRows).Count -ne 115) { throw 'DOE source row count does not match the accepted 115-row snapshot.' }
 $ruleRows = @($payload.doeRuleBook.rules)
+$corruptedRangeDash = ([string][char]0x00e2) + ([char]0x20ac) + ([char]0x201c)
+foreach ($ruleRow in $ruleRows) {
+    if (([string]$ruleRow.ruleLabel).Contains($corruptedRangeDash) -or ([string]$ruleRow.academicYearOrStage).Contains($corruptedRangeDash)) {
+        throw 'DOE rule ranges contain an incorrectly decoded UTF-8 dash. Regenerate the payload from the authoritative rule book.'
+    }
+}
 if ($ruleRows.Count -lt 25 -or [string]$payload.doeRuleBook.sourceReference -notmatch 'UCVM Workload Guidelines') { throw 'Versioned UCVM DOE rule references are missing from the import payload.' }
 $connection = New-Connection
 try {

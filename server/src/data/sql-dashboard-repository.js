@@ -1,5 +1,7 @@
 'use strict';
 
+const { facultyDisplayNameSql } = require('./faculty-display-name');
+
 // BETA-R4D-10A2 — read-only Azure SQL repository for the Dashboard API.
 //
 // Scope and safety contract:
@@ -61,7 +63,7 @@ const AFC_MAX_LIMIT = 2000;
 // "Coordinator" — because the source distinguishes the two values and fuzzy
 // matching would inflate the HICC count from 64 to 75.
 const VISC_ROLE_TYPES = ['VISC'];
-const HICC_ROLE_TYPES = ['Course Coordinator / HICC (legacy ambiguous)'];
+const HICC_ROLE_TYPES = ['Course Coordinator / HICC (legacy ambiguous)', 'HICC'];
 
 // Retained only so the R4D-10A export surface does not break. NOT used as a
 // query predicate — `RoleCategory` is the wrong axis (it is NULL live).
@@ -395,7 +397,7 @@ function createSqlDashboardRepository(db) {
              f.FacultyId AS facultyId,
              f.PreferredFirstName AS preferredFirstName,
              f.PreferredLastName AS preferredLastName,
-             f.DisplayName AS displayName,
+             ${facultyDisplayNameSql()} AS displayName,
              f.Ucid AS ucid,
              f.Email AS email,
              f.RecordType AS recordType,
@@ -403,7 +405,7 @@ function createSqlDashboardRepository(db) {
              f.Rank AS rank,
              f.Fte AS fte,
              f.ReportsToFacultyId AS reportsToFacultyId,
-             manager.DisplayName AS reportsToName,
+             ${facultyDisplayNameSql('manager')} AS reportsToName,
              f.Active AS active,
              CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc,
              profile.TeachingArea AS teachingArea,
@@ -483,7 +485,7 @@ function createSqlDashboardRepository(db) {
         `SELECT TOP (@limit)
              u.AfcRecordId AS afcRecordId,
              u.FacultyId AS facultyId,
-             f.DisplayName AS facultyName,
+             ${facultyDisplayNameSql()} AS facultyName,
              CONVERT(varchar(10), u.StartDate, 23) AS startDate,
              CONVERT(varchar(10), u.EndDate, 23) AS endDate,
                u.ReasonCode AS reasonCode,
@@ -495,7 +497,8 @@ function createSqlDashboardRepository(db) {
              u.SourceKind AS sourceKind,
              u.CreatedAtUtc AS createdAtUtc,
              u.CreatedByName AS createdByName,
-             u.RecordKey AS recordKey
+             u.RecordKey AS recordKey,
+              u.VersionToken AS versionToken
          FROM paws.vAfcRecordUnified u
          INNER JOIN paws.Faculty f ON f.FacultyId = u.FacultyId
          ${whereClause}
@@ -516,7 +519,8 @@ function createSqlDashboardRepository(db) {
         sourceKind: toText(row.sourceKind),
         createdAtUtc: row.createdAtUtc || null,
         createdByName: toText(row.createdByName),
-        recordKey: toText(row.recordKey)
+        recordKey: toText(row.recordKey),
+        versionToken: toText(row.versionToken)
       }));
     },
 
@@ -536,17 +540,20 @@ function createSqlDashboardRepository(db) {
              f.RecordType AS recordType,
              f.PreferredFirstName AS preferredFirstName,
              f.PreferredLastName AS preferredLastName,
-             f.DisplayName AS displayName,
+             ${facultyDisplayNameSql()} AS displayName,
              f.Ucid AS ucid,
              f.Email AS email,
              f.Stream AS stream,
              f.Rank AS rank,
              f.Fte AS fte,
+             f.DisplayName AS storedDisplayName,
+             f.HrName AS hrName,
+             f.HrNameSource AS hrNameSource,
              f.FteSourceReference AS fteSourceReference,
              f.FteSourceRow AS fteSourceRow,
              f.FteSourceUpdatedAtUtc AS fteSourceUpdatedAtUtc,
              f.ReportsToFacultyId AS reportsToFacultyId,
-             manager.DisplayName AS reportsToName,
+             ${facultyDisplayNameSql('manager')} AS reportsToName,
              f.Active AS active,
              CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc
          FROM paws.Faculty f
@@ -602,6 +609,7 @@ function createSqlDashboardRepository(db) {
         db.query(
           `SELECT
                r.RoleAssignmentId AS roleAssignmentId,
+               rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),rs.ScheduleVersion,1) AS scheduleVersion,
                r.FacultyResolutionStatus AS facultyResolutionStatus,
                r.AcademicYear AS academicYear,
                r.RoleCategory AS roleCategory,
@@ -615,10 +623,15 @@ function createSqlDashboardRepository(db) {
                r.DoeOverrideValue AS doeOverrideValue,
                r.DoeOverrideReason AS doeOverrideReason,
                r.SpecialNotes AS specialNotes
-           FROM paws.RoleAssignment r
+           FROM paws.RoleAssignment r LEFT JOIN paws.RoleAppointmentSchedule rs ON rs.RoleAssignmentId=r.RoleAssignmentId
            WHERE r.FacultyId = @facultyId
              AND r.AcademicYear = @academicYear
-           ORDER BY r.RoleCategory, r.RoleType, r.RoleAssignmentId`,
+           UNION ALL
+           SELECT m.AssignmentId,NULL,NULL,N'manual_adjustment',m.AcademicYear,N'Manual DOE adjustment',m.RoleType,
+                  m.ScopeText,COALESCE(m.CourseCode,m.SubjectKey),N'Negotiated manual adjustment (additive)',
+                  NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
+             FROM paws.ManualDoeAssignment m WHERE m.FacultyId=@facultyId AND m.AcademicYear=@academicYear AND m.Active=1
+           ORDER BY roleCategory, roleType, roleAssignmentId`,
           { facultyId, academicYear: resolvedYear }
         ),
         // ------------------------------------------------------------ AFC records
@@ -717,7 +730,15 @@ function createSqlDashboardRepository(db) {
              FROM paws.DoeRuleSeed r
              INNER JOIN paws.DoePolicyVersion p ON p.PolicyVersionId = r.PolicyVersionId
             WHERE p.AcademicYear = @academicYear
-              AND p.Active = 1
+              AND (p.Active = 1 OR (
+                NOT EXISTS (SELECT 1 FROM paws.DoeRuleSeed activeSeed
+                  JOIN paws.DoePolicyVersion activeVersion ON activeVersion.PolicyVersionId=activeSeed.PolicyVersionId
+                  WHERE activeVersion.AcademicYear=@academicYear AND activeVersion.Active=1)
+                AND p.PolicyVersionId=(SELECT TOP(1) evidenceVersion.PolicyVersionId FROM paws.DoePolicyVersion evidenceVersion
+                  WHERE evidenceVersion.AcademicYear=@academicYear
+                    AND EXISTS (SELECT 1 FROM paws.DoeRuleSeed evidenceSeed WHERE evidenceSeed.PolicyVersionId=evidenceVersion.PolicyVersionId)
+                  ORDER BY evidenceVersion.CreatedAtUtc DESC, evidenceVersion.PolicyVersionId)
+              ))
             ORDER BY r.Category, r.SourceRow, r.DoeRuleSeedId`,
           { academicYear: resolvedYear }
         ),
@@ -790,6 +811,9 @@ function createSqlDashboardRepository(db) {
           preferredFirstName: toText(record.preferredFirstName),
           preferredLastName: toText(record.preferredLastName),
           displayName: toText(record.displayName),
+          storedDisplayName: toText(record.storedDisplayName),
+          hrName: toText(record.hrName),
+          hrNameSource: toText(record.hrNameSource),
           ucid: toText(record.ucid),
           email: toText(record.email),
           stream: toText(record.stream),
@@ -836,6 +860,8 @@ function createSqlDashboardRepository(db) {
         roles: roleRows.map(row => {
           const role = {
             roleAssignmentId: row.roleAssignmentId,
+            validityPeriods: row.validityPeriodsJson == null ? null : JSON.parse(row.validityPeriodsJson),
+            scheduleVersion: toText(row.scheduleVersion),
             facultyResolutionStatus: toText(row.facultyResolutionStatus),
             academicYear: toText(row.academicYear),
             roleCategory: toText(row.roleCategory),
@@ -850,7 +876,9 @@ function createSqlDashboardRepository(db) {
             doeOverrideReason: toText(row.doeOverrideReason),
             specialNotes: toText(row.specialNotes)
           };
-          const doe = resolveRoleDoe(role);
+          const doe = role.facultyResolutionStatus === 'manual_adjustment'
+            ? { calculatedDoe: null, effectiveDoe: role.doeMappedValue, status: 'manual', source: 'manual_adjustment' }
+            : resolveRoleDoe(role);
           return {
             ...role,
             calculatedDoe: doe.calculatedDoe,
@@ -962,12 +990,18 @@ function createSqlDashboardRepository(db) {
                   COUNT(r.RoleAssignmentId) AS roleLineCount,
                   SUM(CASE WHEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL THEN 1 ELSE 0 END) AS roleRecordedCount,
                   SUM(CASE WHEN COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NULL THEN 1 ELSE 0 END) AS roleMissingCount
-             FROM paws.RoleAssignment r
+             FROM (
+               SELECT r.FacultyId,r.RoleAssignmentId,r.AcademicYear,r.DoeOverrideValue,r.DoeMappedValue
+                 FROM paws.RoleAssignment r WHERE r.AcademicYear=@academicYear
+               UNION ALL
+               SELECT m.FacultyId,m.AssignmentId,m.AcademicYear,NULL,m.DoeValue
+                 FROM paws.ManualDoeAssignment m WHERE m.AcademicYear=@academicYear AND m.Active=1
+             ) r
             WHERE r.AcademicYear = @academicYear
             GROUP BY r.FacultyId
          )
          SELECT f.FacultyId AS facultyId,
-                f.DisplayName AS displayName,
+                ${facultyDisplayNameSql()} AS displayName,
                 CASE WHEN COALESCE(t.teachingLineCount, 0) = 0 THEN 0 ELSE t.assignedTeachingDoe END AS assignedTeachingDoe,
                 CASE WHEN COALESCE(r.roleLineCount, 0) = 0 THEN 0 ELSE r.roleDoe END AS roleDoe,
                 CASE
@@ -1060,8 +1094,9 @@ function createSqlDashboardRepository(db) {
       const resolvedYear = resolveAcademicYear(year);
       const rows = await db.query(
         `SELECT f.FacultyId AS facultyId,
-                f.DisplayName AS displayName,
+                ${facultyDisplayNameSql()} AS displayName,
                 r.RoleAssignmentId AS roleAssignmentId,
+                rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),rs.ScheduleVersion,1) AS scheduleVersion,
                 r.FacultyResolutionStatus AS facultyResolutionStatus,
                 r.AcademicYear AS academicYear,
                 r.RoleCategory AS roleCategory,
@@ -1075,11 +1110,18 @@ function createSqlDashboardRepository(db) {
                 r.DoeOverrideValue AS doeOverrideValue,
                 r.DoeOverrideReason AS doeOverrideReason,
                 r.SpecialNotes AS specialNotes
-           FROM paws.RoleAssignment r
+           FROM paws.RoleAssignment r LEFT JOIN paws.RoleAppointmentSchedule rs ON rs.RoleAssignmentId=r.RoleAssignmentId
            INNER JOIN paws.Faculty f ON f.FacultyId = r.FacultyId
           WHERE r.AcademicYear = @academicYear
             AND f.Active = 1
-          ORDER BY f.DisplayName, r.RoleType, r.RoleAssignmentId`,
+          UNION ALL
+          SELECT f.FacultyId,${facultyDisplayNameSql()},m.AssignmentId,NULL,NULL,N'manual_adjustment',m.AcademicYear,
+                 N'Manual DOE adjustment',m.RoleType,m.ScopeText,COALESCE(m.CourseCode,m.SubjectKey),
+                 N'Negotiated manual adjustment (additive)',NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
+            FROM paws.ManualDoeAssignment m
+            INNER JOIN paws.Faculty f ON f.FacultyId=m.FacultyId
+           WHERE m.AcademicYear=@academicYear AND m.Active=1 AND f.Active=1
+          ORDER BY displayName, roleType, roleAssignmentId`,
         { academicYear: resolvedYear }
       );
       return rows.map(row => {
@@ -1087,6 +1129,8 @@ function createSqlDashboardRepository(db) {
           facultyId: row.facultyId,
           displayName: toText(row.displayName),
           roleAssignmentId: row.roleAssignmentId,
+          validityPeriods: row.validityPeriodsJson == null ? null : JSON.parse(row.validityPeriodsJson),
+          scheduleVersion: toText(row.scheduleVersion),
           facultyResolutionStatus: toText(row.facultyResolutionStatus),
           academicYear: toText(row.academicYear),
           roleCategory: toText(row.roleCategory),
@@ -1101,7 +1145,9 @@ function createSqlDashboardRepository(db) {
           doeOverrideReason: toText(row.doeOverrideReason),
           specialNotes: toText(row.specialNotes)
         };
-        const doe = resolveRoleDoe(role);
+        const doe = role.facultyResolutionStatus === 'manual_adjustment'
+          ? { calculatedDoe: null, effectiveDoe: role.doeMappedValue, status: 'manual', source: 'manual_adjustment' }
+          : resolveRoleDoe(role);
         return {
           ...role,
           calculatedDoe: doe.calculatedDoe,
@@ -1135,9 +1181,10 @@ function createSqlDashboardRepository(db) {
              INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId
             WHERE c.AcademicYear = @academicYear
          ), roles AS (
-           SELECT r.DoeMappedValue, r.DoeOverrideValue
+           SELECT r.RoleAssignmentId,r.DoeMappedValue, r.DoeOverrideValue,r.AcademicYear
              FROM paws.RoleAssignment r
             WHERE r.AcademicYear = @academicYear
+           UNION ALL SELECT m.AssignmentId,m.DoeValue,NULL,m.AcademicYear FROM paws.ManualDoeAssignment m WHERE m.AcademicYear=@academicYear AND m.Active=1
          )
          SELECT
            (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1))) AS teachingLineCount,
@@ -1145,13 +1192,13 @@ function createSqlDashboardRepository(db) {
            (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND c.SessionType IN (@doeNa0, @doeNa1)) AS teachingNotApplicableCount,
            (SELECT SUM(sa.DoeCredit) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1))) AS teachingDoe,
            (SELECT COUNT(sa.SessionAssignmentId) FROM paws.SessionAssignment sa INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId WHERE c.AcademicYear = @academicYear AND (c.SessionType IS NULL OR c.SessionType NOT IN (@doeNa0, @doeNa1)) AND sa.DoeCredit IS NOT NULL) AS teachingRecordedCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear) AS roleLineCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeMappedValue IS NULL AND r.DoeOverrideValue IS NULL) AS roleMissingCount,
-           (SELECT SUM(COALESCE(r.DoeOverrideValue, r.DoeMappedValue)) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear) AS roleDoe,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL) AS roleRecordedCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue IS NOT NULL) AS overrideCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue = 0) AS overrideZeroCount,
-           (SELECT COUNT(r.RoleAssignmentId) FROM paws.RoleAssignment r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue < 0) AS overrideNegativeCount`,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear) AS roleLineCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND r.DoeMappedValue IS NULL AND r.DoeOverrideValue IS NULL) AS roleMissingCount,
+           (SELECT SUM(COALESCE(r.DoeOverrideValue, r.DoeMappedValue)) FROM roles r WHERE r.AcademicYear = @academicYear) AS roleDoe,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND COALESCE(r.DoeOverrideValue, r.DoeMappedValue) IS NOT NULL) AS roleRecordedCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue IS NOT NULL) AS overrideCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue = 0) AS overrideZeroCount,
+           (SELECT COUNT(r.RoleAssignmentId) FROM roles r WHERE r.AcademicYear = @academicYear AND r.DoeOverrideValue < 0) AS overrideNegativeCount`,
         doeOverviewParams
       ), db.query(
         `SELECT COUNT(f.FacultyId) AS activeFacultyCount,

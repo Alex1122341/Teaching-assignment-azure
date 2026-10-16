@@ -1,6 +1,8 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { createSqlDoeWorksheetRepository } = require('./sql-doe-worksheet-repository');
+const { recordedDataset, datasetChecksum, projectRecordedSource } = require('../doe/doe-recorded-source-impact');
 
 const text = value => value === null || value === undefined ? '' : String(value).trim();
 const nullable = value => value === null || value === undefined || value === '' ? null : value;
@@ -13,6 +15,9 @@ function policyError(error) {
   else if (message.includes('DOE_POLICY_NOT_DRAFT')) error.code = 'DOE_POLICY_NOT_DRAFT';
   else if (message.includes('DOE_POLICY_NOT_FOUND')) error.code = 'DOE_POLICY_NOT_FOUND';
   else if (message.includes('DOE_POLICY_ALREADY_ACTIVE')) error.code = 'DOE_POLICY_ALREADY_ACTIVE';
+  else if (message.includes('DOE_POLICY_VERSION_LABEL_EXISTS')) error.code = 'DOE_POLICY_VERSION_LABEL_EXISTS';
+  else if (message.includes('DOE_POLICY_CHANGED')) error.code = 'DOE_POLICY_REVISION_CONFLICT';
+  else if (message.includes('DOE_ASSIGNMENT_REVISION_CONFLICT')) error.code = 'DOE_POLICY_REVISION_CONFLICT';
   return error;
 }
 
@@ -107,8 +112,11 @@ function createSqlDoePolicyRepository(db) {
       } catch (error) { throw policyError(error); }
     },
 
-    async saveDraft({ policyVersionId, academicYear, expectedRevision, actorUid, bundle }) {
-      const serializedRules = (bundle.rules || []).map(rule => ({ ...rule, parameters: [...(rule.parameters || [])] }));
+    async saveDraft({ policyVersionId, academicYear, expectedRevision, actorUid, bundle, createVersion = false }) {
+      const serializedRules = (bundle.rules || []).map(rule => ({ ...rule,
+        selectors: (rule.selectors || []).map(selector => ({ ...selector,
+          ...(Array.isArray(selector.values) ? { valuesJson: JSON.stringify(selector.values) } : {}) })),
+        parameters: [...(rule.parameters || [])] }));
       if (bundle.reservePolicy) {
         const reserveRule = serializedRules.find(rule => text(rule.category).toLowerCase() === 'reserve');
         if (!reserveRule) throw Object.assign(new Error('DOE_RESERVE_RULE_REQUIRED'), { code: 'DOE_DRAFT_INVALID' });
@@ -124,7 +132,16 @@ function createSqlDoePolicyRepository(db) {
       try {
         const rows = await db.query(
           `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;
-           DECLARE @beforeJson nvarchar(8000);
+           IF @createVersion=1 BEGIN
+             IF EXISTS(SELECT 1 FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE AcademicYear=@academicYear AND VersionLabel=@versionLabel)
+               THROW 52601,'DOE_POLICY_VERSION_LABEL_EXISTS',1;
+             INSERT INTO paws.DoePolicyVersion(PolicyVersionId,AcademicYear,VersionLabel,SourceReference,Active,Status,Revision,UpdatedBy)
+             VALUES(@policyVersionId,@academicYear,@versionLabel,@sourceReference,0,N'draft',0,@actorUid);
+             INSERT INTO paws.DoeAuditEvent(AuditEventId,PolicyVersionId,AcademicYear,Action,EntityType,EntityId,ActorUid,AfterJson)
+             VALUES(NEWID(),@policyVersionId,@academicYear,N'draft_created',N'doe_policy_version',CONVERT(nvarchar(128),@policyVersionId),@actorUid,
+                    (SELECT @versionLabel AS versionLabel,@sourceReference AS sourceReference FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
+           END;
+           DECLARE @beforeJson nvarchar(max);
            SELECT @beforeJson=(SELECT PolicyVersionId AS policyVersionId,AcademicYear AS academicYear,VersionLabel AS versionLabel,SourceReference AS sourceReference,Revision AS revision,ValidatedRevision AS validatedRevision,ImpactRevision AS impactRevision FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@expectedRevision FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
            IF @beforeJson IS NULL BEGIN
              IF EXISTS(SELECT 1 FROM paws.DoePolicyVersion WHERE PolicyVersionId=@policyVersionId) THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
@@ -169,7 +186,7 @@ function createSqlDoePolicyRepository(db) {
                   (SELECT @expectedRevision+1 AS revision,@versionLabel AS versionLabel,@sourceReference AS sourceReference FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
            COMMIT; SELECT @policyVersionId AS policyVersionId,@academicYear AS academicYear,N'draft' AS status,@expectedRevision+1 AS revision;
            END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK; THROW; END CATCH;`,
-          { policyVersionId, academicYear, expectedRevision, actorUid, versionLabel: bundle.version.versionLabel, sourceReference: bundle.version.sourceReference, rulesJson, referencesJson, exceptionsJson, coursesJson, subjectsJson });
+          { policyVersionId, academicYear, expectedRevision, actorUid, createVersion, versionLabel: bundle.version.versionLabel, sourceReference: bundle.version.sourceReference, rulesJson, referencesJson, exceptionsJson, coursesJson, subjectsJson });
         return rows[0] || { policyVersionId, academicYear, status: 'draft', revision: expectedRevision + 1 };
       } catch (error) { throw policyError(error); }
     },
@@ -240,7 +257,16 @@ function createSqlDoePolicyRepository(db) {
         }
       }
       const impactRunId = uid();
-      const inputDatasetChecksum = crypto.createHash('sha256').update(JSON.stringify(sources.map(row => [text(row.assignmentFactId), Number(row.revision), row.oldDoe === null ? null : Number(row.oldDoe)]))).digest('hex');
+      const recorded = recordedDataset(await createSqlDoeWorksheetRepository(db).listFacultyWorksheetSources(academicYear));
+      if (recorded.length + sources.length > 10000) throw Object.assign(new Error('DOE source impact exceeds the bounded 10000-line limit.'), { code: 'DOE_IMPACT_LIMIT_EXCEEDED' });
+      for (const sourceLine of recorded) {
+        const row = await projectRecordedSource({ ...sourceLine, calculate });
+        if (row.issueCode) { needsReview++; if (row.status === 'needs_mapping') mappingGaps++; }
+        else if (row.status !== 'unchanged') { assignmentsChanged++; affectedFaculty.add(text(row.facultyId)); }
+        if (row.deltaDoe !== null) totalDelta += row.deltaDoe;
+        rows.push(row);
+      }
+      const inputDatasetChecksum = datasetChecksum(sources, recorded);
       const rowJson = JSON.stringify(rows);
       const results = await db.query(
         `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;
@@ -263,11 +289,35 @@ function createSqlDoePolicyRepository(db) {
     },
 
     async publishPolicy({ policyVersionId, academicYear, revision, actorUid }) {
+      if (typeof db.transaction === 'function' && !db.isTransactionActive?.()) {
+        return db.transaction(() => this.publishPolicy({ policyVersionId, academicYear, revision, actorUid }));
+      }
       try {
+        // The real SQL adapter holds SERIALIZABLE source reads through publication.
+        if (typeof db.transaction === 'function') {
+          const impact = await db.query(`SELECT TOP(1) InputDatasetChecksum AS inputDatasetChecksum,NeedsReview AS needsReview
+            FROM paws.DoeImpactRun WHERE PolicyVersionId=@policyVersionId AND DraftRevision=@revision ORDER BY CreatedAtUtc DESC`,
+            { policyVersionId, revision });
+          const normalized = await db.query(`SELECT TOP (2001) a.AssignmentFactId AS assignmentFactId,a.FacultyId AS facultyId,a.AcademicYear AS academicYear,
+                a.Category AS category,a.RoleType AS roleType,a.ActivityType AS activityType,a.ScopeText AS scopeText,
+                a.CourseCode AS courseCode,a.SubjectKey AS subjectKey,a.SessionId AS sessionId,
+                a.SessionAssignmentId AS sessionAssignmentId,a.SourceEntityType AS sourceEntityType,
+                a.SourceEntityId AS sourceEntityId,a.Revision AS revision,c.ResultDoe AS oldDoe,
+                (SELECT i.InputName AS inputName,i.ValueType AS valueType,i.ValueText AS valueText,i.ValueNumber AS valueNumber
+                   FROM paws.DoeAssignmentFactInput i WHERE i.AssignmentFactId=a.AssignmentFactId FOR JSON PATH) AS inputsJson
+           FROM paws.DoeAssignmentFact a LEFT JOIN paws.DoeCalculationRecord c ON c.CalculationId=a.CurrentCalculationId
+          WHERE a.AcademicYear=@academicYear AND a.Active=1 ORDER BY a.AssignmentFactId`, { academicYear });
+          const recorded = recordedDataset(await createSqlDoeWorksheetRepository(db).listFacultyWorksheetSources(academicYear));
+          if (!impact.length || Number(impact[0].needsReview) !== 0 ||
+              impact[0].inputDatasetChecksum !== datasetChecksum(normalized, recorded)) {
+            throw Object.assign(new Error('Current DOE sources must pass a fresh complete Impact Preview before publication.'), { code: 'DOE_IMPACT_STALE_OR_INCOMPLETE' });
+          }
+        }
         const rows = await db.query(
           `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;
-           DECLARE @checksum char(64),@impactRunId uniqueidentifier,@publicationId uniqueidentifier=NEWID(),@before nvarchar(8000);
-           SELECT @checksum=ValidatedChecksum,@before=(SELECT PolicyVersionId AS policyVersionId,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@revision AND ValidatedRevision=@revision AND ImpactRevision=@revision FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@impactRunId=(SELECT TOP(1) ImpactRunId FROM paws.DoeImpactRun WHERE PolicyVersionId=@policyVersionId AND DraftRevision=@revision ORDER BY CreatedAtUtc DESC);
+           DECLARE @checksum char(64),@impactRunId uniqueidentifier,@publicationId uniqueidentifier=NEWID(),@before nvarchar(max);
+           SELECT @checksum=ValidatedChecksum FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@revision AND ValidatedRevision=@revision AND ImpactRevision=@revision;
+           SELECT @before=(SELECT PolicyVersionId AS policyVersionId,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@revision AND ValidatedRevision=@revision AND ImpactRevision=@revision FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@impactRunId=(SELECT TOP(1) ImpactRunId FROM paws.DoeImpactRun WHERE PolicyVersionId=@policyVersionId AND DraftRevision=@revision ORDER BY CreatedAtUtc DESC);
            IF @before IS NULL THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
            IF @checksum IS NULL OR @impactRunId IS NULL THROW 52604,'DOE_VALIDATION_OR_IMPACT_REQUIRED',1;
            UPDATE paws.DoePolicyVersion SET Status=N'archived',Active=0,UpdatedBy=@actorUid,UpdatedAtUtc=SYSUTCDATETIME() WHERE AcademicYear=@academicYear AND Status=N'active';
@@ -283,21 +333,41 @@ function createSqlDoePolicyRepository(db) {
       } catch (error) { throw policyError(error); }
     },
 
-    async clonePolicy({ sourcePolicyVersionId, sourceAcademicYear, academicYear, actorUid, includeExceptions = false }) {
+    async clonePolicy({ sourcePolicyVersionId, sourceAcademicYear, academicYear, actorUid, includeExceptions = false, reuseWorkingDraft = false }) {
+      if (reuseWorkingDraft) {
+        if (typeof db.transaction !== 'function') throw Object.assign(new Error('Atomic working Draft creation is unavailable.'), { code: 'DOE_UNAVAILABLE' });
+        if (!db.isTransactionActive?.()) return db.transaction(() => this.clonePolicy({sourcePolicyVersionId,sourceAcademicYear,academicYear,actorUid,includeExceptions,reuseWorkingDraft}));
+        const locked = await db.query(`SELECT PolicyVersionId FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@sourcePolicyVersionId AND AcademicYear=@academicYear AND Status=N'active'`, {sourcePolicyVersionId,academicYear});
+        if (!locked.length) throw Object.assign(new Error('The Active policy changed. Reload the Rule Book.'), {code:'ACTIVE_POLICY_REQUIRED'});
+        const existing = await db.query(`SELECT TOP(1) v.PolicyVersionId AS policyVersionId FROM paws.DoePolicyVersion v JOIN paws.DoeAuditEvent a ON a.PolicyVersionId=v.PolicyVersionId WHERE v.AcademicYear=@academicYear AND v.Status=N'draft' AND a.Action=N'working_draft_created' AND JSON_VALUE(a.AfterJson,'$.sourcePolicyVersionId')=@sourcePolicyVersionId ORDER BY v.CreatedAtUtc DESC`, {sourcePolicyVersionId,academicYear});
+        if (existing.length) return loadVersion(existing[0].policyVersionId);
+      }
       const source = await loadVersion(sourcePolicyVersionId);
       if (!source) throw Object.assign(new Error('DOE_POLICY_NOT_FOUND'), { code: 'DOE_POLICY_NOT_FOUND' });
       const newPolicyVersionId = uid();
       const referenceIds = new Map((source.references || []).map(row => [row.referenceId, uid()]));
       const ruleIds = new Map((source.rules || []).map(row => [row.ruleId, uid()]));
-      const next = { ...source, version: { ...source.version, policyVersionId: newPolicyVersionId, academicYear, status: 'draft', revision: 0, versionLabel: `Copy ${source.version.versionLabel}`, sourceReference: source.version.sourceReference },
+      const next = { ...source, version: { ...source.version, policyVersionId: newPolicyVersionId, academicYear, status: 'draft', revision: 0, versionLabel: `${text(source.version.versionLabel).slice(0,48)} copy ${newPolicyVersionId.slice(0,8)}`, sourceReference: source.version.sourceReference },
         references: source.references.map(row => ({ ...row, referenceId: referenceIds.get(row.referenceId) })),
         rules: source.rules.map(row => ({ ...row, ruleId: ruleIds.get(row.ruleId), referenceId: row.referenceId ? referenceIds.get(row.referenceId) : null, selectors: row.selectors.map(item => ({ ...item, selectorId: uid() })), parameters: row.parameters.map(item => ({ ...item, parameterId: uid() })), tiers: row.tiers.map(item => ({ ...item, tierId: uid() })), inputs: row.inputs.map(item => ({ ...item })) })),
         exceptions: includeExceptions ? source.exceptions.map(row => ({ ...row, exceptionId: uid() })) : [],
         courseMappings: source.courseMappings.map(row => ({ ...row, mappingId: uid(), referenceId: row.referenceId ? referenceIds.get(row.referenceId) : null })),
         subjectMappings: source.subjectMappings.map(row => ({ ...row, mappingId: uid(), referenceId: row.referenceId ? referenceIds.get(row.referenceId) : null })) };
+      if (text(source.version.academicYear) !== text(academicYear)) {
+        for (const rows of [next.rules,next.references,next.courseMappings,next.subjectMappings]) for (const row of rows) row.reviewStatus = 'needs_review';
+      }
       const id = next.version.policyVersionId;
-      await this.createDraft({ policyVersionId: id, academicYear, versionLabel: next.version.versionLabel, sourceReference: next.version.sourceReference, actorUid });
-      return this.saveDraft({ policyVersionId: id, academicYear, expectedRevision: 0, actorUid, bundle: next });
+      if (reuseWorkingDraft) next.version.versionLabel = `${text(source.version.versionLabel).slice(0,80)} · working Draft ${id.slice(0,8)}`;
+      const saved = await this.saveDraft({ policyVersionId: id, academicYear, expectedRevision: 0, actorUid, bundle: next, createVersion: true });
+      if (reuseWorkingDraft) await db.query(`INSERT INTO paws.DoeAuditEvent(AuditEventId,PolicyVersionId,AcademicYear,Action,EntityType,EntityId,ActorUid,AfterJson) VALUES(NEWID(),@policyVersionId,@academicYear,N'working_draft_created',N'doe_policy_version',CONVERT(nvarchar(128),@policyVersionId),@actorUid,(SELECT @sourcePolicyVersionId AS sourcePolicyVersionId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER))`, {policyVersionId:id,academicYear,actorUid,sourcePolicyVersionId});
+      return saved;
+    },
+
+    async getImpactPreview(policyVersionId) {
+      const runs = await db.query(`SELECT TOP (1) ImpactRunId AS impactRunId, DraftRevision AS revision, FacultyAffected AS facultyAffected, AssignmentsChanged AS assignmentsChanged, NeedsReview AS needsReview, MappingGaps AS mappingGaps, TotalDelta AS totalDelta, CreatedAtUtc AS createdAtUtc FROM paws.DoeImpactRun WHERE PolicyVersionId=@policyVersionId ORDER BY CreatedAtUtc DESC`, { policyVersionId });
+      if (!runs[0]) return null;
+      const rows = await db.query(`SELECT FacultyId AS facultyId,SourceEntityId AS sourceEntityId,OldDoe AS oldDoe,ProjectedDoe AS projectedDoe,DeltaDoe AS deltaDoe,Status AS status,IssueCode AS issueCode FROM paws.DoeImpactRunRow WHERE ImpactRunId=@impactRunId ORDER BY FacultyId,SourceEntityId`, { impactRunId: runs[0].impactRunId });
+      return { ...runs[0], rows };
     },
 
     async listHistory(academicYear) {
@@ -308,9 +378,10 @@ function createSqlDoePolicyRepository(db) {
 
     async archivePolicy({ policyVersionId, expectedRevision, actorUid }) {
       try {
-        const rows = await db.query(`SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION; DECLARE @year nvarchar(32),@before nvarchar(8000);
-          SELECT @year=AcademicYear,@before=(SELECT PolicyVersionId AS policyVersionId,AcademicYear AS academicYear,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND Revision=@expectedRevision AND Status IN(N'draft',N'archived') FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+        const rows = await db.query(`SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION; DECLARE @year nvarchar(32),@before nvarchar(max);
+          SELECT @before=(SELECT PolicyVersionId AS policyVersionId,AcademicYear AS academicYear,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND Revision=@expectedRevision AND Status IN(N'draft',N'archived') FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
           IF @before IS NULL THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
+          SELECT @year=AcademicYear FROM paws.DoePolicyVersion WHERE PolicyVersionId=@policyVersionId;
           UPDATE paws.DoePolicyVersion SET Status=N'archived',Active=0,Revision=Revision+1,UpdatedBy=@actorUid,UpdatedAtUtc=SYSUTCDATETIME() WHERE PolicyVersionId=@policyVersionId AND Revision=@expectedRevision;
           INSERT INTO paws.DoeAuditEvent(AuditEventId,PolicyVersionId,AcademicYear,Action,EntityType,EntityId,ActorUid,BeforeJson,AfterJson) VALUES(NEWID(),@policyVersionId,@year,N'archived',N'doe_policy_version',CONVERT(nvarchar(128),@policyVersionId),@actorUid,@before,N'{"status":"archived"}');
           COMMIT; SELECT CONVERT(nvarchar(36),@policyVersionId) AS policyVersionId,@year AS academicYear,N'archived' AS status,@expectedRevision+1 AS revision; END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK; THROW; END CATCH;`, { policyVersionId, expectedRevision, actorUid });
@@ -318,7 +389,7 @@ function createSqlDoePolicyRepository(db) {
       } catch (error) { throw policyError(error); }
     },
 
-    async recalculate({ academicYear, policyVersionId, policyRevision, actorUid, limit = 250, calculate }) {
+    async recalculate({ academicYear, policyVersionId, policyRevision, actorUid, limit = 250, calculate, preview = false }) {
       if (typeof calculate !== 'function') throw Object.assign(new Error('DOE recalculation requires the active-policy calculation runner.'), { code: 'DOE_RECALCULATION_UNAVAILABLE' });
       const boundedLimit = Number.isSafeInteger(Number(limit)) ? Math.min(250, Math.max(1, Number(limit))) : 250;
       const sources = await db.query(
@@ -331,7 +402,7 @@ function createSqlDoePolicyRepository(db) {
                    FROM paws.DoeAssignmentFactInput i WHERE i.AssignmentFactId=a.AssignmentFactId FOR JSON PATH) AS inputsJson
            FROM paws.DoeAssignmentFact a LEFT JOIN paws.DoeCalculationRecord currentCalc ON currentCalc.CalculationId=a.CurrentCalculationId
           WHERE a.AcademicYear=@academicYear AND a.Active=1 AND (currentCalc.CalculationId IS NULL OR currentCalc.PolicyVersionId<>@policyVersionId)
-          ORDER BY a.AssignmentFactId`, { academicYear, limit: boundedLimit });
+          ORDER BY a.AssignmentFactId`, { academicYear, policyVersionId, limit: boundedLimit });
       const records = [];
       let needsReview = 0;
       for (const source of sources) {
@@ -373,6 +444,9 @@ function createSqlDoePolicyRepository(db) {
           });
         }
       }
+      if (preview) return { preview: true, policyVersionId, policyRevision, recordsProjected: records.length, needsReview,
+        scope: 'normalized_assignment_facts', limit: boundedLimit,
+        rows: records.map(row => ({ assignmentFactId: row.assignmentFactId, facultyId: row.facultyId, sourceRevision: row.sourceRevision, resultDoe: row.resultDoe, status: row.status, calculationText: row.calculationText })) };
       const rowsJson = JSON.stringify(records);
       const results = await db.query(
         `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;
@@ -394,7 +468,7 @@ function createSqlDoePolicyRepository(db) {
          COMMIT; SELECT @recordCount AS recordsCreated,@needsReview AS needsReview,@policyVersionId AS policyVersionId,@policyRevision AS policyRevision;
          END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK; THROW; END CATCH;`,
         { policyVersionId, academicYear, policyRevision, actorUid, rowsJson, recordCount: records.length, needsReview }
-      );
+      ).catch(error => { throw policyError(error); });
       const remaining = await db.query(`SELECT COUNT_BIG(*) AS remaining FROM paws.DoeAssignmentFact a LEFT JOIN paws.DoeCalculationRecord c ON c.CalculationId=a.CurrentCalculationId WHERE a.AcademicYear=@academicYear AND a.Active=1 AND (c.CalculationId IS NULL OR c.PolicyVersionId<>@policyVersionId)`, { academicYear, policyVersionId });
       return { ...(results[0] || { recordsCreated: records.length, needsReview, policyVersionId, policyRevision }), limit: boundedLimit, remaining: Number(remaining[0]?.remaining || 0) };
     }

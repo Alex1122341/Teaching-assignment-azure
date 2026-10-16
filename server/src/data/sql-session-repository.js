@@ -1,5 +1,7 @@
 'use strict';
 
+const { facultyDisplayNameSql } = require('./faculty-display-name');
+
 function createSqlSessionRepository(db) {
   return {
     async list({ start = null, end = null, facultyId = null, includeAssignmentTargets = false } = {}) {
@@ -19,7 +21,7 @@ function createSqlSessionRepository(db) {
 
       const where = predicates.length ? ' WHERE ' + predicates.join(' AND ') : '';
       const assignmentProjection = includeAssignmentTargets
-        ? `COALESCE((SELECT sa.FacultyId AS facultyId, sa.TeachingRole AS teachingRole, f.DisplayName AS displayName, f.Active AS active
+        ? `COALESCE((SELECT sa.FacultyId AS facultyId, sa.TeachingRole AS teachingRole, ${facultyDisplayNameSql()} AS displayName, f.Active AS active
                        FROM paws.SessionAssignment sa
                        LEFT JOIN paws.Faculty f ON f.FacultyId = sa.FacultyId
                       WHERE sa.SessionId = c.SessionId AND sa.FacultyId IS NOT NULL
@@ -39,7 +41,7 @@ function createSqlSessionRepository(db) {
             CONVERT(varchar(8), c.StartTime, 108) AS startTime,
             CONVERT(varchar(8), c.EndTime, 108) AS endTime,
             c.Room AS room,
-            c.InstructorNames AS instructorNames,
+            COALESCE((SELECT STRING_AGG(CONVERT(nvarchar(max), COALESCE(NULLIF(${facultyDisplayNameSql()},N''),LTRIM(RTRIM(REPLACE(sn.SourceFacultyName,N',',N' '))))), N'; ') WITHIN GROUP (ORDER BY sn.SessionAssignmentId) FROM paws.SessionAssignment sn LEFT JOIN paws.Faculty f ON f.FacultyId = sn.FacultyId WHERE sn.SessionId = c.SessionId), REPLACE(c.InstructorNames,N',',N' ')) AS instructorNames,
             ${assignmentProjection}
          FROM paws.vCalendarSession c${where}
          ORDER BY c.SessionDate, c.StartTime, c.SessionId`,

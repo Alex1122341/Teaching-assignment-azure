@@ -2,6 +2,7 @@
   'use strict';
 
   const FIREBASE_CONFIG = { apiKey: 'AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY', authDomain: 'tester-teaching.firebaseapp.com', projectId: 'tester-teaching', storageBucket: 'tester-teaching.firebasestorage.app', messagingSenderId: '566638053186', appId: '1:566638053186:web:90e04b52251c4b859baadb', measurementId: 'G-F7HW5XX4JE' };
+  const facultyName = (record, fallback = '') => window.PAWS_FACULTY_NAME.format(record, fallback);
   const VIEW = window.PAWS_DASHBOARD_VIEW_MODEL || {};
   const number = value => value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value);
   const normalizeCurriculumYear = VIEW.normalizeCurriculumYear || (value => text(value) || 'Unassigned year');
@@ -21,6 +22,10 @@
   function pawsTimingEnabled() { return window.__pawsDashboardTiming === true; }
   function pawsTimingLog(label, started) { if (pawsTimingEnabled() && typeof performance?.now === 'function') console.log(`[PAWS dashboard timing] ${label}=${Math.round(performance.now() - started)}ms`); }
 
+  const workImport=window.PAWS_ACTIVITY_IMPORT?.createAdminEntry({api:UCVM_PAWS_DATA,host:$('calendar-activity-import'),notify:showToast,getUser:()=>currentUser,canAdmin:()=>!selfMode && dashboardAdmin(currentUser),onCommitted:async()=>{
+    workView?.clear();invalidateFacultyDetails();await loadAdminDashboard();await loadAfcRecords(true);if(selectedId)await selectFacultyDetail(selectedId);
+  }});
+  const workView = window.PAWS_CALENDAR_ACTIVITIES?.createFacultySchedule({getHost:()=>$('faculty-working-activities'),getUser:()=>currentUser,getSelected:()=>selectedId,isSelf:()=>selfMode});
   let auth = null;
   let currentUser = null;
   let faculty = [];
@@ -37,24 +42,36 @@
   let afcRecords = [];
   let afcLoaded = false;
   let afcSubmitInFlight = false;
-  let afcSingleOutcomeUnconfirmed = false;
+  const afcActions = window.UCVM_AFC_RECORDS.createActions({
+    api: UCVM_PAWS_DATA, facultyName,
+    canCancel: () => !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true,
+    getRecords: () => afcRecords, render: () => renderAfcRecords(),
+    refresh: async () => { invalidateFacultyDetails(); await loadAdminDashboard(); await loadAfcRecords(true); },
+    refreshRecords: () => loadAfcRecords(true), notify: showToast, confirm: message => window.confirm(message)
+  });
   let afcBatchRows = [{ facultyId: '', facultyEntry: '', startDate: '', endDate: '', purpose: '', dateErrors: {}, errors: [], status: 'EDIT' }];
   let afcBatchRequestId = '';
   let afcBatchReviewed = false;
   let detailLoadToken = 0;
+  let detailGeneration = 0;
   const detailCache = new Map();
-  const detailPending = new Set();
+  const detailPending = new Map();
+  function invalidateFacultyDetails() {
+    // A write must start fresh reads; older requests cannot repopulate the cache.
+    ++detailGeneration; ++detailLoadToken;
+    detailCache.clear(); detailPending.clear(); selectedDetail = null;
+  }
   const aggregateCache = { teachingSummary: null, roles: null, doeOverview: null };
 
   function rosterRecord(row) {
     const r = row && typeof row === 'object' ? row : {};
     const first = text(r.preferredFirstName), last = text(r.preferredLastName), id = text(r.facultyId);
     return { __id: id, facultyId: id, preferredFirstName: first, preferredLastName: last,
-      preferredFullName: text(r.displayName) || [first, last].filter(Boolean).join(' '), displayName: text(r.displayName) || [first, last].filter(Boolean).join(' '),
+      preferredFullName: facultyName(r, id), displayName: facultyName(r, id),
       ucid: text(r.ucid), email: text(r.email), recordType: text(r.recordType), stream: text(r.stream), rank: text(r.rank), fte: present(r.fte) ? r.fte : undefined,
-      reportsToFacultyId: text(r.reportsToFacultyId), reportsToName: text(r.reportsToName), active: r.active !== false, teachingArea: text(r.teachingArea), professionalCategory: text(r.professionalCategory),
+      reportsToFacultyId: text(r.reportsToFacultyId), reportsToName: facultyName(r.reportsToName), active: r.active !== false, teachingArea: text(r.teachingArea), professionalCategory: text(r.professionalCategory),
       updatedAtUtc: text(r.updatedAtUtc),
-      sessionCount: Number(r.sessionCount) || 0, roleCount: Number(r.roleCount) || 0, afcCount: Number(r.afcCount) || 0, jointAppointmentCount: Number(r.jointAppointmentCount) || 0 };
+      sessionCount: number(r.sessionCount), roleCount: number(r.roleCount), afcCount: number(r.afcCount), jointAppointmentCount: number(r.jointAppointmentCount) };
   }
 
   async function loadAdminDashboard() {
@@ -66,13 +83,15 @@
         UCVM_PAWS_DATA.dashboardFaculty({ status: facultyStatus }),
         facultyStatus === 'active' ? Promise.resolve(null) : UCVM_PAWS_DATA.dashboardFaculty({ status: 'active' }),
         UCVM_PAWS_DATA.refreshFacultyAdminWriteCapabilities?.() ?? false,
-        UCVM_PAWS_DATA.refreshDoeWriteCapabilities?.() ?? {}
+        UCVM_PAWS_DATA.refreshDoeWriteCapabilities?.() ?? {},
+        UCVM_PAWS_DATA.refreshAfcRecordWriteCapabilities?.() ?? {}
       ]);
       dashboardSummary = summary && typeof summary === 'object' && !Array.isArray(summary) ? summary : {};
       facultyAdminWriteEnabled = canWrite === true;
       window.__pawsDoeWriteCapabilities = doeGates || {};
       faculty = (Array.isArray(rows) ? rows : []).map(rosterRecord);
       activeFaculty = facultyStatus === 'active' ? faculty : (Array.isArray(activeRows) ? activeRows : []).map(rosterRecord);
+      updateAfcWriteControls();
       if ($('faculty-status-filter')) $('faculty-status-filter').value = facultyStatus;
       afcLoaded = false;
       updateFilters(); populateAfcFacultyOptions(); updateKpis(); updateStatus(); renderActiveTab();
@@ -101,7 +120,7 @@
 
   async function enterSelfMode(user, profile) {
     selfMode = true; document.body.classList.add('faculty-self-mode'); installSelfModeStyles();
-    currentUser = { uid: user.uid, email: user.email || '', name: profile.displayName || profile.name || user.displayName || user.email || 'Faculty', role: profile.role };
+    currentUser = { uid: user.uid, email: user.email || '', name: facultyName(profile, user.displayName || user.email || 'Faculty'), role: profile.role };
     $('admin-chip').textContent = `${currentUser.name} · ${dashboardRoleLabel(profile.role)}`; $('user-management-link')?.classList.add('hidden'); $('afc-records-tab')?.classList.add('hidden');
     const heading = document.querySelector('.headline h1'), copy = document.querySelector('.headline p');
     if (heading) heading.textContent = 'My Faculty Profile';
@@ -111,7 +130,7 @@
 
   function enterAdminMode(user, profile) {
     selfMode = false; document.body.classList.remove('faculty-self-mode');
-    currentUser = { uid: user.uid, email: user.email || '', name: profile.displayName || profile.name || user.displayName || user.email || 'Administrator', role: profile.role };
+    currentUser = { uid: user.uid, email: user.email || '', name: facultyName(profile, user.displayName || user.email || 'Administrator'), role: profile.role };
     $('faculty-status-filter')?.classList.remove('hidden');
     $('admin-chip').textContent = `${currentUser.name} · ${dashboardRoleLabel(profile.role)}`; $('user-management-link')?.classList.toggle('hidden', !dashboardGeneral(profile)); $('afc-records-tab')?.classList.toggle('hidden', !dashboardAdmin(profile)); $('doe-rules-tab')?.classList.toggle('hidden', !dashboardAdmin(profile));
     unlock(); loadAdminDashboard();
@@ -124,7 +143,7 @@
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {}); bindUI();
       if(cameFromTimetable())lock('Opening Dashboard…');
       auth.onAuthStateChanged(async user => {
-        if (!user) { currentUser = null; lock('You are not signed in. Return to the timetable and sign in.'); return; }
+        if (!user) { currentUser = null; workView?.clear();workImport?.clear();lock('You are not signed in. Return to the timetable and sign in.'); return; }
         try {
           lock('Checking Dashboard access…'); const meStarted = typeof performance?.now === 'function' ? performance.now() : 0; const profile = await UCVM_PAWS_DATA.currentUser(); pawsTimingLog('me', meStarted);
           if (!profile || profile.active !== true) { lock('This Dashboard requires an active UCVM account.'); return; }
@@ -140,16 +159,21 @@
 
   function bindUI() {
     on($('lookup-search'), 'input', debounce(renderLookup)); on($('filter-rank'), 'change', renderLookup);
-    on($('faculty-status-filter'), 'change', async () => { facultyStatus = $('faculty-status-filter').value || 'active'; detailCache.clear(); selectedId = null; await loadAdminDashboard(); });
+    on($('faculty-status-filter'), 'change', async () => { facultyStatus = $('faculty-status-filter').value || 'active'; invalidateFacultyDetails(); selectedId = null; await loadAdminDashboard(); });
     on($('doe-list-refresh'),'click',()=>loadDoeList(true));
     facultyManagement.bind();
     on($('lookup-reset'), 'click', () => { $('lookup-search').value = ''; $('filter-rank').value = ''; renderLookup(); });
+    on($('lookup-clear'), 'click', () => { selectedId = null; selectedDetail = null; ++detailLoadToken; renderLookup(); });
     document.querySelectorAll('.tab').forEach(tab => on(tab, 'click', () => selectTab(tab.dataset.tab)));
     on($('summary-search'), 'input', renderTeachingSummary); on($('roles-search'), 'input', renderRoles);
-    on($('role-type-filter'), 'change', renderRoles);
+    on($('role-type-filter'), 'change', renderRoles); on($('role-status-filter'), 'change', renderRoles); on($('role-as-of'), 'change', renderRoles); if ($('role-as-of')) $('role-as-of').value = window.PAWS_ROLE_PERIODS.today();
     on($('afc-search'), 'input', debounce(renderAfcRecords));
     on($('afc-reason-filter'), 'change', renderAfcRecords); on($('afc-active-filter'), 'change', renderAfcRecords); on($('afc-source-filter'), 'change', renderAfcRecords);
     on($('afc-record-form'), 'submit', submitAfcRecord);
+    on($('afc-records-body'), 'click', event => {
+      const button = event.target?.closest?.('[data-afc-cancel]');
+      if (button) return cancelAfcRecord(button.dataset.afcCancel);
+    });
     on($('afc-single-mode'), 'click', () => setAfcMode(false));
     on($('afc-batch-mode'), 'click', () => { setAfcMode(true); renderAfcBatchRows(); });
     on($('afc-batch-add-row'), 'click', () => { if (afcBatchRows.length >= 20) return setAfcBatchStatus('A batch can contain at most 20 rows.', true); afcBatchRows.push({ facultyId: '', facultyEntry: '', startDate: '', endDate: '', purpose: '', dateErrors: {}, errors: [], status: 'EDIT' }); invalidateAfcBatch(); renderAfcBatchRows(); });
@@ -160,17 +184,10 @@
     on($('afc-batch-clear'), 'click', () => { afcBatchRows = [{ facultyId: '', facultyEntry: '', startDate: '', endDate: '', purpose: '', dateErrors: {}, errors: [], status: 'EDIT' }]; $('afc-batch-paste').value = ''; invalidateAfcBatch(); renderAfcBatchRows(); setAfcBatchStatus('Batch cleared.'); });
     on($('afc-batch-validate'), 'click', () => { reviewAfcBatch(); renderAfcBatchRows(); });
     on($('afc-batch-submit'), 'click', submitAfcBatch);
-    const singleWriteEnabled = UCVM_PAWS_DATA.afcSingleWriteEnabled?.() === true;
-    const batchWriteEnabled = UCVM_PAWS_DATA.afcBatchWriteEnabled?.() === true;
-    if (!singleWriteEnabled) {
-      const submit = $('afc-submit'); if (submit) submit.disabled = true;
-      const status = $('afc-form-status'); if (status) status.textContent = 'AFC single-record writes are disabled until the server write gate is explicitly enabled.';
-    }
-    if (!batchWriteEnabled) {
-      const submit = $('afc-batch-submit'); if (submit) submit.disabled = true;
-      const status = $('afc-batch-status'); if (status) status.textContent = 'AFC batch writes are disabled until the server write gate is explicitly enabled.';
-    }
+    updateAfcWriteControls();
   }
+
+  function updateAfcWriteControls() { window.UCVM_AFC_RECORDS.updateWriteControls(UCVM_PAWS_DATA, $, afcSubmitInFlight); }
 
   function selectTab(tabName) {
     if (selfMode) return;
@@ -186,7 +203,7 @@
     if (activeTab === 'doe-overview') return loadDoeOverview();
     if (activeTab === 'doe-list') return loadDoeList();
     if (activeTab === 'doe-rules') return doePolicyView?.loadHistory();
-    if (activeTab === 'afc-records') return loadAfcRecords();
+    if (activeTab === 'afc-records') { workImport?.open();return loadAfcRecords(); }
     renderLookup();
   }
 
@@ -216,18 +233,17 @@
   async function loadAfcRecords(force = false) {
     const body = $('afc-records-body');
     if (!force && afcLoaded) { renderAfcRecords(); return; }
-    if (body) body.innerHTML = '<tr><td colspan="7" class="empty">Loading AFC records…</td></tr>';
+    if (body) body.innerHTML = '<tr><td colspan="8" class="empty">Loading AFC records…</td></tr>';
     try {
       afcRecords = await UCVM_PAWS_DATA.dashboardAfcRecords({ limit: 2000 });
       afcRecords = Array.isArray(afcRecords) ? afcRecords : [];
       afcLoaded = true;
       renderAfcRecords();
       const note = $('afc-load-note'); if (note) note.textContent = `Unified AFC view · ${afcRecords.length} record${afcRecords.length === 1 ? '' : 's'} loaded · maximum 2,000.`;
-      return afcRecords;
     } catch (error) {
       afcLoaded = false;
-      if (body) body.innerHTML = `<tr><td colspan="7" class="empty">${esc(detailFailureMessage(error))}</td></tr>`;
-      return null;
+      afcRecords = [];
+      if (body) body.innerHTML = `<tr><td colspan="8" class="empty">${esc(detailFailureMessage(error))}</td></tr>`;
     }
   }
 
@@ -235,7 +251,7 @@
     const element = $('afc-faculty'); if (!element) return;
     const old = element.value;
     const rows = faculty.filter(row => row.active !== false).sort((a, b) => String(a.displayName || a.facultyId).localeCompare(String(b.displayName || b.facultyId)));
-    element.innerHTML = '<option value="">Select active faculty…</option>' + rows.map(row => `<option value="${esc(row.facultyId)}">${esc(row.displayName || 'Name unavailable')}</option>`).join('');
+    element.innerHTML = '<option value="">Select active faculty…</option>' + rows.map(row => `<option value="${esc(row.facultyId)}">${esc(afcFacultyLabel(row))}</option>`).join('');
     if (rows.some(row => row.facultyId === old)) element.value = old;
   }
 
@@ -259,9 +275,11 @@
       const haystack = norm([row.facultyName, row.facultyId, row.notes, row.legacyPurpose, row.reason, row.reasonCode].filter(present).join(' '));
       return (!query || haystack.includes(query)) && (!reason || row.reasonCode === reason || (!row.reasonCode && norm(row.reason) === norm(AFC_REASON_LABELS[reason]))) && (!active || String(row.active !== false) === active) && (!source || norm(row.sourceKind || 'manual') === source);
     });
-    body.innerHTML = rows.map(row => `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(row.facultyName || 'Name unavailable')}</button></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${row.active === false ? 'No' : 'Yes'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">No AFC records match the current filters.</td></tr>';
+    body.innerHTML = window.UCVM_AFC_RECORDS.renderRows(rows, { facultyName, canCancel: !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true, busy: afcActions.isBusy });
     document.querySelectorAll('[data-afc-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.afcPerson)));
   }
+
+  function cancelAfcRecord(key) { return afcActions.cancel(key); }
 
   function afcFormValues() {
     return { facultyId: text($('afc-faculty')?.value), startDate: text($('afc-start-date')?.value), endDate: text($('afc-end-date')?.value), reasonCode: text($('afc-reason')?.value), notes: text($('afc-notes')?.value) };
@@ -269,7 +287,7 @@
 
   function validateAfcForm(values) {
     if (!values.facultyId) return 'Select an active faculty member.';
-    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !UCVM_AFC_BATCH.normalizePastedDate(value, 'Date').error;
+    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
     if (!validDate(values.startDate) || !validDate(values.endDate)) return 'Enter valid start and end dates.';
     if (values.endDate < values.startDate) return 'End date cannot be before start date.';
     if (!Object.prototype.hasOwnProperty.call(AFC_REASON_LABELS, values.reasonCode)) return 'Select a recognised AFC reason.';
@@ -285,39 +303,40 @@
 
   async function submitAfcRecord(event) {
     event?.preventDefault?.();
-    if (afcSubmitInFlight || afcSingleOutcomeUnconfirmed) return;
+    if (afcSubmitInFlight) return;
     const values = afcFormValues(); const validation = validateAfcForm(values);
     if (validation) { setAfcFormStatus(validation, true); return; }
     const submit = $('afc-submit');
     afcSubmitInFlight = true; if (submit) { submit.disabled = true; submit.textContent = 'Saving…'; }
     setAfcFormStatus('Saving AFC record…');
     try {
-      const created = await UCVM_PAWS_DATA.createDashboardAfcRecord(values);
-      if (!created?.afcRecordId) throw Object.assign(new Error('AFC save response incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
-      let confirmed = false;
-      for (let i = 0; i < 2 && !confirmed; i++) confirmed = (await loadAfcRecords(true))?.some(row => String(row.afcRecordId) === String(created.afcRecordId));
-      if (!confirmed) throw Object.assign(new Error('AFC readback incomplete.'), { code: 'OUTCOME_UNCONFIRMED' });
-      $('afc-record-form')?.reset?.();
-      setAfcFormStatus('AFC record created and confirmed in the AFC list.');
+      await UCVM_PAWS_DATA.createDashboardAfcRecord(values);
+      $('afc-record-form')?.reset();
+      setAfcFormStatus('AFC record created.');
       await loadAdminDashboard();
-    } catch (error) {
-      afcSingleOutcomeUnconfirmed = !(error?.code === 'WRITE_DISABLED' && error.status === 503) && (error?.code === 'OUTCOME_UNCONFIRMED' || !Number(error?.status) || Number(error.status) >= 500);
-      setAfcFormStatus(afcSingleOutcomeUnconfirmed ? 'Save unconfirmed. Check the AFC list before reloading or submitting again.' : error?.message || 'AFC record could not be created.', true);
-    }
-    finally { afcSubmitInFlight = false; if (submit) { submit.disabled = afcSingleOutcomeUnconfirmed; submit.textContent = 'Create AFC Record'; } }
+      await loadAfcRecords(true);
+    } catch (error) { setAfcFormStatus(error?.message || 'AFC record could not be created.', true); }
+    finally { afcSubmitInFlight = false; if (submit) { submit.disabled = false; submit.textContent = 'Create AFC Record'; } }
   }
 
   function updateFilters() { fillSelect('filter-rank', unique('rank'), 'All ranks'); }
   function updateStatus() { const summary = dashboardSummary || {}, show = key => present(summary[key]) ? summary[key] : '—'; const status = $('sync-status'); if (status) status.textContent = `Faculty ${faculty.length} · sessions ${show('sessionCount')} · assignments ${show('assignmentCount')} · roles ${show('roleAssignmentCount')} · HICC ${show('hiccCount')} · VISC ${show('viscCount')} · AFC ${show('afcRecordCount')} · check needed ${show('checkNeededCount')}`; const note = $('summary-load-note'); if (note) note.textContent = `VetMed-Ops summary · academic year ${summary.academicYear || 'current'}`; }
   function updateKpis() { const summary = dashboardSummary || {}; const set = (id, key) => { const node = $(id); if (node) node.textContent = present(summary[key]) ? String(summary[key]) : '—'; }; [['kpi-total', 'activeFacultyCount'], ['kpi-sessions', 'sessionCount'], ['kpi-assignments', 'assignmentCount'], ['kpi-courses', 'courseCount'], ['kpi-roles', 'roleAssignmentCount'], ['kpi-hicc', 'hiccCount'], ['kpi-visc', 'viscCount'], ['kpi-afc', 'afcRecordCount'], ['kpi-grid', 'gridPositionableCount'], ['kpi-check', 'checkNeededCount']].forEach(([id, key]) => set(id, key)); }
 
-  function renderLookup() {
+  function renderLookup(focusId) {
+    const active = document.activeElement;
+    const focusFacultyId = typeof focusId === 'string' ? focusId : active?.matches?.('.person-select') ? active.closest('.person-row')?.dataset.id : null;
     const rows = filteredLookup(); const count = $('result-count'); if (count) count.textContent = rows.length;
     if (selectedId && !rows.some(row => row.__id === selectedId)) selectedId = null;
-    const list = $('result-list'); if (list) list.innerHTML = rows.map(row => `<div class="person-row ${row.__id === selectedId ? 'active' : ''}" data-id="${esc(row.__id)}"><div class="person-name">${esc(row.preferredFullName || row.__id)}${row.active === false ? ' <span class="faculty-inactive-badge">Inactive</span>' : ''}</div><div class="person-meta">${esc(row.rank)}${row.teachingArea ? ' · ' + esc(row.teachingArea) : ''}</div><div class="person-meta">${row.sessionCount} sessions · ${row.roleCount} roles · ${row.afcCount} AFC</div>${facultyManagement.editAction(row.facultyId)}</div>`).join('') || '<div class="empty">No matching faculty.</div>';
-    document.querySelectorAll('.person-row').forEach(node => on(node, 'click', () => { selectedId = node.dataset.id; renderLookup(); }));
+    const list = $('result-list'); if (list) list.innerHTML = rows.map(row => `<div class="person-row ${row.__id === selectedId ? 'active' : ''}" data-id="${esc(row.__id)}"><button type="button" class="person-select" aria-pressed="${row.__id === selectedId}"><span class="person-name">${esc(row.preferredFullName || row.__id)}${row.active === false ? ' <span class="faculty-inactive-badge">Inactive</span>' : ''}</span><span class="person-meta">${esc(row.rank)}${row.teachingArea ? ' · ' + esc(row.teachingArea) : ''}</span><span class="person-meta">${display(row.sessionCount)} sessions · ${display(row.roleCount)} roles · ${display(row.afcCount)} AFC</span></button>${facultyManagement.editAction(row.facultyId)}</div>`).join('') || '<div class="empty">No matching faculty.</div>';
+    document.querySelectorAll('.person-select').forEach(node => on(node, 'click', event => { selectedId = node.closest('.person-row').dataset.id; selectedDetail = null; ++detailLoadToken; renderLookup(event.detail === 0 || document.activeElement === node ? selectedId : undefined); }));
+    if (focusFacultyId) {
+      const focusedRow = [...document.querySelectorAll('#result-list .person-row')].find(node => node.dataset.id === focusFacultyId);
+      focusedRow?.querySelector('.person-select')?.focus({ preventScroll: true });
+    }
     const selected = faculty.find(row => row.__id === selectedId); if (!selected) { selectedDetail = null; renderApiDetail(null); return; }
     if (detailCache.has(selected.__id)) { selectedDetail = detailCache.get(selected.__id); renderApiDetail(selectedDetail); return; }
+    selectedDetail = null;
     renderDetailPending(selected); selectFacultyDetail(selected.__id);
   }
 
@@ -333,15 +352,15 @@
 
   function renderTeachingSummary() {
     const body = $('summary-body'); if (!body) return; const query = norm($('summary-search')?.value); const rows = (aggregateCache.teachingSummary || []).filter(row => !query || norm(`${row.displayName} ${row.facultyId}`).includes(query));
-    body.innerHTML = rows.map(row => { const status = teachingSummaryDoeStatus(row); const effectiveTotal = row.effectiveDoeTotal ?? row.recordedDoeTotal; return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)}</button>${facultyManagement.editAction(row.facultyId)}</td><td>${formatDoe(row.assignedTeachingDoe)}</td><td>${formatDoe(row.roleDoe)}</td><td>${formatDoe(effectiveTotal)}</td><td>${row.year1Assignments ?? 0}</td><td>${row.year2Assignments ?? 0}</td><td>${row.year3Assignments ?? 0}</td><td>${row.year4Assignments ?? 0}</td><td>${display(row.creditedHours)}</td><td>${row.courseCount ?? 0}</td><td>${row.sessionCount ?? 0}</td><td><span class="doe-status ${status.className}" title="${esc(status.title)}">${esc(status.label)}</span></td></tr>`; }).join('') || '<tr><td colspan="12" class="empty">No teaching summary rows.</td></tr>';
+    body.innerHTML = rows.map(row => { const status = teachingSummaryDoeStatus(row); const effectiveTotal = row.effectiveDoeTotal ?? row.recordedDoeTotal; return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(facultyName(row, row.facultyId))}</button>${facultyManagement.editAction(row.facultyId)}</td><td>${formatDoe(row.assignedTeachingDoe)}</td><td>${formatDoe(row.roleDoe)}</td><td>${formatDoe(effectiveTotal)}</td><td>${row.year1Assignments ?? 0}</td><td>${row.year2Assignments ?? 0}</td><td>${row.year3Assignments ?? 0}</td><td>${row.year4Assignments ?? 0}</td><td>${display(row.creditedHours)}</td><td>${row.courseCount ?? 0}</td><td>${row.sessionCount ?? 0}</td><td><span class="doe-status ${status.className}" title="${esc(status.title)}">${esc(status.label)}</span></td></tr>`; }).join('') || '<tr><td colspan="12" class="empty">No teaching summary rows.</td></tr>';
     document.querySelectorAll('[data-summary-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.summaryPerson)));
   }
 
   function fillRoleFilter() { fillSelect('role-type-filter', [...new Set((aggregateCache.roles || []).map(row => text(row.roleType)).filter(Boolean))].sort(), 'All role types'); }
   function renderRoles() {
     const body = $('roles-body'); if (!body) return; const query = norm($('roles-search')?.value), type = $('role-type-filter')?.value || '';
-    const rows = (aggregateCache.roles || []).filter(row => (!query || norm(`${row.displayName} ${row.roleType} ${row.courseOrSubjectOrRotation} ${row.courseName}`).includes(query)) && (!type || row.roleType === type));
-    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(row.displayName || row.facultyId)}</button></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.details || '—')}</td><td>${esc(row.effectiveDate || '—')}</td><td>${esc(row.expirationDate || '—')}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.calculated)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(doe.source || row.doeSource || (doe.effective === null ? 'missing' : 'stored'))}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="14" class="empty">No role assignments.</td></tr>';
+    const rows = (aggregateCache.roles || []).filter(row => (!query || norm(`${row.displayName} ${row.roleType} ${row.courseOrSubjectOrRotation} ${row.courseName}`).includes(query)) && (!type || row.roleType === type) && (!$('role-status-filter')?.value || window.PAWS_ROLE_PERIODS.status(row, $('role-as-of')?.value || undefined).key === $('role-status-filter').value));
+    body.innerHTML = rows.map(row => { const doe = effectiveRoleDoe(row); return `<tr><td><button type="button" class="btn-link summary-person" data-summary-person="${esc(row.facultyId)}">${esc(facultyName(row, row.facultyId))}</button></td><td><span class="role-chip">${esc(row.roleType || 'Other')}</span></td><td>${esc(row.courseOrSubjectOrRotation || '—')}</td><td>${esc(row.courseName || '—')}</td><td>${esc(row.details || '—')}</td><td>${esc(window.PAWS_ROLE_PERIODS.status(row, $('role-as-of')?.value || undefined).label)}</td><td>${esc(window.PAWS_ROLE_PERIODS.summary(row))}</td><td>${rolePeriodsEditor.action(row)}</td><td>${formatDoe(doe.mapped)}</td><td>${formatDoe(doe.override)}</td><td>${formatDoe(doe.calculated)}</td><td>${formatDoe(doe.effective)}</td><td>${esc(doe.source || row.doeSource || (doe.effective === null ? 'missing' : 'stored'))}</td><td>${esc(row.doeOverrideReason || '—')}</td><td>${esc(row.specialNotes || '—')}</td></tr>`; }).join('') || '<tr><td colspan="15" class="empty">No role assignments.</td></tr>';
     document.querySelectorAll('[data-summary-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.summaryPerson)));
   }
 
@@ -373,18 +392,40 @@
     const profile = data.professionalProfile && typeof data.professionalProfile === 'object' ? data.professionalProfile : null;
     const roles = Array.isArray(data.roles) ? data.roles : []; const assignments = Array.isArray(data.teachingAssignments) ? data.teachingAssignments : [];
     const badges = [facultyRecord.rank, present(facultyRecord.fte) ? `FTE ${facultyRecord.fte}` : '', facultyRecord.stream, facultyRecord.recordType].filter(Boolean).map(value => `<span class="badge">${esc(value)}</span>`).join('');
-    const identity = field('Display name', facultyRecord.displayName) + field('UCID', facultyRecord.ucid) + field('Email', facultyRecord.email) + field('Rank', facultyRecord.rank) + field('Stream', facultyRecord.stream) + field('FTE', facultyRecord.fte) + field('Reports to', facultyRecord.reportsToName) + field('Active', facultyRecord.active === false ? 'No' : 'Yes');
-    const professional = profile ? field('Teaching area', profile.teachingArea, true) + field('Professional category', profile.professionalCategory) + field('Service date', profile.serviceDate) + field('Prior years experience', profile.priorYearsExperience) + field('DVM earned', profile.dvmEarnedDate) + field('DVM type', profile.dvmType) + field('Masters earned', profile.mastersEarnedDate) + field('Masters area', profile.mastersArea, true) + field('PhD earned', profile.phdEarnedDate) + field('PhD area', profile.phdArea, true) + field('Board certification', profile.boardCertification, true) + field('ABVMA member type', profile.abvmaMemberType) : '';
+    const identity = field('Preferred name', facultyName(facultyRecord)) + field('HR name', facultyRecord.hrName || 'Not imported from an exact source match') + field('HR name source', facultyRecord.hrNameSource) + field('UCID', facultyRecord.ucid) + field('Email', facultyRecord.email) + field('Reports to', facultyName(facultyRecord.reportsToName));
+    const appointment = field('Rank', facultyRecord.rank) + field('Stream', facultyRecord.stream) + field('FTE', facultyRecord.fte) + field('Record type', facultyRecord.recordType) + field('Service date', profile?.serviceDate) + field('Prior years experience', profile?.priorYearsExperience) + field('Active', facultyRecord.active === false ? 'No' : 'Yes');
+    const professional = profile ? field('Teaching area', profile.teachingArea, true) + field('Professional category', profile.professionalCategory) + field('DVM earned', profile.dvmEarnedDate) + field('DVM type', profile.dvmType) + field('Masters earned', profile.mastersEarnedDate) + field('Masters area', profile.mastersArea, true) + field('PhD earned', profile.phdEarnedDate) + field('PhD area', profile.phdArea, true) + field('Board certified date', profile.boardCertifiedDate) + field('Board certification count', profile.boardCertificationCount) + field('Board certification', profile.boardCertification, true) + field('ABVMA license number', profile.abvmaLicenseNumber) + field('ABVMA member type', profile.abvmaMemberType) : '';
+    const specialty = [profile?.teachingArea, profile?.boardCertification].filter(present);
+    const specialtyHtml = specialty.length ? `<div class="specialty-box"><strong>Specialty / focus:</strong> ${specialty.map(esc).join(' · ')}</div>` : '';
     const joints = (Array.isArray(data.jointAppointments) ? data.jointAppointments : []).map((joint, index) => section(`Joint appointment ${index + 1}`, field('Home faculty', joint.homeFaculty) + field('Joint faculty', joint.jointFaculty) + field('FTE UCVM', joint.fteUcvm) + field('FTE other faculty', joint.fteOtherFaculty) + field('Expiry date', joint.expiryDate) + field('Notes', joint.notes, true))).join('');
-    const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Effective', 'Expires', 'Mapped DOE', 'Override DOE', 'Effective DOE', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, role.effectiveDate, role.expirationDate, formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.effective), role.doeOverrideReason, role.specialNotes]; })));
-    const afcHtml = apiSection('Away from Campus', apiTable(['Start', 'End', 'Active', 'Reason', 'Notes', 'Source'], (Array.isArray(data.afcRecords) ? data.afcRecords : []).map(record => [record.startDate, record.endDate, record.active === false ? 'No' : 'Yes', record.reason || record.reasonCode || record.purpose, record.notes || record.legacyPurpose, record.sourceKind || 'import'])));
+    const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Status', 'Effective periods', 'Mapped DOE', 'Override DOE', 'Calculated DOE', 'Effective DOE', 'Source', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, window.PAWS_ROLE_PERIODS.status(role).label, window.PAWS_ROLE_PERIODS.summary(role), formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.calculated), formatDoe(effective.effective), effective.source || role.doeSource, role.doeOverrideReason, role.specialNotes]; })));
+    const afcHtml = renderFacultyAfc(data.afcRecords);
     const scope = section('Identity / appointment metadata', field('Academic year', data.academicYear) + field('Teaching assignments', data.sessionCount) + field('Assignments needing time review', data.checkNeededCount), true);
     const canManage = !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled;
     const linked = data.linkedRecords || {};
     const actions = facultyManagement.actions(facultyRecord);
     const relationshipNote = canManage && facultyRecord.active !== false ? facultyManagement.relationshipWarning(linked) : '';
-    pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyRecord.displayName || facultyRecord.facultyId || '')}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div></div>${actions}</div>${relationshipNote}<div class="profile-sections"><section id="faculty-doe-worksheet" class="section wide"><div class="empty">Loading authoritative DOE Worksheet…</div></section>${renderContractDoe(data.contractDoe, facultyRecord)}${renderDoeRuleBook(data.doeRuleBook)}${renderTeachingCourses(assignments)}${rolesHtml}${afcHtml}${profile ? section('Professional Profile', professional, true) : ''}${joints}${scope}${section('Identity', identity)}</div>`;
+    pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyName(facultyRecord, facultyRecord.facultyId))}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div>${specialtyHtml}</div>${actions}</div>${relationshipNote}<div class="profile-sections">${renderContractDoe(data.contractDoe, facultyRecord)}${renderDoeRuleBook(data.doeRuleBook)}${afcHtml}${rolesHtml}${renderTeachingCourses(assignments)}<section id="faculty-working-activities" class="section wide" aria-live="polite"><p class="activity-notice">Loading working activities…</p></section>${section('Identity & contact', identity)}${section('Appointment', appointment)}${profile ? section('Specialty & education', professional, true) : ''}${joints}${scope}<section id="faculty-doe-worksheet" class="section wide"><div class="empty">Loading authoritative DOE Worksheet…</div></section></div>`;
     loadDetailDoeWorksheet(facultyRecord.facultyId, text(data.academicYear) || currentAcademicYear());
+    workView?.load(facultyRecord.facultyId, text(data.academicYear) || currentAcademicYear());
+  }
+
+  function renderFacultyAfc(records) {
+    // Render only the record set authorized and returned by the detail API.
+    if (!Array.isArray(records)) return '';
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dateOnly = value => /^\d{4}-\d{2}-\d{2}(?:$|T)/.test(text(value)) ? text(value).slice(0, 10) : '';
+    const archived = record => record.active === false || (dateOnly(record.endDate) && dateOnly(record.endDate) < today);
+    const upcoming = records.filter(record => !archived(record)).sort((a,b) => text(a.startDate).localeCompare(text(b.startDate)));
+    const past = records.filter(archived).sort((a,b) => text(b.endDate).localeCompare(text(a.endDate)));
+    const table = rows => apiTable(['Start', 'End', 'Availability status', 'Reason', 'Notes', 'Source'], rows.map(record => {
+      const start = dateOnly(record.startDate), end = dateOnly(record.endDate);
+      const status = record.active === false ? 'Inactive' : !start || !end ? 'Dates need review' : end < today ? 'Past' : start <= today ? 'Current' : 'Upcoming';
+      return [record.startDate, record.endDate, status, record.reason || record.reasonCode || record.purpose, record.notes || record.legacyPurpose, record.sourceKind || 'Source unavailable'];
+    })) || '<div class="afc-none">No records in this group.</div>';
+    const fold = (label, rows, open = false) => `<details class="afc-fold" ${open ? 'open' : ''}><summary><span>${label}</span><span>${rows.length} record${rows.length === 1 ? '' : 's'}</span></summary>${table(rows)}</details>`;
+    return `<section class="section wide"><div class="section-title">Away from Campus · Availability & HR Archive</div><div class="afc-wrap">${fold('Current / Upcoming', upcoming, true)}${fold('Past / Inactive · HR Archive', past)}<div class="afc-privacy">${selfMode ? 'Your private Away from Campus / availability records.' : 'Confidential availability and HR records. Detailed reasons follow your Dashboard permissions.'}</div></div></section>`;
   }
 
   function currentAcademicYear() { return text(dashboardSummary?.academicYear || ''); }
@@ -395,22 +436,9 @@
   function loadDoeList(force = false) { return doeWorksheetView?.loadList(force); }
 
   function afcFacultyRows() { return activeFaculty.filter(row => row.active !== false).sort((a, b) => String(a.displayName || a.facultyId).localeCompare(String(b.displayName || b.facultyId))); }
-  function afcFacultyLabel(row) { return text(row.displayName) || 'Name unavailable'; }
-  function resolveAfcFaculty(value) {
-    const input = text(value);
-    const rows = afcFacultyRows();
-    const exactId = rows.find(row => text(row.facultyId).toLowerCase() === input.toLowerCase());
-    if (exactId) return exactId;
-    const labelMatches = rows.filter(row => afcFacultyLabel(row) === input && text(row.displayName));
-    if (labelMatches.length === 1) return labelMatches[0];
-    const parts = input.split(/,\s*/);
-    if (parts.length === 2 && parts[0] && parts[1]) {
-      const swapped = parts[1] + ' ' + parts[0];
-      const transformed = rows.filter(row => text(row.displayName) === swapped);
-      if (transformed.length === 1) return transformed[0];
-    }
-    return null;
-  }
+  function afcFacultyLabel(row) { return window.UCVM_AFC_RECORDS.facultyLabel(row, afcFacultyRows(), facultyName); }
+  function resolveAfcFaculty(value) { return window.UCVM_AFC_RECORDS.resolveFaculty(value, afcFacultyRows(), facultyName); }
+
   function setAfcMode(multi) {
     $('afc-record-form')?.classList.toggle('hidden', multi);
     $('afc-batch-form')?.classList.toggle('hidden', !multi);
@@ -488,12 +516,30 @@
   const DOE_PROFILE_RENDERER = window.UCVM_FACULTY_DOE_RENDERER.create({ esc, number, formatDoe, display, effectiveRoleDoe, groupTeachingAssignments });
   const { renderContractDoe, renderDoeRuleBook, renderTeachingCourses } = DOE_PROFILE_RENDERER;
   function renderDetailPending(row) { const pane = $('profile-pane'); if (pane) pane.innerHTML = row ? `<div class="empty">Loading ${esc(row.preferredFullName || row.__id)}…</div>` : '<div class="empty">Select a faculty member to view their profile.</div>'; }
-  async function selectFacultyDetail(facultyId) { const started = typeof performance?.now === 'function' ? performance.now() : 0; const id = String(facultyId ?? '').trim(); if (!id || detailPending.has(id)) return; if (detailCache.has(id)) { selectedDetail = detailCache.get(id); renderApiDetail(selectedDetail); return; } detailPending.add(id); const token = ++detailLoadToken; try { const detail = await UCVM_PAWS_DATA.dashboardFacultyById(id); if (token !== detailLoadToken) return; detailCache.set(id, detail); selectedDetail = detail; renderApiDetail(detail); pawsTimingLog(`detail`, started); } catch (error) { if (token !== detailLoadToken) return; const pane = $('profile-pane'); if (pane) pane.innerHTML = `<div class="empty">${esc(detailFailureMessage(error))}</div>`; } finally { detailPending.delete(id); } }
+  async function selectFacultyDetail(facultyId) {
+    const started = typeof performance?.now === 'function' ? performance.now() : 0;
+    const id = text(facultyId); if (!id || norm(selectedId) !== norm(id)) return;
+    const token = ++detailLoadToken;
+    const generation = detailGeneration;
+    if (detailCache.has(id)) { selectedDetail = detailCache.get(id); renderApiDetail(selectedDetail); return; }
+    let request = detailPending.get(id);
+    if (!request) { request = UCVM_PAWS_DATA.dashboardFacultyById(id); detailPending.set(id, request); }
+    try {
+      const detail = await request;
+      if (generation !== detailGeneration) return;
+      detailCache.set(id, detail);
+      if (token !== detailLoadToken || norm(selectedId) !== norm(id)) return;
+      selectedDetail = detail; renderApiDetail(detail); pawsTimingLog('detail', started);
+    } catch (error) {
+      if (generation !== detailGeneration || token !== detailLoadToken || norm(selectedId) !== norm(id)) return;
+      const pane = $('profile-pane'); if (pane) pane.innerHTML = `<div class="empty">${esc(detailFailureMessage(error))}</div>`;
+    } finally { if (detailPending.get(id) === request) detailPending.delete(id); }
+  }
 
-  function apiTable(headers, rows) { if (!rows.length) return ''; return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(header => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells => `<tr>${cells.map(cell => `<td>${esc(display(cell))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
+  function apiTable(headers, rows) { return DOE_PROFILE_RENDERER.apiTable(headers, rows); }
   function apiSection(title, table) { return table ? `<section class="section wide"><div class="section-title">${esc(title)}</div>${table}</section>` : ''; }
   function display(value) { if (!present(value)) return '—'; if (typeof value === 'object') return JSON.stringify(value); return String(value); }
-  function field(label, value, full = false) { return present(value) ? `<div class="field ${full ? 'full' : ''}"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(display(value))}</div></div>` : ''; }
+  function field(label, value, full = false) { return present(value) ? `<div class="field ${full ? 'full' : ''}"><div class="field-label">${esc(label)}</div><div class="field-value">${/source|reference/i.test(label) ? DOE_PROFILE_RENDERER.referenceBubble(display(value)) : esc(display(value))}</div></div>` : ''; }
   function section(title, body, wide = false) { return body.trim() ? `<section class="section ${wide ? 'wide' : ''}"><div class="section-title">${esc(title)}</div><div class="field-grid">${body}</div></section>` : ''; }
   function detailFailureMessage(error) { const status = Number(error?.status) || 0, code = String(error?.code || ''); if (status === 404 || code === 'FACULTY_NOT_FOUND') return 'This faculty record was not found in the Dashboard data source.'; if (status === 401 || code === 'UNAUTHENTICATED') return 'Your Dashboard session could not be verified. Your sign-in is still active.'; if (status === 403 || ['ROLE_DENIED', 'PROFILE_REQUIRED', 'FACULTY_LINK_REQUIRED'].includes(code)) return error?.message || 'This account cannot read that faculty record.'; if (status === 503 || code === 'SQL_UNAVAILABLE' || status === 0) return 'Faculty data is temporarily unavailable. Your sign-in is still active.'; return error?.message || 'Faculty detail could not be loaded.'; }
   function cameFromTimetable(){
@@ -515,25 +561,42 @@
     api: UCVM_PAWS_DATA,
     academicYear: currentAcademicYear,
     canWrite: () => !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled && UCVM_PAWS_DATA.doeAdminWriteEnabled?.() === true,
+    canManualWrite: () => !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled && UCVM_PAWS_DATA.doeManualAssignmentWriteEnabled?.() === true,
     onSaved: async id => {
       doeWorksheetView?.invalidate();
-      detailCache.delete(String(id));
-      if (String(selectedId || '').toLowerCase() === String(id || '').toLowerCase()) await selectFacultyDetail(id);
+      aggregateCache.roles = null;
+      aggregateCache.teachingSummary = null;
+      aggregateCache.doeOverview = null;
+      invalidateFacultyDetails();
+      if (selectedId) await selectFacultyDetail(selectedId);
       if (activeTab === 'doe-list') await loadDoeList(true);
+      if (activeTab === 'summary') await loadTeachingSummary();
+      if (activeTab === 'roles') await loadRoles();
+      if (activeTab === 'doe-overview') await loadDoeOverview();
     }
   });
+  const rolePeriodsEditor = (() => {
+    let editRoles = [];
+    const allRoles = () => [...(aggregateCache.roles || []), ...editRoles, ...(selectedDetail?.roles || []).map(r => ({...r,facultyId:selectedDetail.faculty.facultyId}))];
+    const editor = window.PAWS_ROLE_PERIODS.create({
+      canWrite: () => !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled,
+      getRoles: allRoles, notify: showToast,
+      onChanged: async id => { aggregateCache.roles = null; invalidateFacultyDetails(); await loadRoles(); if (selectedId === id) await selectFacultyDetail(id); }
+    });
+    return {...editor,remember: detail => {editRoles=(detail.roles||[]).map(r=>({...r,facultyId:detail.faculty.facultyId}));},rolesFor: id => allRoles().filter((r,i,a) => r.facultyId===id && a.findIndex(x=>x.roleAssignmentId===r.roleAssignmentId)===i)};
+  })();
   const facultyManagement = window.UCVM_FACULTY_ADMIN_MANAGEMENT.create({
     canWrite: () => !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled,
     getFaculty: () => faculty,
     getSelectedDetail: () => selectedDetail,
     getFacultyDetail: facultyId => UCVM_PAWS_DATA.dashboardFacultyById(facultyId),
-    onEditOpen: (form, f) => facultyDoeEdit?.mount(form, f),
+    onEditOpen: (form, f, p, detail) => { rolePeriodsEditor.remember(detail); facultyDoeEdit?.mount(form, f); const roles = rolePeriodsEditor.rolesFor(f.facultyId); form.querySelector('#faculty-record-fields')?.insertAdjacentHTML('beforeend', '<section class="form-section"><h3>Roles &amp; Appointments · effective periods</h3>' + roles.map(r => '<p>' + esc(r.roleType) + ' · ' + esc(r.courseOrSubjectOrRotation) + ' · ' + esc(window.PAWS_ROLE_PERIODS.status(r).label) + ' ' + rolePeriodsEditor.action(r) + '</p>').join('') + '</section>'); },
     notify: showToast,
     onChanged: async (id, requestedStatus) => {
       if (requestedStatus === 'inactive' && facultyStatus === 'active') facultyStatus = 'inactive';
       else if (requestedStatus === 'active' && facultyStatus === 'inactive') facultyStatus = 'active';
       if ($('faculty-status-filter')) $('faculty-status-filter').value = facultyStatus;
-      selectedId = id; detailCache.clear(); await loadAdminDashboard(); await selectFacultyDetail(id);
+      selectedId = id; invalidateFacultyDetails(); await loadAdminDashboard(); await selectFacultyDetail(id);
     }
   });
   doeWorksheetView = window.UCVM_FACULTY_DOE_WORKSHEET.create({
@@ -546,6 +609,7 @@
   doeWorksheetView.bindList();
   doePolicyView = window.UCVM_FACULTY_DOE_POLICY?.create({
     api: UCVM_PAWS_DATA,
+    getFaculty: () => faculty,
     getAcademicYear: currentAcademicYear,
     canAdmin: () => !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.doeAdminWriteEnabled?.() === true,
     canPublish: () => !selfMode && dashboardGeneral(currentUser) && UCVM_PAWS_DATA.doePolicyPublishEnabled?.() === true,

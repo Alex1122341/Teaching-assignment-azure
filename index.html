@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>UCVM Timetable - Workload Guideline DOE V9.7</title>
   <link rel="stylesheet" href="timetable.css">
+  <link rel="stylesheet" href="calendar-activities.css">
+  <link rel="stylesheet" href="swap-workflow-sql.css">
 
+  <link rel="stylesheet" href="workspace.css">
 </head>
 <body class="auth-locked">
   <header class="ucalgary-masthead" aria-label="University of Calgary">
@@ -14,7 +17,7 @@
         <div class="ucalgary-wordmark">UNIVERSITY OF CALGARY</div>
         <div class="ucalgary-faculty">Faculty of Veterinary Medicine</div>
       </div>
-      <div class="timetable-top-actions"><button class="masthead-link hidden" id="faculty-dashboard-btn">Faculty Dashboard</button><button class="masthead-link hidden" id="teaching-assignments-btn">Teaching Assignments</button><div class="ucalgary-product">Teaching Assignment &amp; Academic Scheduling</div></div>
+      <div class="timetable-top-actions"><button class="masthead-link hidden" id="faculty-dashboard-btn">Faculty Dashboard</button><button class="masthead-link hidden" id="teaching-assignments-btn">Teaching Assignments</button><button class="masthead-link hidden" id="swap-inbox-btn">SWAP inbox</button><div class="ucalgary-product">Teaching Assignment &amp; Academic Scheduling</div></div>
     </div>
     <div class="ucalgary-gold-rule"></div>
   </header>
@@ -136,6 +139,8 @@
             </div>
           </div>
           <label class="ccc-toggle"><input type="checkbox" id="show-ccc"> Show CCC</label>
+          <label class="ccc-toggle"><input type="checkbox" id="show-working-activities" checked> Working activities</label>
+          <label class="activity-filter-label">Activity category<select id="activity-category-filter"><option value="all">All categories</option><option value="ccc">CCC</option><option value="rotation_participant">Fourth-year rotation</option><option value="clinical_day">Clinical day</option><option value="vetm581_rounds">VETM 581 rounds</option><option value="vetm571_clinical_pharmacology">VETM 571</option><option value="vetm591_presentations">VETM 591</option><option value="teaching_excellence">Teaching excellence</option><option value="remote_work">Remote work</option></select></label>
           <button class="fbar-reset" id="reset-filters">Reset</button>
         </div>
       </div>
@@ -190,6 +195,7 @@
         </div>
         <div class="cal-card" id="cal-card">
           <div id="calendar-body"></div>
+          <div id="working-activities-lane" aria-live="polite"></div>
         </div>
         <div class="compact-export-bar" id="compact-export-bar">
           <span class="compact-export-label" id="ui-export-title">Export</span>
@@ -238,8 +244,12 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="paws-api-origin.js"></script><script src="paws-data-client.js"></script><script src="paws-auth-continuity.js"></script><script src="paws-login-performance.js"></script><script src="session-guard.js"></script><script src="faculty-doe.js"></script><script src="scheduling-core.js"></script><script src="data-index.js"></script><script src="audit-details.js"></script><script src="approval-scheduling.js"></script><script src="faculty-access.js"></script><script src="maintenance-state.js"></script><script src="asset-loader.js"></script><script src="signature-capture.js"></script><script src="afc-form-state.js"></script><script src="information-center.js"></script><script src="availability-lookup.js"></script><script src="timetable-selection.js"></script>
-  <script src="timetable.js"></script>
+<script src="paws-api-origin.js"></script><script src="paws-data-client.js"></script><script src="developer-support.js"></script><script src="paws-auth-continuity.js"></script><script src="paws-login-performance.js"></script><script src="session-guard.js"></script><script src="faculty-doe.js"></script><script src="scheduling-core.js"></script><script src="data-index.js"></script><script src="audit-details.js"></script><script src="approval-scheduling.js"></script><script src="faculty-access.js"></script><script src="maintenance-state.js"></script><script src="asset-loader.js"></script><script src="signature-capture.js"></script><script src="afc-form-state.js"></script><script src="information-center.js"></script><script src="availability-lookup.js"></script><script src="timetable-selection.js"></script>
+  <script src="faculty-name.js"></script>
+    <script src="adfa-swap-panel.js"></script>
+    <script src="swap-workflow-sql.js"></script>
+  <script src="workspace-tasks.js"></script>
+  <script src="lab-session-detail.js"></script><script src="calendar-activities.js"></script><script src="timetable.js"></script>
   <script src="afc-workflow-sql.js"></script>
   <script src="afc-workflow.js"></script>
   <script src="afc-timetable-panel.js"></script>

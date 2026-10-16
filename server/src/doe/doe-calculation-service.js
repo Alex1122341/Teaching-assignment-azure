@@ -21,16 +21,26 @@ function parseFactsJson(value) {
   }
 }
 
+function findMapping(rows, value, fields) {
+  const key = normalized(value);
+  if (!key) return null;
+  const matches = (rows || []).filter(row => row.enabled !== false &&
+    [...fields.map(field => row[field]), ...(parseFactsJson(row.mappingFactsJson || row.mappingFacts).aliases || [])]
+      .some(alias => normalized(alias) === key));
+  if (matches.length > 1) throw doeError('MAPPING_AMBIGUOUS', 'More than one annual mapping uses this code or alias.', { value });
+  return matches[0] || null;
+}
+
 function mappingFor(bundle, rule, facts) {
   const requirement = text(rule.mappingRequirement).toLowerCase();
   if (!requirement) return { facts, mapping: null };
   if (requirement === 'course') {
     const courseCode = text(facts.courseCode);
-    const mapping = (bundle.courseMappings || []).find(row => row.enabled !== false && normalized(row.courseCode) === normalized(courseCode));
+    const mapping = findMapping(bundle.courseMappings, facts.courseLabel, ['courseCode']) || findMapping(bundle.courseMappings, courseCode, ['courseCode']);
     if (!mapping || text(mapping.reviewStatus || 'approved') !== 'approved' || (text(rule.category).toLowerCase() === 'hicc' && mapping.hiccEligible !== true)) {
       throw doeError('COURSE_MAPPING_REQUIRED', `An approved annual Course Mapping is required for ${courseCode || 'this assignment'}.`, { courseCode });
     }
-    const enriched = { ...facts, ...parseFactsJson(mapping.mappingFactsJson) };
+    const enriched = { ...facts, ...parseFactsJson(mapping.mappingFactsJson || mapping.mappingFacts), courseCode: mapping.courseCode };
     if (mapping.unitCount !== null && mapping.unitCount !== undefined) enriched.units = Number(mapping.unitCount);
     if (mapping.curriculumStage) enriched.curriculumStage = mapping.curriculumStage;
     if (mapping.hiccEligible !== null && mapping.hiccEligible !== undefined) enriched.hiccEligible = mapping.hiccEligible === true;
@@ -38,11 +48,11 @@ function mappingFor(bundle, rule, facts) {
   }
   if (requirement === 'subject') {
     const subjectKey = text(facts.subjectKey);
-    const mapping = (bundle.subjectMappings || []).find(row => row.enabled !== false && normalized(row.subjectKey) === normalized(subjectKey));
+    const mapping = findMapping(bundle.subjectMappings, subjectKey, ['subjectKey', 'subjectName']);
     if (!mapping || text(mapping.reviewStatus || 'approved') !== 'approved') {
       throw doeError('SUBJECT_MAPPING_REQUIRED', `An approved annual VISC Subject Mapping is required for ${subjectKey || 'this assignment'}.`, { subjectKey });
     }
-    const enriched = { ...facts, ...parseFactsJson(mapping.mappingFactsJson) };
+    const enriched = { ...facts, ...parseFactsJson(mapping.mappingFactsJson || mapping.mappingFacts), subjectKey: mapping.subjectKey };
     if (mapping.curriculumStage) enriched.curriculumStage = mapping.curriculumStage;
     if (mapping.developmentPhase) enriched.developmentPhase = mapping.developmentPhase;
     return { facts: enriched, mapping };
@@ -53,17 +63,17 @@ function mappingFor(bundle, rule, facts) {
 function enrichFromKnownMappings(bundle, facts) {
   let enriched = { ...facts };
   const courseCode = text(facts.courseCode);
-  const course = (bundle.courseMappings || []).find(row => row.enabled !== false && normalized(row.courseCode) === normalized(courseCode));
+  const course = findMapping(bundle.courseMappings, facts.courseLabel, ['courseCode']) || findMapping(bundle.courseMappings, courseCode, ['courseCode']);
   if (course && text(course.reviewStatus || 'approved') === 'approved') {
-    enriched = { ...enriched, ...parseFactsJson(course.mappingFactsJson) };
+    enriched = { ...enriched, ...parseFactsJson(course.mappingFactsJson || course.mappingFacts), courseCode: course.courseCode };
     if (course.unitCount !== null && course.unitCount !== undefined) enriched.units = Number(course.unitCount);
     if (course.curriculumStage) enriched.curriculumStage = course.curriculumStage;
     if (course.hiccEligible !== null && course.hiccEligible !== undefined) enriched.hiccEligible = course.hiccEligible === true;
   }
   const subjectKey = text(facts.subjectKey);
-  const subject = (bundle.subjectMappings || []).find(row => row.enabled !== false && normalized(row.subjectKey) === normalized(subjectKey));
+  const subject = findMapping(bundle.subjectMappings, subjectKey, ['subjectKey', 'subjectName']);
   if (subject && text(subject.reviewStatus || 'approved') === 'approved') {
-    enriched = { ...enriched, ...parseFactsJson(subject.mappingFactsJson) };
+    enriched = { ...enriched, ...parseFactsJson(subject.mappingFactsJson || subject.mappingFacts), subjectKey: subject.subjectKey };
     if (subject.curriculumStage) enriched.curriculumStage = subject.curriculumStage;
     if (subject.developmentPhase) enriched.developmentPhase = subject.developmentPhase;
   }

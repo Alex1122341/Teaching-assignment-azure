@@ -1,6 +1,6 @@
 'use strict';
 
-const { applyTeachingReserve } = require('./doe-reserve-service');
+const { applyTeachingReserve, normalizePolicy } = require('./doe-reserve-service');
 
 const text = value => String(value ?? '').trim();
 const finite = value => {
@@ -19,8 +19,8 @@ function lineSection(category) {
 }
 
 function sumLines(lines) {
-  const rows = Array.isArray(lines) ? lines : [];
-  if (rows.some(row => finite(row?.resultDoe) === null || ['needs_review', 'error'].includes(text(row?.status).toLowerCase()))) return null;
+  const rows = (Array.isArray(lines) ? lines : []).filter(row => !(row.applicable === false && finite(row.resultDoe) === null));
+  if (rows.some(row => finite(row?.resultDoe) === null || ['needs_review', 'needs-review', 'error'].includes(text(row?.status).toLowerCase()))) return null;
   return round(rows.reduce((sum, row) => sum + finite(row.resultDoe), 0));
 }
 
@@ -44,6 +44,7 @@ function createWorksheetService({ repository } = {}) {
     if (text(source.policyStatus).toLowerCase() === 'mixed') errors.push({ code: 'MIXED_POLICY_VERSIONS', message: 'Faculty DOE source rows span multiple policy versions and require review.' });
     if (text(source.policyStatus).toLowerCase() === 'missing_version') errors.push({ code: 'POLICY_VERSION_NOT_FOUND', message: 'Faculty DOE provenance references a missing policy version.' });
     for (const row of lines) {
+      if (row.applicable === false && finite(row.resultDoe) === null) continue;
       const blocking = finite(row.resultDoe) === null || ['needs_review', 'needs-review', 'error'].includes(text(row.status).toLowerCase());
       if (blocking || row.requiresReview || text(row.status) === 'stored-calculation-mismatch') {
         errors.push({ code: text(row.errorCode) || 'DOE_LINE_UNAVAILABLE', message: text(row.reviewReason).replace(/-/g, ' ') || 'A DOE line requires review.', lineId: text(row.lineId), sourceEntityId: text(row.sourceEntityId), errorCode: text(row.errorCode) || null, blocking });
@@ -52,19 +53,29 @@ function createWorksheetService({ repository } = {}) {
 
     const target = finite(source.target?.effectiveTargetDoe);
     if (target === null) errors.push({ code: 'DOE_TARGET_UNAVAILABLE', message: 'Effective Teaching DOE target is unavailable.' });
+    try { normalizePolicy(source.reservePolicy); }
+    catch (error) { errors.push({ code: error.code || 'RESERVE_POLICY_INVALID', message: error.message, blocking: true }); }
     const sections = { scheduledTeaching: { lines: [] }, roles: { lines: [] }, supervision: { lines: [] }, adjustments: { lines: [] } };
     for (const row of lines) sections[lineSection(row.category)].lines.push(row);
     sections.scheduledTeaching.subtotal = sumLines(sections.scheduledTeaching.lines);
     sections.roles.subtotal = sumLines(sections.roles.lines);
-    sections.supervision.rawSubtotal = sumLines(sections.supervision.lines);
+    sections.supervision.rawSubtotal = source.supervisionDataAvailable === false ? null : sumLines(sections.supervision.lines);
+    if (source.supervisionDataAvailable === false) errors.push({
+      code: 'SUPERVISION_DATA_UNAVAILABLE',
+      message: 'Trainee supervision data has not been supplied for this faculty and academic year; an empty dataset does not confirm zero supervision.',
+      blocking: true
+    });
     sections.adjustments.subtotal = sumLines(sections.adjustments.lines);
 
     let reserve = null;
+    // Negotiated adjustments are applied after the source supervision reserve.
+    // A reduction must not be absorbed by an automatic increase in supervision.
+    const manualRoleDoe = sumLines(sections.roles.lines.filter(line => line.sourceEntityType === 'manual_doe_assignment'));
     if (!errors.some(error => error.blocking !== false)) {
       try {
         reserve = applyTeachingReserve({
           teachingTarget: target, stream: source.stream, rawSupervision: sections.supervision.rawSubtotal,
-          assignedTeaching: round(sections.scheduledTeaching.subtotal + sections.roles.subtotal + sections.adjustments.subtotal),
+          assignedTeaching: round(sections.scheduledTeaching.subtotal + sections.roles.subtotal - manualRoleDoe + sections.adjustments.subtotal),
           policy: source.reservePolicy
         });
       } catch (error) {
@@ -79,6 +90,9 @@ function createWorksheetService({ repository } = {}) {
       facultyId: text(source.facultyId || facultyId), academicYear: text(source.academicYear || academicYear),
       displayName: text(source.displayName), stream: text(source.stream), status: errors.length ? 'needs_review' : 'calculated',
       policyVersionId: policyVersion(lines), target: { ...(source.target || {}) }, reservePolicy: { ...(source.reservePolicy || {}) },
+      targetPolicyVersionLabel: text(source.targetPolicyVersionLabel),
+      workloadSourceReference: text(source.workloadSourceReference),
+      calculationBasis: lines.some(line => ['legacy_session_assignment', 'legacy_role_assignment', 'supervision_source_snapshot', 'manual_doe_assignment'].includes(text(line.sourceEntityType))) ? 'recorded_sources' : 'annual_engine',
       reserve, lines, sections, errors,
       completeness: { valuesComplete: !errors.some(error => error.blocking !== false), policyConsistent: !errors.length, reviewLineCount: errors.filter(error => error.lineId).length },
       totals: {
@@ -118,7 +132,7 @@ function createWorksheetService({ repository } = {}) {
     return worksheets.map(row => {
       const lines = Array.isArray(row.lines) ? row.lines : [];
       const roleLines = lines.filter(line => lineSection(line.category) === 'roles');
-      const roleAssignments = roleLines.filter(line => text(line.sourceEntityType) === 'doe_assignment').map(line => ({
+      const roleAssignments = roleLines.filter(line => ['doe_assignment','manual_doe_assignment'].includes(text(line.sourceEntityType))).map(line => ({
         assignmentFactId: text(line.assignmentFactId || line.sourceEntityId), roleType: text(line.roleType),
         courseCode: text(line.courseCode), subjectKey: text(line.subjectKey), resultDoe: finite(line.resultDoe),
         status: text(line.status), ruleKey: text(line.ruleKey), ruleId: text(line.ruleId), reference: line.reference || null,
@@ -131,12 +145,15 @@ function createWorksheetService({ repository } = {}) {
       return {
         facultyId: row.facultyId, displayName: row.displayName, academicYear: row.academicYear,
         policyVersionId: row.policyVersionId, status: row.status, lastCalculatedAt: row.lastCalculatedAt,
+        targetPolicyVersionLabel: row.targetPolicyVersionLabel,
+        workloadSourceReference: row.workloadSourceReference, calculationBasis: row.calculationBasis,
         target: { ...(row.target || {}) }, roleAssignmentCount: roleAssignments.length, roleAssignments,
         teachingLineCount: lines.filter(line => lineSection(line.category) === 'scheduledTeaching').length,
         supervisionLineCount: lines.filter(line => lineSection(line.category) === 'supervision').length,
         adjustmentLineCount: lines.filter(line => lineSection(line.category) === 'adjustments').length,
         serverFactCount: lines.length,
-        unratedLineCount: lines.filter(line => finite(line.resultDoe) === null || ['needs_review', 'error'].includes(text(line.status).toLowerCase())).length,
+        unratedLineCount: lines.filter(line => !(line.applicable === false && finite(line.resultDoe) === null)
+          && (finite(line.resultDoe) === null || ['needs_review', 'needs-review', 'error'].includes(text(line.status).toLowerCase()))).length,
         missingMappingCount: lines.filter(line => isMappingIssue(line.errorCode)).length,
         issueCount: (row.errors || []).length, issueCodes, ...row.totals
       };

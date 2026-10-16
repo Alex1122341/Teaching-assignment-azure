@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '../..');
 const contract = require('./fixtures/w1e-runtime-permission-contract.json');
 const migration = fs.readFileSync(path.join(root, 'database/azure-sql/017_w1e_runtime_least_privilege.sql'), 'utf8');
 const p2Migration = fs.readFileSync(path.join(root, 'database/azure-sql/022_teaching_assignment_workflow_permissions.sql'), 'utf8');
-const p4Migration = fs.readFileSync(path.join(root, 'database/azure-sql/027_doe_runtime_permissions.sql'), 'utf8');
+const p4Migration = fs.readFileSync(path.join(root, 'database/azure-sql/027_doe_runtime_permissions.sql'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'database/azure-sql/028_doe_supervision_source.sql'), 'utf8');
 
 test('W1E permission contract covers every SQL repository object and stored procedure', () => {
   const repositoryDir = path.join(root, 'server/src/data');
@@ -25,13 +25,17 @@ test('W1E permission contract covers every SQL repository object and stored proc
   // helper, so recover its statically declared procedure names as well.
   procedures.push(...[...sources.matchAll(/\bexec\(\s*'([A-Za-z0-9_]+)'/g)]
     .map(match => `paws_api.${match[1]}`));
+  procedures.push(...[...sources.matchAll(/\brun\(\s*'(SetRoleAppointmentPeriods)'/g)]
+    .map(match => `paws_api.${match[1]}`));
   const expectedObjects = [
-    ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects,
+    ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
     ...contract.readProcedures, ...contract.p2ReadProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
-    ...contract.outsideW1eWriteProcedures
+    ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
+    ...contract.calendarReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
+    ...contract.schedulingReadProcedures,...Object.values(contract.schedulingWriteSets).flat()
   ];
-  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects])].sort());
+  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
 });
 

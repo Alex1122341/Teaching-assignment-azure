@@ -1,3 +1,7 @@
+## Fresh release/workbook reconciliation — 2026-10-16
+
+Release recheck complete; accepted code already liveab8b587, public75/75 matches, API9ebhealthy, fresh root863pass/49skip/0fail. Same Excel reconciled:18checks/6pass/11open/1N/A. Continue unresolved full live SWAP/Tasks/Calendar checks, source preview/recovery/atomic migration, human export signoff and DOE D01/D02; do not repeat deployed code publication or perform unapproved source deletion. Details: updates/2026-10-16-beta-release-recheck-workbook.md.
+
 ## Requested PR acceptance and Beta release complete — 2026-10-16
 
 PR103/106 DOE UI is accepted and live; same Excel updated (25tasks,18checks:5pass,12open,1N/A;Task22partial,D01/D02pending). PR55 refreshed and merged asd75d8eb with CI405/406 passed and no runtime change. PR73 AFC safeguards improved, independently reviewed, merged asab8b587 and Hosting-only released after CI409/main410, package/freezes and75/75public-byte checks. Actual authenticated AFC page loaded810records/809active-filterrows with no console errors; no live business write. Final runtime anchor d049fe0 retains75static/76APIruntime79protectedinputs, APIbytes unchanged. See updates/2026-10-16-pr103-73-55-release-complete.md and docs/beta-pr103-73-55-closeout-20261016.md. Wider DOE source reconciliation and remaining workbook checks stay open. No SQL/API/rules/policy/permission/gate mutation. Final docs-only feature PR preserves this evidence; no repeat deployment required.

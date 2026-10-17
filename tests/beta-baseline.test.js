@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='3d983cf317147a20415e8e5cfd0d3f17532af27f';
+const BASELINE_COMMIT='0798408fa819f6040953ccf325d5cfb5e06ca7fc';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
@@ -51,11 +51,11 @@ function baselineJson(ref){
 const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:commit,readManifest:()=>baselineJson(commit)});
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
-test('Away classification freeze protects only its reviewed two static and two API files',()=>{
+test('historical Away classification freeze protects only its reviewed two static and two API files',()=>{
  const previous='0be7e75c483b497cc566c24a3d9366ad32827f8c',product='3d983cf317147a20415e8e5cfd0d3f17532af27f';
- assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(baseline.sourceCommit,product);assert.equal(BASELINE_COMMIT,product);
+ const historical=execFileSync('git',['show','9287d91b1d97cf484e6952dc67688d07f1edcf59:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});assert.ok(historical.includes(`const BASELINE_COMMIT='${product}'`));
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
- assert.equal(after.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);
+ assert.equal(after.length,75);assert.deepEqual(after,before);for(const file of after)assert.ok(manifest().includes(file));
  const apiFreeze=require('../tools/beta-api-freeze.js'),protectedApi=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
  assert.equal(newApi.length,76);assert.equal(protectedApi.length,79);assert.deepEqual(newApi,oldApi);
  const changed=execFileSync('git',['diff','--name-only',previous,product],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
@@ -72,7 +72,7 @@ test('historical Calendar import timeout freeze changes only three reviewed API 
  const report=JSON.parse(execFileSync('git',['show',`${governance}:tools/beta-baseline.json`],{cwd:root,encoding:'utf8'}));
  assert.ok(source.includes(`const BASELINE_COMMIT='${full}'`));assert.equal(report.sourceCommit,full);
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(full),api=historicalApiPaths(full),apiFreeze=require('../tools/beta-api-freeze.js');
- assert.equal(after.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);assert.deepEqual(api,historicalApiPaths(previous));
+ assert.equal(after.length,75);assert.deepEqual(after,before);for(const file of after)assert.ok(manifest().includes(file));assert.deepEqual(api,historicalApiPaths(previous));
  const protectedApi=[...new Set([...api,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();assert.equal(api.length,76);assert.equal(protectedApi.length,79);
  const changed=execFileSync('git',['diff','--name-only',previous,full],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
  assert.deepEqual(changed.filter(file=>after.includes(file)),[]);
@@ -87,7 +87,7 @@ test('historical working activity type filter freeze protects its reviewed four-
  const report=JSON.parse(execFileSync('git',['show',`${governance}:tools/beta-baseline.json`],{cwd:root,encoding:'utf8'}));
  assert.ok(source.includes(`const BASELINE_COMMIT='${product}'`));assert.equal(report.sourceCommit,product);
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
- assert.equal(before.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);
+ assert.equal(before.length,75);assert.deepEqual(after,before);for(const file of after)assert.ok(manifest().includes(file));
  const apiFreeze=require('../tools/beta-api-freeze.js'),protectedApi=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
  assert.equal(newApi.length,76);assert.equal(protectedApi.length,79);assert.deepEqual(newApi,oldApi);
  const changed=execFileSync('git',['diff','--name-only',previous,product],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
@@ -104,7 +104,7 @@ test('historical AFC confirmation recovery freeze protects only its reviewed thr
  const report=JSON.parse(execFileSync('git',['show',`${governance}:tools/beta-baseline.json`],{cwd:root,encoding:'utf8'}));
  assert.ok(source.includes(`const BASELINE_COMMIT='${product}'`));assert.equal(report.sourceCommit,product);
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
- assert.equal(before.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);
+ assert.equal(before.length,75);assert.deepEqual(after,before);for(const file of after)assert.ok(manifest().includes(file));
  assert.equal(oldApi.length,76);assert.deepEqual(newApi,oldApi);
  const apiFreeze=require('../tools/beta-api-freeze.js');
  const apiProtected=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
@@ -123,7 +123,7 @@ test('historical DOE Lookup summary layout freeze preserves its reviewed single-
  const historicalReport=JSON.parse(execFileSync('git',['show',`${governance}:tools/beta-baseline.json`],{cwd:root,encoding:'utf8'}));
  assert.ok(historicalSource.includes(`const BASELINE_COMMIT='${product}'`));assert.equal(historicalReport.sourceCommit,product);
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
- assert.equal(before.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);
+ assert.equal(before.length,75);assert.deepEqual(after,before);for(const file of after)assert.ok(manifest().includes(file));
  assert.equal(oldApi.length,76);assert.deepEqual(newApi,oldApi);
  const apiFreeze=require('../tools/beta-api-freeze.js');
  const apiProtected=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
@@ -145,8 +145,7 @@ test('historical DOE Rule Book / Faculty Lookup freeze preserves its exact revie
  execFileSync('git',['merge-base','--is-ancestor','85d0cb9202e34724882c02ece01f33c5910fe91d',product],{cwd:root});
  execFileSync('git',['merge-base','--is-ancestor','d8b2109dbf07f2b2500bb1be79ad06572683af66',product],{cwd:root});
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
- assert.equal(before.length,75);assert.deepEqual(after,before);assert.equal(manifest().length,75);
- assert.deepEqual(manifest().slice().sort(),after);
+ assert.equal(before.length,75);assert.deepEqual(after,before);for(const file of after)assert.ok(manifest().includes(file));
  assert.equal(oldApi.length,76);assert.deepEqual(newApi,oldApi);
  const apiFreeze=require('../tools/beta-api-freeze.js');
  const apiProtected=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
@@ -423,12 +422,12 @@ test('the DOE Rule Book / Faculty Lookup product frozen runtime reports zero pro
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,75);
+  assert.equal(result.protected,77);
 });
 
-test('the current static manifest has exactly 75 protected files',()=>{
-  assert.equal(manifest().length,75);
-  assert.equal(freeze.protectedPaths({root}).length,75);
+test('the current static manifest has exactly 77 protected files',()=>{
+  assert.equal(manifest().length,77);
+  assert.equal(freeze.protectedPaths({root}).length,77);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -441,9 +440,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 75 current protected files are byte-identical to the immutable DOE Rule Book / Faculty Lookup product blobs',()=>{
+test('all 77 current protected files are byte-identical to the immutable accepted product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,75);
+  assert.equal(protectedFiles.length,77);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -675,7 +674,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,75);
+  assert.equal(protectedFiles.length,77);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -701,7 +700,7 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
 
 test('beta-baseline.json remains non-authoritative and records the stabilized Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,75);
+  assert.equal(Object.keys(baseline.sha256).length,77);
   assert.ok(baseline.sha256['faculty-admin-management.js']);
   assert.ok(baseline.sha256['afc-workflow.js']);
   assert.ok(baseline.sha256['afc-workflow-sql.js']);
@@ -720,10 +719,10 @@ test('API freeze shares the promoted DOE Rule Book / Faculty Lookup static basel
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,76);
+  assert.equal(result.runtimeFiles.length,81);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,79);
+  assert.equal(result.protected,84);
   assert.ok(result.runtimeFiles.includes('server/src/auth/role-policy.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-calculator.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-course-catalog-2026-27.js'));

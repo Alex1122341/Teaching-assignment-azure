@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed work/Away classification revision is the immutable trust anchor.
+// Reviewed faculty change-history product is the immutable trust anchor.
 // Prior AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='3d983cf317147a20415e8e5cfd0d3f17532af27f';
+const BASELINE_COMMIT='0798408fa819f6040953ccf325d5cfb5e06ca7fc';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

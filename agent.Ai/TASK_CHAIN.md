@@ -1,4 +1,8 @@
-## Current: migration automatic stage complete;09–11 active — 2026-10-16
+## Current: history09–11 candidate reviewed; final release preparation — 2026-10-17
+
+Product0798408 on PR112 Ready after legacy AFC, Rule Book evidence, work-time/recovery and faculty-filter corrections. Fullserver651pass/3skip/0fail; syntheticChrome workflows passed. Next: separate freeze review → final candidate CI/artifact checks → authorized merge/exact-main CI → accepted package and original Excel. University remote device offline: live SQL047/API/Hosting and authenticated acceptance deferred. Hosting follows matching API/schema. Completed540 migration and manual C01/C05 are unchanged. See updates/2026-10-17-faculty-history-candidate-and-release-blocker.md.
+
+## Historical: migration automatic stage complete;09–11 active — 2026-10-16
 
 Read updates/2026-10-16-calendar-work-migration-complete-history-next.md. PR111main9394/SQL046live;540migrated/exactAFC0/receipt1/recovery540,privatefile+28fingerprintsverified. Sevenfilters/personalrange/SWAPNeedsReview/sourcefields/weekendsactualAPIpassed. Excel9passed8open1N/A;C01/C05manualUIpending, no falsefullfourthyear/CCCclaims. Ownerexplicitlyrequests09MyChangeHistoryexport→10facultypublicChanges→11filtersCSV/XLSX, plusDashboardLookup/AFC/DOERuleBookhistory; noquestions, skiphuman-onlystepsandcontinue. Worktree .worktrees/faculty-change-history-20261016, base9394. Design/plan/TDD/independentreview, separatePR andgovernance. Preserveprivacy/coverage/authority;Task10publictimetablechangesforALLauthenticatedfaculty,MyHistoryprivateaffectedself,Dashboardselfprivate/globalpublicrules. Do not recommit sourcebatch or generateanotherkey.
 

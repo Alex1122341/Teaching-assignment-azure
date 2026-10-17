@@ -1,3 +1,19 @@
+## Current: migration automatic stage complete;09–11 active — 2026-10-16
+
+Read updates/2026-10-16-calendar-work-migration-complete-history-next.md. PR111main9394/SQL046live;540migrated/exactAFC0/receipt1/recovery540,privatefile+28fingerprintsverified. Sevenfilters/personalrange/SWAPNeedsReview/sourcefields/weekendsactualAPIpassed. Excel9passed8open1N/A;C01/C05manualUIpending, no falsefullfourthyear/CCCclaims. Ownerexplicitlyrequests09MyChangeHistoryexport→10facultypublicChanges→11filtersCSV/XLSX, plusDashboardLookup/AFC/DOERuleBookhistory; noquestions, skiphuman-onlystepsandcontinue. Worktree .worktrees/faculty-change-history-20261016, base9394. Design/plan/TDD/independentreview, separatePR andgovernance. Preserveprivacy/coverage/authority;Task10publictimetablechangesforALLauthenticatedfaculty,MyHistoryprivateaffectedself,Dashboardselfprivate/globalpublicrules. Do not recommit sourcebatch or generateanotherkey.
+
+## Historical: PR110 live; PR111 commit preflight correction — 2026-10-16
+
+PR1109287/3d fullyreleasedHosting+SQL045+API,75/75publicandSQLhealthpassed. Exactv2preview540/256/4/12,C62manifest verifiedIDs/versions/dates=old541minusRemote245. NormalAPIcommit timedout90sec; DURABLE CHECK staged/Calendar0/receipt0/all540AFCintact, privateportclosed/tokenremoved. Keep originalprivateidempotencykey+beforefingerprints; neverblindlyreplayorcreateanotherkey. ReadonlyserializableprobeisolatedidentityIFEXISTS>60sec vs materialized47names15.7sec/identicalevidence; exactAFC139ms. PR111draft/fb8b761 testfirst onfix/calendar-commit-preflight-20261016, implementation046notyetwritten. Excelnow7pass10open1N/A,C02passed. Continue updates/2026-10-16-calendar-commit-timeout-performance-diagnosis.md. CurrentSQLCI38990381610awaitingmeaningfulRED.
+
+## PR110 merged; release preparation — 2026-10-16
+
+Main9287d91 and exact-main CI38986507704 passed. SQL045 acceptance38981843686 passed; independent product/governance Ready. Downloaded candidate/main153raw files match; freezes75static/76API79protected pass. Runtime9287 prepared74attested; live stillb2ecc/0be, SQLhealthy,newgatesclosed. Hosting9287 released from exact-main package and75/75 public bytes verified. SQL045 apply, APIcutover and540 migration NOT done; originalExcel updated andnative/manual preservationverified (6pass11open1N/A). Operational release review ongoing; follow updates/2026-10-16-away-pr110-merged-release-preparation.md. Do not execute superseded541manifest.
+
+## Latest owner revision: RemoteWork and abnormal rows are Away — 2026-10-16
+
+PR108/109releasedaccepted(e74Hosting/b2eccAPI). Source541oldpreview superseded: ownerconditionallyapprovedmigrationexcludingRemoteWork and putting12abnormalAway; boundeddesignapprovedAway+NeedsReview, no fabricateddates/identity, no source-rowguess/no duplicates. Expected540work,256validretained,4excluded,12Awayneedsreview; verifyfresh, neverdeleteold541. Newbranchfeat/calendar-away-classification-20261016, parserRED2thenpartialimpl, SQL045notyetwritten. OriginalExcelupdatedafterlockclosed,6pass11open1N/Aandmanual/nativepreservationverified. ActualCalendar/receipt0. Temporarypreviewoff/authtokenremoved, liveAPIb2eccanchored0be7e75healthyallgatesunchanged. Continue TDD→SQLrevision/previewv2+legacycommitreject→sevenworkfilter/AwayUI→independentproduct/governance→CI/artifacts/release→freshapprovedsubsetpreview→atomiccommit/export/fullacceptance. Exactsourceandremote/localevidenceinupdates/2026-10-16-away-classification-owner-revision.md.
+
 ## Tasks12–14 active: all work categories; filters live — 2026-10-16
 
 Eight source categories identified,541active imported AFC work candidates (inventory only). PR108 filters live e74bdba;75/75public and actualChrome clear/all/count/Reset passed after candidate/main CI. One812row source batch staged, then preview15s native driver timeout; no businessmigration. Dedicated90s pool product0be7e75 independently Ready and root872/923+51skip/server614/617+3skip,0fail; separate governanceReady. Continue API correction exactcandidate/mainCI→attestedAPIrelease withgatesclosed→refreshsamebatchpreview→private recovery/exactmanifest confirmation→atomiccommit, not historical541deletion. OPA/travel/vacation/RSL/leave/manual/excludedquarantine preserved. FullCourseCalendar/CCC replacement and rotation-subtype unknowns remain separate. Resume updates/2026-10-16-work-filter-release-and-import-timeout.md; sameExcelupdatepending.
@@ -1135,4 +1151,8 @@ Read-only comparison complete; manual versus automatic DOE interaction clarifica
 
 ## 2026-10-08 — Reference parity design review
 Owner approved retaining manual signed DOE over the automatic policy baseline. Written specification: docs/superpowers/specs/2026-10-08-faculty-ui-doe-rulebook-parity-design.md. Current gate: written-spec review; implementation plan follows its approval. No product or live changes.
+
+# Owner queue update — 2026-10-16 reconnect
+
+Finish current Tasks12–14 work/Away migration acceptance first. Then advance09 My Change History export,10 faculty-visible timetable Changes tab,11 history filters/downloads. Include Faculty Dashboard authorized history of Lookup data changes, AFC changes and DOE Rule Book changes. Owner directs recommended decisions without questions; record and skip genuinely human-only dependencies and continue other implementable work. Preserve privacy, source/coverage notices and durable audit evidence; do not fabricate historical events. These features belong in a separate feature PR after111, not in its bounded SQL correction. Prior instructions forbidding any next-task work are superseded for09–11 only.
 

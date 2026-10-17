@@ -147,6 +147,7 @@ function createSqlDoePolicyRepository(db) {
              IF EXISTS(SELECT 1 FROM paws.DoePolicyVersion WHERE PolicyVersionId=@policyVersionId) THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
              THROW 52603,'DOE_POLICY_NOT_FOUND',1;
            END;
+           SET @beforeJson=JSON_MODIFY(@beforeJson,'$.ruleBook',JSON_QUERY(paws_api.DoeHistoryPolicySnapshot(@policyVersionId)));
            DELETE i FROM paws.DoeRuleInput i JOIN paws.DoePolicyRule r ON r.RuleId=i.RuleId WHERE r.PolicyVersionId=@policyVersionId;
            DELETE s FROM paws.DoeRuleSelector s JOIN paws.DoePolicyRule r ON r.RuleId=s.RuleId WHERE r.PolicyVersionId=@policyVersionId;
            DELETE p FROM paws.DoeRuleParameter p JOIN paws.DoePolicyRule r ON r.RuleId=p.RuleId WHERE r.PolicyVersionId=@policyVersionId;
@@ -183,7 +184,7 @@ function createSqlDoePolicyRepository(db) {
            IF @@ROWCOUNT<>1 THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
            INSERT INTO paws.DoeAuditEvent(AuditEventId,PolicyVersionId,AcademicYear,Action,EntityType,EntityId,ActorUid,BeforeJson,AfterJson)
            VALUES(NEWID(),@policyVersionId,@academicYear,N'draft_updated',N'doe_policy_version',CONVERT(nvarchar(128),@policyVersionId),@actorUid,@beforeJson,
-                  (SELECT @expectedRevision+1 AS revision,@versionLabel AS versionLabel,@sourceReference AS sourceReference FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
+                  (SELECT @expectedRevision+1 AS revision,@versionLabel AS versionLabel,@sourceReference AS sourceReference,JSON_QUERY(paws_api.DoeHistoryPolicySnapshot(@policyVersionId)) AS ruleBook FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
            COMMIT; SELECT @policyVersionId AS policyVersionId,@academicYear AS academicYear,N'draft' AS status,@expectedRevision+1 AS revision;
            END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK; THROW; END CATCH;`,
           { policyVersionId, academicYear, expectedRevision, actorUid, createVersion, versionLabel: bundle.version.versionLabel, sourceReference: bundle.version.sourceReference, rulesJson, referencesJson, exceptionsJson, coursesJson, subjectsJson });
@@ -315,18 +316,20 @@ function createSqlDoePolicyRepository(db) {
         }
         const rows = await db.query(
           `SET XACT_ABORT ON; BEGIN TRY BEGIN TRANSACTION;
-           DECLARE @checksum char(64),@impactRunId uniqueidentifier,@publicationId uniqueidentifier=NEWID(),@before nvarchar(max);
+           DECLARE @checksum char(64),@impactRunId uniqueidentifier,@publicationId uniqueidentifier=NEWID(),@before nvarchar(max),@publicBefore nvarchar(max);
            SELECT @checksum=ValidatedChecksum FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@revision AND ValidatedRevision=@revision AND ImpactRevision=@revision;
            SELECT @before=(SELECT PolicyVersionId AS policyVersionId,Status AS status,Revision AS revision FROM paws.DoePolicyVersion WHERE PolicyVersionId=@policyVersionId AND AcademicYear=@academicYear AND Status=N'draft' AND Revision=@revision AND ValidatedRevision=@revision AND ImpactRevision=@revision FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@impactRunId=(SELECT TOP(1) ImpactRunId FROM paws.DoeImpactRun WHERE PolicyVersionId=@policyVersionId AND DraftRevision=@revision ORDER BY CreatedAtUtc DESC);
            IF @before IS NULL THROW 52602,'DOE_POLICY_REVISION_CONFLICT',1;
            IF @checksum IS NULL OR @impactRunId IS NULL THROW 52604,'DOE_VALIDATION_OR_IMPACT_REQUIRED',1;
+           SELECT @publicBefore=paws_api.DoeHistoryPolicySnapshot(PolicyVersionId) FROM paws.DoePolicyVersion WITH(UPDLOCK,HOLDLOCK) WHERE AcademicYear=@academicYear AND Status=N'active';
+           SET @before=JSON_MODIFY(@before,'$.publishedRuleBook',JSON_QUERY(@publicBefore));
            UPDATE paws.DoePolicyVersion SET Status=N'archived',Active=0,UpdatedBy=@actorUid,UpdatedAtUtc=SYSUTCDATETIME() WHERE AcademicYear=@academicYear AND Status=N'active';
            UPDATE paws.DoePolicyVersion SET Status=N'active',Active=1,UpdatedBy=@actorUid,UpdatedAtUtc=SYSUTCDATETIME() WHERE PolicyVersionId=@policyVersionId AND Revision=@revision;
            INSERT INTO paws.DoePolicyPublication(PublicationId,PolicyVersionId,AcademicYear,Revision,PolicyChecksum,ImpactRunId,PublishedBy)
            VALUES(@publicationId,@policyVersionId,@academicYear,@revision,@checksum,@impactRunId,@actorUid);
            INSERT INTO paws.DoeAuditEvent(AuditEventId,PolicyVersionId,AcademicYear,Action,EntityType,EntityId,ActorUid,BeforeJson,AfterJson)
            VALUES(NEWID(),@policyVersionId,@academicYear,N'published',N'doe_policy_version',CONVERT(nvarchar(128),@policyVersionId),@actorUid,@before,
-                  (SELECT @publicationId AS publicationId,@revision AS revision,@checksum AS checksum,@impactRunId AS impactRunId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
+                  (SELECT @publicationId AS publicationId,@revision AS revision,@checksum AS checksum,@impactRunId AS impactRunId,JSON_QUERY(paws_api.DoeHistoryPolicySnapshot(@policyVersionId)) AS ruleBook FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
            COMMIT; SELECT CONVERT(nvarchar(36),@publicationId) AS publicationId,CONVERT(nvarchar(36),@policyVersionId) AS policyVersionId,@academicYear AS academicYear,@revision AS revision,@checksum AS checksum,N'active' AS status; END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK; THROW; END CATCH;`,
           { policyVersionId, academicYear, revision, actorUid });
         return rows[0] || { policyVersionId, academicYear, revision, status: 'active' };

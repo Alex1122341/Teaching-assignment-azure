@@ -72,6 +72,8 @@
   "faculty-admin-afc-records.js",
   "lab-session-detail.js",
   "calendar-activities.js",
+  "change-history.css",
+  "change-history.js",
   "calendar-activities.css",
   "faculty-admin-activity-import.js"
 ]

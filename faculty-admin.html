@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Faculty Dashboard</title>
 <link rel="stylesheet" href="faculty-admin.css">
+<link rel="stylesheet" href="change-history.css">
 <link rel="stylesheet" href="calendar-activities.css">
 <link rel="stylesheet" href="faculty-admin-doe-rulebook.css">
   <link rel="stylesheet" href="workspace.css">
@@ -18,7 +19,7 @@
   </header>
 
   <div class="auth-gate" id="auth-gate"><div class="gate-card"><div class="gate-brand">UCVM</div><div class="gate-title">Faculty Dashboard</div><div class="gate-copy">Restoring your existing PAWS session and checking Dashboard access.</div><div class="gate-status" id="gate-status">Opening Dashboard…</div><button class="btn btn-primary" id="gate-back">Back to Timetable</button></div></div>
-  <header class="topbar"><div class="brand"><div class="brand-mark">UCVM</div><div><div class="brand-title">Faculty Dashboard</div><div class="brand-sub">Beta · VetMed-Ops teaching data</div></div></div><div class="top-actions"><span class="admin-chip" id="admin-chip">Admin</span><button class="btn" id="back-btn">Timetable</button><button class="btn" id="signout-btn">Sign out</button></div></header>
+  <header class="topbar"><div class="brand"><div class="brand-mark">UCVM</div><div><div class="brand-title">Faculty Dashboard</div><div class="brand-sub">Beta · VetMed-Ops teaching data</div></div></div><div class="top-actions"><span class="admin-chip" id="admin-chip">Admin</span><button class="btn" id="faculty-history-btn" type="button" aria-haspopup="dialog" disabled>History</button><button class="btn" id="back-btn">Timetable</button><button class="btn" id="signout-btn">Sign out</button></div></header>
   <main class="shell">
     <div class="headline"><div><h1>Faculty Dashboard</h1><p>Faculty business data are served by the <strong>PAWS University API</strong> from VetMed-Ops. Access to teaching, timetable, role, appointment, DOE, and AFC data follows your account permissions.</p></div><div class="status" id="sync-status">Waiting for authorization…</div></div>
     <div class="summary-source-banner"><strong>Source policy:</strong> faculty, teaching, role, appointment, DOE, and AFC data are served through the PAWS University API from VetMed-Ops. AFC changes are limited to authorized administrators.</div>
@@ -66,7 +67,8 @@
     </section>
   </main>
   <div class="toast" id="toast"></div>
+  <dialog id="faculty-history-dialog" class="faculty-history-dialog" aria-labelledby="faculty-history-title"><header><h2 id="faculty-history-title">Dashboard History</h2><button class="btn" type="button" id="faculty-history-close">Close</button></header><div id="faculty-history-content"></div></dialog>
   <dialog id="faculty-record-editor" class="faculty-edit-dialog" aria-labelledby="faculty-record-title" aria-describedby="faculty-record-description"><form id="faculty-record-form" method="dialog"><div class="faculty-editor-head"><div><h2 class="modal-title" id="faculty-record-title">Edit Faculty</h2><p class="modal-sub" id="faculty-record-description">Update the canonical Faculty record and professional profile.</p></div><button class="btn" type="button" id="faculty-record-close" aria-label="Close faculty editor">Close</button></div><p class="aux-note faculty-editor-note">Faculty ID and linked records are preserved. Appointment, education and contact fields use the existing SQL profile contract. Location and internal notes are not supported by this editor.</p><div id="faculty-record-fields"></div><div class="form-actions"><button class="btn" type="button" id="faculty-record-cancel">Cancel</button><button class="btn btn-primary" type="submit" id="faculty-record-save">Save Faculty</button><span class="toolbar-note" id="faculty-record-status" role="status" aria-live="polite"></span></div></form></dialog>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="change-history.js"></script><script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="session-guard.js"></script><script src="paws-api-origin.js"></script><script src="paws-data-client.js"></script><script src="developer-support.js"></script><script src="paws-auth-continuity.js"></script><script src="faculty-name.js"></script><script src="dashboard-view-model.js"></script><script src="faculty-admin-doe-renderer.js"></script><script src="faculty-admin-doe-manual.js"></script><script src="faculty-admin-doe-edit.js"></script><script src="faculty-admin-doe-worksheet.js"></script><script src="faculty-admin-doe-rulebook.js"></script><script src="faculty-admin-doe-policy.js"></script><script src="faculty-admin-afc-batch.js"></script><script src="faculty-admin-afc-records.js"></script><script src="faculty-admin-management.js"></script><script src="faculty-role-periods.js"></script><script src="calendar-activities.js"></script><script src="faculty-admin-activity-import.js"></script><script src="faculty-admin.js"></script>
 </body></html>

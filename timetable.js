@@ -2262,7 +2262,7 @@
     window.PAWS_TASKS?.refresh();
     $('teaching-assignments-btn').classList.toggle('hidden', !currentUser || !['faculty','hicc','visc','developer','owner','administrator','adfa_general','adfa_regular','admin'].includes(String(currentUser.role || '').trim().toLowerCase()));
     $('cal-admin-menu').classList.toggle('hidden',!showAdminTools);
-    for(const id of ['my-teaching-btn','afc-request-btn','my-change-history-btn'])$(id).classList.toggle('hidden',!currentUser);
+    for(const id of ['my-teaching-btn','afc-request-btn','my-change-history-btn','cal-changes-btn'])$(id).classList.toggle('hidden',!currentUser);
     $('publish-firestore-schedule').classList.add('hidden');
     updateScheduleSourceUI();
     $('my-timetable-btn').classList.toggle('hidden', !currentUser || roleIsFaculty(currentUser));

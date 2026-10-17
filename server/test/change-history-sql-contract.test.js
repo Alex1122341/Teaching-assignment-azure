@@ -15,3 +15,10 @@ test('draft and publication audit snapshots are captured inside existing transac
  assert.match(source,/publishedRuleBook/);assert.match(source,/paws_api\.DoeHistoryPolicySnapshot/);
  assert.match(source,/JSON_QUERY\(paws_api\.DoeHistoryPolicySnapshot\(@policyVersionId\)\) AS ruleBook/);
 });
+test('forward VISC context uses explicit ownership and the existing DOE roles can invoke the audit snapshot',()=>{
+ const sql=fs.readFileSync(path.join(root,'database/azure-sql/047_change_history.sql'),'utf8');
+ assert.ok(sql.includes('LEFT JOIN paws.TeachingSessionOwnership'),'must use explicit session ownership');
+ assert.ok(sql.includes('subject.Label viscSubject'),'must snapshot the authoritative subject label');
+ assert.ok(sql.includes('GRANT EXECUTE ON OBJECT::paws_api.DoeHistoryPolicySnapshot TO paws_runtime_doe_admin_write'),'draft role needs the new scalar function permission');
+ assert.ok(sql.includes('GRANT EXECUTE ON OBJECT::paws_api.DoeHistoryPolicySnapshot TO paws_runtime_doe_policy_publish'),'publish role needs the new scalar function permission');
+});

@@ -54,6 +54,12 @@ DELETE @Rows;
 INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-b',N'dashboard','2026-10-16','2026-10-17';
 IF NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@Private)) THROW 54790,'Own AFC history missing.',1;
 IF ISJSON(paws_api.DoeHistoryPolicySnapshot(NEWID()))<>1 THROW 54790,'Policy snapshot must be valid JSON even for a missing version.',1;
+CREATE USER [history-synthetic-policy-writer] WITHOUT LOGIN;
+ALTER ROLE paws_runtime_doe_admin_write ADD MEMBER [history-synthetic-policy-writer];
+EXECUTE AS USER=N'history-synthetic-policy-writer';
+DECLARE @PolicySnapshot nvarchar(max)=paws_api.DoeHistoryPolicySnapshot(NEWID());
+REVERT;
+IF ISJSON(@PolicySnapshot)<>1 THROW 54790,'Existing draft role cannot invoke the audit snapshot.',1;
 ROLLBACK;
 IF EXISTS(SELECT 1 FROM paws.AuditEvent WHERE AuditEventId=@One) OR EXISTS(SELECT 1 FROM paws.ChangeHistoryContext WHERE AuditEventId=@One)
  THROW 54790,'Audit and event context did not roll back together.',1;

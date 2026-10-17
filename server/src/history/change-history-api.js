@@ -88,7 +88,7 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
     snapshots.set(handle,item);
     const facultyOptions=new Map();
     for(const row of projected)for(const option of row._facultyOptions)if(UUID.test(option.key))facultyOptions.set(option.key,option.name);
-    return ok({...pageBody(handle,item,0),filters,facets:{changeTypes:[...new Set(projected.map(row=>row.changeType))].sort(),faculties:[...facultyOptions].map(([key,name])=>({key,name})),academicYears:[...new Set(projected.map(row=>row.academicYear).filter(Boolean))].sort()},coverage:[
+    return ok({...pageBody(handle,item,0),filters,facets:{changeTypes:[...new Set(projected.map(row=>row.changeType))].sort(),faculties:[...facultyOptions].map(([key,name])=>({key,name})),academicYears:[...new Set(projected.map(row=>row.academicYear).filter(Boolean))].sort(),viscSubjects:[...new Set(projected.map(row=>row.viscSubject).filter(Boolean))].sort()},coverage:[
      'Only recorded SQL audits are available. Older events may lack previous values or proof of affected faculty; My Change History excludes unproven membership.',
      'VISC subjects and academic years are shown only when recorded; no mapping or year is inferred. Faculty names in new events are captured at the time of change.',
      'Exports contain every row in this filtered snapshot. Refresh after 10 minutes or after permissions change.'

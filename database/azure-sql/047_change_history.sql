@@ -62,7 +62,7 @@ BEGIN
  -- transaction. Old audits are deliberately never populated from current data.
  INSERT paws.ChangeHistoryContext(AuditEventId,ContextJson)
  SELECT e.AuditEventId,(
- SELECT s.CourseCode courseCode,s.CourseName courseName,s.Topic topic,s.AcademicYear academicYear,
+ SELECT s.CourseCode courseCode,s.CourseName courseName,s.Topic topic,s.AcademicYear academicYear,subject.Label viscSubject,
  COALESCE(TRY_CONVERT(uniqueidentifier,JSON_VALUE(e.AfterJson,'$.facultyId')),TRY_CONVERT(uniqueidentifier,JSON_VALUE(e.BeforeJson,'$.facultyId')),
  CASE WHEN e.EventType IN(N'FacultyUpdated',N'FacultyDeactivated',N'FacultyRestored') THEN TRY_CONVERT(uniqueidentifier,e.EntityId) END,roleRow.FacultyId,requestRow.FacultyId) facultyId,
  JSON_QUERY((SELECT DISTINCT f.FacultyId facultyId,c.CandidateKey facultyKey,
@@ -77,6 +77,8 @@ BEGIN
  FROM inserted e
  LEFT JOIN paws.Session s ON s.SessionId=CASE WHEN e.EntityType=N'session' THEN TRY_CONVERT(uniqueidentifier,e.EntityId)
  WHEN e.EventType=N'swap_applied' THEN TRY_CONVERT(uniqueidentifier,COALESCE(JSON_VALUE(e.AfterJson,'$.SessionId'),JSON_VALUE(e.BeforeJson,'$.SessionId'))) END
+ LEFT JOIN paws.TeachingSessionOwnership ownership ON ownership.SessionId=s.SessionId
+ LEFT JOIN paws.Subject subject ON subject.SubjectId=ownership.SubjectId
  LEFT JOIN paws.RoleAssignment roleRow ON e.EventType=N'role_periods_updated' AND roleRow.RoleAssignmentId=TRY_CONVERT(uniqueidentifier,e.EntityId)
  LEFT JOIN paws.AfcRequest requestRow ON e.EntityType=N'afc_request' AND requestRow.AfcRequestId=TRY_CONVERT(uniqueidentifier,e.EntityId)
  WHERE e.EventType IN(N'session_updated',N'session_created',N'session_assignments_replaced',N'swap_applied',N'session_deleted',N'FacultyUpdated',N'FacultyDeactivated',N'FacultyRestored',N'role_periods_updated',
@@ -138,5 +140,7 @@ END;
 GO
 CREATE ROLE paws_runtime_history_read AUTHORIZATION dbo;
 GRANT EXECUTE ON OBJECT::paws_api.ListChangeHistoryEvents TO paws_runtime_history_read;
+GRANT EXECUTE ON OBJECT::paws_api.DoeHistoryPolicySnapshot TO paws_runtime_doe_admin_write;
+GRANT EXECUTE ON OBJECT::paws_api.DoeHistoryPolicySnapshot TO paws_runtime_doe_policy_publish;
 COMMIT TRANSACTION;
 GO

@@ -60,8 +60,13 @@ function projectHistoryEvent(event,auth){
  const context=parse(event.contextJson),type=event.eventType;
  const recovered=event.source==='work'&&type==='calendar_activity_import_recovered';
  if(recovered){before=Object.keys(before).length?before:after;after={};}
- const people=[...array(get(context,'affectedFaculty')),...recordedFaculty(before),...recordedFaculty(after),...(event.facultyId?[{facultyId:event.facultyId}]:[])];
+ const metadataOwner=AFC_EVENTS.has(type)?get(parse(event.metadataJson),'facultyId'):null;
+ const lookupOwner=type.startsWith('Faculty')&&LOOKUP_EVENTS.has(type)?event.entityId:null;
+ const people=[...array(get(context,'affectedFaculty')),...recordedFaculty(context),...recordedFaculty(before),...recordedFaculty(after),...[event.facultyId,metadataOwner,lookupOwner].filter(Boolean).map(facultyId=>({facultyId}))];
  const facultyIds=unique(people.map(p=>id(get(p,'facultyId'))));
+ // Directory mapping labels filters only. It cannot add historical membership
+ // or populate the recorded affectedFaculty / instructor display names.
+ const directory=array(parse(event.directoryFacultyJson)).filter(p=>facultyIds.includes(id(get(p,'facultyId'))));
  const own=Boolean(auth.facultyId&&facultyIds.includes(id(auth.facultyId)));
  const isPublic=event.source!=='doe'&&PUBLIC_EVENTS.has(type);
  let domain;
@@ -89,6 +94,8 @@ function projectHistoryEvent(event,auth){
  const subjects=contextValues(before,after,context,'viscSubject');
  const base={eventId:String(event.eventId),changeDate:new Date(occurred).toISOString(),changeType:type,domain,course:courses.at(-1)||null,session:topics.at(-1)||null,academicYear:years.at(-1)||null,viscSubject:subjects.at(-1)||null,affectedFaculty:unique(people.map(p=>get(p,'sourceFacultyName')||get(p,'displayName')||get(p,'facultyDisplayName'))).join('; ')||null,status:scalar(get(after,'status')??get(context,'status')??'Recorded'),_courseValues:courses,_topicValues:topics,_facultyKeys:unique(people.map(p=>get(p,'facultyKey'))),_facultyOptions:people.filter(p=>get(p,'facultyKey')).map(p=>({key:get(p,'facultyKey'),name:get(p,'displayName')||get(p,'sourceFacultyName')||'Recorded faculty'})),_years:unique(years),_subjects:subjects};
  if(auth.admin&&typeof event.actorName==='string'&&event.actorName.trim())base.actor=event.actorName;
+ base._facultyKeys=unique([...base._facultyKeys,...directory.map(p=>get(p,'facultyKey'))]);
+ base._facultyOptions.push(...directory.filter(p=>get(p,'facultyKey')).map(p=>({key:get(p,'facultyKey'),name:(get(p,'displayName')||'Faculty name not recorded')+' (current directory)'})));
  if(recovered)base.status='Removed';
  if(event.source==='work'&&type==='calendar_activity_import_committed')base.status='Added';
  const rows=[];

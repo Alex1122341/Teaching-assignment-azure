@@ -40,7 +40,7 @@ VALUES(@Replacement,N'session_assignments_replaced',N'session',CONVERT(nvarchar(
 IF (SELECT COUNT(*) FROM paws_api.HistoryAffectedFaculty(@Before,@After,NULL))<>2 THROW 54790,'Removal/replacement affected membership incomplete.',1;
 INSERT paws.AuditEvent(AuditEventId,EventType,EntityType,EntityId,OccurredAtUtc,AfterJson)
 VALUES(@Private,N'afc_record_created',N'afc_record',CONVERT(nvarchar(36),NEWID()),'2026-10-16T10:03:00',(SELECT @B facultyId,N'private reason B' purpose FOR JSON PATH,WITHOUT_ARRAY_WRAPPER));
-DECLARE @Rows table(source nvarchar(16),eventId nvarchar(80),eventType nvarchar(128),entityType nvarchar(128),entityId nvarchar(256),occurredAtUtc datetime2(7),beforeJson nvarchar(max),afterJson nvarchar(max),metadataJson nvarchar(max),contextJson nvarchar(max),actorName nvarchar(260),academicYear nvarchar(32),facultyId uniqueidentifier);
+DECLARE @Rows table(source nvarchar(16),eventId nvarchar(80),eventType nvarchar(128),entityType nvarchar(128),entityId nvarchar(256),occurredAtUtc datetime2(7),beforeJson nvarchar(max),afterJson nvarchar(max),metadataJson nvarchar(max),contextJson nvarchar(max),actorName nvarchar(260),academicYear nvarchar(32),facultyId uniqueidentifier,directoryFacultyJson nvarchar(max));
 INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-a',N'mine','2026-10-16','2026-10-17';
 IF NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@One)) OR NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@Replacement))
  OR EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@Private)) THROW 54790,'My history scope failed.',1;
@@ -50,6 +50,7 @@ IF NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@Two)) OR E
 DELETE @Rows;
 INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-a',N'dashboard','2026-10-16','2026-10-17';
 IF NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId=N'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee') THROW 54790,'Recorded legacy AFC ownership was ignored.',1;
+IF NOT EXISTS(SELECT 1 FROM @Rows r CROSS APPLY OPENJSON(r.directoryFacultyJson) WITH(facultyId uniqueidentifier '$.facultyId',facultyKey uniqueidentifier '$.facultyKey') mapped JOIN paws.SwapCandidate candidate ON candidate.CandidateKey=mapped.facultyKey AND candidate.FacultyId=mapped.facultyId WHERE r.eventId=N'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' AND mapped.facultyId=@A) THROW 54790,'Known legacy faculty could not be filtered by its opaque key.',1;
 IF EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@Private)) THROW 54790,'Private AFC leaked across faculty.',1;
 DELETE @Rows;
 INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-b',N'dashboard','2026-10-16','2026-10-17';

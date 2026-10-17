@@ -147,7 +147,19 @@ BEGIN
  ) events ORDER BY occurredAtUtc DESC,source,eventId;
  IF (SELECT COUNT(*) FROM #HistoryEvents)>10000 OR (SELECT COALESCE(SUM(CONVERT(bigint,COALESCE(DATALENGTH(beforeJson),0))+COALESCE(DATALENGTH(afterJson),0)+COALESCE(DATALENGTH(contextJson),0)+COALESCE(DATALENGTH(metadataJson),0)),0) FROM #HistoryEvents)>12582912
  THROW 54704,'Narrow the history range before reading.',1;
- SELECT * FROM #HistoryEvents ORDER BY occurredAtUtc DESC,source,eventId;
+ -- Resolve only proven historical IDs to opaque filter keys. Today's roster is
+ -- never evidence of affected membership; current names label the filter only.
+ SELECT events.*,(
+ SELECT candidate.FacultyId facultyId,candidate.CandidateKey facultyKey,
+ COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(f.PreferredFirstName,N' ',f.PreferredLastName))),N''),f.DisplayName) displayName
+ FROM paws.SwapCandidate candidate JOIN paws.Faculty f ON f.FacultyId=candidate.FacultyId
+ WHERE candidate.FacultyId IN(
+ SELECT FacultyId FROM paws_api.HistoryAffectedFaculty(events.beforeJson,events.afterJson,events.contextJson)
+ UNION SELECT events.facultyId WHERE events.facultyId IS NOT NULL
+ UNION SELECT TRY_CONVERT(uniqueidentifier,JSON_VALUE(events.metadataJson,'$.facultyId')) WHERE events.eventType IN(N'afc_record_created',N'afc_record_cancelled',N'afc_request_submitted',N'afc_request_withdrawn',N'afc_request_recommended',N'afc_request_approved',N'afc_request_rejected')
+ UNION SELECT TRY_CONVERT(uniqueidentifier,events.entityId) WHERE events.eventType IN(N'FacultyUpdated',N'FacultyDeactivated',N'FacultyRestored')
+ ) FOR JSON PATH) directoryFacultyJson
+ FROM #HistoryEvents events ORDER BY occurredAtUtc DESC,source,eventId;
 END;
 GO
 CREATE ROLE paws_runtime_history_read AUTHORIZATION dbo;

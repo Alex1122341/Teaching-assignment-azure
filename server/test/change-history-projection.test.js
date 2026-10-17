@@ -101,3 +101,13 @@ test('working recovery is removal and recorded time changes stay private and aff
  assert.equal(projectHistoryEvent({...time,afterJson:null,metadataJson:'{"activityDate":"2026-10-16"}'},{...auth,scope:'mine'}).length,0);
  assert.equal(projectHistoryEvent({...time,eventType:'unknown_work_event'},{...auth,admin:true,scope:'dashboard'}).length,0);
 });
+test('opaque faculty filtering resolves proven legacy IDs without inventing membership or historical names',()=>{
+ const directoryFacultyJson=JSON.stringify([{facultyId:A,facultyKey:'key-a',displayName:'Current A'},{facultyId:B,facultyKey:'key-b',displayName:'Current B'}]);
+ const e=event({eventType:'session_assignments_replaced',beforeJson:JSON.stringify([{facultyId:A,teachingRole:'Lead'}]),afterJson:'[]',contextJson:null,directoryFacultyJson});
+ const rows=projectHistoryEvent(e,{...auth,scope:'mine'});assert.equal(rows.length,1);assert.equal(filterHistoryRows(rows,{faculty:'key-a'}).length,1);assert.equal(filterHistoryRows(rows,{faculty:'key-b'}).length,0);
+ assert.doesNotMatch(JSON.stringify(rows.map(publicHistoryRow)),/Current A|Current B/);assert.match(rows[0]._facultyOptions[0].name,/current directory/);
+ const unproven=event({beforeJson:'{"room":"A"}',afterJson:'{"room":"B"}',contextJson:null,directoryFacultyJson});assert.equal(projectHistoryEvent(unproven,{...auth,scope:'mine'}).length,0);
+ const privateEvent=event({eventType:'afc_request_approved',beforeJson:'{"status":"pending_admin"}',afterJson:'{"status":"approved"}',contextJson:null,metadataJson:JSON.stringify({facultyId:A}),directoryFacultyJson});
+ assert.equal(filterHistoryRows(projectHistoryEvent(privateEvent,{...auth,scope:'dashboard'}),{faculty:'key-a'}).length,1);
+ assert.equal(projectHistoryEvent(privateEvent,{...auth,scope:'dashboard',facultyId:B}).length,0);
+});

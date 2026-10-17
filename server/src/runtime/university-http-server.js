@@ -162,7 +162,7 @@ function createUniversityHttpServer({
     }
 
     try {
-      const bodyLimitForRequest = incoming.method==='POST' && requestPath==='/api/v1/afc-forms' ? 2800000 : requestPath === '/api/v1/sessions/batch' || (incoming.method==='POST' && requestPath==='/api/v1/calendar-activity-imports')
+      const bodyLimitForRequest = incoming.method==='POST' && requestPath==='/api/v1/afc-forms' ? 2800000 : incoming.method==='POST' && requestPath==='/api/v1/ccc-replacements' ? 1048576 : requestPath === '/api/v1/sessions/batch' || (incoming.method==='POST' && requestPath==='/api/v1/calendar-activity-imports')
         ? BATCH_MAX_BODY_BYTES
         : bodyLimit;
       const body = await readBody(incoming, bodyLimitForRequest);

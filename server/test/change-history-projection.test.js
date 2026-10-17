@@ -115,3 +115,9 @@ test('opaque faculty filtering resolves proven legacy IDs without inventing memb
  assert.equal(filterHistoryRows(projectHistoryEvent(privateEvent,{...auth,scope:'dashboard'}),{faculty:'key-a'}).length,1);
  assert.equal(projectHistoryEvent(privateEvent,{...auth,scope:'dashboard',facultyId:B}).length,0);
 });
+test('CCC whole replacement records private added/removed history for the affected faculty only',()=>{
+ const activity={facultyId:A,label:'CCC',category:'ccc',startDate:'2026-11-02',endDate:'2026-11-04',recoveryJson:'PRIVATE'};
+ for(const added of [true,false]){const e=event({source:'work',eventType:added?'ccc_activity_added':'ccc_activity_removed',entityType:'calendar_activity',beforeJson:added?null:JSON.stringify(activity),afterJson:added?JSON.stringify(activity):null,contextJson:null});
+  const rows=projectHistoryEvent(e,{...auth,scope:'mine'});assert.ok(rows.length);assert.equal(rows[0].status,added?'Added':'Removed');assert.doesNotMatch(JSON.stringify(rows),/PRIVATE/);assert.equal(projectHistoryEvent(e,{...auth,facultyId:B,scope:'mine'}).length,0);assert.equal(projectHistoryEvent(e,auth).length,0);assert.ok(projectHistoryEvent(e,{...auth,admin:true,scope:'dashboard'}).length);
+ }
+});

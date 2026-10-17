@@ -165,5 +165,11 @@
     "paws_api.UploadAfcForm",
     "paws_api.ListAfcForms",
     "paws_api.GetAfcForm"
+  ],
+  "cccReplacementProcedures": [
+    "paws_api.StageCccReplacement",
+    "paws_api.GetCccReplacement",
+    "paws_api.PreviewCccReplacement",
+    "paws_api.CommitCccReplacement"
   ]
 }

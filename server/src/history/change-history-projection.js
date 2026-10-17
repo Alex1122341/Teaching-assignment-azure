@@ -7,7 +7,7 @@ const LOOKUP_EVENTS=new Set(['FacultyUpdated','FacultyDeactivated','FacultyResto
 const AFC_EVENTS=new Set(['afc_form_uploaded','afc_record_created','afc_record_cancelled','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
 const DOE_ACTIONS=new Set(['draft_created','draft_updated','working_draft_created','published','archived']);
 const PRIVATE_DOE_ENTITIES=new Set(['doe_assignment','faculty_doe_target','manual_doe_assignment']);
-const WORK_EVENTS=new Set(['calendar_activity_import_committed','calendar_activity_import_recovered','calendar_activity_time_resolved']);
+const WORK_EVENTS=new Set(['calendar_activity_import_committed','calendar_activity_import_recovered','calendar_activity_time_resolved','ccc_activity_added','ccc_activity_removed']);
 const SESSION_FIELDS={courseCode:'Course',courseName:'Course name',topic:'Topic',sessionType:'Session type',date:'Date',startTime:'Start time',endTime:'End time',room:'Room'};
 const FACULTY_FIELDS={displayName:'Display name',preferredFirstName:'Preferred first name',preferredLastName:'Preferred last name',ucid:'UCID',email:'Email',recordType:'Record type',stream:'Stream',rank:'Rank',fte:'FTE',active:'Active',reportsToFacultyId:'Reports to faculty record'};
 const PROFILE_FIELDS=['teachingArea','professionalCategory','serviceDate','priorYearsExperience','dvmEarnedDate','dvmType','mastersEarnedDate','mastersArea','phdEarnedDate','phdArea','boardCertifiedDate','boardCertification','boardCertificationCount','abvmaLicenseNumber','abvmaMemberType'];
@@ -100,6 +100,8 @@ function projectHistoryEvent(event,auth){
  if(recovered)base.status='Removed';
  if(type==='afc_form_uploaded')base.status='Uploaded document';
  if(event.source==='work'&&type==='calendar_activity_import_committed')base.status='Added';
+ if(event.source==='work'&&type==='ccc_activity_added')base.status='Added';
+ if(event.source==='work'&&type==='ccc_activity_removed')base.status='Removed';
  const rows=[];
  const add=(field,oldValue,newValue)=>{
   if(oldValue===undefined&&newValue===undefined)return;

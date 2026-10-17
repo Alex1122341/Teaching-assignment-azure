@@ -34,7 +34,7 @@ test('W1E permission contract covers every SQL repository object and stored proc
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
     ...contract.calendarReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
     ...contract.schedulingReadProcedures,...Object.values(contract.schedulingWriteSets).flat(),
-    ...contract.afcFormProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions
+    ...contract.afcFormProcedures,...contract.cccReplacementProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions
   ];
   assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());

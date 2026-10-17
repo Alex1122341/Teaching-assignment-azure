@@ -3,7 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json'),root=path.resolve(__dirname,'..');
 const PRODUCT='0798408fa819f6040953ccf325d5cfb5e06ca7fc',PREVIOUS='3d983cf317147a20415e8e5cfd0d3f17532af27f';
 test('history promotion pins the accepted product with exact additive runtime coverage and no exceptions',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+ const historical=execFileSync('git',['show','95ad477dc871eda056d24677dd6758d134a56f83:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});
+ assert.ok(historical.includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ execFileSync('git',['merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT],{cwd:root});
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);
  execFileSync('git',['merge-base','--is-ancestor',PREVIOUS,PRODUCT],{cwd:root});
  const manifest=ref=>JSON.parse(execFileSync('git',['show',ref+':tools/static-assets.json'],{cwd:root,encoding:'utf8'}));
  const before=manifest(PREVIOUS).sort(),after=manifest(PRODUCT).sort();assert.equal(before.length,75);assert.equal(after.length,77);assert.deepEqual(before.filter(f=>!after.includes(f)),[]);assert.deepEqual(after.filter(f=>!before.includes(f)),['change-history.css','change-history.js']);

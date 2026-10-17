@@ -1,3 +1,7 @@
+## Current: login outage ingress recovery — 2026-10-17
+
+Read updates/2026-10-17-login-outage-recovery.md. SaturdayrebootstoppedAPI/tunnel; oldquickhostnameNXDOMAIN. Deviceonline, accepted9287APIrestoredSQL200; newverifiedcharge-concerning-hypothesis-represents.trycloudflare.com ingress. Product331a636/configonlyandseparategovernanceReady; candidate/mainCI+coordinated047/API/Hostingpending. No540replay. Ownerrequeststartup/healthscripts,noNamedTunnelavailable; prepareafterloginrelease.
+
 ## Current: history CI contract correction — 2026-10-17
 
 PR112 product0798408/governance95ad477 reviewed Ready. Both95ad SQL suites passed. Build39035901918 found10stale pre-history test expectations; eight test files corrected without runtime changes,119/119local and60/60independent pass. Fullroot/retry pending. Read updates/2026-10-17-history-ci-contract-corrections.md. School device offline, SQL047/API/Hosting deferred;540migration never replay. OriginalExcel09–11验收中/待发布.

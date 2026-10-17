@@ -29,3 +29,6 @@ test('CCC account change discards pending receipt and private source state',asyn
 test('CCC late preview cannot repopulate source state after logout and reopening',async()=>{
  const h=harness();let finish,started;const begun=new Promise(r=>{started=r;});h.api.previewCccReplacement=()=>{started();return new Promise(r=>{finish=r;});};await h.c.open();await h.c.selectFile(file);const pending=h.c.stage();await begun;h.c.clear();h.setUid('other');await h.c.open();finish(batch());await pending;await h.c.open();assert.doesNotMatch(h.host.innerHTML,/Old CCC|<script>|All proposed CCC activities/);
 });
+test('CCC preview labels existing rows without database identifiers',async()=>{
+ const source=batch();source.preview.targets[0].activityId=ID;const h=harness({source});await h.c.open();await h.c.selectFile(file);await h.c.stage();assert.doesNotMatch(h.host.innerHTML,new RegExp(ID));
+});

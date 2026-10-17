@@ -8,6 +8,14 @@ Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sq
 # INSERT-EXEC can mask the original command error with SQL3915. Capture errors
 # only in this already-guarded disposable container, without changing the module.
 Invoke-TestSql "CREATE EVENT SESSION CalendarCommitAcceptanceErrors ON SERVER ADD EVENT sqlserver.error_reported(WHERE severity>=16) ADD TARGET package0.ring_buffer;ALTER EVENT SESSION CalendarCommitAcceptanceErrors ON SERVER STATE=START;" 'VetMed-Ops'
+Invoke-TestSql @'
+CREATE TABLE dbo.CalendarCommitDiagnosticDefinition(definition nvarchar(max) NOT NULL);
+DECLARE @Definition nvarchar(max)=OBJECT_DEFINITION(OBJECT_ID(N'paws_api.CommitCalendarActivityImport'));
+INSERT dbo.CalendarCommitDiagnosticDefinition VALUES(@Definition);
+SET @Definition=REPLACE(@Definition,N'END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK TRANSACTION;THROW;END CATCH;',
+N'END TRY BEGIN CATCH PRINT CONCAT(''COMMIT_CATCH_DIAGNOSTIC '',ERROR_NUMBER(),'' '',ERROR_MESSAGE(),'' xact='',XACT_STATE(),'' count='',@@TRANCOUNT);IF XACT_STATE()<>0 ROLLBACK TRANSACTION;THROW;END CATCH;');
+EXEC sys.sp_executesql @Definition;
+'@ 'VetMed-Ops'
 try {
  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/040_calendar_activity_acceptance.sql') -Raw) 'VetMed-Ops'
 } catch {
@@ -21,6 +29,7 @@ CROSS APPLY payload.nodes('/RingBufferTarget/event') events(event);
 '@ 'VetMed-Ops'
  throw
 } finally {
+ Invoke-TestSql 'DECLARE @Definition nvarchar(max)=(SELECT definition FROM dbo.CalendarCommitDiagnosticDefinition);EXEC sys.sp_executesql @Definition;DROP TABLE dbo.CalendarCommitDiagnosticDefinition;' 'VetMed-Ops'
  Invoke-TestSql 'DROP EVENT SESSION CalendarCommitAcceptanceErrors ON SERVER;' 'VetMed-Ops'
 }
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/046_calendar_commit_preflight_acceptance.sql') -Raw) 'VetMed-Ops'

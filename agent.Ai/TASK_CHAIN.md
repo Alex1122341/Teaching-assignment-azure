@@ -1,3 +1,7 @@
+## Current: history CI contract correction — 2026-10-17
+
+PR112 product0798408/governance95ad477 reviewed Ready. Both95ad SQL suites passed. Build39035901918 found10stale pre-history test expectations; eight test files corrected without runtime changes,119/119local and60/60independent pass. Fullroot/retry pending. Read updates/2026-10-17-history-ci-contract-corrections.md. School device offline, SQL047/API/Hosting deferred;540migration never replay. OriginalExcel09–11验收中/待发布.
+
 ## Current: history09–11 candidate reviewed; final release preparation — 2026-10-17
 
 Product0798408 on PR112 Ready after legacy AFC, Rule Book evidence, work-time/recovery and faculty-filter corrections. Fullserver651pass/3skip/0fail; syntheticChrome workflows passed. Next: separate freeze review → final candidate CI/artifact checks → authorized merge/exact-main CI → accepted package and original Excel. University remote device offline: live SQL047/API/Hosting and authenticated acceptance deferred. Hosting follows matching API/schema. Completed540 migration and manual C01/C05 are unchanged. See updates/2026-10-17-faculty-history-candidate-and-release-blocker.md.

@@ -33,11 +33,11 @@
 
 **Interfaces:** projector consumes `{source,eventId,eventType,entityType,entityId,occurredAtUtc,beforeJson,afterJson,contextJson,actorName,academicYear}` and authorization `{uid,role,facultyId,admin,scope}`; produces closed DTO rows with internal filter evidence, never arbitrary JSON.
 
-- [ ] Write failing projection tests for public allowlist, own affected/removal, private scopes, old context gaps and old/new filter context.
-- [ ] Run `node --test server/test/change-history-projection.test.js`, record meaningful RED.
-- [ ] Implement closed domain-specific projection; additive SQL event context captures current session/assignment evidence only on new events. Read procedure rechecks role/link and scopes raw audit rows server-side. Add rollback preserving captured evidence.
-- [ ] Add synthetic SQL acceptance for multirow trigger, removed faculty, old backfill absence, unauthorized profiles, no business-data change and trigger rollback atomicity. Record actual rules before/after in existing draft save transaction.
-- [ ] Run targeted projection/repository/SQL assertions and inspect outputs before committing task.
+- [x] Write failing projection tests for public allowlist, own affected/removal, private scopes, old context gaps and old/new filter context.
+- [x] Run `node --test server/test/change-history-projection.test.js`, record meaningful RED.
+- [x] Implement closed domain-specific projection; additive SQL event context captures current session/assignment evidence only on new events. Read procedure rechecks role/link and scopes raw audit rows server-side. Add rollback preserving captured evidence.
+- [x] Add synthetic SQL acceptance for multirow trigger, removed faculty, old backfill absence, unauthorized profiles, no business-data change and trigger rollback atomicity. Record actual rules before/after in existing draft save transaction.
+- [x] Run targeted projection/repository/SQL assertions and inspect outputs before committing task.
 
 ### Task2: Authorized snapshot API and real exports
 
@@ -45,10 +45,10 @@
 
 **Interfaces:** `createChangeHistoryApi({verifyToken,findUser,repository,clock,randomId})` exposes `query(token,filters)`, `page(token,{snapshot,offset})`, `export(token,{snapshot,format})`; GET `/api/v1/change-history`, `/page`, `/export`. Repository `list({actorFirebaseUid,start,end,scope})` returns consistent bounded event evidence. Export returns `{fileName,contentType,fileBase64,rowCount}`.
 
-- [ ] Write/run failing tests for authentication, closed filters, cross-actor handle theft, changed role/link, expiry/limits, same snapshot pages and all-row export, sanitized errors.
-- [ ] Implement per-process bounded DTO snapshots, current authorization on every request and fixed error contracts. Query SQL in a serializable read transaction; never mix later data into an existing handle.
-- [ ] Implement lazy CSV/XLSX renderer and compare parsed outputs for Unicode, formulas, nulls and>100rows. Reject oversize exports explicitly.
-- [ ] Wire strict GET routes rejecting duplicate/unknown fields; run targeted server tests and commit.
+- [x] Write/run failing tests for authentication, closed filters, cross-actor handle theft, changed role/link, expiry/limits, same snapshot pages and all-row export, sanitized errors.
+- [x] Implement per-process bounded DTO snapshots, current authorization on every request and fixed error contracts. Query SQL in a serializable read transaction; never mix later data into an existing handle.
+- [x] Implement lazy CSV/XLSX renderer and compare parsed outputs for Unicode, formulas, nulls and>100rows. Reject oversize exports explicitly.
+- [x] Wire strict GET routes rejecting duplicate/unknown fields; run targeted server tests and commit.
 
 ### Task3: Shared frontend and three entry points
 
@@ -56,17 +56,17 @@
 
 **Interfaces:** `PAWS_CHANGE_HISTORY.mount(host,{api,scope})` owns filters/query/pages/download lifecycle and returns `{destroy,refresh}`. Client exposes `changeHistory(filters)`, `changeHistoryPage(snapshot,offset)`, `changeHistoryExport(snapshot,format)`.
 
-- [ ] Add/run failing tests for closed client parameters, filter edits disabling export, stale response rejection, sign-out cleanup, safe DOM values and>100-row pagination/export parity.
-- [ ] Implement accessible component and scoped entry points; retain modal focus handling and self-mode Dashboard access. Add no Firestore read path.
-- [ ] Run targeted tests and read-only browser acceptance where feasible; leave real-account/manual-only checks pending without inventing credentials.
-- [ ] Commit product changes after targeted verification.
+- [x] Add/run failing tests for closed client parameters, filter edits disabling export, stale response rejection, sign-out cleanup, safe DOM values and>100-row pagination/export parity.
+- [x] Implement accessible component and scoped entry points; retain modal focus handling and self-mode Dashboard access. Add no Firestore read path.
+- [x] Run targeted tests and read-only browser acceptance where feasible; leave real-account/manual-only checks pending without inventing credentials.
+- [x] Commit product changes after targeted verification.
 
 ### Task4: Whole-branch review, governance, acceptance and release
 
 **Files:** update runtime freeze documentation/tools only in separate governance commit, workflow SQL acceptance registration, continuity docs and original progress workbook.
 
 - [ ] Run root `npm test`, server tests and build checks; run synthetic SQL suite in available controlled CI environment. No real business fixture writes.
-- [ ] Request one independent whole-branch standards/spec/privacy/transaction review, address findings with failing tests first and verify.
-- [ ] Promote immutable freeze anchored to accepted product commit in a separately reviewed governance commit; create/attach PR with exact evidence.
+- [x] Request one independent whole-branch standards/spec/privacy/transaction review, address findings with failing tests first and verify.
+- [x] Promote immutable freeze anchored to accepted product commit in a separately reviewed governance commit; create/attach PR with exact evidence.
 - [ ] After candidate acceptance merge under existing owner authorization, verify exact-main CI, apply additive schema before API, publish accepted API/Hosting artifact, verify scoped authenticated history read/export without changing business records.
 - [ ] Update Excel09–11 and manual acceptance list, continuity checkpoint and any source/credential-dependent skipped steps. Never label unavailable/manual evidence passed.

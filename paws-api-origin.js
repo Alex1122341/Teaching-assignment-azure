@@ -8,7 +8,7 @@
 
   return Object.freeze({
     // TEMPORARY BETA INGRESS. Replace this single origin when institutional ingress is approved.
-    apiOrigin: 'https://radar-languages-shopper-corporate.trycloudflare.com',
+    apiOrigin: 'https://charge-concerning-hypothesis-represents.trycloudflare.com',
     releaseLabel: 'TEMPORARY BETA INGRESS'
   });
 });

@@ -7,6 +7,7 @@ const LOOKUP_EVENTS=new Set(['FacultyUpdated','FacultyDeactivated','FacultyResto
 const AFC_EVENTS=new Set(['afc_record_created','afc_record_cancelled','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
 const DOE_ACTIONS=new Set(['draft_created','draft_updated','working_draft_created','published','archived']);
 const PRIVATE_DOE_ENTITIES=new Set(['doe_assignment','faculty_doe_target','manual_doe_assignment']);
+const WORK_EVENTS=new Set(['calendar_activity_import_committed','calendar_activity_import_recovered','calendar_activity_time_resolved']);
 const SESSION_FIELDS={courseCode:'Course',courseName:'Course name',topic:'Topic',sessionType:'Session type',date:'Date',startTime:'Start time',endTime:'End time',room:'Room'};
 const FACULTY_FIELDS={displayName:'Display name',preferredFirstName:'Preferred first name',preferredLastName:'Preferred last name',ucid:'UCID',email:'Email',recordType:'Record type',stream:'Stream',rank:'Rank',fte:'FTE',active:'Active',reportsToFacultyId:'Reports to faculty record'};
 const PROFILE_FIELDS=['teachingArea','professionalCategory','serviceDate','priorYearsExperience','dvmEarnedDate','dvmType','mastersEarnedDate','mastersArea','phdEarnedDate','phdArea','boardCertifiedDate','boardCertification','boardCertificationCount','abvmaLicenseNumber','abvmaMemberType'];
@@ -31,7 +32,7 @@ function assignmentText(value,people){
 function contextValues(before,after,context,key){return unique([get(before,key),get(after,key),get(context,key)].filter(v=>typeof v==='string'));}
 function policyRows(book,admin){
  const result={};if(!book||typeof book!=='object')return result;
- const allowed=['ruleKey','category','activityType','ruleLabel','priority','calculationMode','tierStrategy','formulaText','mappingRequirement','resultKind','enabled','reviewStatus'];
+ const allowed=['ruleKey','category','activityType','ruleLabel','priority','calculationMode','tierStrategy','formulaText','mappingRequirement','resultKind','referenceId','enabled','reviewStatus'];
  const nested={selectors:['field','operator','valueType','valueText','valueNumber','valuesJson'],parameters:['name','valueNumber','valueText'],tiers:['tierOrder','fromValue','toValue','rate','fixedCredit'],inputs:['inputName','source','required']};
  for(const rule of array(get(book,'rules'))){
   const key=get(rule,'ruleKey');if(typeof key!=='string'||!key)continue;
@@ -40,17 +41,25 @@ function policyRows(book,admin){
   result['Rule '+key]=JSON.stringify(dto);
  }
  for(const [field,key,allowedFields] of [
-  ['courseMappings','courseCode',['courseCode','unitCount','curriculumStage','hiccEligible','reviewStatus','enabled']],
-  ['subjectMappings','subjectKey',['subjectKey','subjectName','curriculumStage','developmentPhase','reviewStatus','enabled']],
-  ['references','title',['title','section','tableName','pageNumber','effectiveDate','sourceReference','documentLink','reviewStatus']]
- ])for(const row of array(get(book,field))){const label=get(row,key);if(label)result[field+' '+label]=JSON.stringify(Object.fromEntries(allowedFields.filter(k=>get(row,k)!==undefined).map(k=>[k,get(row,k)])));}
+  ['courseMappings','courseCode',['mappingId','courseCode','unitCount','curriculumStage','hiccEligible','referenceId','reviewStatus','enabled']],
+  ['subjectMappings','subjectKey',['mappingId','subjectKey','subjectName','curriculumStage','developmentPhase','referenceId','reviewStatus','enabled']],
+  ['references','title',['referenceId','title','section','tableName','pageNumber','effectiveDate','sourceReference','documentLink','reviewStatus']]
+ ])for(const [index,row] of array(get(book,field)).entries()){
+  const label=get(row,key);if(!label)continue;
+  const identity=get(row,field==='references'?'referenceId':'mappingId')||'record '+(index+1);
+  const fields=admin?[...allowedFields,field==='references'?'notes':'mappingFactsJson']:allowedFields;
+  result[field+' '+label+' ['+identity+']']=JSON.stringify(Object.fromEntries(fields.filter(k=>get(row,k)!==undefined).map(k=>[k,get(row,k)])));
+ }
  // Exceptions are confidential even on the global published-policy view.
  if(admin)for(const [index,row] of array(get(book,'exceptions')).entries())result['Exception '+(get(row,'exceptionId')||index+1)]=JSON.stringify(Object.fromEntries(['category','scopeType','scopeKey','facultyId','fixedDoe','resultKind','reason','sourceReference','effectiveStart','effectiveEnd','recurring','enabled','reviewStatus'].filter(k=>get(row,k)!==undefined).map(k=>[k,get(row,k)])));
  return result;
 }
 
 function projectHistoryEvent(event,auth){
- const before=parse(event.beforeJson),after=parse(event.afterJson),context=parse(event.contextJson),type=event.eventType;
+ let before=parse(event.beforeJson),after=parse(event.afterJson);
+ const context=parse(event.contextJson),type=event.eventType;
+ const recovered=event.source==='work'&&type==='calendar_activity_import_recovered';
+ if(recovered){before=Object.keys(before).length?before:after;after={};}
  const people=[...array(get(context,'affectedFaculty')),...recordedFaculty(before),...recordedFaculty(after),...(event.facultyId?[{facultyId:event.facultyId}]:[])];
  const facultyIds=unique(people.map(p=>id(get(p,'facultyId'))));
  const own=Boolean(auth.facultyId&&facultyIds.includes(id(auth.facultyId)));
@@ -58,14 +67,14 @@ function projectHistoryEvent(event,auth){
  let domain;
  if(isPublic){if(auth.scope==='dashboard'||(auth.scope==='mine'&&!own))return [];domain='Teaching';}
  else if(event.source==='work'){
-  if(auth.scope==='timetable'||(!auth.admin&&!own)||(auth.scope==='mine'&&!own))return [];domain='Working schedule';
+  if(!WORK_EVENTS.has(type)||!['mine','dashboard'].includes(auth.scope)||(!auth.admin&&!own)||(auth.scope==='mine'&&!own))return [];domain='Working schedule';
  }
  else if(auth.scope!=='dashboard')return [];
  else if(LOOKUP_EVENTS.has(type)){
   const owner=type.startsWith('Faculty')?id(event.entityId):id(get(context,'facultyId'));
   if(!auth.admin&&(!auth.facultyId||owner!==id(auth.facultyId)))return [];domain='Lookup';
  }else if(AFC_EVENTS.has(type)){
-  const owner=id(get(before,'facultyId')||get(after,'facultyId')||get(context,'facultyId'));
+  const owner=id(get(before,'facultyId')||get(after,'facultyId')||get(context,'facultyId')||get(parse(event.metadataJson),'facultyId'));
   if(!auth.admin&&(!auth.facultyId||owner!==id(auth.facultyId)))return [];domain='AFC';
  }else if(event.source==='doe'&&PRIVATE_DOE_ENTITIES.has(event.entityType)){
   if(!auth.admin&&(!auth.facultyId||id(event.facultyId)!==id(auth.facultyId)))return [];domain='Lookup';
@@ -75,10 +84,13 @@ function projectHistoryEvent(event,auth){
  const occurred=event.occurredAtUtc instanceof Date?event.occurredAtUtc.toISOString():event.occurredAtUtc;
  if(typeof occurred!=='string'||!Number.isFinite(Date.parse(occurred)))return [];
  const courses=contextValues(before,after,context,'courseCode'),topics=contextValues(before,after,context,'topic');
+ if(domain==='Working schedule')topics.push(...contextValues(before,after,context,'label'));
  const years=contextValues(before,after,context,'academicYear');if(typeof event.academicYear==='string')years.push(event.academicYear);
  const subjects=contextValues(before,after,context,'viscSubject');
  const base={eventId:String(event.eventId),changeDate:new Date(occurred).toISOString(),changeType:type,domain,course:courses.at(-1)||null,session:topics.at(-1)||null,academicYear:years.at(-1)||null,viscSubject:subjects.at(-1)||null,affectedFaculty:unique(people.map(p=>get(p,'sourceFacultyName')||get(p,'displayName')||get(p,'facultyDisplayName'))).join('; ')||null,status:scalar(get(after,'status')??get(context,'status')??'Recorded'),_courseValues:courses,_topicValues:topics,_facultyKeys:unique(people.map(p=>get(p,'facultyKey'))),_facultyOptions:people.filter(p=>get(p,'facultyKey')).map(p=>({key:get(p,'facultyKey'),name:get(p,'displayName')||get(p,'sourceFacultyName')||'Recorded faculty'})),_years:unique(years),_subjects:subjects};
  if(auth.admin&&typeof event.actorName==='string'&&event.actorName.trim())base.actor=event.actorName;
+ if(recovered)base.status='Removed';
+ if(event.source==='work'&&type==='calendar_activity_import_committed')base.status='Added';
  const rows=[];
  const add=(field,oldValue,newValue)=>{
   if(oldValue===undefined&&newValue===undefined)return;
@@ -94,7 +106,11 @@ function projectHistoryEvent(event,auth){
   }
   if(type==='session_created'&&assignments(after).length)add('Instructors',undefined,assignmentText(after,people));
  }else if(domain==='Working schedule'){
-  for(const [key,label] of Object.entries({label:'Activity',category:'Activity type',startDate:'Start date',endDate:'End date',date:'Date',startTime:'Start time',endTime:'End time'}))add(label,get(before,key),get(after,key));
+  const fields=type==='calendar_activity_time_resolved'?{date:'Date',startTime:'Start time',endTime:'End time'}:{label:'Activity',category:'Activity type',startDate:'Start date',endDate:'End date'};
+  for(const [key,label] of Object.entries(fields)){
+   const oldValue=get(before,key),newValue=get(after,key);
+   add(label,recovered?oldValue:type==='calendar_activity_import_committed'&&newValue!==undefined?null:oldValue,recovered&&oldValue!==undefined?null:newValue);
+  }
  }else if(domain==='Lookup'){
   if(event.source==='doe'){
    for(const key of ['category','roleType','scopeText','courseCode','subjectKey','doeValue','resultDoe','targetDoe','contractTeachingDoe','overrideDoe','overrideReason','overrideNotes','notes','active','status','reason','revision'])add(key,get(before,key),get(after,key));

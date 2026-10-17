@@ -67,3 +67,37 @@ test('own migrated working schedule uses exact source evidence without AFC recov
  const e=event({source:'work',eventType:'calendar_activity_import_committed',entityType:'calendar_activity',beforeJson:null,afterJson:JSON.stringify({facultyId:A,label:'CCC Day',startDate:'2026-10-16',endDate:'2026-10-17',category:'ccc'}),contextJson:null});
  assert.ok(projectHistoryEvent(e,{...auth,scope:'mine'}).length);assert.equal(projectHistoryEvent(e,auth).length,0);assert.equal(projectHistoryEvent(e,{...auth,scope:'mine',facultyId:B}).length,0);
 });
+test('legacy AFC approval and recommendation use recorded metadata ownership only',()=>{
+ for(const type of ['afc_request_approved','afc_request_recommended']){
+  const e=event({eventType:type,entityType:'afc_request',beforeJson:'{"status":"pending_admin"}',afterJson:'{"status":"approved"}',contextJson:null,metadataJson:JSON.stringify({facultyId:A,assignedReportToFirebaseUid:'private-supervisor'})});
+  assert.equal(projectHistoryEvent(e,{...auth,scope:'dashboard'}).length,1);
+  assert.equal(projectHistoryEvent(e,{...auth,scope:'dashboard',facultyId:B}).length,0);
+  assert.equal(projectHistoryEvent(e,auth).length,0);
+  assert.doesNotMatch(JSON.stringify(projectHistoryEvent(e,{...auth,scope:'dashboard'})),/private-supervisor/);
+ }
+});
+test('Rule Book mapping-only and reference-link-only edits retain exact before/after evidence for admins',()=>{
+ const oldBook={rules:[{ruleKey:'lecture',referenceId:A}],courseMappings:[{mappingId:A,courseCode:'206',mappingFactsJson:'{"aliases":["old"]}',referenceId:A}],subjectMappings:[{mappingId:B,subjectKey:'anatomy',subjectName:'Anatomy',mappingFactsJson:'{"subjectCount":1}'}]};
+ const next=structuredClone(oldBook);next.rules[0].referenceId=B;next.courseMappings[0].mappingFactsJson='{"aliases":["new"]}';next.subjectMappings[0].mappingFactsJson='{"subjectCount":2}';
+ const e=event({source:'doe',eventType:'draft_updated',entityType:'doe_policy_version',beforeJson:JSON.stringify({ruleBook:oldBook}),afterJson:JSON.stringify({ruleBook:next})});
+ const rows=projectHistoryEvent(e,{...auth,admin:true,scope:'dashboard'});assert.equal(rows.length,3);assert.match(rows.find(row=>row.field==='Rule lecture').updatedValue,new RegExp(B));
+ assert.match(rows.find(row=>row.field.startsWith('courseMappings')).previousValue,/old/);assert.match(rows.find(row=>row.field.startsWith('subjectMappings')).updatedValue,/subjectCount.*2/);
+});
+test('same-title references remain distinct and their notes/links are preserved only for admin history',()=>{
+ const oldBook={references:[{referenceId:A,title:'Guidelines',section:'Teaching',notes:'private-ref-old',documentLink:'old-link'},{referenceId:B,title:'Guidelines',section:'Research',notes:'private-ref-other',documentLink:'other-link'}]};
+ const next=structuredClone(oldBook);next.references[0].notes='private-ref-new';next.references[0].documentLink='new-link';
+ const e=event({source:'doe',eventType:'draft_updated',entityType:'doe_policy_version',beforeJson:JSON.stringify({ruleBook:oldBook}),afterJson:JSON.stringify({ruleBook:next})});
+ const rows=projectHistoryEvent(e,{...auth,admin:true,scope:'dashboard'});assert.equal(rows.length,1);assert.match(rows[0].previousValue,/private-ref-old/);assert.match(rows[0].updatedValue,/new-link/);
+ const publicRows=projectHistoryEvent({...e,eventType:'published',beforeJson:JSON.stringify({publishedRuleBook:oldBook})},{...auth,scope:'dashboard'});
+ assert.doesNotMatch(JSON.stringify(publicRows),/private-ref/);assert.match(JSON.stringify(publicRows),/new-link/);
+});
+test('working recovery is removal and recorded time changes stay private and affect the true owner',()=>{
+ const range={facultyId:A,label:'CCC Day',startDate:'2026-10-16',endDate:'2026-10-17',category:'ccc'};
+ const recovery=event({source:'work',eventType:'calendar_activity_import_recovered',entityType:'calendar_activity',beforeJson:null,afterJson:JSON.stringify(range),contextJson:null});
+ const removed=projectHistoryEvent(recovery,{...auth,scope:'mine'}).find(row=>row.field==='Start date');assert.equal(removed.previousValue,'2026-10-16');assert.equal(removed.updatedValue,'—');assert.equal(removed.status,'Removed');
+ const time=event({source:'work',eventType:'calendar_activity_time_resolved',entityType:'calendar_activity',beforeJson:null,afterJson:JSON.stringify({facultyId:A,label:'CCC Day',date:'2026-10-16',startTime:'09:00',endTime:'10:00'}),contextJson:null});
+ const timed=projectHistoryEvent(time,{...auth,scope:'mine'});assert.equal(timed.find(row=>row.field==='Start time').updatedValue,'09:00');assert.equal(timed.find(row=>row.field==='Start time').previousValue,'Not recorded');
+ for(const e of [recovery,time]){assert.equal(projectHistoryEvent(e,{...auth,facultyId:B,scope:'mine'}).length,0);assert.equal(projectHistoryEvent(e,auth).length,0);assert.ok(projectHistoryEvent(e,{...auth,admin:true,scope:'dashboard'}).length);}
+ assert.equal(projectHistoryEvent({...time,afterJson:null,metadataJson:'{"activityDate":"2026-10-16"}'},{...auth,scope:'mine'}).length,0);
+ assert.equal(projectHistoryEvent({...time,eventType:'unknown_work_event'},{...auth,admin:true,scope:'dashboard'}).length,0);
+});

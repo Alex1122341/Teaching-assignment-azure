@@ -7,7 +7,7 @@ IF DB_NAME()<>N'VetMed-Ops' OR USER_ID(N'paws-calendar-test-runtime') IS NULL
 IF EXISTS(SELECT 1 FROM paws.ChangeHistoryContext WHERE AuditEventId='ffffffff-ffff-4fff-8fff-ffffffffffff')
  THROW 54790,'Old audit was backfilled with current relationships.',1;
 BEGIN TRANSACTION;
-DECLARE @Batch uniqueidentifier=NEWID(),@A uniqueidentifier=NEWID(),@B uniqueidentifier=NEWID(),@Session uniqueidentifier=NEWID(),@Second uniqueidentifier=NEWID();
+DECLARE @Batch uniqueidentifier=NEWID(),@A uniqueidentifier='77777777-7777-4777-8777-777777777777',@B uniqueidentifier=NEWID(),@Session uniqueidentifier=NEWID(),@Second uniqueidentifier=NEWID();
 DECLARE @One uniqueidentifier=NEWID(),@Two uniqueidentifier=NEWID(),@Replacement uniqueidentifier=NEWID(),@Private uniqueidentifier=NEWID();
 INSERT staging.ImportBatch(ImportBatchId,StartedAtUtc,Status,SourceManifestSha256,ImporterVersion,ValidationSummaryJson)
 VALUES(@Batch,SYSUTCDATETIME(),N'completed',REPLICATE('A',64),N'synthetic-history',N'{}');
@@ -49,11 +49,71 @@ INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-a',N'timetable
 IF NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@Two)) OR EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@Private)) THROW 54790,'Public timetable scope failed.',1;
 DELETE @Rows;
 INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-a',N'dashboard','2026-10-16','2026-10-17';
+IF NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId=N'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee') THROW 54790,'Recorded legacy AFC ownership was ignored.',1;
 IF EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@Private)) THROW 54790,'Private AFC leaked across faculty.',1;
 DELETE @Rows;
 INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-b',N'dashboard','2026-10-16','2026-10-17';
+IF EXISTS(SELECT 1 FROM @Rows WHERE eventId=N'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee') THROW 54790,'Legacy AFC ownership leaked across faculty.',1;
 IF NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@Private)) THROW 54790,'Own AFC history missing.',1;
+-- Forward time facts are captured by the real command inside its transaction.
+DECLARE @Workbook uniqueidentifier=NEWID(),@Sheet uniqueidentifier=NEWID(),@RawRow uniqueidentifier=NEWID(),@Activity uniqueidentifier='88888888-8888-4888-8888-888888888888';
+INSERT staging.ImportWorkbook(ImportWorkbookId,ImportBatchId,FileName,FileSha256,FileByteLength) VALUES(@Workbook,@Batch,N'Synthetic history.xlsx',REPLICATE('A',64),1);
+INSERT staging.ImportSheet(ImportSheetId,ImportWorkbookId,SheetName,SheetIndex,MaxRow,MaxColumn,NonEmptyRowCount) VALUES(@Sheet,@Workbook,N'Synthetic',0,2,1,1);
+INSERT staging.ImportRow(ImportRowId,ImportSheetId,SourceRowNumber,RawJson,ValidationStatus,ValidationErrorsJson) VALUES(@RawRow,@Sheet,2,N'{}',N'valid',N'[]');
+INSERT paws.CalendarActivity(ActivityId,FacultyId,Category,OriginalLabel,StartDate,EndDate,ImportBatchId,ImportRowId,SourceSha256,SourceSheet,SourceRow,CreatedByUid)
+VALUES(@Activity,@A,N'ccc',N'Synthetic CCC','2026-10-16','2026-10-17',@Batch,@RawRow,REPLICATE('A',64),N'Synthetic',2,N'history-test-admin');
+DECLARE @ActivityVersion varchar(16)=(SELECT CONVERT(varchar(16),CONVERT(binary(8),ActivityVersion),2) FROM paws.CalendarActivity WHERE ActivityId=@Activity);
+DECLARE @TimeResponse table(responseJson nvarchar(max));
+INSERT @TimeResponse EXEC paws_api.ResolveCalendarActivityDayTime N'history-test-admin',@Activity,@ActivityVersion,'2026-10-16','09:00','10:00',N'Synthetic source',N'private time evidence';
+DECLARE @TimeAudit uniqueidentifier=(SELECT TOP(1) AuditEventId FROM paws.AuditEvent WHERE EventType=N'calendar_activity_time_resolved' AND EntityId=CONVERT(nvarchar(36),@Activity) ORDER BY OccurredAtUtc DESC);
+DECLARE @RecentStart datetime2(7)=DATEADD(day,-1,SYSUTCDATETIME()),@RecentEnd datetime2(7)=DATEADD(day,1,SYSUTCDATETIME());
+DELETE @Rows;
+INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-a',N'mine',@RecentStart,@RecentEnd;
+IF NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@TimeAudit) AND JSON_VALUE(afterJson,'$.startTime')=N'09:00') THROW 54790,'Own recorded time change missing.',1;
+IF EXISTS(SELECT 1 FROM @Rows WHERE eventId=N'dddddddd-dddd-4ddd-8ddd-dddddddddddd') THROW 54790,'Legacy time ownership was inferred from the current activity.',1;
+IF EXISTS(SELECT 1 FROM @Rows WHERE afterJson LIKE N'%private time evidence%') THROW 54790,'Time evidence escaped the allowlist.',1;
+DELETE @Rows;
+INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-b',N'mine',@RecentStart,@RecentEnd;
+IF EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@TimeAudit)) THROW 54790,'Work time history leaked across faculty.',1;
+DELETE @Rows;
+INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-a',N'timetable',@RecentStart,@RecentEnd;
+IF EXISTS(SELECT 1 FROM @Rows WHERE eventId=CONVERT(nvarchar(36),@TimeAudit)) THROW 54790,'Work time appeared in public timetable history.',1;
+-- Changing the live time cannot rewrite an already captured history value.
+SELECT @ActivityVersion=CONVERT(varchar(16),CONVERT(binary(8),ActivityVersion),2) FROM paws.CalendarActivity WHERE ActivityId=@Activity;
+INSERT @TimeResponse EXEC paws_api.ResolveCalendarActivityDayTime N'history-test-admin',@Activity,@ActivityVersion,'2026-10-16','11:00','12:00',N'Synthetic revised source',N'private revised evidence';
+IF NOT EXISTS(SELECT 1 FROM paws.ChangeHistoryContext WHERE AuditEventId=@TimeAudit AND JSON_VALUE(ContextJson,'$.workActivity.startTime')=N'09:00') THROW 54790,'Current time rewrote a historical snapshot.',1;
+-- Minimal immutable receipt evidence: no private recovery before-image returned.
+DECLARE @Receipt uniqueidentifier=NEWID(),@OriginalAfc uniqueidentifier=NEWID(),@RecoveryEvent uniqueidentifier=NEWID();
+INSERT staging.CalendarActivityImport(ImportBatchId,SourceSha256,Dataset,PolicyVersion,Status,SourceRowCount,ActorFirebaseUid)
+VALUES(@Batch,REPLICATE('A',64),N'synthetic-history',N'synthetic',N'recovered',1,N'history-test-admin');
+INSERT staging.CalendarActivityImportItem(ImportBatchId,SourceRow,ImportRowId,FacultySourceName,StartDate,EndDate,OriginalLabel,ParserTreatment,ParsedIssuesJson,Category,FacultyId,AfcRecordId,Status)
+VALUES(@Batch,2,@RawRow,N'Synthetic A','2026-10-16','2026-10-17',N'Synthetic CCC',N'working_candidate',N'[]',N'ccc',@A,@OriginalAfc,N'accepted');
+INSERT paws.CalendarActivityImportReceipt(ReceiptId,ImportBatchId,Dataset,SourceSha256,ManifestSha256,IdempotencyKey,InsertedCount,DeletedAfcCount,ActorUid,Status)
+VALUES(@Receipt,@Batch,N'synthetic-history',REPLICATE('A',64),REPLICATE('B',64),NEWID(),1,1,N'history-test-admin',N'recovered');
+INSERT paws.CalendarActivityRecoveryRow(ReceiptId,OriginalAfcRecordId,ActivityId,ImportedActivityVersion,BeforeAfcJson)
+VALUES(@Receipt,@OriginalAfc,@Activity,0x0000000000000001,N'{"notes":"private recovery content"}');
+INSERT paws.AuditEvent(AuditEventId,EventType,EntityType,EntityId,OccurredAtUtc)
+VALUES(@RecoveryEvent,N'calendar_activity_import_recovered',N'calendar_activity_receipt',CONVERT(nvarchar(36),@Receipt),SYSUTCDATETIME());
+DELETE @Rows;
+INSERT @Rows EXEC paws_api.ListChangeHistoryEvents N'history-test-a',N'mine',@RecentStart,@RecentEnd;
+IF NOT EXISTS(SELECT 1 FROM @Rows WHERE eventId LIKE CONVERT(nvarchar(36),@RecoveryEvent)+N':%' AND JSON_VALUE(beforeJson,'$.startDate')=N'2026-10-16' AND afterJson IS NULL)
+ THROW 54790,'Recovery must remove the recorded working range.',1;
+IF EXISTS(SELECT 1 FROM @Rows WHERE beforeJson LIKE N'%private recovery content%' OR afterJson LIKE N'%private recovery content%') THROW 54790,'Recovery before-image escaped to history.',1;
 IF ISJSON(paws_api.DoeHistoryPolicySnapshot(NEWID()))<>1 THROW 54790,'Policy snapshot must be valid JSON even for a missing version.',1;
+DECLARE @Policy uniqueidentifier=NEWID(),@Reference uniqueidentifier=NEWID(),@OtherReference uniqueidentifier=NEWID(),@Rule uniqueidentifier=NEWID();
+INSERT paws.DoePolicyVersion(PolicyVersionId,AcademicYear,VersionLabel,SourceReference,Active,Status,Revision)
+VALUES(@Policy,N'2026-27',N'Synthetic history evidence',N'Synthetic fixture',0,N'draft',0);
+INSERT paws.DoeReferenceSource(ReferenceId,PolicyVersionId,AcademicYear,Title,Section,Notes)
+VALUES(@Reference,@Policy,N'2026-27',N'Same guideline',N'Teaching',N'First note'),(@OtherReference,@Policy,N'2026-27',N'Same guideline',N'Research',N'Second note');
+INSERT paws.DoePolicyRule(RuleId,PolicyVersionId,AcademicYear,RuleKey,Category,RuleLabel,CalculationMode,ReferenceId)
+VALUES(@Rule,@Policy,N'2026-27',N'history-rule',N'teaching',N'Synthetic rule',N'fixed',@Reference);
+INSERT paws.DoeCourseMapping(MappingId,PolicyVersionId,AcademicYear,CourseCode,MappingFactsJson,ReferenceId)
+VALUES(NEWID(),@Policy,N'2026-27',N'206',N'{"aliases":["old"]}',@Reference);
+DECLARE @RecordedBook nvarchar(max)=paws_api.DoeHistoryPolicySnapshot(@Policy);
+IF (SELECT COUNT(*) FROM OPENJSON(@RecordedBook,'$.references'))<>2 OR JSON_VALUE(@RecordedBook,'$.rules[0].referenceId')<>CONVERT(nvarchar(36),@Reference)
+ OR JSON_VALUE(@RecordedBook,'$.courseMappings[0].mappingFactsJson')<>N'{"aliases":["old"]}'
+ OR JSON_VALUE(@RecordedBook,'$.courseMappings[0].referenceId')<>CONVERT(nvarchar(36),@Reference)
+ THROW 54790,'Policy snapshot lost reference identity, links or calculation mapping facts.',1;
 CREATE USER [history-synthetic-policy-writer] WITHOUT LOGIN;
 ALTER ROLE paws_runtime_doe_admin_write ADD MEMBER [history-synthetic-policy-writer];
 EXECUTE AS USER=N'history-synthetic-policy-writer';

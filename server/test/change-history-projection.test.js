@@ -4,6 +4,10 @@ const assert=require('node:assert/strict');
 const {projectHistoryEvent,filterHistoryRows,publicHistoryRow}=require('../src/history/change-history-projection');
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const auth={uid:'viewer',role:'faculty',facultyId:A,admin:false,scope:'timetable'};
+test('uploaded AFC document history is admin-only safe metadata, never PDF bytes or approval',()=>{
+ const e={eventId:'upload',occurredAtUtc:'2026-10-17T12:00:00Z',source:'audit',eventType:'afc_form_uploaded',entityType:'afc_form',entityId:B,afterJson:JSON.stringify({facultyId:A,fileName:'Form.pdf',pageCount:2,byteLength:200,pdfBytes:'SECRET',status:'approved'})};
+ const rows=projectHistoryEvent(e,{...auth,scope:'dashboard',admin:true});assert.ok(rows.length);assert.match(JSON.stringify(rows),/Form.pdf/);assert.doesNotMatch(JSON.stringify(rows),/SECRET|approved/);assert.equal(projectHistoryEvent(e,{...auth,scope:'dashboard'}).length,0);
+});
 const event=(extra={})=>({source:'audit',eventId:A,eventType:'session_updated',entityType:'session',entityId:B,occurredAtUtc:'2026-10-16T14:00:00.000Z',beforeJson:JSON.stringify({courseCode:'201',topic:'Old topic',room:'A',academicYear:'2026-27'}),afterJson:JSON.stringify({courseCode:'206',topic:'New topic',room:'B',notes:'private-notes',email:'private-email',doeCredit:999}),contextJson:JSON.stringify({courseCode:'206',topic:'New topic',academicYear:'2026-27',affectedFaculty:[{facultyId:B,facultyKey:'opaque-b',displayName:'Teacher B'}]}),actorName:'Admin',...extra});
 test('public teaching history is across faculty and a closed field projection',()=>{
  const rows=projectHistoryEvent(event(),auth);assert.equal(rows.length,3);
@@ -110,4 +114,10 @@ test('opaque faculty filtering resolves proven legacy IDs without inventing memb
  const privateEvent=event({eventType:'afc_request_approved',beforeJson:'{"status":"pending_admin"}',afterJson:'{"status":"approved"}',contextJson:null,metadataJson:JSON.stringify({facultyId:A}),directoryFacultyJson});
  assert.equal(filterHistoryRows(projectHistoryEvent(privateEvent,{...auth,scope:'dashboard'}),{faculty:'key-a'}).length,1);
  assert.equal(projectHistoryEvent(privateEvent,{...auth,scope:'dashboard',facultyId:B}).length,0);
+});
+test('CCC whole replacement records private added/removed history for the affected faculty only',()=>{
+ const activity={facultyId:A,label:'CCC',category:'ccc',startDate:'2026-11-02',endDate:'2026-11-04',recoveryJson:'PRIVATE'};
+ for(const added of [true,false]){const e=event({source:'work',eventType:added?'ccc_activity_added':'ccc_activity_removed',entityType:'calendar_activity',beforeJson:added?null:JSON.stringify(activity),afterJson:added?JSON.stringify(activity):null,contextJson:null});
+  const rows=projectHistoryEvent(e,{...auth,scope:'mine'});assert.ok(rows.length);assert.equal(rows[0].status,added?'Added':'Removed');assert.doesNotMatch(JSON.stringify(rows),/PRIVATE/);assert.equal(projectHistoryEvent(e,{...auth,facultyId:B,scope:'mine'}).length,0);assert.equal(projectHistoryEvent(e,auth).length,0);assert.ok(projectHistoryEvent(e,{...auth,admin:true,scope:'dashboard'}).length);
+ }
 });

@@ -4,10 +4,10 @@
 // reaching a browser/export must pass a domain allowlist below.
 const PUBLIC_EVENTS=new Set(['session_updated','session_created','session_assignments_replaced','swap_applied','session_deleted']);
 const LOOKUP_EVENTS=new Set(['FacultyUpdated','FacultyDeactivated','FacultyRestored','role_periods_updated']);
-const AFC_EVENTS=new Set(['afc_record_created','afc_record_cancelled','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
+const AFC_EVENTS=new Set(['afc_form_uploaded','afc_record_created','afc_record_cancelled','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
 const DOE_ACTIONS=new Set(['draft_created','draft_updated','working_draft_created','published','archived']);
 const PRIVATE_DOE_ENTITIES=new Set(['doe_assignment','faculty_doe_target','manual_doe_assignment']);
-const WORK_EVENTS=new Set(['calendar_activity_import_committed','calendar_activity_import_recovered','calendar_activity_time_resolved']);
+const WORK_EVENTS=new Set(['calendar_activity_import_committed','calendar_activity_import_recovered','calendar_activity_time_resolved','ccc_activity_added','ccc_activity_removed']);
 const SESSION_FIELDS={courseCode:'Course',courseName:'Course name',topic:'Topic',sessionType:'Session type',date:'Date',startTime:'Start time',endTime:'End time',room:'Room'};
 const FACULTY_FIELDS={displayName:'Display name',preferredFirstName:'Preferred first name',preferredLastName:'Preferred last name',ucid:'UCID',email:'Email',recordType:'Record type',stream:'Stream',rank:'Rank',fte:'FTE',active:'Active',reportsToFacultyId:'Reports to faculty record'};
 const PROFILE_FIELDS=['teachingArea','professionalCategory','serviceDate','priorYearsExperience','dvmEarnedDate','dvmType','mastersEarnedDate','mastersArea','phdEarnedDate','phdArea','boardCertifiedDate','boardCertification','boardCertificationCount','abvmaLicenseNumber','abvmaMemberType'];
@@ -79,6 +79,7 @@ function projectHistoryEvent(event,auth){
   const owner=type.startsWith('Faculty')?id(event.entityId):id(get(context,'facultyId'));
   if(!auth.admin&&(!auth.facultyId||owner!==id(auth.facultyId)))return [];domain='Lookup';
  }else if(AFC_EVENTS.has(type)){
+  if(type==='afc_form_uploaded'&&!auth.admin)return [];
   const owner=id(get(before,'facultyId')||get(after,'facultyId')||get(context,'facultyId')||get(parse(event.metadataJson),'facultyId'));
   if(!auth.admin&&(!auth.facultyId||owner!==id(auth.facultyId)))return [];domain='AFC';
  }else if(event.source==='doe'&&PRIVATE_DOE_ENTITIES.has(event.entityType)){
@@ -97,7 +98,10 @@ function projectHistoryEvent(event,auth){
  base._facultyKeys=unique([...base._facultyKeys,...directory.map(p=>get(p,'facultyKey'))]);
  base._facultyOptions.push(...directory.filter(p=>get(p,'facultyKey')).map(p=>({key:get(p,'facultyKey'),name:(get(p,'displayName')||'Faculty name not recorded')+' (current directory)'})));
  if(recovered)base.status='Removed';
+ if(type==='afc_form_uploaded')base.status='Uploaded document';
  if(event.source==='work'&&type==='calendar_activity_import_committed')base.status='Added';
+ if(event.source==='work'&&type==='ccc_activity_added')base.status='Added';
+ if(event.source==='work'&&type==='ccc_activity_removed')base.status='Removed';
  const rows=[];
  const add=(field,oldValue,newValue)=>{
   if(oldValue===undefined&&newValue===undefined)return;
@@ -127,7 +131,8 @@ function projectHistoryEvent(event,auth){
    for(const [key,label] of Object.entries(FACULTY_FIELDS))add(label,get(before,key),get(after,key));
    for(const key of PROFILE_FIELDS)add(key,get(get(before,'professionalProfile'),key)??get(before,key),get(get(after,'professionalProfile'),key)??get(after,key));
   }
- }else if(domain==='AFC')for(const [key,label] of Object.entries(AFC_FIELDS))add(label,get(before,key),get(after,key));
+ }else if(type==='afc_form_uploaded'){for(const [key,label]of Object.entries({fileName:'Uploaded document',pageCount:'Pages',byteLength:'Bytes'}))add(label,undefined,get(after,key));}
+ else if(domain==='AFC')for(const [key,label] of Object.entries(AFC_FIELDS))add(label,get(before,key),get(after,key));
  else{
   for(const key of ['revision','versionLabel','sourceReference','status'])add(key,get(before,key),get(after,key));
   const oldBook=type==='published'?get(before,'publishedRuleBook'):get(before,'ruleBook');

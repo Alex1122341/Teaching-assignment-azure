@@ -513,6 +513,15 @@
         const body=await request('/api/v1/doe/targets/'+encodeURIComponent(id),{method:'PUT',body:{academicYear,override}});
         return body.target&&typeof body.target==='object'&&!Array.isArray(body.target)?body.target:{};
       },
+      afcFormCapabilities(){return request('/api/v1/afc-forms/capabilities');},
+      listAfcForms(input={}){const q=new URLSearchParams();for(const k of ['facultyId','cursor','limit'])if(input[k]!=null)q.set(k,String(input[k]));return request('/api/v1/afc-forms?'+q);},
+      uploadAfcForm(input={}){return request('/api/v1/afc-forms',{method:'POST',body:pickFields(input,['facultyId','requestId','fileName','contentType','fileBase64'])});},
+      getAfcFormDocument(id){return requestBinary('/api/v1/afc-forms/'+encodeURIComponent(String(id))+'/document');},
+      cccReplacementCapabilities(){return request('/api/v1/ccc-replacements/capabilities');},
+      stageCccReplacement(input={}){return request('/api/v1/ccc-replacements',{method:'POST',body:pickFields(input,['requestId','sourceSha256','academicYear','dataset','fileName','fileBase64'])});},
+      getCccReplacement(id){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id)));},
+      previewCccReplacement(id,input={}){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id))+'/preview',{method:'POST',body:pickFields(input,['expectedVersion'])});},
+      commitCccReplacement(id,input={}){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id))+'/commit',{method:'POST',body:pickFields(input,['academicYear','dataset','expectedVersion','manifestSha256','sourceSha256','idempotencyKey','confirm','completeDataset'])});},
       async dashboardAfcRecords({search=null,reason=null,active=null,limit=null}={}){
         const query=new URLSearchParams();
         if(String(search??'').trim())query.set('search',String(search));

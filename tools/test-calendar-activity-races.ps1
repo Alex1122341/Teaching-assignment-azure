@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$ContainerName)
+param([Parameter(Mandatory)][string]$ContainerName,[switch]$HelpersOnly)
 $ErrorActionPreference='Stop'
 function Fail-Disposable {throw 'DISPOSABLE_SQL_REQUIRED: only the labeled local synthetic test container is allowed.'}
 if($ContainerName -notmatch '^paws-calendar-[a-z0-9-]+$' -or -not(Get-Command docker -ErrorAction SilentlyContinue)){Fail-Disposable}
@@ -39,6 +39,7 @@ function Wait-RaceCondition([string]$Sql,[string]$Label){
  }
  throw "Race barrier or expected wait was not observed: $Label"
 }
+if($HelpersOnly){return}
 $setup=Get-Content -LiteralPath (Join-Path (Split-Path $PSScriptRoot -Parent) 'server/test/fixtures/calendar-activity-race-setup.sql') -Raw
 [void](Invoke-RaceSql $setup)
 $row=3000

@@ -1,3 +1,11 @@
+## Current: Task12/14 product accepted with review corrections; governance/release pending — 2026-10-17
+
+Read updates/2026-10-17-afc-ccc-product-and-governance.md. Product9eb2daf on feat/afc-form-ccc-replacement-20261017 implements AFC original uploads and whole-year CCC replacement; fullserver684pass/3skip, parser33, SQL39064333728 incl six observed races/rollback passed. Independent review Important fixed RED→GREEN, Minor existing target faculty GUID label deferred. Separate freeze promotion to9eb2daf/fullCI/PR/release/Excel pending. Live6b5e744/331a636/SQL047 unchanged; never replay540. CCC commit stays closed until approved complete source and exact preview. Existing approved runtime identity allowed.
+
+## Current: PR114 merged; login live; human task installation remains — 2026-10-17
+
+Read updates/2026-10-17-startup-recovery-pr114-merged.md. Ops PR114/main3632b89 and exact-main CI39043651675 passed.160 runtime artifact files identical to live6b5e744/331a636; no redundant app redeploy. Login/SQL047/API/Hosting restored and verified. Recovery scripts on school server P:\PAWS\Runtime\Recovery validated in CheckOnly/export-only, NOT installed. Human local credential registration, reboot acceptance and fixed hostname remain. Original Excel09–11 live/pending manual acceptance;9pass8open1N/A;12–14 preserved. Never replay540 migration.
+
 ## Current: login restored; restart recovery prepared — 2026-10-17
 
 Read updates/2026-10-17-login-restored-startup-recovery.md. PR113/main6b5e744 and anchor331a636 are LIVE: SQL047/API/Hosting released after exact-main CI39041652862;77/77 public bytes match; Chrome login/timetable restored. No540 replay. Startup scripts independently reviewed and real-server CheckOnly/TaskScheduler XML validated; copied P:\PAWS\Runtime\Recovery, NOT installed. Full-root tests/ops PR pending. Human local credential registration and reboot acceptance remain; no fixed hostname, so Quick Tunnel origin changes still require reviewed frontend update. Original Excel09–11 now live/pending manual acceptance;9pass8open1N/A;12–14 retained.

@@ -70,7 +70,7 @@ test('runtime attestation is direct, read-only, no-store, and reports all P1/P2 
     sessionCreate: false,
     afcRequest: false,
     afcDecision: false,
-    afcArtifact: false,
+    afcArtifact: false, afcFormUpload: false, cccReplaceStage: false, cccReplaceCommit: false,
     taDraft: false,
     taReview: false,
     taFinal: false,

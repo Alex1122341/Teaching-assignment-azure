@@ -162,7 +162,7 @@ function createUniversityHttpServer({
     }
 
     try {
-      const bodyLimitForRequest = requestPath === '/api/v1/sessions/batch' || (incoming.method==='POST' && requestPath==='/api/v1/calendar-activity-imports')
+      const bodyLimitForRequest = incoming.method==='POST' && requestPath==='/api/v1/afc-forms' ? 2800000 : incoming.method==='POST' && requestPath==='/api/v1/ccc-replacements' ? 1048576 : requestPath === '/api/v1/sessions/batch' || (incoming.method==='POST' && requestPath==='/api/v1/calendar-activity-imports')
         ? BATCH_MAX_BODY_BYTES
         : bodyLimit;
       const body = await readBody(incoming, bodyLimitForRequest);
@@ -194,8 +194,9 @@ function createUniversityHttpServer({
         const pdfBytes = Buffer.isBuffer(result.binaryBody)
           ? result.binaryBody
           : result.binaryBody instanceof Uint8Array ? Buffer.from(result.binaryBody) : null;
-        const match = /^\/api\/v1\/afc-requests\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/approved-artifact\/?$/i.exec(new URL(incoming.url || '/', 'http://127.0.0.1').pathname);
-        if (!pdfBytes || ![200, 201].includes(status) || !match || pdfBytes.length < 1 || pdfBytes.length > 8_388_608) {
+        const formMatch=/^\/api\/v1\/afc-forms\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/document$/i.exec(requestPath);
+        const match = formMatch || /^\/api\/v1\/afc-requests\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/approved-artifact\/?$/i.exec(new URL(incoming.url || '/', 'http://127.0.0.1').pathname);
+        if (!pdfBytes || ![200, 201].includes(status) || !match || pdfBytes.length < 1 || pdfBytes.length > (formMatch?2097152:8_388_608)) {
           outgoing.writeHead(500, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(FIXED_ERROR) });
           outgoing.end(FIXED_ERROR);
           return;
@@ -206,7 +207,8 @@ function createUniversityHttpServer({
           'Content-Length': String(pdfBytes.length),
           'Cache-Control': 'private, no-store',
           'X-Content-Type-Options': 'nosniff',
-          'Content-Disposition': `attachment; filename="afc-approved-${match[1]}.pdf"`
+          'Content-Disposition': `attachment; filename="afc-${formMatch?'form':'approved'}-${match[1]}.pdf"`,
+          'Content-Security-Policy': "sandbox; default-src 'none'"
         };
         outgoing.writeHead(status, binaryHeaders);
         outgoing.end(incoming.method === 'HEAD' ? undefined : pdfBytes);

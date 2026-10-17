@@ -24,7 +24,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 - The immutable static/API freeze is promoted only through an explicit reviewed governance commit anchored to the accepted product commit. P1's protected static and API runtime changes require their own separately reviewed freeze promotion in the same coherent PR; never add drift exceptions or silently move the anchor.
 - The active Beta architecture is Firebase Hosting → Firebase Authentication (identity) → temporary Cloudflare HTTPS ingress → University Node API → `ITAPPVETOPSDB01` / `VetMed-Ops`. SQL is the business-data authority; do not restore Firestore business reads or writes.
-- **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (77 entries); the API freeze currently protects 81 API runtime files plus its build definition and two repository inputs (84 protected paths total).
+- **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (79 entries); the API freeze currently protects 93 API runtime files plus its build definition and two repository inputs (96 protected paths total).
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.
 - `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .azure-production/app` to validate a built or downloaded artifact.
 - `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.
@@ -42,6 +42,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 - DOE Summary / Faculty Dashboard is in P1 scope, but unknown contract DOE, role DOE, identity, FTE, rank, and stream are never inferred.
 - Do not weaken Firestore rules to make a Beta UI feature work; Beta business authorization belongs in the University API and SQL.
 - Do not add Firestore fallback to a Beta read path that has been explicitly activated on Azure SQL.
+- AFC original PDF uploads use their own gate and confidential storage, separately from absence and approval records. CCC replacement staging and commit use separate gates; commit requires an approved complete-year source and exact preview. Follow `docs/superpowers/specs/2026-10-17-ccc-full-replacement-design.md` before changing this workflow.
 
 ## Roles
 

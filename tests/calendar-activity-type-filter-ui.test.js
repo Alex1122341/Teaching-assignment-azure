@@ -9,7 +9,7 @@ test('the real timetable entry point initializes the picker without a startup er
  for(const match of source.matchAll(/<script src="([^"]+)"/g)){if(!match[1].startsWith('https:'))await page.addScriptTag({path:path.resolve(match[1])});}
  assert.deepEqual(errors,[]);
  assert.equal(await page.getByText('All activity types',{exact:true}).count(),1);
- assert.equal(await page.locator('#activity-type-filter input[type=checkbox]').count(),14);
+ assert.equal(await page.locator('#activity-type-filter input[type=checkbox]').count(),13);
 });
 test('grouped type picker supports real checkbox events, all, clear, Reset and safe dynamic labels',{skip:!modulePath},async t=>{
  const {chromium}=require(modulePath),browser=await chromium.launch({channel:'chrome',headless:true});t.after(()=>browser.close());
@@ -26,7 +26,8 @@ test('grouped type picker supports real checkbox events, all, clear, Reset and s
  await page.getByText('All activity types',{exact:true}).click();
  await page.waitForFunction(()=>{const r=document.querySelector('.activity-type-options').getBoundingClientRect();return r.x>=0&&r.right<=innerWidth;});
  let box=await page.locator('.activity-type-options').boundingBox();assert.ok(box.x>=0&&box.x+box.width<=1280,'desktop picker stays within viewport '+JSON.stringify(box));
- assert.equal(await page.getByRole('group',{name:'Work activities',exact:true}).getByRole('checkbox').count(),8);
+ assert.equal(await page.getByRole('group',{name:'Work activities',exact:true}).getByRole('checkbox').count(),7);
+ assert.equal(await page.getByLabel('Remote work',{exact:true}).count(),0);
  await page.getByRole('button',{name:'Clear types',exact:true}).click();
  assert.match(await page.locator('#results').innerText(),/No working activities/);
  await page.getByLabel('Rotation participant',{exact:true}).check();

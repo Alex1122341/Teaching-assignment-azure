@@ -61,6 +61,7 @@ async function readWorkbook(bytes,policy){
   }
  });
  for(const group of duplicates.values())if(group.length>1)for(const row of group){row.treatment='quarantined';row.issues.push('DUPLICATE_SOURCE_ROW');}
+ for(const row of rows){row.disposition=row.treatment==='excluded'?'excluded':row.treatment==='working_candidate'?'work':'away';row.needsReview=row.treatment==='quarantined';}
  if(!rows.length)throw failure('INVALID_SOURCE');
  return {sourceSha256:policy.sourceSha256,sheetName:policy.sheetName,policyVersion:policy.policyVersion,dataset:policy.dataset,rows};
 }

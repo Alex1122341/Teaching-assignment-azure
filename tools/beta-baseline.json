@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "0be7e75c483b497cc566c24a3d9366ad32827f8c",
+  "sourceCommit": "3d983cf317147a20415e8e5cfd0d3f17532af27f",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -74,8 +74,8 @@
     "faculty-role-periods.js": "b4dee985428629d7f09b1434b3269ad219b05d2d3be39fc38512a4c297bb3f80",
     "faculty-admin-afc-records.js": "1bbf0a1e7932f414eea779e6d149ee00c6ed97543e350f817cac3bfb14fd509e",
     "lab-session-detail.js": "54501dd05ef403cf1865bc872c051356514f26262d439797ed36831c382d15f9",
-    "calendar-activities.js": "4c933b998f5abfb112eb682506fa7eebabf6d9055df3758bb2e5ecae8ed3a837",
+    "calendar-activities.js": "55e29cf8c726d09dd45ffd0fa77440d2f5b3d87757573a4cda4d34c4a8ea8b54",
     "calendar-activities.css": "49f5bed0355d578b0a8fab6db0b8c3c950ea5ce2ff5370cca9b3650af8b93eae",
-    "faculty-admin-activity-import.js": "2e85b202a78175ce407581b157f67e7b9ef718f64f16ad58d6c67a0a1116d24d"
+    "faculty-admin-activity-import.js": "8855fadfb2508d7ce6ddd1af23861cf9377e9f4595d7b1ed250c2e97071b55cf"
   }
 }

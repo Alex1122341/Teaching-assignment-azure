@@ -4,7 +4,7 @@
  const validDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
  const validTime=value=>typeof value==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
  function academicRange(value){const match=String(value||'').match(/^(\d{4})-(\d{2}|\d{4})$/);if(!match)return null;const start=Number(match[1]),end=start+1;if(String(end).slice(-match[2].length)!==match[2])return null;return {start:start+'-05-01',end:end+'-05-01'};}
- const labels={ccc:'CCC',rotation_participant:'Rotation participant',clinical_day:'Clinical day / PPVM',vetm581_rounds:'VETM 581 clinical rounds',vetm571_clinical_pharmacology:'VETM 571 clinical pharmacology',vetm591_presentations:'VETM 591 IM presentations',teaching_excellence:'Teaching excellence',remote_work:'Remote work'};
+ const labels={ccc:'CCC',rotation_participant:'Rotation participant',clinical_day:'Clinical day / PPVM',vetm581_rounds:'VETM 581 clinical rounds',vetm571_clinical_pharmacology:'VETM 571 clinical pharmacology',vetm591_presentations:'VETM 591 IM presentations',teaching_excellence:'Teaching excellence'};
  function createActivityTypeFilter({host=null,onChange=()=>{}}={}){
   const options=[...['LEC','LAB','SRL','Quiz/Midterm','OSCE','Exam'].map(label=>({key:'teaching:'+label,label,group:'teaching'})),...Object.entries(labels).map(([category,label])=>({key:'work:'+category,label,group:'work'}))];
   const defaults=options.slice();

@@ -9,9 +9,9 @@ const root=path.resolve(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
-// Bounded Calendar import timeout is current. Prior activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
+// Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='0be7e75c483b497cc566c24a3d9366ad32827f8c';
+const BASELINE_COMMIT='3d983cf317147a20415e8e5cfd0d3f17532af27f';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
@@ -51,10 +51,26 @@ function baselineJson(ref){
 const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:commit,readManifest:()=>baselineJson(commit)});
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
-test('Calendar import timeout freeze changes only three reviewed API files',()=>{
+test('Away classification freeze protects only its reviewed two static and two API files',()=>{
+ const previous='0be7e75c483b497cc566c24a3d9366ad32827f8c',product='3d983cf317147a20415e8e5cfd0d3f17532af27f';
+ assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(baseline.sourceCommit,product);assert.equal(BASELINE_COMMIT,product);
+ const before=historicalStaticPaths(previous),after=historicalStaticPaths(product),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
+ assert.equal(after.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);
+ const apiFreeze=require('../tools/beta-api-freeze.js'),protectedApi=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();
+ assert.equal(newApi.length,76);assert.equal(protectedApi.length,79);assert.deepEqual(newApi,oldApi);
+ const changed=execFileSync('git',['diff','--name-only',previous,product],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+ assert.deepEqual(changed.filter(file=>after.includes(file)).sort(),['calendar-activities.js','faculty-admin-activity-import.js']);
+ assert.deepEqual(changed.filter(file=>protectedApi.includes(file)).sort(),['server/src/calendar/activity-import-policy.js','server/src/calendar/activity-workbook-worker.js']);
+ for(const file of [...after,...protectedApi].filter(file=>!changed.includes(file)))assert.equal(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:product,file})),true,file);
+});
+
+test('historical Calendar import timeout freeze changes only three reviewed API files',()=>{
  const previous='3f53695778ea144d0e4ec53ab624d4b85f849a75',product='0be7e75c483b497cc566c24a3d9366ad32827f8c';
  const full=execFileSync('git',['rev-parse',product],{cwd:root,encoding:'utf8'}).trim();
- assert.equal(freeze.BASELINE_COMMIT,full);assert.equal(baseline.sourceCommit,full);assert.equal(BASELINE_COMMIT,full);
+ const governance='b8be19f8131822f77e73fb9a394d7c3a5d6c25a7';
+ const source=execFileSync('git',['show',`${governance}:tools/beta-freeze.js`],{cwd:root,encoding:'utf8'});
+ const report=JSON.parse(execFileSync('git',['show',`${governance}:tools/beta-baseline.json`],{cwd:root,encoding:'utf8'}));
+ assert.ok(source.includes(`const BASELINE_COMMIT='${full}'`));assert.equal(report.sourceCommit,full);
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(full),api=historicalApiPaths(full),apiFreeze=require('../tools/beta-api-freeze.js');
  assert.equal(after.length,75);assert.deepEqual(after,before);assert.deepEqual(manifest().slice().sort(),after);assert.deepEqual(api,historicalApiPaths(previous));
  const protectedApi=[...new Set([...api,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])].sort();assert.equal(api.length,76);assert.equal(protectedApi.length,79);

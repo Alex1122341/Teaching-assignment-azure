@@ -6,15 +6,29 @@ const {parseActivityWorkbook,runActivityWorkbookWorker}=require('../src/calendar
 const {approvedActivityImportPolicy,normalizeActivityNameKey}=require('../src/calendar/activity-import-policy');
 const row={facultySourceName:'Synthetic Faculty',startDate:'2026-11-05',endDate:'2026-11-06',purpose:'CCC Day'};
 async function parse(rows,options={},policyChanges={}){const bytes=await makeWorkbook(rows,options);return parseActivityWorkbook(bytes,syntheticPolicyFor(bytes,policyChanges));}
+
+test('owner revision retains Remote work as Away instead of a Calendar work candidate',async()=>{
+ const result=await parse([{...row,purpose:'Remote Work (approved)'}]);
+ assert.equal(result.rows[0].treatment,'retain_afc');assert.equal(result.rows[0].category,null);
+ assert.equal(result.rows[0].disposition,'away');assert.equal(result.rows[0].needsReview,false);
+ assert.equal(approvedActivityImportPolicy('4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF').policyVersion,'afc-working-activities-v2');
+});
+test('abnormal rows are Away needing review without repairing identities, dates or duplicates',async()=>{
+ const result=await parse([{...row,purpose:'Vacation'},{...row,purpose:'Vacation'},{...row,endDate:'2026-11-04'},{...row,facultySourceName:''},{...row,purpose:''}]);
+ assert.equal(result.rows.length,5);
+ for(const value of result.rows){assert.equal(value.disposition,'away');assert.equal(value.needsReview,true);assert.equal(value.treatment,'quarantined');assert.ok(value.issues.length);}
+ assert.equal(result.rows[2].endDate,'2026-11-04');assert.equal(result.rows[3].facultySourceName,'');assert.equal(result.rows[4].originalLabel,'');
+ assert.ok(result.rows[0].issues.includes('DUPLICATE_SOURCE_ROW'));assert.ok(result.rows[1].issues.includes('DUPLICATE_SOURCE_ROW'));
+});
 test('OPA and every approved absence category stay AFC',async()=>{
  const labels=['OPA','University Travel','Vacation','Vacation/University Travel','RSL','Special Leave','Medical','Parental Leave','Administrative Leave','Study Leave'];
  const result=await parse(labels.map(purpose=>({...row,purpose})));
  assert.deepEqual(result.rows.map(r=>r.treatment),Array(10).fill('retain_afc'));
 });
 test('exact working labels produce categories without inventing clock or course',async()=>{
- const labels=['CCC Day','Rotation Participant','Clinical Day / PPVM (external)','VETM 581 Clinical Rounds (12:30 - 4:30pm): 9 Sep 2026, 6 Jan 2027, 8 Apr 2027','571 - CLINICAL PHARMACOLOGY','VETM 591 IM Presentations (all day): 5 Apr 2027','Teaching Excellence Program(8-12:30pm)','Remote Work (approved)'];
+ const labels=['CCC Day','Rotation Participant','Clinical Day / PPVM (external)','VETM 581 Clinical Rounds (12:30 - 4:30pm): 9 Sep 2026, 6 Jan 2027, 8 Apr 2027','571 - CLINICAL PHARMACOLOGY','VETM 591 IM Presentations (all day): 5 Apr 2027','Teaching Excellence Program(8-12:30pm)'];
  const result=await parse(labels.map(purpose=>({...row,purpose})));
- assert.deepEqual(result.rows.map(r=>r.category),['ccc','rotation_participant','clinical_day','vetm581_rounds','vetm571_clinical_pharmacology','vetm591_presentations','teaching_excellence','remote_work']);
+ assert.deepEqual(result.rows.map(r=>r.category),['ccc','rotation_participant','clinical_day','vetm581_rounds','vetm571_clinical_pharmacology','vetm591_presentations','teaching_excellence']);
  for(const value of result.rows){assert.equal(value.treatment,'working_candidate');assert.equal(value.startTime,undefined);assert.equal(value.courseCode,undefined);}
 });
 test('source dates span May1 and weekends without clipping or fabricated year',async()=>{

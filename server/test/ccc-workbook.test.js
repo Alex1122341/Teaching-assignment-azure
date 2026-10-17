@@ -26,3 +26,7 @@ test('CCC identity/name/label values cannot silently become missing/default text
  const rows=[row.map((v,i)=>i===0?123:v),row.map((v,i)=>i===1?123:v),row.map((v,i)=>i===5?123:v),row.map((v,i)=>i===4?{text:'206',hyperlink:'https://example.test'}:v)];
  const r=await parseCccWorkbook(await book(rows),'2026-27');assert.ok(r.rows.every(x=>x.issues.includes('INVALID_CELL_TYPE')));
 });
+test('CCC unknown-column-only rows cannot disappear from a complete replacement source',async()=>{
+ const {parseCccWorkbook}=require('../src/calendar/ccc-workbook');
+ for(const extra of ['Unrecognized activity',{formula:'TODAY()',result:100}]){const b=new ExcelJS.Workbook(),s=b.addWorksheet('CCC');s.addRow(headers);s.addRow(row);s.getCell('G3').value=extra;const result=await parseCccWorkbook(Buffer.from(await b.xlsx.writeBuffer()),'2026-27');assert.equal(result.rows.length,2);assert.ok(result.rows[1].issues.includes('EXTRA_COLUMNS'));if(typeof extra==='object')assert.ok(result.rows[1].issues.includes('FORMULA_NOT_ALLOWED'));}
+});

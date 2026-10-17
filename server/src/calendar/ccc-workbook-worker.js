@@ -10,10 +10,11 @@ async function parse(bytes,academicYear){
  const text=v=>typeof v==='string'?v.trim():'';
  sheet.eachRow((row,sourceRow)=>{
   if(sourceRow===1)return;const values=[1,2,3,4,5,6].map(i=>row.getCell(i).value);
-  if(values.every(v=>v==null||v===''))return;if(rows.length>=5000)throw fail('IMPORT_LIMIT');
-  const issues=[];if(values.some(hasFormula))issues.push('FORMULA_NOT_ALLOWED');
+  const extra=row.values.slice(7).filter(v=>v!=null&&v!=='');
+  if(values.every(v=>v==null||v==='')&&!extra.length)return;if(rows.length>=5000)throw fail('IMPORT_LIMIT');
+  const issues=[];if([...values,...extra].some(hasFormula))issues.push('FORMULA_NOT_ALLOWED');
   if([0,1,5].some(i=>values[i]!=null&&typeof values[i]!=='string')||values[4]!=null&&typeof values[4]!=='string'&&!(typeof values[4]==='number'&&Number.isInteger(values[4])))issues.push('INVALID_CELL_TYPE');
-  if(row.cellCount>6&&row.values.slice(7).some(v=>v!=null&&v!==''))issues.push('EXTRA_COLUMNS');
+  if(extra.length)issues.push('EXTRA_COLUMNS');
   const facultySourceId=text(values[0]),facultySourceName=text(values[1]),startDate=dateValue(values[2]),endDate=dateValue(values[3]),courseCode=typeof values[4]==='number'&&Number.isInteger(values[4])?String(values[4]):text(values[4]),label=text(values[5])||'CCC';
   if(!facultySourceId&&!facultySourceName)issues.push('MISSING_FACULTY');
   if(facultySourceId&&!UUID.test(facultySourceId))issues.push('INVALID_FACULTY_ID');

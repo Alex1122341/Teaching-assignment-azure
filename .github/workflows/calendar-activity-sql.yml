@@ -1,7 +1,7 @@
 name: Calendar Activity SQL Acceptance
 on:
   pull_request:
-    paths: ['database/azure-sql/**','tools/*calendar*','tools/test-change-history-sql.ps1','tools/test-afc-form-sql.ps1','server/src/afc/afc-form*','server/test/afc-form*','server/src/data/sql-afc-form-repository.js','server/src/history/**','server/src/data/sql-change-history-repository.js','server/src/data/sql-doe-policy-repository.js','server/src/calendar/**','server/src/data/sql-calendar-activity-repository.js','server/src/data/sql-swap-repository.js','server/test/calendar-activity*','server/test/change-history*','server/test/fixtures/calendar-activity*','.github/workflows/calendar-activity-sql.yml']
+    paths: ['database/azure-sql/**','tools/*calendar*','tools/test-change-history-sql.ps1','tools/test-afc-form-sql.ps1','tools/test-ccc-replacement*.ps1','server/src/data/sql-ccc-replacement-repository.js','server/src/runtime/swa-ccc-replacement-functions.js','server/test/ccc-*','server/src/afc/afc-form*','server/test/afc-form*','server/src/data/sql-afc-form-repository.js','server/src/history/**','server/src/data/sql-change-history-repository.js','server/src/data/sql-doe-policy-repository.js','server/src/calendar/**','server/src/data/sql-calendar-activity-repository.js','server/src/data/sql-swap-repository.js','server/test/calendar-activity*','server/test/change-history*','server/test/fixtures/calendar-activity*','.github/workflows/calendar-activity-sql.yml']
   workflow_dispatch:
 permissions:
   contents: read

@@ -23,6 +23,8 @@ function createWriteGates(env = {}) {
     afcDecision: env.PAWS_AFC_DECISION_WRITE_ENABLED === 'true',
     afcArtifact: env.PAWS_AFC_ARTIFACT_WRITE_ENABLED === 'true',
     afcFormUpload: env.PAWS_AFC_FORM_UPLOAD_ENABLED === 'true',
+    cccReplaceStage: env.PAWS_CCC_REPLACE_STAGE_ENABLED === 'true',
+    cccReplaceCommit: env.PAWS_CCC_REPLACE_COMMIT_ENABLED === 'true',
     taDraft: env.PAWS_TA_DRAFT_WRITE_ENABLED === 'true',
     taReview: env.PAWS_TA_REVIEW_WRITE_ENABLED === 'true',
     taFinal: env.PAWS_TA_FINAL_WRITE_ENABLED === 'true',

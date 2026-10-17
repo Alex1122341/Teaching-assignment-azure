@@ -68,7 +68,10 @@ jobs:
       - name: Check uploaded AFC form authorization and rollback
         shell: pwsh
         run: ./tools/test-afc-form-sql.ps1 -ContainerName paws-calendar-sql-test
-      - name: Stop synthetic container after AFC form checks
+      - name: Check whole-year CCC replacement and private recovery
+        shell: pwsh
+        run: ./tools/test-ccc-replacement-sql.ps1 -ContainerName paws-calendar-sql-test
+      - name: Stop synthetic container after activity checks
         if: always()
         shell: pwsh
         run: docker rm -f paws-calendar-sql-test

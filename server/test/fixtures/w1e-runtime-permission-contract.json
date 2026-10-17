@@ -127,6 +127,8 @@
     ]
   },
   "schedulingReadProcedures": ["paws_api.ListSchedulingTasks"],
+  "historyReadProcedures": ["paws_api.ListChangeHistoryEvents"],
+  "historyPolicyAuditFunctions": ["paws_api.DoeHistoryPolicySnapshot"],
   "schedulingWriteSets": {"schedulingTaskReview": ["paws_api.ReviewSchedulingTask"]},
   "calendarReadProcedures": ["paws_api.ListCalendarActivities", "paws_api.GetCalendarActivityImport"],
   "calendarWriteSets": {

@@ -33,10 +33,18 @@ test('W1E permission contract covers every SQL repository object and stored proc
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
     ...contract.calendarReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
-    ...contract.schedulingReadProcedures,...Object.values(contract.schedulingWriteSets).flat()
+    ...contract.schedulingReadProcedures,...Object.values(contract.schedulingWriteSets).flat(),
+    ...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions
   ];
   assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
+});
+
+test('history read has one scoped entry point and private policy snapshots remain in existing trusted DOE roles',()=>{
+  const sql=fs.readFileSync(path.join(root,'database/azure-sql/047_change_history.sql'),'utf8');
+  assert.deepEqual([...sql.matchAll(/GRANT EXECUTE ON OBJECT::([\w.]+) TO paws_runtime_history_read/g)].map(match=>match[1]),contract.historyReadProcedures);
+  for(const name of contract.historyPolicyAuditFunctions)for(const role of ['paws_runtime_doe_admin_write','paws_runtime_doe_policy_publish'])assert.ok(sql.includes('GRANT EXECUTE ON OBJECT::'+name+' TO '+role));
+  assert.doesNotMatch(sql,/ALTER ROLE.*ADD MEMBER|GRANT.*ON SCHEMA|GRANT SELECT.*ChangeHistoryContext/i);
 });
 
 test('base runtime role has only column-scoped reads and the two approved artifact reads', () => {

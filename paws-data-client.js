@@ -168,6 +168,13 @@
     }
 
     return Object.freeze({
+      changeHistory(filters={}){
+        const query=new URLSearchParams();
+        for(const key of ['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain'])if(typeof filters[key]==='string'&&filters[key])query.set(key,filters[key]);
+        return request('/api/v1/change-history?'+query.toString());
+      },
+      changeHistoryPage(snapshot,offset){return request('/api/v1/change-history/page?'+new URLSearchParams({snapshot:String(snapshot),offset:String(offset)}));},
+      changeHistoryExport(snapshot,format){return request('/api/v1/change-history/export?'+new URLSearchParams({snapshot:String(snapshot),format:String(format)}));},
       swapCapabilities:()=>request('/api/v1/swaps/capabilities'),
       async swapFacultyPreview({sessionId,assignmentId,candidateKey,snapshotToken}={}){
         const query=new URLSearchParams({sessionId:String(sessionId||''),assignmentId:String(assignmentId||''),snapshotToken:String(snapshotToken||'')});

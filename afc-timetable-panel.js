@@ -8,6 +8,8 @@
   const teachingButton = $('my-teaching-btn');
   const requestButton = $('afc-request-btn');
   const historyButton = $('my-change-history-btn');
+  const changesButton = $('cal-changes-btn');
+  let historyView = null;
   let previousFocus = null;
   let backgroundState = [];
 
@@ -18,6 +20,7 @@
   function setActive(view) {
     requestButton.classList.toggle('active', view === 'afc');
     historyButton.classList.toggle('active', view === 'history');
+    changesButton?.classList.toggle('active', view === 'timetable-history');
   }
 
   function containBackground() {
@@ -53,10 +56,11 @@
     panel.hidden = false;
     panel.setAttribute('aria-hidden', 'false');
     setActive(view);
-    if (view === 'history') {
-      title.textContent = 'My Change History';
+    historyView?.destroy();historyView=null;
+    if (view === 'history' || view === 'timetable-history') {
+      title.textContent = view === 'history' ? 'My Change History' : 'Calendar Changes';
       content.innerHTML = '';
-      UCVM.logs(content, { includeFaculty: true, profile: window.UCVM_PAGE_DATA?.profile?.() || {} });
+      historyView = window.PAWS_CHANGE_HISTORY.mount(content, { api: window.UCVM_PAWS_DATA, scope: view === 'history' ? 'mine' : 'timetable' });
     } else {
       title.textContent = 'AFC Request';
       const event = new Event('ucvm:afc-open');
@@ -71,6 +75,7 @@
     panel.hidden = true;
     panel.setAttribute('aria-hidden', 'true');
     setActive('');
+    historyView?.destroy();historyView=null;
     restoreBackground();
     const returnFocus = previousFocus;
     previousFocus = null;
@@ -85,6 +90,7 @@
   teachingButton.onclick = showTeaching;
   requestButton.onclick = () => showPanel('afc');
   historyButton.onclick = () => showPanel('history');
+  if(changesButton)changesButton.onclick = () => showPanel('timetable-history');
   closeButton.onclick = close;
   if (document.addEventListener) document.addEventListener('keydown', event => {
     if (panel.hidden) return;

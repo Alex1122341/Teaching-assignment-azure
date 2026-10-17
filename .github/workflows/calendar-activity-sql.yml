@@ -1,7 +1,7 @@
 name: Calendar Activity SQL Acceptance
 on:
   pull_request:
-    paths: ['database/azure-sql/**','tools/*calendar*','server/src/calendar/**','server/src/data/sql-calendar-activity-repository.js','server/src/data/sql-swap-repository.js','server/test/calendar-activity*','server/test/fixtures/calendar-activity*','.github/workflows/calendar-activity-sql.yml']
+    paths: ['database/azure-sql/**','tools/*calendar*','tools/test-change-history-sql.ps1','server/src/history/**','server/src/data/sql-change-history-repository.js','server/src/data/sql-doe-policy-repository.js','server/src/calendar/**','server/src/data/sql-calendar-activity-repository.js','server/src/data/sql-swap-repository.js','server/test/calendar-activity*','server/test/change-history*','server/test/fixtures/calendar-activity*','.github/workflows/calendar-activity-sql.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -62,7 +62,10 @@ jobs:
       - name: Check bounded540-record identity preflight
         shell: pwsh
         run: ./tools/test-calendar-commit-preflight-sql.ps1 -ContainerName paws-calendar-sql-test
-      - name: Stop synthetic container
+      - name: Check scoped history evidence and rollback
+        shell: pwsh
+        run: ./tools/test-change-history-sql.ps1 -ContainerName paws-calendar-sql-test
+      - name: Stop synthetic container after history
         if: always()
         shell: pwsh
         run: docker rm -f paws-calendar-sql-test

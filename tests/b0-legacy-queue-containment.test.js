@@ -229,7 +229,8 @@ function azureAfcPanelHarness() {
       listeners.set(name, callbacks);
     },
     UCVM_PAWS_DATA: { sessionBackend: () => 'azure-sql' },
-    UCVM: { logs: (_container, options) => { context.historyOptions = options; } },
+    PAWS_CHANGE_HISTORY: { mount: (_container, options) => { context.historyOptions = options; return { destroy() { context.historyDestroyed = true; } }; } },
+    UCVM: { logs: () => { throw new Error('Legacy history must not be touched'); } },
     UCVM_AFC_ACTIONS: { decide: () => { context.decideCalls += 1; } },
     decideCalls: 0,
     window: null
@@ -255,10 +256,11 @@ test('Azure SQL AFC facade keeps panel navigation but exposes no legacy request 
   assert.equal(h.context.decideCalls, 0);
 
   h.history.onclick();
-  assert.equal(h.context.historyOptions.includeFaculty, true);
-  assert.equal(h.context.historyOptions.profile.uid, 'faculty-1');
+  assert.equal(h.context.historyOptions.scope, 'mine');
+  assert.equal(h.context.historyOptions.api, h.context.UCVM_PAWS_DATA);
 
   h.teaching.onclick();
+  assert.equal(h.context.historyDestroyed, true);
   assert.equal(h.panel.hidden, true);
   assert.equal(h.documentRef.activeElement, h.request);
 

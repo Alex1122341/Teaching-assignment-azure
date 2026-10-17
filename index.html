@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>UCVM Timetable - Workload Guideline DOE V9.7</title>
   <link rel="stylesheet" href="timetable.css">
+  <link rel="stylesheet" href="change-history.css">
   <link rel="stylesheet" href="calendar-activities.css">
   <link rel="stylesheet" href="swap-workflow-sql.css">
 
@@ -171,6 +172,7 @@
             </details>
             <button class="fbar-reset" id="color-toggle">Colors: On</button>
             <div class="cal-view-toggle">
+              <button class="cal-view-btn hidden" id="cal-changes-btn" type="button" aria-haspopup="dialog">Changes</button>
               <button class="cal-view-btn" id="cal-day-btn">Day</button>
               <button class="cal-view-btn active" id="cal-week-btn">Week</button>
               <button class="cal-view-btn" id="cal-month-btn">Month</button>
@@ -237,6 +239,6 @@
   <script src="lab-session-detail.js"></script><script src="calendar-activities.js"></script><script src="timetable.js"></script>
   <script src="afc-workflow-sql.js"></script>
   <script src="afc-workflow.js"></script>
-  <script src="afc-timetable-panel.js"></script>
+  <script src="change-history.js"></script><script src="afc-timetable-panel.js"></script>
 </body>
 </html>

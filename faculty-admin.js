@@ -27,6 +27,14 @@
   }});
   const workView = window.PAWS_CALENDAR_ACTIVITIES?.createFacultySchedule({getHost:()=>$('faculty-working-activities'),getUser:()=>currentUser,getSelected:()=>selectedId,isSelf:()=>selfMode});
   let auth = null;
+  let historyView = null;
+  function closeHistory(){historyView?.destroy();historyView=null;if($('faculty-history-dialog')?.open)$('faculty-history-dialog').close();}
+  function openHistory(){
+    if(!currentUser||!window.PAWS_CHANGE_HISTORY)return;
+    closeHistory();
+    historyView=window.PAWS_CHANGE_HISTORY.mount($('faculty-history-content'),{api:UCVM_PAWS_DATA,scope:'dashboard'});
+    $('faculty-history-dialog').showModal();
+  }
   let currentUser = null;
   let faculty = [];
   let activeFaculty = [];
@@ -158,6 +166,9 @@
   }
 
   function bindUI() {
+    on($('faculty-history-btn'),'click',openHistory);
+    on($('faculty-history-close'),'click',closeHistory);
+    on($('faculty-history-dialog'),'close',()=>{historyView?.destroy();historyView=null;});
     on($('lookup-search'), 'input', debounce(renderLookup)); on($('filter-rank'), 'change', renderLookup);
     on($('faculty-status-filter'), 'change', async () => { facultyStatus = $('faculty-status-filter').value || 'active'; invalidateFacultyDetails(); selectedId = null; await loadAdminDashboard(); });
     on($('doe-list-refresh'),'click',()=>loadDoeList(true));
@@ -588,8 +599,8 @@
   });
   doePolicyView?.mount($('doe-rules-content'));
   function installSelfModeStyles() { if ($('faculty-self-mode-style')) return; const style = document.createElement('style'); style.id = 'faculty-self-mode-style'; style.textContent = 'body.faculty-self-mode .tabs,body.faculty-self-mode .kpis,body.faculty-self-mode .summary-source-banner,body.faculty-self-mode #lookup-view > .toolbar,body.faculty-self-mode .result-pane,body.faculty-self-mode #sync-status{display:none!important}body.faculty-self-mode .lookup-grid{display:block;min-height:0}body.faculty-self-mode .profile-pane{width:100%;min-width:0;padding:18px}'; document.head.appendChild(style); }
-  function lock(message) { $('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
-  function unlock() { $('auth-gate').classList.add('hidden'); }
+  function lock(message) { closeHistory();if($('faculty-history-btn'))$('faculty-history-btn').disabled=true;$('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
+  function unlock() { if($('faculty-history-btn'))$('faculty-history-btn').disabled=false;$('auth-gate').classList.add('hidden'); }
   function debounce(fn, wait = 160) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; }
 
   $('gate-back').onclick = $('back-btn').onclick = returnToTimetable;

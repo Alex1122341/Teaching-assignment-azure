@@ -11,7 +11,14 @@ Invoke-TestSql "CREATE EVENT SESSION CalendarCommitAcceptanceErrors ON SERVER AD
 try {
  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/040_calendar_activity_acceptance.sql') -Raw) 'VetMed-Ops'
 } catch {
- Invoke-TestSql "SELECT CAST(target_data AS xml) FROM sys.dm_xe_session_targets target JOIN sys.dm_xe_sessions session ON session.address=target.event_session_address WHERE session.name=N'CalendarCommitAcceptanceErrors';" 'VetMed-Ops'
+ Invoke-TestSql @'
+SELECT event.value('(data[@name="error_number"]/value)[1]','int') errorNumber,
+event.value('(data[@name="message"]/value)[1]','nvarchar(1000)') message
+FROM (SELECT CAST(target_data AS xml) payload FROM sys.dm_xe_session_targets target
+JOIN sys.dm_xe_sessions session ON session.address=target.event_session_address
+WHERE session.name=N'CalendarCommitAcceptanceErrors') captured
+CROSS APPLY payload.nodes('/RingBufferTarget/event') events(event);
+'@ 'VetMed-Ops'
  throw
 } finally {
  Invoke-TestSql 'DROP EVENT SESSION CalendarCommitAcceptanceErrors ON SERVER;' 'VetMed-Ops'

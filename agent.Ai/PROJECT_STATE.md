@@ -1,3 +1,7 @@
+## Current: login restored; restart recovery prepared — 2026-10-17
+
+Read updates/2026-10-17-login-restored-startup-recovery.md. PR113/main6b5e744 and anchor331a636 are LIVE: SQL047/API/Hosting released after exact-main CI39041652862;77/77 public bytes match; Chrome login/timetable restored. No540 replay. Startup scripts independently reviewed and real-server CheckOnly/TaskScheduler XML validated; copied P:\PAWS\Runtime\Recovery, NOT installed. Full-root tests/ops PR pending. Human local credential registration and reboot acceptance remain; no fixed hostname, so Quick Tunnel origin changes still require reviewed frontend update. Original Excel09–11 now live/pending manual acceptance;9pass8open1N/A;12–14 retained.
+
 ## Current: login outage ingress recovery — 2026-10-17
 
 Read updates/2026-10-17-login-outage-recovery.md. SaturdayrebootstoppedAPI/tunnel; oldquickhostnameNXDOMAIN. Deviceonline, accepted9287APIrestoredSQL200; newverifiedcharge-concerning-hypothesis-represents.trycloudflare.com ingress. Product331a636/configonlyandseparategovernanceReady; candidate/mainCI+coordinated047/API/Hostingpending. No540replay. Ownerrequeststartup/healthscripts,noNamedTunnelavailable; prepareafterloginrelease.

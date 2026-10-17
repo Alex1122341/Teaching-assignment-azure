@@ -2,9 +2,11 @@ param(
  [Parameter(Mandatory=$true)][string]$ContainerName,
  [ValidateSet('038','039','040','041')][string]$Through='038',
  [string[]]$FeatureMigrations,
- [switch]$CheckRollback
+ [switch]$CheckRollback,
+ [switch]$SkipAcceptance
 )
 $ErrorActionPreference='Stop'
+if($SkipAcceptance -and $CheckRollback){throw 'Schema-only setup cannot perform rollback acceptance.'}
 function Fail-Disposable { throw 'DISPOSABLE_SQL_REQUIRED: use an explicitly labeled local synthetic test container.' }
 if($ContainerName -notmatch '^paws-calendar-[a-z0-9-]+$'){Fail-Disposable}
 if(-not(Get-Command docker -ErrorAction SilentlyContinue)){Fail-Disposable}
@@ -125,6 +127,7 @@ PRINT 'CALENDAR_ACTIVITY_EMPTY_ROLLBACK_OK';
 '@ 'VetMed-Ops'
  exit 0
 }
+if($SkipAcceptance){return}
 foreach($number in $selected){
  $acceptance=$manifest.features.$number.acceptance
  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath $acceptance) -Raw) 'VetMed-Ops'

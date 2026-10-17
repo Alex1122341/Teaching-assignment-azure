@@ -59,6 +59,9 @@ jobs:
       - name: Check revised work and Away classification
         shell: pwsh
         run: ./tools/test-calendar-away-sql.ps1 -ContainerName paws-calendar-sql-test
+      - name: Check bounded540-record identity preflight
+        shell: pwsh
+        run: ./tools/test-calendar-commit-preflight-sql.ps1 -ContainerName paws-calendar-sql-test
       - name: Stop synthetic container
         if: always()
         shell: pwsh

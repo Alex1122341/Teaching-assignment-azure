@@ -62,7 +62,8 @@ IF @Rejected=0 OR EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE ImportBatchId
 UPDATE paws.Faculty SET Active=1 WHERE FacultyId=@Changed;
 DELETE @Response;INSERT @Response EXEC paws_api.PreviewCalendarActivityImport @Actor,@Batch,@Version;
 SELECT @Version=JSON_VALUE(responseJson,'$.previewVersion'),@Manifest=JSON_VALUE(responseJson,'$.manifestSha256') FROM @Response;
-DECLARE @Before TABLE(objectName sysname,fingerprint binary(32),rowTotal bigint),@After TABLE(objectName sysname,fingerprint binary(32),rowTotal bigint);
+DECLARE @Before TABLE(objectName sysname,fingerprint binary(32),rowTotal bigint);
+DECLARE @After TABLE(objectName sysname,fingerprint binary(32),rowTotal bigint);
 INSERT @Before EXEC dbo.CalendarCommitScaleProtected @Batch;
 DECLARE @Started datetime2=SYSUTCDATETIME();
 DELETE @Response;INSERT @Response EXEC paws_api.CommitCalendarActivityImport @Actor,@Batch,@Version,@Manifest,'4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF',@Key,1;

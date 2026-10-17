@@ -38,6 +38,7 @@
   let currentUser = null;
   let faculty = [];
   let activeFaculty = [];
+  const afcForms=window.PAWS_AFC_FORMS?.createController({api:UCVM_PAWS_DATA,host:$('afc-form-documents'),getUser:()=>currentUser,getFaculty:()=>activeFaculty,facultyName:r=>window.UCVM_AFC_RECORDS.facultyLabel(r,activeFaculty,facultyName)});
   let selectedId = null;
   let selectedDetail = null;
   let selfMode = false;
@@ -127,6 +128,7 @@
   }
 
   async function enterSelfMode(user, profile) {
+    afcForms?.clear();
     selfMode = true; document.body.classList.add('faculty-self-mode'); installSelfModeStyles();
     currentUser = { uid: user.uid, email: user.email || '', name: facultyName(profile, user.displayName || user.email || 'Faculty'), role: profile.role };
     $('admin-chip').textContent = `${currentUser.name} · ${dashboardRoleLabel(profile.role)}`; $('user-management-link')?.classList.add('hidden'); $('afc-records-tab')?.classList.add('hidden');
@@ -214,7 +216,7 @@
     if (activeTab === 'doe-overview') return loadDoeOverview();
     if (activeTab === 'doe-list') return loadDoeList();
     if (activeTab === 'doe-rules') return doePolicyView?.loadHistory();
-    if (activeTab === 'afc-records') { workImport?.open();return loadAfcRecords(); }
+    if (activeTab === 'afc-records') { workImport?.open();if(!selfMode&&dashboardAdmin(currentUser))afcForms?.open();return loadAfcRecords(); }
     renderLookup();
   }
 
@@ -599,7 +601,7 @@
   });
   doePolicyView?.mount($('doe-rules-content'));
   function installSelfModeStyles() { if ($('faculty-self-mode-style')) return; const style = document.createElement('style'); style.id = 'faculty-self-mode-style'; style.textContent = 'body.faculty-self-mode .tabs,body.faculty-self-mode .kpis,body.faculty-self-mode .summary-source-banner,body.faculty-self-mode #lookup-view > .toolbar,body.faculty-self-mode .result-pane,body.faculty-self-mode #sync-status{display:none!important}body.faculty-self-mode .lookup-grid{display:block;min-height:0}body.faculty-self-mode .profile-pane{width:100%;min-width:0;padding:18px}'; document.head.appendChild(style); }
-  function lock(message) { closeHistory();if($('faculty-history-btn'))$('faculty-history-btn').disabled=true;$('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
+  function lock(message) { afcForms?.clear();closeHistory();if($('faculty-history-btn'))$('faculty-history-btn').disabled=true;$('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
   function unlock() { if($('faculty-history-btn'))$('faculty-history-btn').disabled=false;$('auth-gate').classList.add('hidden'); }
   function debounce(fn, wait = 160) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; }
 

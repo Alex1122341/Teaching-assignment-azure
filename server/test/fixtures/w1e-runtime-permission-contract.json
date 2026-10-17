@@ -126,19 +126,44 @@
       "paws_api.DecideSessionSwap"
     ]
   },
-  "schedulingReadProcedures": ["paws_api.ListSchedulingTasks"],
-  "historyReadProcedures": ["paws_api.ListChangeHistoryEvents"],
-  "historyPolicyAuditFunctions": ["paws_api.DoeHistoryPolicySnapshot"],
-  "schedulingWriteSets": {"schedulingTaskReview": ["paws_api.ReviewSchedulingTask"]},
-  "calendarReadProcedures": ["paws_api.ListCalendarActivities", "paws_api.GetCalendarActivityImport"],
+  "schedulingReadProcedures": [
+    "paws_api.ListSchedulingTasks"
+  ],
+  "historyReadProcedures": [
+    "paws_api.ListChangeHistoryEvents"
+  ],
+  "historyPolicyAuditFunctions": [
+    "paws_api.DoeHistoryPolicySnapshot"
+  ],
+  "schedulingWriteSets": {
+    "schedulingTaskReview": [
+      "paws_api.ReviewSchedulingTask"
+    ]
+  },
+  "calendarReadProcedures": [
+    "paws_api.ListCalendarActivities",
+    "paws_api.GetCalendarActivityImport"
+  ],
   "calendarWriteSets": {
-    "stage": ["paws_api.StageCalendarActivityImport", "paws_api.PreviewCalendarActivityImport"],
-    "commit": ["paws_api.CommitCalendarActivityImport"],
-    "time": ["paws_api.ResolveCalendarActivityDayTime"]
+    "stage": [
+      "paws_api.StageCalendarActivityImport",
+      "paws_api.PreviewCalendarActivityImport"
+    ],
+    "commit": [
+      "paws_api.CommitCalendarActivityImport"
+    ],
+    "time": [
+      "paws_api.ResolveCalendarActivityDayTime"
+    ]
   },
   "afcCancelWriteSets": {
     "cancel": [
       "paws_api.CancelAfcRecord"
     ]
-  }
+  },
+  "afcFormProcedures": [
+    "paws_api.UploadAfcForm",
+    "paws_api.ListAfcForms",
+    "paws_api.GetAfcForm"
+  ]
 }

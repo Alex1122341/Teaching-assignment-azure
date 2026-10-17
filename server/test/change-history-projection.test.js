@@ -4,6 +4,10 @@ const assert=require('node:assert/strict');
 const {projectHistoryEvent,filterHistoryRows,publicHistoryRow}=require('../src/history/change-history-projection');
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const auth={uid:'viewer',role:'faculty',facultyId:A,admin:false,scope:'timetable'};
+test('uploaded AFC document history is admin-only safe metadata, never PDF bytes or approval',()=>{
+ const e={eventId:'upload',occurredAtUtc:'2026-10-17T12:00:00Z',source:'audit',eventType:'afc_form_uploaded',entityType:'afc_form',entityId:B,afterJson:JSON.stringify({facultyId:A,fileName:'Form.pdf',pageCount:2,byteLength:200,pdfBytes:'SECRET',status:'approved'})};
+ const rows=projectHistoryEvent(e,{...auth,scope:'dashboard',admin:true});assert.ok(rows.length);assert.match(JSON.stringify(rows),/Form.pdf/);assert.doesNotMatch(JSON.stringify(rows),/SECRET|approved/);assert.equal(projectHistoryEvent(e,{...auth,scope:'dashboard'}).length,0);
+});
 const event=(extra={})=>({source:'audit',eventId:A,eventType:'session_updated',entityType:'session',entityId:B,occurredAtUtc:'2026-10-16T14:00:00.000Z',beforeJson:JSON.stringify({courseCode:'201',topic:'Old topic',room:'A',academicYear:'2026-27'}),afterJson:JSON.stringify({courseCode:'206',topic:'New topic',room:'B',notes:'private-notes',email:'private-email',doeCredit:999}),contextJson:JSON.stringify({courseCode:'206',topic:'New topic',academicYear:'2026-27',affectedFaculty:[{facultyId:B,facultyKey:'opaque-b',displayName:'Teacher B'}]}),actorName:'Admin',...extra});
 test('public teaching history is across faculty and a closed field projection',()=>{
  const rows=projectHistoryEvent(event(),auth);assert.equal(rows.length,3);

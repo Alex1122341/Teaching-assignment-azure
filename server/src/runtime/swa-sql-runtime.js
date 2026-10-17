@@ -54,6 +54,9 @@ const {createSchedulingTaskFunctions}=require('./swa-scheduling-task-functions')
 const {createChangeHistoryApi}=require('../history/change-history-api');
 const {createSqlChangeHistoryRepository}=require('../data/sql-change-history-repository');
 const {createChangeHistoryFunctions}=require('./swa-change-history-functions');
+const {createAfcFormApi}=require('../afc/afc-form-api');
+const {createSqlAfcFormRepository}=require('../data/sql-afc-form-repository');
+const {createAfcFormFunctions}=require('./swa-afc-form-functions');
 
 function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
@@ -155,8 +158,10 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const calendarActivityRoutes=createCalendarActivityFunctions({api:createCalendarActivityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCalendarActivityRepository(db,{importDb:calendarImportDb}),writeGates})});
   const schedulingTaskRoutes=createSchedulingTaskFunctions({api:createSchedulingTaskApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlSchedulingTaskRepository(db),writeGates})});
   const historyRoutes=createChangeHistoryFunctions({api:createChangeHistoryApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlChangeHistoryRepository(db)})});
+  const afcFormRoutes=createAfcFormFunctions({api:createAfcFormApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlAfcFormRepository(db),writeGates})});
   const route = async request => {
     const pathname = new URL(request.url).pathname;
+    if(pathname==='/api/v1/afc-forms'||pathname.startsWith('/api/v1/afc-forms/'))return afcFormRoutes(request);
     if (pathname==='/api/v1/change-history'||pathname.startsWith('/api/v1/change-history/')) return historyRoutes(request);
     if (pathname==='/api/v1/scheduling-tasks'||pathname.startsWith('/api/v1/scheduling-tasks/')) return schedulingTaskRoutes(request);
     if (pathname==='/api/v1/calendar-activities'||pathname.startsWith('/api/v1/calendar-activities/')||pathname==='/api/v1/calendar-activity-imports'||pathname.startsWith('/api/v1/calendar-activity-imports/')) return calendarActivityRoutes(request);

@@ -3,14 +3,15 @@
 .adfa-swap-current{display:flex;flex-wrap:wrap;gap:8px 20px;padding:16px 18px;margin:12px 0 22px;background:#f6f7f8;border:1px solid #dedfe1;border-left:4px solid #d80022;border-radius:5px;font-size:13px}
 .adfa-swap-current h3{flex-basis:100%;margin:0 0 4px;color:#60656b;text-transform:uppercase;letter-spacing:.04em;font-size:12px}
 .adfa-swap-current strong,.adfa-swap-current b{color:#c90021}
+.adfa-swap-person{display:flex;flex-wrap:wrap;gap:6px 18px;flex-basis:100%}.adfa-swap-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 24px;width:100%;margin-top:8px}.adfa-swap-metrics>div{min-width:0}.adfa-swap-metrics span,.adfa-swap-metrics b,.adfa-swap-metrics small{display:block}.adfa-swap-metrics span{font-size:12px;color:#596575;margin-bottom:6px}.adfa-swap-metrics b{font-size:18px;line-height:1.35;overflow-wrap:anywhere}.adfa-swap-metrics small{font-size:11px;color:#637084;margin-top:4px}
 .adfa-swap-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .adfa-swap-heading h3{font-size:14px;text-transform:uppercase;margin:0;color:#4f5660}
 .adfa-swap-heading button,.adfa-swap-pager button,[data-standard-request],.adfa-swap-selection button{font:inherit;font-size:12px;padding:8px 12px;border:1px solid #c8cdd3;border-radius:5px;background:#fff;color:#27364a;cursor:pointer}
 .adfa-swap-table-wrap{overflow:auto;border:1px solid #dce0e5;border-radius:5px;max-height:430px}
-.adfa-swap-table{width:100%;min-width:780px;border-collapse:collapse;font-size:13px;line-height:1.45}
+.adfa-swap-table{width:100%;min-width:1010px;border-collapse:collapse;font-size:13px;line-height:1.45}
 .adfa-swap-table th{position:sticky;top:0;z-index:1;padding:12px;text-align:left;background:#f4f5f7;color:#565f6c;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
-.adfa-swap-table td{padding:14px 12px;border-top:1px solid #e3e6ea;vertical-align:top}
-.adfa-swap-table td:first-child{width:23%}.adfa-swap-table td:nth-child(2){width:24%}
+.adfa-swap-table td{padding:11px 12px;border-top:1px solid #e3e6ea;vertical-align:top;font-variant-numeric:tabular-nums}
+.adfa-swap-table td:first-child{width:19%}.adfa-swap-table td:nth-child(2){width:22%}.adfa-swap-table td:nth-child(n+3){min-width:92px}
 .adfa-swap-table small{display:block;margin-top:5px;color:#637084;font-size:11px}
 .adfa-swap-table button{border:0;border-radius:5px;background:#db0027;color:white;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer}
 .adfa-swap-table button[aria-pressed=true]{background:#334459}
@@ -23,3 +24,4 @@
 .adfa-swap-selection{padding:10px 12px;border:1px solid #e0cd88;border-radius:5px;background:#fff9e6;font-size:13px}
 .sql-swap-adfa-dialog [hidden]{display:none!important}
 @media(max-width:600px){.sql-swap-adfa-dialog{width:calc(100vw - 16px)}.adfa-swap-current{gap:8px;padding:12px}.adfa-swap-current span{flex-basis:100%}.adfa-swap-heading{align-items:flex-start}.adfa-swap-heading button{white-space:nowrap}.adfa-swap-pager{justify-content:space-between}}
+@media(max-width:600px){.adfa-swap-metrics{grid-template-columns:1fr;gap:14px}.adfa-swap-metrics b{font-size:17px}}

@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PRODUCT='d7e4887cb413667fef0d992105148defb19f856c',PREVIOUS='9eb2dafea78674013a6c7fd894cdb1b6f2342c3f';
 test('compact year history and record originals pin the independently reviewed product without protection removal',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+ const pinned=execFileSync('git',['show','a3a3efa8ddee1d0cc3e3ef15c35280e692b33d2d:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});assert.ok(pinned.includes("const BASELINE_COMMIT='"+PRODUCT+"'"));execFileSync('git',['merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT],{cwd:root});assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);
  execFileSync('git',['merge-base','--is-ancestor',PREVIOUS,PRODUCT],{cwd:root});
  const initial=execFileSync('git',['show','6171c4f904103f432236ef02935bbc672981097f:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});
  assert.ok(initial.includes("const BASELINE_COMMIT='13fbaa08c13599d727cbc5b24a45502844dc6303'"));

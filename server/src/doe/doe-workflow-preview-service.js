@@ -37,6 +37,7 @@ const nullTotals=()=>({scheduledTeachingDoe:null,roleDoe:null,rawSupervisionDoe:
 function summarize(worksheet){
   return{
     status:text(worksheet?.status)||'needs_review',
+    contractDoe:finite(worksheet?.target?.contractTeachingDoe),
     policyVersionId:text(worksheet?.policyVersionId),
     totals:worksheet?.status==='calculated'?{...nullTotals(),...(worksheet.totals||{})}:nullTotals(),
     issueCodes:(worksheet?.errors||[]).map(error=>text(error?.code)).filter(Boolean)

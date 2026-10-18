@@ -4,7 +4,7 @@ const {writeDisabled}=require('../data/write-gates');
 const {isAdministratorRole}=require('../auth/role-policy');
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
 const number=value=>value===null||value===undefined||value===''?null:Number.isFinite(Number(value))?Number(value):null;
-const doeSummary=value=>({status:value?.status==='calculated'?'calculated':'needs_review',currentDoe:value?.status==='calculated'?number(value.totals?.assignedTeachingDoe):null,targetDoe:value?.status==='calculated'?number(value.totals?.effectiveTargetDoe):null,remainingDoe:value?.status==='calculated'?number(value.totals?.remainingDoe):null});
+const doeSummary=value=>({status:value?.status==='calculated'?'calculated':'needs_review',contractDoe:number(value?.target?.contractTeachingDoe??value?.contractDoe),currentDoe:value?.status==='calculated'?number(value.totals?.assignedTeachingDoe):null,targetDoe:value?.status==='calculated'?number(value.totals?.effectiveTargetDoe):null,remainingDoe:value?.status==='calculated'?number(value.totals?.remainingDoe):null});
 const doePair=value=>{const current=doeSummary(value?.current),projected=value?.projected?doeSummary(value.projected):null;return{current,projected,deltaDoe:current.currentDoe!==null&&projected?.currentDoe!=null?Number((projected.currentDoe-current.currentDoe).toFixed(6)):null};};
 function createSwapApi({verifyToken,findUser,repository,workflowPreviewService,worksheetService,writeGates={}}){
   async function auth(token){

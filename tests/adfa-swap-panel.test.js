@@ -3,9 +3,39 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const session={sessionId:'session',snapshotToken:'snapshot',date:'2026-11-05',startTime:'09:00',endTime:'10:00'};
 const assignments=[{assignmentId:'assignment',displayName:'Outgoing synthetic',canReplace:true}];
 const candidates=[{candidateKey:'incoming',displayName:'Incoming synthetic',availabilityStatus:'Available'}];
-const total=(currentDoe,remainingDoe)=>({status:'calculated',currentDoe,targetDoe:20,remainingDoe});
+const total=(currentDoe,remainingDoe)=>({status:'calculated',contractDoe:18,currentDoe,targetDoe:20,remainingDoe});
 const preview={status:'calculated',assignment:{displayName:'Outgoing synthetic',teachingRole:'Primary',persistedDoeCredit:0.42},outgoing:{current:total(12,8),projected:total(10,10),deltaDoe:-2},incoming:{current:total(5,15),projected:total(7,13),deltaDoe:2},sessionDoeCredit:2,availability:{status:'Available',conflicts:[]},checkedAtUtc:'2026-10-14T12:00:00Z'};
 function host(){const nodes=new Map();return{innerHTML:'',querySelector(selector){if(!nodes.has(selector))nodes.set(selector,{value:'',textContent:'',disabled:false,onclick:null,oninput:null});return nodes.get(selector);}};}
+
+test('ADFA shows the requested outgoing metrics and separate contract/current/remaining/projected replacement columns',async()=>{
+ const {createController}=require('../adfa-swap-panel'),view=host();
+ const initial={...preview,outgoing:{current:preview.outgoing.current,projected:null,deltaDoe:null}};
+ const controller=createController({host:view,api:{swapFacultyPreview:async args=>args.candidateKey?preview:initial},session,assignments,candidates});
+ await controller.open('assignment');
+ const before=view.innerHTML.split('</section>')[0];
+ assert.match(before,/Current DOE/);assert.match(before,/Course DOE/);assert.match(before,/Projected DOE \(after SWAP\)/);assert.match(before,/Select a replacement/);
+ assert.match(before,/0\.42%/);
+ assert.equal(await controller.select('incoming'),true);
+ const outgoing=view.innerHTML.split('</section>')[0];
+ assert.match(outgoing,/12\.00%/);assert.match(outgoing,/10\.00%/);
+ const headers=[...view.innerHTML.matchAll(/<th(?:\s[^>]*)?>(.*?)<\/th>/g)].map(m=>m[1]);
+ assert.deepEqual(headers,['Replacement faculty','Availability','Contract DOE','Current DOE','Remaining DOE','Projected DOE','Action']);
+ const body=view.innerHTML.match(/<tbody>([\s\S]*?)<\/tbody>/)[1];
+ const cells=[...body.matchAll(/<td(?:\s[^>]*)?>([\s\S]*?)<\/td>/g)].map(m=>m[1]);
+ assert.match(cells[2],/18\.00%/);assert.match(cells[3],/5\.00%/);assert.match(cells[4],/15\.00%/);assert.doesNotMatch(cells[4],/13\.00%/);assert.match(cells[5],/7\.00%/);
+});
+
+test('availability explains public conflicts and marks restricted or unconfirmed details without revealing AFC reasons',async()=>{
+ const {createController}=require('../adfa-swap-panel'),view=host();
+ let value={...preview,availability:{status:'Unavailable',conflicts:[{courseCode:'<SYN206>',startTime:'09:00:00',endTime:'10:00:00'}],reason:'PRIVATE VACATION',afcPurpose:'PRIVATE PURPOSE'}};
+ const controller=createController({host:view,api:{swapFacultyPreview:async()=>value},session,assignments,candidates});
+ await controller.open('assignment');
+ assert.match(view.innerHTML,/Timetable conflict/);assert.match(view.innerHTML,/&lt;SYN206&gt;/);assert.match(view.innerHTML,/09:00–10:00/);assert.doesNotMatch(view.innerHTML,/PRIVATE|<SYN206>/);
+ value={...value,availability:{...value.availability,conflicts:[]}};await controller.open('assignment');
+ assert.match(view.innerHTML,/Details restricted/);assert.doesNotMatch(view.innerHTML,/PRIVATE/);
+ value={...value,availability:{...value.availability,status:'Needs Review'}};await controller.open('assignment');
+ assert.match(view.innerHTML,/Availability could not be confirmed/);assert.doesNotMatch(view.innerHTML,/PRIVATE/);
+});
 
 // Break caught: ADFA sees only a dropdown/placeholder rather than server-provided DOE totals.
 test('ADFA candidate panel renders current and projected DOE beside live availability',async()=>{

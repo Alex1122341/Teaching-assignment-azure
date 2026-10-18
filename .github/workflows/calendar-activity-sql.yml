@@ -71,9 +71,6 @@ jobs:
       - name: Check whole-year CCC replacement and private recovery
         shell: pwsh
         run: ./tools/test-ccc-replacement-sql.ps1 -ContainerName paws-calendar-sql-test
-      - name: Stop synthetic container after activity checks
-        if: false
-        run: echo 'Cleanup follows record-document acceptance'
       - name: Check record-linked AFC originals and own faculty authorization
         shell: pwsh
         run: ./tools/test-afc-record-documents-sql.ps1 -ContainerName paws-calendar-sql-test

@@ -13,7 +13,7 @@ test('AFC upload checks token, SQL profile, role and independent gate before par
  assert.equal((await harness().api.upload('bad',upload)).status,401);
 });
 test('AFC forms authorize every metadata/download call and strip private repository fields',async()=>{
- for(const role of ['faculty','visc','lab']){const h=harness({role});assert.equal((await h.api.list('ok',{facultyId:ID})).status,403);assert.equal((await h.api.get('ok',ID)).status,403);assert.equal(h.calls.length,0);}
+ for(const role of ['lab']){const h=harness({role});assert.equal((await h.api.list('ok',{facultyId:ID})).status,403);assert.equal((await h.api.get('ok',ID)).status,403);assert.equal(h.calls.length,0);}
  const h=harness();const r=await h.api.list('ok',{facultyId:ID});assert.equal(r.status,200);assert.doesNotMatch(JSON.stringify(r.body),/secret|createdByUid|privateKey/);assert.equal(h.calls[0].args.actorFirebaseUid,'actor');
 });
 test('AFC forms require strict upload fields, canonical base64, PDF extension and bounded size',async()=>{

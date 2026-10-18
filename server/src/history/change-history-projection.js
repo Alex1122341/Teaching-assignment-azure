@@ -5,7 +5,7 @@ const {calgaryAcademicYear,validYear,yearOfDate,overlapsYear}=require('./history
 // reaching a browser/export must pass a domain allowlist below.
 const PUBLIC_EVENTS=new Set(['session_updated','session_created','session_assignments_replaced','swap_applied','session_deleted']);
 const LOOKUP_EVENTS=new Set(['FacultyUpdated','FacultyDeactivated','FacultyRestored','role_periods_updated']);
-const AFC_EVENTS=new Set(['afc_form_uploaded','afc_record_created','afc_record_cancelled','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
+const AFC_EVENTS=new Set(['afc_form_uploaded','afc_form_linked','afc_record_created','afc_record_cancelled','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
 const DOE_ACTIONS=new Set(['draft_created','draft_updated','working_draft_created','published','archived']);
 const PRIVATE_DOE_ENTITIES=new Set(['doe_assignment','faculty_doe_target','manual_doe_assignment']);
 const WORK_EVENTS=new Set(['calendar_activity_import_committed','calendar_activity_import_recovered','calendar_activity_time_resolved','ccc_activity_added','ccc_activity_removed']);
@@ -142,7 +142,7 @@ function projectHistoryEvent(event,auth){
    for(const [key,label] of Object.entries(FACULTY_FIELDS))add(label,get(before,key),get(after,key));
    for(const key of PROFILE_FIELDS)add(key,get(get(before,'professionalProfile'),key)??get(before,key),get(get(after,'professionalProfile'),key)??get(after,key));
   }
- }else if(type==='afc_form_uploaded'){for(const [key,label]of Object.entries({fileName:'Uploaded document',pageCount:'Pages',byteLength:'Bytes'}))add(label,undefined,get(after,key));}
+ }else if(type==='afc_form_uploaded'||type==='afc_form_linked'){for(const [key,label]of Object.entries({fileName:'Archived PDF',pageCount:'Pages',byteLength:'Bytes'}))add(label,undefined,get(after,key));}
  else if(domain==='AFC')for(const [key,label] of Object.entries(AFC_FIELDS))add(label,get(before,key),get(after,key));
  else{
   for(const key of ['revision','versionLabel','sourceReference','status'])add(key,get(before,key),get(after,key));

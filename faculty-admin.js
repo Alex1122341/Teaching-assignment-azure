@@ -259,7 +259,7 @@
   async function loadAfcRecords(force = false) {
     const body = $('afc-records-body');
     if (!force && afcLoaded) { renderAfcRecords(); return; }
-    if (body) body.innerHTML = '<tr><td colspan="8" class="empty">Loading AFC records…</td></tr>';
+    if (body) body.innerHTML = '<tr><td colspan="9" class="empty">Loading AFC records…</td></tr>';
     try {
       afcRecords = await UCVM_PAWS_DATA.dashboardAfcRecords({ limit: 2000 });
       afcRecords = Array.isArray(afcRecords) ? afcRecords : [];
@@ -270,7 +270,7 @@
     } catch (error) {
       afcLoaded = false;
       afcRecords = [];
-      if (body) body.innerHTML = `<tr><td colspan="8" class="empty">${esc(detailFailureMessage(error))}</td></tr>`;
+      if (body) body.innerHTML = `<tr><td colspan="9" class="empty">${esc(detailFailureMessage(error))}</td></tr>`;
       return null;
     }
   }
@@ -303,7 +303,7 @@
       const haystack = norm([row.facultyName, row.facultyId, row.notes, row.legacyPurpose, row.reason, row.reasonCode].filter(present).join(' '));
       return (!query || haystack.includes(query)) && (!reason || row.reasonCode === reason || (!row.reasonCode && norm(row.reason) === norm(AFC_REASON_LABELS[reason]))) && (!active || String(row.active !== false) === active) && (!source || norm(row.sourceKind || 'manual') === source);
     });
-    body.innerHTML = window.UCVM_AFC_RECORDS.renderRows(rows, { facultyName, canCancel: !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true, busy: afcActions.isBusy,renderPdf:window.PAWS_AFC_FORMS.documentAction });
+    body.innerHTML = window.UCVM_AFC_RECORDS.renderRows(rows, { facultyName, canCancel: !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true, busy: afcActions.isBusy,renderPdf:window.PAWS_AFC_FORMS?.documentAction });
     document.querySelectorAll('[data-afc-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.afcPerson)));
   }
 
@@ -416,7 +416,7 @@
     const table = rows => rows.length?'<div class="table-wrap"><table class="data-table"><thead><tr>'+['Start','End','Availability status','Reason','Notes','Source','PDF'].map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(record => {
       const start = dateOnly(record.startDate), end = dateOnly(record.endDate);
       const status = record.active === false ? 'Inactive' : !start || !end ? 'Dates need review' : end < today ? 'Past' : start <= today ? 'Current' : 'Upcoming';
-      const values=[record.startDate,record.endDate,status,record.reason||record.reasonCode||record.purpose,record.notes||record.legacyPurpose,record.sourceKind||'Source unavailable'];return '<tr>'+values.map(v=>'<td>'+esc(v??'—')+'</td>').join('')+'<td>'+window.PAWS_AFC_FORMS.documentAction(record)+'</td></tr>';
+      const values=[record.startDate,record.endDate,status,record.reason||record.reasonCode||record.purpose,record.notes||record.legacyPurpose,record.sourceKind||'Source unavailable'];return '<tr>'+values.map(v=>'<td>'+esc(v??'—')+'</td>').join('')+'<td>'+(window.PAWS_AFC_FORMS?.documentAction(record)||'<span class="muted">N/A</span>')+'</td></tr>';
     }).join('')+'</tbody></table></div>':'<div class="afc-none">No records in this group.</div>';
     const fold = (label, rows, open = false) => `<details class="afc-fold" ${open ? 'open' : ''}><summary><span>${label}</span><span>${rows.length} record${rows.length === 1 ? '' : 's'}</span></summary>${table(rows)}</details>`;
     return `<section class="section wide"><div class="section-title">Away from Campus · Availability & HR Archive</div><div class="afc-wrap">${fold('Current / Upcoming', upcoming, true)}${fold('Past / Inactive · HR Archive', past)}<div class="afc-privacy">${selfMode ? 'Your private Away from Campus / availability records.' : 'Confidential availability and HR records. Detailed reasons follow your Dashboard permissions.'} PDF: N/A means no original was archived, including legacy records.</div></div></section><section id="faculty-afc-originals" class="section wide"></section>`;

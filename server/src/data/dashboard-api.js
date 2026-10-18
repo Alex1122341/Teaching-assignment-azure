@@ -166,11 +166,12 @@ function validateAfcInput(payload) {
   const reasonCode = text(payload.reasonCode);
   if (!AFC_REASON_CODES.has(reasonCode)) return error(400, 'INVALID_REASON', 'Reason is not recognised.');
   const notes = payload.notes === null || payload.notes === undefined ? null : String(payload.notes).trim();
+  if(payload.documentId!==undefined&&payload.documentId!==null&&!validUuid(payload.documentId))return error(400,'INVALID_DOCUMENT_ID','Choose a valid archived PDF.');
   if (notes && notes.length > 1000) return error(400, 'NOTES_TOO_LONG', 'Notes must be 1000 characters or fewer.');
   if ((reasonCode === 'special' || reasonCode === 'other') && !notes) {
     return error(400, 'NOTES_REQUIRED', 'Notes are required for Special and Other.');
   }
-  return { facultyId, startDate, endDate, reasonCode, notes: notes || null };
+  return { facultyId, startDate, endDate, reasonCode, notes: notes || null,...(payload.documentId?{documentId:payload.documentId}:{}) };
 }
 
 function validateAfcBatchInput(payload) {
@@ -235,7 +236,7 @@ function normalizeAfcRecord(row = {}) {
     legacyPurpose: row.legacyPurpose === null || row.legacyPurpose === undefined ? null : text(row.legacyPurpose),
     active: row.active !== false && row.active !== 0,
     sourceKind: text(row.sourceKind) || 'manual',
-    recordKey: text(row.recordKey), versionToken: text(row.versionToken)
+    recordKey: text(row.recordKey), versionToken: text(row.versionToken),documentId:row.documentId||null
   };
 }
 
@@ -558,6 +559,7 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
       if (writeGates.afcSingle !== true) return writeDisabled();
       const input = validateAfcInput(payload);
       if (input.status) return input;
+      if(input.documentId&&writeGates.afcFormUpload!==true)return writeDisabled();
       try {
         const row = await writeRepository.createAfcRecord({
           ...input,

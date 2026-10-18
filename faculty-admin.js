@@ -39,7 +39,7 @@
   let faculty = [];
   let activeFaculty = [];
   const afcForms=window.PAWS_AFC_FORMS?.createRecordAttachment({api:UCVM_PAWS_DATA,host:$('afc-form-documents'),getUser:()=>currentUser,getFacultyId:()=>String($('afc-faculty')?.value||'')});
-  const downloadAfcPdf=window.PAWS_AFC_FORMS?.createDocumentDownloader({api:UCVM_PAWS_DATA,getUser:()=>currentUser,notify:showToast});
+  const getAfcOriginal=window.PAWS_AFC_FORMS?.createDocumentDownloader({api:UCVM_PAWS_DATA,getUser:()=>currentUser,notify:showToast});
   let facultyArchive=null;
   const cccReplace=window.PAWS_CCC_REPLACEMENT?.createController({api:UCVM_PAWS_DATA,host:$('ccc-replacement'),getUser:()=>currentUser});
   let selectedId = null;
@@ -188,10 +188,10 @@
     on($('afc-reason-filter'), 'change', renderAfcRecords); on($('afc-active-filter'), 'change', renderAfcRecords); on($('afc-source-filter'), 'change', renderAfcRecords);
     on($('afc-record-form'), 'submit', submitAfcRecord);
     on($('afc-faculty'),'change',()=>afcForms?.facultyChanged());
-    on($('profile-pane'),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)downloadAfcPdf?.(button.dataset.afcDocument);});
-    on($('afc-form-documents'),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)downloadAfcPdf?.(button.dataset.afcDocument);});
+    on($('profile-pane'),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)getAfcOriginal?.(button.dataset.afcDocument);});
+    on($('afc-form-documents'),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)getAfcOriginal?.(button.dataset.afcDocument);});
     on($('afc-records-body'), 'click', event => {
-      const pdf=event.target?.closest?.('[data-afc-document]');if(pdf)return downloadAfcPdf?.(pdf.dataset.afcDocument);
+      const pdf=event.target?.closest?.('[data-afc-document]');if(pdf)return getAfcOriginal?.(pdf.dataset.afcDocument);
       const button = event.target?.closest?.('[data-afc-cancel]');
       if (button) return cancelAfcRecord(button.dataset.afcCancel);
     });
@@ -404,23 +404,7 @@
     workView?.load(facultyRecord.facultyId, text(data.academicYear) || currentAcademicYear());
   }
 
-  function renderFacultyAfc(records) {
-    // Render only the record set authorized and returned by the detail API.
-    if (!Array.isArray(records)) return '';
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const dateOnly = value => /^\d{4}-\d{2}-\d{2}(?:$|T)/.test(text(value)) ? text(value).slice(0, 10) : '';
-    const archived = record => record.active === false || (dateOnly(record.endDate) && dateOnly(record.endDate) < today);
-    const upcoming = records.filter(record => !archived(record)).sort((a,b) => text(a.startDate).localeCompare(text(b.startDate)));
-    const past = records.filter(archived).sort((a,b) => text(b.endDate).localeCompare(text(a.endDate)));
-    const table = rows => rows.length?'<div class="table-wrap"><table class="data-table"><thead><tr>'+['Start','End','Availability status','Reason','Notes','Source','PDF'].map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(record => {
-      const start = dateOnly(record.startDate), end = dateOnly(record.endDate);
-      const status = record.active === false ? 'Inactive' : !start || !end ? 'Dates need review' : end < today ? 'Past' : start <= today ? 'Current' : 'Upcoming';
-      const values=[record.startDate,record.endDate,status,record.reason||record.reasonCode||record.purpose,record.notes||record.legacyPurpose,record.sourceKind||'Source unavailable'];return '<tr>'+values.map(v=>'<td>'+esc(v??'—')+'</td>').join('')+'<td>'+(window.PAWS_AFC_FORMS?.documentAction(record)||'<span class="muted">N/A</span>')+'</td></tr>';
-    }).join('')+'</tbody></table></div>':'<div class="afc-none">No records in this group.</div>';
-    const fold = (label, rows, open = false) => `<details class="afc-fold" ${open ? 'open' : ''}><summary><span>${label}</span><span>${rows.length} record${rows.length === 1 ? '' : 's'}</span></summary>${table(rows)}</details>`;
-    return `<section class="section wide"><div class="section-title">Away from Campus · Availability & HR Archive</div><div class="afc-wrap">${fold('Current / Upcoming', upcoming, true)}${fold('Past / Inactive · HR Archive', past)}<div class="afc-privacy">${selfMode ? 'Your private Away from Campus / availability records.' : 'Confidential availability and HR records. Detailed reasons follow your Dashboard permissions.'} PDF: N/A means no original was archived, including legacy records.</div></div></section><section id="faculty-afc-originals" class="section wide"></section>`;
-  }
+  function renderFacultyAfc(records) { return window.UCVM_AFC_RECORDS.profileAfc(records,{selfMode,renderPdf:window.PAWS_AFC_FORMS?.documentAction}); }
 
   function currentAcademicYear() { return text(dashboardSummary?.academicYear || ''); }
   function doeValue(value) { return number(value) === null ? 'Needs Review' : `${Number(value).toFixed(2)}%`; }

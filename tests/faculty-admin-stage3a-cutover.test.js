@@ -448,7 +448,9 @@ test('the core flow never invokes the legacy Firestore loaders', () => {
 });
 
 test('AFC purpose appears only in the selected detail', () => {
-  assert.match(slice('function renderFacultyAfc', 'function currentAcademicYear'), /record\.purpose/, 'AFC purpose is rendered in detail');
+  assert.match(slice('function renderFacultyAfc', 'function currentAcademicYear'), /UCVM_AFC_RECORDS\.profileAfc/, 'selected detail delegates to the AFC renderer');
+  const html=require('../faculty-admin-afc-records').profileAfc([{purpose:'Synthetic private purpose',notes:'<unsafe>',startDate:'2026-11-01',endDate:'2026-11-02'}],{selfMode:true});
+  assert.match(html,/Synthetic private purpose/,'AFC purpose is rendered in the authorized detail');assert.match(html,/N\/A/);assert.doesNotMatch(html,/<unsafe>/);
   assert.doesNotMatch(slice('function renderLookup', 'function teachingSummaryDoeStatus'), /purpose/i, 'the roster must not expose AFC purpose');
   assert.doesNotMatch(read('faculty-admin.html'), /away purpose/);
   assert.doesNotMatch(slice('function updateKpis', 'function renderLookup'), /purpose/i, 'no global KPI exposes AFC purpose');

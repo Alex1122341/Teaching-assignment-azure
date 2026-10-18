@@ -73,6 +73,24 @@
       return `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(facultyName(row, 'Name unavailable'))}</button></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${row.active === false ? 'No' : 'Yes'}</td><td>${renderPdf(row)}</td><td>${action}</td></tr>`;
     }).join('') || '<tr><td colspan="9" class="empty">No AFC records match the current filters.</td></tr>';
   }
+  function profileAfc(records,{selfMode=false,renderPdf=()=>'<span class="muted">N/A</span>'}={}) {
+    // Render only the record set authorized and returned by the detail API.
+    if (!Array.isArray(records)) return '';
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dateOnly = value => /^\d{4}-\d{2}-\d{2}(?:$|T)/.test(text(value)) ? text(value).slice(0, 10) : '';
+    const archived = record => record.active === false || (dateOnly(record.endDate) && dateOnly(record.endDate) < today);
+    const upcoming = records.filter(record => !archived(record)).sort((a,b) => text(a.startDate).localeCompare(text(b.startDate)));
+    const past = records.filter(archived).sort((a,b) => text(b.endDate).localeCompare(text(a.endDate)));
+    const table = rows => rows.length?'<div class="table-wrap"><table class="data-table"><thead><tr>'+['Start','End','Availability status','Reason','Notes','Source','PDF'].map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(record => {
+      const start = dateOnly(record.startDate), end = dateOnly(record.endDate);
+      const status = record.active === false ? 'Inactive' : !start || !end ? 'Dates need review' : end < today ? 'Past' : start <= today ? 'Current' : 'Upcoming';
+      const values=[record.startDate,record.endDate,status,record.reason||record.reasonCode||record.purpose,record.notes||record.legacyPurpose,record.sourceKind||'Source unavailable'];return '<tr>'+values.map(v=>'<td>'+esc(v??'—')+'</td>').join('')+'<td>'+renderPdf(record)+'</td></tr>';
+    }).join('')+'</tbody></table></div>':'<div class="afc-none">No records in this group.</div>';
+    const fold = (label, rows, open = false) => `<details class="afc-fold" ${open ? 'open' : ''}><summary><span>${label}</span><span>${rows.length} record${rows.length === 1 ? '' : 's'}</span></summary>${table(rows)}</details>`;
+    return `<section class="section wide"><div class="section-title">Away from Campus · Availability & HR Archive</div><div class="afc-wrap">${fold('Current / Upcoming', upcoming, true)}${fold('Past / Inactive · HR Archive', past)}<div class="afc-privacy">${selfMode ? 'Your private Away from Campus / availability records.' : 'Confidential availability and HR records. Detailed reasons follow your Dashboard permissions.'} PDF: N/A means no original was archived, including legacy records.</div></div></section><section id="faculty-afc-originals" class="section wide"></section>`;
+  }
+
   function createActions({api,facultyName,canCancel,getRecords,render,refresh,refreshRecords,notify,confirm}) {
     const afcCancelInFlight=new Set();
     async function cancel(key) {
@@ -113,5 +131,5 @@
     }
     return null;
   }
-  return Object.freeze({updateWriteControls,createSingleActions,renderRows,createActions,facultyLabel,resolveFaculty});
+  return Object.freeze({updateWriteControls,createSingleActions,renderRows,profileAfc,createActions,facultyLabel,resolveFaculty});
 });

@@ -1,3 +1,7 @@
+## Current: MASTER Task1 parser implemented; Task2 active — 2026-10-18
+
+Read updates/2026-10-18-master-parser-task1-implemented.md and the plan-scoped ignored ledger. Owner approved exact plan/native execution. Task1 a807add/focused21pass; accepted private Plan v3 has70appointments/50rotation roles/413CCC slots/11Locum/22annualCCC allocations/113trainees. Task2 uncommitted service/repository and9pass1SQLskip; SQL/CLI/DTO guard not implemented. Root982/923pass7freeze-fail52skip (promotion stillTask8); server713/706pass4timeouts3skip, affected41tests pass bounded rerun. No live writes/release; preserve DOE holds, CCCcommitfalse, no540replay. Continue sequentially without another plan permission prompt.
+
 ## Current: MASTER design approved; implementation plan review pending — 2026-10-18
 
 Read updates/2026-10-18-master-refresh-implementation-plan.md. Owner approved design; concrete8-task plan saved at docs/superpowers/plans/2026-10-18-master-assignment-refresh-implementation.md, self-reviewed against spec/current interfaces. Preserve native sequential implementation plus final independent review. Await concrete plan confirmation per writing-plans, then executing-plans/Task1 synthetic TDD. CCC annual22 allocations distinct from413slots; fresh policy clone must includeExceptions=true/reuseWorkingDraft=false. No code/schema/data/policy/gate/deploy/test operation this planning turn. Existing private discrepancies and source evidence unchanged; no540replay or DOE overwrite.

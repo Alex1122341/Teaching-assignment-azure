@@ -1,0 +1,34 @@
+'use strict';
+const {academicBounds,manifestHash}=require('./master-source-domain');
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const sha=v=>typeof v==='string'&&/^[0-9a-f]{64}$/i.test(v),version=v=>typeof v==='string'&&/^[0-9a-f]{16}$/i.test(v);
+const invalid=()=>Object.assign(new Error('The MASTER refresh request is invalid.'),{code:'INVALID_MASTER_REFRESH_REQUEST'});
+const actor=v=>typeof v==='string'&&v.length>0&&v.length<=128&&!/[\x00-\x1f]/.test(v);
+const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+const only=(v,keys)=>object(v)&&Object.keys(v).every(k=>keys.includes(k));
+const domain=v=>v==='appointments'; // Trainee execution is added with its own schema/acceptance.
+function createMasterRefreshService({repository}={}){
+ if(!repository)throw new TypeError('A MASTER refresh repository is required.');
+ return Object.freeze({
+  async preview(p){
+   if(!only(p,['domain','academicYear','source','actorFirebaseUid'])||!domain(p.domain)||!actor(p.actorFirebaseUid)||!object(p.source))throw invalid();
+   academicBounds(p.academicYear);
+   const s=p.source;
+   if(s.schemaVersion!==1||s.academicYear!==p.academicYear||!sha(s.sourceSha256)||!sha(s.manifestSha256)||['appointments','rotations','cccAllocations','roleDefinitions','trainees','cccSlots','issues'].some(k=>!Array.isArray(s[k])))throw invalid();
+   const {manifestSha256,...body}=s;
+   if(manifestHash(body)!==manifestSha256.toUpperCase())throw Object.assign(new Error('The MASTER source manifest changed.'),{code:'SOURCE_MANIFEST_MISMATCH'});
+   if(Buffer.byteLength(JSON.stringify(s),'utf8')>8*1024*1024)throw invalid();
+   return repository.preview(p);
+  },
+  async apply(p){
+   if(!only(p,['batchId','domain','expectedVersion','manifestSha256','sourceSha256','idempotencyKey','actorFirebaseUid','confirm'])||!domain(p.domain)||!UUID.test(p.batchId||'')||!version(p.expectedVersion)||!sha(p.manifestSha256)||!sha(p.sourceSha256)||!UUID.test(p.idempotencyKey||'')||!actor(p.actorFirebaseUid)||p.confirm!==true)throw invalid();
+   const r=await repository.apply(p);
+   return Object.fromEntries(['receiptId','appliedCount','heldCount','idempotentReplay'].map(k=>[k,r[k]]));
+  },
+  async recover(p){
+   if(!only(p,['receiptId','actorFirebaseUid','confirm'])||!UUID.test(p.receiptId||'')||!actor(p.actorFirebaseUid)||p.confirm!==true)throw invalid();
+   return repository.recover(p);
+  }
+ });
+}
+module.exports={createMasterRefreshService};

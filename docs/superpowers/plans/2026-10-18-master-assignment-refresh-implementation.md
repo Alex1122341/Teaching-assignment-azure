@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 22, existing ExcelJS 4.4, vanilla JavaScript/HTML/CSS, Firebase Auth, University Node API, Azure SQL; node:test and existing SQL acceptance runners.
 
-**Spec:** `docs/superpowers/specs/2026-10-18-master-assignment-refresh-design.md` — owner approved on 2026-10-18. This plan still needs owner review before implementation.
+**Spec:** `docs/superpowers/specs/2026-10-18-master-assignment-refresh-design.md` — owner approved both design and this concrete plan on 2026-10-18, with native sequential implementation and final independent review.
 
 ## Global Constraints
 

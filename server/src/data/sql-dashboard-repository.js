@@ -219,6 +219,7 @@ async function calculateDoeGapSummary(db, academicYear) {
               r.Details AS details,
               CONVERT(varchar(10), r.EffectiveDate, 23) AS effectiveDate,
               CONVERT(varchar(10), r.ExpirationDate, 23) AS expirationDate,
+              (SELECT e.AllocationStatus FROM paws.MasterRoleSourceEvidence e WHERE e.RoleAssignmentId=r.RoleAssignmentId) AS sourceAllocationStatus,
               r.DoeMappedValue AS doeMappedValue,
               r.DoeOverrideValue AS doeOverrideValue,
               r.SpecialNotes AS specialNotes
@@ -252,6 +253,7 @@ async function calculateDoeGapSummary(db, academicYear) {
       details: toText(row.details),
       effectiveDate: toText(row.effectiveDate),
       expirationDate: toText(row.expirationDate),
+      sourceAllocationStatus: toText(row.sourceAllocationStatus),
       doeMappedValue: null,
       doeOverrideValue: null,
       specialNotes: toText(row.specialNotes)
@@ -621,7 +623,8 @@ function createSqlDashboardRepository(db) {
                r.Details AS details,
                CONVERT(varchar(10), r.EffectiveDate, 23) AS effectiveDate,
                CONVERT(varchar(10), r.ExpirationDate, 23) AS expirationDate,
-               r.DoeMappedValue AS doeMappedValue,
+               (SELECT e.AllocationStatus FROM paws.MasterRoleSourceEvidence e WHERE e.RoleAssignmentId=r.RoleAssignmentId) AS sourceAllocationStatus,
+              r.DoeMappedValue AS doeMappedValue,
                r.DoeOverrideValue AS doeOverrideValue,
                r.DoeOverrideReason AS doeOverrideReason,
                r.SpecialNotes AS specialNotes
@@ -631,7 +634,7 @@ function createSqlDashboardRepository(db) {
            UNION ALL
            SELECT m.AssignmentId,NULL,NULL,N'manual_adjustment',m.AcademicYear,N'Manual DOE adjustment',m.RoleType,
                   m.ScopeText,COALESCE(m.CourseCode,m.SubjectKey),N'Negotiated manual adjustment (additive)',
-                  NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
+                  NULL,NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
              FROM paws.ManualDoeAssignment m WHERE m.FacultyId=@facultyId AND m.AcademicYear=@academicYear AND m.Active=1
            ORDER BY roleCategory, roleType, roleAssignmentId`,
           { facultyId, academicYear: resolvedYear }
@@ -875,6 +878,7 @@ function createSqlDashboardRepository(db) {
             details: toText(row.details),
             effectiveDate: toText(row.effectiveDate),
             expirationDate: toText(row.expirationDate),
+            sourceAllocationStatus: toText(row.sourceAllocationStatus),
             doeMappedValue: toNumber(row.doeMappedValue),
             doeOverrideValue: toNumber(row.doeOverrideValue),
             doeOverrideReason: toText(row.doeOverrideReason),
@@ -1110,7 +1114,8 @@ function createSqlDashboardRepository(db) {
                 r.Details AS details,
                 CONVERT(varchar(10), r.EffectiveDate, 23) AS effectiveDate,
                 CONVERT(varchar(10), r.ExpirationDate, 23) AS expirationDate,
-                r.DoeMappedValue AS doeMappedValue,
+                (SELECT e.AllocationStatus FROM paws.MasterRoleSourceEvidence e WHERE e.RoleAssignmentId=r.RoleAssignmentId) AS sourceAllocationStatus,
+              r.DoeMappedValue AS doeMappedValue,
                 r.DoeOverrideValue AS doeOverrideValue,
                 r.DoeOverrideReason AS doeOverrideReason,
                 r.SpecialNotes AS specialNotes
@@ -1121,7 +1126,7 @@ function createSqlDashboardRepository(db) {
           UNION ALL
           SELECT f.FacultyId,${facultyDisplayNameSql()},m.AssignmentId,NULL,NULL,N'manual_adjustment',m.AcademicYear,
                  N'Manual DOE adjustment',m.RoleType,m.ScopeText,COALESCE(m.CourseCode,m.SubjectKey),
-                 N'Negotiated manual adjustment (additive)',NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
+                 N'Negotiated manual adjustment (additive)',NULL,NULL,NULL,m.DoeValue,NULL,NULL,m.Notes
             FROM paws.ManualDoeAssignment m
             INNER JOIN paws.Faculty f ON f.FacultyId=m.FacultyId
            WHERE m.AcademicYear=@academicYear AND m.Active=1 AND f.Active=1
@@ -1144,7 +1149,8 @@ function createSqlDashboardRepository(db) {
           details: toText(row.details),
           effectiveDate: toText(row.effectiveDate),
           expirationDate: toText(row.expirationDate),
-          doeMappedValue: toNumber(row.doeMappedValue),
+          sourceAllocationStatus: toText(row.sourceAllocationStatus),
+            doeMappedValue: toNumber(row.doeMappedValue),
           doeOverrideValue: toNumber(row.doeOverrideValue),
           doeOverrideReason: toText(row.doeOverrideReason),
           specialNotes: toText(row.specialNotes)

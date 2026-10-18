@@ -39,3 +39,21 @@ test('history export supplies compact-view facts as separately labeled complete 
  const file=await renderHistoryExport([{changeDate:'2026-10-17T12:00:00Z',changeType:'session_updated',domain:'Teaching',field:'Room',previousValue:'A',updatedValue:'B',academicYear:'2026-27',startDate:'2026-11-01',endDate:'2026-11-01',startTime:'08:30',endTime:'09:30'}],'csv');
  const csv=file.bytes.toString();assert.match(csv,/'?"Time \(UTC\)","Type","Domain","Course","Session","Field","From","Start","End","To value","By whom","Academic year"/);assert.match(csv,/2026-11-01 08:30/);assert.match(csv,/"N\/A"/);
 });
+
+test('default search and year choices cover older retained changes; explicit changed-on dates still narrow results',async()=>{
+ const old={...event(150,'2024-25'),occurredAtUtc:'2024-10-01T12:00:00Z'},recent=event(151),calls=[];
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'actor'}),findUser:async()=>({baseRole:'faculty',facultyId:F,active:true}),clock:()=>Date.parse('2026-10-18T01:00:00Z'),repository:{list:async filters=>{calls.push(filters);return [old,recent].filter(e=>e.occurredAtUtc>=filters.start&&e.occurredAtUtc<filters.end);}}});
+ const current=await api.query('token',{scope:'timetable'});assert.ok(current.body.facets.academicYears.includes('2024-25'));
+ const past=await api.query('token',{scope:'timetable',academicYear:'2024-25',keyword:'wet'});assert.equal(past.body.total,1);assert.equal((await api.export('token',{snapshot:past.body.snapshot,format:'csv'})).body.rowCount,1);
+ const narrowed=await api.query('token',{scope:'timetable',academicYear:'2024-25',start:'2026-01-01',end:'2026-12-01'});assert.equal(narrowed.body.total,0);
+});
+
+test('year choices include intermediate academic years of retained date ranges',async()=>{
+ const range={source:'audit',eventId:'range',eventType:'afc_record_created',occurredAtUtc:'2026-10-17T12:00:00Z',afterJson:{facultyId:F,startDate:'2024-04-30',endDate:'2025-05-01'}};
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'admin'}),findUser:async()=>({baseRole:'owner',active:true}),clock:()=>Date.parse('2026-10-18T01:00:00Z'),repository:{list:async()=>[range]}});
+ const q=await api.query('t',{scope:'dashboard'});for(const y of ['2023-24','2024-25','2025-26'])assert.ok(q.body.facets.academicYears.includes(y),y);
+});
+test('mixed valid/malformed and non-string explicit year evidence cannot produce inferred year rows',()=>{
+ const lookup={source:'audit',eventId:'bad-year',eventType:'FacultyUpdated',entityId:F,occurredAtUtc:'2026-10-17T12:00:00Z',beforeJson:{rank:'Old'},afterJson:{rank:'New'}};
+ for(const e of [{...event(1),beforeJson:{room:'A',academicYear:'bad'},afterJson:{room:'B',academicYear:'2026-27'}},{...lookup,afterJson:{rank:'New',academicYear:2025}},{...lookup,contextJson:{academicYear:{year:2026}}}])assert.equal(filterHistoryRows(projectHistoryEvent(e,{scope:e.eventType==='FacultyUpdated'?'dashboard':'timetable',admin:true}),{academicYear:'2026-27'}).length,0);
+});

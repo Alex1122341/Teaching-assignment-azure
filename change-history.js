@@ -47,7 +47,7 @@
  }
  function valueCell(value){
   const text=missing(value);
-  return text.length>100?`<details class="history-value"><summary><span class="history-preview">${esc(text.slice(0,100))}…</span><span class="history-expand-label">Full value</span></summary><pre>${esc(text)}</pre></details>`:esc(text);
+  return text.length>24||/[\r\n]/.test(text)?`<details class="history-value"><summary><span class="history-preview">${esc(text.slice(0,100))}${text.length>100?'…':''}</span><span class="history-expand-label">Full value</span></summary><pre>${esc(text)}</pre></details>`:esc(text);
  }
  function renderRows(rows){
   return rows.map(row=>{
@@ -55,7 +55,7 @@
    const when=valid?`<time datetime="${esc(date.toISOString())}" title="${esc(date.toISOString())} UTC">${esc(date.toLocaleString('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}))}</time><small>Calgary</small>`:'N/A';
    const endpoint=end=>{const d=row[end?'endDate':'startDate'],t=row[end?'endTime':'startTime'];return d?`${esc(d)}${t?' '+esc(t):''}`:'N/A';};
    const label=String(row.changeType||'N/A').replaceAll('_',' ');
-   return `<tr><td>${when}</td><td><span>${esc(label)}</span><small>${esc(missing(row.domain))}</small></td><td>${row.course?`<strong>${esc(row.course)}</strong> · `:''}${valueCell(row.session||row.affectedFaculty)}${row.session&&row.affectedFaculty?`<small>${valueCell(row.affectedFaculty)}</small>`:''}</td><td class="history-change"><strong class="history-field">${esc(missing(row.field))}</strong><div class="history-from-to"><span><span class="history-value-label">From </span>${valueCell(row.previousValue)}</span><span aria-hidden="true"> → </span><span><span class="history-value-label">To </span>${valueCell(row.updatedValue)}</span></div></td><td><span class="history-date-range">${endpoint(false)}<br>${endpoint(true)}</span></td><td>${esc(missing(row.actor))}</td></tr>`;
+   return `<tr><td>${when}</td><td><span>${esc(label)}</span><small>${esc(missing(row.domain))}</small></td><td>${row.course?`<strong>${esc(row.course)}</strong> · `:''}${valueCell(row.session||row.affectedFaculty)}${row.session&&row.affectedFaculty?`<small>${valueCell(row.affectedFaculty)}</small>`:''}</td><td class="history-change"><strong class="history-field">${esc(missing(row.field))}</strong><div class="history-from-to"><span><span class="history-value-label">From </span>${valueCell(row.previousValue)}</span><span aria-hidden="true"> → </span><span><span class="history-value-label">To </span>${valueCell(row.updatedValue)}</span></div></td><td><span class="history-date-range">${endpoint(false)}<br>${endpoint(true)}</span></td><td>${valueCell(row.actor)}</td></tr>`;
   }).join('')||'<tr><td colspan="6">No recorded changes to display.</td></tr>';
  }
  function browserDownload(file,format){
@@ -69,7 +69,6 @@
  }
  function mount(host,{api=root.UCVM_PAWS_DATA,scope='mine',academicYear=null}={}){
   if(!host)throw Error('A history container is required.');
-  const today=new Date().toISOString().slice(0,10),start=new Date(Date.parse(today)-365*86400000).toISOString().slice(0,10),end=new Date(Date.parse(today)+86400000).toISOString().slice(0,10);
   const title={mine:'My Change History',timetable:'Calendar Changes',dashboard:'Dashboard History'}[scope];
   const local=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit'}).formatToParts(new Date()),parts=Object.fromEntries(local.map(p=>[p.type,p.value])),yearStart=Number(parts.year)-(parts.month<'05'?1:0);
   const defaultYear=/^\d{4}-\d{2}$/.test(academicYear||'')?academicYear:`${yearStart}-${String((yearStart+1)%100).padStart(2,'0')}`;
@@ -77,7 +76,7 @@
   host.innerHTML=`<section class="paws-change-history" aria-label="${title}"><div class="history-heading"><h3>${title}</h3><p>${scope==='timetable'?'Recorded teaching changes across the authorized timetable. Private AFC and DOE values are excluded.':scope==='mine'?'Changes affecting your teaching and working schedule, including changes made by others.':'Recorded Lookup, AFC and DOE Rule Book changes within your permissions.'}</p></div>
    <form class="history-filters"><div class="history-search-row">${field('keyword','Search history (course, faculty, change, name…)')}<label>Academic year<select data-history-filter="academicYear"><option value="${esc(defaultYear)}">${esc(defaultYear)}</option></select></label><div class="history-filter-actions"><button type="submit" data-history-apply>Search</button><button type="button" data-history-reset>Reset</button></div></div><details class="history-advanced"><summary>More filters</summary><div class="history-advanced-grid">${field('course','Course number')}${field('topic','Topic')}<label>VISC subject<select data-history-filter="viscSubject"><option value="">All recorded subjects</option><option value="__not_recorded__">Not recorded</option></select></label>
    <label>Faculty<select data-history-filter="faculty"><option value="">All recorded faculty</option></select></label>
-   ${field('start','Changed on/after (UTC)','date',start)}${field('end','Changed before (UTC)','date',end)}
+   ${field('start','Changed on/after (UTC)','date')}${field('end','Changed before (UTC)','date')}
    <label>Change type<select data-history-filter="changeType"><option value="">All change types</option></select></label>
    <label>Domain<select data-history-filter="domain"><option value="">All permitted domains</option>${(scope==='dashboard'?['Lookup','AFC','DOE Rule Book','Working schedule']:scope==='mine'?['Teaching','Working schedule']:['Teaching']).map(v=>`<option>${v}</option>`).join('')}</select></label>
    </div></details></form>

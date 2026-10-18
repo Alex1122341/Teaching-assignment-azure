@@ -65,3 +65,5 @@ IF EXISTS(SELECT 1 FROM paws.AfcManualRecord WHERE AfcRecordId=@Afc) OR EXISTS(S
 IF NOT EXISTS(SELECT 1 FROM paws.AfcFormDocument WHERE DocumentId=@Doc) THROW 55090,'Failed creation deleted archived original.',1;
 DROP TRIGGER paws.TestRecordDocumentFailure;
 PRINT 'AFC_RECORD_DOCUMENT_SELF_SCOPE_AND_ATOMICITY_OK';
+EXEC paws_api.ListChangeHistoryEvents @ActorFirebaseUid=N'link-admin',@Scope=N'dashboard',@StartUtc='0001-01-01',@EndExclusiveUtc='9999-12-31';
+PRINT 'HISTORY_ALL_RETAINED_RANGE_OK';

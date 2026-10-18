@@ -92,8 +92,9 @@ function projectHistoryEvent(event,auth){
  if(typeof occurred!=='string'||!Number.isFinite(Date.parse(occurred)))return [];
  const courses=contextValues(before,after,context,'courseCode'),topics=contextValues(before,after,context,'topic');
  if(domain==='Working schedule')topics.push(...contextValues(before,after,context,'label'));
- const years=contextValues(before,after,context,'academicYear');if(typeof event.academicYear==='string')years.push(event.academicYear);
- const hasRecordedYear=years.length>0,ranges=[];
+ const yearEvidence=[get(before,'academicYear'),get(after,'academicYear'),get(context,'academicYear'),event.academicYear].filter(v=>v!==undefined&&v!==null);
+ const years=yearEvidence.every(validYear)?unique(yearEvidence):[];
+ const hasRecordedYear=yearEvidence.length>0,ranges=[];
  if(!hasRecordedYear&&['AFC','Working schedule'].includes(domain))for(const snapshot of [before,after,context]){
   const start=get(snapshot,'startDate')||get(snapshot,'date'),end=get(snapshot,'endDate')||get(snapshot,'date')||start;
   if(yearOfDate(start)&&yearOfDate(end)&&start<=end)ranges.push([start,end]);

@@ -5,7 +5,7 @@ const {validateAuthorizedProfile}=require('../data/data-api');
 const {isAdministratorRole}=require('../auth/role-policy');
 const {projectHistoryEvent,filterHistoryRows,publicHistoryRow}=require('./change-history-projection');
 const {renderHistoryExport}=require('./change-history-export');
-const {calgaryAcademicYear,validYear,yearOfDate}=require('./history-year');
+const {calgaryAcademicYear,validYear,yearsInRange}=require('./history-year');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const QUERY_KEYS=new Set(['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain','keyword']);
 const TTL=600000,MAX_BYTES=6*1024*1024,MAX_ROWS=10000,PAGE_SIZE=100;
@@ -19,10 +19,10 @@ const validDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value
 function normalizeFilters(input,now){
  if(!closed(input,QUERY_KEYS)||!['mine','timetable','dashboard'].includes(input.scope))return null;
  if(Object.values(input).some(value=>typeof value!=='string'||value.length>256))return null;
- const today=new Date(now).toISOString().slice(0,10);
- const start=input.start||new Date(Date.parse(today)-365*86400000).toISOString().slice(0,10);
- const end=input.end||new Date(Date.parse(today)+86400000).toISOString().slice(0,10);
- if(!validDate(start)||!validDate(end)||start>=end||(Date.parse(end)-Date.parse(start))/86400000>3660)return null;
+ // Optional changed-on bounds must never silently hide older business-year history.
+ // SQL still caps source rows; projection, snapshots and exports retain row/byte limits.
+ const start=input.start||'0001-01-01',end=input.end||'9999-12-31';
+ if(!validDate(start)||!validDate(end)||start>=end)return null;
  if(input.faculty&&!UUID.test(input.faculty))return null;
  const academicYear=input.academicYear||calgaryAcademicYear(now);if(!validYear(academicYear))return null;
  if(input.domain&&!['Teaching','Working schedule','Lookup','AFC','DOE Rule Book'].includes(input.domain))return null;
@@ -73,7 +73,7 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
     const projected=[],years=new Set([filters.academicYear]);
     for(const event of events){
      const available=projectHistoryEvent(event,{...auth,scope:filters.scope});
-     for(const row of available){for(const year of row._years)years.add(year);for(const range of row._ranges||[])for(const date of range)years.add(yearOfDate(date));}
+     for(const row of available){for(const year of row._years)years.add(year);for(const range of row._ranges||[])for(const year of yearsInRange(...range))years.add(year);}
      const rows=filterHistoryRows(available,filters).map(row=>({...row,academicYear:filters.academicYear}));
      projected.push(...rows);if(projected.length>MAX_ROWS)return historyLimit();
     }

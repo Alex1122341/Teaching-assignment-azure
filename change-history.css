@@ -1,6 +1,7 @@
 .paws-change-history{color:#22324c;font:14px/1.5 Arial,sans-serif;width:100%;min-width:0}
 .paws-change-history h3{margin:0 0 5px;font-size:21px;color:#162747}
 .history-heading p{margin:0 0 10px;color:#5c6879;max-width:100ch;font-size:12px}
+.paws-change-history .history-heading{padding:10px 12px;gap:12px}
 .history-filters{padding:10px;background:#f5f7fa;border:1px solid #d9e0e9;border-radius:8px}
 .history-search-row{display:grid;grid-template-columns:minmax(220px,1fr) 150px auto;gap:10px;align-items:end}
 .history-advanced{margin-top:8px;font-size:12px}.history-advanced summary{cursor:pointer;color:#526379}.history-advanced-grid{display:grid;grid-template-columns:repeat(3,minmax(140px,1fr));gap:10px;margin-top:10px}
@@ -19,7 +20,7 @@
 .history-coverage summary{cursor:pointer;font-weight:600}
 .history-coverage li{margin:5px 0}
 .history-table-scroll{overflow:auto;max-height:65vh;border:1px solid #d9e0e9;border-radius:6px}
-.paws-change-history table{width:100%;border-collapse:collapse;min-width:920px;table-layout:fixed;text-align:left;background:#fff;font-size:12px;line-height:1.3}
+.paws-change-history table{width:100%;border-collapse:collapse;min-width:1100px;table-layout:fixed;text-align:left;background:#fff;font-size:12px;line-height:1.3}
 .paws-change-history th{position:sticky;top:0;background:#edf1f6;color:#4c5c70;z-index:1;white-space:nowrap;font-size:11px;letter-spacing:.02em;text-transform:uppercase}
 .paws-change-history th,.paws-change-history td{padding:6px 8px;border-bottom:1px solid #e0e6ed;vertical-align:top;overflow-wrap:anywhere}
 .paws-change-history th:nth-child(1){width:128px}.paws-change-history th:nth-child(2){width:140px}.paws-change-history th:nth-child(3){width:190px}.paws-change-history th:nth-child(5){width:145px}.paws-change-history th:nth-child(6){width:112px}
@@ -42,3 +43,4 @@
 .afc-timetable-shell:has(.paws-change-history){width:min(1450px,calc(100vw - 40px));max-width:none}
 @media(max-width:800px){.history-search-row{grid-template-columns:minmax(180px,1fr) 140px}.history-search-row .history-filter-actions{grid-column:1/-1}.history-advanced-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.history-toolbar{align-items:start;flex-direction:column}.history-table-scroll{max-height:60vh}.faculty-history-dialog{padding:14px;width:calc(100vw - 44px)}}
 @media(max-width:480px){.history-search-row,.history-advanced-grid{grid-template-columns:1fr}.history-filter-actions button{flex:1}.paws-change-history h3{font-size:18px}}
+@media(max-width:800px){.paws-change-history .history-heading{display:block}}

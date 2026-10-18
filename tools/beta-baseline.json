@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "13fbaa08c13599d727cbc5b24a45502844dc6303",
+  "sourceCommit": "d7e4887cb413667fef0d992105148defb19f856c",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -35,7 +35,7 @@
     "faculty-admin-activity-import.js": "8855fadfb2508d7ce6ddd1af23861cf9377e9f4595d7b1ed250c2e97071b55cf",
     "faculty-admin-afc-batch.js": "a57b84ce4942d0549b8c28739899f7a3c998dd97c9c960d7c1d83e920320cb33",
     "faculty-admin-afc-forms.js": "bfdee58fe41b68c78570e85a8c08c38e17e1727174828ad7083bfa1dcd93d2ca",
-    "faculty-admin-afc-records.js": "72e7cf0a567a4f85ddfabeaad6f56e703a37b787a5704fd53c8ed2d8281ad4f1",
+    "faculty-admin-afc-records.js": "5489a6dc069d8c98f3c8e9a98e887e6530a4ea4a8662e0954bd4d7b366017229",
     "faculty-admin-ccc-replacement.js": "6646b7a1b12bce5b8d9a0a1ac212b52dac42a005ff182f60eb16474d54d08f45",
     "faculty-admin-doe-edit.js": "eba0c0129290f701c672724e69c24ca8879f61cf2396c78d1e54630347eec204",
     "faculty-admin-doe-manual.js": "992ff87c3a9e13c455d0e2a2cd8a9e43dd4256de610f38d6cb8cee9cb9f992de",
@@ -48,7 +48,7 @@
     "faculty-admin-management.js": "09f2bd9fac442345b551152114891a87f77f44ef1bab96a0f889d71301f4aa0e",
     "faculty-admin.css": "1cb9cbb5bc9ff3014122f2efeb9e4f34f266790578ac932dcad346294eed224d",
     "faculty-admin.html": "fd9592397755cbf23f468519e990ed9bece925909811326c7d184a7f82f25835",
-    "faculty-admin.js": "730b4d79c73ed86ed2c6328f945e88a645ff8694eca4f7c3f60bbb7f5296e0ec",
+    "faculty-admin.js": "ae7a784cba4fb885838a8ee7a2671214748d8106aa2171be331038e0c12a462d",
     "faculty-doe.js": "9eed9943a21bf57bedbaf1020230e1e69ec25ca05117f8d0201c50f68afcf4c1",
     "faculty-name.js": "85d22a5b28365b7017d4e77cc5f78f8a16ed7e3a1332e36aecc65590e36bbc03",
     "faculty-role-periods.js": "b4dee985428629d7f09b1434b3269ad219b05d2d3be39fc38512a4c297bb3f80",

@@ -1,10 +1,13 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
-const PRODUCT='13fbaa08c13599d727cbc5b24a45502844dc6303',PREVIOUS='9eb2dafea78674013a6c7fd894cdb1b6f2342c3f';
+const PRODUCT='d7e4887cb413667fef0d992105148defb19f856c',PREVIOUS='9eb2dafea78674013a6c7fd894cdb1b6f2342c3f';
 test('compact year history and record originals pin the independently reviewed product without protection removal',()=>{
  assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
  execFileSync('git',['merge-base','--is-ancestor',PREVIOUS,PRODUCT],{cwd:root});
+ const initial=execFileSync('git',['show','6171c4f904103f432236ef02935bbc672981097f:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});
+ assert.ok(initial.includes("const BASELINE_COMMIT='13fbaa08c13599d727cbc5b24a45502844dc6303'"));
+ execFileSync('git',['merge-base','--is-ancestor','13fbaa08c13599d727cbc5b24a45502844dc6303',PRODUCT],{cwd:root});
  const manifest=ref=>JSON.parse(execFileSync('git',['show',ref+':tools/static-assets.json'],{cwd:root,encoding:'utf8'})).sort(),before=manifest(PREVIOUS),after=manifest(PRODUCT),oldApi=api.baselineRuntimeFiles({root,baselineCommit:PREVIOUS}),newApi=api.baselineRuntimeFiles({root,baselineCommit:PRODUCT});
  assert.equal(before.length,79);assert.deepEqual(after,before);assert.equal(oldApi.length,93);assert.equal(newApi.length,95);assert.deepEqual(oldApi.filter(f=>!newApi.includes(f)),[]);
  assert.deepEqual(newApi.filter(f=>!oldApi.includes(f)).sort(),['server/src/calendar/ccc-template.js','server/src/history/history-year.js']);

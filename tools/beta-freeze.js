@@ -13,7 +13,7 @@ const {execFileSync}=require('node:child_process');
 
 // Reviewed compact year history and record-linked original product is the immutable trust anchor.
 // Prior AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='13fbaa08c13599d727cbc5b24a45502844dc6303';
+const BASELINE_COMMIT='d7e4887cb413667fef0d992105148defb19f856c';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

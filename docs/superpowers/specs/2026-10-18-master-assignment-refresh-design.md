@@ -1,6 +1,6 @@
 # MASTER assignment refresh — design proposal
 
-Status: source reconciliation complete; awaiting owner design review. No implementation or live data mutation is authorized by this document alone.
+Status: source reconciliation complete; owner approved this design on 2026-10-18 and requested the implementation plan. No implementation or live data mutation is authorized by this document alone.
 
 ## Goal and authority
 

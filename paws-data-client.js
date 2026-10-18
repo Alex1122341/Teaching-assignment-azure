@@ -518,6 +518,7 @@
       uploadAfcForm(input={}){return request('/api/v1/afc-forms',{method:'POST',body:pickFields(input,['facultyId','requestId','fileName','contentType','fileBase64'])});},
       getAfcFormDocument(id){return requestBinary('/api/v1/afc-forms/'+encodeURIComponent(String(id))+'/document');},
       cccReplacementCapabilities(){return request('/api/v1/ccc-replacements/capabilities');},
+      cccReplacementTemplate(){return request('/api/v1/ccc-replacements/template');},
       stageCccReplacement(input={}){return request('/api/v1/ccc-replacements',{method:'POST',body:pickFields(input,['requestId','sourceSha256','academicYear','dataset','fileName','fileBase64'])});},
       getCccReplacement(id){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id)));},
       previewCccReplacement(id,input={}){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id))+'/preview',{method:'POST',body:pickFields(input,['expectedVersion'])});},

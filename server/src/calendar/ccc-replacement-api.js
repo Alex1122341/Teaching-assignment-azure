@@ -2,6 +2,7 @@
 const {validateAuthorizedProfile}=require('../data/data-api'),{canonicalAcademicYear}=require('../data/academic-year');
 const {isAdministratorRole}=require('../auth/role-policy'),{UUID,onlyKeys}=require('../swap/swap-domain'),{writeDisabled}=require('../data/write-gates');
 const {parseCccWorkbook}=require('./ccc-workbook');
+const {renderCccTemplate}=require('./ccc-template');
 const fail=(status,code,message)=>({status,body:{error:{code,message}}}),ok=(body,status=200)=>({status,body});
 const id=v=>typeof v==='string'&&UUID.test(v),sha=v=>typeof v==='string'&&/^[0-9a-f]{64}$/i.test(v),version=v=>typeof v==='string'&&/^[0-9a-f]{16}$/i.test(v);
 const year=v=>{try{return typeof v==='string'&&/^\d{4}-\d{2}$/.test(v)&&canonicalAcademicYear(v)===v&&Number(v.slice(0,4))>=1900&&Number(v.slice(0,4))<=9998;}catch(_){return false;}};
@@ -21,6 +22,7 @@ function createCccReplacementApi({verifyToken,findUser,repository,parseWorkbook=
  }
  const invalid=()=>fail(400,'INVALID_REQUEST','The replacement request contains invalid fields.');
  return Object.freeze({
+  template:token=>run(token,null,async()=>ok(await renderCccTemplate())),
   capabilities:token=>run(token,null,()=>ok({writeCapabilities:{cccReplaceStage:writeGates.cccReplaceStage===true,cccReplaceCommit:writeGates.cccReplaceCommit===true}})),
   stage:(token,p)=>run(token,'cccReplaceStage',async actorFirebaseUid=>{
    if(!onlyKeys(p,['requestId','sourceSha256','academicYear','dataset','fileName','fileBase64'])||!id(p.requestId)||!sha(p.sourceSha256)||!year(p.academicYear)||p.dataset!=='ccc-calendar'||typeof p.fileName!=='string'||p.fileName.length>180||!/^[^\\/:*?"<>|\x00-\x1f]+\.xlsx$/i.test(p.fileName)||typeof p.fileBase64!=='string')return invalid();

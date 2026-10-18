@@ -8,6 +8,7 @@ function createCccReplacementFunctions({api}){
    const url=new URL(request.url),path=url.pathname,token=(request.headers.get('authorization')||'').replace(/^Bearer /i,'');
    if(url.search)return bad(400,'INVALID_REQUEST');
    if(path==='/api/v1/ccc-replacements/capabilities')return request.method==='GET'?json(await api.capabilities(token)):bad(405,'METHOD_NOT_ALLOWED');
+   if(path==='/api/v1/ccc-replacements/template')return request.method==='GET'?json(await api.template(token)):bad(405,'METHOD_NOT_ALLOWED');
    const match=/^\/api\/v1\/ccc-replacements\/([^/]+)(?:\/(preview|commit))?$/.exec(path);
    if(path!=='/api/v1/ccc-replacements'&&(!match||!UUID.test(match[1])))return bad(404,'NOT_FOUND');
    const method=path==='/api/v1/ccc-replacements'?'stage':match[2]||'get';

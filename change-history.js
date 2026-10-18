@@ -6,7 +6,7 @@
 })(typeof window==='undefined'?globalThis:window,function(root){
  'use strict';
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const missing=value=>value===null||value===undefined||value===''?'Not recorded':String(value);
+ const missing=value=>value===null||value===undefined||value===''||value==='Not recorded'||value==='—'?'N/A':String(value);
  function createHistoryController({api,scope,onState=()=>{},download=()=>{}}){
   let sequence=0,destroyed=false;
   let state={rows:[],snapshot:null,total:0,offset:0,pageSize:100,busy:false,dirty:true,facets:{},coverage:[],message:'Apply filters to load recorded SQL history.'};
@@ -47,14 +47,16 @@
  }
  function valueCell(value){
   const text=missing(value);
-  return text.length>180?`<details><summary>View recorded value</summary><pre>${esc(text)}</pre></details>`:esc(text);
+  return text.length>100?`<details class="history-value"><summary><span class="history-preview">${esc(text.slice(0,100))}…</span><span class="history-expand-label">Full value</span></summary><pre>${esc(text)}</pre></details>`:esc(text);
  }
  function renderRows(rows){
   return rows.map(row=>{
    const date=new Date(row.changeDate),valid=Number.isFinite(date.getTime());
-   const when=valid?`${esc(date.toLocaleString('en-CA',{timeZone:'America/Edmonton'}))}<small>Calgary</small><small>${esc(date.toISOString())} UTC</small>`:'Not recorded';
-   return `<tr><td>${when}</td>${['changeType','domain','course','session','field','previousValue','updatedValue','status','academicYear','viscSubject','affectedFaculty','actor'].map(key=>`<td>${valueCell(row[key])}</td>`).join('')}</tr>`;
-  }).join('')||'<tr><td colspan="13">No recorded changes to display.</td></tr>';
+   const when=valid?`<time datetime="${esc(date.toISOString())}" title="${esc(date.toISOString())} UTC">${esc(date.toLocaleString('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}))}</time><small>Calgary</small>`:'N/A';
+   const endpoint=end=>{const d=row[end?'endDate':'startDate'],t=row[end?'endTime':'startTime'];return d?`${esc(d)}${t?' '+esc(t):''}`:'N/A';};
+   const label=String(row.changeType||'N/A').replaceAll('_',' ');
+   return `<tr><td>${when}</td><td><span>${esc(label)}</span><small>${esc(missing(row.domain))}</small></td><td>${row.course?`<strong>${esc(row.course)}</strong> · `:''}${valueCell(row.session||row.affectedFaculty)}${row.session&&row.affectedFaculty?`<small>${valueCell(row.affectedFaculty)}</small>`:''}</td><td class="history-change"><strong class="history-field">${esc(missing(row.field))}</strong><div class="history-from-to"><span><span class="history-value-label">From </span>${valueCell(row.previousValue)}</span><span aria-hidden="true"> → </span><span><span class="history-value-label">To </span>${valueCell(row.updatedValue)}</span></div></td><td><span class="history-date-range">${endpoint(false)}<br>${endpoint(true)}</span></td><td>${esc(missing(row.actor))}</td></tr>`;
+  }).join('')||'<tr><td colspan="6">No recorded changes to display.</td></tr>';
  }
  function browserDownload(file,format){
   const types={csv:'text/csv; charset=utf-8',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
@@ -65,22 +67,23 @@
   const link=root.document.createElement('a');link.href=url;link.download='paws-change-history.'+format;
   root.document.body.appendChild(link);link.click();link.remove();root.setTimeout(()=>root.URL.revokeObjectURL(url),1000);
  }
- function mount(host,{api=root.UCVM_PAWS_DATA,scope='mine'}={}){
+ function mount(host,{api=root.UCVM_PAWS_DATA,scope='mine',academicYear=null}={}){
   if(!host)throw Error('A history container is required.');
   const today=new Date().toISOString().slice(0,10),start=new Date(Date.parse(today)-365*86400000).toISOString().slice(0,10),end=new Date(Date.parse(today)+86400000).toISOString().slice(0,10);
   const title={mine:'My Change History',timetable:'Calendar Changes',dashboard:'Dashboard History'}[scope];
+  const local=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit'}).formatToParts(new Date()),parts=Object.fromEntries(local.map(p=>[p.type,p.value])),yearStart=Number(parts.year)-(parts.month<'05'?1:0);
+  const defaultYear=/^\d{4}-\d{2}$/.test(academicYear||'')?academicYear:`${yearStart}-${String((yearStart+1)%100).padStart(2,'0')}`;
   const field=(key,label,type='search',value='')=>`<label>${label}<input data-history-filter="${key}" type="${type}" value="${esc(value)}" maxlength="256"></label>`;
   host.innerHTML=`<section class="paws-change-history" aria-label="${title}"><div class="history-heading"><h3>${title}</h3><p>${scope==='timetable'?'Recorded teaching changes across the authorized timetable. Private AFC and DOE values are excluded.':scope==='mine'?'Changes affecting your teaching and working schedule, including changes made by others.':'Recorded Lookup, AFC and DOE Rule Book changes within your permissions.'}</p></div>
-   <form class="history-filters">${field('course','Course number')}${field('topic','Topic')}<label>VISC subject<select data-history-filter="viscSubject"><option value="">All recorded subjects</option><option value="__not_recorded__">Not recorded</option></select></label>
+   <form class="history-filters"><div class="history-search-row">${field('keyword','Search history (course, faculty, change, name…)')}<label>Academic year<select data-history-filter="academicYear"><option value="${esc(defaultYear)}">${esc(defaultYear)}</option></select></label><div class="history-filter-actions"><button type="submit" data-history-apply>Search</button><button type="button" data-history-reset>Reset</button></div></div><details class="history-advanced"><summary>More filters</summary><div class="history-advanced-grid">${field('course','Course number')}${field('topic','Topic')}<label>VISC subject<select data-history-filter="viscSubject"><option value="">All recorded subjects</option><option value="__not_recorded__">Not recorded</option></select></label>
    <label>Faculty<select data-history-filter="faculty"><option value="">All recorded faculty</option></select></label>
    ${field('start','Changed on/after (UTC)','date',start)}${field('end','Changed before (UTC)','date',end)}
    <label>Change type<select data-history-filter="changeType"><option value="">All change types</option></select></label>
-   <label>Academic year<select data-history-filter="academicYear"><option value="">All recorded years</option></select></label>
    <label>Domain<select data-history-filter="domain"><option value="">All permitted domains</option>${(scope==='dashboard'?['Lookup','AFC','DOE Rule Book','Working schedule']:scope==='mine'?['Teaching','Working schedule']:['Teaching']).map(v=>`<option>${v}</option>`).join('')}</select></label>
-   <div class="history-filter-actions"><button type="submit" data-history-apply>Apply filters</button><button type="button" data-history-reset>Reset</button></div></form>
+   </div></details></form>
    <div class="history-toolbar"><p data-history-status role="status" aria-live="polite"></p><div><button type="button" data-history-export="csv" disabled>Download CSV</button><button type="button" data-history-export="xlsx" disabled>Download Excel</button></div></div>
-   <details class="history-coverage"><summary>History coverage and privacy</summary><ul data-history-coverage></ul><p>Old records may lack values or affected-faculty evidence. Unknown VISC mappings and academic years are not inferred.</p></details>
-   <div class="history-table-scroll" tabindex="0" role="region" aria-label="Filtered change history table"><table><thead><tr>${['Changed','Change type','Domain','Course','Session','Field','Previous value','Updated value','Change status','Academic year','VISC subject','Affected faculty','Recorded actor'].map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody data-history-rows></tbody></table></div>
+   <details class="history-coverage"><summary>History coverage and privacy</summary><ul data-history-coverage></ul><p>Search covers every permitted change in the selected academic year. N/A means the source did not record a value. Expand a long value to read it in full.</p></details>
+   <div class="history-table-scroll" tabindex="0" role="region" aria-label="Filtered change history table"><table><thead><tr>${['Time','Type / Domain','Session / Faculty','Change · From → To','Start / End','By whom'].map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody data-history-rows></tbody></table></div>
    <div class="history-paging"><button type="button" data-history-prev disabled>Previous</button><span data-history-page></span><button type="button" data-history-next disabled>Next</button></div></section>`;
   const find=selector=>host.querySelector(selector),form=find('form'),inputs=[...host.querySelectorAll('[data-history-filter]')];
   const filters=()=>Object.fromEntries(inputs.filter(input=>input.value).map(input=>[input.dataset.historyFilter,input.value]));
@@ -88,10 +91,10 @@
   function options(key,rows){
    const select=find(`[data-history-filter="${key}"]`),selected=select.value,selectedName=select.selectedOptions[0]?.textContent||selected;
    const first={faculty:'All recorded faculty',changeType:'All change types',academicYear:'All recorded years',viscSubject:'All recorded subjects'}[key];
-   select.innerHTML=`<option value="">${first}</option>`+rows.map(row=>`<option value="${esc(row.key)}">${esc(row.name)}</option>`).join('');
+   select.innerHTML=(key==='academicYear'?'':`<option value="">${first}</option>`)+rows.map(row=>`<option value="${esc(row.key)}">${esc(row.name)}</option>`).join('');
    // Preserve a selected filter even if its new result set is empty.
    if(selected&&!rows.some(row=>row.key===selected))select.insertAdjacentHTML('beforeend',`<option value="${esc(selected)}">${esc(selectedName)}</option>`);
-   select.value=selected;
+   select.value=selected||(key==='academicYear'?defaultYear:'');
   }
   function render(state){
    find('[data-history-status]').textContent=state.message;
@@ -105,13 +108,14 @@
    if(state.facets!==previousFacets){
     previousFacets=state.facets;options('faculty',state.facets.faculties||[]);
     options('viscSubject',[{key:'__not_recorded__',name:'Not recorded'},...(state.facets.viscSubjects||[]).map(value=>({key:value,name:value}))]);
-    for(const key of ['changeType','academicYear'])options(key,(state.facets[key==='changeType'?'changeTypes':'academicYears']||[]).map(value=>({key:value,name:value})));
+    options('changeType',(state.facets.changeTypes||[]).map(value=>({key:value,name:value})));
+    options('academicYear',[...new Set([defaultYear,...(state.facets.academicYears||[])])].sort().map(value=>({key:value,name:value})));
    }
   }
   const controller=createHistoryController({api,scope,onState:render,download:browserDownload});
   form.addEventListener('submit',event=>{event.preventDefault();controller.refresh(filters());});
   for(const input of inputs){input.addEventListener('input',()=>controller.dirty());input.addEventListener('change',()=>controller.dirty());}
-  find('[data-history-reset]').addEventListener('click',()=>{form.reset();controller.refresh(filters());});
+  find('[data-history-reset]').addEventListener('click',()=>{form.reset();find('[data-history-filter="academicYear"]').value=defaultYear;controller.refresh(filters());});
   host.querySelectorAll('[data-history-export]').forEach(button=>button.addEventListener('click',()=>controller.export(button.dataset.historyExport)));
   find('[data-history-prev]').addEventListener('click',()=>controller.page(controller.state().offset-100));
   find('[data-history-next]').addEventListener('click',()=>controller.page(controller.state().offset+100));

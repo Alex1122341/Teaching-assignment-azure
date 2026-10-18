@@ -5,8 +5,9 @@ const {validateAuthorizedProfile}=require('../data/data-api');
 const {isAdministratorRole}=require('../auth/role-policy');
 const {projectHistoryEvent,filterHistoryRows,publicHistoryRow}=require('./change-history-projection');
 const {renderHistoryExport}=require('./change-history-export');
+const {calgaryAcademicYear,validYear,yearOfDate}=require('./history-year');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const QUERY_KEYS=new Set(['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain']);
+const QUERY_KEYS=new Set(['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain','keyword']);
 const TTL=600000,MAX_BYTES=6*1024*1024,MAX_ROWS=10000,PAGE_SIZE=100;
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
 const ok=body=>({status:200,body});
@@ -23,10 +24,9 @@ function normalizeFilters(input,now){
  const end=input.end||new Date(Date.parse(today)+86400000).toISOString().slice(0,10);
  if(!validDate(start)||!validDate(end)||start>=end||(Date.parse(end)-Date.parse(start))/86400000>3660)return null;
  if(input.faculty&&!UUID.test(input.faculty))return null;
- if(input.academicYear&&!/^(\d{4})-\d{2}$/.test(input.academicYear))return null;
- if(input.academicYear&&Number(input.academicYear.slice(-2))!==((Number(input.academicYear.slice(0,4))+1)%100))return null;
+ const academicYear=input.academicYear||calgaryAcademicYear(now);if(!validYear(academicYear))return null;
  if(input.domain&&!['Teaching','Working schedule','Lookup','AFC','DOE Rule Book'].includes(input.domain))return null;
- return {...input,start,end};
+ return {...input,academicYear,start,end};
 }
 function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,randomId=randomUUID,renderExport=renderHistoryExport}){
  const snapshots=new Map(),queries=new Set();
@@ -70,9 +70,11 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
     const events=await repository.list({actorFirebaseUid:auth.uid,scope:filters.scope,start:filters.start,end:filters.end});
     if(!Array.isArray(events))throw Error('Invalid history source.');
     if(events.length>MAX_ROWS)return historyLimit();
-    const projected=[];
+    const projected=[],years=new Set([filters.academicYear]);
     for(const event of events){
-     const rows=filterHistoryRows(projectHistoryEvent(event,{...auth,scope:filters.scope}),filters);
+     const available=projectHistoryEvent(event,{...auth,scope:filters.scope});
+     for(const row of available){for(const year of row._years)years.add(year);for(const range of row._ranges||[])for(const date of range)years.add(yearOfDate(date));}
+     const rows=filterHistoryRows(available,filters).map(row=>({...row,academicYear:filters.academicYear}));
      projected.push(...rows);if(projected.length>MAX_ROWS)return historyLimit();
     }
     projected.sort((a,b)=>b.changeDate.localeCompare(a.changeDate)||a.rowId.localeCompare(b.rowId));
@@ -88,9 +90,9 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
     snapshots.set(handle,item);
     const facultyOptions=new Map();
     for(const row of projected)for(const option of row._facultyOptions)if(UUID.test(option.key))facultyOptions.set(option.key,option.name);
-    return ok({...pageBody(handle,item,0),filters,facets:{changeTypes:[...new Set(projected.map(row=>row.changeType))].sort(),faculties:[...facultyOptions].map(([key,name])=>({key,name})),academicYears:[...new Set(projected.map(row=>row.academicYear).filter(Boolean))].sort(),viscSubjects:[...new Set(projected.map(row=>row.viscSubject).filter(Boolean))].sort()},coverage:[
+    return ok({...pageBody(handle,item,0),filters,facets:{changeTypes:[...new Set(projected.map(row=>row.changeType))].sort(),faculties:[...facultyOptions].map(([key,name])=>({key,name})),academicYears:[...years].filter(Boolean).sort(),viscSubjects:[...new Set(projected.map(row=>row.viscSubject).filter(Boolean))].sort()},coverage:[
      'Only recorded SQL audits are available. Older events may lack previous values or proof of affected faculty; My Change History excludes unproven membership.',
-     'VISC subjects and academic years are shown only when recorded; no mapping or year is inferred. Faculty names in new events are captured at the time of change.',
+     'History is limited to the selected academic year: recorded teaching/policy year, AFC/work date ranges, or Calgary change year for global Lookup edits. Missing evidence in other domains is excluded. VISC mappings are not inferred.',
      'Exports contain every row in this filtered snapshot. Refresh after 10 minutes or after permissions change.'
     ]});
    }catch(error){return failure(error);}finally{queries.delete(auth.uid);}

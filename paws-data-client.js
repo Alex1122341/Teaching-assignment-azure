@@ -170,7 +170,7 @@
     return Object.freeze({
       changeHistory(filters={}){
         const query=new URLSearchParams();
-        for(const key of ['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain'])if(typeof filters[key]==='string'&&filters[key])query.set(key,filters[key]);
+        for(const key of ['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain','keyword'])if(typeof filters[key]==='string'&&filters[key])query.set(key,filters[key]);
         return request('/api/v1/change-history?'+query.toString());
       },
       changeHistoryPage(snapshot,offset){return request('/api/v1/change-history/page?'+new URLSearchParams({snapshot:String(snapshot),offset:String(offset)}));},

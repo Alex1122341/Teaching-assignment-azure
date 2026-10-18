@@ -5,7 +5,7 @@ const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 function harness({count=202}={}){
  let now=Date.parse('2026-10-16T12:00:00Z'),calls=0,serial=0;
  let profile={active:true,mustChangePassword:false,baseRole:'faculty',facultyId:A};
- let events=Array.from({length:count},(_,i)=>({source:'audit',eventId:String(i),eventType:'session_updated',entityType:'session',entityId:A,occurredAtUtc:'2026-10-16T10:00:00Z',beforeJson:'{"room":"Old"}',afterJson:JSON.stringify({room:'New '+i}),contextJson:JSON.stringify({affectedFaculty:[{facultyId:A,displayName:'Teacher'}]})}));
+ let events=Array.from({length:count},(_,i)=>({source:'audit',eventId:String(i),eventType:'session_updated',entityType:'session',entityId:A,occurredAtUtc:'2026-10-16T10:00:00Z',beforeJson:'{"room":"Old"}',afterJson:JSON.stringify({room:'New '+i}),contextJson:JSON.stringify({academicYear:'2026-27',affectedFaculty:[{facultyId:A,displayName:'Teacher'}]})}));
  const api=createChangeHistoryApi({verifyToken:async token=>{if(token==='bad')throw Error('private');return token?{uid:token}:null;},findUser:async()=>profile,repository:{list:async()=>{calls++;return events;}},clock:()=>now,randomId:()=>String(++serial).padStart(8,'0')+'-aaaa-4aaa-8aaa-aaaaaaaaaaaa'});
  return {api,calls:()=>calls,setProfile:p=>profile=p,advance:ms=>now+=ms,mutate:()=>events=[],now:()=>now};
 }

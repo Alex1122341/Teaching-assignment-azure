@@ -1,10 +1,11 @@
 'use strict';
+const {endpoint}=require('./history-year');
 
 const COLUMNS=Object.freeze([
- ['changeDate','Change Date (UTC)'],['changeType','Change Type'],['domain','Domain'],
+ ['changeDate','Time (UTC)'],['changeType','Type'],['domain','Domain'],
  ['course','Course'],['session','Session'],['field','Field'],
- ['previousValue','Previous Value'],['updatedValue','Updated Value'],['status','Change Status'],
- ['academicYear','Academic Year'],['viscSubject','VISC Subject'],['affectedFaculty','Affected Faculty'],['actor','Recorded Actor']
+ ['previousValue','From'],['start','Start'],['end','End'],['updatedValue','To value'],['actor','By whom'],
+ ['academicYear','Academic year'],['affectedFaculty','Affected faculty']
 ].map(([key,header])=>Object.freeze({key,header})));
 const limit=()=>Object.assign(Error('Narrow the history filters before exporting.'),{code:'HISTORY_LIMIT'});
 function safeCell(value){
@@ -16,7 +17,7 @@ function safeCell(value){
 async function renderHistoryExport(rows,format){
  if(!['csv','xlsx'].includes(format))throw Object.assign(Error('Unsupported format.'),{code:'INVALID_FORMAT'});
  if(!Array.isArray(rows)||rows.length>10000)throw limit();
- const values=rows.map(row=>COLUMNS.map(column=>safeCell(row[column.key])));
+ const values=rows.map(row=>COLUMNS.map(column=>safeCell(column.key==='start'?endpoint(row):column.key==='end'?endpoint(row,true):row[column.key]??'N/A')));
  let bytes,contentType;
  if(format==='csv'){
   const quote=value=>'"'+value.replaceAll('"','""')+'"';

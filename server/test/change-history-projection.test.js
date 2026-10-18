@@ -38,9 +38,9 @@ test('Lookup history keeps own fields and rejects another person and office priv
  assert.equal(projectHistoryEvent(e,{...auth,scope:'dashboard',facultyId:B,role:'adc'}).length,0);
  assert.doesNotMatch(JSON.stringify(projectHistoryEvent(e,{...auth,scope:'dashboard'})),/secret/);
 });
-test('faculty sees published policy public fields, never drafts, exceptions or actor details',()=>{
+test('faculty sees published policy public fields and recorded operator name, never drafts or private exceptions',()=>{
  const e=event({source:'doe',eventType:'published',entityType:'doe_policy_version',beforeJson:'{}',afterJson:JSON.stringify({revision:2,ruleBook:{rules:[{ruleKey:'lecture',ruleLabel:'Lecture',formulaText:'hours*rate',parameters:[{name:'rate',valueNumber:2}]}],exceptions:[{facultyId:B,reason:'private-exception',fixedDoe:999}]}})});
- const rows=projectHistoryEvent(e,{...auth,scope:'dashboard'});assert.ok(rows.length);assert.match(JSON.stringify(rows),/Lecture/);assert.doesNotMatch(JSON.stringify(rows.map(publicHistoryRow)),/private|999|Admin/);
+ const rows=projectHistoryEvent(e,{...auth,scope:'dashboard'});assert.ok(rows.length);assert.match(JSON.stringify(rows),/Lecture/);assert.doesNotMatch(JSON.stringify(rows.map(publicHistoryRow)),/private|999/);assert.equal(rows[0].actor,'Admin');
  assert.equal(projectHistoryEvent({...e,eventType:'draft_updated'},{...auth,scope:'dashboard'}).length,0);
  assert.equal(projectHistoryEvent(e,auth).length,0);
 });

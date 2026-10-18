@@ -23,8 +23,8 @@ test('real history component handles initial auth, filters, pages, export, respo
  assert.match(await page.locator('[data-history-status]').innerText(),/202/);assert.equal(await page.locator('tbody tr').count(),100);assert.equal(await page.locator('tbody img').count(),0);
  await page.getByRole('button',{name:'Next',exact:true}).click();assert.match(await page.locator('[data-history-page]').innerText(),/101–200 of 202/);
  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Download CSV',exact:true}).click();const download=await downloadPromise;assert.equal(download.suggestedFilename(),'paws-change-history.csv');
- await page.getByLabel('Course number',{exact:true}).fill('206');assert.equal(await page.getByRole('button',{name:'Download CSV',exact:true}).isDisabled(),true);
- await page.getByRole('button',{name:'Apply filters',exact:true}).click();assert.match(await page.locator('[data-history-status]').innerText(),/101 filtered/);
+ await page.getByText('More filters',{exact:true}).click();await page.getByLabel('Course number',{exact:true}).fill('206');assert.equal(await page.getByRole('button',{name:'Download CSV',exact:true}).isDisabled(),true);
+ await page.getByRole('button',{name:'Search',exact:true}).click();assert.match(await page.locator('[data-history-status]').innerText(),/101 filtered/);
  await page.getByRole('button',{name:'Reset',exact:true}).click();assert.match(await page.locator('[data-history-status]').innerText(),/202 filtered/);
  await page.evaluate(()=>window.scrollTo(0,0));
  if(process.env.PAWS_HISTORY_SCREENSHOT_DIR){fs.mkdirSync(process.env.PAWS_HISTORY_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.PAWS_HISTORY_SCREENSHOT_DIR,'history-desktop.png')});}

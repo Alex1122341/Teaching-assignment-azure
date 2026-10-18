@@ -40,3 +40,12 @@ test('Firestore AFC fallback is unavailable without initializing Firebase or tou
  context.window.UCVM_AFC.mount({panelId:'afc-panel'});
  assert.equal(firebaseReads,0);
 });
+
+test('Calendar and My History start in the timetable displayed academic year',()=>{
+ const nodes=new Map(),mounted=[];
+ const node=id=>{if(!nodes.has(id))nodes.set(id,{hidden:true,innerHTML:'',classList:{toggle(){}},setAttribute(){},focus(){},querySelectorAll:()=>[]});return nodes.get(id);};
+ const context={document:{getElementById:node,body:{children:[]},addEventListener(){}},UCVM_AFC:{mount(){}},UCVM_PAGE_DATA:{academicYear:()=> '2024-25'},PAWS_CHANGE_HISTORY:{mount:(_,options)=>{mounted.push(options);return {destroy(){}};}}};context.window=context;
+ vm.runInNewContext(read('afc-timetable-panel.js'),context);
+ node('cal-changes-btn').onclick();node('my-change-history-btn').onclick();
+ assert.deepEqual(mounted.map(o=>[o.scope,o.academicYear]),[['timetable','2024-25'],['mine','2024-25']]);
+});

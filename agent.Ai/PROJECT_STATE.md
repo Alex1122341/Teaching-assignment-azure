@@ -1,3 +1,7 @@
+## Current: AFC/CCC released; original Excel updated; human acceptance pending — 2026-10-17
+
+Read updates/2026-10-17-afc-ccc-released-excel-acceptance.md. PR115/main27d339b and exact-main CI39065616080 passed. SQL048/049, API27d339b/9eb2daf and Hosting are LIVE;79/79 public raw bytes match,91 school source files attested,28 protected tables/counts unchanged. New gates: AFC form=true, CCC stage=true, CCC commit=false; old24 unchanged. Fresh SQL540activities/540recovery/161CCC,0forms/stages/CCC receipts. Original Excel25checks=11pass/13open/1N/A; tasks12/14 updated. Open PR0; accepted-but-unreleased0. Real source/actual PDF/native picker/new live tab interaction, existing13checks and restart installation/reboot remain. Never replay540 or blindly apply048/049. Recovery config repinned/CheckOnly healthy, task NOT installed.
+
 ## Current: Task12/14 product accepted with review corrections; governance/release pending — 2026-10-17
 
 Read updates/2026-10-17-afc-ccc-product-and-governance.md. Product9eb2daf on feat/afc-form-ccc-replacement-20261017 implements AFC original uploads and whole-year CCC replacement; fullserver684pass/3skip, parser33, SQL39064333728 incl six observed races/rollback passed. Independent review Important fixed RED→GREEN, Minor existing target faculty GUID label deferred. Separate freeze promotion to9eb2daf/fullCI/PR/release/Excel pending. Live6b5e744/331a636/SQL047 unchanged; never replay540. CCC commit stays closed until approved complete source and exact preview. Existing approved runtime identity allowed.

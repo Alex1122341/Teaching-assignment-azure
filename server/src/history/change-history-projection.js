@@ -1,10 +1,11 @@
 'use strict';
+const {calgaryAcademicYear,validYear,yearOfDate,overlapsYear}=require('./history-year');
 
 // These are audit adapters, not a serializer for arbitrary audit JSON. All values
 // reaching a browser/export must pass a domain allowlist below.
 const PUBLIC_EVENTS=new Set(['session_updated','session_created','session_assignments_replaced','swap_applied','session_deleted']);
 const LOOKUP_EVENTS=new Set(['FacultyUpdated','FacultyDeactivated','FacultyRestored','role_periods_updated']);
-const AFC_EVENTS=new Set(['afc_form_uploaded','afc_record_created','afc_record_cancelled','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
+const AFC_EVENTS=new Set(['afc_form_uploaded','afc_form_linked','afc_record_created','afc_record_cancelled','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
 const DOE_ACTIONS=new Set(['draft_created','draft_updated','working_draft_created','published','archived']);
 const PRIVATE_DOE_ENTITIES=new Set(['doe_assignment','faculty_doe_target','manual_doe_assignment']);
 const WORK_EVENTS=new Set(['calendar_activity_import_committed','calendar_activity_import_recovered','calendar_activity_time_resolved','ccc_activity_added','ccc_activity_removed']);
@@ -91,10 +92,21 @@ function projectHistoryEvent(event,auth){
  if(typeof occurred!=='string'||!Number.isFinite(Date.parse(occurred)))return [];
  const courses=contextValues(before,after,context,'courseCode'),topics=contextValues(before,after,context,'topic');
  if(domain==='Working schedule')topics.push(...contextValues(before,after,context,'label'));
- const years=contextValues(before,after,context,'academicYear');if(typeof event.academicYear==='string')years.push(event.academicYear);
+ const yearEvidence=[get(before,'academicYear'),get(after,'academicYear'),get(context,'academicYear'),event.academicYear].filter(v=>v!==undefined&&v!==null);
+ const years=yearEvidence.every(validYear)?unique(yearEvidence):[];
+ const hasRecordedYear=yearEvidence.length>0,ranges=[];
+ if(!hasRecordedYear&&['AFC','Working schedule'].includes(domain))for(const snapshot of [before,after,context]){
+  const start=get(snapshot,'startDate')||get(snapshot,'date'),end=get(snapshot,'endDate')||get(snapshot,'date')||start;
+  if(yearOfDate(start)&&yearOfDate(end)&&start<=end)ranges.push([start,end]);
+ }
+ if(!hasRecordedYear&&domain==='Lookup')years.push(calgaryAcademicYear(occurred));
+ const startDate=get(after,'startDate')??get(after,'date')??get(after,'sessionDate')??get(before,'startDate')??get(before,'date')??get(before,'sessionDate')??get(context,'date')??get(context,'startDate')??null;
+ const endDate=get(after,'endDate')??get(after,'date')??get(after,'sessionDate')??get(before,'endDate')??get(before,'date')??get(before,'sessionDate')??get(context,'date')??get(context,'endDate')??startDate;
  const subjects=contextValues(before,after,context,'viscSubject');
  const base={eventId:String(event.eventId),changeDate:new Date(occurred).toISOString(),changeType:type,domain,course:courses.at(-1)||null,session:topics.at(-1)||null,academicYear:years.at(-1)||null,viscSubject:subjects.at(-1)||null,affectedFaculty:unique(people.map(p=>get(p,'sourceFacultyName')||get(p,'displayName')||get(p,'facultyDisplayName'))).join('; ')||null,status:scalar(get(after,'status')??get(context,'status')??'Recorded'),_courseValues:courses,_topicValues:topics,_facultyKeys:unique(people.map(p=>get(p,'facultyKey'))),_facultyOptions:people.filter(p=>get(p,'facultyKey')).map(p=>({key:get(p,'facultyKey'),name:get(p,'displayName')||get(p,'sourceFacultyName')||'Recorded faculty'})),_years:unique(years),_subjects:subjects};
- if(auth.admin&&typeof event.actorName==='string'&&event.actorName.trim())base.actor=event.actorName;
+ base._years=unique(years.filter(validYear));base._ranges=ranges;
+ Object.assign(base,{startDate,endDate,startTime:get(after,'startTime')??get(before,'startTime')??get(context,'startTime')??null,endTime:get(after,'endTime')??get(before,'endTime')??get(context,'endTime')??null});
+ if(typeof event.actorName==='string'&&event.actorName.trim()&&!/[@\x00-\x1f]|^[0-9a-f-]{32,36}$|^(?:uid|firebase)[:_-]/i.test(event.actorName)&&event.actorName.length<=260)base.actor=event.actorName.trim();
  base._facultyKeys=unique([...base._facultyKeys,...directory.map(p=>get(p,'facultyKey'))]);
  base._facultyOptions.push(...directory.filter(p=>get(p,'facultyKey')).map(p=>({key:get(p,'facultyKey'),name:(get(p,'displayName')||'Faculty name not recorded')+' (current directory)'})));
  if(recovered)base.status='Removed';
@@ -131,7 +143,7 @@ function projectHistoryEvent(event,auth){
    for(const [key,label] of Object.entries(FACULTY_FIELDS))add(label,get(before,key),get(after,key));
    for(const key of PROFILE_FIELDS)add(key,get(get(before,'professionalProfile'),key)??get(before,key),get(get(after,'professionalProfile'),key)??get(after,key));
   }
- }else if(type==='afc_form_uploaded'){for(const [key,label]of Object.entries({fileName:'Uploaded document',pageCount:'Pages',byteLength:'Bytes'}))add(label,undefined,get(after,key));}
+ }else if(type==='afc_form_uploaded'||type==='afc_form_linked'){for(const [key,label]of Object.entries({fileName:'Archived PDF',pageCount:'Pages',byteLength:'Bytes'}))add(label,undefined,get(after,key));}
  else if(domain==='AFC')for(const [key,label] of Object.entries(AFC_FIELDS))add(label,get(before,key),get(after,key));
  else{
   for(const key of ['revision','versionLabel','sourceReference','status'])add(key,get(before,key),get(after,key));
@@ -145,7 +157,17 @@ function projectHistoryEvent(event,auth){
 
 function filterHistoryRows(rows,filters){
  const contains=(values,needle)=>!needle||values.some(value=>String(value).toLocaleLowerCase('en-CA').includes(needle.toLocaleLowerCase('en-CA')));
- return rows.filter(row=>(!filters.domain||row.domain===filters.domain)&&(!filters.changeType||row.changeType===filters.changeType)&&contains(row._courseValues,filters.course)&&contains(row._topicValues,filters.topic)&&(!filters.academicYear||row._years.includes(filters.academicYear))&&(!filters.faculty||row._facultyKeys.includes(filters.faculty))&&(!filters.viscSubject||(filters.viscSubject==='__not_recorded__'?!row._subjects.length:contains(row._subjects,filters.viscSubject))));
+ const terms=String(filters.keyword||'').trim().toLocaleLowerCase('en-CA').split(/\s+/).filter(Boolean);
+ return rows.filter(row=>{
+  const haystack=[filters.academicYear,...Object.entries(publicHistoryRow(row)).filter(([key])=>key!=='rowId').map(([,value])=>value)].join(' ').toLocaleLowerCase('en-CA');
+  return (!filters.domain||row.domain===filters.domain)
+   &&(!filters.changeType||row.changeType===filters.changeType)
+   &&contains(row._courseValues,filters.course)&&contains(row._topicValues,filters.topic)
+   &&(!filters.academicYear||row._years.includes(filters.academicYear)||row._ranges?.some(([start,end])=>overlapsYear(start,end,filters.academicYear)))
+   &&(!filters.faculty||row._facultyKeys.includes(filters.faculty))
+   &&(!filters.viscSubject||(filters.viscSubject==='__not_recorded__'?!row._subjects.length:contains(row._subjects,filters.viscSubject)))
+   &&terms.every(term=>haystack.includes(term));
+ });
 }
-function publicHistoryRow(row){return Object.fromEntries(['rowId','changeDate','changeType','domain','course','session','academicYear','viscSubject','affectedFaculty','status','field','previousValue','updatedValue','actor'].filter(key=>row[key]!==undefined).map(key=>[key,row[key]]));}
+function publicHistoryRow(row){return Object.fromEntries(['rowId','changeDate','changeType','domain','course','session','academicYear','viscSubject','affectedFaculty','status','field','previousValue','updatedValue','startDate','endDate','startTime','endTime','actor'].filter(key=>row[key]!==undefined).map(key=>[key,row[key]]));}
 module.exports={projectHistoryEvent,filterHistoryRows,publicHistoryRow};

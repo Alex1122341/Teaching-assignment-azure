@@ -130,8 +130,9 @@ test('AFC row deletion confirms, cancels the exact version, and refreshes the ac
   const {element,cancellations}=await dashboard();
   element('afc-records-tab').listeners.click(); await new Promise(resolve=>setImmediate(resolve));
   assert.match(element('afc-records-body').innerHTML,/data-afc-cancel/);
+  assert.match(element('afc-records-body').innerHTML,/N\/A/,'optional original-PDF helper absence keeps the AFC list usable');
   assert.doesNotMatch(element('afc-records-body').innerHTML,/person-meta/);
-  await element('afc-records-body').listeners.click({target:{closest:()=>({dataset:{afcCancel:`manual:${ID}`}})}});
+  await element('afc-records-body').listeners.click({target:{closest:selector=>selector==='[data-afc-cancel]'?{dataset:{afcCancel:`manual:${ID}`}}:null}});
   assert.equal(cancellations.length,1);
   assert.equal(cancellations[0].id,ID);
   assert.equal(cancellations[0].expectedVersion,'00000000000000AB');
@@ -141,6 +142,6 @@ test('Rejecting the row deletion confirmation preserves the AFC record', async()
   const {element,cancellations}=await dashboard({confirm:false});
   element('afc-records-tab').listeners.click(); await new Promise(resolve=>setImmediate(resolve));
   assert.match(element('afc-records-body').innerHTML,/data-afc-cancel/);
-  await element('afc-records-body').listeners.click({target:{closest:()=>({dataset:{afcCancel:`manual:${ID}`}})}});
+  await element('afc-records-body').listeners.click({target:{closest:selector=>selector==='[data-afc-cancel]'?{dataset:{afcCancel:`manual:${ID}`}}:null}});
   assert.equal(cancellations.length,0);
 });

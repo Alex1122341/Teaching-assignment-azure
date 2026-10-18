@@ -170,7 +170,7 @@
     return Object.freeze({
       changeHistory(filters={}){
         const query=new URLSearchParams();
-        for(const key of ['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain'])if(typeof filters[key]==='string'&&filters[key])query.set(key,filters[key]);
+        for(const key of ['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain','keyword'])if(typeof filters[key]==='string'&&filters[key])query.set(key,filters[key]);
         return request('/api/v1/change-history?'+query.toString());
       },
       changeHistoryPage(snapshot,offset){return request('/api/v1/change-history/page?'+new URLSearchParams({snapshot:String(snapshot),offset:String(offset)}));},
@@ -518,6 +518,7 @@
       uploadAfcForm(input={}){return request('/api/v1/afc-forms',{method:'POST',body:pickFields(input,['facultyId','requestId','fileName','contentType','fileBase64'])});},
       getAfcFormDocument(id){return requestBinary('/api/v1/afc-forms/'+encodeURIComponent(String(id))+'/document');},
       cccReplacementCapabilities(){return request('/api/v1/ccc-replacements/capabilities');},
+      cccReplacementTemplate(){return request('/api/v1/ccc-replacements/template');},
       stageCccReplacement(input={}){return request('/api/v1/ccc-replacements',{method:'POST',body:pickFields(input,['requestId','sourceSha256','academicYear','dataset','fileName','fileBase64'])});},
       getCccReplacement(id){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id)));},
       previewCccReplacement(id,input={}){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id))+'/preview',{method:'POST',body:pickFields(input,['expectedVersion'])});},
@@ -539,7 +540,8 @@
           startDate:String(input.startDate??'').trim(),
           endDate:String(input.endDate??'').trim(),
           reasonCode:String(input.reasonCode??'').trim(),
-          notes:input.notes===undefined||input.notes===null?'':String(input.notes)
+          notes:input.notes===undefined||input.notes===null?'':String(input.notes),
+          ...(input.documentId?{documentId:String(input.documentId).trim()}:{})
         }});
         return body.afcRecord&&typeof body.afcRecord==='object'?body.afcRecord:{};
       },

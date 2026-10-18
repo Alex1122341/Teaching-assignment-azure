@@ -7,7 +7,8 @@ const fs = require('node:fs');
 const html = fs.readFileSync('faculty-admin.html', 'utf8');
 const source = fs.readFileSync('faculty-admin.js', 'utf8');
 const doeRenderer = fs.readFileSync('faculty-admin-doe-renderer.js', 'utf8');
-const profileSource = `${source}\n${doeRenderer}`;
+const afcRenderer = fs.readFileSync('faculty-admin-afc-records.js', 'utf8');
+const profileSource = `${source}\n${doeRenderer}\n${afcRenderer}`;
 const client = fs.readFileSync('paws-data-client.js', 'utf8');
 
 test('admin exposes the read-only parity tabs and gated Annual DOE Rule Book', () => {
@@ -30,6 +31,7 @@ test('admin exposes the read-only parity tabs and gated Annual DOE Rule Book', (
 });
 
 test('rich profile uses the API view model for DOE and year/course/session expansion', () => {
+  assert.match(source,/UCVM_AFC_RECORDS\.profileAfc/);
   assert.match(html, /dashboard-view-model\.js/);
   assert.match(profileSource, /groupTeachingAssignments\(/);
   const worksheet = fs.readFileSync('faculty-admin-doe-worksheet.js', 'utf8');

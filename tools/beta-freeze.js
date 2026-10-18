@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed AFC original upload and CCC replacement product is the immutable trust anchor.
+// Reviewed compact year history and record-linked original product is the immutable trust anchor.
 // Prior AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='9eb2dafea78674013a6c7fd894cdb1b6f2342c3f';
+const BASELINE_COMMIT='d7e4887cb413667fef0d992105148defb19f856c';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

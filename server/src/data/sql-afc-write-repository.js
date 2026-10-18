@@ -26,10 +26,11 @@ function createSqlAfcWriteRepository(db) {
       notes = null,
       actorFirebaseUid,
       actorName = null,
-      requestId
+      requestId,
+      documentId = null
     } = {}) {
       const rows = await db.query(
-        `EXEC ${CREATE_AFC_PROCEDURE}
+        `EXEC ${documentId?'paws_api.CreateAfcRecordWithDocument':CREATE_AFC_PROCEDURE}
           @AfcRecordId = @afcRecordId,
           @FacultyId = @facultyId,
           @StartDate = @startDate,
@@ -38,7 +39,7 @@ function createSqlAfcWriteRepository(db) {
           @Notes = @notes,
           @ActorFirebaseUid = @actorFirebaseUid,
           @ActorName = @actorName,
-          @RequestId = @requestId`,
+          @RequestId = @requestId${documentId?', @DocumentId = @documentId':''}`,
         {
           afcRecordId,
           facultyId,
@@ -48,7 +49,8 @@ function createSqlAfcWriteRepository(db) {
           notes,
           actorFirebaseUid,
           actorName,
-          requestId
+          requestId,
+          ...(documentId?{documentId}:{})
         }
       );
       return rows[0] || null;

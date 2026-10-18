@@ -14,12 +14,13 @@ test('keyword query passes the actual closed HTTP route and still rejects duplic
  assert.equal((await route(new Request('https://paws.invalid/api/v1/change-history?scope=timetable&keyword=a&keyword=b',{headers}))).status,400);
 });
 test('selected academic year excludes other years even when change dates coincide; keyword searches all matching rows before pagination',async()=>{
- const api=createChangeHistoryApi({verifyToken:async()=>({uid:'actor'}),findUser:async()=>({baseRole:'faculty',facultyId:F,active:true}),clock:()=>Date.parse('2026-10-18T01:00:00Z'),repository:{list:async()=>[...Array.from({length:250},(_,i)=>event(i)),event(999,'2025-26')]}});
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'actor'}),findUser:async()=>({baseRole:'faculty',facultyId:F,active:true}),clock:()=>Date.parse('2026-10-18T01:00:00Z'),repository:{list:async()=>[...Array.from({length:350},(_,i)=>event(i)),event(999,'2025-26')]}});
  const q=await api.query('token',{scope:'timetable',academicYear:'2026-27',keyword:'206 wet avery'});
- assert.equal(q.status,200);assert.equal(q.body.total,100);assert.ok(q.body.rows.every(r=>r.academicYear==='2026-27'&&r.updatedValue==='Anatomy Wet Lab'));
+ assert.equal(q.status,200);assert.equal(q.body.total,200);assert.equal(q.body.rows.length,100);assert.ok(q.body.rows.every(r=>r.academicYear==='2026-27'&&r.updatedValue==='Anatomy Wet Lab'));
+ const page=await api.page('token',{snapshot:q.body.snapshot,offset:100});assert.equal(page.status,200);assert.equal(page.body.rows.length,100);assert.ok(page.body.rows.every(r=>!q.body.rows.some(first=>first.rowId===r.rowId)));
  assert.equal(q.body.rows[0].actor,'Avery Admin');
- const exp=await api.export('token',{snapshot:q.body.snapshot,format:'csv'});assert.equal(exp.body.rowCount,100);const csv=Buffer.from(exp.body.fileBase64,'base64').toString();assert.match(csv,/Anatomy Wet Lab/);assert.doesNotMatch(csv,/2025-26/);
- const defaults=await api.query('token',{scope:'timetable'});assert.equal(defaults.body.filters.academicYear,'2026-27');assert.equal(defaults.body.total,250);
+ const exp=await api.export('token',{snapshot:q.body.snapshot,format:'csv'});assert.equal(exp.body.rowCount,200);const csv=Buffer.from(exp.body.fileBase64,'base64').toString();assert.match(csv,/Anatomy Wet Lab/);assert.doesNotMatch(csv,/2025-26/);
+ const defaults=await api.query('token',{scope:'timetable'});assert.equal(defaults.body.filters.academicYear,'2026-27');assert.equal(defaults.body.total,350);
 });
 test('AFC date ranges follow affected academic years rather than audit timestamp and retain zero/false values',()=>{
  const e={source:'audit',eventId:'afc',eventType:'afc_record_created',occurredAtUtc:'2026-10-17T12:00:00Z',afterJson:{facultyId:F,startDate:'2025-04-30',endDate:'2025-05-02',workDays:0,active:false}};

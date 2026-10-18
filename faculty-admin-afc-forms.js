@@ -35,5 +35,54 @@
   function clear(){generation++;openedUid='';read=false;enabled=false;busy=false;facultyId='';selected=null;key='';documents=[];cursor=null;message='';success=null;host.innerHTML='';}
   return Object.freeze({open,chooseFaculty,selectFile,upload,list,getDocument,clear});
  }
- return {createController};
+ const validId=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+ function documentAction(record){return validId(record?.documentId)?`<button class="btn btn-small" type="button" data-afc-document="${esc(record.documentId)}">Download PDF</button>`:'<span class="muted" title="No PDF original was archived for this record">N/A</span>';}
+ function createRecordAttachment({api,host,getUser,getFacultyId,randomUUID=()=>root.crypto.randomUUID()}){
+  let generation=0,openedUid='',enabled=false,busy=false,selected=null,key='',boundFaculty='',confirmed=null,message='',invalid=false;
+  const uid=()=>String(getUser()?.uid||''),current=(g,u,f)=>generation===g&&uid()===u&&String(getFacultyId()||'')===f;
+  const cancelled=()=>Object.assign(Error('The faculty or account changed. Review the AFC form again; any confirmed original remains in its faculty archive.'),{status:409,code:'AFC_CONTEXT_CHANGED'});
+  function render(){host.innerHTML=`<section class="afc-record-pdf"><label class="field"><span class="field-label">Archive original AFC PDF (optional)</span><input class="input" type="file" accept="application/pdf,.pdf" data-afc-record-pdf ${busy||!enabled||!getFacultyId()?'disabled':''}><span class="aux-note">PDF · up to 2MiB / 100 pages. Archived with the manual record; this is not an approval. Records without an original show N/A.</span></label>${selected?`<p>${esc(selected.name)} · ${Number(selected.size).toLocaleString()} bytes</p>`:''}${confirmed?`<p>Original archived: ${esc(confirmed.fileName)}. ${documentAction(confirmed)}<br><small>The AFC record is confirmed only after Create AFC Record succeeds.</small></p>`:''}<p role="status" aria-live="polite">${esc(message||(!enabled?'PDF upload access is unavailable. You may create an AFC record without a PDF.':''))}</p></section>`;const input=host.querySelector('[data-afc-record-pdf]');if(input)input.onchange=e=>selectFile(e.target.files?.[0]);}
+  async function open(){const u=uid();if(openedUid!==u)clear();if(busy)return;openedUid=u;const g=++generation;try{const caps=await api.afcFormCapabilities();if(g===generation&&uid()===u){enabled=caps.upload===true;render();}}catch(_){if(g===generation&&uid()===u){enabled=false;render();}}}
+  function facultyChanged(){generation++;busy=false;selected=null;key='';boundFaculty='';confirmed=null;message='';invalid=false;render();}
+  function selectFile(file){if(busy)return;generation++;selected=null;confirmed=null;key='';message='';invalid=false;boundFaculty=String(getFacultyId()||'');if(file){if(!enabled||!validId(boundFaculty)){invalid=true;message='Select the AFC faculty and verify PDF upload permission first.';}else if(typeof file.name!=='string'||file.name.length>180||!/^(?!\s)[^\\/:*?"<>|\x00-\x1f]+\.pdf$/i.test(file.name)||(file.type&&file.type!=='application/pdf')||file.size<1||file.size>2097152){invalid=true;message='Choose a PDF up to 2MiB.';}else{selected=file;key=randomUUID();}}render();}
+  async function prepare(facultyId){
+   if(invalid)throw Object.assign(Error(message),{status:400,code:'INVALID_DOCUMENT'});
+   if(!selected&&!confirmed)return null;
+   if(busy||openedUid!==uid()||facultyId!==boundFaculty||String(getFacultyId()||'')!==facultyId)throw cancelled();
+   if(confirmed)return confirmed.documentId;
+   if(!enabled)throw Object.assign(Error('PDF upload access is unavailable.'),{status:503,code:'WRITE_DISABLED'});
+   const g=generation,u=uid(),file=selected;busy=true;message='Archiving original PDF before creating the AFC record…';render();
+   try{const bytes=await file.arrayBuffer();if(!current(g,u,facultyId))throw cancelled();if(bytes.byteLength!==file.size||bytes.byteLength>2097152)throw Object.assign(Error('The PDF changed. Select it again.'),{status:400});
+    const r=await api.uploadAfcForm({requestId:key,facultyId,fileName:file.name,contentType:'application/pdf',fileBase64:base64(bytes)});if(!current(g,u,facultyId))throw cancelled();
+    if(!validId(r.document?.documentId)||r.document.facultyId?.toLowerCase()!==facultyId.toLowerCase()||r.document.fileName!==file.name||r.document.byteLength!==file.size)throw Error('Archive confirmation is incomplete. Retry the same original.');
+    confirmed=r.document;selected=null;message='PDF archived. Creating its AFC record…';return confirmed.documentId;
+   }catch(e){if(current(g,u,facultyId))message=(!Number(e.status)||e.status>=500)?'PDF archive status is unconfirmed. Retry with the same file/key; do not create a second upload.':e.message;throw e;}
+   finally{if(current(g,u,facultyId)){busy=false;render();}}
+  }
+  function clear(){generation++;openedUid='';enabled=false;busy=false;selected=null;key='';boundFaculty='';confirmed=null;message='';invalid=false;host.innerHTML='';}
+  return {open,selectFile,prepare,facultyChanged,clear};
+ }
+ function createDocumentDownloader({api,getUser,notify=()=>{},download=savePdf}){
+  const busy=new Set();return async id=>{if(!validId(id)||busy.has(id))return;const owner=String(getUser()?.uid||'');if(!owner)return;busy.add(id);try{const file=await api.getAfcFormDocument(id);if(String(getUser()?.uid||'')!==owner)return;download(file,id);notify('AFC PDF downloaded.');}catch(_){if(String(getUser()?.uid||'')===owner)notify('AFC PDF download is unavailable. Verify your current access.',true);}finally{busy.delete(id);}};
+ }
+ function createArchiveController({api,host,getUser,getFacultyId}){
+  let generation=0,documents=[],cursor=null,message='',busy=false;
+  function render(){host.innerHTML=`<div class="section-title">Archived AFC originals</div><div class="afc-wrap"><p class="aux-note">Original files archived for this faculty member. Unlinked originals may remain when record creation was not completed.</p>${documents.length?`<table class="data-table"><thead><tr><th>Document</th><th>Uploaded</th><th>PDF</th></tr></thead><tbody>${documents.map(d=>`<tr><td>${esc(d.fileName)}</td><td>${esc(String(d.createdAtUtc||'N/A').slice(0,10))}</td><td>${documentAction(d)}</td></tr>`).join('')}</tbody></table>`:'<p>No archived originals.</p>'}${cursor?'<button type="button" class="btn" data-afc-archive-more>Load more PDFs</button>':''}<p role="status">${esc(message)}</p></div>`;const more=host.querySelector('[data-afc-archive-more]');if(more){more.disabled=busy;more.onclick=()=>load(true);}}
+  async function load(more=false){
+   if(busy)return;
+   const g=++generation,u=String(getUser()?.uid||''),f=String(getFacultyId()||'');
+   if(!u||!validId(f)){clear();return;}
+   const current=()=>g===generation&&u===String(getUser()?.uid||'')&&f===String(getFacultyId()||'')&&host.isConnected!==false;
+   busy=true;
+   try{
+    const r=await api.listAfcForms({facultyId:f,limit:25,...(more&&cursor?{cursor}:{})});
+    if(!current())return;
+    documents=more?[...documents,...r.documents]:r.documents;cursor=r.nextCursor;message='';
+   }catch(_){if(current()){documents=[];cursor=null;message='Archived originals could not be loaded. Verify your current access.';}}
+   finally{if(g===generation){if(current()){busy=false;render();}else clear();}}
+  }
+  function clear(){generation++;documents=[];cursor=null;busy=false;host.innerHTML='';}
+  return {load,clear};
+ }
+ return {createController,createRecordAttachment,documentAction,createDocumentDownloader,createArchiveController};
 });

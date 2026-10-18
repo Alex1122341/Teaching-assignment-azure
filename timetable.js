@@ -394,6 +394,7 @@
   }
   window.UCVM_PAGE_DATA={
     profile:()=>pageProfile(),
+    academicYear:()=>viewMode==='list'?listAcademicYear:sqlAcademicYearForDate(ymd(weekStart(selectedWeek,selectedSemester))),
     faculty:()=>currentFacultyRecord,
     sessions:()=>pageSessions(),
     ensureSessionsForRange,

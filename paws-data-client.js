@@ -540,7 +540,8 @@
           startDate:String(input.startDate??'').trim(),
           endDate:String(input.endDate??'').trim(),
           reasonCode:String(input.reasonCode??'').trim(),
-          notes:input.notes===undefined||input.notes===null?'':String(input.notes)
+          notes:input.notes===undefined||input.notes===null?'':String(input.notes),
+          ...(input.documentId?{documentId:String(input.documentId).trim()}:{})
         }});
         return body.afcRecord&&typeof body.afcRecord==='object'?body.afcRecord:{};
       },

@@ -32,6 +32,10 @@ BEGIN TRY EXEC paws_api.ListAfcForms @ActorFirebaseUid=N'link-other',@FacultyId=
 DECLARE @Bad uniqueidentifier=NEWID(),@BadReq uniqueidentifier=NEWID();
 BEGIN TRY EXEC paws_api.CreateAfcRecordWithDocument @AfcRecordId=@Bad,@FacultyId=@Other,@StartDate='2026-11-01',@EndDate='2026-11-02',@ReasonCode=N'vacation',@Notes=NULL,@ActorFirebaseUid=N'link-admin',@ActorName=NULL,@RequestId=@BadReq,@DocumentId=@Doc;THROW 55090,'Cross-faculty document link allowed.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>55003 THROW;END CATCH;
 IF EXISTS(SELECT 1 FROM paws.AfcManualRecord WHERE AfcRecordId=@Bad) THROW 55090,'Failed link left an AFC.',1;
+SET @Bad=NEWID();SET @BadReq=NEWID();
+BEGIN TRY EXEC paws_api.CreateAfcRecordWithDocument @AfcRecordId=@Bad,@FacultyId=@F,@StartDate='2026-11-01',@EndDate='2026-11-02',@ReasonCode=N'vacation',@Notes=NULL,@ActorFirebaseUid=N'link-admin',@ActorName=NULL,@RequestId=@BadReq,@DocumentId=@Doc;THROW 55090,'Used document linked again.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>55003 THROW;END CATCH;
+IF EXISTS(SELECT 1 FROM paws.AfcManualRecord WHERE AfcRecordId=@Bad) THROW 55090,'Reused document left a new AFC.',1;
+INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,Active,MustChangePassword)VALUES(N'link-admin-two',N'admin2@example.test',N'Other Admin',N'owner',1,0);
 UPDATE paws.UserProfile SET FacultyId=@Other WHERE FirebaseUid=N'link-self';
 BEGIN TRY EXEC paws_api.GetAfcForm @ActorFirebaseUid=N'link-self',@DocumentId=@Doc;THROW 55090,'Relinked identity saw old original.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>54803 THROW;END CATCH;
 UPDATE paws.UserProfile SET FacultyId=@F,MustChangePassword=1 WHERE FirebaseUid=N'link-self';
@@ -39,6 +43,12 @@ BEGIN TRY EXEC paws_api.GetAfcForm @ActorFirebaseUid=N'link-self',@DocumentId=@D
 UPDATE paws.UserProfile SET MustChangePassword=0,Active=0 WHERE FirebaseUid=N'link-self';
 BEGIN TRY EXEC paws_api.ListAfcForms @ActorFirebaseUid=N'link-self',@FacultyId=@F;THROW 55090,'Inactive actor listed PDF.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>54801 THROW;END CATCH;
 UPDATE paws.UserProfile SET Active=1 WHERE FirebaseUid=N'link-self';
+UPDATE paws.Faculty SET Active=0 WHERE FacultyId=@F;
+BEGIN TRY EXEC paws_api.GetAfcForm @ActorFirebaseUid=N'link-self',@DocumentId=@Doc;THROW 55090,'Inactive faculty downloaded PDF.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>54801 THROW;END CATCH;
+UPDATE paws.Faculty SET Active=1 WHERE FacultyId=@F;
+UPDATE paws.UserProfile SET BaseRole=N'other_office' WHERE FirebaseUid=N'link-self';
+BEGIN TRY EXEC paws_api.ListAfcForms @ActorFirebaseUid=N'link-self',@FacultyId=@F;THROW 55090,'Revoked role listed PDF.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>54801 THROW;END CATCH;
+UPDATE paws.UserProfile SET BaseRole=N'faculty' WHERE FirebaseUid=N'link-self';
 EXECUTE AS USER=N'paws-calendar-test-runtime';
 BEGIN TRY SELECT PdfBytes FROM paws.AfcFormDocument;REVERT;THROW 55090,'Direct binary access allowed.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>229 BEGIN REVERT;THROW;END;END CATCH;REVERT;
 GO
@@ -49,6 +59,7 @@ DECLARE @F uniqueidentifier=(SELECT FacultyId FROM dbo.RecordDocumentTest),@Byte
 DECLARE @Upload TABLE(responseJson nvarchar(max));INSERT @Upload EXEC paws_api.UploadAfcForm @ActorFirebaseUid=N'link-admin',@FacultyId=@F,@RequestId=@Req,@FileName=N'Failure.pdf',@PdfBytes=@Bytes,@PdfSha256=@Hash,@PageCount=1;
 SET @Doc=TRY_CONVERT(uniqueidentifier,JSON_VALUE((SELECT TOP(1)responseJson FROM @Upload),'$.documentId'));
 DECLARE @Before int=(SELECT COUNT(*) FROM paws.AuditEvent);
+BEGIN TRY EXEC paws_api.CreateAfcRecordWithDocument @AfcRecordId=@Afc,@FacultyId=@F,@StartDate='2026-11-03',@EndDate='2026-11-04',@ReasonCode=N'vacation',@Notes=NULL,@ActorFirebaseUid=N'link-admin-two',@ActorName=NULL,@RequestId=@Req,@DocumentId=@Doc;THROW 55090,'Other uploader unlinked document accepted.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>55003 THROW;END CATCH;
 BEGIN TRY EXEC paws_api.CreateAfcRecordWithDocument @AfcRecordId=@Afc,@FacultyId=@F,@StartDate='2026-11-03',@EndDate='2026-11-04',@ReasonCode=N'vacation',@Notes=N'force-link-failure',@ActorFirebaseUid=N'link-admin',@ActorName=NULL,@RequestId=@Req,@DocumentId=@Doc;THROW 55090,'Link failure create succeeded.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>55098 THROW;END CATCH;
 IF EXISTS(SELECT 1 FROM paws.AfcManualRecord WHERE AfcRecordId=@Afc) OR EXISTS(SELECT 1 FROM paws.AfcRecordDocument WHERE DocumentId=@Doc) OR (SELECT COUNT(*) FROM paws.AuditEvent)<>@Before THROW 55090,'Atomic failure left record/link/audit.',1;
 IF NOT EXISTS(SELECT 1 FROM paws.AfcFormDocument WHERE DocumentId=@Doc) THROW 55090,'Failed creation deleted archived original.',1;

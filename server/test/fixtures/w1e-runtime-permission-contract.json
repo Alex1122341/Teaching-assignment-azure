@@ -166,6 +166,8 @@
     "paws_api.ListAfcForms",
     "paws_api.GetAfcForm"
   ],
+  "afcRecordDocumentReadObjects": ["paws.vAfcRecordOriginal"],
+  "afcRecordDocumentProcedures": ["paws_api.CreateAfcRecordWithDocument"],
   "cccReplacementProcedures": [
     "paws_api.StageCccReplacement",
     "paws_api.GetCccReplacement",

@@ -17,7 +17,7 @@
     if (!batch && $('afc-batch-submit')) $('afc-batch-submit').disabled = true;
     if ($('afc-batch-status')) $('afc-batch-status').textContent = batch ? '' : 'AFC batch creation is unavailable. Your administrator permissions must be verified by the server.';
   }
-  function createSingleActions({api,$,reasonLabels,normalizeDate,isBusy,setBusy,refreshRecords,refreshDashboard}) {
+  function createSingleActions({api,$,reasonLabels,normalizeDate,isBusy,setBusy,refreshRecords,refreshDashboard,attachment=null,getUser=null}) {
     let unconfirmed=false;
     function status(message,error=false) {
       const node=$('afc-form-status');if(!node)return;
@@ -39,29 +39,39 @@
     async function submit(event) {
       event?.preventDefault?.();if(isBusy()||unconfirmed)return;
       const input=values(),error=validate(input);if(error){status(error,true);return;}
+      const formSnapshot=JSON.stringify(input),owner=getUser?.()?.uid,current=()=>!getUser||getUser()?.uid===owner;
       const button=$('afc-submit');setBusy(true);if(button){button.disabled=true;button.textContent='Saving…';}
       status('Saving AFC record…');
+      let createSent=false;
       try {
+        const documentId=await attachment?.prepare(input.facultyId);
+        if(!current())return;
+        if(JSON.stringify(values())!==formSnapshot)throw Object.assign(Error('AFC fields changed. Review again; any archived PDF remains available.'),{status:409,code:'AFC_CONTEXT_CHANGED'});
+        if(documentId)input.documentId=documentId;
+        createSent=true;
         const created=await api.createDashboardAfcRecord(input);
+        if(!current())return;
         if(!created?.afcRecordId)throw Object.assign(Error('AFC save response incomplete.'),{code:'OUTCOME_UNCONFIRMED'});
         let confirmed=false;
-        for(let attempt=0;attempt<2&&!confirmed;attempt++)confirmed=(await refreshRecords())?.some(row=>String(row.afcRecordId)===String(created.afcRecordId));
+        for(let attempt=0;attempt<2&&!confirmed;attempt++)confirmed=(await refreshRecords())?.some(row=>String(row.afcRecordId)===String(created.afcRecordId)&&(!documentId||row.documentId===documentId));
+        if(!current())return;
         if(!confirmed)throw Object.assign(Error('AFC readback incomplete.'),{code:'OUTCOME_UNCONFIRMED'});
-        $('afc-record-form')?.reset();await refreshDashboard();status('AFC record created and confirmed in the AFC list.');
+        $('afc-record-form')?.reset();attachment?.clear?.();await attachment?.open?.();await refreshDashboard();status('AFC record created and confirmed in the AFC list.');
       } catch(error) {
-        unconfirmed=!(error?.code==='WRITE_DISABLED'&&Number(error.status)===503)&&(error?.code==='OUTCOME_UNCONFIRMED'||!Number(error?.status)||Number(error.status)>=500);
+        if(!current())return;
+        unconfirmed=createSent&&!(error?.code==='WRITE_DISABLED'&&Number(error.status)===503)&&(error?.code==='OUTCOME_UNCONFIRMED'||!Number(error?.status)||Number(error.status)>=500);
         status(unconfirmed?unconfirmedMessage:error?.message||'AFC record could not be created.',true);
       } finally {setBusy(false);if(button){button.disabled=unconfirmed||api.afcSingleWriteEnabled?.()!==true;button.textContent='Create AFC Record';}}
     }
     return {submit,isUnconfirmed:()=>unconfirmed};
   }
-  function renderRows(rows,{facultyName,canCancel:allowed=false,busy=()=>false}={}) {
+  function renderRows(rows,{facultyName,canCancel:allowed=false,busy=()=>false,renderPdf=()=>'<span class="muted">N/A</span>'}={}) {
     return rows.map(row => {
       const key = `${row.sourceKind}:${row.afcRecordId}`;
       const canCancel = allowed && row.active !== false && /^[0-9a-f]{16}$/i.test(row.versionToken || '');
       const action = canCancel ? `<button class="btn" type="button" data-afc-cancel="${esc(key)}" ${busy(key) ? 'disabled' : ''}>${busy(key) ? 'Deleting…' : 'Delete'}</button>` : row.active === false ? 'Archived' : 'Unavailable';
-      return `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(facultyName(row, 'Name unavailable'))}</button></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${row.active === false ? 'No' : 'Yes'}</td><td>${action}</td></tr>`;
-    }).join('') || '<tr><td colspan="8" class="empty">No AFC records match the current filters.</td></tr>';
+      return `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(facultyName(row, 'Name unavailable'))}</button></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${row.active === false ? 'No' : 'Yes'}</td><td>${renderPdf(row)}</td><td>${action}</td></tr>`;
+    }).join('') || '<tr><td colspan="9" class="empty">No AFC records match the current filters.</td></tr>';
   }
   function createActions({api,facultyName,canCancel,getRecords,render,refresh,refreshRecords,notify,confirm}) {
     const afcCancelInFlight=new Set();

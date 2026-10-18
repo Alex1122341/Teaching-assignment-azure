@@ -498,9 +498,11 @@ function createSqlDashboardRepository(db) {
              u.CreatedAtUtc AS createdAtUtc,
              u.CreatedByName AS createdByName,
              u.RecordKey AS recordKey,
-              u.VersionToken AS versionToken
+              u.VersionToken AS versionToken,
+              original.DocumentId AS documentId
          FROM paws.vAfcRecordUnified u
          INNER JOIN paws.Faculty f ON f.FacultyId = u.FacultyId
+         LEFT JOIN paws.vAfcRecordOriginal original ON u.SourceKind=N'manual' AND original.AfcRecordId=u.AfcRecordId AND original.FacultyId=u.FacultyId
          ${whereClause}
          ORDER BY u.StartDate DESC, f.DisplayName, u.AfcRecordId`,
         params
@@ -520,7 +522,7 @@ function createSqlDashboardRepository(db) {
         createdAtUtc: row.createdAtUtc || null,
         createdByName: toText(row.createdByName),
         recordKey: toText(row.recordKey),
-        versionToken: toText(row.versionToken)
+        versionToken: toText(row.versionToken),documentId:row.documentId||null
       }));
     },
 
@@ -648,8 +650,10 @@ function createSqlDashboardRepository(db) {
                a.SourceKind AS sourceKind,
                a.CreatedAtUtc AS createdAtUtc,
                a.CreatedByName AS createdByName,
-               a.RecordKey AS recordKey
+               a.RecordKey AS recordKey,
+               original.DocumentId AS documentId
            FROM paws.vAfcRecordUnified a
+           LEFT JOIN paws.vAfcRecordOriginal original ON a.SourceKind=N'manual' AND original.AfcRecordId=a.AfcRecordId AND original.FacultyId=a.FacultyId
            WHERE a.FacultyId = @facultyId
            ORDER BY a.StartDate DESC, a.AfcRecordId`,
           { facultyId }
@@ -909,7 +913,7 @@ function createSqlDashboardRepository(db) {
           sourceKind: toText(row.sourceKind),
           createdAtUtc: row.createdAtUtc || null,
           createdByName: toText(row.createdByName),
-          recordKey: toText(row.recordKey)
+          recordKey: toText(row.recordKey),documentId:row.documentId||null
         })),
         contractDoe: {
           academicYear: resolvedYear,

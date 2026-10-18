@@ -242,6 +242,8 @@ function normalizeAfcRecord(row = {}) {
 
 function mapAfcWriteError(caught) {
   const number = Number(caught && caught.number);
+  if(number===55001)return error(403,'ROLE_DENIED','Current administrator permission is required.');
+  if(number===55003)return error(409,'DOCUMENT_BINDING_CONFLICT','The archived PDF cannot be linked to this AFC record. Review its faculty and existing record binding.');
   const known = {
     51205: ['INVALID_DATE', 'AFC dates are required.'],
     51206: ['INVALID_DATE_RANGE', 'End date must be on or after start date.'],

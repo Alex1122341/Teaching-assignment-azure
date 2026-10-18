@@ -27,6 +27,13 @@
 .history-value-label{color:#69778a;font-size:10px}.history-field{display:block;font-size:11px}.history-from-to{display:flex;gap:4px;align-items:start}.history-from-to>span:not([aria-hidden]){min-width:0;flex:1}.history-value{display:inline}.history-preview{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.history-value[open] .history-preview{display:none}.history-expand-label{font-size:10px}.history-value:not([open]) .history-expand-label{display:none}.history-date-range{font-variant-numeric:tabular-nums}
 .paws-change-history td pre{font:12px/1.5 monospace;white-space:pre-wrap;word-break:break-word;max-height:250px;overflow:auto;margin:8px 0}
 .paws-change-history td summary{cursor:pointer;color:#1a609b}
+.history-from-to>span:not([aria-hidden]){display:flex;gap:4px;align-items:flex-start}
+.history-from-to .history-value-label{flex-shrink:0}
+.history-from-to .history-value{display:block;min-width:0;flex:1}
+.paws-change-history td .history-value summary{display:flex;gap:4px;align-items:flex-start}
+.history-value summary::before{content:'▸';flex-shrink:0}
+.history-value[open] summary::before{content:'▾'}
+.history-value summary .history-preview{min-width:0;flex:1}
 .history-paging{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin:14px 0}
 .faculty-history-dialog{width:min(1450px,calc(100vw - 56px));max-width:none;max-height:90vh;overflow:auto;border:1px solid #bfcbd8;border-radius:10px;padding:22px;box-shadow:0 20px 80px #172a4455}
 .faculty-history-dialog::backdrop{background:#16243c88}

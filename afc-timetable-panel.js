@@ -60,7 +60,7 @@
     if (view === 'history' || view === 'timetable-history') {
       title.textContent = view === 'history' ? 'My Change History' : 'Calendar Changes';
       content.innerHTML = '';
-      historyView = window.PAWS_CHANGE_HISTORY.mount(content, { api: window.UCVM_PAWS_DATA, scope: view === 'history' ? 'mine' : 'timetable' });
+      historyView = window.PAWS_CHANGE_HISTORY.mount(content, { api: window.UCVM_PAWS_DATA, scope: view === 'history' ? 'mine' : 'timetable',academicYear:window.UCVM_PAGE_DATA?.academicYear?.() });
     } else {
       title.textContent = 'AFC Request';
       const event = new Event('ucvm:afc-open');

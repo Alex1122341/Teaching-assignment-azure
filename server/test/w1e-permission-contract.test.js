@@ -34,10 +34,17 @@ test('W1E permission contract covers every SQL repository object and stored proc
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
     ...contract.calendarReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
     ...contract.schedulingReadProcedures,...Object.values(contract.schedulingWriteSets).flat(),
-    ...contract.afcFormProcedures,...contract.cccReplacementProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions
+    ...contract.afcFormProcedures,...contract.afcRecordDocumentProcedures,...contract.cccReplacementProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions
   ];
-  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects])].sort());
+  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects,...contract.afcRecordDocumentReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
+});
+
+test('record originals grant metadata view reads and one atomic command without raw PDF table access or runtime memberships',()=>{
+  const sql=fs.readFileSync(path.join(root,'database/azure-sql/050_afc_record_documents.sql'),'utf8');
+  assert.deepEqual([...sql.matchAll(/GRANT EXECUTE ON OBJECT::(\w+\.\w+) TO paws_runtime_afc_record_document/g)].map(m=>m[1]),contract.afcRecordDocumentProcedures);
+  assert.deepEqual([...sql.matchAll(/GRANT SELECT ON OBJECT::(\w+\.\w+) TO paws_runtime_read/g)].map(m=>m[1]),contract.afcRecordDocumentReadObjects);
+  assert.doesNotMatch(sql,/GRANT\s+SELECT[^;]*AfcFormDocument|ALTER\s+ROLE[^;]*ADD\s+MEMBER|GRANT\s+EXECUTE\s+ON\s+SCHEMA/i);
 });
 
 test('history read has one scoped entry point and private policy snapshots remain in existing trusted DOE roles',()=>{

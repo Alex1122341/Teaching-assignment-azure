@@ -15,4 +15,5 @@ if($CheckRollback){
  Invoke-TestSql "IF OBJECT_ID(N'staging.MasterRefresh') IS NOT NULL OR OBJECT_ID(N'paws.RoleAppointmentSchedule') IS NULL OR OBJECT_ID(N'paws.CalendarActivity') IS NULL THROW 55290,'MASTER rollback damaged prerequisites.',1;PRINT 'MASTER_EMPTY_ROLLBACK_OK';" 'VetMed-Ops'
 }else{
  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/052_master_source_refresh_acceptance.sql') -Raw) 'VetMed-Ops'
+ . (Join-Path $PSScriptRoot 'test-master-refresh-races.ps1') -ContainerName $ContainerName
 }

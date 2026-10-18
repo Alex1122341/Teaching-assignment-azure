@@ -10,7 +10,7 @@ INSERT paws.RoleAssignment(RoleAssignmentId,FacultyId,SourceFacultyName,FacultyR
 VALUES(@Existing,@Faculty,N'Example Master Faculty',N'resolved','2026-27',N'Assigned',N'VISC',N'Example Area',5,0,N'Explicit zero must survive',@Seed,2),
 (@Mismatch,@Faculty,N'Example Master Faculty',N'resolved','2026-27',N'Assigned',N'Designated Rotation Coordinator',N'Example Rotation',2,NULL,NULL,@Seed,3),
 (@Removed,@Faculty,N'Example Master Faculty',N'resolved','2026-27',N'Assigned',N'HICC',N'Old Course',6,NULL,NULL,@Seed,4);
-INSERT paws.RoleAppointmentSchedule VALUES(@Existing,N'[{"startDate":"2026-05-01","endDate":"2027-04-30"}]',SYSUTCDATETIME(),N'synthetic');
+INSERT paws.RoleAppointmentSchedule(RoleAssignmentId,PeriodsJson,UpdatedAtUtc,UpdatedByFirebaseUid) VALUES(@Existing,N'[{"startDate":"2026-05-01","endDate":"2027-04-30"}]',SYSUTCDATETIME(),N'synthetic');
 CREATE TABLE dbo.MasterTestContext(Seed uniqueidentifier,Faculty uniqueidentifier,ExistingRole uniqueidentifier,MismatchRole uniqueidentifier,RemovedRole uniqueidentifier,SourceJson nvarchar(max),PreviewJson nvarchar(max),RequestKey uniqueidentifier,ReceiptId uniqueidentifier NULL);
 DECLARE @Row nvarchar(max)=(SELECT @Faculty facultyId,N'Example Master Faculty' sourceName,N'VISC' roleType,N'Example Area' scope,CAST(0 AS decimal(12,6)) sourceDoe,
  JSON_QUERY(N'[{"startDate":"2026-05-01","endDate":"2026-08-31"},{"startDate":"2027-03-01","endDate":"2027-04-30"}]') periods,

@@ -1,9 +1,9 @@
 {
-  "sourceCommit": "d7e4887cb413667fef0d992105148defb19f856c",
+  "sourceCommit": "894090c5204f8df97671b0dc4588f661534bad32",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
-    "adfa-swap-panel.js": "81c8992ad727cfee4c1cde8fc8da2bcd93e5f08203a7ad0c80e40caacdafe6fa",
+    "adfa-swap-panel.js": "120927cea047721687da7131ed983cf92d65c2fcb0e1d2d53139088af73b7fad",
     "afc-actions.js": "5c30db70cb1e629e25ee569303e504ef788cb706b8832d303245bafbb47eb251",
     "afc-form-state.js": "e3dc3dce6d8f121a39759cbb3058817b4819bbe20e7d5d15ed1fd2c500a64ca5",
     "afc-form-values.js": "fb8c71531adbe583bed8bde562019840b982300b3aa38bfa8b10c34491c38efe",
@@ -68,7 +68,7 @@
     "scheduling-core.js": "d8e1321c42aa63c617668d86787d562fc1ba347ba8f5001c9671faf6b3e8ae3a",
     "session-guard.js": "fd8e2415ed80d1eac771246be1e4c78910ce5c1101ac2bd147e56b84e56af78e",
     "signature-capture.js": "3e3c2334c3c173a1eace4dcba189c216aa4a67bc107198dc9c9548f1888524bf",
-    "swap-workflow-sql.css": "ff7924b452169ced1d7c535beea464e259791495ebae5c60a839326cc3631475",
+    "swap-workflow-sql.css": "cf3e55658199335b85a420d4f1c8f81814dee3aa7e3e8709374f3e93956b0318",
     "swap-workflow-sql.js": "cac16c19d7656b763c813f6838463be8f330a9cf81c35971c679738124ccf0fa",
     "teaching-assignments.css": "54b0774aa7dd55add0b8c6876c148eb94b20a747a7e50506ebc2587d56d51f66",
     "teaching-assignments.html": "f051e0ec43e42946ca05d3dbec32ab3f5f0357c94b7d41e949fd390bad2946bc",

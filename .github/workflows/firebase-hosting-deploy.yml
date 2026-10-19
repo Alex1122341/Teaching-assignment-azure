@@ -11,6 +11,15 @@ on:
         description: Exact tested commit whose static artifact is released
         required: true
         type: string
+      static_only:
+        description: Explicit static-only release when the deployed API source is identical to the tested commit
+        required: false
+        type: boolean
+        default: false
+      expected_live_api_sha:
+        description: Exact current University API release SHA required for static-only releases
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -61,6 +70,32 @@ jobs:
           test "$(jq -r '.head_sha' <<< "$run_json")" = "$COMMIT_SHA"
           test "$(jq -r '.status' <<< "$run_json")" = "completed"
           test "$(jq -r '.conclusion' <<< "$run_json")" = "success"
+
+      - name: Attest unchanged University API for static-only release
+        if: ${{ inputs.static_only }}
+        shell: bash
+        env:
+          LIVE_API_SHA: ${{ inputs.expected_live_api_sha }}
+          TARGET_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$LIVE_API_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$LIVE_API_SHA^{commit}"
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$LIVE_API_SHA" "$TARGET_SHA"
+          node - <<'NODE'
+          'use strict';
+          const {execFileSync}=require('node:child_process');
+          const api=require('./tools/beta-api-freeze');
+          const root=process.cwd(),oldSha=process.env.LIVE_API_SHA,newSha=process.env.TARGET_SHA;
+          const original=api.baselineRuntimeFiles({root,baselineCommit:oldSha}).sort();
+          const proposed=api.baselineRuntimeFiles({root,baselineCommit:newSha}).sort();
+          if(JSON.stringify(original)!==JSON.stringify(proposed))throw Error('Protected API inventory changed');
+          const protectedApi=[...new Set([...original,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES])];
+          execFileSync('git',['diff','--quiet',oldSha,newSha,'--',...protectedApi],{cwd:root,stdio:'pipe'});
+          console.log('STATIC_ONLY_API_SOURCE_IDENTICAL: '+protectedApi.length+' paths');
+          NODE
 
       - name: Download exact tested artifact
         uses: actions/download-artifact@v8
@@ -113,6 +148,8 @@ jobs:
         env:
           API_ORIGIN: ${{ steps.source_identity.outputs.apiOrigin }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
+          STATIC_ONLY: ${{ inputs.static_only }}
+          EXPECTED_LIVE_API_SHA: ${{ inputs.expected_live_api_sha }}
         run: |
           set -euo pipefail
 
@@ -122,15 +159,24 @@ jobs:
 
           runtime_status="$(curl --silent --show-error --max-time 15 -o predeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
           test "$runtime_status" = "200"
-          jq -e --arg commit "$COMMIT_SHA" '
+          jq -e '
             .status == "ok" and
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
-            .releaseSha == $commit and
-            (.writeGates.doeAdmin == false) and
-            (.writeGates.doePolicyPublish == false) and
-            (.writeGates.doeRecalculate == false)
+            (.writeGates | type == "object")
           ' predeploy-runtime.json > /dev/null
+          if [ "$STATIC_ONLY" = "true" ]; then
+            jq -e --arg expected "$EXPECTED_LIVE_API_SHA" '.releaseSha == $expected' predeploy-runtime.json > /dev/null
+          else
+            jq -e --arg commit "$COMMIT_SHA" '
+              .releaseSha == $commit and
+              (.writeGates.doeAdmin == false) and
+              (.writeGates.doePolicyPublish == false) and
+              (.writeGates.doeRecalculate == false)
+            ' predeploy-runtime.json > /dev/null
+          fi
+          echo "apiReleaseSha=$(jq -r '.releaseSha' predeploy-runtime.json)" >> "$GITHUB_OUTPUT"
+          echo "gateHash=$(jq -cS '.writeGates' predeploy-runtime.json | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
           auth_status="$(curl --silent --show-error --max-time 15 -o /dev/null -w '%{http_code}' "$API_ORIGIN/api/v1/me" || true)"
           test "$auth_status" = "401"
@@ -228,6 +274,9 @@ jobs:
         env:
           API_ORIGIN: ${{ steps.source_identity.outputs.apiOrigin }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
+          STATIC_ONLY: ${{ inputs.static_only }}
+          PREFLIGHT_GATE_HASH: ${{ steps.predeploy_api.outputs.gateHash }}
+          PREFLIGHT_RELEASE_SHA: ${{ steps.predeploy_api.outputs.apiReleaseSha }}
         run: |
           set -euo pipefail
 
@@ -237,15 +286,22 @@ jobs:
 
           runtime_status="$(curl --silent --show-error --max-time 15 -o postdeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
           test "$runtime_status" = "200"
-          jq -e --arg commit "$COMMIT_SHA" '
+          jq -e --arg expected "$PREFLIGHT_RELEASE_SHA" '
             .status == "ok" and
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
-            .releaseSha == $commit and
-            (.writeGates.doeAdmin == false) and
-            (.writeGates.doePolicyPublish == false) and
-            (.writeGates.doeRecalculate == false)
+            .releaseSha == $expected and
+            (.writeGates | type == "object")
           ' postdeploy-runtime.json > /dev/null
+          if [ "$STATIC_ONLY" != "true" ]; then
+            jq -e --arg commit "$COMMIT_SHA" '
+              .releaseSha == $commit and
+              (.writeGates.doeAdmin == false) and
+              (.writeGates.doePolicyPublish == false) and
+              (.writeGates.doeRecalculate == false)
+            ' postdeploy-runtime.json > /dev/null
+          fi
+          test "$(jq -cS '.writeGates' postdeploy-runtime.json | sha256sum | cut -d ' ' -f 1)" = "$PREFLIGHT_GATE_HASH"
 
           echo 'apiPassed=true' >> "$GITHUB_OUTPUT"
 
@@ -260,6 +316,10 @@ jobs:
           PRE_CORS: ${{ steps.predeploy_cors.outputs.corsPassed == 'true' && 'true' || 'false' }}
           STATIC_HASHES: ${{ steps.static_verify.outputs.staticHashesPassed == 'true' && 'true' || 'false' }}
           POST_API: ${{ steps.postdeploy_api.outputs.apiPassed == 'true' && 'true' || 'false' }}
+          STATIC_ONLY: ${{ inputs.static_only }}
+          EXPECTED_LIVE_API_SHA: ${{ inputs.expected_live_api_sha }}
+          PREFLIGHT_API_SHA: ${{ steps.predeploy_api.outputs.apiReleaseSha }}
+          PREFLIGHT_GATE_HASH: ${{ steps.predeploy_api.outputs.gateHash }}
         run: |
           set -euo pipefail
           jq -n \
@@ -270,12 +330,16 @@ jobs:
             --arg deployRunNumber "$GITHUB_RUN_NUMBER" \
             --arg siteUrl "$FIREBASE_SITE_URL" \
             --arg apiOrigin "$API_ORIGIN" \
+            --arg staticOnly "$STATIC_ONLY" \
+            --arg expectedLiveApiSha "$EXPECTED_LIVE_API_SHA" \
+            --arg preflightApiSha "$PREFLIGHT_API_SHA" \
+            --arg preflightGateHash "$PREFLIGHT_GATE_HASH" \
             --arg deployedAtUtc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --argjson apiPre "$PRE_API" \
             --argjson corsPre "$PRE_CORS" \
             --argjson staticHashesPassed "$STATIC_HASHES" \
             --argjson apiPost "$POST_API" \
-            '{repository:$repository,commitSha:$commitSha,sourceRunId:$sourceRunId,deployRunId:$deployRunId,deployRunNumber:$deployRunNumber,siteUrl:$siteUrl,apiOrigin:$apiOrigin,apiPre:$apiPre,corsPre:$corsPre,staticHashesPassed:$staticHashesPassed,apiPost:$apiPost,deployedAtUtc:$deployedAtUtc}' \
+            '{repository:$repository,commitSha:$commitSha,sourceRunId:$sourceRunId,deployRunId:$deployRunId,deployRunNumber:$deployRunNumber,siteUrl:$siteUrl,apiOrigin:$apiOrigin,staticOnly:($staticOnly=="true"),expectedLiveApiSha:$expectedLiveApiSha,preflightApiSha:$preflightApiSha,preflightGateHash:$preflightGateHash,apiPre:$apiPre,corsPre:$corsPre,staticHashesPassed:$staticHashesPassed,apiPost:$apiPost,deployedAtUtc:$deployedAtUtc}' \
             > firebase-deploy-evidence.json
 
       - name: Upload Firebase deploy evidence

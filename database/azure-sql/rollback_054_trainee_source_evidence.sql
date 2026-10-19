@@ -2,7 +2,8 @@
 SET NOCOUNT ON;SET XACT_ABORT ON;
 IF DB_NAME()<>N'VetMed-Ops' OR OBJECT_ID(N'staging.TraineeSchemaBaseline') IS NULL THROW 55400,'Trainee baseline required.',1;
 BEGIN TRANSACTION;
-IF EXISTS(SELECT 1 FROM paws.TraineeSourceEvidence) OR EXISTS(SELECT 1 FROM staging.MasterRefresh WHERE Domain=N'trainees')
+IF OBJECT_ID(N'staging.TraineeEmptyResultBaseline') IS NOT NULL
+ OR EXISTS(SELECT 1 FROM paws.TraineeSourceEvidence) OR EXISTS(SELECT 1 FROM staging.MasterRefresh WHERE Domain=N'trainees')
  OR EXISTS(SELECT 1 FROM paws.MasterRefreshReceipt WHERE Domain=N'trainees')
  OR EXISTS(SELECT 1 FROM sys.database_role_members m JOIN sys.database_principals r ON r.principal_id=m.role_principal_id WHERE r.name=N'paws_runtime_trainee_read')
  OR EXISTS(SELECT 1 FROM staging.TraineeSchemaBaseline WHERE AfterSha256 IS NULL OR AfterSha256<>CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(N'paws_api.'+ObjectName))),2)) THROW 55408,'Trainee evidence, bindings or edited modules prevent rollback.',1;

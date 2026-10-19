@@ -76,13 +76,13 @@ INSERT @Result EXEC paws_api.ListTraineeSource N'trainee-self','2026-27',N'',NUL
 REVERT;SELECT @Response=responseJson FROM @Result;DELETE @Result;
 IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.rows'))<>1 OR JSON_VALUE(@Response,'$.rows[0].rawCounts[2]')<>N'53' OR TRY_CONVERT(decimal(12,6),JSON_VALUE(@Response,'$.rows[0].currentRawDoe'))<>2 OR TRY_CONVERT(decimal(12,6),JSON_VALUE(@Response,'$.rows[0].sourceDoe'))<>1 THROW 55490,'Self/guide/sourceDOE scope incorrect.',1;
 INSERT @Result EXEC paws_api.ListTraineeSource N'trainee-self','2026-27',N'Beta',NULL,N'faculty',@Self;
-IF JSON_QUERY((SELECT responseJson FROM @Result),'$.rows')<>N'[]' THROW 55490,'Search widened self scope.',1;DELETE @Result;
+IF COALESCE(JSON_QUERY((SELECT responseJson FROM @Result),'$.rows'),N'NULL')<>N'[]' THROW 55490,'Search must return an explicit empty self-scope array.',1;DELETE @Result;
 INSERT @Result EXEC paws_api.ListTraineeSource N'trainee-self','2026-27',N'[AB]',NULL,N'faculty',@Self;
-IF JSON_QUERY((SELECT responseJson FROM @Result),'$.rows')<>N'[]' THROW 55490,'Search interpreted literal brackets as a wildcard.',1;DELETE @Result;
+IF COALESCE(JSON_QUERY((SELECT responseJson FROM @Result),'$.rows'),N'NULL')<>N'[]' THROW 55490,'Literal bracket search must return an explicit empty array.',1;DELETE @Result;
 INSERT @Result EXEC paws_api.ListTraineeSource N'trainee-self','2025-26',N'',N'preceptor',N'faculty',@Self;
 IF JSON_VALUE((SELECT responseJson FROM @Result),'$.rows[0].rawCounts[2]')<>N'9' THROW 55490,'Trainee year isolation lost.',1;DELETE @Result;
 INSERT @Result EXEC paws_api.ListTraineeSource N'trainee-self','2026-27',N'',N'undergrad',N'faculty',@Self;
-IF JSON_QUERY((SELECT responseJson FROM @Result),'$.rows')<>N'[]' THROW 55490,'Category ignored source quantities.',1;DELETE @Result;
+IF COALESCE(JSON_QUERY((SELECT responseJson FROM @Result),'$.rows'),N'NULL')<>N'[]' THROW 55490,'Empty category must return an explicit array.',1;DELETE @Result;
 INSERT @Result EXEC paws_api.ListTraineeSource N'trainee-admin','2026-27',N'',NULL,N'owner',NULL;
 SELECT @Response=responseJson FROM @Result;DELETE @Result;
 IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.rows'))<>4 OR NOT EXISTS(SELECT 1 FROM OPENJSON(@Response,'$.rows') WHERE JSON_VALUE(value,'$.sourceStatus')=N'previous_source') OR EXISTS(SELECT 1 FROM OPENJSON(@Response,'$.rows') WHERE JSON_VALUE(value,'$.displayName')=N'Example Inactive') THROW 55490,'Previous-source or inactive scope incorrect.',1;

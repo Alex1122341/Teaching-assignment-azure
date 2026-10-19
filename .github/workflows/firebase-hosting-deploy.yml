@@ -11,6 +11,15 @@ on:
         description: Exact tested commit whose static artifact is released
         required: true
         type: string
+      static_only:
+        description: Explicit static-only release when the deployed API source is identical to the tested commit
+        required: false
+        type: boolean
+        default: false
+      expected_live_api_sha:
+        description: Exact current University API release SHA required for static-only releases
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -61,6 +70,32 @@ jobs:
           test "$(jq -r '.head_sha' <<< "$run_json")" = "$COMMIT_SHA"
           test "$(jq -r '.status' <<< "$run_json")" = "completed"
           test "$(jq -r '.conclusion' <<< "$run_json")" = "success"
+
+      - name: Attest unchanged University API for static-only release
+        if: ${{ inputs.static_only }}
+        shell: bash
+        env:
+          LIVE_API_SHA: ${{ inputs.expected_live_api_sha }}
+          TARGET_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$LIVE_API_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$LIVE_API_SHA^{commit}"
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$LIVE_API_SHA" "$TARGET_SHA"
+          node - <<'NODE'
+          'use strict';
+          const {execFileSync}=require('node:child_process');
+          const api=require('./tools/beta-api-freeze');
+          const root=process.cwd(),oldSha=process.env.LIVE_API_SHA,newSha=process.env.TARGET_SHA;
+          const original=api.baselineRuntimeFiles({root,baselineCommit:oldSha}).sort();
+          const proposed=api.baselineRuntimeFiles({root,baselineCommit:newSha}).sort();
+          if(JSON.stringify(original)!==JSON.stringify(proposed))throw Error('Protected API inventory changed');
+          const protectedApi=[...new Set([...original,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES])];
+          execFileSync('git',['diff','--quiet',oldSha,newSha,'--',...protectedApi],{cwd:root,stdio:'pipe'});
+          console.log('STATIC_ONLY_API_SOURCE_IDENTICAL: '+protectedApi.length+' paths');
+          NODE
 
       - name: Download exact tested artifact
         uses: actions/download-artifact@v8

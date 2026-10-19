@@ -32,3 +32,8 @@ test('CCC late preview cannot repopulate source state after logout and reopening
 test('CCC preview labels existing rows without database identifiers',async()=>{
  const source=batch();source.preview.targets[0].activityId=ID;const h=harness({source});await h.c.open();await h.c.selectFile(file);await h.c.stage();assert.doesNotMatch(h.host.innerHTML,new RegExp(ID));
 });
+test('trusted staged MASTER preview shows complete assigned and Locum rows with source cells',async()=>{
+ const source=batch();source.preview.formatVersion=2;source.preview.rows[0].staffingKind='assigned';source.preview.slotCounts={total:2,assigned:1,unassigned:1};source.preview.rows.push({sourceRow:3,staffingKind:'unassigned',staffingLabel:'Locum',blockLabel:'Example <Block>',sourceRef:{row:25,column:'D'},startDate:'2026-11-02',endDate:'2026-11-02',label:'CCC',issues:[]});
+ const h=harness({source});h.api.getCccReplacement=async()=>source;await h.c.open();await h.c.loadBatch(ID);
+ assert.match(h.host.innerHTML,/1 assigned/);assert.match(h.host.innerHTML,/1 unassigned/);assert.match(h.host.innerHTML,/Locum/);assert.match(h.host.innerHTML,/D25/);assert.match(h.host.innerHTML,/Example &lt;Block&gt;/);assert.doesNotMatch(h.host.innerHTML,/<Block>/);
+});

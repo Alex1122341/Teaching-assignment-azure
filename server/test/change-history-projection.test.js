@@ -4,6 +4,16 @@ const assert=require('node:assert/strict');
 const {projectHistoryEvent,filterHistoryRows,publicHistoryRow}=require('../src/history/change-history-projection');
 const A='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const auth={uid:'viewer',role:'faculty',facultyId:A,admin:false,scope:'timetable'};
+test('trainee refresh and recovery history is own/admin annual Lookup evidence, with no raw private notes',()=>{
+ for(const eventType of ['trainee_source_refreshed','trainee_source_recovered']){
+  const e={source:'audit',eventId:'trainee',eventType,entityType:'faculty',entityId:A,occurredAtUtc:'2026-10-19T12:00:00Z',actorName:'Example Admin',beforeJson:JSON.stringify({facultyId:A,displayName:'Recorded Faculty',academicYear:'2025-26',counts:[0,0,3,0,0,0,0],sourceDoe:1}),afterJson:JSON.stringify({facultyId:A,displayName:'Recorded Faculty',academicYear:'2025-26',counts:[0,null,4,0,0,0,0],sourceDoe:null,allocationStatus:'source_missing',privateNotes:'PRIVATE STUDENT',email:'private@example.test'}),metadataJson:'{"operatorLogin":"PRIVATE LOGIN"}'};
+  const rows=projectHistoryEvent(e,{...auth,scope:'dashboard'});assert.ok(rows.length>=3);assert.ok(rows.every(r=>r.domain==='Lookup'&&r.academicYear==='2025-26'&&r.affectedFaculty==='Recorded Faculty'));
+  assert.ok(rows.some(r=>r.field==='Fourth-year preceptor'&&r.updatedValue==='4'));
+  assert.doesNotMatch(JSON.stringify(rows.map(publicHistoryRow)),/PRIVATE|private@example/);
+  assert.equal(filterHistoryRows(rows,{academicYear:'2026-27'}).length,0);assert.equal(filterHistoryRows(rows,{academicYear:'2025-26'}).length,rows.length);
+  assert.equal(projectHistoryEvent(e,{...auth,scope:'dashboard',facultyId:B}).length,0);assert.ok(projectHistoryEvent(e,{...auth,scope:'dashboard',facultyId:B,admin:true}).length);assert.equal(projectHistoryEvent(e,{...auth,scope:'timetable',admin:true}).length,0);
+ }
+});
 test('uploaded AFC document history is admin-only safe metadata, never PDF bytes or approval',()=>{
  const e={eventId:'upload',occurredAtUtc:'2026-10-17T12:00:00Z',source:'audit',eventType:'afc_form_uploaded',entityType:'afc_form',entityId:B,afterJson:JSON.stringify({facultyId:A,fileName:'Form.pdf',pageCount:2,byteLength:200,pdfBytes:'SECRET',status:'approved'})};
  const rows=projectHistoryEvent(e,{...auth,scope:'dashboard',admin:true});assert.ok(rows.length);assert.match(JSON.stringify(rows),/Form.pdf/);assert.doesNotMatch(JSON.stringify(rows),/SECRET|approved/);assert.equal(projectHistoryEvent(e,{...auth,scope:'dashboard'}).length,0);

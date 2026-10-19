@@ -10,7 +10,7 @@ test('staging binds source data without interpolating names or actor identity in
  assert.equal(sent.sql.includes('DROP TABLE'),false);assert.equal(sent.params.ActorFirebaseUid,'verified-actor');assert.deepEqual(JSON.parse(sent.params.RowsJson),rows);
 });
 test('list binds sanitized candidate keys and stable range cursor as values',async()=>{
- let sent;const body={activities:[{activityId:ID,facultyKey:ID,facultyDisplayName:'Synthetic Faculty',category:'ccc',label:'CCC Day',startDate:'2026-11-05',endDate:'2026-11-06',courseCode:null,timeEvidence:[],timeStatus:'not_provided',version:'0000000000000001'}],nextCursor:null};
+ let sent;const body={activities:[{activityId:ID,facultyKey:ID,facultyDisplayName:'Synthetic Faculty',category:'ccc',label:'CCC Day',startDate:'2026-11-05',endDate:'2026-11-06',courseCode:null,timeEvidence:[],timeStatus:'not_provided',staffingKind:'assigned',staffingLabel:null,blockLabel:null,version:'0000000000000001'}],nextCursor:null};
  const repo=createSqlCalendarActivityRepository({query:async(sql,params)=>{sent={sql,params};return[{responseJson:JSON.stringify(body)}];}});
  const result=await repo.list({actorFirebaseUid:'verified-faculty',start:'2026-11-01',end:'2026-12-01',facultyKey:ID,category:'ccc',cursor:'2026-11-05|'+ID,limit:100});
  assert.deepEqual(result,body);assert.equal(sent.params.EndExclusive,'2026-12-01');assert.equal(sent.params.FacultyKey,ID);assert.equal(sent.params.Cursor,'2026-11-05|'+ID);assert.equal(sent.sql.includes(ID),false);

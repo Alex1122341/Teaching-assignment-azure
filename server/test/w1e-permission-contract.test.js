@@ -34,9 +34,9 @@ test('W1E permission contract covers every SQL repository object and stored proc
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
     ...contract.calendarReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
     ...contract.schedulingReadProcedures,...Object.values(contract.schedulingWriteSets).flat(),
-    ...contract.afcFormProcedures,...contract.afcRecordDocumentProcedures,...contract.cccReplacementProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions
+    ...contract.afcFormProcedures,...contract.afcRecordDocumentProcedures,...contract.cccReplacementProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions,...contract.masterRefreshTrustedProcedures,...contract.traineeReadProcedures
   ];
-  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects,...contract.afcRecordDocumentReadObjects])].sort());
+  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects,...contract.afcRecordDocumentReadObjects,...contract.masterRefreshReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
 });
 
@@ -156,4 +156,17 @@ test('P4 permissions are VetMed-Ops guarded, use separate empty operation roles,
   }
   assert.match(p4Migration, /DOE write roles must remain empty/i);
   assert.doesNotMatch(p4Migration, /CREATE\\s+USER\\s+\\[|ALTER\\s+ROLE[\\s\\S]*ADD\\s+MEMBER|GRANT\\s+CONTROL/i);
+});
+
+
+test('MASTER source writes stay in the empty trusted operator role and trainee runtime has only scoped EXEC',()=>{
+ const master=fs.readFileSync(path.join(root,'database/azure-sql/052_master_source_refresh.sql'),'utf8');
+ const ccc=fs.readFileSync(path.join(root,'database/azure-sql/053_ccc_master_slots.sql'),'utf8');
+ const trainee=fs.readFileSync(path.join(root,'database/azure-sql/054_trainee_source_evidence.sql'),'utf8');
+ assert.deepEqual([...master.matchAll(/GRANT SELECT ON OBJECT::([\w.]+) TO paws_runtime_read/g)].map(m=>m[1]),contract.masterRefreshReadObjects);
+ assert.deepEqual([...trainee.matchAll(/GRANT EXECUTE ON OBJECT::([\w.]+) TO paws_runtime_trainee_read/g)].map(m=>m[1]),contract.traineeReadProcedures);
+ for(const sql of [master,ccc,trainee])assert.doesNotMatch(sql,/ALTER ROLE[^;]*ADD MEMBER|GRANT[^;]*ON SCHEMA/i);
+ assert.doesNotMatch(trainee,/GRANT SELECT[^;]*TO paws_runtime/i);
+ assert.doesNotMatch(master,/GRANT EXECUTE[^;]*MasterRefresh[^;]*TO paws_runtime/i);
+ assert.doesNotMatch(ccc,/GRANT EXECUTE[^;]*StageMasterCccReplacement[^;]*TO paws_runtime/i);
 });

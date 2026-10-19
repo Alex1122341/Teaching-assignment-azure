@@ -393,7 +393,8 @@ function calculateRoleRule(role = {}, inputs = {}) {
 function resolveRoleDoe(role = {}, inputs = {}) {
   const mapped = number(role.doeMappedValue);
   const override = number(role.doeOverrideValue);
-  const calculation = calculateRoleRule(role, inputs);
+  const calculation = role.sourceAllocationStatus === 'source_missing' && mapped === null && override === null
+    ? review('source-allocation-missing') : calculateRoleRule(role, inputs);
   const calculated = calculation.calculatedDoe;
   const stored = override !== null ? override : mapped;
   const hasTemporalWindow = Boolean(text(role.effectiveDate) || text(role.expirationDate));

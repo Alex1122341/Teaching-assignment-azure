@@ -42,6 +42,12 @@ function getRaw(port, path, options = {}) {
     req.end();
   });
 }
+test('authorized trainee CSV export preserves exact bytes through the loopback adapter',async t=>{
+ const bytes=Buffer.from('\uFEFFAcademic year,Faculty\r\n2026-27,Example\r\n','utf8');
+ const server=createUniversityHttpServer({runtime:async()=>({status:200,body:bytes,headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="trainees-2026-27.csv"','Cache-Control':'private, no-store'}}),env:{...TEST_RUNTIME_IDENTITY}});
+ t.after(()=>server.close());const port=await listen(server);const result=await getRaw(port,'/api/v1/dashboard/trainees/export?academicYear=2026-27',{headers:{authorization:'Bearer synthetic'}});
+ assert.equal(result.status,200);assert.deepEqual(result.body,bytes);assert.match(result.headers['cache-control'],/no-store/);assert.match(result.headers['content-type'],/text\/csv/);
+});
 
 test('loopback adapter preserves runtime route response and Firebase bearer header', async t => {
   const calls = [];

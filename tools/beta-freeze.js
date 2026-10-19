@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed ADFA SWAP DOE columns product is the immutable trust anchor.
+// Reviewed MASTER refresh product is the immutable trust anchor.
 // Prior AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='894090c5204f8df97671b0dc4588f661534bad32';
+const BASELINE_COMMIT='b5d33762f3544faa94e47d4b7feaf380f0e8a864';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

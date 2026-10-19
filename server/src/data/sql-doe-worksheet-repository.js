@@ -96,6 +96,8 @@ function createSqlDoeWorksheetRepository(db) {
       db.query(
         `SELECT r.RoleAssignmentId AS roleAssignmentId, r.FacultyId AS facultyId,
                 r.RoleType AS roleType, r.CourseOrSubjectOrRotation AS scopeText,
+                (SELECT e.AllocationStatus FROM paws.vMasterRoleFacts e WHERE e.RoleAssignmentId=r.RoleAssignmentId) AS sourceAllocationStatus,
+                (SELECT e.Units units,e.Weeks weeks,e.SubjectCount subjectCount,e.UniqueRotationTypes uniqueRotationTypes,e.Shifts shifts,e.HalfDayDeduction halfDayDeduction FROM paws.vMasterRoleFacts e WHERE e.RoleAssignmentId=r.RoleAssignmentId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER) sourceFactsJson,
                 r.DoeMappedValue AS doeMappedValue, r.DoeOverrideValue AS doeOverrideValue,
                 r.DoeOverrideReason AS doeOverrideReason, r.SpecialNotes AS specialNotes,
                 r.EffectiveDate AS effectiveDate, r.ExpirationDate AS expirationDate,
@@ -206,7 +208,7 @@ function createSqlDoeWorksheetRepository(db) {
       pushLine(row.facultyId, {
       lineId: text(row.roleAssignmentId), sourceEntityType: 'legacy_role_assignment',
       sourceEntityId: text(row.roleAssignmentId), category: 'role', roleType: text(row.roleType),
-      scopeText: text(row.scopeText), facts: { sourceDetails: text(row.details) },
+      scopeText: text(row.scopeText), facts: { ...parseObject(row.sourceFactsJson), sourceDetails: text(row.details), sourceAllocationStatus: text(row.sourceAllocationStatus) },
       legacyResultDoe: number(row.doeOverrideValue) ?? number(row.doeMappedValue), notes: text(row.specialNotes),
       ...resolved,
       ...(accepted ? { status: 'annual_exception', requiresReview: false, reviewReason: null, errorCode: null,

@@ -21,7 +21,7 @@ function bearer(request) {
   return header && /^Bearer /i.test(header) ? header.slice(7) : '';
 }
 
-function createDashboardFunctions({ api }) {
+function createDashboardFunctions({ api,traineeApi }) {
   return async request => {
     try {
       const url = new URL(request.url);
@@ -29,6 +29,14 @@ function createDashboardFunctions({ api }) {
 
       if (!pathname.startsWith(DASHBOARD_PREFIX.replace(/\/$/, ''))) {
         return { status: 404, jsonBody: { error: { code: 'NOT_FOUND', message: 'Route not found.' } } };
+      }
+      if(pathname==='/api/v1/dashboard/trainees'||pathname==='/api/v1/dashboard/trainees/export'){
+        const headers={'Cache-Control':'private, no-store'};
+        if(request.method!=='GET')return{status:405,headers:{...headers,Allow:'GET'},jsonBody:{error:{code:'METHOD_NOT_ALLOWED',message:'GET required.'}}};
+        if([...url.searchParams.keys()].some(k=>url.searchParams.getAll(k).length!==1))return{status:400,headers,jsonBody:{error:{code:'INVALID_TRAINEE_FILTER',message:'Duplicate filters are not supported.'}}};
+        if(!traineeApi)return{status:503,headers,jsonBody:{error:{code:'TRAINEE_UNAVAILABLE',message:'Trainee records are temporarily unavailable.'}}};
+        const exporting=pathname.endsWith('/export'),result=await traineeApi[exporting?'export':'list'](bearer(request),Object.fromEntries(url.searchParams));
+        return{status:result.status,headers:{...headers,...result.headers},...(Buffer.isBuffer(result.body)?{body:result.body}:{jsonBody:result.body})};
       }
 
       const isAfcRecords = pathname === '/api/v1/dashboard/afc-records';

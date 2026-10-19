@@ -28,6 +28,7 @@
   const workView = window.PAWS_CALENDAR_ACTIVITIES?.createFacultySchedule({getHost:()=>$('faculty-working-activities'),getUser:()=>currentUser,getSelected:()=>selectedId,isSelf:()=>selfMode});
   let auth = null;
   let historyView = null;
+  const traineesEntry=window.UCVM_ASSETS?.createTraineeEntry({host:$('trainees-view'),api:UCVM_PAWS_DATA,getUser:()=>currentUser,getAcademicYear:currentAcademicYear,isAdministrator:dashboardAdmin});
   function closeHistory(){historyView?.destroy();historyView=null;if($('faculty-history-dialog')?.open)$('faculty-history-dialog').close();}
   function openHistory(){
     if(!currentUser||!window.PAWS_CHANGE_HISTORY)return;
@@ -211,14 +212,16 @@
   function updateAfcWriteControls() { window.UCVM_AFC_RECORDS.updateWriteControls(UCVM_PAWS_DATA, $, afcSubmitInFlight, afcSingleActions.isUnconfirmed()); }
 
   function selectTab(tabName) {
-    if (selfMode) return;
+    if (selfMode&&!['lookup','trainees'].includes(tabName)) return;
+    if(activeTab!==tabName)traineesEntry?.clear();
     activeTab = tabName || 'lookup';
     document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.tab === activeTab));
-    ['lookup', 'summary', 'roles', 'doe-overview', 'doe-list', 'doe-rules', 'afc-records'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
+    ['lookup', 'summary', 'roles', 'doe-overview', 'doe-list', 'doe-rules', 'afc-records','trainees'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
     renderActiveTab();
   }
 
   function renderActiveTab() {
+    if(activeTab==='trainees')return traineesEntry?.open();
     if (activeTab === 'summary') return loadTeachingSummary();
     if (activeTab === 'roles') return loadRoles();
     if (activeTab === 'doe-overview') return loadDoeOverview();
@@ -524,6 +527,7 @@
     try{const ref=new URL(document.referrer||'',location.href);return ref.origin===location.origin&&(ref.pathname.endsWith('/')||ref.pathname.endsWith('/index.html'))}catch(_){return false}
   }
   function returnToTimetable(){
+    traineesEntry?.clear();
     if(cameFromTimetable()&&history.length>1){history.back();return}
     location.href='index.html';
   }
@@ -594,12 +598,12 @@
     canRecalculate: () => !selfMode && dashboardGeneral(currentUser) && UCVM_PAWS_DATA.doeRecalculateEnabled?.() === true
   });
   doePolicyView?.mount($('doe-rules-content'));
-  function installSelfModeStyles() { if ($('faculty-self-mode-style')) return; const style = document.createElement('style'); style.id = 'faculty-self-mode-style'; style.textContent = 'body.faculty-self-mode .tabs,body.faculty-self-mode .kpis,body.faculty-self-mode .summary-source-banner,body.faculty-self-mode #lookup-view > .toolbar,body.faculty-self-mode .result-pane,body.faculty-self-mode #sync-status{display:none!important}body.faculty-self-mode .lookup-grid{display:block;min-height:0}body.faculty-self-mode .profile-pane{width:100%;min-width:0;padding:18px}'; document.head.appendChild(style); }
-  function lock(message) { afcForms?.clear();facultyArchive?.clear();cccReplace?.clear();closeHistory();if($('faculty-history-btn'))$('faculty-history-btn').disabled=true;$('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
+  function installSelfModeStyles() { if ($('faculty-self-mode-style')) return; const style = document.createElement('style'); style.id = 'faculty-self-mode-style'; style.textContent = 'body.faculty-self-mode .tabs .tab:not([data-tab="lookup"]):not([data-tab="trainees"]),body.faculty-self-mode .tabs a,body.faculty-self-mode .kpis,body.faculty-self-mode .summary-source-banner,body.faculty-self-mode #lookup-view > .toolbar,body.faculty-self-mode .result-pane,body.faculty-self-mode #sync-status{display:none!important}body.faculty-self-mode .lookup-grid{display:block;min-height:0}body.faculty-self-mode .profile-pane{width:100%;min-width:0;padding:18px}'; document.head.appendChild(style); }
+  function lock(message) { traineesEntry?.clear(); afcForms?.clear();facultyArchive?.clear();cccReplace?.clear();closeHistory();if($('faculty-history-btn'))$('faculty-history-btn').disabled=true;$('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
   function unlock() { if($('faculty-history-btn'))$('faculty-history-btn').disabled=false;$('auth-gate').classList.add('hidden'); }
   function debounce(fn, wait = 160) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; }
 
   $('gate-back').onclick = $('back-btn').onclick = returnToTimetable;
-  $('signout-btn').onclick = async () => { if (auth) await auth.signOut(); location.href = 'index.html'; };
+  $('signout-btn').onclick = async () => { traineesEntry?.clear(); if (auth) await auth.signOut(); location.href = 'index.html'; };
   init();
 })();

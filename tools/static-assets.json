@@ -28,6 +28,8 @@
   "faculty-admin.css",
   "faculty-admin-afc-batch.js",
   "faculty-admin.html",
+  "faculty-admin-trainees.js",
+  "faculty-admin-trainees.css",
   "faculty-admin.js",
   "faculty-admin-management.js",
   "faculty-admin-doe-renderer.js",

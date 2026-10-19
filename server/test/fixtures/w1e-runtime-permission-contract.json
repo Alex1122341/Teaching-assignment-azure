@@ -166,12 +166,30 @@
     "paws_api.ListAfcForms",
     "paws_api.GetAfcForm"
   ],
-  "afcRecordDocumentReadObjects": ["paws.vAfcRecordOriginal"],
-  "afcRecordDocumentProcedures": ["paws_api.CreateAfcRecordWithDocument"],
+  "afcRecordDocumentReadObjects": [
+    "paws.vAfcRecordOriginal"
+  ],
+  "afcRecordDocumentProcedures": [
+    "paws_api.CreateAfcRecordWithDocument"
+  ],
   "cccReplacementProcedures": [
     "paws_api.StageCccReplacement",
     "paws_api.GetCccReplacement",
     "paws_api.PreviewCccReplacement",
     "paws_api.CommitCccReplacement"
+  ],
+  "masterRefreshReadObjects": [
+    "paws.vMasterRoleFacts"
+  ],
+  "masterRefreshTrustedProcedures": [
+    "paws_api.MasterRefreshSnapshot",
+    "paws_api.PreviewMasterRefresh",
+    "paws_api.CommitMasterRefresh",
+    "paws_api.RecoverMasterRefresh",
+    "paws_api.StageMasterCccReplacement",
+    "paws_api.RecoverCccReplacement"
+  ],
+  "traineeReadProcedures": [
+    "paws_api.ListTraineeSource"
   ]
 }

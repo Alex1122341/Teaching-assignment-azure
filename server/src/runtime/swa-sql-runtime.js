@@ -20,6 +20,8 @@ const { createSwapApi } = require('../swap/swap-api');
 const { createSqlSwapRepository } = require('../data/sql-swap-repository');
 const { createSwapFunctions } = require('./swa-swap-functions');
 const { createDashboardFunctions } = require('./swa-dashboard-functions');
+const { createTraineeApi } = require('../trainees/trainee-api');
+const { createSqlTraineeRepository } = require('../data/sql-trainee-repository');
 const { createAfcRequestFunctions } = require('./swa-afc-request-functions');
 const { createSwaAfcArtifactFunctions } = require('./swa-afc-artifact-functions');
 const { createFirebaseVerifier } = require('../auth/firebase-admin');
@@ -108,6 +110,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     writeGates
   }) });
   const dashboardRoutes = createDashboardFunctions({
+    traineeApi:createTraineeApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlTraineeRepository(db)}),
     api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: { ...afcWrite, ...facultyAdminWrite }, writeGates })
   });
   const afcRequestApi = createAfcRequestApi({

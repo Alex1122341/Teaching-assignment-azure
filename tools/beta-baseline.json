@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "b5d33762f3544faa94e47d4b7feaf380f0e8a864",
+  "sourceCommit": "846858a242cf2a96b0257822ac22d8ab6a770c94",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -25,7 +25,7 @@
     "calendar-activities.js": "ae6f0f9baac5caa235c78205066f2bd2a07111cc5cf04184c4c2a24b161fe9b7",
     "change-history.css": "920d4a2846bffa5ccaaf46f6281ede549a94f7b56b87aa6bb91ca80f4aed3410",
     "change-history.js": "4f0b781299358456d63021445222401ea18d8476de2352b782081e47efc40011",
-    "dashboard-view-model.js": "742b81419eeca591c3a35a439e9964febc42c398d683f25700fb77d226492b43",
+    "dashboard-view-model.js": "a5053b05b2af89f7653a486af268a03c4daa0f91418dbad80b43ce75747c7163",
     "data-index.js": "f13a995cb9056769881270f60db8cdbdbadc15b5e123460fe42a027eaa95a80f",
     "derived-index-health.js": "2b73be0fbda68e91c06971bc848f7ca0a3d9407363e295cc6cf3d41c8846b3f6",
     "developer-support.js": "fa6a5f3072a1d981e2261c510563e182b019a203c93126e84f3d347d863da2cf",
@@ -50,7 +50,7 @@
     "faculty-admin-trainees.js": "d8b7dd181e3fb2f45d97f92cb6a11dd0b4f63382cb3ca63f646de67f6b86e06f",
     "faculty-admin.css": "1cb9cbb5bc9ff3014122f2efeb9e4f34f266790578ac932dcad346294eed224d",
     "faculty-admin.html": "dc7c3546ae8208deb18ba0c18f24fe692c1565f33f58a4797c268c957ee82b23",
-    "faculty-admin.js": "5db1c50933d59cc79b77578bde06b71326c43720f6d83a417d830549ca7c836a",
+    "faculty-admin.js": "f4f0ead21a3a55de91a6c057d91032623eaa7e982916974b851c01244e84aa0a",
     "faculty-doe.js": "9eed9943a21bf57bedbaf1020230e1e69ec25ca05117f8d0201c50f68afcf4c1",
     "faculty-name.js": "85d22a5b28365b7017d4e77cc5f78f8a16ed7e3a1332e36aecc65590e36bbc03",
     "faculty-role-periods.js": "b4dee985428629d7f09b1434b3269ad219b05d2d3be39fc38512a4c297bb3f80",

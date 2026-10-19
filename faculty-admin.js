@@ -54,6 +54,8 @@
   let activeTab = 'lookup';
   let afcRecords = [];
   let afcLoaded = false;
+  let lookupMetrics = null;
+  let lookupMetricsGeneration = 0;
   let afcSubmitInFlight = false;
   const afcActions = window.UCVM_AFC_RECORDS.createActions({
     api: UCVM_PAWS_DATA, facultyName,
@@ -107,7 +109,9 @@
       updateAfcWriteControls();
       if ($('faculty-status-filter')) $('faculty-status-filter').value = facultyStatus;
       afcLoaded = false;
+      lookupMetrics = null;
       updateFilters(); populateAfcFacultyOptions(); updateKpis(); updateStatus(); renderActiveTab();
+      void loadLookupMetrics();
       pawsTimingLog('summary+faculty', started);
     } catch (error) { console.error(error); markDashboardUnavailable(dashboardAuthFailureMessage(error)); }
   }
@@ -318,12 +322,19 @@
   function updateStatus() { const summary = dashboardSummary || {}, show = key => present(summary[key]) ? summary[key] : '—'; const status = $('sync-status'); if (status) status.textContent = `Faculty ${faculty.length} · sessions ${show('sessionCount')} · assignments ${show('assignmentCount')} · roles ${show('roleAssignmentCount')} · HICC ${show('hiccCount')} · VISC ${show('viscCount')} · AFC ${show('afcRecordCount')} · check needed ${show('checkNeededCount')}`; const note = $('summary-load-note'); if (note) note.textContent = `VetMed-Ops summary · academic year ${summary.academicYear || 'current'}`; }
   function updateKpis() { const summary = dashboardSummary || {}; const set = (id, key) => { const node = $(id); if (node) node.textContent = present(summary[key]) ? String(summary[key]) : '—'; }; [['kpi-total', 'activeFacultyCount'], ['kpi-sessions', 'sessionCount'], ['kpi-assignments', 'assignmentCount'], ['kpi-courses', 'courseCount'], ['kpi-roles', 'roleAssignmentCount'], ['kpi-hicc', 'hiccCount'], ['kpi-visc', 'viscCount'], ['kpi-afc', 'afcRecordCount'], ['kpi-grid', 'gridPositionableCount'], ['kpi-check', 'checkNeededCount']].forEach(([id, key]) => set(id, key)); }
 
+  async function loadLookupMetrics() {
+    if(selfMode||!dashboardAdmin(currentUser)||!UCVM_PAWS_DATA.doeWorksheets||!UCVM_PAWS_DATA.dashboardAfcRecords)return;
+    const g=++lookupMetricsGeneration, data=await VIEW.fetchLookupMetrics(UCVM_PAWS_DATA,currentAcademicYear());
+    if(g!==lookupMetricsGeneration||selfMode)return;
+    lookupMetrics=data;
+    if(activeTab==='lookup')renderLookup();
+  }
   function renderLookup(focusId) {
     const active = document.activeElement;
     const focusFacultyId = typeof focusId === 'string' ? focusId : active?.matches?.('.person-select') ? active.closest('.person-row')?.dataset.id : null;
     const rows = filteredLookup(); const count = $('result-count'); if (count) count.textContent = rows.length;
     if (selectedId && !rows.some(row => row.__id === selectedId)) selectedId = null;
-    const list = $('result-list'); if (list) list.innerHTML = rows.map(row => `<div class="person-row ${row.__id === selectedId ? 'active' : ''}" data-id="${esc(row.__id)}"><button type="button" class="person-select" aria-pressed="${row.__id === selectedId}"><span class="person-name">${esc(row.preferredFullName || row.__id)}${row.active === false ? ' <span class="faculty-inactive-badge">Inactive</span>' : ''}</span><span class="person-meta">${esc(row.rank)}${row.teachingArea ? ' · ' + esc(row.teachingArea) : ''}</span><span class="person-meta">${display(row.sessionCount)} sessions · ${display(row.roleCount)} roles · ${display(row.afcCount)} AFC</span></button>${facultyManagement.editAction(row.facultyId)}</div>`).join('') || '<div class="empty">No matching faculty.</div>';
+    const list = $('result-list'); if (list) list.innerHTML = rows.map(row => `<div class="person-row ${row.__id === selectedId ? 'active' : ''}" data-id="${esc(row.__id)}"><button type="button" class="person-select" aria-pressed="${row.__id === selectedId}"><span class="person-name">${esc(row.preferredFullName || row.__id)}${row.active === false ? ' <span class="faculty-inactive-badge">Inactive</span>' : ''}</span><span class="person-meta">${esc(row.rank)}${row.teachingArea ? ' · ' + esc(row.teachingArea) : ''}</span><span class="person-meta">${esc(display(row.sessionCount)+' sessions · '+display(row.roleCount)+' roles · '+VIEW.lookupMetricsText(row.facultyId,lookupMetrics))}</span></button>${facultyManagement.editAction(row.facultyId)}</div>`).join('') || '<div class="empty">No matching faculty.</div>';
     document.querySelectorAll('.person-select').forEach(node => on(node, 'click', event => { selectedId = node.closest('.person-row').dataset.id; selectedDetail = null; ++detailLoadToken; renderLookup(event.detail === 0 || document.activeElement === node ? selectedId : undefined); }));
     if (focusFacultyId) {
       const focusedRow = [...document.querySelectorAll('#result-list .person-row')].find(node => node.dataset.id === focusFacultyId);

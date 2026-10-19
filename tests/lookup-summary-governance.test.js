@@ -1,0 +1,47 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const path=require('node:path');
+const {execFileSync}=require('node:child_process');
+const root=path.resolve(__dirname,'..');
+const freeze=require('../tools/beta-freeze');
+const api=require('../tools/beta-api-freeze');
+const report=require('../tools/beta-baseline.json');
+const PREVIOUS='b5d33762f3544faa94e47d4b7feaf380f0e8a864';
+const PRODUCT='846858a242cf2a96b0257822ac22d8ab6a770c94';
+const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
+test('Lookup AFC/Leave/DOE governance pins only the reviewed two-file static delta',()=>{
+  assert.equal(freeze.BASELINE_COMMIT,PRODUCT);
+  assert.equal(api.BASELINE_COMMIT,PRODUCT);
+  assert.equal(report.sourceCommit,PRODUCT);
+  git('merge-base','--is-ancestor',PREVIOUS,PRODUCT);
+  git('merge-base','--is-ancestor',PRODUCT,'HEAD');
+  const manifest=commit=>JSON.parse(git('show',commit+':tools/static-assets.json')).sort();
+  const before=manifest(PREVIOUS),after=manifest(PRODUCT);
+  assert.equal(before.length,81);
+  assert.deepEqual(after,before);
+  const oldApi=api.baselineRuntimeFiles({root,baselineCommit:PREVIOUS});
+  const newApi=api.baselineRuntimeFiles({root,baselineCommit:PRODUCT});
+  assert.deepEqual(newApi,oldApi);
+  const protectedApi=[...new Set([...newApi,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES])];
+  const changed=git('diff','--name-only',PREVIOUS,PRODUCT).split(/\r?\n/);
+  const allowed=['dashboard-view-model.js','faculty-admin.js'];
+  assert.deepEqual(changed.filter(p=>after.includes(p)).sort(),allowed);
+  assert.deepEqual(changed.filter(p=>protectedApi.includes(p)),[]);
+  for(const file of before.filter(p=>!allowed.includes(p))) {
+    assert.equal(freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS,file}),
+      freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})
+    ),true,file);
+  }
+  for(const file of protectedApi) {
+    assert.equal(freeze.bytesMatch(
+      freeze.readBaselineFile({root,baselineCommit:PREVIOUS,file}),
+      freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})
+    ),true,file);
+  }
+  assert.deepEqual(Object.keys(report.sha256).sort(),after);
+  for(const file of after)assert.equal(report.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
+  assert.deepEqual(freeze.verifyFreeze({root}).drift,[]);
+  assert.deepEqual(api.verifyFreeze({root}).drift,[]);
+});

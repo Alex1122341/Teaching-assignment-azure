@@ -190,5 +190,70 @@ function formatDoe(value) {
   return parsed === null ? 'DOE unavailable' : `${parsed.toFixed(2)}%`;
 }
 
-  return { groupTeachingAssignments, teachingDoeEvidence, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear };
+
+function campusToday(now = new Date()) {
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now).map(part=>[part.type,part.value]));
+  return parts.year+'-'+parts.month+'-'+parts.day;
+}
+function lookupUpcomingAfc(records, today = campusToday()) {
+  let upcomingCount=0, currentLeaveEnd=null, nextLeaveStart=null;
+  const leaveType = record => {
+    const code=text(record.reasonCode).toLowerCase();
+    if (['rsl','mat','medical'].includes(code)) return true;
+    const label=[record.legacyPurpose,record.purpose,record.reason].map(text).join(' ').toLowerCase();
+    return /(^|[^a-z])(rsl|leave|medical|maternity|maternal|parental|sabbatical)([^a-z]|$)/i.test(label);
+  };
+  for (const row of Array.isArray(records) ? records : []) {
+    if (row?.active === false) continue;
+    const start=text(row?.startDate), end=text(row?.endDate);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end<start) continue;
+    if (start>today) upcomingCount++;
+    if (!leaveType(row) || end<today) continue;
+    if (start<=today) {
+      if (currentLeaveEnd === null || end>currentLeaveEnd) currentLeaveEnd=end;
+    } else if (nextLeaveStart === null || start<nextLeaveStart) nextLeaveStart=start;
+  }
+  return {upcomingCount,currentLeaveEnd,nextLeaveStart};
+}
+function lookupRemainingDoe(worksheet) {
+  const remaining=number(worksheet?.remainingDoe);
+  if (worksheet?.status!=='calculated'||remaining===null) return 'Needs Review';
+  const value=remaining.toFixed(2)+'%';
+  return remaining<0 ? value+' (over)' : value;
+}
+
+
+async function fetchLookupMetrics(api, academicYear) {
+  const [afc,doe]=await Promise.allSettled([
+    api.dashboardAfcRecords({active:true,limit:2000}),
+    academicYear ? api.doeWorksheets({academicYear}) : Promise.resolve([])
+  ]);
+  const afcByFaculty=new Map(),doeByFaculty=new Map();
+  if (afc.status==='fulfilled' && Array.isArray(afc.value)) {
+    for (const record of afc.value) {
+      const id=text(record?.facultyId).toLowerCase();
+      if (!id) continue;
+      if (!afcByFaculty.has(id)) afcByFaculty.set(id,[]);
+      afcByFaculty.get(id).push(record);
+    }
+  }
+  if (doe.status==='fulfilled' && Array.isArray(doe.value)) {
+    for (const record of doe.value) {
+      const id=text(record?.facultyId).toLowerCase();
+      if (id) doeByFaculty.set(id,record);
+    }
+  }
+  return {afcByFaculty,doeByFaculty,afcAvailable:afc.status==='fulfilled'&&Array.isArray(afc.value),doeAvailable:doe.status==='fulfilled'&&Array.isArray(doe.value)};
+}
+function lookupMetricsText(facultyId,metrics,today=campusToday()) {
+  if (!metrics) return 'Upcoming AFC: loading · Remaining DOE: loading';
+  const id=text(facultyId).toLowerCase();
+  const info=metrics.afcAvailable ? lookupUpcomingAfc(metrics.afcByFaculty.get(id)||[],today) : null;
+  const leave=info?.currentLeaveEnd ? ' · Leave ends: '+info.currentLeaveEnd : info?.nextLeaveStart ? ' · Leave starts: '+info.nextLeaveStart : '';
+  const count=info ? info.upcomingCount : 'Unavailable';
+  const remaining=metrics.doeAvailable ? lookupRemainingDoe(metrics.doeByFaculty.get(id)) : 'Unavailable';
+  return count+' upcoming AFC'+leave+' · Remaining DOE: '+remaining;
+}
+
+  return { groupTeachingAssignments, teachingDoeEvidence, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear, campusToday, lookupUpcomingAfc, lookupRemainingDoe, fetchLookupMetrics, lookupMetricsText };
 });

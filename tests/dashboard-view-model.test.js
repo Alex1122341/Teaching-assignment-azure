@@ -109,3 +109,103 @@ test('DOE formatting makes missing values explicit and keeps zero visible', () =
   assert.equal(formatDoe(-0.5), '-0.50%');
   assert.equal(formatDoe(1.25), '1.25%');
 });
+
+
+test('Lookup uses the Calgary date (including the UTC day boundary)', () => {
+  const { campusToday } = require('../dashboard-view-model');
+  assert.equal(campusToday(new Date('2026-10-19T05:30:00Z')), '2026-10-18');
+  assert.equal(campusToday(new Date('2026-10-19T07:30:00Z')), '2026-10-19');
+});
+
+test('Lookup counts only active future AFC and shows end of an ongoing leave', () => {
+  const { lookupUpcomingAfc } = require('../dashboard-view-model');
+  const result = lookupUpcomingAfc([
+    { startDate: '2026-10-16', endDate: '2026-10-18', purpose: 'Vacation', active: true },
+    { startDate: '2026-10-20', endDate: '2026-10-21', purpose: 'Vacation', active: true },
+    { startDate: '2026-11-02', endDate: '2026-11-04', legacyPurpose: 'University Travel', active: true },
+    { startDate: '2026-10-10', endDate: '2026-10-30', legacyPurpose: 'RSL', active: true },
+    { startDate: '2026-10-01', endDate: '2026-10-26', reasonCode: 'mat', active: false },
+    { startDate: '2026-11-09', endDate: '2026-12-01', purpose: 'Study Leave', active: true },
+    { startDate: '2026-10-27', endDate: '2026-10-29', purpose: 'Vacation/Other', active: false },
+    { startDate: '', endDate: '2026-11-01', purpose: 'Vacation', active: true },
+    { startDate: '2026-11-05', endDate: '2026-11-04', purpose: 'Vacation', active: true }
+  ], '2026-10-19');
+  assert.deepEqual(result, {
+    upcomingCount: 3, currentLeaveEnd: '2026-10-30', nextLeaveStart: '2026-11-09'
+  });
+});
+
+test('Lookup shows the next leave start only when not currently on leave', () => {
+  const { lookupUpcomingAfc } = require('../dashboard-view-model');
+  const rows = [
+    { startDate: '2026-10-10', endDate: '2026-10-18', reasonCode: 'rsl', active: true },
+    { startDate: '2026-11-10', endDate: '2026-11-20', legacyPurpose: 'Maternity Leave', active: true },
+    { startDate: '2026-10-28', endDate: '2026-10-30', reasonCode: 'medical', active: true },
+    { startDate: '2026-10-25', endDate: '2026-10-27', legacyPurpose: 'Vacation/University Travel', active: true }
+  ];
+  assert.deepEqual(lookupUpcomingAfc(rows, '2026-10-19'), {
+    upcomingCount: 3, currentLeaveEnd: null, nextLeaveStart: '2026-10-28'
+  });
+  assert.deepEqual(lookupUpcomingAfc([], '2026-10-19'), {
+    upcomingCount: 0, currentLeaveEnd: null, nextLeaveStart: null
+  });
+});
+
+test('Lookup DOE uses only authoritative calculated Worksheet remaining, including zero and overage', () => {
+  const { lookupRemainingDoe } = require('../dashboard-view-model');
+  assert.equal(lookupRemainingDoe({ status: 'calculated', remainingDoe: 0 }), '0.00%');
+  assert.equal(lookupRemainingDoe({ status: 'calculated', remainingDoe: 4.5 }), '4.50%');
+  assert.equal(lookupRemainingDoe({ status: 'calculated', remainingDoe: -3 }), '-3.00% (over)');
+  assert.equal(lookupRemainingDoe({ status: 'needs_review', remainingDoe: 4.5 }), 'Needs Review');
+  assert.equal(lookupRemainingDoe({ status: 'calculated', remainingDoe: null }), 'Needs Review');
+  assert.equal(lookupRemainingDoe(), 'Needs Review');
+});
+
+
+test('Lookup ignores generic Special AFC as Leave without explicit leave source', () => {
+  const { lookupUpcomingAfc } = require('../dashboard-view-model');
+  assert.deepEqual(lookupUpcomingAfc([
+    { startDate:'2026-10-01',endDate:'2026-11-02',reasonCode:'special',reason:'Special',active:true },
+    { startDate:'2026-10-05',endDate:'2026-11-07',reasonCode:'other',reason:'Sabbatical Leave',active:true }
+  ],'2026-10-19'),{upcomingCount:0,currentLeaveEnd:'2026-11-07',nextLeaveStart:null});
+});
+
+test('Lookup scoped metrics consume existing AFC and DOE reads without exposing leave reasons', async () => {
+  const { fetchLookupMetrics, lookupMetricsText } = require('../dashboard-view-model');
+  const api={
+    async dashboardAfcRecords(options){
+      assert.deepEqual(options,{active:true,limit:2000});
+      return [
+        { facultyId:'FAC-A',startDate:'2026-10-21',endDate:'2026-10-22',purpose:'Vacation',active:true },
+        { facultyId:'FAC-A',startDate:'2026-10-10',endDate:'2026-10-30',reasonCode:'rsl',active:true },
+        { facultyId:'FAC-B',startDate:'2026-10-18',endDate:'2026-10-18',purpose:'Vacation',active:true }
+      ];
+    },
+    async doeWorksheets(options){
+      assert.deepEqual(options,{academicYear:'2026-27'});
+      return [
+        {facultyId:'FAC-A',status:'calculated',remainingDoe:3.2},
+        {facultyId:'FAC-B',status:'needs_review',remainingDoe:20}
+      ];
+    }
+  };
+  const metrics=await fetchLookupMetrics(api,'2026-27');
+  const summary=lookupMetricsText('fac-a',metrics,'2026-10-19');
+  assert.match(summary,/1 upcoming AFC/);
+  assert.match(summary,/Leave ends: 2026-10-30/);
+  assert.match(summary,/Remaining DOE: 3.20%/);
+  assert.doesNotMatch(summary,/RSL|reasonCode|Vacation|purpose/);
+  assert.match(lookupMetricsText('fac-b',metrics,'2026-10-19'),/0 upcoming AFC.*Needs Review/);
+  assert.match(lookupMetricsText('missing',metrics,'2026-10-19'),/0 upcoming AFC.*Needs Review/);
+});
+
+test('Lookup leaves failed AFC or DOE reads unavailable rather than claiming zero', async () => {
+  const { fetchLookupMetrics, lookupMetricsText } = require('../dashboard-view-model');
+  const result=await fetchLookupMetrics({
+    async dashboardAfcRecords(){throw new Error('AFC read failed');},
+    async doeWorksheets(){throw new Error('DOE read failed');}
+  },'2026-27');
+  assert.equal(result.afcAvailable,false);
+  assert.equal(result.doeAvailable,false);
+  assert.match(lookupMetricsText('faculty',result),/Unavailable upcoming AFC.*Remaining DOE: Unavailable/);
+});

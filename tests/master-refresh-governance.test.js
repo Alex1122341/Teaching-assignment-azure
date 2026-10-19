@@ -3,7 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PRODUCT='b5d33762f3544faa94e47d4b7feaf380f0e8a864',PREVIOUS='894090c5204f8df97671b0dc4588f661534bad32';
 test('MASTER refresh pins its reviewed product with additive static/API protection and exact runtime delta',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+ const published=execFileSync('git',['show','6bc6a640986e2aebf4b3084cde43addedd8a9593:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});
+ assert.ok(published.includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ execFileSync('git',['merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT],{cwd:root});
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);
  execFileSync('git',['merge-base','--is-ancestor',PREVIOUS,PRODUCT],{cwd:root});
  const manifest=ref=>JSON.parse(execFileSync('git',['show',ref+':tools/static-assets.json'],{cwd:root,encoding:'utf8'})).sort(),before=manifest(PREVIOUS),after=manifest(PRODUCT);
  assert.equal(before.length,79);assert.equal(after.length,81);assert.deepEqual(before.filter(f=>!after.includes(f)),[]);assert.deepEqual(after.filter(f=>!before.includes(f)),['faculty-admin-trainees.css','faculty-admin-trainees.js']);
@@ -15,6 +18,7 @@ test('MASTER refresh pins its reviewed product with additive static/API protecti
  const apiDelta=['server/src/calendar/ccc-replacement-api.js','server/src/data/sql-calendar-activity-repository.js','server/src/data/sql-ccc-replacement-repository.js','server/src/data/sql-dashboard-repository.js','server/src/data/sql-doe-worksheet-repository.js','server/src/data/sql-master-refresh-repository.js','server/src/data/sql-trainee-repository.js','server/src/doe/doe-recorded-source-impact.js','server/src/domain/doe-calculator.js','server/src/history/change-history-projection.js','server/src/master-refresh/master-doe-aggregate.js','server/src/master-refresh/master-doe-reconciliation.js','server/src/master-refresh/master-refresh-service.js','server/src/master-refresh/master-source-domain.js','server/src/runtime/swa-dashboard-functions.js','server/src/runtime/swa-sql-runtime.js','server/src/runtime/university-http-server.js','server/src/trainees/trainee-api.js','server/src/trainees/trainee-service.js'];
  assert.deepEqual(changed.filter(f=>after.includes(f)).sort(),staticDelta.sort());assert.deepEqual(changed.filter(f=>[...newApi,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES].includes(f)).sort(),apiDelta.sort());
  for(const file of [...after,...newApi,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES].filter(f=>!changed.includes(f)))assert.equal(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:PREVIOUS,file}),freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),true,file);
- assert.deepEqual(Object.keys(report.sha256).sort(),after);for(const file of after)assert.equal(report.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
+ const historicalReport=JSON.parse(execFileSync('git',['show','6bc6a640986e2aebf4b3084cde43addedd8a9593:tools/beta-baseline.json'],{cwd:root,encoding:'utf8'}));
+ assert.deepEqual(Object.keys(historicalReport.sha256).sort(),after);for(const file of after)assert.equal(historicalReport.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
  assert.equal(freeze.verifyFreeze({root}).ok,true);assert.equal(api.verifyFreeze({root}).ok,true);
 });

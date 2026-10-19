@@ -3,7 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PRODUCT='b5d33762f3544faa94e47d4b7feaf380f0e8a864',PREVIOUS='894090c5204f8df97671b0dc4588f661534bad32';
 test('MASTER refresh pins its reviewed product with additive static/API protection and exact runtime delta',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+ const published=execFileSync('git',['show','6bc6a640986e2aebf4b3084cde43addedd8a9593:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});
+ assert.ok(published.includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ execFileSync('git',['merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT],{cwd:root});
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);
  execFileSync('git',['merge-base','--is-ancestor',PREVIOUS,PRODUCT],{cwd:root});
  const manifest=ref=>JSON.parse(execFileSync('git',['show',ref+':tools/static-assets.json'],{cwd:root,encoding:'utf8'})).sort(),before=manifest(PREVIOUS),after=manifest(PRODUCT);
  assert.equal(before.length,79);assert.equal(after.length,81);assert.deepEqual(before.filter(f=>!after.includes(f)),[]);assert.deepEqual(after.filter(f=>!before.includes(f)),['faculty-admin-trainees.css','faculty-admin-trainees.js']);

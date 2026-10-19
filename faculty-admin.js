@@ -323,12 +323,11 @@
   function updateKpis() { const summary = dashboardSummary || {}; const set = (id, key) => { const node = $(id); if (node) node.textContent = present(summary[key]) ? String(summary[key]) : '—'; }; [['kpi-total', 'activeFacultyCount'], ['kpi-sessions', 'sessionCount'], ['kpi-assignments', 'assignmentCount'], ['kpi-courses', 'courseCount'], ['kpi-roles', 'roleAssignmentCount'], ['kpi-hicc', 'hiccCount'], ['kpi-visc', 'viscCount'], ['kpi-afc', 'afcRecordCount'], ['kpi-grid', 'gridPositionableCount'], ['kpi-check', 'checkNeededCount']].forEach(([id, key]) => set(id, key)); }
 
   async function loadLookupMetrics() {
-    if (selfMode || !dashboardAdmin(currentUser) || !UCVM_PAWS_DATA.doeWorksheets || !UCVM_PAWS_DATA.dashboardAfcRecords) return;
-    const generation=++lookupMetricsGeneration;
-    const value=await VIEW.fetchLookupMetrics(UCVM_PAWS_DATA,currentAcademicYear());
-    if (generation!==lookupMetricsGeneration || selfMode) return;
-    lookupMetrics=value;
-    if (activeTab==='lookup') renderLookup();
+    if(selfMode||!dashboardAdmin(currentUser)||!UCVM_PAWS_DATA.doeWorksheets||!UCVM_PAWS_DATA.dashboardAfcRecords)return;
+    const g=++lookupMetricsGeneration, data=await VIEW.fetchLookupMetrics(UCVM_PAWS_DATA,currentAcademicYear());
+    if(g!==lookupMetricsGeneration||selfMode)return;
+    lookupMetrics=data;
+    if(activeTab==='lookup')renderLookup();
   }
   function renderLookup(focusId) {
     const active = document.activeElement;

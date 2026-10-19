@@ -1,6 +1,6 @@
 # MASTER refresh acceptance record
 
-Updated2026-10-19. Branch feat/master-assignment-refresh-20261018; draft PR118. Productb5d33762f3544faa94e47d4b7feaf380f0e8a864. No merge, release or real source application has occurred in this work phase.
+Updated2026-10-19. PR118/main6bc6a640986e2aebf4b3084cde43addedd8a9593 is released at immutable product anchorb5d33762f3544faa94e47d4b7feaf380f0e8a864. Approved CCC413slots,139appointment/source operations and110trainee records have been applied once with verified private recovery. PR119/main501e9ed trusted Draft CLI is accepted; new source Draft valid, not published. SQL-only empty-result follow-up PR120 is undergoing acceptance. See agent.Ai/updates/2026-10-19-master-source-applied-empty-search.md for exact receipts/checks and no-replay boundaries. The following table retains the original pre-release acceptance phase; current outcomes below supersede its Remaining column.
 
 | Phase | Verified evidence | Remaining |
 |---|---|---|
@@ -28,4 +28,4 @@ Two existing242 coordination credits differ: workbook1 versus stored/engine2. Si
 
 ## Outstanding human or live steps
 
-Release/source application is pending exact CI/artifact verification. The exact fresh complete CCC deletion/replacement manifest still requires owner confirmation. Existing human workbook signoffs remain unresolved unless the owner records them. No prior540 migration, Course Calendar replacement, unrelated working activity edit, policy publication or broad recalculation is part of this operation.
+Release/source application and exact CCC confirmation are complete. Existing human workbook signoffs remain unresolved unless the owner records them. Calendar/Locum and self-account business acceptance remain explicit manual items. Actual administrator keyword/year/paging/notes and full/filtered CSV passed. Source Draft comparison has18held numerical mismatches (including the original two),7missing,1retained removal and3unresolved; all remain held. Active policy and recorded DOE remain unchanged. New SQL055 empty-response fix must pass independent review, full/isolated CI and exact-main artifact verification before its separate controlled schema-only application. No prior540 migration, Course Calendar replacement, unrelated working activity edit, policy publication or broad recalculation is part of this operation.

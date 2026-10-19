@@ -245,10 +245,10 @@ async function fetchLookupMetrics(api, academicYear) {
   }
   return {afcByFaculty,doeByFaculty,afcAvailable:afc.status==='fulfilled'&&Array.isArray(afc.value),doeAvailable:doe.status==='fulfilled'&&Array.isArray(doe.value)};
 }
-function lookupMetricsText(facultyId,metrics) {
+function lookupMetricsText(facultyId,metrics,today=campusToday()) {
   if (!metrics) return 'Upcoming AFC: loading · Remaining DOE: loading';
   const id=text(facultyId).toLowerCase();
-  const info=metrics.afcAvailable ? lookupUpcomingAfc(metrics.afcByFaculty.get(id)||[]) : null;
+  const info=metrics.afcAvailable ? lookupUpcomingAfc(metrics.afcByFaculty.get(id)||[],today) : null;
   const leave=info?.currentLeaveEnd ? ' · Leave ends: '+info.currentLeaveEnd : info?.nextLeaveStart ? ' · Leave starts: '+info.nextLeaveStart : '';
   const count=info ? info.upcomingCount : 'Unavailable';
   const remaining=metrics.doeAvailable ? lookupRemainingDoe(metrics.doeByFaculty.get(id)) : 'Unavailable';

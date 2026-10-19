@@ -190,13 +190,13 @@ test('Lookup scoped metrics consume existing AFC and DOE reads without exposing 
     }
   };
   const metrics=await fetchLookupMetrics(api,'2026-27');
-  const summary=lookupMetricsText('fac-a',metrics);
+  const summary=lookupMetricsText('fac-a',metrics,'2026-10-19');
   assert.match(summary,/1 upcoming AFC/);
   assert.match(summary,/Leave ends: 2026-10-30/);
   assert.match(summary,/Remaining DOE: 3.20%/);
   assert.doesNotMatch(summary,/RSL|reasonCode|Vacation|purpose/);
-  assert.match(lookupMetricsText('fac-b',metrics),/0 upcoming AFC.*Needs Review/);
-  assert.match(lookupMetricsText('missing',metrics),/0 upcoming AFC.*Needs Review/);
+  assert.match(lookupMetricsText('fac-b',metrics,'2026-10-19'),/0 upcoming AFC.*Needs Review/);
+  assert.match(lookupMetricsText('missing',metrics,'2026-10-19'),/0 upcoming AFC.*Needs Review/);
 });
 
 test('Lookup leaves failed AFC or DOE reads unavailable rather than claiming zero', async () => {

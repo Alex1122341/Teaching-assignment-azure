@@ -15,8 +15,9 @@ async function connect(){
   return db;
  }catch(e){await db.close();throw e;}
 }
-async function run(options,{connect:open=connect}={}){
+async function run(options,{connect:open=connect,env=process.env}={}){
  const mode=options?.mode;
+ if(typeof mode==='string'&&mode.startsWith('Ccc'))return require('./ccc-master-runner.cjs').runCcc(options,{open,env});
  const common=['mode','domain','outputPath'],keys=mode==='Plan'?['sourcePath','snapshotPath']:mode==='Draft'?['sourcePath','actorFirebaseUid','confirm']:mode==='Stage'?['sourcePath','actorFirebaseUid','candidatePolicyVersionId']:mode==='Apply'?['batchId','expectedVersion','sourceSha256','manifestSha256','idempotencyKey','actorFirebaseUid','confirm']:mode==='Recover'?['receiptId','actorFirebaseUid','confirm']:[];
  if(!['Plan','Draft','Stage','Apply','Recover'].includes(mode)||Object.keys(options).some(k=>![...common,...keys].includes(k))||!options.outputPath||mode==='Draft'&&(options.confirm!==true||!options.actorFirebaseUid))throw Object.assign(Error('Invalid MASTER CLI arguments.'),{code:'INVALID_MASTER_CLI'});
  let request,method;
@@ -62,10 +63,10 @@ async function run(options,{connect:open=connect}={}){
  finally{await handle.close();if(db)await db.close();}
 }
 if(require.main===module){
- const mapping={'--mode':'mode','--domain':'domain','--source':'sourcePath','--snapshot':'snapshotPath','--candidate':'candidatePolicyVersionId','--output':'outputPath','--actor':'actorFirebaseUid','--batch':'batchId','--version':'expectedVersion','--source-sha256':'sourceSha256','--manifest-sha256':'manifestSha256','--key':'idempotencyKey','--receipt':'receiptId'},options={};
+ const mapping={'--mode':'mode','--domain':'domain','--source':'sourcePath','--snapshot':'snapshotPath','--candidate':'candidatePolicyVersionId','--output':'outputPath','--actor':'actorFirebaseUid','--batch':'batchId','--version':'expectedVersion','--source-sha256':'sourceSha256','--manifest-sha256':'manifestSha256','--key':'idempotencyKey','--receipt':'receiptId','--year':'academicYear','--request':'requestId','--workbook':'workbookPath'},options={};
  try{
   const args=process.argv.slice(2);
-  for(let i=0;i<args.length;i++){if(args[i]==='--confirm'){if(options.confirm)throw Error();options.confirm=true;continue;}const key=mapping[args[i]];if(!key||!args[i+1]||Object.hasOwn(options,key))throw Error();options[key]=args[++i];}
+  for(let i=0;i<args.length;i++){if(['--confirm','--complete-dataset'].includes(args[i])){const key=args[i]==='--confirm'?'confirm':'completeDataset';if(options[key])throw Error();options[key]=true;continue;}const key=mapping[args[i]];if(!key||!args[i+1]||Object.hasOwn(options,key))throw Error();options[key]=args[++i];}
   run(options).then(r=>console.log(JSON.stringify({mode:options.mode,batchId:r.batchId,receiptId:r.receiptId,databaseWrites:r.databaseWrites,outputWritten:true}))).catch(e=>{console.error(e.code||'MASTER_REFRESH_FAILED');process.exitCode=1;});
  }catch(_){console.error('INVALID_MASTER_CLI_ARGUMENTS');process.exitCode=1;}
 }

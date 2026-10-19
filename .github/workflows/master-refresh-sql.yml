@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [Appointments, CccSlots]
+        mode: [Appointments, CccSlots, CccMaster]
     steps:
       - uses: actions/checkout@v4
       - name: Start labeled local synthetic SQL

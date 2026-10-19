@@ -14,7 +14,11 @@ test('CCC endpoints authorize before parse or data access',async()=>{
 });
 test('CCC stage accepts closed bounded workbook payload and binds source/year/dataset',async()=>{
  const h=harness();assert.equal((await h.api.stage('ok',stage)).status,201);assert.equal(h.calls[1].args.actorFirebaseUid,'verified');assert.equal(h.calls[1].args.fileName,'CCC.xlsx');
- for(const patch of [{actorFirebaseUid:'spoof'},{rows:[]},{dataset:'afc-working-activities'},{academicYear:'2026'},{academicYear:'2026-2027'},{fileName:'../CCC.xlsx'},{fileBase64:'dGVzdA='},{fileBase64:Buffer.alloc(524289).toString('base64')},{requestId:[ID]}])assert.ok([400,413].includes((await h.api.stage('ok',{...stage,...patch})).status));assert.equal(h.calls.length,2);
+ for(const patch of [{actorFirebaseUid:'spoof'},{rows:[]},{schemaVersion:2},{slotCounts:{total:1}},{staffingKind:'unassigned'},{dataset:'afc-working-activities'},{academicYear:'2026'},{academicYear:'2026-2027'},{fileName:'../CCC.xlsx'},{fileBase64:'dGVzdA='},{fileBase64:Buffer.alloc(524289).toString('base64')},{requestId:[ID]}])assert.ok([400,413].includes((await h.api.stage('ok',{...stage,...patch})).status));assert.equal(h.calls.length,2);
+});
+test('CCC read preview strips raw recovery and private source evidence',async()=>{
+ const h=harness();const response=await h.api.get('ok',ID);
+ assert.doesNotMatch(JSON.stringify(response),/PRIVATE|recoveryJson/);
 });
 test('CCC independent gates require boolean true and do not enable original migration',async()=>{
  for(const value of [undefined,false,'true',1]){const h=harness({gates:{cccReplaceStage:value,cccReplaceCommit:value}});assert.equal((await h.api.stage('ok',stage)).status,503);assert.equal((await h.api.preview('ok',ID,{expectedVersion:commit.expectedVersion})).status,503);assert.equal((await h.api.commit('ok',ID,commit)).status,503);assert.deepEqual(h.calls,[]);}

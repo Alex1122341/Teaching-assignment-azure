@@ -14,11 +14,11 @@ foreach($kind in @('same-key','different-key','manual-first','phantom-first')){
  $holderSql=@"
 SET XACT_ABORT ON;BEGIN TRANSACTION;
 $body
-DECLARE @Ready int;EXEC @Ready=sys.sp_getapplock @Resource=N'$ready',@LockMode=N'Exclusive',@LockOwner=N'Session',@LockTimeout=5000;
+DECLARE @Ready int;EXEC @Ready=sys.sp_getapplock @Resource=N'$ready',@LockMode=N'Exclusive',@LockOwner=N'Session',@DbPrincipal=N'dbo',@LockTimeout=5000;
 IF @Ready<0 THROW 55290,'MASTER ready barrier failed.',1;
 DECLARE @Deadline datetime2=DATEADD(second,30,SYSUTCDATETIME());
 WHILE (SELECT ReleaseFlag FROM dbo.MasterRaceBarrier WHERE TestName=N'$kind')=0 BEGIN IF SYSUTCDATETIME()>@Deadline THROW 55290,'MASTER holder timed out.',1;WAITFOR DELAY '00:00:00.100';END;
-COMMIT;EXEC sys.sp_releaseapplock @Resource=N'$ready',@LockOwner=N'Session';PRINT 'MASTER_HOLDER_OK';
+COMMIT;EXEC sys.sp_releaseapplock @Resource=N'$ready',@LockOwner=N'Session',@DbPrincipal=N'dbo';PRINT 'MASTER_HOLDER_OK';
 "@
  $holder=Start-RaceSql $holderSql $holderName;$waiter=$null
  try{

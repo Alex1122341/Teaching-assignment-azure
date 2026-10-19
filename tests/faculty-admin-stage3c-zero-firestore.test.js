@@ -280,7 +280,7 @@ test('V / W. Lookup is API-only with no legacy fallback', async () => {
   const h = await drive();
   assert.equal(h.byId('result-count').textContent, ROSTER.length);
   assert.match(h.byId('result-list').innerHTML, /Ada One/);
-  assert.match(h.byId('result-list').innerHTML, /12 sessions · 0 roles · 0 AFC/);
+  assert.match(h.byId('result-list').innerHTML, /12 sessions · 0 roles · Upcoming AFC: loading · Remaining DOE: loading/);
   assert.equal(/__api/.test(ADMIN_SOURCE), false, 'no API/legacy row discrimination remains');
   const lookup = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('function renderLookup'), ADMIN_SOURCE.indexOf('function teachingSummaryDoeStatus'));
   assert.ok(lookup.length > 0, 'Lookup source boundary must resolve');

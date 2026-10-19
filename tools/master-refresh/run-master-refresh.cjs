@@ -3,6 +3,13 @@
 const fs=require('node:fs/promises'),path=require('node:path');
 const {createMasterRefreshService,validateMasterPreview}=require('../../server/src/master-refresh/master-refresh-service');
 const {createSqlMasterRefreshRepository}=require('../../server/src/data/sql-master-refresh-repository');
+function hydrateMasterPolicyRepository(repository){
+ return {...repository,async clonePolicy(request){
+  // SQL clone writes return version metadata; the MASTER domain consumes a bundle.
+  const created=await repository.clonePolicy(request);
+  return repository.getPolicyVersion(created?.policyVersionId||created?.version?.policyVersionId);
+ }};
+}
 async function connect(){
  const {createSqlConnection,resolveSqlDriver}=require('../../server/src/data/sql-connection');
  const expected=process.env.PAWS_MASTER_EXPECTED_SERVER;
@@ -47,7 +54,7 @@ async function run(options,{connect:open=connect,env=process.env}={}){
      await db.query('EXEC paws_api.AssertMasterRefreshOperator @ActorFirebaseUid=@actor',{actor:request.actorFirebaseUid});
      const context=await createSqlMasterRefreshRepository(db).loadDoeContext({academicYear:request.academicYear});
      const {createSqlDoePolicyRepository}=require('../../server/src/data/sql-doe-policy-repository'),{createDoePolicyService}=require('../../server/src/doe/doe-policy-service'),{createDoeCalculationService}=require('../../server/src/doe/doe-calculation-service'),{prepareMasterPolicyCandidate}=require('../../server/src/master-refresh/master-doe-reconciliation');
-     const policyRepository=createSqlDoePolicyRepository(db),calculationService=createDoeCalculationService({repository:{loadActivePolicy:async()=>context.activeBundle}});
+     const policyRepository=hydrateMasterPolicyRepository(createSqlDoePolicyRepository(db)),calculationService=createDoeCalculationService({repository:{loadActivePolicy:async()=>context.activeBundle}});
      const policyService=createDoePolicyService({repository:policyRepository,calculationService});
      return prepareMasterPolicyCandidate({source:request.source,...context,policyRepository,policyService,actorUid:request.actorFirebaseUid});
     });
@@ -70,4 +77,4 @@ if(require.main===module){
   run(options).then(r=>console.log(JSON.stringify({mode:options.mode,batchId:r.batchId,receiptId:r.receiptId,databaseWrites:r.databaseWrites,outputWritten:true}))).catch(e=>{console.error(e.code||'MASTER_REFRESH_FAILED');process.exitCode=1;});
  }catch(_){console.error('INVALID_MASTER_CLI_ARGUMENTS');process.exitCode=1;}
 }
-module.exports={run};
+module.exports={run,hydrateMasterPolicyRepository};

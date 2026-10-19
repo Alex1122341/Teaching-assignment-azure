@@ -1,7 +1,8 @@
 :ON ERROR EXIT
 SET NOCOUNT ON;SET XACT_ABORT ON;
 IF DB_NAME()<>N'VetMed-Ops' OR OBJECT_ID(N'dbo.TraineeContext') IS NULL THROW 55590,'Synthetic trainee fixture required.',1;
-DECLARE @Self uniqueidentifier=(SELECT A FROM dbo.TraineeContext),@Response nvarchar(max),@Result TABLE(responseJson nvarchar(max));
+DECLARE @Self uniqueidentifier=(SELECT A FROM dbo.TraineeContext),@Response nvarchar(max);
+DECLARE @Result TABLE(responseJson nvarchar(max));
 DECLARE @Cases TABLE(Id int IDENTITY PRIMARY KEY,Actor nvarchar(128),RoleName nvarchar(128),FacultyId uniqueidentifier,Year varchar(7),Query nvarchar(200),Category nvarchar(32));
 INSERT @Cases VALUES
  (N'trainee-self',N'faculty',@Self,'2026-27',N'no-matching-faculty-or-notes-555',NULL),

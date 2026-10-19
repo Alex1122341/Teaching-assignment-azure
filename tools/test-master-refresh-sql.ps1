@@ -1,6 +1,6 @@
 param(
  [Parameter(Mandatory=$true)][string]$ContainerName,
- [ValidateSet('Appointments','CccSlots','CccMaster')][string]$Mode='Appointments',
+ [ValidateSet('Appointments','CccSlots','CccMaster','Trainees')][string]$Mode='Appointments',
  [switch]$CheckRollback
 )
 $ErrorActionPreference='Stop'
@@ -12,7 +12,19 @@ $masterMode=$Mode
 foreach($file in @('045_calendar_away_classification.sql','046_calendar_commit_preflight.sql','047_change_history.sql','048_afc_form_upload.sql','049_ccc_full_replacement.sql','050_afc_record_documents.sql','051_record_document_history.sql','052_master_source_refresh.sql')){
  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath ('database/azure-sql/'+$file)) -Raw) 'VetMed-Ops'
 }
-if($masterMode -in @('CccSlots','CccMaster')){
+if($masterMode -eq 'Trainees'){
+ foreach($file in @('053_ccc_master_slots.sql','054_trainee_source_evidence.sql')){Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath ('database/azure-sql/'+$file)) -Raw) 'VetMed-Ops'}
+ if($masterCheckRollback){
+  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_054_trainee_source_evidence.sql') -Raw) 'VetMed-Ops'
+  Invoke-TestSql "IF OBJECT_ID(N'paws.TraineeSourceEvidence') IS NOT NULL OR OBJECT_ID(N'paws.MasterRefreshReceipt') IS NULL OR OBJECT_ID(N'paws_api.StageMasterCccReplacement') IS NULL THROW 55490,'Trainee rollback damaged existing authority.',1;PRINT 'MASTER_TRAINEES_EMPTY_ROLLBACK_OK';" 'VetMed-Ops'
+ }else{
+  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/054_trainee_source_evidence_acceptance.sql') -Raw) 'VetMed-Ops'
+  $traineeRollback=(Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_054_trainee_source_evidence.sql') -Raw).Replace(':ON ERROR EXIT','').Replace("'","''")
+  Invoke-TestSql "BEGIN TRY EXEC(N'$traineeRollback');THROW 55490,'Populated trainee rollback accepted.',1;END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>55408 THROW;END CATCH;PRINT 'MASTER_TRAINEES_POPULATED_ROLLBACK_REFUSED_OK';" 'VetMed-Ops'
+  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/052_master_source_refresh_acceptance.sql') -Raw) 'VetMed-Ops'
+  . (Join-Path $PSScriptRoot 'test-master-refresh-races.ps1') -ContainerName $ContainerName
+ }
+}elseif($masterMode -in @('CccSlots','CccMaster')){
  if(-not $masterCheckRollback){Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/ccc-master-slots-setup.sql') -Raw) 'VetMed-Ops'}
  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/053_ccc_master_slots.sql') -Raw) 'VetMed-Ops'
  if($masterCheckRollback){

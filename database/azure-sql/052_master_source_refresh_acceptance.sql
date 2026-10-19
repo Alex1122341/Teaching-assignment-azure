@@ -89,7 +89,7 @@ BEGIN
 END;
 GO
 BEGIN TRY EXEC dbo.ApplyMasterTest;THROW 55290,'Audit failure was ignored.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>55291 THROW;END CATCH;
-IF EXISTS(SELECT 1 FROM paws.MasterRefreshReceipt) OR EXISTS(SELECT 1 FROM paws.MasterRoleSourceEvidence) OR EXISTS(SELECT 1 FROM paws.RoleAssignment WHERE CourseOrSubjectOrRotation=N'New Missing Area') THROW 55290,'Failed transaction left partial state.',1;
+IF EXISTS(SELECT 1 FROM paws.MasterRefreshReceipt WHERE Domain=N'appointments') OR EXISTS(SELECT 1 FROM paws.MasterRoleSourceEvidence) OR EXISTS(SELECT 1 FROM paws.RoleAssignment WHERE CourseOrSubjectOrRotation=N'New Missing Area') THROW 55290,'Failed transaction left partial state.',1;
 DROP TRIGGER paws.MasterTestAuditFailure;
 EXEC dbo.StageMasterTest;
 DECLARE @Result TABLE(responseJson nvarchar(max));INSERT @Result EXEC dbo.ApplyMasterTest;
@@ -103,7 +103,7 @@ IF NOT EXISTS(SELECT 1 FROM paws.MasterRoleSourceEvidence e JOIN paws.RoleAssign
 IF (SELECT COUNT(*) FROM paws.MasterRoleDefinition)<>1 OR EXISTS(SELECT 1 FROM paws.RoleAssignment WHERE CourseOrSubjectOrRotation=N'Vacant Course') THROW 55290,'Vacant definition assigned credit.',1;
 IF EXISTS(SELECT 1 FROM paws.CalendarActivity) OR EXISTS(SELECT 1 FROM paws.AfcRecord) THROW 55290,'Appointment became a work session or absence.',1;
 DELETE @Result;INSERT @Result EXEC dbo.ApplyMasterTest;
-IF JSON_VALUE((SELECT responseJson FROM @Result),'$.idempotentReplay')<>N'true' OR (SELECT COUNT(*) FROM paws.MasterRefreshReceipt)<>1 THROW 55290,'Identical retry duplicated data.',1;
+IF JSON_VALUE((SELECT responseJson FROM @Result),'$.idempotentReplay')<>N'true' OR (SELECT COUNT(*) FROM paws.MasterRefreshReceipt WHERE Domain=N'appointments')<>1 THROW 55290,'Identical retry duplicated data.',1;
 DECLARE @OtherKey uniqueidentifier=NEWID();BEGIN TRY EXEC dbo.ApplyMasterTest @OtherKey;THROW 55290,'Different key committed twice.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>55204 THROW;END CATCH;
 DECLARE @Receipt uniqueidentifier=(SELECT ReceiptId FROM dbo.MasterTestContext);
 BEGIN TRY

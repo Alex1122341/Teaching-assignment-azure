@@ -190,6 +190,11 @@ function createUniversityHttpServer({
           if (value !== undefined && value !== null) responseHeaders[name] = String(value);
         }
       }
+      if(requestPath==='/api/v1/dashboard/trainees/export'&&status===200&&Buffer.isBuffer(result?.body)){
+        if(result.body.length>8_388_608)throw Error('Trainee export limit exceeded');
+        outgoing.writeHead(status,{...responseHeaders,'Content-Type':'text/csv; charset=utf-8','Content-Length':result.body.length,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"sandbox; default-src 'none'"});
+        outgoing.end(result.body);return;
+      }
       if (result && Object.prototype.hasOwnProperty.call(result, 'binaryBody')) {
         const pdfBytes = Buffer.isBuffer(result.binaryBody)
           ? result.binaryBody

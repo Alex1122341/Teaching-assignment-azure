@@ -6,7 +6,7 @@ const invalid=()=>Object.assign(new Error('The MASTER refresh request is invalid
 const actor=v=>typeof v==='string'&&v.length>0&&v.length<=128&&!/[\x00-\x1f]/.test(v);
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const only=(v,keys)=>object(v)&&Object.keys(v).every(k=>keys.includes(k));
-const domain=v=>v==='appointments'; // Trainee execution is added with its own schema/acceptance.
+const domain=v=>v==='appointments'||v==='trainees';
 function createMasterRefreshService({repository}={}){
  if(!repository)throw new TypeError('A MASTER refresh repository is required.');
  return Object.freeze({

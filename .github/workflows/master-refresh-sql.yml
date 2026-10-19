@@ -1,7 +1,7 @@
 name: MASTER Refresh SQL Acceptance
 on:
   pull_request:
-    paths: ['database/azure-sql/**','tools/master-refresh/**','tools/test-master-refresh*','tools/test-ccc-master*','tools/test-ccc-replacement*','server/src/master-refresh/**','server/src/data/sql-master-refresh-repository.js','.github/workflows/master-refresh-sql.yml']
+    paths: ['database/azure-sql/**','tools/master-refresh/**','tools/test-master-refresh*','tools/test-ccc-master*','tools/test-ccc-replacement*','server/src/master-refresh/**','server/src/trainees/**','server/src/data/sql-trainee-repository.js','server/src/data/sql-master-refresh-repository.js','.github/workflows/master-refresh-sql.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [Appointments, CccSlots, CccMaster]
+        mode: [Appointments, CccSlots, CccMaster, Trainees]
     steps:
       - uses: actions/checkout@v4
       - name: Start labeled local synthetic SQL

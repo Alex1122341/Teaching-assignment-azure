@@ -61,14 +61,14 @@ END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>55204 THROW;E
 -- Rowversion changes survive rollback, so each attempt needs a new preview.
 EXEC dbo.StageMasterTest;
 GO
-CREATE TRIGGER dbo.MasterTestAuditFailure ON paws.AuditEvent AFTER INSERT AS
+CREATE TRIGGER paws.MasterTestAuditFailure ON paws.AuditEvent AFTER INSERT AS
 BEGIN
  IF EXISTS(SELECT 1 FROM inserted WHERE EventType=N'master_source_refreshed') THROW 55291,'Injected audit failure.',1;
 END;
 GO
 BEGIN TRY EXEC dbo.ApplyMasterTest;THROW 55290,'Audit failure was ignored.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>55291 THROW;END CATCH;
 IF EXISTS(SELECT 1 FROM paws.MasterRefreshReceipt) OR EXISTS(SELECT 1 FROM paws.MasterRoleSourceEvidence) OR EXISTS(SELECT 1 FROM paws.RoleAssignment WHERE CourseOrSubjectOrRotation=N'New Missing Area') THROW 55290,'Failed transaction left partial state.',1;
-DROP TRIGGER dbo.MasterTestAuditFailure;
+DROP TRIGGER paws.MasterTestAuditFailure;
 EXEC dbo.StageMasterTest;
 DECLARE @Result TABLE(responseJson nvarchar(max));INSERT @Result EXEC dbo.ApplyMasterTest;
 UPDATE dbo.MasterTestContext SET ReceiptId=TRY_CONVERT(uniqueidentifier,JSON_VALUE((SELECT responseJson FROM @Result),'$.receiptId'));

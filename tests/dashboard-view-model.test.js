@@ -160,3 +160,52 @@ test('Lookup DOE uses only authoritative calculated Worksheet remaining, includi
   assert.equal(lookupRemainingDoe({ status: 'calculated', remainingDoe: null }), 'Needs Review');
   assert.equal(lookupRemainingDoe(), 'Needs Review');
 });
+
+
+test('Lookup ignores generic Special AFC as Leave without explicit leave source', () => {
+  const { lookupUpcomingAfc } = require('../dashboard-view-model');
+  assert.deepEqual(lookupUpcomingAfc([
+    { startDate:'2026-10-01',endDate:'2026-11-02',reasonCode:'special',reason:'Special',active:true },
+    { startDate:'2026-10-05',endDate:'2026-11-07',reasonCode:'other',reason:'Sabbatical Leave',active:true }
+  ],'2026-10-19'),{upcomingCount:0,currentLeaveEnd:'2026-11-07',nextLeaveStart:null});
+});
+
+test('Lookup scoped metrics consume existing AFC and DOE reads without exposing leave reasons', async () => {
+  const { fetchLookupMetrics, lookupMetricsText } = require('../dashboard-view-model');
+  const api={
+    async dashboardAfcRecords(options){
+      assert.deepEqual(options,{active:true,limit:2000});
+      return [
+        { facultyId:'FAC-A',startDate:'2026-10-21',endDate:'2026-10-22',purpose:'Vacation',active:true },
+        { facultyId:'FAC-A',startDate:'2026-10-10',endDate:'2026-10-30',reasonCode:'rsl',active:true },
+        { facultyId:'FAC-B',startDate:'2026-10-18',endDate:'2026-10-18',purpose:'Vacation',active:true }
+      ];
+    },
+    async doeWorksheets(options){
+      assert.deepEqual(options,{academicYear:'2026-27'});
+      return [
+        {facultyId:'FAC-A',status:'calculated',remainingDoe:3.2},
+        {facultyId:'FAC-B',status:'needs_review',remainingDoe:20}
+      ];
+    }
+  };
+  const metrics=await fetchLookupMetrics(api,'2026-27');
+  const summary=lookupMetricsText('fac-a',metrics);
+  assert.match(summary,/1 upcoming AFC/);
+  assert.match(summary,/Leave ends: 2026-10-30/);
+  assert.match(summary,/Remaining DOE: 3.20%/);
+  assert.doesNotMatch(summary,/RSL|reasonCode|Vacation|purpose/);
+  assert.match(lookupMetricsText('fac-b',metrics),/0 upcoming AFC.*Needs Review/);
+  assert.match(lookupMetricsText('missing',metrics),/0 upcoming AFC.*Needs Review/);
+});
+
+test('Lookup leaves failed AFC or DOE reads unavailable rather than claiming zero', async () => {
+  const { fetchLookupMetrics, lookupMetricsText } = require('../dashboard-view-model');
+  const result=await fetchLookupMetrics({
+    async dashboardAfcRecords(){throw new Error('AFC read failed');},
+    async doeWorksheets(){throw new Error('DOE read failed');}
+  },'2026-27');
+  assert.equal(result.afcAvailable,false);
+  assert.equal(result.doeAvailable,false);
+  assert.match(lookupMetricsText('faculty',result),/Unavailable upcoming AFC.*Remaining DOE: Unavailable/);
+});

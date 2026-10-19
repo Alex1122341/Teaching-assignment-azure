@@ -139,6 +139,15 @@
       };
     }
 
+    async function requestTraineeCsv(path){
+      const response=await authenticatedResponse(path,{accept:'text/csv'});
+      if(!response.ok)return settle(response);
+      if(String(response.headers?.get?.('content-type')||'').split(';',1)[0].trim().toLowerCase()!=='text/csv'||typeof response.arrayBuffer!=='function')throw Object.assign(Error('Invalid trainee CSV response.'),{code:'INVALID_ARTIFACT_RESPONSE'});
+      const bytes=new Uint8Array(await response.arrayBuffer());
+      if(bytes.length>8388608)throw Object.assign(Error('Narrow the trainee filters before exporting.'),{code:'INVALID_ARTIFACT_RESPONSE'});
+      return {bytes,contentType:'text/csv; charset=utf-8'};
+    }
+
     function requestPath(id,action=''){
       const value=String(id??'').trim();
       if(!value)throw new Error('afcRequestId is required.');
@@ -168,6 +177,14 @@
     }
 
     return Object.freeze({
+      dashboardTrainees(filters={}){
+        const query=new URLSearchParams();for(const key of ['academicYear','query','category','cursor','limit'])if(filters[key]!==undefined&&filters[key]!==null&&filters[key]!=='')query.set(key,String(filters[key]));
+        return request('/api/v1/dashboard/trainees?'+query.toString());
+      },
+      exportDashboardTrainees(filters={}){
+        const query=new URLSearchParams();for(const key of ['academicYear','query','category'])if(filters[key]!==undefined&&filters[key]!==null&&filters[key]!=='')query.set(key,String(filters[key]));
+        return requestTraineeCsv('/api/v1/dashboard/trainees/export?'+query.toString());
+      },
       changeHistory(filters={}){
         const query=new URLSearchParams();
         for(const key of ['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain','keyword'])if(typeof filters[key]==='string'&&filters[key])query.set(key,filters[key]);

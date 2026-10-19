@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='894090c5204f8df97671b0dc4588f661534bad32';
+const BASELINE_COMMIT='b5d33762f3544faa94e47d4b7feaf380f0e8a864';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
@@ -422,12 +422,12 @@ test('the DOE Rule Book / Faculty Lookup product frozen runtime reports zero pro
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,79);
+  assert.equal(result.protected,81);
 });
 
-test('the current static manifest has exactly 79 protected files',()=>{
-  assert.equal(manifest().length,79);
-  assert.equal(freeze.protectedPaths({root}).length,79);
+test('the current static manifest has exactly 81 protected files',()=>{
+  assert.equal(manifest().length,81);
+  assert.equal(freeze.protectedPaths({root}).length,81);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -440,9 +440,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 79 current protected files are byte-identical to the immutable accepted product blobs',()=>{
+test('all 81 current protected files are byte-identical to the immutable accepted product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,79);
+  assert.equal(protectedFiles.length,81);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -674,7 +674,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,79);
+  assert.equal(protectedFiles.length,81);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------

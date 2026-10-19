@@ -190,5 +190,36 @@ function formatDoe(value) {
   return parsed === null ? 'DOE unavailable' : `${parsed.toFixed(2)}%`;
 }
 
-  return { groupTeachingAssignments, teachingDoeEvidence, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear };
+
+function campusToday(now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+}
+function lookupUpcomingAfc(records, today = campusToday()) {
+  let upcomingCount=0, currentLeaveEnd=null, nextLeaveStart=null;
+  const leaveType = record => {
+    const code=text(record.reasonCode).toLowerCase();
+    if (['rsl','mat','medical','special'].includes(code)) return true;
+    const label=[record.legacyPurpose,record.purpose,record.reason].map(text).join(' ').toLowerCase();
+    return /(^|[^a-z])(rsl|leave|medical|maternity|maternal|parental|sabbatical)([^a-z]|$)/i.test(label);
+  };
+  for (const row of Array.isArray(records) ? records : []) {
+    if (row?.active === false) continue;
+    const start=text(row?.startDate), end=text(row?.endDate);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end<start) continue;
+    if (start>today) upcomingCount++;
+    if (!leaveType(row) || end<today) continue;
+    if (start<=today) {
+      if (currentLeaveEnd === null || end>currentLeaveEnd) currentLeaveEnd=end;
+    } else if (nextLeaveStart === null || start<nextLeaveStart) nextLeaveStart=start;
+  }
+  return {upcomingCount,currentLeaveEnd,nextLeaveStart};
+}
+function lookupRemainingDoe(worksheet) {
+  const remaining=number(worksheet?.remainingDoe);
+  if (worksheet?.status!=='calculated'||remaining===null) return 'Needs Review';
+  const value=remaining.toFixed(2)+'%';
+  return remaining<0 ? value+' (over)' : value;
+}
+
+  return { groupTeachingAssignments, teachingDoeEvidence, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear, campusToday, lookupUpcomingAfc, lookupRemainingDoe };
 });

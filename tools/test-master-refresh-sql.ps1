@@ -13,12 +13,26 @@ foreach($file in @('045_calendar_away_classification.sql','046_calendar_commit_p
  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath ('database/azure-sql/'+$file)) -Raw) 'VetMed-Ops'
 }
 if($masterMode -eq 'Trainees'){
- foreach($file in @('053_ccc_master_slots.sql','054_trainee_source_evidence.sql')){Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath ('database/azure-sql/'+$file)) -Raw) 'VetMed-Ops'}
+ foreach($file in @('053_ccc_master_slots.sql','054_trainee_source_evidence.sql','055_trainee_empty_results.sql')){Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath ('database/azure-sql/'+$file)) -Raw) 'VetMed-Ops'}
  if($masterCheckRollback){
+  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_055_trainee_empty_results.sql') -Raw) 'VetMed-Ops'
   Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_054_trainee_source_evidence.sql') -Raw) 'VetMed-Ops'
   Invoke-TestSql "IF OBJECT_ID(N'paws.TraineeSourceEvidence') IS NOT NULL OR OBJECT_ID(N'paws.MasterRefreshReceipt') IS NULL OR OBJECT_ID(N'paws_api.StageMasterCccReplacement') IS NULL THROW 55490,'Trainee rollback damaged existing authority.',1;PRINT 'MASTER_TRAINEES_EMPTY_ROLLBACK_OK';" 'VetMed-Ops'
  }else{
   Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/054_trainee_source_evidence_acceptance.sql') -Raw) 'VetMed-Ops'
+  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/055_trainee_empty_results_acceptance.sql') -Raw) 'VetMed-Ops'
+  $emptyRollback=(Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_055_trainee_empty_results.sql') -Raw).Replace(':ON ERROR EXIT','').Replace("'","''")
+  Invoke-TestSql @"
+DECLARE @Definition nvarchar(max)=OBJECT_DEFINITION(OBJECT_ID(N'paws_api.ListTraineeSource')),@Alter nvarchar(max);
+SET @Alter=N'ALTER '+SUBSTRING(@Definition,CHARINDEX(N'PROCEDURE',UPPER(@Definition)),LEN(@Definition))+CHAR(10)+N'-- synthetic drift';EXEC sys.sp_executesql @Alter;
+BEGIN TRY EXEC(N'$emptyRollback');THROW 55590,'Edited-reader rollback accepted.',1;END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>55508 THROW;END CATCH;
+SET @Alter=N'ALTER '+SUBSTRING(@Definition,CHARINDEX(N'PROCEDURE',UPPER(@Definition)),LEN(@Definition));EXEC sys.sp_executesql @Alter;
+PRINT 'MASTER_TRAINEE_EMPTY_ARRAY_EDITED_ROLLBACK_REFUSED_OK';
+"@ 'VetMed-Ops'
+  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_055_trainee_empty_results.sql') -Raw) 'VetMed-Ops'
+  Invoke-TestSql "IF OBJECT_ID(N'staging.TraineeEmptyResultBaseline') IS NOT NULL OR CHARINDEX(N'JSON_QUERY(@Rows) rows',OBJECT_DEFINITION(OBJECT_ID(N'paws_api.ListTraineeSource')))=0 OR OBJECT_ID(N'paws.TraineeSourceEvidence') IS NULL THROW 55590,'Reader rollback damaged source authority.',1;PRINT 'MASTER_TRAINEE_EMPTY_ARRAY_RESTORE_OK';" 'VetMed-Ops'
+  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/055_trainee_empty_results.sql') -Raw) 'VetMed-Ops'
+  Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/055_trainee_empty_results_acceptance.sql') -Raw) 'VetMed-Ops'
   $traineeRollback=(Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_054_trainee_source_evidence.sql') -Raw).Replace(':ON ERROR EXIT','').Replace("'","''")
   Invoke-TestSql "BEGIN TRY EXEC(N'$traineeRollback');THROW 55490,'Populated trainee rollback accepted.',1;END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>55408 THROW;END CATCH;PRINT 'MASTER_TRAINEES_POPULATED_ROLLBACK_REFUSED_OK';" 'VetMed-Ops'
   Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/052_master_source_refresh_acceptance.sql') -Raw) 'VetMed-Ops'

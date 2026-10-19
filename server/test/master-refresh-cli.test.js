@@ -13,3 +13,7 @@ test('Plan never opens SQL and preserves the private manifest',async()=>{
 test('Apply rejects source-row injection before opening a connection',async()=>{
  await assert.rejects(run({mode:'Apply',domain:'appointments',operations:[],outputPath:'unused'},{connect:async()=>assert.fail('Invalid Apply reached SQL')}));
 });
+test('Draft is a separate explicit operation and cannot be triggered by Plan or unconfirmed arguments',async()=>{
+ await assert.rejects(run({mode:'Draft',domain:'appointments',outputPath:'unused',sourcePath:'missing',actorFirebaseUid:'admin',confirm:false},{connect:async()=>assert.fail('Unconfirmed Draft opened SQL')}),{code:'INVALID_MASTER_CLI'});
+ await assert.rejects(run({mode:'Draft',domain:'appointments',outputPath:'unused',sourcePath:'missing',actorFirebaseUid:'admin',confirm:true},{connect:async()=>assert.fail('Missing source Draft opened SQL')}),{code:'ENOENT'});
+});

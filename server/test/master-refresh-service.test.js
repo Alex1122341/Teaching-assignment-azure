@@ -29,3 +29,12 @@ test('recovery rejects row injection and requires explicit operator confirmation
  const service=createMasterRefreshService({repository:{recover:async()=>assert.fail('invalid recovery reached SQL')}});
  for(const p of [{receiptId:batch,actorFirebaseUid:'admin-test',confirm:false},{receiptId:batch,actorFirebaseUid:'admin-test',confirm:true,beforeRows:[]}])await assert.rejects(service.recover(p),{code:'INVALID_MASTER_REFRESH_REQUEST'});
 });
+test('staging requires current engine evidence and binds comparison to SQL state',async()=>{
+ const s=source();let received;
+ const service=createMasterRefreshService({repository:{loadDoeContext:async()=>({currentRoles:[],supervision:[],activeBundle:{version:{academicYear:'2026-27',status:'active'},rules:[]},contextHash:'D'.repeat(64)}),preview:async p=>{received=p;return{batchId:batch};}}});
+ await service.preview({domain:'appointments',academicYear:'2026-27',source:s,actorFirebaseUid:'admin-test'});
+ assert.equal(received.doeGuard.contextHash,'D'.repeat(64));assert.match(received.doeGuard.doeGuardHash,/^[A-F0-9]{64}$/);
+ assert.deepEqual(received.doeGuard.rows,[]);
+ const unguarded=createMasterRefreshService({repository:{preview:async()=>assert.fail('Unguarded stage')}});
+ await assert.rejects(unguarded.preview({domain:'appointments',academicYear:'2026-27',source:s,actorFirebaseUid:'admin-test'}),{code:'MASTER_ENGINE_REQUIRED'});
+});

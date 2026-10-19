@@ -15,3 +15,9 @@ test('apply binds source, preview, request key and actor as separate parameters'
  const r=await repo.apply({domain:'appointments',batchId:'B',expectedVersion:'V',manifestSha256:'M',sourceSha256:'S',idempotencyKey:'K',actorFirebaseUid:'U',confirm:true});
  assert.equal(r.receiptId,'R');assert.match(seen.q,/^EXEC paws_api\.CommitMasterRefresh\b/);assert.deepEqual(seen.p,{Domain:'appointments',BatchId:'B',ExpectedVersion:'V',ManifestSha256:'M',SourceSha256:'S',IdempotencyKey:'K',ActorFirebaseUid:'U',Confirm:true});
 });
+test('engine context refuses evidence that changed between SQL reads',async()=>{
+ let snapshots=0;
+ const db={query:async q=>q.includes('MasterRefreshSnapshot')?[{contextHash:(++snapshots===1?'A':'B').repeat(64)}]:q.includes('FROM paws.DoePolicyVersion WITH')?[{policyVersionId:'active',academicYear:'2026-27',status:'active'}]:[]};
+ const repo=createSqlMasterRefreshRepository(db);
+ await assert.rejects(repo.loadDoeContext({academicYear:'2026-27'}),{code:'MASTER_DOE_CONTEXT_CHANGED'});
+});

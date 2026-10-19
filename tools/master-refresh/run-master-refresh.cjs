@@ -1,7 +1,7 @@
 'use strict';
 // Trusted offline operator entry point. No HTTP route and no browser credentials.
 const fs=require('node:fs/promises'),path=require('node:path');
-const {createMasterRefreshService}=require('../../server/src/master-refresh/master-refresh-service');
+const {createMasterRefreshService,validateMasterPreview}=require('../../server/src/master-refresh/master-refresh-service');
 const {createSqlMasterRefreshRepository}=require('../../server/src/data/sql-master-refresh-repository');
 async function connect(){
  const {createSqlConnection,resolveSqlDriver}=require('../../server/src/data/sql-connection');
@@ -17,12 +17,12 @@ async function connect(){
 }
 async function run(options,{connect:open=connect}={}){
  const mode=options?.mode;
- const common=['mode','domain','outputPath'],keys=mode==='Plan'?['sourcePath']:mode==='Stage'?['sourcePath','actorFirebaseUid']:mode==='Apply'?['batchId','expectedVersion','sourceSha256','manifestSha256','idempotencyKey','actorFirebaseUid','confirm']:mode==='Recover'?['receiptId','actorFirebaseUid','confirm']:[];
- if(!['Plan','Stage','Apply','Recover'].includes(mode)||Object.keys(options).some(k=>![...common,...keys].includes(k))||!options.outputPath)throw Object.assign(Error('Invalid MASTER CLI arguments.'),{code:'INVALID_MASTER_CLI'});
+ const common=['mode','domain','outputPath'],keys=mode==='Plan'?['sourcePath','snapshotPath']:mode==='Draft'?['sourcePath','actorFirebaseUid','confirm']:mode==='Stage'?['sourcePath','actorFirebaseUid','candidatePolicyVersionId']:mode==='Apply'?['batchId','expectedVersion','sourceSha256','manifestSha256','idempotencyKey','actorFirebaseUid','confirm']:mode==='Recover'?['receiptId','actorFirebaseUid','confirm']:[];
+ if(!['Plan','Draft','Stage','Apply','Recover'].includes(mode)||Object.keys(options).some(k=>![...common,...keys].includes(k))||!options.outputPath||mode==='Draft'&&(options.confirm!==true||!options.actorFirebaseUid))throw Object.assign(Error('Invalid MASTER CLI arguments.'),{code:'INVALID_MASTER_CLI'});
  let request,method;
- if(mode==='Plan'||mode==='Stage'){
+ if(['Plan','Stage','Draft'].includes(mode)){
   const source=JSON.parse(await fs.readFile(options.sourcePath,'utf8'));
-  request={domain:options.domain,academicYear:source.academicYear,source,actorFirebaseUid:options.actorFirebaseUid||'read-only-plan'};method='preview';
+  request={domain:options.domain,academicYear:source.academicYear,source,actorFirebaseUid:mode==='Plan'?'read-only-plan':options.actorFirebaseUid,...(options.candidatePolicyVersionId?{candidatePolicyVersionId:options.candidatePolicyVersionId}:{})};method='preview';
  }else{
   request=Object.fromEntries(Object.entries(options).filter(([k])=>![...common.filter(k=>k!=='domain')].includes(k)));
   if(mode==='Recover')delete request.domain;
@@ -30,14 +30,27 @@ async function run(options,{connect:open=connect}={}){
  }
  // Validation occurs before opening a database connection or creating output.
  const validator=createMasterRefreshService({repository:{preview:async()=>({}),apply:async()=>({}),recover:async()=>({})}});
- await validator[method](request);
+ if(method==='preview')validateMasterPreview(request);else await validator[method](request);
  const handle=await fs.open(options.outputPath,'wx',0o600);let db;
  try{
   let result;
-  if(mode==='Plan')result={mode,domain:request.domain,academicYear:request.academicYear,sourceSha256:request.source.sourceSha256,manifestSha256:request.source.manifestSha256,databaseWrites:false};
+  if(mode==='Plan'){
+   result={mode,domain:request.domain,academicYear:request.academicYear,sourceSha256:request.source.sourceSha256,manifestSha256:request.source.manifestSha256,databaseWrites:false};
+   if(options.snapshotPath){const snapshot=JSON.parse(await fs.readFile(options.snapshotPath,'utf8'));const {compareMasterDoe}=require('../../server/src/master-refresh/master-doe-reconciliation');result.comparison=await compareMasterDoe({source:request.source,currentRoles:snapshot.roles,supervision:snapshot.supervision,activeBundle:snapshot.bundles?.[0]});}
+  }
   else{
    db=await open();const service=createMasterRefreshService({repository:createSqlMasterRefreshRepository(db)});
-   result=await service[method](request);
+   if(mode==='Draft'){
+    if(typeof db.transaction!=='function')throw Object.assign(Error('Atomic Draft tooling required.'),{code:'MASTER_ATOMIC_DRAFT_REQUIRED'});
+    result=await db.transaction(async()=>{
+     await db.query('EXEC paws_api.AssertMasterRefreshOperator @ActorFirebaseUid=@actor',{actor:request.actorFirebaseUid});
+     const context=await createSqlMasterRefreshRepository(db).loadDoeContext({academicYear:request.academicYear});
+     const {createSqlDoePolicyRepository}=require('../../server/src/data/sql-doe-policy-repository'),{createDoePolicyService}=require('../../server/src/doe/doe-policy-service'),{createDoeCalculationService}=require('../../server/src/doe/doe-calculation-service'),{prepareMasterPolicyCandidate}=require('../../server/src/master-refresh/master-doe-reconciliation');
+     const policyRepository=createSqlDoePolicyRepository(db),calculationService=createDoeCalculationService({repository:{loadActivePolicy:async()=>context.activeBundle}});
+     const policyService=createDoePolicyService({repository:policyRepository,calculationService});
+     return prepareMasterPolicyCandidate({source:request.source,...context,policyRepository,policyService,actorUid:request.actorFirebaseUid});
+    });
+   }else result=await service[method](request);
    if(mode==='Apply'){
     const [receipt]=await db.query('SELECT ReceiptId receiptId,SourceSha256 sourceSha256,ManifestSha256 manifestSha256,BeforeJson beforeJson,AfterHash afterHash FROM paws.MasterRefreshReceipt WHERE ReceiptId=@receiptId',{receiptId:result.receiptId});
     if(!receipt||receipt.sourceSha256.toUpperCase()!==request.sourceSha256.toUpperCase()||receipt.manifestSha256.toUpperCase()!==request.manifestSha256.toUpperCase())throw Object.assign(Error('Private receipt export mismatch.'),{code:'MASTER_RECEIPT_EXPORT_FAILED'});
@@ -49,7 +62,7 @@ async function run(options,{connect:open=connect}={}){
  finally{await handle.close();if(db)await db.close();}
 }
 if(require.main===module){
- const mapping={'--mode':'mode','--domain':'domain','--source':'sourcePath','--output':'outputPath','--actor':'actorFirebaseUid','--batch':'batchId','--version':'expectedVersion','--source-sha256':'sourceSha256','--manifest-sha256':'manifestSha256','--key':'idempotencyKey','--receipt':'receiptId'},options={};
+ const mapping={'--mode':'mode','--domain':'domain','--source':'sourcePath','--snapshot':'snapshotPath','--candidate':'candidatePolicyVersionId','--output':'outputPath','--actor':'actorFirebaseUid','--batch':'batchId','--version':'expectedVersion','--source-sha256':'sourceSha256','--manifest-sha256':'manifestSha256','--key':'idempotencyKey','--receipt':'receiptId'},options={};
  try{
   const args=process.argv.slice(2);
   for(let i=0;i<args.length;i++){if(args[i]==='--confirm'){if(options.confirm)throw Error();options.confirm=true;continue;}const key=mapping[args[i]];if(!key||!args[i+1]||Object.hasOwn(options,key))throw Error();options[key]=args[++i];}

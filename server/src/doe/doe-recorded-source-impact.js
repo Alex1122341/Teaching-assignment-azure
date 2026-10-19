@@ -9,6 +9,7 @@ function sourceFacts(source,line){
  const code=String(line.scopeText||'').match(/^(?:VTMD|VETM|Vet Med)\s*(\d+)/i);
  const ccc={};
  if(line.roleType==='CCC')for(const name of ['shifts','halfDayDeduction']){
+  if(Object.hasOwn(line.facts||{},name))continue;
   const match=String(line.facts?.sourceDetails||'').match(new RegExp('(?:^|\\|)\\s*'+name+'=(\\d+(?:\\.\\d+)?)'));
   if(match)ccc[name]=Number(match[1]);
  }
@@ -24,6 +25,7 @@ async function projectRecordedSource({source,line,calculate}){
  const oldDoe=line.applicable===false?0:finite(line.resultDoe);
  const row={facultyId:source.facultyId,sourceEntityType:line.sourceEntityType,sourceEntityId:line.sourceEntityId,oldDoe};
  try{
+  if(line.facts?.sourceAllocationStatus==='source_missing')throw Object.assign(Error('The source allocation is missing; retain the recorded value.'),{code:'SOURCE_ALLOCATION_MISSING'});
   let projectedDoe;
   if(line.sourceEntityType==='manual_doe_assignment')projectedDoe=oldDoe; // Signed negotiated adjustments remain outside reserve.
   else if(line.sourceEntityType==='supervision_source_snapshot'){

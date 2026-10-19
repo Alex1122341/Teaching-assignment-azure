@@ -11,14 +11,14 @@ function createMasterRefreshService({repository}={}){
  if(!repository)throw new TypeError('A MASTER refresh repository is required.');
  return Object.freeze({
   async preview(p){
-   if(!only(p,['domain','academicYear','source','actorFirebaseUid'])||!domain(p.domain)||!actor(p.actorFirebaseUid)||!object(p.source))throw invalid();
-   academicBounds(p.academicYear);
-   const s=p.source;
-   if(s.schemaVersion!==1||s.academicYear!==p.academicYear||!sha(s.sourceSha256)||!sha(s.manifestSha256)||['appointments','rotations','cccAllocations','roleDefinitions','trainees','cccSlots','issues'].some(k=>!Array.isArray(s[k])))throw invalid();
-   const {manifestSha256,...body}=s;
-   if(manifestHash(body)!==manifestSha256.toUpperCase())throw Object.assign(new Error('The MASTER source manifest changed.'),{code:'SOURCE_MANIFEST_MISMATCH'});
-   if(Buffer.byteLength(JSON.stringify(s),'utf8')>8*1024*1024)throw invalid();
-   return repository.preview(p);
+   validateMasterPreview(p);
+   if(typeof repository.loadDoeContext!=='function')throw Object.assign(Error('Current DOE evidence is required.'),{code:'MASTER_ENGINE_REQUIRED'});
+   const context=await repository.loadDoeContext({academicYear:p.academicYear,candidatePolicyVersionId:p.candidatePolicyVersionId});
+   if(!sha(context?.contextHash))throw invalid();
+   const {compareMasterDoe}=require('./master-doe-reconciliation');
+   const comparison=await compareMasterDoe({source:p.source,...context});
+   const doeGuard={schemaVersion:1,sourceManifestSha256:p.source.manifestSha256,contextHash:context.contextHash,doeGuardHash:comparison.doeGuardHash,rows:comparison.rows};
+   return repository.preview({...p,doeGuard});
   },
   async apply(p){
    if(!only(p,['batchId','domain','expectedVersion','manifestSha256','sourceSha256','idempotencyKey','actorFirebaseUid','confirm'])||!domain(p.domain)||!UUID.test(p.batchId||'')||!version(p.expectedVersion)||!sha(p.manifestSha256)||!sha(p.sourceSha256)||!UUID.test(p.idempotencyKey||'')||!actor(p.actorFirebaseUid)||p.confirm!==true)throw invalid();
@@ -31,4 +31,14 @@ function createMasterRefreshService({repository}={}){
   }
  });
 }
-module.exports={createMasterRefreshService};
+function validateMasterPreview(p){
+   if(!only(p,['domain','academicYear','source','actorFirebaseUid','candidatePolicyVersionId'])||!domain(p.domain)||!actor(p.actorFirebaseUid)||!object(p.source))throw invalid();
+   academicBounds(p.academicYear);
+   const s=p.source;
+   if(s.schemaVersion!==1||s.academicYear!==p.academicYear||!sha(s.sourceSha256)||!sha(s.manifestSha256)||['appointments','rotations','cccAllocations','roleDefinitions','trainees','cccSlots','issues'].some(k=>!Array.isArray(s[k])))throw invalid();
+   const {manifestSha256,...body}=s;
+   if(manifestHash(body)!==manifestSha256.toUpperCase())throw Object.assign(new Error('The MASTER source manifest changed.'),{code:'SOURCE_MANIFEST_MISMATCH'});
+   if(Buffer.byteLength(JSON.stringify(s),'utf8')>8*1024*1024)throw invalid();
+   if(p.candidatePolicyVersionId!==undefined&&!UUID.test(p.candidatePolicyVersionId))throw invalid();
+}
+module.exports={createMasterRefreshService,validateMasterPreview};

@@ -1,3 +1,7 @@
+## Current: MASTER Task2 accepted, Task3 engine candidate active - 2026-10-18
+
+Read updates/2026-10-18-master-engine-guard-candidate.md and the plan-scoped ledger. Draft PR118 on feat/master-assignment-refresh-20261018; Task1 a807add/parser21pass. Task2 SQL accepted at024fb90:39185897459 has actual transaction, four observed races and MASTER_EMPTY_ROLLBACK_OK markers. Task3 candidate focused63pass; source/engine guard, fresh exception-preserving Draft, private Plan comparison implemented; changed SQL needs new CI. Prior251 source comparison has242 executable agreement+1 departed identity excluded+2mismatch+6missing. No live writes/policy/gate/release. Preserve DOE differences, CCCcommitfalse, no540replay; Tasks4-8 remain. Continue native sequential execution without another design prompt.
+
 ## Current: MASTER Task1 parser implemented; Task2 active — 2026-10-18
 
 Read updates/2026-10-18-master-parser-task1-implemented.md and the plan-scoped ignored ledger. Owner approved exact plan/native execution. Task1 a807add/focused21pass; accepted private Plan v3 has70appointments/50rotation roles/413CCC slots/11Locum/22annualCCC allocations/113trainees. Task2 uncommitted service/repository and9pass1SQLskip; SQL/CLI/DTO guard not implemented. Root982/923pass7freeze-fail52skip (promotion stillTask8); server713/706pass4timeouts3skip, affected41tests pass bounded rerun. No live writes/release; preserve DOE holds, CCCcommitfalse, no540replay. Continue sequentially without another plan permission prompt.

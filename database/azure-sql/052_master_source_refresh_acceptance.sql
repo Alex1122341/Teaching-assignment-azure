@@ -15,9 +15,9 @@ CREATE TABLE dbo.MasterTestContext(Seed uniqueidentifier,Faculty uniqueidentifie
 DECLARE @Row nvarchar(max)=(SELECT @Faculty facultyId,N'Example Master Faculty' sourceName,N'VISC' roleType,N'Example Area' scope,CAST(0 AS decimal(12,6)) sourceDoe,
  JSON_QUERY(N'[{"startDate":"2026-05-01","endDate":"2026-08-31"},{"startDate":"2027-03-01","endDate":"2027-04-30"}]') periods,
  JSON_QUERY((SELECT REPLICATE('A',64) sha256,N'VISCs' sheet,2 row,N'A' [column] FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)) sourceRef FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
-DECLARE @Missing nvarchar(max)=JSON_MODIFY(JSON_MODIFY(@Row,'$.scope',N'New Missing Area'),'$.sourceDoe',NULL),@Wrong nvarchar(max)=JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(@Row,'$.roleType',N'Designated Rotation Coordinator'),'$.scope',N'Example Rotation'),'$.sourceDoe',1);
+DECLARE @Missing nvarchar(max)=JSON_MODIFY(JSON_MODIFY(@Row,'$.scope',N'New Missing Area'),'$.sourceDoe',NULL),@Wrong nvarchar(max)=JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(@Row,'$.roleType',N'Designated Rotation Coordinator'),'$.scope',N'Example Rotation'),'$.sourceDoe',1),@Eligible nvarchar(max)=JSON_MODIFY(JSON_MODIFY(@Row,'$.scope',N'New Approved Area'),'$.sourceDoe',2);
 DECLARE @Source nvarchar(max)=(SELECT 1 schemaVersion,'2026-27' academicYear,REPLICATE('A',64) sourceSha256,REPLICATE('C',64) manifestSha256,
- JSON_QUERY(N'['+@Row+N','+@Missing+N','+@Wrong+N']') appointments,JSON_QUERY(N'[]') rotations,JSON_QUERY(N'[]') cccAllocations,
+ JSON_QUERY(N'['+@Row+N','+@Missing+N','+@Wrong+N','+@Eligible+N']') appointments,JSON_QUERY(N'[]') rotations,JSON_QUERY(N'[]') cccAllocations,
  JSON_QUERY(N'[{"roleType":"HICC","scope":"Vacant Course"}]') roleDefinitions,JSON_QUERY(N'[]') cccSlots,JSON_QUERY(N'[]') trainees,JSON_QUERY(N'[]') issues FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
 INSERT dbo.MasterTestContext VALUES(@Seed,@Faculty,@Existing,@Mismatch,@Removed,@Source,NULL,NEWID(),NULL);
 GO
@@ -26,7 +26,17 @@ AS
 BEGIN
  DECLARE @Source nvarchar(max)=(SELECT SourceJson FROM dbo.MasterTestContext);
  DECLARE @Result TABLE(responseJson nvarchar(max));
- INSERT @Result EXEC paws_api.PreviewMasterRefresh N'appointments','2026-27',@Source,N'master-test-admin';
+ -- Synthetic trusted calculation evidence. JavaScript tests exercise the actual
+ -- annual engine; these values isolate database binding/atomicity behavior.
+ DECLARE @Guard nvarchar(max)=(SELECT 1 schemaVersion,REPLICATE('C',64) sourceManifestSha256,REPLICATE('D',64) doeGuardHash,
+  CONVERT(varchar(64),HASHBYTES('SHA2_256',paws_api.MasterRefreshSnapshot('2026-27')),2) contextHash,
+  JSON_QUERY((SELECT JSON_VALUE(j.value,'$.facultyId') facultyId,JSON_VALUE(j.value,'$.roleType') roleType,JSON_VALUE(j.value,'$.scope') scope,
+   r.RoleAssignmentId roleId,CAST(IIF(r.RoleAssignmentId IS NULL,1,0) AS bit) isNew,N'matched' status,TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.sourceDoe')) sourceDoe,
+   COALESCE(r.DoeOverrideValue,r.DoeMappedValue,TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.sourceDoe'))) activeDoe,
+   COALESCE(r.DoeOverrideValue,r.DoeMappedValue,TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.sourceDoe'))) candidateDoe
+   FROM OPENJSON(@Source,'$.appointments') j LEFT JOIN paws.RoleAssignment r ON r.AcademicYear='2026-27' AND r.FacultyId=TRY_CONVERT(uniqueidentifier,JSON_VALUE(j.value,'$.facultyId')) AND r.RoleType=JSON_VALUE(j.value,'$.roleType') AND r.CourseOrSubjectOrRotation=JSON_VALUE(j.value,'$.scope') FOR JSON PATH,INCLUDE_NULL_VALUES)) rows
+  FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+ INSERT @Result EXEC paws_api.PreviewMasterRefresh N'appointments','2026-27',@Source,N'master-test-admin',@Guard;
  UPDATE dbo.MasterTestContext SET PreviewJson=(SELECT responseJson FROM @Result),RequestKey=NEWID();
 END;
 GO
@@ -41,7 +51,9 @@ END;
 GO
 EXEC dbo.StageMasterTest;
 DECLARE @Preview nvarchar(max)=(SELECT PreviewJson FROM dbo.MasterTestContext);
-IF (SELECT COUNT(*) FROM OPENJSON(@Preview,'$.operations'))<>2 OR (SELECT COUNT(*) FROM OPENJSON(@Preview,'$.heldIssues'))<>2 OR @Preview NOT LIKE N'%DOE_MISMATCH%' OR @Preview NOT LIKE N'%HELD_REMOVAL%' THROW 55290,'Incorrect appointment reconciliation.',1;
+IF (SELECT COUNT(*) FROM OPENJSON(@Preview,'$.operations'))<>3 OR (SELECT COUNT(*) FROM OPENJSON(@Preview,'$.heldIssues'))<>2 OR @Preview NOT LIKE N'%DOE_MISMATCH%' OR @Preview NOT LIKE N'%HELD_REMOVAL%' THROW 55290,'Incorrect appointment reconciliation.',1;
+DECLARE @Source nvarchar(max)=(SELECT SourceJson FROM dbo.MasterTestContext);
+BEGIN TRY EXEC paws_api.PreviewMasterRefresh N'appointments','2026-27',@Source,N'master-test-admin';THROW 55290,'Missing engine guard accepted.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>55206 THROW;END CATCH;
 -- Runtime cannot stage by impersonating a valid administrator actor.
 EXECUTE AS USER=N'paws-calendar-test-runtime';
 BEGIN TRY EXEC dbo.StageMasterTest;REVERT;THROW 55290,'Runtime staged MASTER.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>229 BEGIN REVERT;THROW;END;END CATCH;REVERT;
@@ -58,7 +70,17 @@ BEGIN TRY
  SELECT NEWID(),Faculty,N'Example Master Faculty',N'resolved','2026-27',N'VISC',N'New Missing Area',Seed,9 FROM dbo.MasterTestContext;
  EXEC dbo.ApplyMasterTest;THROW 55290,'Phantom role accepted.',1;
 END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>55204 THROW;END CATCH;
--- Rowversion changes survive rollback, so each attempt needs a new preview.
+-- Refresh the staged fixture before the next independent stale-state case.
+EXEC dbo.StageMasterTest;
+-- A direct rule-parameter edit must invalidate the guard even when the parent
+-- policy Revision is unchanged. This catches edits outside normal UI tooling.
+BEGIN TRY
+ BEGIN TRANSACTION;
+ DECLARE @Parameter uniqueidentifier=(SELECT TOP(1) p.ParameterId FROM paws.DoeRuleParameter p JOIN paws.DoePolicyRule r ON r.RuleId=p.RuleId WHERE r.AcademicYear='2026-27' AND p.ValueNumber IS NOT NULL ORDER BY p.ParameterId);
+ IF @Parameter IS NULL THROW 55290,'Synthetic engine parameter fixture missing.',1;
+ UPDATE paws.DoeRuleParameter SET ValueNumber=ValueNumber+1 WHERE ParameterId=@Parameter;
+ EXEC dbo.ApplyMasterTest;THROW 55290,'Stale policy child accepted.',1;
+END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>55204 THROW;END CATCH;
 EXEC dbo.StageMasterTest;
 GO
 CREATE TRIGGER paws.MasterTestAuditFailure ON paws.AuditEvent AFTER INSERT AS
@@ -72,7 +94,8 @@ DROP TRIGGER paws.MasterTestAuditFailure;
 EXEC dbo.StageMasterTest;
 DECLARE @Result TABLE(responseJson nvarchar(max));INSERT @Result EXEC dbo.ApplyMasterTest;
 UPDATE dbo.MasterTestContext SET ReceiptId=TRY_CONVERT(uniqueidentifier,JSON_VALUE((SELECT responseJson FROM @Result),'$.receiptId'));
-IF JSON_VALUE((SELECT responseJson FROM @Result),'$.appliedCount')<>N'2' THROW 55290,'Incorrect receipt.',1;
+IF JSON_VALUE((SELECT responseJson FROM @Result),'$.appliedCount')<>N'3' THROW 55290,'Incorrect receipt.',1;
+IF NOT EXISTS(SELECT 1 FROM paws.RoleAssignment WHERE CourseOrSubjectOrRotation=N'New Approved Area' AND DoeMappedValue=2 AND DoeOverrideValue IS NULL) THROW 55290,'Matching new source credit not preserved.',1;
 IF NOT EXISTS(SELECT 1 FROM paws.RoleAssignment WHERE RoleAssignmentId=(SELECT ExistingRole FROM dbo.MasterTestContext) AND DoeMappedValue=5 AND DoeOverrideValue=0 AND DoeOverrideReason=N'Explicit zero must survive') THROW 55290,'Explicit allocation changed.',1;
 IF NOT EXISTS(SELECT 1 FROM paws.RoleAssignment WHERE RoleAssignmentId=(SELECT MismatchRole FROM dbo.MasterTestContext) AND DoeMappedValue=2) OR NOT EXISTS(SELECT 1 FROM paws.RoleAssignment WHERE RoleAssignmentId=(SELECT RemovedRole FROM dbo.MasterTestContext) AND DoeMappedValue=6) THROW 55290,'Held allocation changed.',1;
 IF NOT EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule WHERE RoleAssignmentId=(SELECT ExistingRole FROM dbo.MasterTestContext) AND (SELECT COUNT(*) FROM OPENJSON(PeriodsJson))=2) THROW 55290,'Appointment gap lost.',1;

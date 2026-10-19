@@ -2,6 +2,9 @@
 function publicActivity(row){
  const keys=['activityId','facultyKey','facultyDisplayName','category','label','startDate','endDate','courseCode','timeStatus','version'];
  const result=Object.fromEntries(keys.map(key=>[key,row[key]??null]));
+ result.staffingKind=row.staffingKind??'assigned';result.staffingLabel=row.staffingLabel??null;result.blockLabel=row.blockLabel??null;
+ if(!['assigned','unassigned'].includes(result.staffingKind)||result.staffingKind==='unassigned'&&(row.category!=='ccc'||result.staffingLabel!=='Locum'||result.facultyKey!==null))throw Object.assign(new Error('The activity service returned invalid staffing.'),{code:'INVALID_CALENDAR_RESPONSE'});
+ if(result.staffingKind==='unassigned'){result.facultyKey=null;result.facultyDisplayName='Locum';}
  result.timeEvidence=Array.isArray(row.timeEvidence)?row.timeEvidence.map(value=>({date:value.date,startTime:value.startTime,endTime:value.endTime})):[];
  return result;
 }

@@ -9,6 +9,10 @@ jobs:
   appointments:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [Appointments, CccSlots]
     steps:
       - uses: actions/checkout@v4
       - name: Start labeled local synthetic SQL
@@ -28,10 +32,10 @@ jobs:
           if(-not $ready){throw 'Synthetic SQL did not become ready.'}
       - name: Prove appointment transactions and guarded recovery
         shell: pwsh
-        run: ./tools/test-master-refresh-sql.ps1 -ContainerName paws-calendar-master-refresh-acceptance -Mode Appointments
+        run: ./tools/test-master-refresh-sql.ps1 -ContainerName paws-calendar-master-refresh-acceptance -Mode ${{ matrix.mode }}
       - name: Prove empty schema rollback
         shell: pwsh
-        run: ./tools/test-master-refresh-sql.ps1 -ContainerName paws-calendar-master-refresh-acceptance -Mode Appointments -CheckRollback
+        run: ./tools/test-master-refresh-sql.ps1 -ContainerName paws-calendar-master-refresh-acceptance -Mode ${{ matrix.mode }} -CheckRollback
       - name: Stop synthetic container
         if: always()
         shell: pwsh

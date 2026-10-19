@@ -31,12 +31,12 @@
    &&(!Array.isArray(filters.typeKeys)||filters.typeKeys.includes('work:'+row.category))
    &&(!filters.category||filters.category==='all'||row.category===filters.category)&&(!filters.facultyKey||row.facultyKey===filters.facultyKey)
    &&(row.category==='ccc'?filters.showCcc!==false:filters.showWorking!==false)
-   &&(!filters.search||[row.label,row.facultyDisplayName,row.courseCode].join(' ').toLowerCase().includes(String(filters.search).toLowerCase())))
+   &&(!filters.search||[row.label,row.facultyDisplayName,row.staffingLabel,row.blockLabel,row.courseCode].join(' ').toLowerCase().includes(String(filters.search).toLowerCase())))
    .sort((a,b)=>a.startDate.localeCompare(b.startDate)||String(a.facultyDisplayName).localeCompare(String(b.facultyDisplayName)));
   const body=rows.map(row=>{
    const evidence=times(row),dayCount=(Date.parse(row.endDate)-Date.parse(row.startDate))/86400000+1,verified=evidence.length===dayCount;
-   const name=root?.PAWS_FACULTY_NAME?.format?.({displayName:row.facultyDisplayName})||row.facultyDisplayName||'Not provided';
-   return `<tr><td><strong>${esc(row.label||labels[row.category]||'Working activity')}</strong><span class="activity-category">${esc(labels[row.category]||'Working activity')}</span></td><td>${esc(name)}</td><td class="activity-source-dates">${esc(row.startDate)}<span>to ${esc(row.endDate)}</span><small>Original inclusive range</small></td><td><span class="activity-state ${verified?'activity-verified':'activity-review'}">${verified?'Time verified':'Needs Review'}</span>${evidence.length?evidence.map(value=>`<span class="activity-time">${esc(value.date)} · ${esc(value.startTime)}–${esc(value.endTime)}</span>`).join(''):'<span class="activity-time">Time: Not provided</span>'}${!verified&&evidence.length?'<small>Other dates: Not provided</small>':''}</td><td><span>Course: ${esc(row.courseCode||'Not provided')}</span><small>Room: Not provided · Group: Not provided</small></td></tr>`;
+   const name=row.staffingKind==='unassigned'?'Locum':root?.PAWS_FACULTY_NAME?.format?.({displayName:row.facultyDisplayName})||row.facultyDisplayName||'Not provided';
+   return `<tr><td><strong>${esc(row.label||labels[row.category]||'Working activity')}</strong><span class="activity-category">${esc(labels[row.category]||'Working activity')}</span></td><td>${esc(name)}</td><td class="activity-source-dates">${esc(row.startDate)}<span>to ${esc(row.endDate)}</span><small>Original inclusive range</small></td><td><span class="activity-state ${verified?'activity-verified':'activity-review'}">${verified?'Time verified':'Needs Review'}</span>${evidence.length?evidence.map(value=>`<span class="activity-time">${esc(value.date)} · ${esc(value.startTime)}–${esc(value.endTime)}</span>`).join(''):'<span class="activity-time">Time: Not provided</span>'}${!verified&&evidence.length?'<small>Other dates: Not provided</small>':''}</td><td>${row.blockLabel?`<span>Block: ${esc(row.blockLabel)}</span>`:''}<span>Course: ${esc(row.courseCode||'Not provided')}</span><small>Room: Not provided · Group: Not provided</small></td></tr>`;
   }).join('');
   return `<section class="working-activity-section" aria-label="Working activities"><header><div><span class="activity-eyebrow">WORKING ACTIVITIES</span><h3>Work recorded beyond teaching sessions</h3></div><span class="activity-count">${rows.length} ${rows.length===1?'range':'ranges'}</span></header><p class="activity-note">Source date ranges are preserved, including weekends. Unconfirmed times remain Needs Review for SWAP.</p>${rows.length?`<div class="activity-table-wrap"><table class="activity-table"><thead><tr><th>Activity</th><th>Faculty</th><th>Source dates</th><th>Verified time</th><th>Details</th></tr></thead><tbody>${body}</tbody></table></div>`:'<p class="activity-empty">No working activities match this range and filter.</p>'}</section>`;
  }
@@ -62,7 +62,7 @@
    if(!key)return[];
    return loadRange({...range,facultyKey:key});
   }
-  const view={loadRange,loadFacultyRange,academicRange,createActivityTypeFilter,renderRangeLane,renderFacultyActivities:activities=>renderRangeLane(activities),clear(){generation++;}};
+  const view={loadRange,loadFacultyRange,academicRange,createActivityTypeFilter,renderRangeLane,renderFacultyActivities:activities=>renderRangeLane((Array.isArray(activities)?activities:[]).filter(row=>row.staffingKind!=='unassigned')),clear(){generation++;}};
   return Object.freeze({...view,createFacultySchedule:options=>createFacultySchedule({...options,view})});
  }
  function createFacultySchedule({view,getHost,getUser,getSelected,isSelf}){

@@ -152,12 +152,20 @@ BEGIN
  JSON_QUERY((SELECT ActivityDate date,StartTime startTime,EndTime endTime,EvidenceRef evidenceRef,EvidenceNote evidenceNote,ActorUid actorUid,UpdatedAtUtc updatedAtUtc,CONVERT(varchar(16),CONVERT(binary(8),TimeVersion),2) version FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId ORDER BY ActivityDate FOR JSON PATH,INCLUDE_NULL_VALUES)) timeEvidence
  FROM paws.CalendarActivity a LEFT JOIN paws.Course c ON c.CourseId=a.CourseId
  WHERE a.Category=N'ccc' AND a.StartDate<@End AND a.EndDate>=@Start ORDER BY a.StartDate,a.ActivityId FOR JSON PATH,INCLUDE_NULL_VALUES);
- DECLARE @Result nvarchar(max);
- SELECT @Result=N'['+COALESCE(STRING_AGG(CONVERT(nvarchar(max),CASE WHEN a.SourceColumn IS NOT NULL OR a.BlockLabel IS NOT NULL OR a.StaffingKind=N'unassigned' THEN
+ DECLARE @Parts TABLE(n int PRIMARY KEY,RowJson nvarchar(max));
+ INSERT @Parts SELECT TRY_CONVERT(int,j.[key]),CASE WHEN a.SourceColumn IS NOT NULL OR a.BlockLabel IS NOT NULL OR a.StaffingKind=N'unassigned' THEN
  JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(j.value,'$.staffingKind',a.StaffingKind),'$.staffingLabel',a.StaffingLabel),'$.blockLabel',a.BlockLabel),'$.sourceColumn',a.SourceColumn),'$.sourceSlotKey',a.SourceSlotKey)
- ELSE j.value END),N',') WITHIN GROUP(ORDER BY TRY_CONVERT(int,j.[key])),N'')+N']'
+ ELSE j.value END
  FROM OPENJSON(@Rows) j JOIN paws.CalendarActivity a ON a.ActivityId=TRY_CONVERT(uniqueidentifier,JSON_VALUE(j.value,'$.activityId'));
- RETURN @Result;
+ -- An explicit ordinal loop preserves legacy JSON ordering on SQL2017 and
+ -- avoids ordered-aggregate scalar-UDF inlining conflicts on newer SQL.
+ DECLARE @Result nvarchar(max)=N'[',@n int=0,@Last int=(SELECT COUNT(*) FROM @Parts);
+ WHILE @n<@Last
+ BEGIN
+  SELECT @Result=@Result+CASE WHEN @n=0 THEN N'' ELSE N',' END+RowJson FROM @Parts WHERE n=@n;
+  SET @n+=1;
+ END;
+ RETURN @Result+N']';
 END;
 GO
 ALTER PROCEDURE paws_api.LockCccReplacementScope @AcademicYear varchar(7),@SourceRowsJson nvarchar(max)

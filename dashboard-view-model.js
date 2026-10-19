@@ -199,7 +199,7 @@ function lookupUpcomingAfc(records, today = campusToday()) {
   let upcomingCount=0, currentLeaveEnd=null, nextLeaveStart=null;
   const leaveType = record => {
     const code=text(record.reasonCode).toLowerCase();
-    if (['rsl','mat','medical','special'].includes(code)) return true;
+    if (['rsl','mat','medical'].includes(code)) return true;
     const label=[record.legacyPurpose,record.purpose,record.reason].map(text).join(' ').toLowerCase();
     return /(^|[^a-z])(rsl|leave|medical|maternity|maternal|parental|sabbatical)([^a-z]|$)/i.test(label);
   };
@@ -222,5 +222,38 @@ function lookupRemainingDoe(worksheet) {
   return remaining<0 ? value+' (over)' : value;
 }
 
-  return { groupTeachingAssignments, teachingDoeEvidence, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear, campusToday, lookupUpcomingAfc, lookupRemainingDoe };
+
+async function fetchLookupMetrics(api, academicYear) {
+  const [afc,doe]=await Promise.allSettled([
+    api.dashboardAfcRecords({active:true,limit:2000}),
+    academicYear ? api.doeWorksheets({academicYear}) : Promise.resolve([])
+  ]);
+  const afcByFaculty=new Map(),doeByFaculty=new Map();
+  if (afc.status==='fulfilled' && Array.isArray(afc.value)) {
+    for (const record of afc.value) {
+      const id=text(record?.facultyId).toLowerCase();
+      if (!id) continue;
+      if (!afcByFaculty.has(id)) afcByFaculty.set(id,[]);
+      afcByFaculty.get(id).push(record);
+    }
+  }
+  if (doe.status==='fulfilled' && Array.isArray(doe.value)) {
+    for (const record of doe.value) {
+      const id=text(record?.facultyId).toLowerCase();
+      if (id) doeByFaculty.set(id,record);
+    }
+  }
+  return {afcByFaculty,doeByFaculty,afcAvailable:afc.status==='fulfilled'&&Array.isArray(afc.value),doeAvailable:doe.status==='fulfilled'&&Array.isArray(doe.value)};
+}
+function lookupMetricsText(facultyId,metrics) {
+  if (!metrics) return 'Upcoming AFC: loading · Remaining DOE: loading';
+  const id=text(facultyId).toLowerCase();
+  const info=metrics.afcAvailable ? lookupUpcomingAfc(metrics.afcByFaculty.get(id)||[]) : null;
+  const leave=info?.currentLeaveEnd ? ' · Leave ends: '+info.currentLeaveEnd : info?.nextLeaveStart ? ' · Leave starts: '+info.nextLeaveStart : '';
+  const count=info ? info.upcomingCount : 'Unavailable';
+  const remaining=metrics.doeAvailable ? lookupRemainingDoe(metrics.doeByFaculty.get(id)) : 'Unavailable';
+  return count+' upcoming AFC'+leave+' · Remaining DOE: '+remaining;
+}
+
+  return { groupTeachingAssignments, teachingDoeEvidence, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear, campusToday, lookupUpcomingAfc, lookupRemainingDoe, fetchLookupMetrics, lookupMetricsText };
 });

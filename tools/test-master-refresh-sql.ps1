@@ -28,6 +28,14 @@ SET @Alter=N'ALTER '+SUBSTRING(@Definition,CHARINDEX(N'PROCEDURE',UPPER(@Definit
 BEGIN TRY EXEC(N'$emptyRollback');THROW 55590,'Edited-reader rollback accepted.',1;END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>55508 THROW;END CATCH;
 SET @Alter=N'ALTER '+SUBSTRING(@Definition,CHARINDEX(N'PROCEDURE',UPPER(@Definition)),LEN(@Definition));EXEC sys.sp_executesql @Alter;
 PRINT 'MASTER_TRAINEE_EMPTY_ARRAY_EDITED_ROLLBACK_REFUSED_OK';
+DECLARE @Encrypted nvarchar(max)=REPLACE(REPLACE(@Definition,CHAR(13),N''),CHAR(10)+N'AS'+CHAR(10)+N'BEGIN',CHAR(10)+N'WITH ENCRYPTION'+CHAR(10)+N'AS'+CHAR(10)+N'BEGIN');
+IF @Encrypted=REPLACE(@Definition,CHAR(13),N'') THROW 55590,'Encrypted definition fixture was not generated.',1;
+SET @Encrypted=N'ALTER '+SUBSTRING(@Encrypted,CHARINDEX(N'PROCEDURE',UPPER(@Encrypted)),LEN(@Encrypted));EXEC sys.sp_executesql @Encrypted;
+IF OBJECT_ID(N'paws_api.ListTraineeSource') IS NULL OR OBJECT_DEFINITION(OBJECT_ID(N'paws_api.ListTraineeSource')) IS NOT NULL THROW 55590,'Encrypted definition fixture is not opaque.',1;
+BEGIN TRY EXEC(N'$emptyRollback');THROW 55590,'Unreadable-reader rollback accepted.',1;END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>55508 THROW;END CATCH;
+IF OBJECT_ID(N'paws_api.ListTraineeSource') IS NULL OR OBJECT_DEFINITION(OBJECT_ID(N'paws_api.ListTraineeSource')) IS NOT NULL OR (SELECT COUNT(*) FROM staging.TraineeEmptyResultBaseline)<>1 THROW 55590,'Rejected opaque rollback changed reader or baseline.',1;
+EXEC sys.sp_executesql @Alter;
+PRINT 'MASTER_TRAINEE_EMPTY_ARRAY_OPAQUE_ROLLBACK_REFUSED_OK';
 "@ 'VetMed-Ops'
   Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_055_trainee_empty_results.sql') -Raw) 'VetMed-Ops'
   Invoke-TestSql "IF OBJECT_ID(N'staging.TraineeEmptyResultBaseline') IS NOT NULL OR CHARINDEX(N'JSON_QUERY(@Rows) rows',OBJECT_DEFINITION(OBJECT_ID(N'paws_api.ListTraineeSource')))=0 OR OBJECT_ID(N'paws.TraineeSourceEvidence') IS NULL THROW 55590,'Reader rollback damaged source authority.',1;PRINT 'MASTER_TRAINEE_EMPTY_ARRAY_RESTORE_OK';" 'VetMed-Ops'

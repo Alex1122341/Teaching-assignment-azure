@@ -8,6 +8,7 @@ BEGIN TRY
   SELECT 1 FROM staging.TraineeEmptyResultBaseline WHERE ObjectName<>N'paws_api.ListTraineeSource'
    OR BeforeSha256<>CONVERT(varchar(64),HASHBYTES('SHA2_256',BeforeDefinition),2)
    OR AfterSha256 IS NULL OR OBJECT_ID(ObjectName) IS NULL
+   OR OBJECT_DEFINITION(OBJECT_ID(ObjectName)) IS NULL
    OR AfterSha256<>CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(ObjectName))),2)
  ) THROW 55508,'Edited trainee reader or invalid baseline prevents rollback.',1;
  DECLARE @Before nvarchar(max)=(SELECT BeforeDefinition FROM staging.TraineeEmptyResultBaseline),@Sql nvarchar(max);

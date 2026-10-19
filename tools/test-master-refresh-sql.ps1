@@ -21,6 +21,7 @@ if($masterMode -in @('CccSlots','CccMaster')){
  }else{
   $acceptance=if($masterMode -eq 'CccMaster'){'053_ccc_master_replacement_acceptance.sql'}else{'053_ccc_master_slots_acceptance.sql'}
   Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath ('database/azure-sql/'+$acceptance)) -Raw) 'VetMed-Ops'
+  if($masterMode -eq 'CccMaster'){. (Join-Path $PSScriptRoot 'test-ccc-master-races.ps1') -ContainerName $ContainerName}
   $slotRollback=(Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_053_ccc_master_slots.sql') -Raw).Replace(':ON ERROR EXIT','').Replace("'","''")
   Invoke-TestSql "BEGIN TRY EXEC(N'$slotRollback');THROW 55390,'Populated CCC rollback accepted.',1;END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>55308 THROW;END CATCH;PRINT 'MASTER_CCC_SLOTS_POPULATED_ROLLBACK_REFUSED_OK';" 'VetMed-Ops'
  }

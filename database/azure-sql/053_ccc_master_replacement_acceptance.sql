@@ -2,6 +2,11 @@
 :ON ERROR EXIT
 SET NOCOUNT ON;SET XACT_ABORT ON;
 IF USER_ID(N'paws-calendar-test-runtime') IS NULL OR OBJECT_ID(N'dbo.CccSlotContext') IS NULL THROW 55390,'Disposable fixture required.',1;
+DECLARE @HistoricalBatch uniqueidentifier=(SELECT Seed FROM dbo.CccSlotContext);
+INSERT staging.CalendarActivityImport(ImportBatchId,SourceSha256,Dataset,PolicyVersion,Status,SourceRowCount,ActorFirebaseUid) VALUES(@HistoricalBatch,REPLICATE('B',64),N'afc-working-activities',N'synthetic-historical',N'committed',540,N'synthetic');
+INSERT paws.CalendarActivityImportReceipt(ReceiptId,ImportBatchId,Dataset,SourceSha256,ManifestSha256,IdempotencyKey,InsertedCount,DeletedAfcCount,ActorUid) VALUES(NEWID(),@HistoricalBatch,N'afc-working-activities',REPLICATE('B',64),REPLICATE('F',64),NEWID(),540,540,N'synthetic');
+CREATE TABLE dbo.CccHistoricalReceipt(Hash binary(32));
+INSERT dbo.CccHistoricalReceipt SELECT HASHBYTES('SHA2_256',(SELECT * FROM paws.CalendarActivityImportReceipt ORDER BY ReceiptId FOR JSON PATH,INCLUDE_NULL_VALUES));
 CREATE TABLE dbo.CccMasterContext(BatchId uniqueidentifier,RequestKey uniqueidentifier,PayloadJson nvarchar(max),PreviewJson nvarchar(max),ReceiptId uniqueidentifier NULL);
 DECLARE @Faculty uniqueidentifier=(SELECT Faculty FROM dbo.CccSlotContext),@Rows nvarchar(max),@Payload nvarchar(max);
 SET @Rows=(SELECT n sourceRow,CASE WHEN col<>N'D' THEN @Faculty END facultySourceId,CAST(NULL AS nvarchar(256)) facultySourceName,N'2026-11-02' startDate,N'2026-11-02' endDate,CAST(NULL AS nvarchar(64)) courseCode,N'CCC' label,
@@ -78,4 +83,5 @@ END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()<>54908 THROW;E
 EXEC paws_api.RecoverCccReplacement N'ccc-slots-admin',@Receipt,1;
 IF NOT EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE ActivityId=(SELECT OldId FROM dbo.CccSlotContext) AND OriginalLabel=N'Legacy CCC') OR EXISTS(SELECT 1 FROM paws.CalendarActivity WHERE SourceColumn IS NOT NULL) THROW 55390,'Complete old-set recovery failed.',1;
 IF NOT EXISTS(SELECT 1 FROM staging.ImportRow WHERE RawJson LIKE N'%SECRET-MASTER-CCC%') THROW 55390,'Private source evidence was not retained.',1;
+IF HASHBYTES('SHA2_256',(SELECT * FROM paws.CalendarActivityImportReceipt ORDER BY ReceiptId FOR JSON PATH,INCLUDE_NULL_VALUES))<>(SELECT Hash FROM dbo.CccHistoricalReceipt) THROW 55390,'Historical working-activity migration receipt changed.',1;
 PRINT 'MASTER_CCC_REPLACEMENT_ACCEPTANCE_OK';

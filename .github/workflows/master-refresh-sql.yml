@@ -1,7 +1,7 @@
 name: MASTER Refresh SQL Acceptance
 on:
   pull_request:
-    paths: ['database/azure-sql/**','tools/test-master-refresh*','server/src/master-refresh/**','server/src/data/sql-master-refresh-repository.js','.github/workflows/master-refresh-sql.yml']
+    paths: ['database/azure-sql/**','tools/master-refresh/**','tools/test-master-refresh*','tools/test-ccc-master*','tools/test-ccc-replacement*','server/src/master-refresh/**','server/src/data/sql-master-refresh-repository.js','.github/workflows/master-refresh-sql.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -36,6 +36,10 @@ jobs:
       - name: Prove empty schema rollback
         shell: pwsh
         run: ./tools/test-master-refresh-sql.ps1 -ContainerName paws-calendar-master-refresh-acceptance -Mode ${{ matrix.mode }} -CheckRollback
+      - name: Prove original v1 CCC acceptance, races and rollback with MASTER upgrade
+        if: matrix.mode == 'CccMaster'
+        shell: pwsh
+        run: ./tools/test-ccc-replacement-sql.ps1 -ContainerName paws-calendar-master-refresh-acceptance -WithMasterSlots
       - name: Stop synthetic container
         if: always()
         shell: pwsh

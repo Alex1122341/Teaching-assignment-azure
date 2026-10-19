@@ -316,6 +316,10 @@ jobs:
           PRE_CORS: ${{ steps.predeploy_cors.outputs.corsPassed == 'true' && 'true' || 'false' }}
           STATIC_HASHES: ${{ steps.static_verify.outputs.staticHashesPassed == 'true' && 'true' || 'false' }}
           POST_API: ${{ steps.postdeploy_api.outputs.apiPassed == 'true' && 'true' || 'false' }}
+          STATIC_ONLY: ${{ inputs.static_only }}
+          EXPECTED_LIVE_API_SHA: ${{ inputs.expected_live_api_sha }}
+          PREFLIGHT_API_SHA: ${{ steps.predeploy_api.outputs.apiReleaseSha }}
+          PREFLIGHT_GATE_HASH: ${{ steps.predeploy_api.outputs.gateHash }}
         run: |
           set -euo pipefail
           jq -n \
@@ -326,12 +330,16 @@ jobs:
             --arg deployRunNumber "$GITHUB_RUN_NUMBER" \
             --arg siteUrl "$FIREBASE_SITE_URL" \
             --arg apiOrigin "$API_ORIGIN" \
+            --arg staticOnly "$STATIC_ONLY" \
+            --arg expectedLiveApiSha "$EXPECTED_LIVE_API_SHA" \
+            --arg preflightApiSha "$PREFLIGHT_API_SHA" \
+            --arg preflightGateHash "$PREFLIGHT_GATE_HASH" \
             --arg deployedAtUtc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --argjson apiPre "$PRE_API" \
             --argjson corsPre "$PRE_CORS" \
             --argjson staticHashesPassed "$STATIC_HASHES" \
             --argjson apiPost "$POST_API" \
-            '{repository:$repository,commitSha:$commitSha,sourceRunId:$sourceRunId,deployRunId:$deployRunId,deployRunNumber:$deployRunNumber,siteUrl:$siteUrl,apiOrigin:$apiOrigin,apiPre:$apiPre,corsPre:$corsPre,staticHashesPassed:$staticHashesPassed,apiPost:$apiPost,deployedAtUtc:$deployedAtUtc}' \
+            '{repository:$repository,commitSha:$commitSha,sourceRunId:$sourceRunId,deployRunId:$deployRunId,deployRunNumber:$deployRunNumber,siteUrl:$siteUrl,apiOrigin:$apiOrigin,staticOnly:($staticOnly=="true"),expectedLiveApiSha:$expectedLiveApiSha,preflightApiSha:$preflightApiSha,preflightGateHash:$preflightGateHash,apiPre:$apiPre,corsPre:$corsPre,staticHashesPassed:$staticHashesPassed,apiPost:$apiPost,deployedAtUtc:$deployedAtUtc}' \
             > firebase-deploy-evidence.json
 
       - name: Upload Firebase deploy evidence

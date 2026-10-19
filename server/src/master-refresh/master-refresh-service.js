@@ -16,8 +16,8 @@ function createMasterRefreshService({repository}={}){
    const context=await repository.loadDoeContext({academicYear:p.academicYear,candidatePolicyVersionId:p.candidatePolicyVersionId});
    if(!sha(context?.contextHash))throw invalid();
    const {compareMasterDoe}=require('./master-doe-reconciliation');
-   const comparison=await compareMasterDoe({source:p.source,...context});
-   const doeGuard={schemaVersion:1,sourceManifestSha256:p.source.manifestSha256,contextHash:context.contextHash,doeGuardHash:comparison.doeGuardHash,rows:comparison.rows};
+   const comparison=await compareMasterDoe({source:p.source,...context,domain:p.domain});
+   const doeGuard={schemaVersion:1,sourceManifestSha256:p.source.manifestSha256,contextHash:context.contextHash,doeGuardHash:comparison.doeGuardHash,rows:comparison.rows,facultyImpacts:comparison.facultyImpacts};
    return repository.preview({...p,doeGuard});
   },
   async apply(p){

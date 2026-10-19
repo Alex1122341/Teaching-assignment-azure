@@ -9,6 +9,7 @@ DROP PROCEDURE paws_api.CommitMasterRefresh;
 DROP PROCEDURE paws_api.PreviewMasterRefresh;
 DROP PROCEDURE paws_api.AssertMasterRefreshOperator;
 DROP FUNCTION paws_api.MasterRefreshSnapshot;
+DROP FUNCTION paws_api.MasterDoeAggregateSafe;
 DROP VIEW paws.vMasterRoleFacts;
 DROP TABLE paws.MasterRefreshReceipt;
 DROP TABLE staging.MasterRefresh;

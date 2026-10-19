@@ -48,6 +48,24 @@ CREATE VIEW paws.vMasterRoleFacts AS
  TRY_CONVERT(decimal(12,6),JSON_VALUE(SourceJson,'$.halfDayDeduction')) HalfDayDeduction
  FROM paws.MasterRoleSourceEvidence;
 GO
+CREATE FUNCTION paws_api.MasterDoeAggregateSafe(@Guard nvarchar(max),@FacultyId uniqueidentifier,@AcademicYear varchar(7)) RETURNS bit
+AS
+BEGIN
+ RETURN IIF(EXISTS(SELECT 1 FROM OPENJSON(@Guard,'$.facultyImpacts') j
+  WHERE TRY_CONVERT(uniqueidentifier,JSON_VALUE(j.value,'$.facultyId'))=@FacultyId AND JSON_VALUE(j.value,'$.academicYear')=@AcademicYear AND JSON_VALUE(j.value,'$.status')=N'safe'
+   AND TRY_CONVERT(binary(32),JSON_VALUE(j.value,'$.evidenceHash'),2) IS NOT NULL AND LEN(JSON_VALUE(j.value,'$.evidenceHash'))=64
+   AND TRY_CONVERT(binary(32),JSON_VALUE(j.value,'$.sourceHash'),2) IS NOT NULL AND LEN(JSON_VALUE(j.value,'$.sourceHash'))=64
+   AND TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.expectedRoleDelta'))>=0
+   AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.before.rawSupervisionDoe'))-TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.proposed.rawSupervisionDoe')))<0.000001
+   AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.before.appliedSupervisionDoe'))-TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.proposed.appliedSupervisionDoe')))<0.000001
+   AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.before.scheduledTeachingDoe'))-TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.proposed.scheduledTeachingDoe')))<0.000001
+   AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.before.adjustmentDoe'))-TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.proposed.adjustmentDoe')))<0.000001
+   AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.before.effectiveTargetDoe'))-TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.proposed.effectiveTargetDoe')))<0.000001
+   AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.proposed.assignedTeachingDoe'))-TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.before.assignedTeachingDoe'))-TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.expectedRoleDelta')))<0.000001
+   AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.before.remainingDoe'))-TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.proposed.remainingDoe'))-TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.expectedRoleDelta')))<0.000001
+ ),1,0);
+END;
+GO
 CREATE FUNCTION paws_api.MasterRefreshSnapshot(@AcademicYear varchar(7)) RETURNS nvarchar(max)
 AS
 BEGIN
@@ -58,9 +76,14 @@ BEGIN
  JSON_QUERY((SELECT d.DefinitionId,d.AcademicYear,d.RoleType,d.ScopeHash,d.SourceJson,d.SourceSha256,d.UpdatedAtUtc,d.UpdatedBy,CONVERT(varchar(16),CONVERT(binary(8),d.DefinitionVersion),2) version FROM paws.MasterRoleDefinition d WHERE d.AcademicYear=@AcademicYear ORDER BY d.DefinitionId FOR JSON PATH,INCLUDE_NULL_VALUES)) definitions,
  JSON_QUERY((SELECT f.FacultyId,f.DisplayName,f.PreferredFirstName,f.PreferredLastName,f.Active,f.UpdatedAtUtc FROM paws.Faculty f ORDER BY f.FacultyId FOR JSON PATH,INCLUDE_NULL_VALUES)) identities,
  JSON_QUERY((SELECT p.PolicyVersionId,p.Revision,p.Status,p.UpdatedAtUtc,JSON_QUERY(paws_api.DoeHistoryPolicySnapshot(p.PolicyVersionId)) bundle FROM paws.DoePolicyVersion p WHERE p.AcademicYear=@AcademicYear ORDER BY p.PolicyVersionId FOR JSON PATH,INCLUDE_NULL_VALUES)) policies,
- JSON_QUERY((SELECT a.AssignmentFactId,a.SourceEntityId,a.SourceEntityType,a.Revision,a.CurrentCalculationId,a.Active FROM paws.DoeAssignmentFact a WHERE a.AcademicYear=@AcademicYear ORDER BY a.AssignmentFactId FOR JSON PATH,INCLUDE_NULL_VALUES)) facts,
+ JSON_QUERY((SELECT a.* FROM paws.DoeAssignmentFact a WHERE a.AcademicYear=@AcademicYear ORDER BY a.AssignmentFactId FOR JSON PATH,INCLUDE_NULL_VALUES)) facts,
  JSON_QUERY((SELECT s.* FROM paws.DoeSupervisionSourceSnapshot s WHERE s.AcademicYear=@AcademicYear ORDER BY s.SnapshotId FOR JSON PATH,INCLUDE_NULL_VALUES)) supervision,
- JSON_QUERY((SELECT w.* FROM paws.DoeWorkloadSource w WHERE w.AcademicYear=@AcademicYear FOR JSON PATH,INCLUDE_NULL_VALUES)) workload
+ JSON_QUERY((SELECT w.* FROM paws.DoeWorkloadSource w WHERE w.AcademicYear=@AcademicYear FOR JSON PATH,INCLUDE_NULL_VALUES)) workload,
+ JSON_QUERY((SELECT t.* FROM paws.DoeFacultyTarget t WHERE t.AcademicYear=@AcademicYear ORDER BY t.FacultyId FOR JSON PATH,INCLUDE_NULL_VALUES)) targets,
+ JSON_QUERY((SELECT m.* FROM paws.ManualDoeAssignment m WHERE m.AcademicYear=@AcademicYear ORDER BY m.AssignmentId FOR JSON PATH,INCLUDE_NULL_VALUES)) manualAllocations,
+ JSON_QUERY((SELECT a.*,c.SessionDate sourceSessionDate,c.StartTime sourceStartTime,c.EndTime sourceEndTime,c.SessionType sourceSessionType FROM paws.SessionAssignment a JOIN paws.vCalendarSession c ON c.SessionId=a.SessionId WHERE c.AcademicYear=@AcademicYear ORDER BY a.SessionAssignmentId FOR JSON PATH,INCLUDE_NULL_VALUES)) teaching,
+ JSON_QUERY((SELECT i.* FROM paws.DoeAssignmentFactInput i JOIN paws.DoeAssignmentFact a ON a.AssignmentFactId=i.AssignmentFactId WHERE a.AcademicYear=@AcademicYear ORDER BY i.AssignmentFactInputId FOR JSON PATH,INCLUDE_NULL_VALUES)) assignmentInputs,
+ JSON_QUERY((SELECT c.* FROM paws.DoeCalculationRecord c JOIN paws.DoeAssignmentFact a ON a.CurrentCalculationId=c.CalculationId WHERE a.AcademicYear=@AcademicYear ORDER BY c.CalculationId,a.AssignmentFactId FOR JSON PATH,INCLUDE_NULL_VALUES)) calculations
  FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES);
 END;
 GO
@@ -170,7 +193,7 @@ BEGIN
   IF CONVERT(varchar(64),HASHBYTES('SHA2_256',@Before),2)<>@BeforeHash THROW 55204,'MASTER before-state changed.',1;
   DECLARE @Op TABLE(n int PRIMARY KEY,RoleId uniqueidentifier,FacultyId uniqueidentifier,RoleType nvarchar(256),Scope nvarchar(1000),IsNew bit,AllocationStatus nvarchar(32),SourceJson nvarchar(max));
   INSERT @Op SELECT n,RoleId,FacultyId,RoleType,Scope,IsNew,AllocationStatus,SourceJson FROM OPENJSON(@Operations) WITH(n int '$.n',RoleId uniqueidentifier '$.roleId',FacultyId uniqueidentifier '$.facultyId',RoleType nvarchar(256) '$.roleType',Scope nvarchar(1000) '$.scope',IsNew bit '$.isNew',AllocationStatus nvarchar(32) '$.allocationStatus',SourceJson nvarchar(max) '$.source' AS JSON);
-  IF EXISTS(SELECT 1 FROM @Op o WHERE NOT EXISTS(SELECT 1 FROM paws.Faculty f WHERE f.FacultyId=o.FacultyId AND f.Active=1) OR (o.IsNew=1 AND JSON_VALUE(o.SourceJson,'$.sourceDoe') IS NOT NULL AND NOT EXISTS(SELECT 1 FROM OPENJSON(@DoeGuard,'$.rows') g WHERE JSON_VALUE(g.value,'$.roleType')=o.RoleType AND JSON_VALUE(g.value,'$.scope')=o.Scope AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.facultyId'))=o.FacultyId AND JSON_VALUE(g.value,'$.status')='matched'))) THROW 55206,'MASTER identity or allocation changed.',1;
+  IF EXISTS(SELECT 1 FROM @Op o WHERE NOT EXISTS(SELECT 1 FROM paws.Faculty f WHERE f.FacultyId=o.FacultyId AND f.Active=1) OR (o.IsNew=1 AND JSON_VALUE(o.SourceJson,'$.sourceDoe') IS NOT NULL AND NOT EXISTS(SELECT 1 FROM OPENJSON(@DoeGuard,'$.rows') g WHERE JSON_VALUE(g.value,'$.roleType')=o.RoleType AND JSON_VALUE(g.value,'$.scope')=o.Scope AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.facultyId'))=o.FacultyId AND JSON_VALUE(g.value,'$.status')='matched' AND JSON_VALUE(g.value,'$.aggregateStatus')=N'safe' AND paws_api.MasterDoeAggregateSafe(@DoeGuard,o.FacultyId,@Year)=1))) THROW 55206,'MASTER identity or allocation changed.',1;
   DECLARE @Role uniqueidentifier,@Faculty uniqueidentifier,@Type nvarchar(256),@Scope nvarchar(1000),@New bit,@Allocation nvarchar(32),@Row nvarchar(max),@n int=0,@next int,@Periods nvarchar(max),@OldPeriods nvarchar(max);
   DECLARE @PeriodRows TABLE(n int,StartDate date,EndDate date,RawStart varchar(40),RawEnd varchar(40),Kind int);
   WHILE 1=1
@@ -249,6 +272,7 @@ BEGIN
   UPDATE i SET Issue=N'ENGINE_DOE_REVIEW' FROM @Items i WHERE i.Issue IS NULL AND i.SourceDoe IS NOT NULL AND NOT EXISTS(
    SELECT 1 FROM OPENJSON(@DoeGuardJson,'$.rows') g WHERE JSON_VALUE(g.value,'$.roleType')=i.RoleType AND JSON_VALUE(g.value,'$.scope')=i.Scope AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.facultyId'))=i.FacultyId
     AND ((i.RoleId IS NULL AND JSON_VALUE(g.value,'$.isNew')='true') OR TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.roleId'))=i.RoleId)
+    AND (i.RoleId IS NOT NULL OR(JSON_VALUE(g.value,'$.aggregateStatus')=N'safe' AND paws_api.MasterDoeAggregateSafe(@DoeGuardJson,i.FacultyId,@AcademicYear)=1))
     AND JSON_VALUE(g.value,'$.status')='matched' AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(g.value,'$.sourceDoe'))-i.SourceDoe)<0.000001
     AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(g.value,'$.activeDoe'))-i.SourceDoe)<0.000001 AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(g.value,'$.candidateDoe'))-i.SourceDoe)<0.000001);
 

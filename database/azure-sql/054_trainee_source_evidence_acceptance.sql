@@ -23,8 +23,11 @@ BEGIN
  DECLARE @Source nvarchar(max)=(SELECT SourceJson FROM dbo.TraineeContext),@Guard nvarchar(max);
  SET @Guard=(SELECT 1 schemaVersion,REPLICATE('C',64) sourceManifestSha256,REPLICATE('D',64) doeGuardHash,CONVERT(varchar(64),HASHBYTES('SHA2_256',paws_api.MasterRefreshSnapshot('2026-27')),2) contextHash,
   JSON_QUERY((SELECT JSON_VALUE(value,'$.facultyId') facultyId,N'Trainee Supervision' roleType,JSON_VALUE(value,'$.sourceDoe') sourceDoe,
-   CASE WHEN TRY_CONVERT(uniqueidentifier,JSON_VALUE(value,'$.facultyId'))=(SELECT NewFaculty FROM dbo.TraineeContext) THEN N'matched' ELSE N'held_mismatch' END status,
+   CASE WHEN TRY_CONVERT(uniqueidentifier,JSON_VALUE(value,'$.facultyId'))=(SELECT NewFaculty FROM dbo.TraineeContext) THEN N'matched' ELSE N'held_mismatch' END status,N'safe' aggregateStatus,
    TRY_CONVERT(decimal(12,6),JSON_VALUE(value,'$.sourceDoe')) activeDoe,TRY_CONVERT(decimal(12,6),JSON_VALUE(value,'$.sourceDoe')) candidateDoe FROM OPENJSON(@Source,'$.trainees') FOR JSON PATH,INCLUDE_NULL_VALUES)) rows FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+ SET @Guard=JSON_MODIFY(@Guard,'$.facultyImpacts',JSON_QUERY((SELECT NewFaculty facultyId,N'2026-27' academicYear,N'safe' status,REPLICATE('E',64) sourceHash,REPLICATE('F',64) evidenceHash,0 expectedRoleDelta,
+ JSON_QUERY(N'{"scheduledTeachingDoe":0,"roleDoe":0,"rawSupervisionDoe":0,"appliedSupervisionDoe":0,"adjustmentDoe":0,"assignedTeachingDoe":0,"effectiveTargetDoe":40,"remainingDoe":40}') before,
+ JSON_QUERY(N'{"scheduledTeachingDoe":0,"roleDoe":0,"rawSupervisionDoe":0,"appliedSupervisionDoe":0,"adjustmentDoe":0,"assignedTeachingDoe":0,"effectiveTargetDoe":40,"remainingDoe":40}') proposed FROM dbo.TraineeContext FOR JSON PATH)));
  DECLARE @Result TABLE(responseJson nvarchar(max));INSERT @Result EXEC paws_api.PreviewMasterRefresh N'trainees','2026-27',@Source,N'trainee-admin',@Guard;
  UPDATE dbo.TraineeContext SET PreviewJson=(SELECT responseJson FROM @Result),RequestKey=NEWID();
 END;

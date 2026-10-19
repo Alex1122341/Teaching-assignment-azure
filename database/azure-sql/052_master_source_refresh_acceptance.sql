@@ -21,7 +21,7 @@ DECLARE @Source nvarchar(max)=(SELECT 1 schemaVersion,'2026-27' academicYear,REP
  JSON_QUERY(N'[{"roleType":"HICC","scope":"Vacant Course"}]') roleDefinitions,JSON_QUERY(N'[]') cccSlots,JSON_QUERY(N'[]') trainees,JSON_QUERY(N'[]') issues FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
 INSERT dbo.MasterTestContext VALUES(@Seed,@Faculty,@Existing,@Mismatch,@Removed,@Source,NULL,NEWID(),NULL);
 GO
-CREATE PROCEDURE dbo.StageMasterTest
+CREATE PROCEDURE dbo.StageMasterTest @WithAggregate bit=1,@UnsafeAggregate bit=0
 AS
 BEGIN
  DECLARE @Source nvarchar(max)=(SELECT SourceJson FROM dbo.MasterTestContext);
@@ -31,11 +31,15 @@ BEGIN
  DECLARE @Guard nvarchar(max)=(SELECT 1 schemaVersion,REPLICATE('C',64) sourceManifestSha256,REPLICATE('D',64) doeGuardHash,
   CONVERT(varchar(64),HASHBYTES('SHA2_256',paws_api.MasterRefreshSnapshot('2026-27')),2) contextHash,
   JSON_QUERY((SELECT JSON_VALUE(j.value,'$.facultyId') facultyId,JSON_VALUE(j.value,'$.roleType') roleType,JSON_VALUE(j.value,'$.scope') scope,
-   r.RoleAssignmentId roleId,CAST(IIF(r.RoleAssignmentId IS NULL,1,0) AS bit) isNew,N'matched' status,TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.sourceDoe')) sourceDoe,
+   r.RoleAssignmentId roleId,CAST(IIF(r.RoleAssignmentId IS NULL,1,0) AS bit) isNew,N'matched' status,N'safe' aggregateStatus,TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.sourceDoe')) sourceDoe,
    COALESCE(r.DoeOverrideValue,r.DoeMappedValue,TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.sourceDoe'))) activeDoe,
    COALESCE(r.DoeOverrideValue,r.DoeMappedValue,TRY_CONVERT(decimal(12,6),JSON_VALUE(j.value,'$.sourceDoe'))) candidateDoe
    FROM OPENJSON(@Source,'$.appointments') j LEFT JOIN paws.RoleAssignment r ON r.AcademicYear='2026-27' AND r.FacultyId=TRY_CONVERT(uniqueidentifier,JSON_VALUE(j.value,'$.facultyId')) AND r.RoleType=JSON_VALUE(j.value,'$.roleType') AND r.CourseOrSubjectOrRotation=JSON_VALUE(j.value,'$.scope') FOR JSON PATH,INCLUDE_NULL_VALUES)) rows
   FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+ SET @Guard=JSON_MODIFY(@Guard,'$.facultyImpacts',JSON_QUERY((SELECT Faculty facultyId,N'2026-27' academicYear,N'safe' status,REPLICATE('E',64) sourceHash,REPLICATE('F',64) evidenceHash,2 expectedRoleDelta,
+ JSON_QUERY(N'{"scheduledTeachingDoe":10,"roleDoe":8,"rawSupervisionDoe":5,"appliedSupervisionDoe":5,"adjustmentDoe":0,"assignedTeachingDoe":23,"effectiveTargetDoe":40,"remainingDoe":17}') before,
+ JSON_QUERY(IIF(@UnsafeAggregate=1,N'{"scheduledTeachingDoe":10,"roleDoe":10,"rawSupervisionDoe":5,"appliedSupervisionDoe":4,"adjustmentDoe":0,"assignedTeachingDoe":25,"effectiveTargetDoe":40,"remainingDoe":15}',N'{"scheduledTeachingDoe":10,"roleDoe":10,"rawSupervisionDoe":5,"appliedSupervisionDoe":5,"adjustmentDoe":0,"assignedTeachingDoe":25,"effectiveTargetDoe":40,"remainingDoe":15}')) proposed FROM dbo.MasterTestContext FOR JSON PATH)));
+ IF @WithAggregate=0 SET @Guard=JSON_MODIFY(@Guard,'$.facultyImpacts',NULL);
  INSERT @Result EXEC paws_api.PreviewMasterRefresh N'appointments','2026-27',@Source,N'master-test-admin',@Guard;
  UPDATE dbo.MasterTestContext SET PreviewJson=(SELECT responseJson FROM @Result),RequestKey=NEWID();
 END;
@@ -54,6 +58,11 @@ DECLARE @Preview nvarchar(max)=(SELECT PreviewJson FROM dbo.MasterTestContext);
 IF (SELECT COUNT(*) FROM OPENJSON(@Preview,'$.operations'))<>3 OR (SELECT COUNT(*) FROM OPENJSON(@Preview,'$.heldIssues'))<>2 OR @Preview NOT LIKE N'%DOE_MISMATCH%' OR @Preview NOT LIKE N'%HELD_REMOVAL%' THROW 55290,'Incorrect appointment reconciliation.',1;
 DECLARE @Source nvarchar(max)=(SELECT SourceJson FROM dbo.MasterTestContext);
 BEGIN TRY EXEC paws_api.PreviewMasterRefresh N'appointments','2026-27',@Source,N'master-test-admin';THROW 55290,'Missing engine guard accepted.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>55206 THROW;END CATCH;
+EXEC dbo.StageMasterTest @WithAggregate=0;
+IF (SELECT COUNT(*) FROM OPENJSON((SELECT PreviewJson FROM dbo.MasterTestContext),'$.operations'))<>2 THROW 55290,'Scalar match bypassed absent aggregate guard.',1;
+EXEC dbo.StageMasterTest @UnsafeAggregate=1;
+IF (SELECT COUNT(*) FROM OPENJSON((SELECT PreviewJson FROM dbo.MasterTestContext),'$.operations'))<>2 THROW 55290,'Unsafe applied supervision change accepted.',1;
+EXEC dbo.StageMasterTest;PRINT 'MASTER_AGGREGATE_GUARD_OK';
 -- Runtime cannot stage by impersonating a valid administrator actor.
 EXECUTE AS USER=N'paws-calendar-test-runtime';
 BEGIN TRY EXEC dbo.StageMasterTest;REVERT;THROW 55290,'Runtime staged MASTER.',1;END TRY BEGIN CATCH IF ERROR_NUMBER()<>229 BEGIN REVERT;THROW;END;END CATCH;REVERT;

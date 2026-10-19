@@ -5,6 +5,7 @@ const {calgaryAcademicYear,validYear,yearOfDate,overlapsYear}=require('./history
 // reaching a browser/export must pass a domain allowlist below.
 const PUBLIC_EVENTS=new Set(['session_updated','session_created','session_assignments_replaced','swap_applied','session_deleted']);
 const LOOKUP_EVENTS=new Set(['FacultyUpdated','FacultyDeactivated','FacultyRestored','role_periods_updated']);
+const TRAINEE_EVENTS=new Set(['trainee_source_refreshed','trainee_source_recovered']);
 const AFC_EVENTS=new Set(['afc_form_uploaded','afc_form_linked','afc_record_created','afc_record_cancelled','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
 const DOE_ACTIONS=new Set(['draft_created','draft_updated','working_draft_created','published','archived']);
 const PRIVATE_DOE_ENTITIES=new Set(['doe_assignment','faculty_doe_target','manual_doe_assignment']);
@@ -76,7 +77,10 @@ function projectHistoryEvent(event,auth){
   if(!WORK_EVENTS.has(type)||!['mine','dashboard'].includes(auth.scope)||(!auth.admin&&!own)||(auth.scope==='mine'&&!own))return [];domain='Working schedule';
  }
  else if(auth.scope!=='dashboard')return [];
- else if(LOOKUP_EVENTS.has(type)){
+ else if(TRAINEE_EVENTS.has(type)){
+  const owner=id(get(after,'facultyId')||get(before,'facultyId'));
+  if(!owner||!auth.admin&&owner!==id(auth.facultyId))return [];domain='Lookup';
+ }else if(LOOKUP_EVENTS.has(type)){
   const owner=type.startsWith('Faculty')?id(event.entityId):id(get(context,'facultyId'));
   if(!auth.admin&&(!auth.facultyId||owner!==id(auth.facultyId)))return [];domain='Lookup';
  }else if(AFC_EVENTS.has(type)){
@@ -135,7 +139,11 @@ function projectHistoryEvent(event,auth){
    add(label,recovered?oldValue:type==='calendar_activity_import_committed'&&newValue!==undefined?null:oldValue,recovered&&oldValue!==undefined?null:newValue);
   }
  }else if(domain==='Lookup'){
-  if(event.source==='doe'){
+  if(TRAINEE_EVENTS.has(type)){
+   const labels=['Undergraduate','VETM 506','Fourth-year preceptor','IM','Graduate primary','Graduate co-supervisor','Postdoc'];
+   for(let i=0;i<labels.length;i++)add(labels[i],get(before,'counts')?.[i],get(after,'counts')?.[i]);
+   add('Source supervision DOE',get(before,'sourceDoe'),get(after,'sourceDoe'));add('Source allocation status',get(before,'allocationStatus'),get(after,'allocationStatus'));
+  }else if(event.source==='doe'){
    for(const key of ['category','roleType','scopeText','courseCode','subjectKey','doeValue','resultDoe','targetDoe','contractTeachingDoe','overrideDoe','overrideReason','overrideNotes','notes','active','status','reason','revision'])add(key,get(before,key),get(after,key));
   }else
   if(type==='role_periods_updated'){const metadata=parse(event.metadataJson);add('Effective periods',get(metadata,'beforePeriods')===undefined?undefined:JSON.stringify(get(metadata,'beforePeriods')),get(metadata,'afterPeriods')===undefined?undefined:JSON.stringify(get(metadata,'afterPeriods')));}

@@ -6,7 +6,7 @@ IF OBJECT_ID(N'paws.TraineeSourceEvidence') IS NOT NULL THROW 55400,'Inspect exi
 BEGIN TRANSACTION;
 CREATE TABLE staging.TraineeSchemaBaseline(ObjectName nvarchar(260) NOT NULL PRIMARY KEY,ObjectKind nvarchar(16) NOT NULL,BeforeDefinition nvarchar(max) NOT NULL,AfterSha256 char(64) NULL);
 INSERT staging.TraineeSchemaBaseline(ObjectName,ObjectKind,BeforeDefinition)
-SELECT name,kind,OBJECT_DEFINITION(OBJECT_ID(N'paws_api.'+name)) FROM(VALUES(N'MasterRefreshSnapshot',N'FUNCTION'),(N'PreviewMasterRefresh',N'PROCEDURE'),(N'CommitMasterRefresh',N'PROCEDURE'),(N'RecoverMasterRefresh',N'PROCEDURE')) names(name,kind);
+SELECT name,kind,OBJECT_DEFINITION(OBJECT_ID(N'paws_api.'+name)) FROM(VALUES(N'MasterRefreshSnapshot',N'FUNCTION'),(N'PreviewMasterRefresh',N'PROCEDURE'),(N'CommitMasterRefresh',N'PROCEDURE'),(N'RecoverMasterRefresh',N'PROCEDURE'),(N'ListChangeHistoryEvents',N'PROCEDURE')) names(name,kind);
 CREATE TABLE paws.TraineeSourceEvidence(
  FacultyId uniqueidentifier NOT NULL REFERENCES paws.Faculty(FacultyId),AcademicYear varchar(7) NOT NULL,
  SourceSha256 char(64) NOT NULL,SourceManifestSha256 char(64) NOT NULL,
@@ -73,7 +73,7 @@ BEGIN
  JSON_QUERY((SELECT d.DefinitionId,d.AcademicYear,d.RoleType,d.ScopeHash,d.SourceJson,d.SourceSha256,d.UpdatedAtUtc,d.UpdatedBy,CONVERT(varchar(16),CONVERT(binary(8),d.DefinitionVersion),2) version FROM paws.MasterRoleDefinition d WHERE d.AcademicYear=@AcademicYear ORDER BY d.DefinitionId FOR JSON PATH,INCLUDE_NULL_VALUES)) definitions,
  JSON_QUERY((SELECT f.FacultyId,f.DisplayName,f.PreferredFirstName,f.PreferredLastName,f.Active,f.UpdatedAtUtc FROM paws.Faculty f ORDER BY f.FacultyId FOR JSON PATH,INCLUDE_NULL_VALUES)) identities,
  JSON_QUERY((SELECT p.PolicyVersionId,p.Revision,p.Status,p.UpdatedAtUtc,JSON_QUERY(paws_api.DoeHistoryPolicySnapshot(p.PolicyVersionId)) bundle FROM paws.DoePolicyVersion p WHERE p.AcademicYear=@AcademicYear ORDER BY p.PolicyVersionId FOR JSON PATH,INCLUDE_NULL_VALUES)) policies,
- JSON_QUERY((SELECT a.AssignmentFactId,a.SourceEntityId,a.SourceEntityType,a.Revision,a.CurrentCalculationId,a.Active FROM paws.DoeAssignmentFact a WHERE a.AcademicYear=@AcademicYear ORDER BY a.AssignmentFactId FOR JSON PATH,INCLUDE_NULL_VALUES)) facts,
+ JSON_QUERY((SELECT a.* FROM paws.DoeAssignmentFact a WHERE a.AcademicYear=@AcademicYear ORDER BY a.AssignmentFactId FOR JSON PATH,INCLUDE_NULL_VALUES)) facts,
  JSON_QUERY((SELECT s.* FROM paws.DoeSupervisionSourceSnapshot s WHERE s.AcademicYear=@AcademicYear ORDER BY s.SnapshotId FOR JSON PATH,INCLUDE_NULL_VALUES)) supervision,
  JSON_QUERY((SELECT w.* FROM paws.DoeWorkloadSource w WHERE w.AcademicYear=@AcademicYear FOR JSON PATH,INCLUDE_NULL_VALUES)) workload
  FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES);
@@ -81,6 +81,8 @@ BEGIN
  SET @Snapshot=JSON_MODIFY(@Snapshot,'$.targets',JSON_QUERY((SELECT t.* FROM paws.DoeFacultyTarget t WHERE t.AcademicYear=@AcademicYear ORDER BY t.FacultyId FOR JSON PATH,INCLUDE_NULL_VALUES)));
  SET @Snapshot=JSON_MODIFY(@Snapshot,'$.manualAllocations',JSON_QUERY((SELECT m.* FROM paws.ManualDoeAssignment m WHERE m.AcademicYear=@AcademicYear ORDER BY m.AssignmentId FOR JSON PATH,INCLUDE_NULL_VALUES)));
  SET @Snapshot=JSON_MODIFY(@Snapshot,'$.teaching',JSON_QUERY((SELECT a.*,c.SessionDate sourceSessionDate,c.StartTime sourceStartTime,c.EndTime sourceEndTime,c.SessionType sourceSessionType FROM paws.SessionAssignment a JOIN paws.vCalendarSession c ON c.SessionId=a.SessionId WHERE c.AcademicYear=@AcademicYear ORDER BY a.SessionAssignmentId FOR JSON PATH,INCLUDE_NULL_VALUES)));
+ SET @Snapshot=JSON_MODIFY(@Snapshot,'$.assignmentInputs',JSON_QUERY((SELECT i.* FROM paws.DoeAssignmentFactInput i JOIN paws.DoeAssignmentFact a ON a.AssignmentFactId=i.AssignmentFactId WHERE a.AcademicYear=@AcademicYear ORDER BY i.AssignmentFactInputId FOR JSON PATH,INCLUDE_NULL_VALUES)));
+ SET @Snapshot=JSON_MODIFY(@Snapshot,'$.calculations',JSON_QUERY((SELECT c.* FROM paws.DoeCalculationRecord c JOIN paws.DoeAssignmentFact a ON a.CurrentCalculationId=c.CalculationId WHERE a.AcademicYear=@AcademicYear ORDER BY c.CalculationId,a.AssignmentFactId FOR JSON PATH,INCLUDE_NULL_VALUES)));
  RETURN @Snapshot;
 END;
 GO
@@ -119,6 +121,7 @@ BEGIN
   UPDATE i SET Issue=N'ENGINE_DOE_REVIEW' FROM @Items i WHERE i.Issue IS NULL AND i.SourceDoe IS NOT NULL AND NOT EXISTS(
    SELECT 1 FROM OPENJSON(@DoeGuardJson,'$.rows') g WHERE JSON_VALUE(g.value,'$.roleType')=i.RoleType AND JSON_VALUE(g.value,'$.scope')=i.Scope AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.facultyId'))=i.FacultyId
     AND ((i.RoleId IS NULL AND JSON_VALUE(g.value,'$.isNew')='true') OR TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.roleId'))=i.RoleId)
+    AND (i.RoleId IS NOT NULL OR(JSON_VALUE(g.value,'$.aggregateStatus')=N'safe' AND paws_api.MasterDoeAggregateSafe(@DoeGuardJson,i.FacultyId,@AcademicYear)=1))
     AND JSON_VALUE(g.value,'$.status')='matched' AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(g.value,'$.sourceDoe'))-i.SourceDoe)<0.000001
     AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(g.value,'$.activeDoe'))-i.SourceDoe)<0.000001 AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(g.value,'$.candidateDoe'))-i.SourceDoe)<0.000001);
 
@@ -187,7 +190,7 @@ BEGIN
   IF CONVERT(varchar(64),HASHBYTES('SHA2_256',@Before),2)<>@BeforeHash THROW 55204,'MASTER before-state changed.',1;
   DECLARE @Op TABLE(n int PRIMARY KEY,RoleId uniqueidentifier,FacultyId uniqueidentifier,RoleType nvarchar(256),Scope nvarchar(1000),IsNew bit,AllocationStatus nvarchar(32),SourceJson nvarchar(max));
   INSERT @Op SELECT n,RoleId,FacultyId,RoleType,Scope,IsNew,AllocationStatus,SourceJson FROM OPENJSON(@Operations) WITH(n int '$.n',RoleId uniqueidentifier '$.roleId',FacultyId uniqueidentifier '$.facultyId',RoleType nvarchar(256) '$.roleType',Scope nvarchar(1000) '$.scope',IsNew bit '$.isNew',AllocationStatus nvarchar(32) '$.allocationStatus',SourceJson nvarchar(max) '$.source' AS JSON);
-  IF EXISTS(SELECT 1 FROM @Op o WHERE NOT EXISTS(SELECT 1 FROM paws.Faculty f WHERE f.FacultyId=o.FacultyId AND f.Active=1) OR (o.IsNew=1 AND JSON_VALUE(o.SourceJson,'$.sourceDoe') IS NOT NULL AND NOT EXISTS(SELECT 1 FROM OPENJSON(@DoeGuard,'$.rows') g WHERE JSON_VALUE(g.value,'$.roleType')=o.RoleType AND JSON_VALUE(g.value,'$.scope')=o.Scope AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.facultyId'))=o.FacultyId AND JSON_VALUE(g.value,'$.status')='matched'))) THROW 55206,'MASTER identity or allocation changed.',1;
+  IF EXISTS(SELECT 1 FROM @Op o WHERE NOT EXISTS(SELECT 1 FROM paws.Faculty f WHERE f.FacultyId=o.FacultyId AND f.Active=1) OR (o.IsNew=1 AND JSON_VALUE(o.SourceJson,'$.sourceDoe') IS NOT NULL AND NOT EXISTS(SELECT 1 FROM OPENJSON(@DoeGuard,'$.rows') g WHERE JSON_VALUE(g.value,'$.roleType')=o.RoleType AND JSON_VALUE(g.value,'$.scope')=o.Scope AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.facultyId'))=o.FacultyId AND JSON_VALUE(g.value,'$.status')='matched' AND JSON_VALUE(g.value,'$.aggregateStatus')=N'safe' AND paws_api.MasterDoeAggregateSafe(@DoeGuard,o.FacultyId,@Year)=1))) THROW 55206,'MASTER identity or allocation changed.',1;
   DECLARE @Role uniqueidentifier,@Faculty uniqueidentifier,@Type nvarchar(256),@Scope nvarchar(1000),@New bit,@Allocation nvarchar(32),@Row nvarchar(max),@n int=0,@next int,@Periods nvarchar(max),@OldPeriods nvarchar(max);
   DECLARE @PeriodRows TABLE(n int,StartDate date,EndDate date,RawStart varchar(40),RawEnd varchar(40),Kind int);
   WHILE 1=1
@@ -343,7 +346,7 @@ BEGIN
   UPDATE i SET SnapshotId=s.SnapshotId FROM @Items i JOIN paws.DoeSupervisionSourceSnapshot s ON s.FacultyId=i.FacultyId AND s.AcademicYear=@AcademicYear;
   UPDATE @Items SET Status=CASE WHEN SourceDoe IS NULL THEN N'source_missing' ELSE N'held_mismatch' END WHERE Issue IS NULL;
   UPDATE i SET Status=N'matched' FROM @Items i WHERE i.Issue IS NULL AND i.SourceDoe IS NOT NULL AND EXISTS(
-   SELECT 1 FROM OPENJSON(@DoeGuardJson,'$.rows') g WHERE JSON_VALUE(g.value,'$.roleType')=N'Trainee Supervision' AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.facultyId'))=i.FacultyId AND JSON_VALUE(g.value,'$.status')=N'matched'
+   SELECT 1 FROM OPENJSON(@DoeGuardJson,'$.rows') g WHERE JSON_VALUE(g.value,'$.roleType')=N'Trainee Supervision' AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(g.value,'$.facultyId'))=i.FacultyId AND JSON_VALUE(g.value,'$.status')=N'matched' AND(i.SnapshotId IS NOT NULL OR(JSON_VALUE(g.value,'$.aggregateStatus')=N'safe' AND paws_api.MasterDoeAggregateSafe(@DoeGuardJson,i.FacultyId,@AcademicYear)=1))
     AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(g.value,'$.sourceDoe'))-i.SourceDoe)<0.000001 AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(g.value,'$.activeDoe'))-i.SourceDoe)<0.000001 AND ABS(TRY_CONVERT(decimal(12,6),JSON_VALUE(g.value,'$.candidateDoe'))-i.SourceDoe)<0.000001)
    AND(i.SnapshotId IS NULL OR EXISTS(SELECT 1 FROM paws.DoeSupervisionSourceSnapshot s WHERE s.SnapshotId=i.SnapshotId AND ABS(s.RawDoe-i.SourceDoe)<0.000001));
   UPDATE @Items SET Status=N'needs_review' WHERE Issue IS NULL AND Status=N'matched' AND SnapshotId IS NULL AND NOT EXISTS(SELECT 1 FROM paws.DoeWorkloadSource WHERE AcademicYear=@AcademicYear);
@@ -364,14 +367,14 @@ BEGIN
  BEGIN TRY
   BEGIN TRANSACTION;EXEC paws_api.AssertMasterRefreshOperator @ActorFirebaseUid;
   IF ISNULL(@Domain,N'')<>N'trainees' OR @BatchId IS NULL OR @IdempotencyKey IS NULL OR ISNULL(@Confirm,0)<>1 OR LEN(ISNULL(@ExpectedVersion,''))<>16 OR TRY_CONVERT(binary(8),@ExpectedVersion,2) IS NULL OR LEN(ISNULL(@ManifestSha256,''))<>64 OR LEN(ISNULL(@SourceSha256,''))<>64 THROW 55202,'Explicit trainee preview confirmation required.',1;
-  DECLARE @Receipt uniqueidentifier,@Year varchar(7),@Operations nvarchar(max),@Held nvarchar(max),@BeforeHash char(64),@Version binary(8),@Status nvarchar(16),@Expires datetime2(7);
+  DECLARE @Receipt uniqueidentifier,@Year varchar(7),@Operations nvarchar(max),@Held nvarchar(max),@BeforeHash char(64),@DoeGuard nvarchar(max),@Version binary(8),@Status nvarchar(16),@Expires datetime2(7);
   SELECT @Receipt=ReceiptId FROM paws.MasterRefreshReceipt WITH(UPDLOCK,HOLDLOCK) WHERE IdempotencyKey=@IdempotencyKey;
   IF @Receipt IS NOT NULL
   BEGIN
    IF NOT EXISTS(SELECT 1 FROM paws.MasterRefreshReceipt WHERE ReceiptId=@Receipt AND BatchId=@BatchId AND Domain=@Domain AND SourceSha256=UPPER(@SourceSha256) AND ManifestSha256=UPPER(@ManifestSha256) AND ExpectedVersion=CONVERT(binary(8),@ExpectedVersion,2) AND ActorUid=@ActorFirebaseUid COLLATE Latin1_General_100_BIN2 AND Status=N'committed') THROW 55207,'Trainee replay key conflict.',1;
    SELECT(SELECT ReceiptId receiptId,AppliedCount appliedCount,HeldCount heldCount,CAST(1 AS bit) idempotentReplay FROM paws.MasterRefreshReceipt WHERE ReceiptId=@Receipt FOR JSON PATH,WITHOUT_ARRAY_WRAPPER) responseJson;COMMIT;RETURN;
   END;
-  SELECT @Year=AcademicYear,@Operations=OperationsJson,@Held=HeldIssuesJson,@BeforeHash=BeforeHash,@Version=PreviewVersion,@Status=Status,@Expires=ExpiresAtUtc FROM staging.MasterRefresh WITH(UPDLOCK,HOLDLOCK) WHERE BatchId=@BatchId AND Domain=@Domain AND ActorUid=@ActorFirebaseUid COLLATE Latin1_General_100_BIN2 AND SourceSha256=UPPER(@SourceSha256) AND ManifestSha256=UPPER(@ManifestSha256);
+  SELECT @Year=AcademicYear,@Operations=OperationsJson,@Held=HeldIssuesJson,@BeforeHash=BeforeHash,@DoeGuard=DoeGuardJson,@Version=PreviewVersion,@Status=Status,@Expires=ExpiresAtUtc FROM staging.MasterRefresh WITH(UPDLOCK,HOLDLOCK) WHERE BatchId=@BatchId AND Domain=@Domain AND ActorUid=@ActorFirebaseUid COLLATE Latin1_General_100_BIN2 AND SourceSha256=UPPER(@SourceSha256) AND ManifestSha256=UPPER(@ManifestSha256);
   IF @Version IS NULL OR @Version<>CONVERT(binary(8),@ExpectedVersion,2) OR @Status<>N'staged' THROW 55204,'Trainee preview changed.',1;
   IF @Expires<SYSUTCDATETIME() THROW 55205,'Trainee preview expired.',1;
   EXEC paws_api.LockMasterTraineeScope @Year;
@@ -390,13 +393,14 @@ BEGIN
    SET @Evidence=(SELECT JSON_VALUE(@Row,'$.sourceName') sourceName,JSON_QUERY(@Row,'$.sourceRef') sourceRef,JSON_QUERY(@Row,'$.rawCounts') counts,JSON_QUERY(@Row,'$.categoryDoe') categoryCredits,@SourceDoe cachedRawDoe,@SourceDoe rawDoe,JSON_QUERY(@Row,'$.privateNotes') notes FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES);
    IF @Allocation=N'matched'
    BEGIN
+    IF @Create=1 AND paws_api.MasterDoeAggregateSafe(@DoeGuard,@Faculty,@Year)<>1 THROW 55206,'Complete safe trainee worksheet projection required.',1;
     IF @Create=1 INSERT paws.DoeSupervisionSourceSnapshot(SnapshotId,FacultyId,AcademicYear,RawDoe,EvidenceJson,SourceReference,SourceSha256,CreatedBy) VALUES(@Snapshot,@Faculty,@Year,@SourceDoe,@Evidence,@SourceRef,UPPER(@SourceSha256),@ActorFirebaseUid);
     ELSE UPDATE paws.DoeSupervisionSourceSnapshot SET EvidenceJson=@Evidence,SourceReference=@SourceRef,SourceSha256=UPPER(@SourceSha256) WHERE SnapshotId=@Snapshot AND FacultyId=@Faculty AND AcademicYear=@Year AND ABS(RawDoe-@SourceDoe)<0.000001;
     IF @@ROWCOUNT<>1 THROW 55204,'Trainee allocation changed.',1;
    END;
    UPDATE paws.TraineeSourceEvidence SET SourceSha256=UPPER(@SourceSha256),SourceManifestSha256=UPPER(@ManifestSha256),SourceRefJson=JSON_QUERY(@Row,'$.sourceRef'),RawCountsJson=JSON_QUERY(@Row,'$.rawCounts'),CategoryDoeJson=JSON_QUERY(@Row,'$.categoryDoe'),SourceDoe=@SourceDoe,SourceTotal=TRY_CONVERT(decimal(12,6),JSON_VALUE(@Row,'$.sourceTotal')),PrivateNotesJson=JSON_QUERY(@Row,'$.privateNotes'),CellEvidenceJson=JSON_QUERY(@Row,'$.cellEvidence'),AllocationStatus=@Allocation,SourceImportBatchId=@BatchId,UpdatedAtUtc=SYSUTCDATETIME(),UpdatedBy=@ActorFirebaseUid WHERE FacultyId=@Faculty AND AcademicYear=@Year;
    IF @@ROWCOUNT=0 INSERT paws.TraineeSourceEvidence(FacultyId,AcademicYear,SourceSha256,SourceManifestSha256,SourceRefJson,RawCountsJson,CategoryDoeJson,SourceDoe,SourceTotal,PrivateNotesJson,CellEvidenceJson,AllocationStatus,SourceImportBatchId,UpdatedAtUtc,UpdatedBy) VALUES(@Faculty,@Year,UPPER(@SourceSha256),UPPER(@ManifestSha256),JSON_QUERY(@Row,'$.sourceRef'),JSON_QUERY(@Row,'$.rawCounts'),JSON_QUERY(@Row,'$.categoryDoe'),@SourceDoe,TRY_CONVERT(decimal(12,6),JSON_VALUE(@Row,'$.sourceTotal')),JSON_QUERY(@Row,'$.privateNotes'),JSON_QUERY(@Row,'$.cellEvidence'),@Allocation,@BatchId,SYSUTCDATETIME(),@ActorFirebaseUid);
-   INSERT paws.AuditEvent(AuditEventId,EventType,EntityType,EntityId,ActorFirebaseUid,OccurredAtUtc,BeforeJson,AfterJson,MetadataJson,ImportBatchId) VALUES(NEWID(),N'trainee_source_refreshed',N'faculty',CONVERT(nvarchar(36),@Faculty),@ActorFirebaseUid,SYSUTCDATETIME(),@AuditBefore,(SELECT @Faculty facultyId,@Year academicYear,JSON_QUERY(@Row,'$.rawCounts') counts,@SourceDoe sourceDoe,@Allocation allocationStatus FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES),(SELECT ORIGINAL_LOGIN() operatorLogin FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@BatchId);
+   INSERT paws.AuditEvent(AuditEventId,EventType,EntityType,EntityId,ActorFirebaseUid,OccurredAtUtc,BeforeJson,AfterJson,MetadataJson,ImportBatchId) VALUES(NEWID(),N'trainee_source_refreshed',N'faculty',CONVERT(nvarchar(36),@Faculty),@ActorFirebaseUid,SYSUTCDATETIME(),@AuditBefore,(SELECT @Faculty facultyId,(SELECT DisplayName FROM paws.Faculty WHERE FacultyId=@Faculty) displayName,@Year academicYear,JSON_QUERY(@Row,'$.rawCounts') counts,@SourceDoe sourceDoe,@Allocation allocationStatus FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES),(SELECT ORIGINAL_LOGIN() operatorLogin FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@BatchId);
   END;
   SET @Receipt=NEWID();DECLARE @Applied int=(SELECT COUNT(*) FROM @Op),@HeldCount int=(SELECT COUNT(*) FROM OPENJSON(@Held)),@AfterHash char(64)=CONVERT(varchar(64),HASHBYTES('SHA2_256',paws_api.MasterRefreshSnapshot(@Year)),2);
   INSERT paws.MasterRefreshReceipt(ReceiptId,BatchId,Domain,AcademicYear,SourceSha256,ManifestSha256,ExpectedVersion,IdempotencyKey,ActorUid,BeforeJson,AfterHash,AppliedCount,HeldCount) VALUES(@Receipt,@BatchId,N'trainees',@Year,UPPER(@SourceSha256),UPPER(@ManifestSha256),@Version,@IdempotencyKey,@ActorFirebaseUid,@Before,@AfterHash,@Applied,@HeldCount);
@@ -423,8 +427,8 @@ BEGIN
   INSERT @Affected SELECT FacultyId FROM OPENJSON(@Operations) WITH(FacultyId uniqueidentifier '$.facultyId');
   INSERT paws.AuditEvent(AuditEventId,EventType,EntityType,EntityId,ActorFirebaseUid,OccurredAtUtc,BeforeJson,AfterJson,MetadataJson,ImportBatchId)
    SELECT NEWID(),N'trainee_source_recovered',N'faculty',CONVERT(nvarchar(36),a.FacultyId),@ActorFirebaseUid,SYSUTCDATETIME(),
-   (SELECT a.FacultyId facultyId,@Year academicYear,JSON_QUERY(e.RawCountsJson) counts,e.SourceDoe sourceDoe,e.AllocationStatus allocationStatus FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES),
-   (SELECT a.FacultyId facultyId,@Year academicYear,JSON_QUERY(old.RawCountsJson) counts,old.SourceDoe sourceDoe,old.AllocationStatus allocationStatus FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES),
+   (SELECT a.FacultyId facultyId,(SELECT DisplayName FROM paws.Faculty WHERE FacultyId=a.FacultyId) displayName,@Year academicYear,JSON_QUERY(e.RawCountsJson) counts,e.SourceDoe sourceDoe,e.AllocationStatus allocationStatus FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES),
+   (SELECT a.FacultyId facultyId,(SELECT DisplayName FROM paws.Faculty WHERE FacultyId=a.FacultyId) displayName,@Year academicYear,JSON_QUERY(old.RawCountsJson) counts,old.SourceDoe sourceDoe,old.AllocationStatus allocationStatus FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES),
    (SELECT ORIGINAL_LOGIN() operatorLogin FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@Batch
    FROM @Affected a JOIN paws.TraineeSourceEvidence e ON e.FacultyId=a.FacultyId AND e.AcademicYear=@Year
    LEFT JOIN OPENJSON(@Before,'$.trainees') WITH(FacultyId uniqueidentifier,RawCountsJson nvarchar(max),SourceDoe decimal(12,6),AllocationStatus nvarchar(32)) old ON old.FacultyId=a.FacultyId;
@@ -464,6 +468,86 @@ BEGIN
  DECLARE @Domain nvarchar(32)=(SELECT Domain FROM paws.MasterRefreshReceipt WHERE ReceiptId=@ReceiptId);
  IF @Domain=N'trainees' EXEC paws_api.RecoverMasterTrainees @ReceiptId,@ActorFirebaseUid,@Confirm;
  ELSE EXEC paws_api.RecoverMasterAppointments @ReceiptId,@ActorFirebaseUid,@Confirm;
+END;
+GO
+ALTER PROCEDURE paws_api.ListChangeHistoryEvents
+ @ActorFirebaseUid nvarchar(128),@Scope nvarchar(16),@StartUtc datetime2(7),@EndExclusiveUtc datetime2(7)
+AS
+BEGIN
+ SET NOCOUNT ON;
+ DECLARE @Role nvarchar(128),@Faculty uniqueidentifier,@Admin bit=0;
+ SELECT @Role=LOWER(LTRIM(RTRIM(BaseRole))),@Faculty=FacultyId FROM paws.UserProfile
+ WHERE FirebaseUid=@ActorFirebaseUid AND Active=1 AND MustChangePassword=0;
+ IF @Role IS NULL OR @Role NOT IN(N'owner',N'administrator',N'admin',N'developer',N'adfa_general',N'adfa_regular',N'faculty',N'hicc',N'visc',N'adc',N'lab')
+ OR (@Role IN(N'faculty',N'hicc',N'visc') AND @Faculty IS NULL) THROW 54701,'History role denied.',1;
+ IF @Scope NOT IN(N'mine',N'timetable',N'dashboard') OR @StartUtc IS NULL OR @EndExclusiveUtc IS NULL OR @StartUtc>=@EndExclusiveUtc
+ THROW 54702,'Invalid history range or scope.',1;
+ IF @Scope=N'mine' AND @Faculty IS NULL THROW 54703,'My history requires a faculty link.',1;
+ IF @Role IN(N'owner',N'administrator',N'admin',N'developer',N'adfa_general',N'adfa_regular') SET @Admin=1;
+ SELECT TOP(10001) * INTO #HistoryEvents FROM (
+ SELECT N'audit' source,CONVERT(nvarchar(36),e.AuditEventId) eventId,e.EventType eventType,e.EntityType entityType,e.EntityId entityId,
+ e.OccurredAtUtc occurredAtUtc,e.BeforeJson beforeJson,e.AfterJson afterJson,e.MetadataJson metadataJson,c.ContextJson contextJson,
+ e.ActorName actorName,CAST(NULL AS nvarchar(32)) academicYear,CAST(NULL AS uniqueidentifier) facultyId
+ FROM paws.AuditEvent e LEFT JOIN paws.ChangeHistoryContext c ON c.AuditEventId=e.AuditEventId
+ WHERE e.OccurredAtUtc>=@StartUtc AND e.OccurredAtUtc<@EndExclusiveUtc AND (
+ (@Scope IN(N'mine',N'timetable') AND e.EventType IN(N'session_updated',N'session_created',N'session_assignments_replaced',N'swap_applied',N'session_deleted')
+ AND (@Scope=N'timetable' OR EXISTS(SELECT 1 FROM paws_api.HistoryAffectedFaculty(e.BeforeJson,e.AfterJson,c.ContextJson) af WHERE af.FacultyId=@Faculty)))
+ OR (@Scope=N'dashboard' AND e.EventType IN(N'FacultyUpdated',N'FacultyDeactivated',N'FacultyRestored',N'role_periods_updated',N'trainee_source_refreshed',N'trainee_source_recovered',N'afc_form_uploaded',N'afc_form_linked',N'afc_record_created',N'afc_record_cancelled',N'afc_request_submitted',N'afc_request_withdrawn',N'afc_request_recommended',N'afc_request_approved',N'afc_request_rejected')
+ AND (@Admin=1 OR EXISTS(SELECT 1 FROM paws_api.HistoryAffectedFaculty(e.BeforeJson,e.AfterJson,c.ContextJson) af WHERE af.FacultyId=@Faculty)
+ OR(e.EventType IN(N'afc_form_uploaded',N'afc_form_linked',N'afc_record_created',N'afc_record_cancelled',N'afc_request_submitted',N'afc_request_withdrawn',N'afc_request_recommended',N'afc_request_approved',N'afc_request_rejected') AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(e.MetadataJson,'$.facultyId'))=@Faculty)
+ OR(e.EventType IN(N'FacultyUpdated',N'FacultyDeactivated',N'FacultyRestored') AND TRY_CONVERT(uniqueidentifier,e.EntityId)=@Faculty)))
+ )
+ UNION ALL
+ SELECT N'doe',CONVERT(nvarchar(36),e.AuditEventId),e.Action,e.EntityType,e.EntityId,e.ChangedAtUtc,e.BeforeJson,e.AfterJson,NULL,
+ (SELECT CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM paws.DoePolicyPublication p WHERE p.PolicyVersionId=e.PolicyVersionId) THEN 1 ELSE 0 END) wasPublished FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),
+ e.ActorName,e.AcademicYear,e.FacultyId
+ FROM paws.DoeAuditEvent e WHERE @Scope=N'dashboard' AND e.ChangedAtUtc>=@StartUtc AND e.ChangedAtUtc<@EndExclusiveUtc
+ AND ((e.EntityType=N'doe_policy_version' AND e.Action IN(N'draft_created',N'draft_updated',N'working_draft_created',N'published',N'archived')
+ AND (@Admin=1 OR e.Action=N'published' OR(e.Action=N'archived' AND EXISTS(SELECT 1 FROM paws.DoePolicyPublication p WHERE p.PolicyVersionId=e.PolicyVersionId AND p.PublishedAtUtc<=e.ChangedAtUtc))))
+ OR(e.EntityType IN(N'doe_assignment',N'faculty_doe_target',N'manual_doe_assignment') AND (@Admin=1 OR e.FacultyId=@Faculty)))
+ UNION ALL
+ -- Receipt/recovery bindings prove historical membership without inferring it
+ -- from today's assignments. Only immutable source activity facts are selected;
+ -- confidential AFC recovery before-images never leave this read procedure.
+ SELECT N'work',CONCAT(CONVERT(nvarchar(36),e.AuditEventId),N':',CONVERT(nvarchar(36),recovery.ActivityId)),e.EventType,N'calendar_activity',CONVERT(nvarchar(256),recovery.ActivityId),e.OccurredAtUtc,
+ CASE WHEN e.EventType=N'calendar_activity_import_recovered' THEN(SELECT item.FacultyId facultyId,item.OriginalLabel label,item.Category category,item.StartDate startDate,item.EndDate endDate FOR JSON PATH,WITHOUT_ARRAY_WRAPPER) END,
+ CASE WHEN e.EventType=N'calendar_activity_import_committed' THEN(SELECT item.FacultyId facultyId,item.OriginalLabel label,item.Category category,item.StartDate startDate,item.EndDate endDate FOR JSON PATH,WITHOUT_ARRAY_WRAPPER) END,NULL,NULL,
+ e.ActorName,NULL,item.FacultyId
+ FROM paws.AuditEvent e JOIN paws.CalendarActivityImportReceipt receipt ON receipt.ReceiptId=TRY_CONVERT(uniqueidentifier,e.EntityId)
+ JOIN paws.CalendarActivityRecoveryRow recovery ON recovery.ReceiptId=receipt.ReceiptId
+ JOIN staging.CalendarActivityImportItem item ON item.ImportBatchId=receipt.ImportBatchId AND item.AfcRecordId=recovery.OriginalAfcRecordId
+ WHERE @Scope IN(N'mine',N'dashboard') AND e.EventType IN(N'calendar_activity_import_committed',N'calendar_activity_import_recovered')
+ AND e.OccurredAtUtc>=@StartUtc AND e.OccurredAtUtc<@EndExclusiveUtc
+ AND ((@Scope=N'dashboard' AND @Admin=1) OR item.FacultyId=@Faculty)
+ UNION ALL
+ SELECT N'work',CONVERT(nvarchar(36),e.AuditEventId),e.EventType,e.EntityType,e.EntityId,e.OccurredAtUtc,e.BeforeJson,JSON_QUERY(c.ContextJson,'$.workActivity'),NULL,c.ContextJson,
+ e.ActorName,NULL,TRY_CONVERT(uniqueidentifier,JSON_VALUE(c.ContextJson,'$.facultyId'))
+ FROM paws.AuditEvent e LEFT JOIN paws.ChangeHistoryContext c ON c.AuditEventId=e.AuditEventId
+ WHERE e.EventType=N'calendar_activity_time_resolved' AND @Scope IN(N'mine',N'dashboard')
+ AND e.OccurredAtUtc>=@StartUtc AND e.OccurredAtUtc<@EndExclusiveUtc
+ AND ((@Scope=N'dashboard' AND @Admin=1) OR TRY_CONVERT(uniqueidentifier,JSON_VALUE(c.ContextJson,'$.facultyId'))=@Faculty)
+ UNION ALL
+ SELECT N'work',CONVERT(nvarchar(36),e.AuditEventId),e.EventType,e.EntityType,e.EntityId,e.OccurredAtUtc,e.BeforeJson,e.AfterJson,NULL,NULL,
+ e.ActorName,NULL,COALESCE(TRY_CONVERT(uniqueidentifier,JSON_VALUE(e.AfterJson,'$.facultyId')),TRY_CONVERT(uniqueidentifier,JSON_VALUE(e.BeforeJson,'$.facultyId')))
+ FROM paws.AuditEvent e WHERE e.EventType IN(N'ccc_activity_added',N'ccc_activity_removed') AND @Scope IN(N'mine',N'dashboard')
+ AND e.OccurredAtUtc>=@StartUtc AND e.OccurredAtUtc<@EndExclusiveUtc
+ AND ((@Scope=N'dashboard' AND @Admin=1) OR EXISTS(SELECT 1 FROM paws_api.HistoryAffectedFaculty(e.BeforeJson,e.AfterJson,NULL) affected WHERE affected.FacultyId=@Faculty))
+ ) events ORDER BY occurredAtUtc DESC,source,eventId;
+ IF (SELECT COUNT(*) FROM #HistoryEvents)>10000 OR (SELECT COALESCE(SUM(CONVERT(bigint,COALESCE(DATALENGTH(beforeJson),0))+COALESCE(DATALENGTH(afterJson),0)+COALESCE(DATALENGTH(contextJson),0)+COALESCE(DATALENGTH(metadataJson),0)),0) FROM #HistoryEvents)>12582912
+ THROW 54704,'Narrow the history range before reading.',1;
+ -- Resolve only proven historical IDs to opaque filter keys. Today's roster is
+ -- never evidence of affected membership; current names label the filter only.
+ SELECT events.*,(
+ SELECT candidate.FacultyId facultyId,candidate.CandidateKey facultyKey,
+ COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(f.PreferredFirstName,N' ',f.PreferredLastName))),N''),f.DisplayName) displayName
+ FROM paws.SwapCandidate candidate JOIN paws.Faculty f ON f.FacultyId=candidate.FacultyId
+ WHERE candidate.FacultyId IN(
+ SELECT FacultyId FROM paws_api.HistoryAffectedFaculty(events.beforeJson,events.afterJson,events.contextJson)
+ UNION SELECT events.facultyId WHERE events.facultyId IS NOT NULL
+ UNION SELECT TRY_CONVERT(uniqueidentifier,JSON_VALUE(events.metadataJson,'$.facultyId')) WHERE events.eventType IN(N'afc_form_uploaded',N'afc_form_linked',N'afc_record_created',N'afc_record_cancelled',N'afc_request_submitted',N'afc_request_withdrawn',N'afc_request_recommended',N'afc_request_approved',N'afc_request_rejected')
+ UNION SELECT TRY_CONVERT(uniqueidentifier,events.entityId) WHERE events.eventType IN(N'FacultyUpdated',N'FacultyDeactivated',N'FacultyRestored')
+ ) FOR JSON PATH) directoryFacultyJson
+ FROM #HistoryEvents events ORDER BY occurredAtUtc DESC,source,eventId;
 END;
 GO
 UPDATE staging.TraineeSchemaBaseline SET AfterSha256=CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(N'paws_api.'+ObjectName))),2);

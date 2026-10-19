@@ -148,6 +148,8 @@ jobs:
         env:
           API_ORIGIN: ${{ steps.source_identity.outputs.apiOrigin }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
+          STATIC_ONLY: ${{ inputs.static_only }}
+          EXPECTED_LIVE_API_SHA: ${{ inputs.expected_live_api_sha }}
         run: |
           set -euo pipefail
 
@@ -157,15 +159,24 @@ jobs:
 
           runtime_status="$(curl --silent --show-error --max-time 15 -o predeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
           test "$runtime_status" = "200"
-          jq -e --arg commit "$COMMIT_SHA" '
+          jq -e '
             .status == "ok" and
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
-            .releaseSha == $commit and
-            (.writeGates.doeAdmin == false) and
-            (.writeGates.doePolicyPublish == false) and
-            (.writeGates.doeRecalculate == false)
+            (.writeGates | type == "object")
           ' predeploy-runtime.json > /dev/null
+          if [ "$STATIC_ONLY" = "true" ]; then
+            jq -e --arg expected "$EXPECTED_LIVE_API_SHA" '.releaseSha == $expected' predeploy-runtime.json > /dev/null
+          else
+            jq -e --arg commit "$COMMIT_SHA" '
+              .releaseSha == $commit and
+              (.writeGates.doeAdmin == false) and
+              (.writeGates.doePolicyPublish == false) and
+              (.writeGates.doeRecalculate == false)
+            ' predeploy-runtime.json > /dev/null
+          fi
+          echo "apiReleaseSha=$(jq -r '.releaseSha' predeploy-runtime.json)" >> "$GITHUB_OUTPUT"
+          echo "gateHash=$(jq -cS '.writeGates' predeploy-runtime.json | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
           auth_status="$(curl --silent --show-error --max-time 15 -o /dev/null -w '%{http_code}' "$API_ORIGIN/api/v1/me" || true)"
           test "$auth_status" = "401"
@@ -263,6 +274,9 @@ jobs:
         env:
           API_ORIGIN: ${{ steps.source_identity.outputs.apiOrigin }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
+          STATIC_ONLY: ${{ inputs.static_only }}
+          PREFLIGHT_GATE_HASH: ${{ steps.predeploy_api.outputs.gateHash }}
+          PREFLIGHT_RELEASE_SHA: ${{ steps.predeploy_api.outputs.apiReleaseSha }}
         run: |
           set -euo pipefail
 
@@ -272,15 +286,22 @@ jobs:
 
           runtime_status="$(curl --silent --show-error --max-time 15 -o postdeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
           test "$runtime_status" = "200"
-          jq -e --arg commit "$COMMIT_SHA" '
+          jq -e --arg expected "$PREFLIGHT_RELEASE_SHA" '
             .status == "ok" and
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
-            .releaseSha == $commit and
-            (.writeGates.doeAdmin == false) and
-            (.writeGates.doePolicyPublish == false) and
-            (.writeGates.doeRecalculate == false)
+            .releaseSha == $expected and
+            (.writeGates | type == "object")
           ' postdeploy-runtime.json > /dev/null
+          if [ "$STATIC_ONLY" != "true" ]; then
+            jq -e --arg commit "$COMMIT_SHA" '
+              .releaseSha == $commit and
+              (.writeGates.doeAdmin == false) and
+              (.writeGates.doePolicyPublish == false) and
+              (.writeGates.doeRecalculate == false)
+            ' postdeploy-runtime.json > /dev/null
+          fi
+          test "$(jq -cS '.writeGates' postdeploy-runtime.json | sha256sum | cut -d ' ' -f 1)" = "$PREFLIGHT_GATE_HASH"
 
           echo 'apiPassed=true' >> "$GITHUB_OUTPUT"
 

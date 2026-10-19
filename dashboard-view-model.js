@@ -192,7 +192,8 @@ function formatDoe(value) {
 
 
 function campusToday(now = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', {timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now).map(part=>[part.type,part.value]));
+  return parts.year+'-'+parts.month+'-'+parts.day;
 }
 function lookupUpcomingAfc(records, today = campusToday()) {
   let upcomingCount=0, currentLeaveEnd=null, nextLeaveStart=null;

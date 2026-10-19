@@ -364,7 +364,7 @@ test('Lookup renders the API roster and searches only the permitted fields', asy
   const h = await driveAdmin();
   assert.equal(h.byId('result-count').textContent, ROSTER.length);
   assert.match(h.byId('result-list').innerHTML, /Ada One/);
-  assert.match(h.byId('result-list').innerHTML, /12 sessions · 0 roles · 0 AFC/);
+  assert.match(h.byId('result-list').innerHTML, /12 sessions · 0 roles · Upcoming AFC: loading · Remaining DOE: loading/);
 
   const blob = slice('function searchBlob', 'function filteredLookup');
   for (const allowed of ['displayName', 'preferredFirstName', 'preferredLastName', 'ucid', 'email', 'rank', 'stream', 'teachingArea', 'professionalCategory', 'reportsToName']) {

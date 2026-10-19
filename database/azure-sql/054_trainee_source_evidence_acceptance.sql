@@ -56,6 +56,13 @@ DECLARE @Result TABLE(responseJson nvarchar(max));INSERT @Result EXEC dbo.ApplyT
 UPDATE dbo.TraineeContext SET ReceiptId=TRY_CONVERT(uniqueidentifier,JSON_VALUE((SELECT responseJson FROM @Result),'$.receiptId'));DELETE @Result;
 IF (SELECT COUNT(*) FROM paws.TraineeSourceEvidence)<>3 OR EXISTS(SELECT 1 FROM dbo.TraineeOriginalSnapshots old LEFT JOIN paws.DoeSupervisionSourceSnapshot s ON s.SnapshotId=old.SnapshotId WHERE s.SnapshotId IS NULL OR s.RawDoe<>old.RawDoe) THROW 55490,'Trainee refresh changed existing DOE.',1;
 IF NOT EXISTS(SELECT 1 FROM paws.TraineeSourceEvidence WHERE FacultyId=(SELECT A FROM dbo.TraineeContext) AND SourceDoe=1 AND AllocationStatus=N'held_mismatch') OR NOT EXISTS(SELECT 1 FROM paws.TraineeSourceEvidence WHERE FacultyId=(SELECT B FROM dbo.TraineeContext) AND SourceDoe IS NULL AND AllocationStatus=N'source_missing' AND JSON_VALUE(RawCountsJson,'$[0]')='0' AND JSON_VALUE(RawCountsJson,'$[1]') IS NULL) THROW 55490,'Source/null versus zero was lost.',1;
+DECLARE @History TABLE(source nvarchar(16),eventId nvarchar(100),eventType nvarchar(128),entityType nvarchar(128),entityId nvarchar(256),occurredAtUtc datetime2(7),beforeJson nvarchar(max),afterJson nvarchar(max),metadataJson nvarchar(max),contextJson nvarchar(max),actorName nvarchar(260),academicYear nvarchar(32),facultyId uniqueidentifier,directoryFacultyJson nvarchar(max));
+DECLARE @HistoryStart datetime2(7)=DATEADD(day,-1,SYSUTCDATETIME()),@HistoryEnd datetime2(7)=DATEADD(day,1,SYSUTCDATETIME());
+INSERT @History EXEC paws_api.ListChangeHistoryEvents N'trainee-admin',N'dashboard',@HistoryStart,@HistoryEnd;
+IF (SELECT COUNT(*) FROM @History WHERE eventType=N'trainee_source_refreshed')<>3 THROW 55490,'Administrator history omits trainee source refresh.',1;DELETE @History;
+INSERT @History EXEC paws_api.ListChangeHistoryEvents N'trainee-self',N'dashboard',@HistoryStart,@HistoryEnd;
+IF (SELECT COUNT(*) FROM @History WHERE eventType=N'trainee_source_refreshed')<>1 OR EXISTS(SELECT 1 FROM @History WHERE eventType=N'trainee_source_refreshed' AND JSON_VALUE(afterJson,'$.facultyId')<>CONVERT(nvarchar(36),(SELECT A FROM dbo.TraineeContext))) THROW 55490,'Trainee history widened self scope.',1;
+IF EXISTS(SELECT 1 FROM @History WHERE eventType=N'trainee_source_refreshed' AND JSON_VALUE(afterJson,'$.academicYear')<>N'2026-27') THROW 55490,'Trainee history lacks recorded year.',1;
 DECLARE @Self uniqueidentifier=(SELECT A FROM dbo.TraineeContext),@Response nvarchar(max);
 ALTER ROLE paws_runtime_trainee_read ADD MEMBER [paws-calendar-test-runtime];
 EXECUTE AS USER=N'paws-calendar-test-runtime';

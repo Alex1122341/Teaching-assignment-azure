@@ -30,6 +30,17 @@ test('late CSV is discarded after logout and changing year',async()=>{
   finish({bytes:new Uint8Array([1]),contentType:'text/csv; charset=utf-8'});await pending;assert.deepEqual(files,[]);
  }
 });
+test('ordinary refresh and changing keywords retain the explicitly selected year',async()=>{
+ const h=fixture(),p=h.c.refresh({academicYear:'2027-28'});h.queries[0].resolve({...result(),academicYear:'2027-28'});await p;
+ const again=h.c.refresh();assert.equal(h.queries[1].p.academicYear,'2027-28');h.queries[1].resolve({...result(),academicYear:'2027-28'});await again;
+ const search=h.c.refresh({query:'different'});assert.equal(h.queries[2].p.academicYear,'2027-28');h.queries[2].resolve({...result(),academicYear:'2027-28'});await search;
+});
+test('lazy tab teardown retains only academic year for the same account',async()=>{
+ const vm=require('node:vm');let options;const window={addEventListener(){},PAWS_TRAINEES:{mount:(_h,p)=>{options=p;return {refresh(){},destroy(){}};}}},document={readyState:'loading',querySelector:()=>true};
+ vm.runInNewContext(fs.readFileSync('asset-loader.js','utf8'),{window,document,setTimeout});let user={uid:'owner',role:'owner'};
+ const entry=window.UCVM_ASSETS.createTraineeEntry({host:{innerHTML:''},getAcademicYear:()=>'2026-27',getUser:()=>user});await entry.open();options.onAcademicYearChange('2027-28');entry.clear();await entry.open();assert.equal(options.getAcademicYear(),'2027-28');
+ user={uid:'other',role:'faculty'};entry.clear();await entry.open();assert.equal(options.getAcademicYear(),'2026-27');
+});
 test('render separates missing/zero/source/current DOE, escapes text and omits other-faculty totals for self',()=>{
  const html=renderRows([{...row(),displayName:'<img src=x>',privateNotes:{E:'<script>note</script>'}}]);
  assert.match(html,/Not provided/);assert.match(html,/>0<\/td>/);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img|<script>|private trainee note/);assert.match(html,/<details/);assert.match(html,/&lt;script&gt;note/);

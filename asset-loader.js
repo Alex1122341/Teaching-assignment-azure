@@ -14,8 +14,8 @@ window.UCVM_ASSETS=(()=>{
   return loadScriptOnce('faculty-admin-trainees.js','PAWS_TRAINEES');
  }
  function createTraineeEntry(options){
-  let generation=0,view=null;
-  return {async open(){const id=++generation;if(view)return view.refresh();try{const module=await ensureTrainees();if(id===generation&&options.getUser()?.uid)view=module.mount(options.host,options);}catch(_){if(id===generation&&options.host)options.host.textContent='Trainees could not be loaded. Reopen this tab to retry.';}},clear(){++generation;view?.destroy();view=null;if(options.host)options.host.innerHTML='';}};
+  let generation=0,view=null,selectedYear=null,identity=null;
+  return {async open(){const id=++generation,next=JSON.stringify(options.getUser());if(identity!==next){selectedYear=null;identity=next;view?.destroy();view=null;}if(view)return view.refresh();try{const module=await ensureTrainees();if(id===generation&&options.getUser()?.uid)view=module.mount(options.host,{...options,getAcademicYear:()=>selectedYear||options.getAcademicYear(),onAcademicYearChange:year=>{selectedYear=year;}});}catch(_){if(id===generation&&options.host)options.host.textContent='Trainees could not be loaded. Reopen this tab to retry.';}},clear(){++generation;view?.destroy();view=null;if(options.host)options.host.innerHTML='';}};
  }
  function businessBackend(){
   try{

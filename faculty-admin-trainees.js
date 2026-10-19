@@ -8,13 +8,13 @@
  const stamp=user=>JSON.stringify(user?{uid:user.uid,role:user.role,facultyId:user.facultyId}:null);
  function defaultYear(){const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit'}).formatToParts(new Date()).map(p=>[p.type,p.value]));const start=Number(parts.year)-(parts.month<'05'?1:0);return `${start}-${String((start+1)%100).padStart(2,'0')}`;}
  function createController({api,getAcademicYear,getUser,onState=()=>{},download=()=>{},onClear=()=>{}}){
-  let generation=0,dead=false,current={rows:[],summary:null,total:0,nextCursor:null,busy:false,canExport:false,coverage:[],message:''},filters={};
+  let generation=0,dead=false,current={rows:[],summary:null,total:0,nextCursor:null,busy:false,canExport:false,coverage:[],message:''},filters={},observedYear=getAcademicYear();
   const emit=()=>onState({...current});
   const reset=()=>{current={rows:[],summary:null,total:0,nextCursor:null,busy:false,canExport:false,coverage:[],message:''};};
   async function load(more=false,input={}){
    if(dead||!getUser()?.uid||more&&(current.busy||!current.nextCursor))return;
    const id=++generation,identity=stamp(getUser());
-   if(!more){filters={academicYear:input.academicYear||getAcademicYear()||defaultYear(),query:String(input.query||'').trim(),category:input.category||null};reset();}
+   if(!more){const external=getAcademicYear(),changed=external!==observedYear;observedYear=external;filters={academicYear:input.academicYear||(changed?external:null)||filters.academicYear||external||defaultYear(),query:String(input.query??filters.query??'').trim(),category:input.category===undefined?filters.category||null:input.category||null};reset();}
    current={...current,academicYear:filters.academicYear,busy:true,canExport:false,message:'Loading trainee evidence…'};emit();
    try{
     const result=await api.dashboardTrainees({...filters,limit:25,...(more?{cursor:current.nextCursor}:{})});
@@ -39,7 +39,7 @@
   const cards=[['Known supervision assignments',value(s.supervisionAssignments)],...(administrator?[['Faculty with trainees',value(s.facultyWithTrainees)]]:[]),['Source / DOE issues',value(s.sourceIssues)],['Current raw supervision DOE',doe(s.rawSupervisionDoe)],['Current applied supervision DOE',doe(s.appliedSupervisionDoe)]];
   return `<div class="trainee-stats">${cards.map(([label,n])=>`<div><span>${label}</span><strong>${n}</strong></div>`).join('')}</div><dl class="trainee-categories">${CATEGORIES.map((key,i)=>`<div><dt>${LABELS[i]}</dt><dd>${value(s.categories?.[key])}</dd></div>`).join('')}</dl><p class="trainee-caption">Supervision assignments, not unique student headcount. ${value(s.missingCountCells)} source count cells unavailable. Blanks and previous-source records remain visible; known totals may be partial.</p>`;
  }
- function mount(host,{api=root.UCVM_PAWS_DATA,getAcademicYear=defaultYear,getUser=()=>null,isAdministrator=user=>root.UCVM?.admin?.(user)===true}={}){
+ function mount(host,{api=root.UCVM_PAWS_DATA,getAcademicYear=defaultYear,getUser=()=>null,isAdministrator=user=>root.UCVM?.admin?.(user)===true,onAcademicYearChange=()=>{}}={}){
   if(!host)throw Error('Trainee container required.');
   let attached=false,dead=false;const urls=new Set();
   const revoke=()=>{for(const url of urls)root.URL.revokeObjectURL(url);urls.clear();};
@@ -63,7 +63,7 @@
    find('[data-trainee-year]').value=year;
    find('form').addEventListener('submit',e=>{e.preventDefault();controller.refresh(filters());});
    for(const selector of ['[data-trainee-query]','[data-trainee-category]'])find(selector).addEventListener('input',()=>controller.dirty());
-   find('[data-trainee-category]').addEventListener('change',()=>controller.refresh(filters()));find('[data-trainee-year]').addEventListener('change',()=>{revoke();controller.refresh(filters());});
+   find('[data-trainee-category]').addEventListener('change',()=>controller.refresh(filters()));find('[data-trainee-year]').addEventListener('change',()=>{revoke();onAcademicYearChange(find('[data-trainee-year]').value);controller.refresh(filters());});
    find('[data-trainee-reset]').addEventListener('click',()=>{find('[data-trainee-query]').value='';find('[data-trainee-category]').value='';controller.refresh(filters());});
    find('[data-trainee-more]').addEventListener('click',()=>controller.more());find('[data-trainee-download]').addEventListener('click',()=>controller.export());
   }

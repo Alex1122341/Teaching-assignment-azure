@@ -14,10 +14,10 @@ function createSqlTraineeRepository(db,{worksheetService=createWorksheetService(
   if(data.scope.administrator===true)doe=await worksheetService.listFacultyDoe({academicYear});
   else{
    const own=await worksheetService.buildFacultyWorksheet({facultyId:data.scope.facultyId,academicYear});
-   doe=[{facultyId:data.scope.facultyId,...own.totals}];
+   doe=[{facultyId:data.scope.facultyId,supervisionLineCount:own.sections?.supervision?.lines?.length||0,...own.totals}];
   }
   const map=new Map(doe.map(r=>[String(r.facultyId).toLowerCase(),r]));
-  data.rows=data.rows.map(r=>({...r,currentRawDoe:r.currentRawDoe==null?null:map.get(String(r.facultyId).toLowerCase())?.rawSupervisionDoe??r.currentRawDoe,currentAppliedDoe:r.currentRawDoe==null?null:map.get(String(r.facultyId).toLowerCase())?.appliedSupervisionDoe??null}));
+  data.rows=data.rows.map(r=>{const worksheet=map.get(String(r.facultyId).toLowerCase()),available=r.currentRawDoe!=null||worksheet?.supervisionLineCount>0;return {...r,currentRawDoe:available?worksheet?.rawSupervisionDoe??r.currentRawDoe:null,currentAppliedDoe:available?worksheet?.appliedSupervisionDoe??null:null};});
   return data;
  }
  return Object.freeze({

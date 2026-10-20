@@ -6,7 +6,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-const { main, splitBatches, adapt, SKIP, TOLERATED_FAILURES } = require('../tools/testing-db/reset-testing-db');
+const { main, splitBatches, adapt, assertLocalOdbc, decideAction, markerGrantSql, SKIP, TOLERATED_FAILURES } = require('../tools/testing-db/reset-testing-db');
 
 const TESTING = {
   PAWS_ENVIRONMENT: 'testing', PAWS_TESTING_ENVIRONMENT_ID: '3f0c9a52-7d1e-4b6a-9c2f-0a1b2c3d4e5f', FIREBASE_PROJECT_ID: 'paws-testing',
@@ -60,4 +60,57 @@ test('synthetic seed is deterministic, matches its manifest, and contains no rea
     if (error.code === 'ENOENT') return; // python unavailable: determinism is covered in CI
     throw error;
   }
+});
+
+const TID = TESTING.PAWS_TESTING_ENVIRONMENT_ID;
+const EMPTY = { databaseName: 'VetMed-Ops', canViewDefinition: 1, userObjects: 0, userSchemas: 0, hasMarker: 0, marker: [] };
+
+test('reset decision: only a database with this Testing marker is reset', () => {
+  assert.equal(decideAction({ ...EMPTY, hasMarker: 1, marker: [{ environment: 'testing', environmentId: TID.toUpperCase() }] }, TID), 'reset');
+  assert.throws(() => decideAction({ ...EMPTY, hasMarker: 1, marker: [{ environment: 'testing', environmentId: '00000000-0000-4000-8000-000000000000' }] }, TID), /different environment/);
+  assert.throws(() => decideAction({ ...EMPTY, hasMarker: 1, marker: [{ environment: 'testing', environmentId: TID }, { environment: 'testing', environmentId: TID }] }, TID), /different environment/);
+  assert.throws(() => decideAction({ ...EMPTY, hasMarker: 1, marker: [] }, TID), /holds no Testing identity/);
+});
+
+test('reset decision: a database without a marker is initialised only when provably empty and explicitly requested', () => {
+  assert.equal(decideAction(EMPTY, TID, { initialiseEmpty: true }), 'initialise');
+  assert.throws(() => decideAction(EMPTY, TID), /--initialise-empty/);
+  assert.throws(() => decideAction({ ...EMPTY, userObjects: 1 }, TID, { initialiseEmpty: true }), /not empty/);
+  assert.throws(() => decideAction({ ...EMPTY, userSchemas: 1 }, TID, { initialiseEmpty: true }), /not empty/);
+  // Hidden metadata must never look empty (e.g. Production seen through a low-privilege principal).
+  assert.throws(() => decideAction({ ...EMPTY, canViewDefinition: 0 }, TID, { initialiseEmpty: true }), /VIEW DEFINITION/);
+  assert.throws(() => decideAction({ ...EMPTY, canViewDefinition: null }, TID, { initialiseEmpty: true }), /VIEW DEFINITION/);
+});
+
+test('local ODBC override must itself name a LocalDB instance', () => {
+  const localConn = 'Server=(localdb)\\MSSQLLocalDB;Database=VetMed-Ops';
+  assert.equal(assertLocalOdbc({}), null);
+  assert.ok(assertLocalOdbc({ PAWS_SQL_CONNECTION_STRING: localConn, PAWS_TESTING_LOCAL_ODBC: 'Driver={SQL Server};Server=np:\\\\.\\pipe\\LOCALDB#ABC123\\tsql\\query;Database=VetMed-Ops;Trusted_Connection=Yes;' }));
+  assert.ok(assertLocalOdbc({ PAWS_SQL_CONNECTION_STRING: localConn, PAWS_TESTING_LOCAL_ODBC: 'Driver={ODBC Driver 18 for SQL Server};Server=(localdb)\\MSSQLLocalDB;Database=VetMed-Ops;' }));
+  for (const odbc of [
+    'Driver={SQL Server};Server=ITAPPVETOPSDB01;Database=VetMed-Ops;Trusted_Connection=Yes;',
+    'Driver={SQL Server};Server=tcp:prod.database.windows.net;Database=VetMed-Ops;',
+    'Driver={SQL Server};Server=(localdb)\\MSSQLLocalDB;Server=ITAPPVETOPSDB01;Database=VetMed-Ops;',
+    'Driver={SQL Server};Database=VetMed-Ops;'
+  ]) assert.throws(() => assertLocalOdbc({ PAWS_SQL_CONNECTION_STRING: localConn, PAWS_TESTING_LOCAL_ODBC: odbc }), /LocalDB/, odbc);
+});
+
+test('the runtime principal is granted read access to the Testing marker, and nothing else on it', () => {
+  assert.equal(markerGrantSql('paws_testing_runtime'), 'GRANT SELECT ON OBJECT::paws_env.EnvironmentIdentity TO [paws_testing_runtime];');
+  assert.equal(markerGrantSql('odd]name'), 'GRANT SELECT ON OBJECT::paws_env.EnvironmentIdentity TO [odd]]name];');
+  const source = fs.readFileSync(path.join(root, 'tools/testing-db/reset-testing-db.js'), 'utf8');
+  assert.match(source, /await run\(pool, markerGrantSql\(runtimePrincipal\)\)/);
+  assert.doesNotMatch(source, /GRANT (INSERT|UPDATE|DELETE|CONTROL|ALTER)[^;]*EnvironmentIdentity/);
+});
+
+test('reset workflow initialises an empty database only when the operator asks for it', () => {
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/paws-testing-db-reset.yml'), 'utf8');
+  assert.match(workflow, /initialise_empty:[\s\S]*default: false/);
+  assert.match(workflow, /--confirm-reset --initialise-empty/);
+});
+
+test('local acceptance never drops a LocalDB database it did not create', () => {
+  const source = fs.readFileSync(path.join(root, 'tools/testing-db/local-acceptance.js'), 'utf8');
+  assert.match(source, /did not create; refusing to drop it/);
+  assert.match(source, /paws_acceptance\.StandIn/);
 });

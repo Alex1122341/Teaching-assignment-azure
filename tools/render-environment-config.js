@@ -83,6 +83,9 @@ function validatePair(production, testing, { complete = true } = {}) {
   if (testing.apiOrigin && testing.apiOrigin === production.apiOrigin) errors.push('testing apiOrigin points at the production API');
   if (testing.siteUrl && testing.siteUrl === production.siteUrl) errors.push('testing siteUrl is the production site');
   if (testing.firebase && production.firebase && testing.firebase.projectId === production.firebase.projectId) errors.push('testing shares the production Firebase project');
+  if (testing.firebase && production.firebase && testing.firebase.apiKey === production.firebase.apiKey) errors.push('testing shares the production Firebase API key');
+  if (testing.firebase && production.firebase && testing.firebase.authDomain === production.firebase.authDomain) errors.push('testing shares the production Firebase auth domain');
+  if (testing.apiOrigin && production.siteUrl && testing.apiOrigin === production.siteUrl) errors.push('testing apiOrigin points at the production site');
   if (production.peerSiteUrl && production.peerSiteUrl !== testing.siteUrl) errors.push('production peerSiteUrl must be the testing siteUrl');
   if (testing.peerSiteUrl !== production.siteUrl) errors.push('testing peerSiteUrl must be the production siteUrl');
   return errors;

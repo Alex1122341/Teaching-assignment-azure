@@ -50,6 +50,11 @@ function verifyArtifact(dir, environment, root = ROOT) {
     const target = path.join(dir, asset);
     if (!fs.existsSync(target)) { errors.push(`artifact is missing ${asset}`); continue; }
     if (/\.(pdf|png|jpe?g|gif|ico|woff2?)$/i.test(asset)) continue;
+    // The rendered configuration was compared byte-for-byte with this environment's rendering above,
+    // and validatePair proves it shares no API, site or identity value with the other environment.
+    // It legitimately names the other site (peerSiteUrl, e.g. "Return to Production"), so a substring
+    // scan of this one file would always report a false positive.
+    if (asset === 'paws-api-origin.js') continue;
     const text = fs.readFileSync(target, 'utf8');
     for (const marker of markers) if (text.includes(marker)) errors.push(`${asset} references the ${other.environment} environment (${marker})`);
   }

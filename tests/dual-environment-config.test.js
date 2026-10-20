@@ -87,6 +87,43 @@ test('artifact guard: production artifact passes; a production artifact with Tes
   assert.ok(verifyArtifact(artifactFor(production), 'testing').length > 0);
 });
 
+function provisionedRoot(testingConfig) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'paws-root-'));
+  fs.mkdirSync(path.join(dir, 'config', 'environments'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'tools'), { recursive: true });
+  fs.copyFileSync(path.join(root, 'config', 'environments', 'production.json'), path.join(dir, 'config', 'environments', 'production.json'));
+  fs.writeFileSync(path.join(dir, 'config', 'environments', 'testing.json'), JSON.stringify(testingConfig, null, 2));
+  fs.copyFileSync(path.join(root, 'tools', 'static-assets.json'), path.join(dir, 'tools', 'static-assets.json'));
+  return dir;
+}
+
+test('artifact guard: a provisioned Testing artifact passes even though it names the Production site for Return to Production', () => {
+  const configRoot = provisionedRoot(provisionedTesting);
+  assert.match(render(provisionedTesting), /tester-teaching\.web\.app/);
+  assert.deepEqual(verifyArtifact(artifactFor(provisionedTesting), 'testing', configRoot), []);
+  assert.deepEqual(verifyArtifact(artifactFor(production), 'production', configRoot), []);
+});
+
+test('artifact guard: Testing artifacts carrying Production configuration or identity are rejected', () => {
+  const configRoot = provisionedRoot(provisionedTesting);
+  // Testing artifact shipped with the Production rendering.
+  assert.ok(verifyArtifact(artifactFor(production), 'testing', configRoot).some(error => /not the testing rendering/.test(error)));
+  // Production artifact shipped with the Testing rendering.
+  assert.ok(verifyArtifact(artifactFor(provisionedTesting), 'production', configRoot).some(error => /not the production rendering/.test(error)));
+  // Another shipped file hard-codes the Production Firebase project or API host inside a Testing artifact.
+  const leaked = artifactFor(provisionedTesting, dir => fs.appendFileSync(path.join(dir, 'timetable.js'), `\n// ${production.firebase.projectId} ${new URL(production.apiOrigin).hostname}\n`));
+  const errors = verifyArtifact(leaked, 'testing', configRoot);
+  assert.ok(errors.some(error => /timetable\.js references the production environment/.test(error)), errors.join('; '));
+  // A Production artifact that leaks the Testing API host is rejected too.
+  const reverse = artifactFor(production, dir => fs.appendFileSync(path.join(dir, 'timetable.js'), `\n// ${new URL(provisionedTesting.apiOrigin).hostname}\n`));
+  assert.ok(verifyArtifact(reverse, 'production', configRoot).some(error => /references the testing environment/.test(error)));
+});
+
+test('Testing can never share the Production Firebase API key or auth domain', () => {
+  assert.ok(validatePair(production, { ...provisionedTesting, firebase: { ...provisionedTesting.firebase, apiKey: production.firebase.apiKey } }).some(e => /API key/.test(e)));
+  assert.ok(validatePair(production, { ...provisionedTesting, firebase: { ...provisionedTesting.firebase, authDomain: production.firebase.authDomain } }).some(e => /auth domain/.test(e)));
+});
+
 test('health guard rejects a runtime reporting the other environment', () => {
   assert.deepEqual(verifyHealth({ status: 'ok', environment: 'testing' }, 'testing'), []);
   assert.ok(verifyHealth({ status: 'ok', environment: 'production' }, 'testing').length > 0);

@@ -12,6 +12,11 @@ on:
         description: Type RESET-TESTING to confirm
         required: true
         type: string
+      initialise_empty:
+        description: First-time setup only - initialise a provably empty database that has no Testing marker yet
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -47,7 +52,10 @@ jobs:
           tenant-id: ${{ vars.PAWS_TESTING_AZURE_TENANT_ID }}
           subscription-id: ${{ vars.PAWS_TESTING_AZURE_SUBSCRIPTION_ID }}
       - name: Reset Testing database with synthetic data
-        run: node tools/testing-db/reset-testing-db.js --confirm-reset
+        env:
+          INITIALISE_EMPTY: ${{ inputs.initialise_empty }}
+        run: |
+          if [ "$INITIALISE_EMPTY" = "true" ]; then node tools/testing-db/reset-testing-db.js --confirm-reset --initialise-empty; else node tools/testing-db/reset-testing-db.js --confirm-reset; fi
       - name: Provision Testing sign-in accounts
         env:
           PAWS_TEST_PERSONA_PASSWORD: ${{ secrets.PAWS_TEST_PERSONA_PASSWORD }}

@@ -5,8 +5,10 @@
 //   * PAWS_ENVIRONMENT must be "testing" and pass the same checks as the Testing runtime
 //     (server/src/runtime/environment.js): never a production SQL server, never the production
 //     Firebase project, an explicit PAWS_TESTING_ENVIRONMENT_ID.
-//   * A database is only touched when it is EMPTY (no user tables and no marker) or when it already
-//     carries paws_env.EnvironmentIdentity = ('testing', PAWS_TESTING_ENVIRONMENT_ID).
+//   * A database is only touched when it already carries paws_env.EnvironmentIdentity =
+//     ('testing', PAWS_TESTING_ENVIRONMENT_ID) (reset), or when it is provably EMPTY and the operator
+//     passes --initialise-empty (first-time setup). "Empty" is only trusted when the connecting
+//     principal holds VIEW DEFINITION, so metadata hidden by permissions cannot look empty.
 //   * Nothing is ever read from or copied out of Production.
 //
 // Steps: marker -> drop all non-marker objects (reset only) -> stand-in principals -> migrations
@@ -17,7 +19,7 @@
 //   PAWS_ENVIRONMENT=testing PAWS_TESTING_ENVIRONMENT_ID=<uuid> FIREBASE_PROJECT_ID=<testing project> \
 //   PAWS_SQL_CONNECTION_STRING="Server=tcp:<testing-server>.database.windows.net;Database=VetMed-Ops;Encrypt=true" \
 //   PAWS_SQL_MI_CLIENT_ID=<uuid> PAWS_TESTING_RUNTIME_PRINCIPAL=<runtime identity name> \
-//   node tools/testing-db/reset-testing-db.js --confirm-reset
+//   node tools/testing-db/reset-testing-db.js --confirm-reset            (add --initialise-empty the first time)
 // Local LocalDB (Windows, developer machine):
 //   ... PAWS_SQL_CONNECTION_STRING="Server=(localdb)\\MSSQLLocalDB;Database=VetMed-Ops" \
 //   PAWS_TESTING_LOCAL_ODBC="Driver={SQL Server};Server=np:\\\\.\\pipe\\LOCALDB#xxxx\\tsql\\query;Database=VetMed-Ops;Trusted_Connection=Yes;" \
@@ -61,10 +63,42 @@ function splitBatches(text, vars) {
   return batches.filter(b => b.trim()).map(b => b.replace(/\$\((\w+)\)/g, (m, name) => (name in vars ? vars[name] : m)));
 }
 
-async function connect(env) {
+// The local ODBC override must itself point at a LocalDB instance (named pipe or (localdb)), not merely
+// be paired with a (localdb) PAWS_SQL_CONNECTION_STRING: otherwise it could name any server.
+function assertLocalOdbc(env) {
   const local = env.PAWS_TESTING_LOCAL_ODBC;
+  if (!local) return null;
+  if (!/\(localdb\)/i.test(env.PAWS_SQL_CONNECTION_STRING || '')) throw new Error('PAWS_TESTING_LOCAL_ODBC is only accepted for a (localdb) server');
+  const servers = [...String(local).matchAll(/(?:^|;)\s*(?:server|data source|address|addr)\s*=\s*([^;]*)/gi)].map(m => m[1].trim());
+  const localDb = value => /^\(localdb\)\\[^;\\]+$/i.test(value) || /^np:\\\\\.\\pipe\\LOCALDB#[^\\;]+\\tsql\\query$/i.test(value);
+  if (servers.length !== 1 || !localDb(servers[0])) throw new Error('PAWS_TESTING_LOCAL_ODBC is only accepted for a (localdb) server: its own Server must be a LocalDB instance or named pipe');
+  return local;
+}
+
+// Decides what the tool may do with the database it connected to. Pure: throws instead of guessing.
+function decideAction(state, testingEnvironmentId, { initialiseEmpty = false } = {}) {
+  const marker = state.marker || [];
+  if (marker.length) {
+    if (marker.length !== 1 || marker[0].environment !== 'testing' || String(marker[0].environmentId).toLowerCase() !== testingEnvironmentId) {
+      throw new Error('This database belongs to a different environment; refusing to touch it');
+    }
+    return 'reset';
+  }
+  if (state.hasMarker) throw new Error('The Testing marker table exists but holds no Testing identity; refusing to touch it');
+  if (Number(state.canViewDefinition) !== 1) throw new Error('Cannot prove the database is empty: the connecting principal lacks VIEW DEFINITION; refusing to touch it');
+  if (Number(state.userObjects) > 0 || Number(state.userSchemas) > 0) throw new Error('Database is not empty and carries no Testing marker; refusing to touch it');
+  if (!initialiseEmpty) throw new Error('Database is empty and has no Testing marker. Pass --initialise-empty to initialise a new Testing database');
+  return 'initialise';
+}
+
+// The runtime principal must be able to read the marker, or environment.js cannot see it and Testing never serves.
+function markerGrantSql(runtimePrincipal) {
+  return `GRANT SELECT ON OBJECT::paws_env.EnvironmentIdentity TO [${String(runtimePrincipal).replace(/]/g, ']]')}];`;
+}
+
+async function connect(env) {
+  const local = assertLocalOdbc(env);
   if (local) {
-    if (!/\(localdb\)/i.test(env.PAWS_SQL_CONNECTION_STRING || '')) throw new Error('PAWS_TESTING_LOCAL_ODBC is only accepted for a (localdb) server');
     const sql = require(path.join(ROOT, 'server', 'node_modules', 'mssql', 'msnodesqlv8'));
     return { sql, pool: await new sql.ConnectionPool({ connectionString: local }).connect() };
   }
@@ -80,7 +114,9 @@ async function run(pool, text) {
 
 async function readState(pool) {
   const [state] = await run(pool, `SELECT DB_NAME() AS databaseName,
-      (SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped = 0 AND SCHEMA_NAME(schema_id) <> N'paws_env') AS userTables,
+      HAS_PERMS_BY_NAME(DB_NAME(), N'DATABASE', N'VIEW DEFINITION') AS canViewDefinition,
+      (SELECT COUNT(*) FROM sys.objects WHERE is_ms_shipped = 0 AND SCHEMA_NAME(schema_id) <> N'paws_env') AS userObjects,
+      (SELECT COUNT(*) FROM sys.schemas WHERE schema_id BETWEEN 5 AND 16383 AND name <> N'paws_env') AS userSchemas,
       CASE WHEN OBJECT_ID(N'paws_env.EnvironmentIdentity', N'U') IS NULL THEN 0 ELSE 1 END AS hasMarker`);
   let marker = [];
   if (state.hasMarker) marker = await run(pool, 'SELECT Environment AS environment, CONVERT(varchar(36), EnvironmentId) AS environmentId FROM paws_env.EnvironmentIdentity');
@@ -137,6 +173,7 @@ async function grantRuntimeRoles(pool, runtimePrincipal) {
   for (const { name } of roles) {
     await run(pool, `IF NOT EXISTS (SELECT 1 FROM sys.database_role_members rm JOIN sys.database_principals r ON r.principal_id = rm.role_principal_id JOIN sys.database_principals m ON m.principal_id = rm.member_principal_id WHERE r.name = N'${name}' AND m.name = N'${runtimePrincipal.replace(/'/g, "''")}') ALTER ROLE [${name.replace(/]/g, ']]')}] ADD MEMBER [${runtimePrincipal.replace(/]/g, ']]')}];`);
   }
+  await run(pool, markerGrantSql(runtimePrincipal));
   return roles.map(r => r.name);
 }
 
@@ -149,6 +186,7 @@ async function main(argv, env = process.env, log = message => console.log(messag
   const environment = resolveEnvironment(env);
   if (!environment.testing) throw new Error('reset-testing-db only runs with PAWS_ENVIRONMENT=testing');
   if (!argv.includes('--confirm-reset')) throw new Error('Pass --confirm-reset to initialise or reset the Testing database');
+  assertLocalOdbc(env);
   const host = sqlServerHost(env.PAWS_SQL_CONNECTION_STRING);
   const azure = /\.database\.windows\.net$/i.test(host);
   const runtimePrincipal = String(env.PAWS_TESTING_RUNTIME_PRINCIPAL || 'paws_testing_runtime').trim();
@@ -156,15 +194,11 @@ async function main(argv, env = process.env, log = message => console.log(messag
   try {
     const state = await readState(pool);
     if (state.databaseName !== 'VetMed-Ops') throw new Error(`The Testing database must be named VetMed-Ops (the migrations require it); found ${state.databaseName}`);
-    const marker = state.marker;
-    if (marker.length) {
-      if (marker.length !== 1 || marker[0].environment !== 'testing' || marker[0].environmentId.toLowerCase() !== environment.testingEnvironmentId) {
-        throw new Error('This database belongs to a different environment; refusing to touch it');
-      }
+    const action = decideAction(state, environment.testingEnvironmentId, { initialiseEmpty: argv.includes('--initialise-empty') });
+    if (action === 'reset') {
       log('marker verified: resetting existing Testing database');
       await dropAll(pool);
     } else {
-      if (state.userTables > 0) throw new Error('Database is not empty and carries no Testing marker; refusing to touch it');
       log('empty database: initialising new Testing database');
       await createMarker(pool, environment.testingEnvironmentId);
     }
@@ -208,4 +242,4 @@ if (require.main === module) {
   main(process.argv.slice(2)).catch(error => { console.error(`TESTING_DB_RESET_FAILED: ${error.message}`); process.exit(1); });
 }
 
-module.exports = { main, splitBatches, adapt, SKIP, TOLERATED_FAILURES };
+module.exports = { main, splitBatches, adapt, assertLocalOdbc, decideAction, markerGrantSql, SKIP, TOLERATED_FAILURES };

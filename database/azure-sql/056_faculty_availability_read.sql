@@ -1,17 +1,19 @@
 /* PAWS Faculty Availability: read-only, source-derived, one faculty per query.
-   Source authority: paws.Session/SessionAssignment, CalendarActivity/DayTime,
+   Source authority: paws.vCalendarSession/SessionAssignment, CalendarActivity/DayTime,
    vAfcRecordUnified, pending AfcRequest, RoleAssignment/RoleAppointmentSchedule.
    No materialized availability data or business writes.
 */
 IF DB_NAME()<>N'VetMed-Ops' THROW 55600,'Faculty availability migration requires VetMed-Ops.',1;
+SET XACT_ABORT ON;
 IF OBJECT_ID(N'paws_api.ListFacultyAvailability',N'P') IS NOT NULL
  THROW 55600,'Faculty availability procedure already exists; inspect before applying.',1;
-IF OBJECT_ID(N'paws.Session',N'U') IS NULL OR OBJECT_ID(N'paws.SessionAssignment',N'U') IS NULL
+IF OBJECT_ID(N'paws.vCalendarSession',N'V') IS NULL OR OBJECT_ID(N'paws.SessionAssignment',N'U') IS NULL
  OR OBJECT_ID(N'paws.CalendarActivity',N'U') IS NULL OR OBJECT_ID(N'paws.CalendarActivityDayTime',N'U') IS NULL
  OR OBJECT_ID(N'paws.vAfcRecordUnified',N'V') IS NULL
  OR OBJECT_ID(N'paws.AfcRequest',N'U') IS NULL OR OBJECT_ID(N'paws.RoleAppointmentSchedule',N'U') IS NULL
  OR DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NULL
  THROW 55600,'Accepted Faculty Availability source/schema/role prerequisite is missing.',1;
+BEGIN TRANSACTION;
 GO
 CREATE PROCEDURE paws_api.ListFacultyAvailability
  @ActorFirebaseUid nvarchar(128),
@@ -75,7 +77,7 @@ BEGIN
         CASE WHEN s.StartTime IS NULL OR s.EndTime IS NULL OR s.StartTime>=s.EndTime
              THEN N'unknown' ELSE N'verified' END,
         s.CourseCode,s.SessionId,LEFT(NULLIF(LTRIM(RTRIM(s.Topic)),N''),500)
- FROM paws.Session s
+ FROM paws.vCalendarSession s
  WHERE s.SessionDate IS NOT NULL
    AND s.SessionDate>=@Floor AND (@Ceiling IS NULL OR s.SessionDate<=@Ceiling)
    AND EXISTS(SELECT 1 FROM paws.SessionAssignment a
@@ -88,7 +90,8 @@ BEGIN
  SELECT N'work',CONCAT(N'work:',CONVERT(nvarchar(36),a.ActivityId)),
         COALESCE(NULLIF(LEFT(LTRIM(RTRIM(a.OriginalLabel)),520),N''),N'Working activity'),
         a.StartDate,a.EndDate,
-        CASE WHEN missing.MissingDays>0 THEN N'time_unconfirmed' ELSE N'busy' END,
+        CASE WHEN a.Category=N'remote_work' THEN N'informational'
+             WHEN missing.MissingDays>0 THEN N'time_unconfirmed' ELSE N'busy' END,
         CASE WHEN missing.MissingDays>0 AND evidence.EvidenceDays>0 THEN N'partial'
              WHEN missing.MissingDays>0 THEN N'unknown' ELSE N'verified' END,
         c.CourseCode,CONCAT(N'Work beyond teaching · ',a.Category),
@@ -96,14 +99,14 @@ BEGIN
                          CONVERT(char(5),t.StartTime,108) startTime,
                          CONVERT(char(5),t.EndTime,108) endTime
                   FROM paws.CalendarActivityDayTime t
-                  WHERE t.ActivityId=a.ActivityId
+                  WHERE t.ActivityId=a.ActivityId AND t.ActivityDate BETWEEN a.StartDate AND a.EndDate
                   ORDER BY t.ActivityDate FOR JSON PATH),N'[]')
  FROM paws.CalendarActivity a
  LEFT JOIN paws.Course c ON c.CourseId=a.CourseId
- OUTER APPLY(SELECT COUNT_BIG(*) EvidenceDays FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId) evidence
+ OUTER APPLY(SELECT COUNT_BIG(*) EvidenceDays FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId AND t.ActivityDate BETWEEN a.StartDate AND a.EndDate) evidence
  OUTER APPLY(SELECT DATEDIFF(day,a.StartDate,a.EndDate)+1-evidence.EvidenceDays MissingDays) missing
  WHERE a.FacultyId=@FacultyId AND a.StartDate<=COALESCE(@Ceiling,'9999-12-31')
-   AND a.EndDate>=@Floor AND a.Category<>N'remote_work'
+   AND a.EndDate>=@Floor
    AND (@Mode<>N'upcoming' OR a.EndDate>@Today
         OR NOT EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId AND t.ActivityDate=@Today)
         OR EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId
@@ -116,6 +119,17 @@ BEGIN
  FROM paws.vAfcRecordUnified a
  WHERE a.FacultyId=@FacultyId AND a.Active=1
    AND a.EndDate>=@Floor AND (@Ceiling IS NULL OR a.StartDate<=@Ceiling);
+
+ -- Some accepted historical unified views contain only imported/manual AFC.
+ -- Include approved requests exactly once using their canonical request identity.
+ IF @Kind IN(N'all',N'afc')
+ INSERT #Events(Kind,SourceKey,Label,StartDate,EndDate,Availability,TimeStatus,Detail)
+ SELECT N'afc',CONCAT(N'afc:request:',CONVERT(nvarchar(36),r.AfcRequestId)),N'Away from campus',
+        r.StartDate,r.EndDate,N'away',N'all_day',N'Approved or recorded AFC'
+ FROM paws.AfcRequest r
+ WHERE r.FacultyId=@FacultyId AND r.Status=N'approved'
+   AND r.EndDate>=@Floor AND (@Ceiling IS NULL OR r.StartDate<=@Ceiling)
+   AND NOT EXISTS(SELECT 1 FROM paws.vAfcRecordUnified a WHERE a.RecordKey=CONCAT(N'request:',CONVERT(nvarchar(36),r.AfcRequestId)) AND a.Active=1);
 
  IF @Kind IN(N'all',N'pending')
  INSERT #Events(Kind,SourceKey,Label,StartDate,EndDate,Availability,TimeStatus,Detail)
@@ -137,7 +151,7 @@ BEGIN
   CROSS APPLY OPENJSON(p.PeriodsJson) j
   CROSS APPLY (SELECT TRY_CONVERT(date,JSON_VALUE(j.value,'$.startDate'),23) StartDate,
                       TRY_CONVERT(date,JSON_VALUE(j.value,'$.endDate'),23) EndDate) dates
-  WHERE r.FacultyId=@FacultyId AND dates.StartDate IS NOT NULL
+  WHERE r.FacultyId=@FacultyId AND dates.StartDate IS NOT NULL AND (dates.EndDate IS NULL OR dates.EndDate>=dates.StartDate)
     AND dates.StartDate<=COALESCE(@Ceiling,'9999-12-31')
     AND (dates.EndDate IS NULL OR dates.EndDate>=@Floor);
 
@@ -157,15 +171,18 @@ BEGIN
  END;
 
  DECLARE @Total int=(SELECT COUNT(*) FROM #Events);
- DECLARE @UndatedSessions int=(SELECT COUNT(DISTINCT s.SessionId) FROM paws.Session s
+ DECLARE @UndatedSessions int=(SELECT COUNT(DISTINCT s.SessionId) FROM paws.vCalendarSession s
    JOIN paws.SessionAssignment a ON a.SessionId=s.SessionId
    WHERE a.FacultyId=@FacultyId AND s.SessionDate IS NULL);
  DECLARE @UndatedRoles int=(SELECT COUNT(*) FROM paws.RoleAssignment r
-   WHERE r.FacultyId=@FacultyId AND r.EffectiveDate IS NULL
-   AND NOT EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule p
-                  CROSS APPLY OPENJSON(p.PeriodsJson) j
-                  WHERE p.RoleAssignmentId=r.RoleAssignmentId AND ISJSON(j.value)=1));
- SELECT JSON_QUERY((
+   WHERE r.FacultyId=@FacultyId AND (
+    (r.EffectiveDate IS NULL AND NOT EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule p WHERE p.RoleAssignmentId=r.RoleAssignmentId))
+    OR EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule p WHERE p.RoleAssignmentId=r.RoleAssignmentId AND (
+      NOT EXISTS(SELECT 1 FROM OPENJSON(p.PeriodsJson)) OR EXISTS(SELECT 1 FROM OPENJSON(p.PeriodsJson) j
+      WHERE j.type<>5 OR TRY_CONVERT(date,JSON_VALUE(j.value,'$.startDate'),23) IS NULL
+       OR (JSON_VALUE(j.value,'$.endDate') IS NOT NULL AND (TRY_CONVERT(date,JSON_VALUE(j.value,'$.endDate'),23) IS NULL
+           OR TRY_CONVERT(date,JSON_VALUE(j.value,'$.endDate'),23)<TRY_CONVERT(date,JSON_VALUE(j.value,'$.startDate'),23))))))));
+ SELECT (SELECT JSON_QUERY(COALESCE((
    SELECT e.SourceKey eventKey,e.Kind kind,e.Label label,
           CONVERT(char(10),e.StartDate,23) startDate,
           CONVERT(char(10),e.EndDate,23) endDate,
@@ -178,14 +195,15 @@ BEGIN
    ORDER BY e.StartDate,ISNULL(e.StartTime,'00:00:00'),e.Kind,e.SourceKey
    OFFSET @Cursor ROWS FETCH NEXT @Limit ROWS ONLY
    FOR JSON PATH,INCLUDE_NULL_VALUES
- )) items,
+ ),N'[]')) items,
  @Total total,
  CASE WHEN @Total>@Cursor+@Limit THEN CONVERT(varchar(20),@Cursor+@Limit) END nextCursor,
  CONVERT(char(10),@Today,23) today,
- (SELECT @UndatedSessions undatedSessions,@UndatedRoles undatedRoles
-  FOR JSON PATH,WITHOUT_ARRAY_WRAPPER) coverage
- FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES;
+ JSON_QUERY((SELECT @UndatedSessions undatedSessions,@UndatedRoles undatedRoles
+  FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)) coverage
+ FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES) responseJson;
 END;
 GO
 GRANT EXECUTE ON OBJECT::paws_api.ListFacultyAvailability TO paws_runtime_read;
+COMMIT TRANSACTION;
 GO

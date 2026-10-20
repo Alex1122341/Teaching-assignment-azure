@@ -922,11 +922,11 @@ test('Dashboard presentation reset governance promotes only the reviewed two sta
   'server/src/data/sql-change-history-repository.js','server/src/history/change-history-api.js']);
  assert.equal(changed.some(file=>file.startsWith('database/azure-sql/')),false);
  for(const file of staticAfter.filter(path=>!changed.includes(path)))assert.ok(freeze.bytesMatch(
-  freeze.readBaselineFile({root,baselineCommit:previous,file:path}),
-  freeze.readBaselineFile({root,baselineCommit:accepted,file:path})
+  freeze.readBaselineFile({root,baselineCommit:previous,file}),
+  freeze.readBaselineFile({root,baselineCommit:accepted,file})
  ),file);
  for(const file of apiAfter.filter(path=>!changed.includes(path)))assert.ok(freeze.bytesMatch(
-  freeze.readBaselineFile({root,baselineCommit:previous,file:path}),
-  freeze.readBaselineFile({root,baselineCommit:accepted,file:path})
+  freeze.readBaselineFile({root,baselineCommit:previous,file}),
+  freeze.readBaselineFile({root,baselineCommit:accepted,file})
  ),file);
 });

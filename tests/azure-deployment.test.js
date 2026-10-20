@@ -36,8 +36,10 @@ test('Firebase Hosting is the only active static site deployment workflow',()=>{
   assert.match(workflow,/commit_sha:/);
   assert.match(workflow,/azure-beta-build\.yml/);
   assert.match(workflow,/name:\s*azure-beta-\$\{\{ inputs\.commit_sha \}\}/);
-  assert.match(workflow,/beta-freeze\.js --artifact \.azure-production\/app/);
-  assert.match(workflow,/beta-api-freeze\.js --artifact \.azure-production\/api/);
+  assert.match(workflow,/path:\s*\.firebase-production/);
+  assert.match(workflow,/Verify P4 static artifact/);
+  assert.match(workflow,/test -f \.firebase-production\/app\/index\.html/);
+  assert.match(workflow,/cmp -s \"\$expected\" \"\$target\"/);
   assert.match(workflow,/firebase deploy/);
   assert.match(workflow,/--only hosting/);
   assert.match(workflow,/tester-teaching\.web\.app/);

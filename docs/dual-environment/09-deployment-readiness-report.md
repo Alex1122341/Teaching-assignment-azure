@@ -36,7 +36,7 @@ Repository `Alex1122341/Teaching-assignment-azure`, PR #125, branch `feat/paws-t
 | Linux container, server | `5ac8aaf` | `cd server && node --test test/*.test.js` | 824 tests: 814 pass, **5 fail**, 5 skipped. The 5 failures need PowerShell or Docker and also fail on `main` here. |
 | Linux, freeze | `5ac8aaf` | `node tools/beta-freeze.js`, `beta-api-freeze.js`, both `--artifact`, `verify-beta-candidate.js` | ok, zero drift; static 82, API 105 |
 | Windows laptop, server | `960957d` | `npm test` (with the root suite running in parallel) | 824 tests: 812 pass, 8 fail, 4 skipped. Failures: 3 need Docker; 5 Calendar/CCC workbook tests hit `IMPORT_PARSE_TIMEOUT` under load. The same two files pass 33/33 when run alone, on both this branch and `main`. |
-| Windows laptop, root | `1a6060c` | `node --test tests/*.test.js` | see the "Windows root" line in the hand-off message (run in progress when this report was written) |
+| Windows laptop, root | `1a6060c` | `node --test tests/*.test.js` | **1048 tests: 996 pass, 0 fail**, 52 skipped (emulator). This run includes the PowerShell recovery test that can't run on Linux. |
 | Windows laptop, LocalDB acceptance | `45d10f1` | `node tools/testing-db/local-acceptance.js` (instances `PAWSTestSim`, `PAWSProdSim2`) | **44/44 pass** (`evidence/local-acceptance-20261020.json`) |
 | GitHub Actions on PR #125 | — | — | **Not observable from this session** (no GitHub API access to the private repository). The Owner must check the PR's Checks tab. |
 

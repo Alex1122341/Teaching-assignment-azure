@@ -24,7 +24,7 @@ test('SQL repository refuses unbounded Dashboard caller and uses exact milliseco
   calls++;assert.match(sql,/ListChangeHistoryEvents/);assert.equal(params.Scope,'dashboard');
   assert.equal(params.StartUtc,cutoff);assert.equal(params.EndExclusiveUtc,'2026-10-22T00:00:00.000Z');return [];}};
  const repository=createSqlChangeHistoryRepository(db);
- await assert.rejects(repository.list({actorFirebaseUid:'user',scope:'dashboard',start:'2019-01-01',end:'9999-12-31'}),/UTC bounds/);
+ assert.throws(()=>repository.list({actorFirebaseUid:'user',scope:'dashboard',start:'2019-01-01',end:'9999-12-31'}),/UTC bounds/);
  assert.equal(calls,0);
  await repository.list({actorFirebaseUid:'user',scope:'dashboard',start:'2019-01-01',end:'9999-12-31',startUtc:cutoff,endUtc:'2026-10-22T00:00:00.000Z'});
  assert.equal(calls,1);

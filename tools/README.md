@@ -19,17 +19,13 @@ The importer uses Microsoft Entra device authentication, opens a SQL transaction
 
 This raw mirror does not switch the live website to Azure. A production Azure version still needs a server-side API, Entra application registration, managed identity, and UofC network approval before the browser can safely read or write Azure SQL.
 
-The current static site can also be published to the Azure Static Web App practice resource at `https://red-cliff-04871ca0f.5.azurestaticapps.net`. This only changes the web host; the copied site continues using Firebase Authentication and Firestore until an Azure API is implemented. The Azure hostname must remain listed under Firebase Authentication authorized domains for phone authentication and reCAPTCHA.
-
-Both hosting targets are built from the exact allowlist in `tools/static-assets.json`. Build it locally before deployment with:
+The old Azure Static Web Apps practice-host deploy has been retired. The current web target is **Firebase Hosting** at https://tester-teaching.web.app. Build its static assets from the allowlist without touching user data:
 
 ```powershell
 node tools/build-static.js
 ```
 
-```powershell
-powershell -ExecutionPolicy Bypass -File tools/deploy_azure_static_web.ps1
-```
+See root `SETUP.md` for exact-main CI, frozen artifacts and authorized Hosting-only release. The Azure SQL import and Firestore optimization commands above/below are **historical data-migration tools**; they are not part of a static site deployment and must not be rerun against live data casually.
 
 ## Firestore performance cleanup
 

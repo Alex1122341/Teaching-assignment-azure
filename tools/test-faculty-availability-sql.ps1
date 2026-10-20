@@ -9,5 +9,5 @@ Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtu
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/056_faculty_availability_read.sql') -Raw) 'VetMed-Ops'
 node (Join-Path $PSScriptRoot 'test-faculty-availability-integration.cjs')
 if($LASTEXITCODE -ne 0){throw 'Actual Node / SQL availability integration failed.'}
-Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_056_faculty_availability_read.sql') -Raw) 'VetMed-Ops'
+# Node rehearses edited-definition refusal and actual hash-bound rollback.
 Invoke-TestSql "IF OBJECT_ID(N'paws_api.ListFacultyAvailability') IS NOT NULL OR (SELECT COUNT(*) FROM paws.Session WHERE CourseCode=N'AVAIL')<>64 THROW 55690,'Availability rollback changed business data.',1; PRINT 'FACULTY_AVAILABILITY_ROLLBACK_OK';" 'VetMed-Ops'

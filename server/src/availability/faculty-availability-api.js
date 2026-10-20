@@ -37,7 +37,7 @@ function createFacultyAvailabilityApi({verifyToken,findUser,repository}={}){
      clean.timeEvidence=Array.isArray(row.timeEvidence)?row.timeEvidence.map(t=>({date:t.date,startTime:t.startTime,endTime:t.endTime})):[];
      return clean;
     });
-    return {status:200,body:{items,total:value.total,nextCursor:value.nextCursor,today:value.today,coverage:{undatedSessions:value.coverage.undatedSessions,undatedRoles:value.coverage.undatedRoles,undatedAppointments:value.coverage.undatedAppointments??0},facultyId,mode}};
+    return {status:200,body:{items,total:value.total,nextCursor:value.nextCursor,today:value.today,coverage:{undatedSessions:value.coverage.undatedSessions,undatedRoles:value.coverage.undatedRoles},facultyId,mode}};
    }catch(error){
     const number=Number(error?.number??error?.originalError?.info?.number);
     if(number===55603)return fail(403,'ROLE_DENIED','Availability is not authorized.');

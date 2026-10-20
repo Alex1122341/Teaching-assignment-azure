@@ -26,3 +26,12 @@ test('Unified list distinguishes workloads, AFC, tentative and ongoing',()=>{
  for(const label of ['Teaching','Work beyond teaching','AFC / Leave','Pending absence','Roles / Appointments','Time unconfirmed'])
   assert.ok(js.includes(label),label);
 });
+
+test('date controls honor hidden mode wrappers even with display flex styling',()=>{
+ assert.match(read('faculty-availability.css'),/\.availability-controls\s+\[hidden\]\s*\{\s*display\s*:\s*none/);
+});
+
+test('availability rollback requires exact installed definition and refuses unrelated grants',()=>{
+ const sql=read('database/azure-sql/rollback_056_faculty_availability_read.sql');
+ assert.match(sql,/PAWS_AVAILABILITY_DEFINITION_SHA256/);assert.match(sql,/OBJECT_DEFINITION/);assert.match(sql,/sys\.database_permissions/);assert.match(sql,/55608/);
+});

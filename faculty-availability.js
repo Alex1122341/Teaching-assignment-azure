@@ -34,7 +34,7 @@
   function render(){
    const counts=items.reduce((m,x)=>(m[x.kind]=(m[x.kind]||0)+1,m),{});
    $('availability-summary').innerHTML='<div class="availability-summary">'+Object.entries(counts).map(([k,n])=>'<span>'+esc(kinds[k]||k)+': <strong>'+n+'</strong></span>').join('')+'</div>'+
-     ((coverage?.undatedSessions||coverage?.undatedRoles||coverage?.undatedAppointments)?'<p class="availability-warning">Coverage warning: '+Number(coverage.undatedSessions||0)+' session(s), '+Number(coverage.undatedRoles||0)+' role(s) and '+Number(coverage.undatedAppointments||0)+' appointment(s) lack usable dates. This is incomplete coverage.</p>':'');
+     ((coverage?.undatedSessions||coverage?.undatedRoles)?'<p class="availability-warning">Coverage warning: '+Number(coverage.undatedSessions||0)+' session(s) and '+Number(coverage.undatedRoles||0)+' role/appointment record(s) lack usable dates. This is incomplete coverage.</p>':'');
    $('availability-events').innerHTML=items.map(viewLine).join('')||(hasResult?'<p class="empty">No PAWS commitments found in the selected interval. No PAWS Conflict Found is not a guarantee of availability.</p>':'');
    $('availability-more').hidden=!cursor;
   }

@@ -24,4 +24,10 @@ const facultyId='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222
  assert.equal(from.items.filter(x=>x.kind==='teaching').length,counts.canonical);assert.equal(all.filter(x=>x.kind==='afc').length,1+counts.approved);
  const [dst]=await query("SELECT DATEPART(TZOFFSET,CONVERT(datetime2,'2026-03-08T08:59:00') AT TIME ZONE 'UTC' AT TIME ZONE 'Mountain Standard Time') beforeSpring,DATEPART(TZOFFSET,CONVERT(datetime2,'2026-03-08T09:01:00') AT TIME ZONE 'UTC' AT TIME ZONE 'Mountain Standard Time') afterSpring,DATEPART(TZOFFSET,CONVERT(datetime2,'2026-11-01T07:59:00') AT TIME ZONE 'UTC' AT TIME ZONE 'Mountain Standard Time') beforeFall,DATEPART(TZOFFSET,CONVERT(datetime2,'2026-11-01T08:01:00') AT TIME ZONE 'UTC' AT TIME ZONE 'Mountain Standard Time') afterFall");assert.deepEqual(dst,{beforeSpring:-420,afterSpring:-360,beforeFall:-360,afterFall:-420});
  console.log(JSON.stringify({acceptance:'FACULTY_AVAILABILITY_SQL_OK',total:upcoming.total,historic:historic.total,canonical:counts.canonical,paginationComplete:true,privacy:true,authorization:true,dst:true}));
+ const [module]=await query("SELECT OBJECT_DEFINITION(OBJECT_ID(N'paws_api.ListFacultyAvailability')) definition,CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(N'paws_api.ListFacultyAvailability'))),2) hash");
+ const rollback=require('node:fs').readFileSync(require('node:path').join(__dirname,'../database/azure-sql/rollback_056_faculty_availability_read.sql'),'utf8').replace('$(PAWS_AVAILABILITY_DEFINITION_SHA256)',module.hash);
+ const alter=module.definition.replace(/^CREATE\s+(?:OR ALTER\s+)?PROCEDURE/i,'ALTER PROCEDURE');
+ await query(alter+'\n-- synthetic definition drift');await assert.rejects(query(rollback),e=>e.number===55608);
+ await query(alter);console.log('FACULTY_AVAILABILITY_EDITED_ROLLBACK_REFUSED_OK');
+ await query(rollback);console.log('FACULTY_AVAILABILITY_HASH_BOUND_ROLLBACK_OK');
 }finally{await pool.close();}})().catch(e=>{console.error(e.message);process.exitCode=1;});

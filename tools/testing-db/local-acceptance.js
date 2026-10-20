@@ -23,8 +23,12 @@ const { createSwaSqlRuntime } = require(path.join(ROOT, 'server/src/runtime/swa-
 const { createUniversityHttpServer } = require(path.join(ROOT, 'server/src/runtime/university-http-server'));
 const resetTool = require('./reset-testing-db');
 
-const TESTING_INSTANCE = 'MSSQLLocalDB';
-const PROD_INSTANCE = 'PAWSProdSim';
+// Instance names can be overridden when a developer's default LocalDB already holds a VetMed-Ops
+// database of their own (the script never drops a database it did not create).
+const INSTANCE = /^[A-Za-z][A-Za-z0-9_]{0,30}$/;
+const TESTING_INSTANCE = process.env.PAWS_LOCAL_ACCEPTANCE_TESTING_INSTANCE || 'MSSQLLocalDB';
+const PROD_INSTANCE = process.env.PAWS_LOCAL_ACCEPTANCE_PRODUCTION_INSTANCE || 'PAWSProdSim';
+if (!INSTANCE.test(TESTING_INSTANCE) || !INSTANCE.test(PROD_INSTANCE) || TESTING_INSTANCE === PROD_INSTANCE) throw new Error('Local acceptance needs two different, simple LocalDB instance names');
 const TESTING_ID = '7e570000-0000-4000-8000-00000000c0de';
 const results = [];
 const log = (...a) => console.error(...a);

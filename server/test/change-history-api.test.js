@@ -95,3 +95,21 @@ test('Dashboard grouped results never disclose other faculty details after scope
  assert.equal(ex.status,200);
  assert.doesNotMatch(Buffer.from(ex.body.fileBase64,'base64').toString('utf8'),/Private B|bbbbbbbb/);
 });
+
+test('Dashboard pagination counts complete operations instead of individual changed fields',async()=>{
+ const events=Array.from({length:101},(_,i)=>({
+  source:'audit',eventId:'event-'+i,eventType:'afc_record_created',entityType:'afc_record',
+  occurredAtUtc:'2026-10-20T16:00:00Z',afterJson:JSON.stringify({facultyId:A,startDate:'2026-11-09',endDate:'2026-11-09',purpose:'Vacation',active:true}),
+  contextJson:JSON.stringify({affectedFaculty:[{facultyId:A,displayName:'Faculty A'}]})
+ }));
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'admin'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'adfa_general'}),repository:{list:async()=>events}});
+ const first=await api.query('valid',{scope:'dashboard',academicYear:'2026-27'});
+ assert.equal(first.status,200);
+ assert.equal(first.body.total,101);
+ assert.equal(first.body.rows.length,100);
+ assert.ok(first.body.rows.every(row=>row.recordCount===1&&row.changeCount>=3));
+ const second=await api.page('valid',{snapshot:first.body.snapshot,offset:100});
+ assert.equal(second.status,200);
+ assert.equal(second.body.rows.length,1);
+ assert.equal(second.body.rows[0].recordCount,1);
+});

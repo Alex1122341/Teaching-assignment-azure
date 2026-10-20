@@ -9,11 +9,18 @@ const api=require('../tools/beta-api-freeze');
 const report=require('../tools/beta-baseline.json');
 const PREVIOUS='b5d33762f3544faa94e47d4b7feaf380f0e8a864';
 const PRODUCT='846858a242cf2a96b0257822ac22d8ab6a770c94';
+// Immutable pre-promotion governance snapshot: do not redefine the reviewed Lookup product.
+const ORIGINAL_GOVERNANCE='6addfb9125066c5dd14ca7a3d7c38be6a01a870a';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('Lookup AFC/Leave/DOE governance pins only the reviewed two-file static delta',()=>{
-  assert.equal(freeze.BASELINE_COMMIT,PRODUCT);
-  assert.equal(api.BASELINE_COMMIT,PRODUCT);
-  assert.equal(report.sourceCommit,PRODUCT);
+  const historicReport=JSON.parse(git('show',ORIGINAL_GOVERNANCE+':tools/beta-baseline.json'));
+  const historicFreeze=git('show',ORIGINAL_GOVERNANCE+':tools/beta-freeze.js');
+  assert.equal(historicReport.sourceCommit,PRODUCT);
+  assert.ok(historicFreeze.includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+  // A later approved promotion must not invalidate this historical two-file delta.
+  assert.equal(freeze.BASELINE_COMMIT,report.sourceCommit);
+  assert.equal(api.BASELINE_COMMIT,report.sourceCommit);
+  git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);
   git('merge-base','--is-ancestor',PREVIOUS,PRODUCT);
   git('merge-base','--is-ancestor',PRODUCT,'HEAD');
   const manifest=commit=>JSON.parse(git('show',commit+':tools/static-assets.json')).sort();
@@ -40,8 +47,8 @@ test('Lookup AFC/Leave/DOE governance pins only the reviewed two-file static del
       freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})
     ),true,file);
   }
-  assert.deepEqual(Object.keys(report.sha256).sort(),after);
-  for(const file of after)assert.equal(report.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
+  assert.deepEqual(Object.keys(historicReport.sha256).sort(),after);
+  for(const file of after)assert.equal(historicReport.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
   assert.deepEqual(freeze.verifyFreeze({root}).drift,[]);
   assert.deepEqual(api.verifyFreeze({root}).drift,[]);
 });

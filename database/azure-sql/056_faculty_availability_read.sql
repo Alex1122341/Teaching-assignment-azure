@@ -1,6 +1,7 @@
 /* PAWS Faculty Availability: read-only, source-derived, one faculty per query.
    Source authority: paws.vCalendarSession/SessionAssignment, CalendarActivity/DayTime,
-   vAfcRecordUnified, pending AfcRequest, RoleAssignment/RoleAppointmentSchedule.
+   vAfcRecordUnified, pending AfcRequest, RoleAssignment/RoleAppointmentSchedule,
+   TeachingResponsibilityAssignee/TeachingResponsibility effective windows.
    No materialized availability data or business writes.
 */
 IF DB_NAME()<>N'VetMed-Ops' THROW 55600,'Faculty availability migration requires VetMed-Ops.',1;
@@ -11,6 +12,7 @@ IF OBJECT_ID(N'paws.vCalendarSession',N'V') IS NULL OR OBJECT_ID(N'paws.SessionA
  OR OBJECT_ID(N'paws.CalendarActivity',N'U') IS NULL OR OBJECT_ID(N'paws.CalendarActivityDayTime',N'U') IS NULL
  OR OBJECT_ID(N'paws.vAfcRecordUnified',N'V') IS NULL
  OR OBJECT_ID(N'paws.AfcRequest',N'U') IS NULL OR OBJECT_ID(N'paws.RoleAppointmentSchedule',N'U') IS NULL
+ OR OBJECT_ID(N'paws.TeachingResponsibilityAssignee',N'U') IS NULL OR OBJECT_ID(N'paws.TeachingResponsibility',N'U') IS NULL
  OR DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NULL
  THROW 55600,'Accepted Faculty Availability source/schema/role prerequisite is missing.',1;
 BEGIN TRANSACTION;
@@ -166,8 +168,20 @@ BEGIN
   WHERE r.FacultyId=@FacultyId AND NOT EXISTS
        (SELECT 1 FROM paws.RoleAppointmentSchedule p WHERE p.RoleAssignmentId=r.RoleAssignmentId)
     AND r.EffectiveDate IS NOT NULL
+    AND (r.ExpirationDate IS NULL OR r.ExpirationDate>r.EffectiveDate)
     AND (r.EffectiveDate IS NULL OR r.EffectiveDate<=COALESCE(@Ceiling,'9999-12-31'))
     AND (r.ExpirationDate IS NULL OR r.ExpirationDate>@Floor);
+
+  -- Authority assignments are independent of imported RoleAssignment rows.
+  -- Their expiration is exclusive; retain source identity without guessed deduplication.
+  INSERT #Events(Kind,SourceKey,Label,StartDate,EndDate,Availability,TimeStatus,Detail)
+  SELECT N'role',CONCAT(N'responsibility:',CONVERT(nvarchar(36),a.ResponsibilityAssigneeId)),
+         CONCAT(UPPER(r.Kind),N' responsibility'),a.ActiveDate,DATEADD(day,-1,a.ExpirationDate),
+         N'ongoing',N'not_applicable',r.Label
+  FROM paws.TeachingResponsibilityAssignee a
+  JOIN paws.TeachingResponsibility r ON r.ResponsibilityId=a.ResponsibilityId
+  WHERE a.FacultyId=@FacultyId AND a.ActiveDate<=COALESCE(@Ceiling,'9999-12-31')
+    AND a.ExpirationDate>@Floor;
  END;
 
  DECLARE @Total int=(SELECT COUNT(*) FROM #Events);
@@ -176,9 +190,9 @@ BEGIN
    WHERE a.FacultyId=@FacultyId AND s.SessionDate IS NULL);
  DECLARE @UndatedRoles int=(SELECT COUNT(*) FROM paws.RoleAssignment r
    WHERE r.FacultyId=@FacultyId AND (
-    (r.EffectiveDate IS NULL AND NOT EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule p WHERE p.RoleAssignmentId=r.RoleAssignmentId))
+    ((r.EffectiveDate IS NULL OR r.ExpirationDate<=r.EffectiveDate) AND NOT EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule p WHERE p.RoleAssignmentId=r.RoleAssignmentId))
     OR EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule p WHERE p.RoleAssignmentId=r.RoleAssignmentId AND (
-      NOT EXISTS(SELECT 1 FROM OPENJSON(p.PeriodsJson)) OR EXISTS(SELECT 1 FROM OPENJSON(p.PeriodsJson) j
+      LEFT(LTRIM(p.PeriodsJson),1)<>N'[' OR EXISTS(SELECT 1 FROM OPENJSON(p.PeriodsJson) j
       WHERE j.type<>5 OR TRY_CONVERT(date,JSON_VALUE(j.value,'$.startDate'),23) IS NULL
        OR (JSON_VALUE(j.value,'$.endDate') IS NOT NULL AND (TRY_CONVERT(date,JSON_VALUE(j.value,'$.endDate'),23) IS NULL
            OR TRY_CONVERT(date,JSON_VALUE(j.value,'$.endDate'),23)<TRY_CONVERT(date,JSON_VALUE(j.value,'$.startDate'),23))))))));

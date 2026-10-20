@@ -1,5 +1,5 @@
 'use strict';
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE=/^\d{4}-\d{2}-\d{2}$/;
 const validDate=v=>DATE.test(v)&&!Number.isNaN(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
@@ -28,7 +28,16 @@ function createFacultyAvailabilityApi({verifyToken,findUser,repository}={}){
     const value=await repository.list({actorFirebaseUid:decoded.uid,facultyId,mode,startDate:start,endDate:end,kind,cursor,limit});
     if(!value||!Array.isArray(value.items)||!Number.isInteger(value.total)||value.total<value.items.length||value.items.length>limit)
       throw Error('Invalid availability response.');
-    return {status:200,body:{...value,facultyId,mode}};
+    if(!value.coverage||!['undatedSessions','undatedRoles'].every(k=>Number.isInteger(value.coverage[k])&&value.coverage[k]>=0)
+      ||(value.nextCursor!==null&&(!/^\d+$/.test(value.nextCursor)||Number(value.nextCursor)<=cursor)))throw Error('Incomplete availability coverage.');
+    const fields=['eventKey','kind','label','startDate','endDate','startTime','endTime','availability','timeStatus','courseCode','sessionId','detail'];
+    const items=value.items.map(row=>{
+     if(!row||typeof row.eventKey!=='string'||typeof row.label!=='string')throw Error('Invalid availability item.');
+     const clean=Object.fromEntries(fields.map(k=>[k,row[k]??null]));
+     clean.timeEvidence=Array.isArray(row.timeEvidence)?row.timeEvidence.map(t=>({date:t.date,startTime:t.startTime,endTime:t.endTime})):[];
+     return clean;
+    });
+    return {status:200,body:{items,total:value.total,nextCursor:value.nextCursor,today:value.today,coverage:{undatedSessions:value.coverage.undatedSessions,undatedRoles:value.coverage.undatedRoles,undatedAppointments:value.coverage.undatedAppointments??0},facultyId,mode}};
    }catch(error){
     const number=Number(error?.number??error?.originalError?.info?.number);
     if(number===55603)return fail(403,'ROLE_DENIED','Availability is not authorized.');

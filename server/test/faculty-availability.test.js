@@ -18,7 +18,7 @@ test('requires authenticated user and rejects other Faculty in self service',asy
 });
 test('date rules: default upcoming, from past, inclusive range, impossible dates',async()=>{
  const api=make();
- assert.equal((await api.list('ok',facultyId)).body.input.mode,'upcoming');
+ assert.equal((await api.list('ok',facultyId)).body.mode,'upcoming');
  assert.equal((await api.list('ok',facultyId,{mode:'from',startDate:'2025-05-01'})).status,200);
  assert.equal((await api.list('ok',facultyId,{mode:'range',startDate:'2025-01-01',endDate:'2025-01-31'})).status,200);
  for(const x of [{mode:'range',startDate:'2027-02-30',endDate:'2027-03-01'},{mode:'range',startDate:'2026-09-10',endDate:'2026-09-01'},{mode:'from'}, {mode:'upcoming',startDate:'2026-09-01'}, {mode:'range',startDate:'2026-10-01'}])
@@ -45,4 +45,26 @@ test('route validates methods, query duplication and return shape',async()=>{
  assert.equal((await r('/api/v1/faculty/'+facultyId+'/availability')).status,200);
  assert.equal((await r('/api/v1/faculty/'+facultyId+'/availability','POST')).status,405);
  assert.equal((await r('/api/v1/faculty/'+facultyId+'/availability?kind=all&kind=afc')).status,400);
+});
+
+test('standard canonical UUID is accepted; malformed identifiers are 400 at the route',async()=>{
+ assert.equal((await make().list('ok',facultyId)).status,200);
+ const route=createFacultyAvailabilityFunctions({api:make()});
+ assert.equal((await route({url:'https://local/api/v1/faculty/not-a-uuid/availability',method:'GET',headers:{get:()=> 'Bearer ok'}})).status,400);
+});
+
+test('only sanitized scheduling fields are delivered; invalid SQL coverage cannot look complete',async()=>{
+ const response={items:[{eventKey:'x',kind:'afc',label:'Away from campus',startDate:'2026-10-20',endDate:'2026-10-20',availability:'away',timeStatus:'all_day',reason:'medical-secret',email:'private@example.test',notes:'private'}],total:1,nextCursor:null,today:'2026-10-20',coverage:{undatedSessions:0,undatedRoles:0},ucid:'private'};
+ const api=createFacultyAvailabilityApi({verifyToken:async()=>({uid:'actor'}),findUser:async()=>authorized,repository:{list:async()=>response}});
+ const result=await api.list('ok',facultyId);assert.equal(result.status,200);assert.doesNotMatch(JSON.stringify(result.body),/medical-secret|private@example|ucid|notes/);
+ delete response.coverage;assert.equal((await api.list('ok',facultyId)).status,503);
+});
+
+test('SQL failure, invalid tokens, unsupported roles and SQL scope refusal stay explicit failures',async()=>{
+ assert.equal((await make().list('bad',facultyId)).status,401);
+ assert.equal((await make({...authorized,baseRole:'other_office'}).list('ok',facultyId)).status,403);
+ for(const [number,status]of [[55603,403],[55604,404],[55601,400],[99999,503]]){
+  const api=createFacultyAvailabilityApi({verifyToken:async()=>({uid:'actor'}),findUser:async()=>authorized,repository:{list:async()=>{throw Object.assign(Error('private SQL error'),{number})}}});
+  const result=await api.list('ok',facultyId);assert.equal(result.status,status);assert.equal(result.body.items,undefined);assert.doesNotMatch(JSON.stringify(result),/private SQL/);
+ }
 });

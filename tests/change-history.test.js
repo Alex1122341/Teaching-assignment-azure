@@ -46,3 +46,24 @@ test('all three Beta entry points use the shared SQL history and include self-mo
  assert.match(panel,/scope:.*mine/);assert.doesNotMatch(panel,/UCVM\.logs\(/);
  assert.ok(JSON.parse(fs.readFileSync('tools/static-assets.json','utf8')).includes('change-history.js'));
 });
+
+test('Dashboard renders one expandable operation with all child AFC and field changes',()=>{
+ const {renderOperationRows}=require('../change-history');
+ const html=renderOperationRows([{
+  changeDate:'2026-10-20T16:10:00Z',title:'2 AFC Records Created',domain:'AFC',actor:'ADFAD Admin',
+  recordCount:2,changeCount:4,startDate:'2026-11-09',endDate:'2026-11-10',
+  records:[
+   {affectedFaculty:'Faculty <One>',startDate:'2026-11-09',endDate:'2026-11-09',changes:[{field:'Start date',previousValue:'Not recorded',updatedValue:'2026-11-09'},{field:'Purpose',previousValue:'Not recorded',updatedValue:'University Travel'}]},
+   {affectedFaculty:'Faculty Two',startDate:'2026-11-10',endDate:'2026-11-10',changes:[{field:'End date',previousValue:'Not recorded',updatedValue:'2026-11-10'},{field:'Purpose',previousValue:'Not recorded',updatedValue:'<script>alert(1)</script>'}]}
+  ]
+ }]);
+ assert.equal((html.match(/class="history-operation-row"/g)||[]).length,1);
+ assert.match(html,/<details class="history-operation-group"><summary/);
+ assert.match(html,/2 AFC Records Created/);
+ assert.match(html,/Record 1 of 2/);
+ assert.match(html,/Record 2 of 2/);
+ assert.match(html,/University Travel/);
+ assert.match(html,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+ assert.doesNotMatch(html,/<script>/);
+ assert.doesNotMatch(html,/Faculty <One>/);
+});

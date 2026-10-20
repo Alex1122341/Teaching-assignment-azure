@@ -168,11 +168,13 @@ jobs:
           if [ "$STATIC_ONLY" = "true" ]; then
             jq -e --arg expected "$EXPECTED_LIVE_API_SHA" '.releaseSha == $expected' predeploy-runtime.json > /dev/null
           else
+            # A full release requires the exact matching API. Live DOE gates
+            # are independently authorized and must never be switched off by
+            # the Firebase static publisher. Validate all booleans and attest
+            # the complete pre/post gate fingerprint below.
             jq -e --arg commit "$COMMIT_SHA" '
               .releaseSha == $commit and
-              (.writeGates.doeAdmin == false) and
-              (.writeGates.doePolicyPublish == false) and
-              (.writeGates.doeRecalculate == false)
+              (.writeGates | type == "object" and length > 0 and all(.[]; type == "boolean"))
             ' predeploy-runtime.json > /dev/null
           fi
           echo "apiReleaseSha=$(jq -r '.releaseSha' predeploy-runtime.json)" >> "$GITHUB_OUTPUT"
@@ -296,9 +298,7 @@ jobs:
           if [ "$STATIC_ONLY" != "true" ]; then
             jq -e --arg commit "$COMMIT_SHA" '
               .releaseSha == $commit and
-              (.writeGates.doeAdmin == false) and
-              (.writeGates.doePolicyPublish == false) and
-              (.writeGates.doeRecalculate == false)
+              (.writeGates | type == "object" and length > 0 and all(.[]; type == "boolean"))
             ' postdeploy-runtime.json > /dev/null
           fi
           test "$(jq -cS '.writeGates' postdeploy-runtime.json | sha256sum | cut -d ' ' -f 1)" = "$PREFLIGHT_GATE_HASH"

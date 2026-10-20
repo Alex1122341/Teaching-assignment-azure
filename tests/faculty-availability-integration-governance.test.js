@@ -1,0 +1,37 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
+const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
+const HISTORY='fe1fa7002ef956f02e767053fbe2f6fea8daf748',BASE='15dd7390d613bd3bd2163f411b81bc4ffdf22fd1',PRODUCT='7fb4229fb718173f0d3cd6b8102451ddbfba0e48',AVAILABILITY='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
+const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
+const manifest=ref=>JSON.parse(git('show',ref+':tools/static-assets.json')).sort();
+const tree=ref=>new Map(git('ls-tree','-r',ref).split(/\r?\n/).map(line=>{const [meta,file]=line.split('\t');return[file,meta.split(' ')[2]];}));
+test('integrated Availability freezes exact main reconciliation with additive coverage and unchanged accepted runtime',()=>{
+ assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+ for(const ancestor of [BASE,HISTORY,AVAILABILITY])git('merge-base','--is-ancestor',ancestor,PRODUCT);
+ git('merge-base','--is-ancestor',PRODUCT,'HEAD');
+ const before=manifest(BASE),after=manifest(PRODUCT),oldApi=api.baselineRuntimeFiles({root,baselineCommit:BASE}),newApi=api.baselineRuntimeFiles({root,baselineCommit:PRODUCT});
+ assert.equal(before.length,81);assert.equal(after.length,83);assert.deepEqual(before.filter(p=>!after.includes(p)),[]);assert.deepEqual(after.filter(p=>!before.includes(p)),['faculty-availability.css','faculty-availability.js']);
+ assert.equal(oldApi.length,104);assert.equal(newApi.length,107);assert.deepEqual(oldApi.filter(p=>!newApi.includes(p)),[]);assert.deepEqual(newApi.filter(p=>!oldApi.includes(p)),['server/src/availability/faculty-availability-api.js','server/src/data/sql-faculty-availability-repository.js','server/src/runtime/swa-faculty-availability-functions.js']);
+ const staticDelta=['faculty-admin.html','faculty-admin.js','faculty-availability.css','faculty-availability.js','paws-data-client.js'];
+ const apiDelta=['server/src/availability/faculty-availability-api.js','server/src/data/sql-dashboard-repository.js','server/src/data/sql-faculty-availability-repository.js','server/src/runtime/swa-faculty-availability-functions.js','server/src/runtime/swa-sql-runtime.js'];
+ const sqlDelta=['database/azure-sql/056_faculty_availability_read.sql','database/azure-sql/rollback_056_faculty_availability_read.sql'];
+ const changed=git('diff','--name-only',BASE,PRODUCT).split(/\r?\n/),protectedApi=[...new Set([...oldApi,...newApi,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES])];
+ assert.deepEqual(changed.filter(p=>after.includes(p)).sort(),staticDelta);assert.deepEqual(changed.filter(p=>protectedApi.includes(p)).sort(),apiDelta);assert.deepEqual(changed.filter(p=>p.startsWith('database/azure-sql/')).sort(),sqlDelta);
+ const original=tree(AVAILABILITY),combined=tree(PRODUCT),main=tree(BASE);
+ for(const file of [...staticDelta,...apiDelta,...sqlDelta])assert.equal(combined.get(file),original.get(file),file);
+ for(const file of [...before,...protectedApi].filter(p=>!changed.includes(p)))assert.equal(combined.get(file),main.get(file),file);
+ assert.equal(combined.get('.github/workflows/firebase-hosting-deploy.yml'),main.get('.github/workflows/firebase-hosting-deploy.yml'));
+ assert.deepEqual(Object.keys(report.sha256).sort(),after);for(const file of after)assert.equal(report.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
+ assert.equal(freeze.verifyFreeze({root}).ok,true);assert.equal(api.verifyFreeze({root}).ok,true);
+});
+test('historical operation-grouping protection remains anchored to immutable accepted main',()=>{
+ const previous='846858a242cf2a96b0257822ac22d8ab6a770c94',historicReport=JSON.parse(git('show',BASE+':tools/beta-baseline.json'));
+ assert.equal(historicReport.sourceCommit,HISTORY);assert.ok(git('show',BASE+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+HISTORY+"'"));
+ git('merge-base','--is-ancestor',HISTORY,freeze.BASELINE_COMMIT);
+ const before=manifest(previous),after=manifest(HISTORY),oldApi=api.baselineRuntimeFiles({root,baselineCommit:previous}),newApi=api.baselineRuntimeFiles({root,baselineCommit:HISTORY});
+ assert.deepEqual(after,before);assert.equal(newApi.length,104);assert.equal(oldApi.length,103);assert.deepEqual(oldApi.filter(p=>!newApi.includes(p)),[]);
+ const changed=git('diff','--name-only',previous,HISTORY).split(/\r?\n/);
+ assert.deepEqual(changed.filter(p=>after.includes(p)).sort(),['change-history.css','change-history.js']);assert.deepEqual(changed.filter(p=>newApi.includes(p)).sort(),['server/src/history/change-history-api.js','server/src/history/change-history-export.js','server/src/history/change-history-operations.js']);
+ for(const file of after)assert.equal(historicReport.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:HISTORY,file})),file);
+ const current=freeze.protectedPaths({root}),currentApi=api.runtimeFiles({root});for(const file of after)assert.ok(current.includes(file),file);for(const file of newApi)assert.ok(currentApi.includes(file),file);
+});

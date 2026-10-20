@@ -1,5 +1,6 @@
 /* Synthetic only: invoked exclusively by the labeled local-container runner. */
 IF USER_ID(N'paws-calendar-test-runtime') IS NULL THROW 55690,'Disposable SQL required.',1;
+ALTER ROLE paws_runtime_read ADD MEMBER [paws-calendar-test-runtime];
 DECLARE @Batch uniqueidentifier=NEWID(),@Book uniqueidentifier=NEWID(),@Sheet uniqueidentifier=NEWID(),@Row uniqueidentifier=NEWID(),@Faculty uniqueidentifier='11111111-1111-4111-8111-111111111111',@Other uniqueidentifier='22222222-2222-4222-8222-222222222222';
 INSERT staging.ImportBatch(ImportBatchId,StartedAtUtc,Status,SourceManifestSha256,ImporterVersion,ValidationSummaryJson) VALUES(@Batch,SYSUTCDATETIME(),N'completed',REPLICATE('A',64),N'availability-test',N'{}');
 INSERT staging.ImportWorkbook(ImportWorkbookId,ImportBatchId,FileName,FileSha256,FileByteLength) VALUES(@Book,@Batch,N'synthetic.xlsx',REPLICATE('A',64),1);

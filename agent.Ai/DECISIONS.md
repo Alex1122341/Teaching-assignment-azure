@@ -1,5 +1,10 @@
 # PAWS Locked Decisions
 
+## Owner-approved retirement of unused Azure Static Web Apps frontend hosting — 2026-10-19
+
+Owner directed the removal of Azure static-host deployment code in Beta to simplify the repository. The only supported browser hosting path is Firebase Hosting (`tester-teaching.web.app`). Retire the two SWA static deployment workflows, standalone Azure SWA PowerShell deployer and SWA-only route configuration, and update the shared build/test/docs to stop requiring SWA artifacts. This **does not** authorize removal of the still-required `swa-api/` and `server/src/runtime/swa-*` Node API modules, Azure SQL, ACR/ACA API provisioning tools, frozen artifact protections, or any cloud/SQL resource. Deployment is separately authorized and not implied by a code cleanup.
+
+
 ## Owner directs acceptance then release with existing Beta identity — 2026-10-15
 
 Latest explicit instructions: all current development proceeds without requiring a new dedicated University runtime account; publish once acceptance passes, and focus acceptance now. This supersedes the dedicated-account prerequisite for this controlled Beta milestone in earlier decisions/release notes. Use the existing authorized environment; do not claim least privilege was verified or change account credentials/authority. Future production identity hardening remains debt. Exact integrated-main CI/artifact, coherent API/Hosting cutover, live acceptance, independent domain gates and rollback remain required. The owner has already authorized merge/publication of accepted scope; no repeat permission question is needed. Fresh source-bound Calendar/AFC import and permanent counterpart deletion remain a separate operation requiring exact preview/recovery acceptance. PR103 stays separate. Do not advance Task04 during this acceptance/release phase.

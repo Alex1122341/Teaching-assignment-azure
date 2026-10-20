@@ -7,6 +7,7 @@ INSERT staging.ImportWorkbook(ImportWorkbookId,ImportBatchId,FileName,FileSha256
 INSERT staging.ImportSheet(ImportSheetId,ImportWorkbookId,SheetName,SheetIndex,MaxRow,MaxColumn,NonEmptyRowCount) VALUES(@Sheet,@Book,N'Synthetic',1,2,1,1);
 INSERT staging.ImportRow(ImportRowId,ImportSheetId,SourceRowNumber,RawJson,ValidationStatus,ValidationErrorsJson) VALUES(@Row,@Sheet,2,N'{}',N'accepted',N'[]');
 INSERT paws.Faculty(FacultyId,RecordType,DisplayName,Active,SourceImportBatchId) VALUES(@Faculty,N'faculty',N'Duplicate Example',1,@Batch),(@Other,N'faculty',N'Duplicate Example',1,@Batch);
+UPDATE paws.Faculty SET DisplayName=N'Legacy Source Name',PreferredFirstName=N'Alex',PreferredLastName=N'Different',Active=0 WHERE FacultyId=@Other;
 INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword) VALUES(N'availability-admin',N'admin@example.test',N'Example Admin',N'owner',NULL,1,0),(N'availability-self',N'self@example.test',N'Example Self',N'faculty',@Faculty,1,0),(N'availability-inactive',N'inactive@example.test',N'Example Inactive',N'faculty',@Faculty,0,0),(N'availability-hicc',N'hicc@example.test',N'Example HICC',N'hicc',@Faculty,1,0),(N'availability-unsupported',N'other@example.test',N'Example Other',N'other_office',NULL,1,0);
 DECLARE @Today date=CONVERT(date,SYSUTCDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE 'Mountain Standard Time');
 DECLARE @Sessions TABLE(Id uniqueidentifier,Day date,Topic nvarchar(100),StartTime time,EndTime time);

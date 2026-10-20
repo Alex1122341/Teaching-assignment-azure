@@ -6,6 +6,9 @@ const facultyId='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222
 (async()=>{const pool=await new sql.ConnectionPool({server:'127.0.0.1',port:14331,database:'VetMed-Ops',user:'sa',password:process.env.PAWS_SQL_TEST_PASSWORD,options:{encrypt:true,trustServerCertificate:true}}).connect();try{
  const query=async(text,args={})=>{const r=pool.request();for(const [k,v]of Object.entries(args))r.input(k,v);return(await r.query(text)).recordset||[];};
  const db={query:(text,args)=>query("EXECUTE AS USER=N'paws-calendar-test-runtime';BEGIN TRY "+text+";REVERT;END TRY BEGIN CATCH REVERT;THROW;END CATCH",args)};
+ const dashboard=require('../server/src/data/sql-dashboard-repository').createSqlDashboardRepository({query});
+ const preferred=await dashboard.faculty({academicYear:'2026-27',search:'Alex Different',status:'all',limit:200});assert.equal(preferred.length,1);assert.equal(preferred[0].facultyId.toLowerCase(),other);assert.equal(preferred[0].active,false);
+ assert.equal((await dashboard.faculty({search:'Alex Different',status:'active'})).length,0);console.log('FACULTY_AVAILABILITY_PREFERRED_NAME_SEARCH_OK');
  const repo=createSqlFacultyAvailabilityRepository(db),params={actorFirebaseUid:'availability-admin',facultyId,mode:'upcoming',startDate:null,endDate:null,kind:'all',cursor:0,limit:50};
  const raw=await db.query('EXEC paws_api.ListFacultyAvailability @ActorFirebaseUid=@actorFirebaseUid,@FacultyId=@facultyId',params);
  assert.equal(typeof raw[0]?.responseJson,'string','Actual SQL must return responseJson to Node');assert.ok(Array.isArray(JSON.parse(raw[0].responseJson).items));console.log('AVAILABILITY_ACTUAL_NODE_RESPONSE_JSON_OK');

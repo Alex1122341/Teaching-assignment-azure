@@ -181,7 +181,7 @@ BEGIN
   FROM paws.TeachingResponsibilityAssignee a
   JOIN paws.TeachingResponsibility r ON r.ResponsibilityId=a.ResponsibilityId
   WHERE a.FacultyId=@FacultyId AND a.ActiveDate<=COALESCE(@Ceiling,'9999-12-31')
-    AND a.ExpirationDate>@Floor;
+    AND (a.ExpirationDate IS NULL OR a.ExpirationDate>@Floor);
  END;
 
  DECLARE @Total int=(SELECT COUNT(*) FROM #Events);

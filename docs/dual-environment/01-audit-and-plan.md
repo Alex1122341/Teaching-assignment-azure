@@ -2,6 +2,8 @@
 
 Branch `feat/dual-environment-testing`, from `main` @ `0d4b4d9`. Read-only audit done 2026-10-14.
 
+> This is the original 2026-10-14 audit (base `0d4b4d9`). The work now lives on `feat/paws-testing-environment`, rebased onto `main` @ `6addfb9`. For the independent review and fixes see `02-review-and-fixes.md`; for owner setup see `03-setup-and-deployment.md`; for the acceptance checklist and current status see `04-acceptance-and-status.md`.
+
 ## 1. What runs today
 
 | Layer | Current deployed Beta ("production") | Evidence |

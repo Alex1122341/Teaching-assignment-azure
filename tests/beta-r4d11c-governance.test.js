@@ -134,7 +134,9 @@ test('retired Azure SWA deployment is absent; independent ACA and Firebase workf
   assert.match(hosting,/workflow_dispatch:/);
   assert.match(hosting,/source_run_id:/);
   assert.match(hosting,/commit_sha:/);
-  assert.match(hosting,/beta-api-freeze\.js --artifact \.azure-production\/api/);
+  assert.match(hosting,/azure-beta-build\.yml/);
+  assert.match(hosting,/name:\s*azure-beta-\$\{\{ inputs\.commit_sha \}\}/);
+  assert.match(hosting,/path:\s*\.firebase-production/);
   assert.match(hosting,/firebase deploy/);
   assert.match(hosting,/--only hosting/);
 });

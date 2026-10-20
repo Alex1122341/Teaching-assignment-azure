@@ -172,8 +172,10 @@ if(require.main===module){
   }
   if(artifactAt>=0){
     const artifact=path.resolve(argv[artifactAt+1]||'');
-    if(!fs.existsSync(path.join(artifact,'staticwebapp.config.json'))){
-      console.error(`frozen artifact check failed: ${artifact}/staticwebapp.config.json is missing`);
+    // Frozen artifact verification checks every shipped static asset via protectedPaths().
+    // The retired Azure SWA routing config was never a shipped Firebase manifest asset.
+    if(!fs.existsSync(artifact)||!fs.statSync(artifact).isDirectory()){
+      console.error(`frozen artifact check failed: ${artifact} is not a directory`);
       process.exit(1);
     }
     options.readWorking=({file})=>fs.readFileSync(path.join(artifact,file));

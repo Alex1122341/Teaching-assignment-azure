@@ -4,6 +4,7 @@ const {randomUUID}=require('node:crypto');
 const {validateAuthorizedProfile}=require('../data/data-api');
 const {isAdministratorRole}=require('../auth/role-policy');
 const {projectHistoryEvent,filterHistoryRows,publicHistoryRow}=require('./change-history-projection');
+const {groupDashboardHistory}=require('./change-history-operations');
 const {renderHistoryExport}=require('./change-history-export');
 const {calgaryAcademicYear,validYear,yearsInRange}=require('./history-year');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -70,15 +71,22 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
     const events=await repository.list({actorFirebaseUid:auth.uid,scope:filters.scope,start:filters.start,end:filters.end});
     if(!Array.isArray(events))throw Error('Invalid history source.');
     if(events.length>MAX_ROWS)return historyLimit();
-    const projected=[],years=new Set([filters.academicYear]);
+    const projected=[],operations=[],years=new Set([filters.academicYear]);
     for(const event of events){
      const available=projectHistoryEvent(event,{...auth,scope:filters.scope});
      for(const row of available){for(const year of row._years)years.add(year);for(const range of row._ranges||[])for(const year of yearsInRange(...range))years.add(year);}
-     const rows=filterHistoryRows(available,filters).map(row=>({...row,academicYear:filters.academicYear}));
-     projected.push(...rows);if(projected.length>MAX_ROWS)return historyLimit();
+     const matched=filterHistoryRows(available,filters);
+     if(filters.scope==='dashboard'){
+      // Match a complete, authorized event before grouping: a matching Purpose must
+      // not hide Start/End/Faculty detail from that same user submission.
+      if(matched.length)operations.push({event,rows:available});
+      projected.push(...matched);
+     }else projected.push(...matched.map(row=>({...row,academicYear:filters.academicYear})));
+     if(projected.length>MAX_ROWS)return historyLimit();
     }
     projected.sort((a,b)=>b.changeDate.localeCompare(a.changeDate)||a.rowId.localeCompare(b.rowId));
-    const rows=projected.map(publicHistoryRow),bytes=Buffer.byteLength(JSON.stringify(rows));
+    const rows=filters.scope==='dashboard'?groupDashboardHistory(operations):projected.map(publicHistoryRow);
+    const bytes=Buffer.byteLength(JSON.stringify(rows));
     if(bytes>MAX_BYTES)return historyLimit();
     const current=await authorize(token);if(current.response)return current.response;
     if(binding(current)!==binding(auth))return fail(403,'HISTORY_SCOPE_DENIED','History permissions changed. Apply the filters again.');
@@ -86,7 +94,7 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
     const own=[...snapshots].filter(([,item])=>item.uid===auth.uid);
     while(own.length>=2)snapshots.delete(own.shift()[0]);
     while(snapshots.size>=8)snapshots.delete(snapshots.keys().next().value);
-    const handle=randomId(),item={uid:auth.uid,binding:binding(auth),rows,bytes,expiresAt:clock()+TTL};
+    const handle=randomId(),item={uid:auth.uid,binding:binding(auth),scope:filters.scope,rows,bytes,expiresAt:clock()+TTL};
     snapshots.set(handle,item);
     const facultyOptions=new Map();
     for(const row of projected)for(const option of row._facultyOptions)if(UUID.test(option.key))facultyOptions.set(option.key,option.name);
@@ -113,7 +121,7 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
    if(exporting)return fail(429,'HISTORY_EXPORT_BUSY','A history export is running. Retry shortly.');
    exporting=true;
    try{
-    const file=await renderExport(item.rows,input.format);
+    const file=await renderExport(item.rows,input.format,{grouped:item.scope==='dashboard'});
     // Rendering is asynchronous. Recheck current scope before releasing bytes.
     const current=await authorize(token);if(current.response)return current.response;
     const refreshed=lookup(current,input.snapshot);if(refreshed.response)return refreshed.response;

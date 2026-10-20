@@ -51,3 +51,65 @@ test('query revalidates identity after asynchronous SQL read before releasing ro
  const api=createChangeHistoryApi({verifyToken:async()=>({uid:'a'}),findUser:async()=>profile,repository:{list:async()=>{profile={active:false,baseRole:'faculty',facultyId:A};return [];}}});
  assert.equal((await api.query('a',{scope:'mine'})).status,403);
 });
+
+test('Dashboard AFC multi-input is one authorized operation, including all fields after keyword filtering',async()=>{
+ const request='11111111-1111-4111-8111-111111111111',facultyId=A;
+ const events=Array.from({length:5},(_,i)=>{
+  const day=String(9+i).padStart(2,'0');
+  return {source:'audit',eventId:'77777777-7777-4777-8777-'+String(i+1).padStart(12,'0'),eventType:'afc_record_created',
+   entityType:'afc_record',entityId:'88888888-8888-4888-8888-'+String(i+1).padStart(12,'0'),occurredAtUtc:'2026-10-20T16:00:00Z',
+   actorName:'Recorded Admin',metadataJson:JSON.stringify({source:'multi_input',batchRequestId:request,batchRowNumber:i,batchRowCount:5}),
+   beforeJson:null,afterJson:JSON.stringify({facultyId,startDate:'2026-11-'+day,endDate:'2026-11-'+day,purpose:'University Travel',active:true}),
+   contextJson:JSON.stringify({affectedFaculty:[{facultyId,facultyKey:facultyId,displayName:'Faculty A'}]})};
+ });
+ let queries=0;
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'admin'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'adfa_general'}),repository:{list:async()=>{queries++;return events;}}});
+ const q=await api.query('valid',{scope:'dashboard',academicYear:'2026-27',keyword:'University Travel'});
+ assert.equal(q.status,200);
+ assert.equal(q.body.total,1);
+ assert.equal(q.body.rows[0].recordCount,5);
+ assert.equal(q.body.rows[0].title,'5 AFC Records Created');
+ assert.equal(q.body.rows[0].records.length,5);
+ assert.ok(q.body.rows[0].records.every(record=>record.changes.some(c=>c.field==='Start date')&&record.changes.some(c=>c.field==='Purpose')));
+ assert.doesNotMatch(JSON.stringify(q.body.rows),/batchRequestId|entityId|firebaseUid/i);
+ const exported=await api.export('valid',{snapshot:q.body.snapshot,format:'csv'});
+ assert.equal(exported.status,200);
+ assert.equal(exported.body.rowCount,1);
+ assert.match(Buffer.from(exported.body.fileBase64,'base64').toString('utf8'),/5 AFC Records Created/);
+ assert.equal(queries,1);
+});
+test('Dashboard grouped results never disclose other faculty details after scope filtering',async()=>{
+ const events=[A,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',A].map((facultyId,i)=>({
+  source:'audit',eventId:'e'+i,eventType:'afc_record_created',entityType:'afc_record',occurredAtUtc:'2026-10-20T16:00:00Z',
+  metadataJson:JSON.stringify({source:'multi_input',batchRequestId:'11111111-1111-4111-8111-111111111111',batchRowNumber:i,batchRowCount:3}),
+  beforeJson:null,afterJson:JSON.stringify({facultyId,startDate:'2026-11-11',endDate:'2026-11-12',purpose:'Vacation',active:true}),
+  contextJson:JSON.stringify({affectedFaculty:[{facultyId,facultyKey:facultyId,displayName:facultyId===A?'Faculty A':'Private B'}]})
+ }));
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'faculty'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'faculty',facultyId:A}),repository:{list:async()=>events}});
+ const q=await api.query('valid',{scope:'dashboard',academicYear:'2026-27'});
+ assert.equal(q.status,200);
+ assert.equal(q.body.total,1);
+ assert.equal(q.body.rows[0].recordCount,2);
+ assert.doesNotMatch(JSON.stringify(q.body.rows),/Private B|bbbbbbbb/);
+ const ex=await api.export('valid',{snapshot:q.body.snapshot,format:'csv'});
+ assert.equal(ex.status,200);
+ assert.doesNotMatch(Buffer.from(ex.body.fileBase64,'base64').toString('utf8'),/Private B|bbbbbbbb/);
+});
+
+test('Dashboard pagination counts complete operations instead of individual changed fields',async()=>{
+ const events=Array.from({length:101},(_,i)=>({
+  source:'audit',eventId:'event-'+i,eventType:'afc_record_created',entityType:'afc_record',
+  occurredAtUtc:'2026-10-20T16:00:00Z',afterJson:JSON.stringify({facultyId:A,startDate:'2026-11-09',endDate:'2026-11-09',purpose:'Vacation',active:true}),
+  contextJson:JSON.stringify({affectedFaculty:[{facultyId:A,displayName:'Faculty A'}]})
+ }));
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'admin'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'adfa_general'}),repository:{list:async()=>events}});
+ const first=await api.query('valid',{scope:'dashboard',academicYear:'2026-27'});
+ assert.equal(first.status,200);
+ assert.equal(first.body.total,101);
+ assert.equal(first.body.rows.length,100);
+ assert.ok(first.body.rows.every(row=>row.recordCount===1&&row.changeCount>=3));
+ const second=await api.page('valid',{snapshot:first.body.snapshot,offset:100});
+ assert.equal(second.status,200);
+ assert.equal(second.body.rows.length,1);
+ assert.equal(second.body.rows[0].recordCount,1);
+});

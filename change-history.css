@@ -44,3 +44,24 @@
 @media(max-width:800px){.history-search-row{grid-template-columns:minmax(180px,1fr) 140px}.history-search-row .history-filter-actions{grid-column:1/-1}.history-advanced-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.history-toolbar{align-items:start;flex-direction:column}.history-table-scroll{max-height:60vh}.faculty-history-dialog{padding:14px;width:calc(100vw - 44px)}}
 @media(max-width:480px){.history-search-row,.history-advanced-grid{grid-template-columns:1fr}.history-filter-actions button{flex:1}.paws-change-history h3{font-size:18px}}
 @media(max-width:800px){.paws-change-history .history-heading{display:block}}
+
+/* Dashboard History: one visible row per authorized user operation. */
+.paws-change-history .history-operation-cell{padding:0;border-bottom:1px solid #dce4ef}
+.paws-change-history .history-operation-summary{display:grid;grid-template-columns:128px 150px 190px minmax(220px,1fr) 145px 112px;gap:0;align-items:start;min-height:44px;cursor:pointer;list-style:none;background:#fff}
+.paws-change-history .history-operation-summary::-webkit-details-marker{display:none}
+.paws-change-history .history-operation-summary>span{min-width:0;padding:9px 8px;overflow-wrap:anywhere}
+.paws-change-history .history-operation-summary small{display:block;font-size:10px;color:#66778c;margin-top:3px}
+.paws-change-history .history-operation-summary .history-expand-prompt{color:#145a98;font-weight:600}
+.paws-change-history .history-expand-prompt::before{content:'▸ ';font-weight:700}
+.paws-change-history .history-operation-group[open] .history-expand-prompt::before{content:'▾ '}
+.paws-change-history .history-operation-summary:hover{background:#f4f7fa}
+.paws-change-history .history-operation-group[open] .history-operation-summary{background:#edf3fa}
+.paws-change-history .history-operation-group:focus-within>.history-operation-summary{outline:2px solid #397bc1;outline-offset:-2px}
+.paws-change-history .history-operation-details{padding:10px 14px 14px;background:#f8fafc;display:grid;gap:12px;border-top:1px solid #dbe4ee}
+.paws-change-history .history-operation-record{background:#fff;border:1px solid #dfe5ed;border-radius:6px;padding:12px;min-width:0}
+.paws-change-history .history-operation-record h4{font-size:13px;margin:0 0 4px;color:#243653}
+.paws-change-history .history-operation-record p{font-size:11px;color:#627185;margin:2px 0}
+.paws-change-history .history-details-table{width:100%;min-width:600px;table-layout:fixed;margin-top:8px}
+.paws-change-history .history-details-table th:nth-child(1){width:24%}
+.paws-change-history .history-details-table th:nth-child(2),.paws-change-history .history-details-table th:nth-child(3){width:38%}
+.paws-change-history .history-details-table th{position:static}

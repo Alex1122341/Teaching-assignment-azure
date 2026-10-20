@@ -29,7 +29,7 @@ flowchart TD
 ~~~
 
 - Browser never connects directly to SQL and never receives database credentials. All activated SQL-backed business domains fail closed rather than falling back to Firestore.
-- Main user-facing Beta: https://tester-teaching.web.app. Historic Azure SWA and its deployment workflows remain in the repository but are not the active P1 release target.
+- Main user-facing Beta: https://tester-teaching.web.app. Historic Azure SWA static workflows, standalone deploy script and routing config were retired from the current tree as obsolete; only their dated Git history remains. The current static release target is Firebase Hosting; Azure API/SQL tooling remains in use or available independently.
 - Frontend: index.html/timetable.js, faculty-admin.html/js, teaching-assignments.html/js, user-management.html/js, password.html/js, paws-data-client.js and supporting modules.
 - Backend composition: server/src/runtime/university-api.js, university-http-server.js, swa-sql-runtime.js. The API uses authenticated scoped commands and SQL views/stored procedures; it is a modular monolith.
 - Current configured API origin is the temporary Cloudflare Quick Tunnel in paws-api-origin.js. A university-owned HTTPS hostname, managed ingress, certificate and production deployment decision are still required.

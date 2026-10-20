@@ -6,7 +6,8 @@ function digest(){const h=crypto.createHash('sha256');for(const f of files(out).
 test('combined release artifact is deterministic and contains app plus managed API',()=>{
  execFileSync(process.execPath,['tools/build-beta-release.js'],{cwd:root,stdio:'pipe'});const first=digest();
  execFileSync(process.execPath,['tools/build-beta-release.js'],{cwd:root,stdio:'pipe'});assert.equal(digest(),first);
- for(const f of ['app/index.html','app/staticwebapp.config.json','api/host.json','api/package.json','api/package-lock.json','api/index.js','api/server/src/runtime/swa-sql-runtime.js'])assert.ok(fs.existsSync(path.join(out,f)),f);
+ for(const f of ['app/index.html','api/host.json','api/package.json','api/package-lock.json','api/index.js','api/server/src/runtime/swa-sql-runtime.js'])assert.ok(fs.existsSync(path.join(out,f)),f);
+ assert.equal(fs.existsSync(path.join(out,'app/staticwebapp.config.json')),false);
  const pkg=JSON.parse(fs.readFileSync(path.join(out,'api/package.json'))),lock=JSON.parse(fs.readFileSync(path.join(out,'api/package-lock.json')));assert.deepEqual(lock.packages[''].dependencies,pkg.dependencies);for(const [name,version] of Object.entries(pkg.dependencies))assert.equal(lock.packages[`node_modules/${name}`].version,version,name);
  const entry=fs.readFileSync(path.join(out,'api/index.js'),'utf8');for(const route of ['health/sql','v1/me','v1/sessions','v1/dashboard/summary','v1/dashboard/faculty','v1/dashboard/faculty/{facultyId}','v1/dashboard/teaching-summary','v1/dashboard/roles','v1/dashboard/doe-overview'])assert.ok(entry.includes(route),route);
  assert.match(entry,/DASHBOARD_METHODS\s*=\s*\[[^\]]*'POST'/);

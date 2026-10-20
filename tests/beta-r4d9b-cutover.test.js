@@ -31,14 +31,15 @@ test('data client has no Firestore fallback and fails closed without a token',as
   await assert.rejects(()=>client.listSessions(),error=>error.code==='UNAUTHENTICATED');
 });
 
-test('production SWA deployment is static-only while API artifact remains buildable',()=>{
-  const deploy=read('.github/workflows/azure-beta-deploy.yml');
-  assert.doesNotMatch(deploy,/api_location\s*:/);
-  assert.doesNotMatch(deploy,/skip_api_build\s*:\s*false/);
-  assert.match(deploy,/app_location:\s*\.azure-production\/app/);
+test('Firebase Hosting is static-only while the University API artifact remains independently buildable',()=>{
+  const deploy=read('.github/workflows/firebase-hosting-deploy.yml');
+  assert.match(deploy,/firebase deploy/);
+  assert.match(deploy,/--only hosting/);
+  assert.doesNotMatch(deploy,/Azure\/static-web-apps-deploy|api_location\s*:/);
   const build=read('tools/build-beta-release.js');
   assert.match(build,/build-swa-api\.js/);
   assert.match(read('tools/build-swa-api.js'),/\.azure-production\\?['"]?,?api|\.azure-production\/api/);
+  assert.equal(require('node:fs').existsSync(require('node:path').join(root,'.github/workflows/azure-beta-deploy.yml')),false);
 });
 
 test('timetable reads fail closed and representative mutation gates stay disabled',()=>{

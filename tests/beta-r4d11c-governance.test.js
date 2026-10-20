@@ -122,24 +122,23 @@ test('ACA Deploy gates exact runs, digest activation, health, and anonymous rout
   assert.doesNotMatch(workflow, /ROLLBACK_AUTOMATED\s*=\s*true/);
 });
 
-test('Static Deploy requires successful ACA evidence before upload', () => {
-  const workflow = read('.github/workflows/azure-beta-deploy.yml');
-  const uploadAt = workflow.indexOf('Azure/static-web-apps-deploy');
-  assert.ok(uploadAt > 0);
-  const before = workflow.slice(0, uploadAt);
-  assert.match(workflow, /aca_deploy_run_id:/);
-  assert.match(before, /azure-beta-aca-deploy\.yml/);
-  assert.match(before, /aca-deploy-\$\{\{ inputs\.commit_sha \}\}/);
-  assert.match(before, /sqlHealthPassed/);
-  assert.match(before, /authBoundaryPassed/);
-  assert.match(before, /newRoutesPassed/);
-  assert.match(before, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
-  assert.match(before, /test "\$GITHUB_SHA" = "\$EXPECTED_SHA"/);
-  assert.match(before, /jq -r '\.head_branch' <<< "\$aca_run_json"\)" = "main"/);
-  assert.match(before, /revisionMode/);
-  assert.match(before, /newRevision/);
-  assert.match(before, /expected_image/);
-  assert.match(before, /beta-api-freeze\.js --artifact \.azure-production\/api/);
+test('retired Azure SWA deployment is absent; independent ACA and Firebase workflows stay gated',()=>{
+  assert.equal(fs.existsSync(path.join(root,'.github/workflows/azure-beta-deploy.yml')),false);
+  const aca=read('.github/workflows/azure-beta-aca-deploy.yml');
+  assert.match(aca,/azure-beta-acr-publish\.yml/);
+  assert.match(aca,/aca-deploy-\$\{\{ inputs\.commit_sha \}\}/);
+  assert.match(aca,/authBoundaryPassed/);
+  assert.match(aca,/sqlHealthPassed/);
+  assert.doesNotMatch(aca,/Azure\/static-web-apps-deploy/);
+  const hosting=read('.github/workflows/firebase-hosting-deploy.yml');
+  assert.match(hosting,/workflow_dispatch:/);
+  assert.match(hosting,/source_run_id:/);
+  assert.match(hosting,/commit_sha:/);
+  assert.match(hosting,/azure-beta-build\.yml/);
+  assert.match(hosting,/name:\s*azure-beta-\$\{\{ inputs\.commit_sha \}\}/);
+  assert.match(hosting,/path:\s*\.firebase-production/);
+  assert.match(hosting,/firebase deploy/);
+  assert.match(hosting,/--only hosting/);
 });
 
 test('ACA Dockerfile base image remains explicitly unpinned for governance reporting', () => {

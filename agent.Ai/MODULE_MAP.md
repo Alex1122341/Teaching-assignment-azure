@@ -1,6 +1,6 @@
 # PAWS Beta Module and File Map — current 2026-10-15
 
-**Repository** Alex1122341/Teaching-assignment-azure; reviewed main 0d4b4d9. This replaces an old BETA-R1 map that described managed Azure SWA API as the active deployment. Legacy adapters remain in source but **University Node API + Firebase Hosting is the accepted Beta path**.
+**Repository** Alex1122341/Teaching-assignment-azure; reviewed main 0d4b4d9. This replaces an old BETA-R1 map that described managed Azure SWA API as the active deployment. Legacy `swa-*` API adapters remain in source and are required by the University Node API, but legacy Azure SWA static deployment code is retired. **University Node API + Firebase Hosting is the accepted Beta path**.
 
 ## 1. Frontend / page shells
 

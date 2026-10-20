@@ -9,6 +9,11 @@ function metadataOf(event){
  try{const parsed=JSON.parse(event.metadataJson);return parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed:{};}catch(_){return {};}
 }
 function operationKey(event){
+ // Calendar activity import projections share one immutable receipt audit event:
+ // ListChangeHistoryEvents exposes it as audit-id:activity-id for each item.
+ const work=typeof event?.eventId==='string'&&event.eventId.match(/^([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i);
+ if(event.source==='work'&&['calendar_activity_import_committed','calendar_activity_import_recovered'].includes(event.eventType)&&work)
+  return 'work-import:'+work[1].toLowerCase();
  const meta=metadataOf(event);
  // Only CreateAfcManualBatch creates this metadata shape. Do not group unrelated
  // user actions that happen close together or happen to change the same record.

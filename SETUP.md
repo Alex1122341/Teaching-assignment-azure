@@ -5,7 +5,7 @@
 ## Active architecture
 
 - **Web:** Firebase Hosting at https://tester-teaching.web.app (project `tester-teaching`).
-- **Identity:** Firebase Authentication; University API verifies bearer tokens.
+- **Identity:** Firebase Authentication supplies identity only; the University API verifies bearer tokens and SQL decides role/scope.
 - **API:** University-hosted Windows Node runtime, temporarily exposed via approved Cloudflare HTTPS ingress; its source includes historically named `swa-*` adapters that **remain active**.
 - **Business authority:** SQL Server `ITAPPVETOPSDB01` / `VetMed-Ops`. SQL UserProfile establishes roles/scopes; no browser-to-SQL connection.
 - **Not an active target:** Azure Static Web Apps (`red-cliff-04871ca0f.5.azurestaticapps.net`). Legacy SWA static deployments, configuration, and CLI scripts have been removed. The Azure Static Web Apps resource and any GitHub/Azure credentials are separate infrastructure and are **not** deleted by a code change.

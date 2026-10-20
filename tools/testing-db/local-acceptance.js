@@ -209,6 +209,21 @@ EXEC(N'CREATE SCHEMA paws_acceptance'); CREATE TABLE paws_acceptance.StandIn (No
     const prodDev = await call(prod, 'syn-developer', 'GET', '/api/v1/support');
     check('F', 'Production developer support still works and reports production mode', prodDev.status === 200 && prodDev.data.mode === 'developer_support');
 
+    // Scenario P: performance smoke on the synthetic data set (documented thresholds; LocalDB on a laptop,
+    // not a Production-scale measurement).
+    const timed = async fn => { const t = process.hrtime.bigint(); const r = await fn(); return { r, ms: Number(process.hrtime.bigint() - t) / 1e6 }; };
+    const p95 = values => values.slice().sort((a, b) => a - b)[Math.ceil(values.length * 0.95) - 1];
+    const reads = [];
+    for (let i = 0; i < 20; i += 1) reads.push(await timed(() => call(test, 'syn-admin', 'GET', '/api/v1/sessions?start=2026-09-01&end=2027-04-30')));
+    const readP95 = p95(reads.map(x => x.ms));
+    check('P', 'full-year timetable read p95 under 3000 ms (20 sequential)', reads.every(x => x.r.status === 200) && readP95 < 3000, `p95 ${readP95.toFixed(0)} ms`);
+    const parallel = await Promise.all(Array.from({ length: 10 }, () => timed(() => call(test, 'syn-admin', 'GET', '/api/v1/dashboard/summary?academicYear=2026-27'))));
+    check('P', '10 concurrent Dashboard summaries all succeed, p95 under 5000 ms', parallel.every(x => x.r.status === 200) && p95(parallel.map(x => x.ms)) < 5000, `statuses ${[...new Set(parallel.map(x => x.r.status))]} p95 ${p95(parallel.map(x => x.ms)).toFixed(0)} ms`);
+    const editTargets = sessions.filter(x => x.sessionType === 'LEC' && x.id !== target.id).slice(0, 5);
+    const edits = await Promise.all(editTargets.map((x, i) => timed(() => call(test, 'syn-admin', 'PATCH', `/api/v1/sessions/${x.id}`, { topic: `Concurrent edit ${i}` }))));
+    const persisted = (await call(test, 'syn-admin', 'GET', '/api/v1/sessions?start=2026-09-01&end=2027-04-30')).data.sessions.filter(x => /^Concurrent edit \d$/.test(x.topic)).length;
+    check('P', '5 concurrent edits of different sessions all commit and persist', edits.every(x => x.r.status === 200) && persisted === 5, `statuses ${edits.map(x => x.r.status)} persisted ${persisted}`);
+
     // Scenario C2: Testing personas on the newer workflows (PR #125 I1-I3).
     const c2 = await call(test, 'syn-admin', 'POST', '/api/v1/support/start', { targetUid: 'syn-faculty-a', reason: 'acceptance: newer workflows' });
     const ctx2 = c2.data && c2.data.contextId;

@@ -30,3 +30,12 @@ Verify new baseline and grouped behavior in unit/API/SQL adapter and live authen
 4. Before-baseline end filters return no rows and do not raise SQL range exceptions.
 5. My Change History and Calendar Changes behavior remains unchanged.
 6. No browser-supplied override, permission elevation, DOE publication, SQL migration or write-gate change.
+
+## Separate immutable-freeze promotion
+
+- Previous trust anchor: `fe1fa7002ef956f02e767053fbe2f6fea8daf748`.
+- Reviewed product SHA: `573dbe468eb23b177d92317f9a6e3ec04d2c94ec` (distinct from the later docs and governance commits).
+- Exactly two protected static changes: `change-history.js`, `change-history.css`; static manifest remains 81.
+- Exactly two protected API changes: `server/src/history/change-history-api.js`, `server/src/data/sql-change-history-repository.js`; protected server runtime path count remains 104.
+- All prior reviewed static/runtime Git-object source snapshots remain protected. The new SHA-256 manifest reporting entries for the two changed static files derive from the reviewed product blobs; no freeze exceptions, allowlists or bypasses.
+- Governance tests pin the exact two-plus-two source path delta and verify every unchanged protected blob across old/new anchors.

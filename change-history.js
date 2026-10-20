@@ -9,6 +9,7 @@
  const missing=value=>value===null||value===undefined||value===''||value==='Not recorded'||value==='—'?'N/A':String(value);
  function createHistoryController({api,scope,onState=()=>{},download=()=>{}}){
   let sequence=0,destroyed=false;
+  const countName=scope==='dashboard'?'operations':'change rows';
   let state={rows:[],snapshot:null,total:0,offset:0,pageSize:100,busy:false,dirty:true,facets:{},coverage:[],message:'Apply filters to load recorded SQL history.'};
   const view=()=>({...state,canExport:Boolean(!destroyed&&!state.busy&&!state.dirty&&state.snapshot)});
   const emit=()=>onState(view());

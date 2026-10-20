@@ -46,7 +46,12 @@ async function exec(instance, database, text) {
   try { return (await pool.request().batch(text)).recordset || []; } finally { await pool.close(); }
 }
 async function recreateEmpty(instance) {
-  await exec(instance, 'master', `IF DB_ID(N'VetMed-Ops') IS NOT NULL BEGIN ALTER DATABASE [VetMed-Ops] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [VetMed-Ops]; END; CREATE DATABASE [VetMed-Ops];`);
+  // LocalDB instances share one default data folder, so each instance gets its own file names.
+  await exec(instance, 'master', `IF DB_ID(N'VetMed-Ops') IS NOT NULL BEGIN ALTER DATABASE [VetMed-Ops] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [VetMed-Ops]; END;
+DECLARE @dir nvarchar(400) = CONVERT(nvarchar(400), SERVERPROPERTY('InstanceDefaultDataPath'));
+DECLARE @sql nvarchar(max) = N'CREATE DATABASE [VetMed-Ops] ON (NAME = N''VetMedOps_${instance}'', FILENAME = N''' + @dir + N'${instance}_VetMed-Ops.mdf'')
+  LOG ON (NAME = N''VetMedOps_${instance}_log'', FILENAME = N''' + @dir + N'${instance}_VetMed-Ops_log.ldf'')';
+EXEC (@sql);`);
 }
 
 function testingEnv(extra = {}) {
@@ -161,7 +166,7 @@ async function main() {
     const fEdit = await call(test, 'syn-admin', 'PATCH', `/api/v1/sessions/${target.id}`, { topic: 'faculty cannot edit' }, H(ctxF));
     check('C', 'faculty persona cannot use administrator writes', fEdit.status === 403);
     const meA = (await call(test, 'syn-faculty-a', 'GET', '/api/v1/me')).data.profile;
-    const afc = await call(test, 'syn-admin', 'POST', '/api/v1/afc-requests', { startDate: '2027-03-08', endDate: '2027-03-09', reason: 'vacation', contactAddress: '1 Test Way', contactPhone: '403-555-0100',
+    const afc = await call(test, 'syn-admin', 'POST', '/api/v1/afc-requests', { startDate: '2027-03-08', endDate: '2027-03-09', reason: 'vacation', coverage: 'Colleague covers', contactAddress: '1 Test Way', contactPhone: '403-555-0100',
       termsAccepted: true, termsVersion: 'ucvm-afc-terms-page2-v1', termsSource: 'absence-from-campus-app.pdf#page=2',
       applicantSignature: { mode: 'typed', name: meA.displayName, uid: 'syn-faculty-a', signedAt: new Date().toISOString(), fingerprint: fingerprint(), attested: true } }, H(ctxF));
     check('C', 'faculty persona can use faculty self-service writes', [200, 201].includes(afc.status), `status ${afc.status} ${afc.data && afc.data.error ? afc.data.error.code : ''}`);

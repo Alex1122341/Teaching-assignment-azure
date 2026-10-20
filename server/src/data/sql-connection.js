@@ -214,8 +214,10 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
       }
       const queryStarted = timing && queryMetric ? timing.start(queryMetric) : null;
       try {
-        const contextValue=state?.operationId?'@pawsInternalSupportOperation':'NULL';
-        const result = await request.query("EXEC sys.sp_set_session_context @key=N'paws_support_operation',@value="+contextValue+";\n"+text);
+        // sp_set_session_context takes sql_variant; bind the operation through a typed local so the
+        // inferred string parameter type never reaches the sql_variant argument (driver-independent).
+        const contextValue=state?.operationId?"DECLARE @pawsInternalSupportOperationValue uniqueidentifier=TRY_CONVERT(uniqueidentifier,@pawsInternalSupportOperation);\nEXEC sys.sp_set_session_context @key=N'paws_support_operation',@value=@pawsInternalSupportOperationValue;\n":"EXEC sys.sp_set_session_context @key=N'paws_support_operation',@value=NULL;\n";
+        const result = await request.query(contextValue+text);
         return result.recordset || [];
       } finally {
         if (timing && queryMetric) timing.end(queryMetric, queryStarted);

@@ -41,6 +41,14 @@ function bareHttpsOrigin(value, field, errors) {
   }
 }
 
+const PLACEHOLDER = /<[^>]*>|REPLACE[_ ]?ME|REPLACE_WITH|PLACEHOLDER|CHANGE[_ ]?ME|\bTODO\b|\bTBD\b/i;
+function hostOf(origin) { try { return origin ? new URL(origin).hostname.toLowerCase() : null; } catch { return null; } }
+function flatStrings(value, prefix = '') {
+  if (typeof value === 'string') return [[prefix || 'value', value]];
+  if (!value || typeof value !== 'object') return [];
+  return Object.entries(value).flatMap(([key, item]) => flatStrings(item, prefix ? `${prefix}.${key}` : key));
+}
+
 // Validates one configuration. `complete` requires every value needed to deploy.
 function validateConfig(config, { environment, complete = true } = {}) {
   const errors = [];
@@ -68,6 +76,15 @@ function validateConfig(config, { environment, complete = true } = {}) {
     if (!config.firebase) errors.push('firebase is not provisioned');
   }
   if (config.siteUrl && config.peerSiteUrl && config.siteUrl === config.peerSiteUrl) errors.push('peerSiteUrl must differ from siteUrl');
+  // Unfilled template values and non-public hosts are never deployable.
+  for (const [field, value] of flatStrings(config)) {
+    if (PLACEHOLDER.test(value)) errors.push(`${field} still contains a placeholder`);
+  }
+  for (const field of ['apiOrigin', 'siteUrl', 'peerSiteUrl']) {
+    const host = hostOf(config[field]);
+    if (host && (host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host) || host.startsWith('['))) errors.push(`${field} must be a public DNS name, not ${host}`);
+  }
+  if (config.apiOrigin && config.siteUrl && hostOf(config.apiOrigin) === hostOf(config.siteUrl)) errors.push('apiOrigin and siteUrl must be different hosts');
   if (config.environment === 'testing' && config.firebase && PRODUCTION_FIREBASE_PROJECT_IDS.includes(config.firebase.projectId)) {
     errors.push('testing must not use the production Firebase project');
   }
@@ -86,6 +103,19 @@ function validatePair(production, testing, { complete = true } = {}) {
   if (testing.firebase && production.firebase && testing.firebase.apiKey === production.firebase.apiKey) errors.push('testing shares the production Firebase API key');
   if (testing.firebase && production.firebase && testing.firebase.authDomain === production.firebase.authDomain) errors.push('testing shares the production Firebase auth domain');
   if (testing.apiOrigin && production.siteUrl && testing.apiOrigin === production.siteUrl) errors.push('testing apiOrigin points at the production site');
+  // Compare hosts too: another port or path on a Production host is still Production.
+  const productionHosts = [production.apiOrigin, production.siteUrl].map(hostOf).filter(Boolean);
+  if (production.firebase) productionHosts.push(`${production.firebase.projectId}.web.app`, `${production.firebase.projectId}.firebaseapp.com`, String(production.firebase.authDomain || '').toLowerCase());
+  for (const field of ['apiOrigin', 'siteUrl']) {
+    const host = hostOf(testing[field]);
+    if (host && productionHosts.some(item => item && (host === item || host.endsWith('.' + item)))) errors.push(`testing ${field} is a Production host (${host})`);
+  }
+  if (testing.firebase && production.firebase) {
+    for (const key of ['appId', 'messagingSenderId', 'storageBucket', 'measurementId']) {
+      if (testing.firebase[key] && testing.firebase[key] === production.firebase[key]) errors.push(`testing shares the production Firebase ${key}`);
+    }
+    if (String(testing.firebase.authDomain || '').toLowerCase().includes(String(production.firebase.projectId).toLowerCase() + '.')) errors.push('testing auth domain belongs to the production Firebase project');
+  }
   if (production.peerSiteUrl && production.peerSiteUrl !== testing.siteUrl) errors.push('production peerSiteUrl must be the testing siteUrl');
   if (testing.peerSiteUrl !== production.siteUrl) errors.push('testing peerSiteUrl must be the production siteUrl');
   return errors;

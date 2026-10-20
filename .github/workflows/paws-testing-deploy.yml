@@ -59,7 +59,8 @@ jobs:
     if: needs.gate.outputs.provisioned == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    environment: testing
+    # Repository-level PAWS_TESTING_* variables/secrets (GitHub Environments are not assumed: they are not
+    # available for private repositories on GitHub Free). OIDC subject: repo:<owner>/<repo>:ref:refs/heads/main.
     env:
       SOURCE_RUN_ID: ${{ inputs.source_run_id || github.event.workflow_run.id }}
       COMMIT_SHA: ${{ inputs.commit_sha || github.event.workflow_run.head_sha }}
@@ -169,10 +170,11 @@ jobs:
           set -euo pipefail
           # Environment identity and SQL target live in the ACA app configuration (set once during
           # provisioning); this deploy only changes the image and the attested release SHA.
-          app_env="$(az containerapp show -n "$TESTING_ACA_APP" -g "$TESTING_ACA_RESOURCE_GROUP" --query 'properties.template.containers[0].env' -o json)"
-          test "$(jq -r '.[] | select(.name=="PAWS_ENVIRONMENT") | .value' <<< "$app_env")" = "testing"
-          # The runtime refuses any SQL server other than the allow-listed Testing server.
-          test -n "$(jq -r '.[] | select(.name=="PAWS_TESTING_SQL_SERVER") | .value // empty' <<< "$app_env")"
+          az containerapp show -n "$TESTING_ACA_APP" -g "$TESTING_ACA_RESOURCE_GROUP" --query 'properties.template.containers[0].env' -o json > aca-env.json
+          # Identity, SQL target, CORS origin, Firebase project and every write gate must match the reviewed
+          # Testing profile before a revision is created (values are never printed).
+          node tools/verify-testing-api-env.js --aca-env aca-env.json | tee configured-gates.json
+          rm -f aca-env.json
           az containerapp update -n "$TESTING_ACA_APP" -g "$TESTING_ACA_RESOURCE_GROUP" --image "$IMAGE" \
             --set-env-vars "PAWS_RELEASE_SHA=$COMMIT_SHA" "PAWS_RUNTIME_TRUST_ANCHOR=$(node -p "require('./tools/beta-freeze').BASELINE_COMMIT")"
 
@@ -187,6 +189,10 @@ jobs:
           done
           node tools/verify-environment-config.js --health runtime.json --environment testing
           jq -e --arg c "$COMMIT_SHA" '.releaseSha == $c' runtime.json > /dev/null
+          # The running revision serves exactly the gates that were verified above.
+          test "$(jq -cS '.gates' configured-gates.json)" = "$(jq -cS '.writeGates' runtime.json)"
+          # The Testing API refuses browser calls from the Production site.
+          test "$(curl --silent --max-time 15 -o /dev/null -w '%{http_code}' -X OPTIONS "$TESTING_API_ORIGIN/api/health/runtime" -H 'Origin: https://tester-teaching.web.app' -H 'Access-Control-Request-Method: GET')" != "204"
           test "$(curl --silent --max-time 15 -o /dev/null -w '%{http_code}' "$TESTING_API_ORIGIN/api/health/sql")" = "200"
           test "$(curl --silent --max-time 15 -o /dev/null -w '%{http_code}' "$TESTING_API_ORIGIN/api/v1/me")" = "401"
 
@@ -226,9 +232,11 @@ jobs:
           jq -n --arg commitSha "$COMMIT_SHA" --arg sourceRunId "$SOURCE_RUN_ID" --arg siteUrl "$TESTING_SITE_URL" \
             --arg apiOrigin "$TESTING_API_ORIGIN" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg status "${{ job.status }}" \
             '{environment:"testing",commitSha:$commitSha,sourceRunId:$sourceRunId,siteUrl:$siteUrl,apiOrigin:$apiOrigin,deployedAtUtc:$at,status:$status}' > testing-deploy-evidence.json
+          cat testing-deploy-evidence.json
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: paws-testing-deploy-${{ env.COMMIT_SHA }}
           path: testing-deploy-evidence.json
-          retention-days: 14
+          # Kept long enough for Admin UAT and the separately approved Production release.
+          retention-days: 90

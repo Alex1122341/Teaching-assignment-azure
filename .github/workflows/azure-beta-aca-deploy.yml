@@ -32,15 +32,26 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Production release requires approval from the GitHub Environment "production" reviewers.
-    environment: production
     timeout-minutes: 25
+    env:
+      # Same owner-managed release evidence requirements as Firebase Hosting (tools/require-release-evidence.sh).
+      REQUIRE_TESTING_PASS: ${{ vars.PAWS_REQUIRE_TESTING_PASS }}
+      REQUIRE_RELEASE_APPROVAL: ${{ vars.PAWS_REQUIRE_RELEASE_APPROVAL }}
     steps:
       - name: Checkout exact requested main commit
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
+
+      - name: Verify release evidence for the exact commit (when required)
+        if: env.REQUIRE_TESTING_PASS == 'true' || env.REQUIRE_RELEASE_APPROVAL == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          PAWS_RELEASE_APPROVERS: ${{ vars.PAWS_RELEASE_APPROVERS }}
+        run: bash tools/require-release-evidence.sh
 
       - name: Verify exact-main source and publish runs before Azure mutation
         shell: bash

@@ -1,9 +1,14 @@
 name: PAWS Testing Database Reset
 
 # Re-initialises the independent Testing database with the committed synthetic data set and
-# (re)provisions the Testing sign-in accounts. Never touches Production: the job runs only in the
-# GitHub Environment "testing", with Testing credentials, and the tool refuses any database that does
-# not carry the Testing marker (or is not completely empty).
+# (re)provisions the Testing sign-in accounts. Never touches Production: it uses only the Testing
+# identity and settings (PAWS_TESTING_* repository variables and secrets), and the tool refuses any
+# database that does not carry the Testing marker (or is not completely empty).
+#
+# Authorization: the run must start from main, by a GitHub login listed in the owner-managed repository
+# variable PAWS_TESTING_RESET_OPERATORS, with the confirmation text. A reset discards everything in the
+# Testing database, including its audit rows; the run uploads its own evidence (who, when, result) so the
+# reset itself stays on record.
 
 on:
   workflow_dispatch:
@@ -31,7 +36,6 @@ jobs:
     if: inputs.confirm == 'RESET-TESTING'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: testing
     env:
       PAWS_ENVIRONMENT: testing
       PAWS_TESTING_ENVIRONMENT_ID: ${{ secrets.PAWS_TESTING_ENVIRONMENT_ID }}
@@ -40,7 +44,20 @@ jobs:
       PAWS_SQL_MI_CLIENT_ID: ${{ vars.PAWS_TESTING_SQL_ADMIN_CLIENT_ID }}
       PAWS_TESTING_RUNTIME_PRINCIPAL: ${{ vars.PAWS_TESTING_RUNTIME_PRINCIPAL }}
       PAWS_TESTING_SQL_SERVER: ${{ vars.PAWS_TESTING_SQL_SERVER }}
+      TESTING_SQL_RESOURCE_GROUP: ${{ vars.PAWS_TESTING_SQL_RESOURCE_GROUP }}
+      RESET_OPERATORS: ${{ vars.PAWS_TESTING_RESET_OPERATORS }}
+      OPERATOR: ${{ github.triggering_actor }}
     steps:
+      - name: Authorize the reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "$GITHUB_REF" = "refs/heads/main" ] || { echo 'RESET_NOT_MAIN: run the reset from main'; exit 1; }
+          operator="$(tr '[:upper:]' '[:lower:]' <<< "$OPERATOR")"; listed=false
+          IFS=',' read -ra operators <<< "$(tr '[:upper:]' '[:lower:]' <<< "${RESET_OPERATORS:-}")"
+          for item in "${operators[@]}"; do [ "$(xargs <<< "$item")" = "$operator" ] && listed=true; done
+          [ "$listed" = true ] || { echo "RESET_NOT_AUTHORIZED: $OPERATOR is not in PAWS_TESTING_RESET_OPERATORS"; exit 1; }
+          [[ "$PAWS_TESTING_SQL_SERVER" =~ ^[a-z0-9-]+\.database\.windows\.net$ ]] || { echo 'RESET_SQL_SERVER: PAWS_TESTING_SQL_SERVER must be the Testing Azure SQL server'; exit 1; }
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -52,11 +69,20 @@ jobs:
           client-id: ${{ vars.PAWS_TESTING_AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.PAWS_TESTING_AZURE_TENANT_ID }}
           subscription-id: ${{ vars.PAWS_TESTING_AZURE_SUBSCRIPTION_ID }}
+      - name: Open the Testing SQL firewall for this runner only
+        shell: bash
+        run: |
+          set -euo pipefail
+          ip="$(curl --silent --max-time 15 https://api.ipify.org)"
+          [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          az sql server firewall-rule create -g "$TESTING_SQL_RESOURCE_GROUP" -s "${PAWS_TESTING_SQL_SERVER%%.*}" \
+            -n "paws-reset-${GITHUB_RUN_ID}" --start-ip-address "$ip" --end-ip-address "$ip" -o none
       - name: Reset Testing database with synthetic data
         env:
           INITIALISE_EMPTY: ${{ inputs.initialise_empty }}
         run: |
-          if [ "$INITIALISE_EMPTY" = "true" ]; then node tools/testing-db/reset-testing-db.js --confirm-reset --initialise-empty; else node tools/testing-db/reset-testing-db.js --confirm-reset; fi
+          set -o pipefail
+          if [ "$INITIALISE_EMPTY" = "true" ]; then node tools/testing-db/reset-testing-db.js --confirm-reset --initialise-empty | tee reset.log; else node tools/testing-db/reset-testing-db.js --confirm-reset | tee reset.log; fi
       - name: Provision Testing sign-in accounts
         env:
           PAWS_TEST_PERSONA_PASSWORD: ${{ secrets.PAWS_TEST_PERSONA_PASSWORD }}
@@ -65,3 +91,21 @@ jobs:
         run: |
           if [ -n "$OPERATORS_JSON" ]; then printf '%s' "$OPERATORS_JSON" > operators.json; node tools/testing-db/provision-test-accounts.js --operators operators.json; else node tools/testing-db/provision-test-accounts.js; fi
           rm -f operators.json
+      - name: Close the Testing SQL firewall rule
+        if: always()
+        shell: bash
+        run: az sql server firewall-rule delete -g "$TESTING_SQL_RESOURCE_GROUP" -s "${PAWS_TESTING_SQL_SERVER%%.*}" -n "paws-reset-${GITHUB_RUN_ID}" -o none || true
+      - name: Write reset evidence
+        if: always()
+        shell: bash
+        run: |
+          summary="$(grep -E '^\{"ok":true' reset.log 2>/dev/null | tail -n 1 | jq -c '{counts, fixtureCoverage, migrations: [.migrations[] | select(.status != "ok")]}' 2>/dev/null || echo null)"
+          jq -n --arg operator "$OPERATOR" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg status "${{ job.status }}" --arg sha "$GITHUB_SHA" --argjson summary "${summary:-null}" \
+            '{kind:"testing-db-reset",operator:$operator,commitSha:$sha,completedAtUtc:$at,status:$status,summary:$summary}' > testing-reset-evidence.json
+          cat testing-reset-evidence.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: paws-testing-reset-${{ github.run_id }}
+          path: testing-reset-evidence.json
+          retention-days: 90

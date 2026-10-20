@@ -227,19 +227,30 @@ test('Testing deploy skips quietly until Testing is provisioned, and deploys the
   assert.match(testing, /cp -R \.azure-production\/api\/server\/src testing-image\/server\/src/);
   assert.match(testing, /docker build -f deploy\/testing\/Dockerfile -t "\$image" testing-image/);
   assert.doesNotMatch(testing, /docker build[^\n]* \.\s*$/m);
-  assert.match(testing, /PAWS_TESTING_SQL_SERVER/);
-  assert.match(testing, /environment: testing/);
+  // SQL allow-list, identity, CORS and gates are enforced by tools/verify-testing-api-env.js (tests/testing-deployment-readiness.test.js).
+  // Plan-agnostic: no GitHub Environment (unavailable for private repos on GitHub Free); repository-level PAWS_TESTING_* settings.
+  assert.doesNotMatch(testing, /^\s*environment:\s/m);
+  assert.match(testing, /node tools\/verify-testing-api-env\.js --aca-env aca-env\.json/);
+  assert.match(testing, /test "\$\(jq -cS '\.gates' configured-gates\.json\)" = "\$\(jq -cS '\.writeGates' runtime\.json\)"/);
+  assert.match(testing, /retention-days: 90/);
 });
 
-test('Production release keeps its approval gate and gains switchable identity and Testing-pass checks', () => {
+test('Production release paths share switchable identity, Testing-pass and UAT-approval evidence checks', () => {
   const hosting = workflow('firebase-hosting-deploy.yml');
-  assert.match(hosting, /environment: production/);
+  const aca = workflow('azure-beta-aca-deploy.yml');
+  for (const [name, text] of [['hosting', hosting], ['aca', aca]]) {
+    // Required reviewers are unavailable here; an environment would only change the OIDC subject.
+    assert.doesNotMatch(text, /^\s*environment:\s/m, name);
+    assert.match(text, /REQUIRE_TESTING_PASS: \$\{\{ vars\.PAWS_REQUIRE_TESTING_PASS \}\}/, name);
+    assert.match(text, /REQUIRE_RELEASE_APPROVAL: \$\{\{ vars\.PAWS_REQUIRE_RELEASE_APPROVAL \}\}/, name);
+    assert.match(text, /if: env\.REQUIRE_TESTING_PASS == 'true' \|\| env\.REQUIRE_RELEASE_APPROVAL == 'true'\n\s*shell: bash[\s\S]*?run: bash tools\/require-release-evidence\.sh/, name);
+  }
+  assert.ok(aca.indexOf('require-release-evidence.sh') < aca.indexOf('az containerapp update'), 'ACA evidence check precedes any Azure mutation');
+  assert.ok(hosting.indexOf('require-release-evidence.sh') < hosting.indexOf('firebase deploy'), 'Hosting evidence check precedes the deploy');
   assert.match(hosting, /REQUIRE_ENVIRONMENT_IDENTITY: \$\{\{ vars\.PAWS_REQUIRE_ENVIRONMENT_IDENTITY \}\}/);
   assert.equal((hosting.match(/if \$strictEnvironment == "true" then \.environment == "production"/g) || []).length, 2);
   assert.equal((hosting.match(/--arg strictEnvironment "\$\{REQUIRE_ENVIRONMENT_IDENTITY:-false\}"/g) || []).length, 2);
-  assert.match(hosting, /if: env\.REQUIRE_TESTING_PASS == 'true'[\s\S]*paws-testing-deploy-\$\{COMMIT_SHA\}[\s\S]*TESTING_PASS_REQUIRED/);
-  const aca = workflow('azure-beta-aca-deploy.yml');
-  assert.match(aca, /environment: production/);
+  assert.doesNotMatch(hosting, /paws-testing-deploy-\$\{COMMIT_SHA\}&per_page/, 'the name-only artifact lookup is gone');
   assert.match(aca, /PAWS_ENVIRONMENT_NOT_PRODUCTION/);
 });
 

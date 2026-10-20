@@ -57,6 +57,15 @@ function isLoopbackSqlHost(host) {
   return ['.', '(local)', 'localhost', '127.0.0.1', '::1', '[::1]'].includes(value) || /^127\./.test(value);
 }
 
+// Testing may use only a dedicated Azure SQL logical server (public or private-link name) or a LocalDB
+// instance on a developer machine. IP addresses, on-premises names and other hosts are refused, so a typo
+// or a copied Production value can never point a Testing runtime at the University server.
+const AZURE_SQL_HOST = /^[a-z0-9][a-z0-9-]{0,61}[a-z0-9](\.privatelink)?\.database\.windows\.net$/;
+function isAllowedTestingSqlHost(host) {
+  const value = String(host || '').toLowerCase();
+  return value === '(localdb)' || AZURE_SQL_HOST.test(value);
+}
+
 function isProductionSqlServer(host) {
   const value = String(host || '').toLowerCase();
   return PRODUCTION_SQL_SERVERS.some(item => value === item || value.startsWith(item + '.'));
@@ -86,6 +95,7 @@ function resolveEnvironment(env = {}) {
   const allowed = String(env.PAWS_TESTING_SQL_SERVER || '').trim().toLowerCase();
   if (!allowed) fail('Testing requires PAWS_TESTING_SQL_SERVER (the Testing SQL server host)');
   if (isProductionSqlServer(allowed) || isLoopbackSqlHost(allowed)) fail('PAWS_TESTING_SQL_SERVER must name the Testing SQL server');
+  if (!isAllowedTestingSqlHost(allowed)) fail('PAWS_TESTING_SQL_SERVER must be a dedicated Azure SQL server (<name>.database.windows.net) or (localdb)');
   if (host !== allowed) fail('Testing SQL server does not match PAWS_TESTING_SQL_SERVER');
   return Object.freeze({ name, testing: true, testingEnvironmentId: testingEnvironmentId.toLowerCase() });
 }
@@ -120,5 +130,6 @@ module.exports = {
   assertDatabaseIdentity,
   sqlServerHost,
   isProductionSqlServer,
-  isLoopbackSqlHost
+  isLoopbackSqlHost,
+  isAllowedTestingSqlHost
 };

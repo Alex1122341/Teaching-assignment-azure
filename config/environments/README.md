@@ -20,3 +20,16 @@ Testing artifact while any required value is missing or points at Production.
 | `firebase.projectId` | `tester-teaching` | a separate Firebase project |
 | `siteUrl` | production Hosting URL | Testing Hosting URL |
 | `peerSiteUrl` | Testing site (null hides the button) | production site |
+
+## Provisioning Testing
+
+`testing.template.json` shows every value `testing.json` needs once the Testing resources exist. Copy the
+values from the Testing Firebase project (Project settings → Your apps → Web app config) and the Testing
+Container App ingress URL. The validator rejects any value that still contains a `<placeholder>`, a
+Production host or Firebase value, an IP address or `localhost`.
+
+When `testing.json` is filled in, set `production.json` `peerSiteUrl` to the Testing `siteUrl` in the same
+reviewed change. That changes the shipped `paws-api-origin.js`, so it needs its own freeze promotion.
+
+Run `node tools/testing-preflight.js` to see exactly what is still missing, and `--live` to probe the
+deployed Testing API and site.

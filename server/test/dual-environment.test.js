@@ -303,3 +303,44 @@ test('the API sends no email, SMS or webhook notifications (Testing cannot reach
   const deps = Object.keys(require('../package.json').dependencies || {});
   for (const dep of deps) assert.doesNotMatch(dep, /mail|smtp|sendgrid|twilio|communication/i, `dependency ${dep}`);
 });
+
+// ---------------------------------------------------------------- Testing SQL host shape (PR #125 I8)
+test('Testing accepts only a dedicated Azure SQL server or LocalDB, never an IP, on-premises or look-alike host', () => {
+  const { isAllowedTestingSqlHost } = require('../src/runtime/environment');
+  for (const host of ['paws-testing-sql.database.windows.net', 'paws-testing-sql.privatelink.database.windows.net', '(localdb)']) {
+    assert.equal(isAllowedTestingSqlHost(host), true, host);
+  }
+  for (const host of ['10.1.2.3', '192.168.0.10', 'itappvetopsdb01.ad.ucalgary.ca', 'vetmed-sql', 'paws-testing-sql.database.windows.net.evil.example',
+    'database.windows.net', '-x.database.windows.net', 'paws_testing.database.windows.net', 'paws-testing-sql.database.windows.org', '']) {
+    assert.equal(isAllowedTestingSqlHost(host), false, host);
+    const connection = `Server=tcp:${host || 'x'},1433;Database=VetMed-Ops;Encrypt=true`;
+    assert.throws(() => resolveEnvironment(testingEnv({ PAWS_SQL_CONNECTION_STRING: connection, PAWS_TESTING_SQL_SERVER: host || 'x' })), /ENVIRONMENT|Azure SQL|production SQL|loopback|Testing SQL server/, host);
+  }
+});
+
+test('negative connection matrix: every wrong target is refused before any SQL connection is attempted', () => {
+  const cases = [
+    ['Testing -> University Production server', testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=ITAPPVETOPSDB01;Database=VetMed-Ops;Trusted_Connection=Yes', PAWS_TESTING_SQL_SERVER: 'paws-testing-sql.database.windows.net' })],
+    ['Testing -> University server FQDN', testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=tcp:itappvetopsdb01.ad.ucalgary.ca,1433;Database=VetMed-Ops', PAWS_TESTING_SQL_SERVER: 'itappvetopsdb01.ad.ucalgary.ca' })],
+    ['Testing -> legacy Azure lab (real faculty data)', testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=tcp:ucvm-teaching-lab-xz-20260911.database.windows.net;Database=VetMed-Ops', PAWS_TESTING_SQL_SERVER: 'ucvm-teaching-lab-xz-20260911.database.windows.net' })],
+    ['Testing -> two servers in one string', testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=tcp:paws-testing-sql.database.windows.net;Data Source=ITAPPVETOPSDB01;Database=VetMed-Ops' })],
+    ['Testing -> loopback alias for the local production instance', testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=.;Database=VetMed-Ops', PAWS_TESTING_SQL_SERVER: '.' })],
+    ['Testing with the Production Firebase project', testingEnv({ FIREBASE_PROJECT_ID: 'tester-teaching' })],
+    ['Testing without an environment id', testingEnv({ PAWS_TESTING_ENVIRONMENT_ID: '' })],
+    ['Production carrying a Testing id', { PAWS_ENVIRONMENT: 'production', PAWS_TESTING_ENVIRONMENT_ID: TEST_ID }],
+    ['Production carrying a Testing SQL allow-list', { PAWS_ENVIRONMENT: 'production', PAWS_TESTING_SQL_SERVER: 'paws-testing-sql.database.windows.net' }],
+    ['no environment at all', { PAWS_SQL_CONNECTION_STRING: 'Server=tcp:paws-testing-sql.database.windows.net' }]
+  ];
+  for (const [name, env] of cases) assert.throws(() => resolveEnvironment(env), error => error.code === 'ENVIRONMENT_MISCONFIGURED', name);
+});
+
+test('cross-environment tokens: each runtime accepts only tokens issued by its own Firebase project', async () => {
+  const { createFirebaseSqlAuth } = require('../src/auth/firebase-sql-auth');
+  const issued = project => async () => ({ uid: 'u', aud: project, iss: `https://securetoken.google.com/${project}` });
+  const production = createFirebaseSqlAuth({ verifyIdToken: issued('paws-testing'), expectedProjectId: 'tester-teaching' });
+  await assert.rejects(production('token-from-testing'), error => error.status === 401, 'Production rejects a Testing token');
+  const testing = createFirebaseSqlAuth({ verifyIdToken: issued('tester-teaching'), expectedProjectId: 'paws-testing' });
+  await assert.rejects(testing('token-from-production'), error => error.status === 401, 'Testing rejects a Production token');
+  const ok = createFirebaseSqlAuth({ verifyIdToken: issued('paws-testing'), expectedProjectId: 'paws-testing' });
+  assert.equal((await ok('t')).uid, 'u');
+});

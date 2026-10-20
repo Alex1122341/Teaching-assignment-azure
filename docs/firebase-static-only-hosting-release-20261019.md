@@ -27,3 +27,11 @@ This is an additive explicit static-only mode, not a reduction of the normal API
 
 ## No-repeat
 Do not replay the AFC import/correction, MASTER 413 CCC source replacement, Faculty/trainee imports, SQL migrations or DOE calculation or publication.
+
+## 2026-10-20: Preserve authorized live DOE gates in the default release path
+
+Live University API release `6bc6a640986e2aebf4b3084cde43addedd8a9593` reported `doeAdmin=true`, `doePolicyPublish=true`, and `doeRecalculate=true` as well as other enabled gates. The previous default Firebase release validation incorrectly assumed all three DOE gates were disabled and would reject a healthy, legitimately configured API. Turning these gates off to pass CI would change existing business behavior and is prohibited.
+
+The narrow repair removes only the *obsolete DOE=false assertion* in the **normal** pre/post-release gates. The normal path still requires the **exact tested API `releaseSha`**, nonempty all-boolean `writeGates`, healthy SQL, the University API authority, anonymous 401, exact CORS, trusted successful main build, frozen artifact provenance, and a byte-verified Hosting-only publication. The pre/post gate fingerprint remains mandatory and must be identical. The static-only path still fails if any protected API runtime, build, or package input changed. No business module, SQL, Firebase rules, authentication or live gate is altered.
+
+This workflow repair is not evidence of University API activation or Firebase release. The operator must independently capture and compare **all existing live write-gate values before and after the University API cutover**, then publish the exact tested frontend only after the matching API is healthy. If a gate unexpectedly changes, roll back the API before attempting Hosting. Human approval of an unrelated DOE recalculation or publication is not implied.

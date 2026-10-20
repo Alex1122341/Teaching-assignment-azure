@@ -1,3 +1,7 @@
+## Owner-approved Dashboard History one-time presentation reset — 2026-10-20
+
+Owner explicitly selected hiding all old Dashboard History entries, establishing one fixed current-state display baseline `2026-10-20T21:13:42.660Z`, showing only later changes and preserving all original SQL audits. This decision changes **presentation scope only**, not business data or immutable audit sources. My Change History and Calendar Changes remain unchanged. A client cannot override the server's UTC reset boundary. Real-data rollout requires exact reviewed freeze/CI and coordinated University API / Firebase Hosting acceptance. See `docs/dashboard-history-reset-baseline-20261020.md`.
+
 # PAWS Locked Decisions
 
 ## Owner-approved retirement of unused Azure Static Web Apps frontend hosting — 2026-10-19

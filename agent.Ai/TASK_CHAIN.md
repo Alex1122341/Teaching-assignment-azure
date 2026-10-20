@@ -1,3 +1,7 @@
+## Current: Owner-approved Dashboard History one-time presentation reset — 2026-10-20
+
+Fixed Dashboard-only SQL read baseline at `2026-10-20T21:13:42.660Z`; keep all underlying AuditEvent/DOE audits and other History scopes. Branch `feat/dashboard-history-reset-baseline-20261020` product `573dbe468eb23b177d92317f9a6e3ec04d2c94ec` from main `15dd7390d613bd3bd2163f411b81bc4ffdf22fd1`; code/tests are candidate-only until freeze governance, full CI, PR acceptance and separate real-data University API/Hosting release. No SQL deletion, replay, migration, DOE publish, recalculation, or changes to 27 gates. See `docs/dashboard-history-reset-baseline-20261020.md`.
+
 ## Current: Azure SWA static-hosting code retirement candidate — 2026-10-19
 
 Owner requested unused Azure Static Web Apps release code removal. See `agent.Ai/updates/2026-10-19-retire-azure-swa-static.md`. Branch `chore/remove-retired-azure-swa-static-20261019` (base main `9fcabc0`); removed static-only Azure workflows, PS deployer, SWA config and associated tests, retained Firebase Hosting + exact artifact freeze and University API/SQL/ACA runtime. **Candidate only:** PR, CI, merge and deployment status must be verified; no live mutations performed. Do not delete `swa-api/` or `server/src/runtime/swa-*` due to active API dependencies.

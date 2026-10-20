@@ -1,0 +1,23 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
+const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
+const PREVIOUS='846858a242cf2a96b0257822ac22d8ab6a770c94',BASE='6addfb9125066c5dd14ca7a3d7c38be6a01a870a',PRODUCT='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
+const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
+test('Availability pins the independently reviewed product with exact additive static/API coverage',()=>{
+ assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+ git('merge-base','--is-ancestor',PREVIOUS,BASE);git('merge-base','--is-ancestor',BASE,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
+ const manifest=ref=>JSON.parse(git('show',ref+':tools/static-assets.json')).sort(),before=manifest(PREVIOUS),after=manifest(PRODUCT);
+ assert.equal(before.length,81);assert.equal(after.length,83);assert.deepEqual(before.filter(p=>!after.includes(p)),[]);
+ assert.deepEqual(after.filter(p=>!before.includes(p)),['faculty-availability.css','faculty-availability.js']);
+ const oldApi=api.baselineRuntimeFiles({root,baselineCommit:PREVIOUS}),newApi=api.baselineRuntimeFiles({root,baselineCommit:PRODUCT});
+ assert.equal(oldApi.length,103);assert.equal(newApi.length,106);assert.deepEqual(oldApi.filter(p=>!newApi.includes(p)),[]);
+ assert.deepEqual(newApi.filter(p=>!oldApi.includes(p)),['server/src/availability/faculty-availability-api.js','server/src/data/sql-faculty-availability-repository.js','server/src/runtime/swa-faculty-availability-functions.js']);
+ const changed=git('diff','--name-only',BASE,PRODUCT).split(/\r?\n/),protectedApi=[...new Set([...oldApi,...newApi,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES])].sort();
+ const staticDelta=['faculty-admin.html','faculty-admin.js','faculty-availability.css','faculty-availability.js','paws-data-client.js'];
+ const apiDelta=['server/src/availability/faculty-availability-api.js','server/src/data/sql-dashboard-repository.js','server/src/data/sql-faculty-availability-repository.js','server/src/runtime/swa-faculty-availability-functions.js','server/src/runtime/swa-sql-runtime.js'];
+ assert.deepEqual(changed.filter(p=>after.includes(p)).sort(),staticDelta);assert.deepEqual(changed.filter(p=>protectedApi.includes(p)).sort(),apiDelta);
+ assert.deepEqual(changed.filter(p=>p.startsWith('database/azure-sql/')).sort(),['database/azure-sql/056_faculty_availability_read.sql','database/azure-sql/rollback_056_faculty_availability_read.sql']);
+ for(const file of [...before,...protectedApi].filter(p=>!changed.includes(p)))assert.equal(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:BASE,file}),freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),true,file);
+ assert.deepEqual(Object.keys(report.sha256).sort(),after);for(const file of after)assert.equal(report.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
+ assert.equal(freeze.verifyFreeze({root}).ok,true);assert.equal(api.verifyFreeze({root}).ok,true);
+});

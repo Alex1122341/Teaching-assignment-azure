@@ -14,6 +14,7 @@ const facultyId='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222
  assert.equal(all.length,upcoming.total);assert.equal(new Set(all.map(x=>x.eventKey)).size,all.length);assert.ok(!all.some(x=>x.detail==='Completed today'));assert.ok(all.some(x=>x.kind==='afc'));assert.ok(all.some(x=>x.kind==='pending'));
  assert.ok(all.some(x=>x.label==='Remote work'&&x.availability==='informational'));assert.ok(all.some(x=>x.label==='Partial CCC'&&x.timeStatus==='partial'));
  assert.ok(all.some(x=>x.eventKey.startsWith('responsibility:')&&x.detail==='Authority-only HICC'&&x.availability==='ongoing'),'Authority-only current HICC must be included');
+ assert.ok(all.some(x=>x.eventKey.startsWith('responsibility:')&&x.detail==='Authority-only HICC'&&x.endDate===null),'Open-ended authority responsibility must be included');
  assert.ok(!all.some(x=>x.detail==='Authority-only VISC'),'Expired VISC must not be upcoming');assert.equal(upcoming.coverage.undatedRoles,1,'Explicit empty appointment is inactive, not missing coverage');
  assert.doesNotMatch(JSON.stringify(all),/PRIVATE|private@example|ReasonCode|Doe|Email|UCID/);
  const historic=await repo.list({...params,mode:'range',startDate:'2024-06-01',endDate:'2024-06-01'});assert.ok(historic.items.some(x=>x.kind==='teaching'));assert.ok(historic.items.some(x=>x.kind==='afc'&&x.startDate==='2024-05-01'));assert.ok(historic.items.some(x=>x.kind==='role'&&x.endDate==='2024-06-30'));

@@ -57,7 +57,7 @@ test('Dashboard AFC multi-input is one authorized operation, including all field
  const events=Array.from({length:5},(_,i)=>{
   const day=String(9+i).padStart(2,'0');
   return {source:'audit',eventId:'77777777-7777-4777-8777-'+String(i+1).padStart(12,'0'),eventType:'afc_record_created',
-   entityType:'afc_record',entityId:'88888888-8888-4888-8888-'+String(i+1).padStart(12,'0'),occurredAtUtc:'2026-10-20T16:00:00Z',
+   entityType:'afc_record',entityId:'88888888-8888-4888-8888-'+String(i+1).padStart(12,'0'),occurredAtUtc:'2026-10-20T22:00:00Z',
    actorName:'Recorded Admin',metadataJson:JSON.stringify({source:'multi_input',batchRequestId:request,batchRowNumber:i,batchRowCount:5}),
    beforeJson:null,afterJson:JSON.stringify({facultyId,startDate:'2026-11-'+day,endDate:'2026-11-'+day,purpose:'University Travel',active:true}),
    contextJson:JSON.stringify({affectedFaculty:[{facultyId,facultyKey:facultyId,displayName:'Faculty A'}]})};
@@ -80,7 +80,7 @@ test('Dashboard AFC multi-input is one authorized operation, including all field
 });
 test('Dashboard grouped results never disclose other faculty details after scope filtering',async()=>{
  const events=[A,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',A].map((facultyId,i)=>({
-  source:'audit',eventId:'e'+i,eventType:'afc_record_created',entityType:'afc_record',occurredAtUtc:'2026-10-20T16:00:00Z',
+  source:'audit',eventId:'e'+i,eventType:'afc_record_created',entityType:'afc_record',occurredAtUtc:'2026-10-20T22:00:00Z',
   metadataJson:JSON.stringify({source:'multi_input',batchRequestId:'11111111-1111-4111-8111-111111111111',batchRowNumber:i,batchRowCount:3}),
   beforeJson:null,afterJson:JSON.stringify({facultyId,startDate:'2026-11-11',endDate:'2026-11-12',purpose:'Vacation',active:true}),
   contextJson:JSON.stringify({affectedFaculty:[{facultyId,facultyKey:facultyId,displayName:facultyId===A?'Faculty A':'Private B'}]})
@@ -99,7 +99,7 @@ test('Dashboard grouped results never disclose other faculty details after scope
 test('Dashboard pagination counts complete operations instead of individual changed fields',async()=>{
  const events=Array.from({length:101},(_,i)=>({
   source:'audit',eventId:'event-'+i,eventType:'afc_record_created',entityType:'afc_record',
-  occurredAtUtc:'2026-10-20T16:00:00Z',afterJson:JSON.stringify({facultyId:A,startDate:'2026-11-09',endDate:'2026-11-09',purpose:'Vacation',active:true}),
+  occurredAtUtc:'2026-10-20T22:00:00Z',afterJson:JSON.stringify({facultyId:A,startDate:'2026-11-09',endDate:'2026-11-09',purpose:'Vacation',active:true}),
   contextJson:JSON.stringify({affectedFaculty:[{facultyId:A,displayName:'Faculty A'}]})
  }));
  const api=createChangeHistoryApi({verifyToken:async()=>({uid:'admin'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'adfa_general'}),repository:{list:async()=>events}});
@@ -112,4 +112,49 @@ test('Dashboard pagination counts complete operations instead of individual chan
  assert.equal(second.status,200);
  assert.equal(second.body.rows.length,1);
  assert.equal(second.body.rows[0].recordCount,1);
+});
+
+test('Dashboard reset clamps SQL UTC range, hides older audits from grouped export and allows boundary/new events',async()=>{
+ const {DASHBOARD_HISTORY_BASELINE_UTC:cutoff}=require('../src/history/change-history-api');
+ const fid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+ const event=(id,date)=>({source:'audit',eventId:id,eventType:'afc_record_created',entityType:'afc_record',
+  occurredAtUtc:date,actorName:'Admin',afterJson:JSON.stringify({facultyId:fid,startDate:'2026-11-10',endDate:'2026-11-10',purpose:'Vacation',active:true}),
+  contextJson:JSON.stringify({affectedFaculty:[{facultyId:fid,displayName:'Faculty A'}]})});
+ const events=[event('old','2026-10-20T21:13:42.659Z'),event('boundary',cutoff),event('new','2026-10-20T22:00:00.000Z'),event('invalid','invalid')];
+ let args;
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'actor'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'adfa_general'}),
+  repository:{list:async input=>{args=input;return events;}},clock:()=>Date.parse('2026-10-21T12:00:00Z')});
+ const q=await api.query('token',{scope:'dashboard',academicYear:'2026-27',start:'2019-01-01',end:'9999-12-31'});
+ assert.equal(q.status,200);assert.equal(q.body.historyBaselineUtc,cutoff);
+ assert.equal(args.startUtc,cutoff);assert.equal(args.endUtc,'2026-10-22T00:00:00.000Z');
+ assert.equal(q.body.total,2);assert.ok(q.body.rows.every(row=>Date.parse(row.changeDate)>=Date.parse(cutoff)));
+ assert.match(q.body.coverage[0],/older SQL audit events were retained/i);
+ const csv=await api.export('token',{snapshot:q.body.snapshot,format:'csv'});
+ assert.equal(csv.status,200);assert.equal(csv.body.rowCount,2);
+ assert.doesNotMatch(Buffer.from(csv.body.fileBase64,'base64').toString('utf8'),/old|invalid/);
+});
+test('Pre-baseline Dashboard end yields a valid empty snapshot and export without reading SQL',async()=>{
+ let calls=0;
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'actor'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'adfa_general'}),
+  repository:{list:async()=>{calls++;return [];}},clock:()=>Date.parse('2026-10-21T12:00:00Z')});
+ const q=await api.query('token',{scope:'dashboard',academicYear:'2026-27',start:'2026-10-01',end:'2026-10-20'});
+ assert.equal(q.status,200);assert.equal(q.body.total,0);assert.equal(calls,0);
+ const csv=await api.export('token',{snapshot:q.body.snapshot,format:'csv'});
+ assert.equal(csv.status,200);assert.equal(csv.body.rowCount,0);
+});
+test('Client-supplied cutoff cannot bypass Dashboard, while My History and Calendar Changes retain old events',async()=>{
+ const fid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+ const old={source:'audit',eventId:'old-session',eventType:'session_updated',entityType:'session',entityId:fid,
+  occurredAtUtc:'2026-10-16T10:00:00Z',beforeJson:'{"room":"Old"}',afterJson:'{"room":"New"}',
+  contextJson:JSON.stringify({academicYear:'2026-27',affectedFaculty:[{facultyId:fid,displayName:'Teacher'}]})};
+ const seen=[];
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'faculty'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'faculty',facultyId:fid}),
+  repository:{list:async arg=>{seen.push(arg);return [old];}},clock:()=>Date.parse('2026-10-21T12:00:00Z')});
+ assert.equal((await api.query('token',{scope:'dashboard',historyBaselineUtc:'2019-01-01T00:00:00.000Z'})).status,400);
+ assert.equal((await api.query('token',{scope:'dashboard',startUtc:'2019-01-01T00:00:00.000Z'})).status,400);
+ assert.equal(seen.length,0);
+ assert.equal((await api.query('token',{scope:'dashboard',academicYear:'2026-27'})).body.total,0);
+ assert.equal((await api.query('token',{scope:'mine',academicYear:'2026-27'})).body.total,1);
+ assert.equal((await api.query('token',{scope:'timetable',academicYear:'2026-27'})).body.total,1);
+ assert.equal(seen[1].startUtc,undefined);assert.equal(seen[2].startUtc,undefined);
 });

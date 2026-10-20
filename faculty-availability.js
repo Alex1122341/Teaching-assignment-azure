@@ -79,4 +79,13 @@
   return Object.freeze({open:()=>loadRoster(),clear:()=>{generation++;items=[];cursor=null;roster=[];render();}});
  }
  root.PAWS_FACULTY_AVAILABILITY={createFacultyAvailability};
+ if(root.document&&root.UCVM_PAWS_DATA){
+   const host=root.document.getElementById('availability-view');
+   const tab=root.document.querySelector('[data-tab="availability"]');
+   if(host&&tab){
+     const view=createFacultyAvailability({api:root.UCVM_PAWS_DATA,host});
+     tab.addEventListener('click',()=>view.open());
+     root.document.getElementById('signout-btn')?.addEventListener('click',()=>view.clear());
+   }
+ }
 })(typeof window!=='undefined'?window:globalThis);

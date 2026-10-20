@@ -7,7 +7,7 @@ test('Dashboard has dedicated availability tab, view, module and stylesheet',()=
  assert.match(html,/id="availability-view"/);
  assert.match(html,/faculty-availability\.js/);
  assert.match(html,/faculty-availability\.css/);
- assert.match(admin,/availabilityView\?\.open/);
+ assert.match(admin,/if\(activeTab==='availability'\)return/);
  assert.match(admin,/lookup','trainees','availability/);
  assert.match(client,/facultyAvailability\(/);
 });

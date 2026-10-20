@@ -103,7 +103,7 @@ BEGIN
  OUTER APPLY(SELECT COUNT_BIG(*) EvidenceDays FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId) evidence
  OUTER APPLY(SELECT DATEDIFF(day,a.StartDate,a.EndDate)+1-evidence.EvidenceDays MissingDays) missing
  WHERE a.FacultyId=@FacultyId AND a.StartDate<=COALESCE(@Ceiling,'9999-12-31')
-   AND a.EndDate>=@Floor
+   AND a.EndDate>=@Floor AND a.Category<>N'remote_work'
    AND (@Mode<>N'upcoming' OR a.EndDate>@Today
         OR NOT EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId AND t.ActivityDate=@Today)
         OR EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId
@@ -144,14 +144,14 @@ BEGIN
   INSERT #Events(Kind,SourceKey,Label,StartDate,EndDate,Availability,TimeStatus,Detail)
   SELECT N'role',CONCAT(N'role:',CONVERT(nvarchar(36),r.RoleAssignmentId),N':legacy'),
          COALESCE(NULLIF(r.RoleType,N''),N'Role / appointment'),
-         COALESCE(r.EffectiveDate,CONVERT(date,'0001-01-01')),
+         r.EffectiveDate,
          CASE WHEN r.ExpirationDate IS NULL THEN NULL ELSE DATEADD(day,-1,r.ExpirationDate) END,
          N'ongoing',N'not_applicable',
          LEFT(COALESCE(NULLIF(r.CourseOrSubjectOrRotation,N''),NULLIF(r.CourseName,N''),N'Ongoing responsibility'),500)
   FROM paws.RoleAssignment r
   WHERE r.FacultyId=@FacultyId AND NOT EXISTS
        (SELECT 1 FROM paws.RoleAppointmentSchedule p WHERE p.RoleAssignmentId=r.RoleAssignmentId)
-    AND (r.EffectiveDate IS NOT NULL OR r.ExpirationDate IS NOT NULL)
+    AND r.EffectiveDate IS NOT NULL
     AND (r.EffectiveDate IS NULL OR r.EffectiveDate<=COALESCE(@Ceiling,'9999-12-31'))
     AND (r.ExpirationDate IS NULL OR r.ExpirationDate>@Floor);
  END;
@@ -161,7 +161,7 @@ BEGIN
    JOIN paws.SessionAssignment a ON a.SessionId=s.SessionId
    WHERE a.FacultyId=@FacultyId AND s.SessionDate IS NULL);
  DECLARE @UndatedRoles int=(SELECT COUNT(*) FROM paws.RoleAssignment r
-   WHERE r.FacultyId=@FacultyId AND r.EffectiveDate IS NULL AND r.ExpirationDate IS NULL
+   WHERE r.FacultyId=@FacultyId AND r.EffectiveDate IS NULL
    AND NOT EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule p
                   CROSS APPLY OPENJSON(p.PeriodsJson) j
                   WHERE p.RoleAssignmentId=r.RoleAssignmentId AND ISJSON(j.value)=1));

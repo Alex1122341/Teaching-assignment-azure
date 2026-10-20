@@ -25,7 +25,6 @@
   const workImport=window.PAWS_ACTIVITY_IMPORT?.createAdminEntry({api:UCVM_PAWS_DATA,host:$('calendar-activity-import'),notify:showToast,getUser:()=>currentUser,canAdmin:()=>!selfMode && dashboardAdmin(currentUser),onCommitted:async()=>{
     workView?.clear();invalidateFacultyDetails();await loadAdminDashboard();await loadAfcRecords(true);if(selectedId)await selectFacultyDetail(selectedId);
   }});
-  const availabilityView = window.PAWS_FACULTY_AVAILABILITY?.createFacultyAvailability({api:UCVM_PAWS_DATA,host:$('availability-view'),getSelfMode:()=>selfMode});
   const workView = window.PAWS_CALENDAR_ACTIVITIES?.createFacultySchedule({getHost:()=>$('faculty-working-activities'),getUser:()=>currentUser,getSelected:()=>selectedId,isSelf:()=>selfMode});
   let auth = null;
   let historyView = null;
@@ -73,7 +72,6 @@
   const detailCache = new Map();
   const detailPending = new Map();
   function invalidateFacultyDetails() {
-    // A write must start fresh reads; older requests cannot repopulate the cache.
     ++detailGeneration; ++detailLoadToken;
     detailCache.clear(); detailPending.clear(); selectedDetail = null;
   }
@@ -221,15 +219,15 @@
     if(activeTab!==tabName)traineesEntry?.clear();
     activeTab = tabName || 'lookup';
     document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.tab === activeTab));
-    ['lookup', 'availability', 'summary', 'roles', 'doe-overview', 'doe-list', 'doe-rules', 'afc-records','trainees'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
+    ['lookup','availability','summary','roles','doe-overview','doe-list','doe-rules','afc-records','trainees'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
     renderActiveTab();
   }
 
   function renderActiveTab() {
-    if(activeTab==='availability')return availabilityView?.open();
-    if(activeTab==='trainees')return traineesEntry?.open();
-    if (activeTab === 'summary') return loadTeachingSummary();
-    if (activeTab === 'roles') return loadRoles();
+  if(activeTab==='availability')return;
+  if(activeTab==='trainees')return traineesEntry?.open();
+  if (activeTab === 'summary') return loadTeachingSummary();
+  if (activeTab === 'roles') return loadRoles();
     if (activeTab === 'doe-overview') return loadDoeOverview();
     if (activeTab === 'doe-list') return loadDoeList();
     if (activeTab === 'doe-rules') return doePolicyView?.loadHistory();

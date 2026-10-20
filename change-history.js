@@ -21,14 +21,14 @@
     if(destroyed)return;const version=++sequence;
     update({busy:true,dirty:true,rows:[],snapshot:null,total:0,message:'Loading recorded history…'});
     try{const result=await api.changeHistory({...filters,scope});if(destroyed||version!==sequence)return;
-     update({...result,busy:false,dirty:false,message:result.total?`${result.total} filtered change rows · downloads include all rows.`:'No recorded changes match these filters.'});
+     update({...result,busy:false,dirty:false,message:result.total?`${result.total} filtered ${countName} · downloads include all ${countName}.`:'No recorded changes match these filters.'});
     }catch(error){if(!destroyed&&version===sequence)failed(error);}
    },
    async page(offset){
     if(!view().canExport)return;const version=++sequence,snapshot=state.snapshot;
     update({busy:true,message:'Loading page…'});
     try{const result=await api.changeHistoryPage(snapshot,offset);if(destroyed||version!==sequence)return;
-     update({...result,busy:false,message:`${result.total} filtered change rows · downloads include all rows.`});
+     update({...result,busy:false,message:`${result.total} filtered ${countName} · downloads include all ${countName}.`});
     }catch(error){if(!destroyed&&version===sequence)failed(error);}
    },
    async export(format){
@@ -36,7 +36,7 @@
     update({busy:true,message:'Preparing all filtered rows…'});
     try{const file=await api.changeHistoryExport(snapshot,format);if(destroyed||version!==sequence)return;
      await download(file,format);if(destroyed||version!==sequence)return;
-     update({busy:false,message:`Downloaded ${file.rowCount} filtered change rows.`});
+     update({busy:false,message:`Downloaded ${file.rowCount} filtered ${countName}.`});
     }catch(error){if(!destroyed&&version===sequence)failed(error);}
    },
    clear(message='History cleared. Apply filters to refresh.'){
@@ -57,6 +57,34 @@
    const label=String(row.changeType||'N/A').replaceAll('_',' ');
    return `<tr><td>${when}</td><td><span>${esc(label)}</span><small>${esc(missing(row.domain))}</small></td><td>${row.course?`<strong>${esc(row.course)}</strong> · `:''}${valueCell(row.session||row.affectedFaculty)}${row.session&&row.affectedFaculty?`<small>${valueCell(row.affectedFaculty)}</small>`:''}</td><td class="history-change"><strong class="history-field">${esc(missing(row.field))}</strong><div class="history-from-to"><span><span class="history-value-label">From </span>${valueCell(row.previousValue)}</span><span aria-hidden="true"> → </span><span><span class="history-value-label">To </span>${valueCell(row.updatedValue)}</span></div></td><td><span class="history-date-range">${endpoint(false)}<br>${endpoint(true)}</span></td><td>${valueCell(row.actor)}</td></tr>`;
   }).join('')||'<tr><td colspan="6">No recorded changes to display.</td></tr>';
+ }
+
+ function renderOperationRows(rows){
+  return rows.map(operation=>{
+   const date=new Date(operation.changeDate),valid=Number.isFinite(date.getTime());
+   const timestamp=valid?esc(date.toISOString()):'';
+   const local=valid?esc(date.toLocaleString('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})):'';
+   const when=valid?'<time datetime="'+timestamp+'" title="'+timestamp+' UTC">'+local+'</time><small>Calgary</small>':'N/A';
+   const records=Array.isArray(operation.records)?operation.records:[];
+   const changeCount=Number.isSafeInteger(operation.changeCount)?operation.changeCount:0;
+   const recordCount=Number.isSafeInteger(operation.recordCount)?operation.recordCount:records.length;
+   const dates=[operation.startDate,operation.endDate].filter(Boolean).map(esc);
+   const range=dates.length===2?dates.join(' → '):dates[0]||'N/A';
+   const details=records.map((record,i)=>{
+    const fields=Array.isArray(record.changes)?record.changes:[];
+    const fieldRows=fields.map(change=>'<tr><td>'+esc(missing(change.field))+'</td><td>'+valueCell(change.previousValue)+'</td><td>'+valueCell(change.updatedValue)+'</td></tr>').join('');
+    const subject=[record.course,record.session].filter(Boolean).map(esc).join(' · ');
+    const recordDates=[record.startDate,record.endDate].filter(Boolean).map(esc).join(' → ');
+    return '<section class="history-operation-record"><h4>Record '+(i+1)+' of '+records.length+(record.affectedFaculty?' · '+esc(record.affectedFaculty):'')+'</h4>'+
+      (subject?'<p>'+subject+'</p>':'')+(recordDates?'<p>'+recordDates+'</p>':'')+
+      '<table class="history-details-table"><thead><tr><th scope="col">Field</th><th scope="col">From</th><th scope="col">To</th></tr></thead><tbody>'+fieldRows+'</tbody></table></section>';
+   }).join('');
+   return '<tr class="history-operation-row"><td colspan="6" class="history-operation-cell"><details class="history-operation-group">'+
+    '<summary class="history-operation-summary"><span>'+when+'</span><span><strong>'+esc(missing(operation.title||operation.changeType))+
+    '</strong><small>'+esc(missing(operation.domain))+'</small></span><span>'+recordCount+' record'+(recordCount===1?'':'s')+
+    '</span><span>'+changeCount+' field change'+(changeCount===1?'':'s')+' <small class="history-expand-prompt">View details</small></span><span class="history-date-range">'+range+
+    '</span><span>'+valueCell(operation.actor)+'</span></summary><div class="history-operation-details">'+details+'</div></details></td></tr>';
+  }).join('')||'<tr><td colspan="6">No recorded operations to display.</td></tr>';
  }
  function browserDownload(file,format){
   const types={csv:'text/csv; charset=utf-8',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
@@ -82,7 +110,7 @@
    </div></details></form>
    <div class="history-toolbar"><p data-history-status role="status" aria-live="polite"></p><div><button type="button" data-history-export="csv" disabled>Download CSV</button><button type="button" data-history-export="xlsx" disabled>Download Excel</button></div></div>
    <details class="history-coverage"><summary>History coverage and privacy</summary><ul data-history-coverage></ul><p>Search covers every permitted change in the selected academic year. N/A means the source did not record a value. Expand a long value to read it in full.</p></details>
-   <div class="history-table-scroll" tabindex="0" role="region" aria-label="Filtered change history table"><table><thead><tr>${['Time','Type / Domain','Session / Faculty','Change · From → To','Start / End','By whom'].map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody data-history-rows></tbody></table></div>
+   <div class="history-table-scroll" tabindex="0" role="region" aria-label="Filtered change history table"><table><thead><tr>${(scope==='dashboard'?['Time','Operation / Domain','Affected records','Changes','Start / End','By whom']:['Time','Type / Domain','Session / Faculty','Change · From → To','Start / End','By whom']).map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody data-history-rows></tbody></table></div>
    <div class="history-paging"><button type="button" data-history-prev disabled>Previous</button><span data-history-page></span><button type="button" data-history-next disabled>Next</button></div></section>`;
   const find=selector=>host.querySelector(selector),form=find('form'),inputs=[...host.querySelectorAll('[data-history-filter]')];
   const filters=()=>Object.fromEntries(inputs.filter(input=>input.value).map(input=>[input.dataset.historyFilter,input.value]));
@@ -97,7 +125,7 @@
   }
   function render(state){
    find('[data-history-status]').textContent=state.message;
-   find('[data-history-rows]').innerHTML=renderRows(state.rows);
+   find('[data-history-rows]').innerHTML=scope==='dashboard'?renderOperationRows(state.rows):renderRows(state.rows);
    host.querySelectorAll('[data-history-export]').forEach(button=>button.disabled=!state.canExport);
    find('[data-history-apply]').disabled=state.busy;
    find('[data-history-prev]').disabled=!state.canExport||state.offset===0;
@@ -126,5 +154,5 @@
   controller.refresh(filters());
   return {refresh:()=>controller.refresh(filters()),clear,destroy(){root.removeEventListener?.('paws-profile',profileChanged);if(typeof detach==='function')detach();controller.destroy();host.innerHTML='';}};
  }
- return {createHistoryController,renderRows,mount};
+ return {createHistoryController,renderRows,renderOperationRows,mount};
 });

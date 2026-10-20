@@ -10,15 +10,18 @@ const { main, splitBatches, adapt, assertLocalOdbc, decideAction, markerGrantSql
 
 const TESTING = {
   PAWS_ENVIRONMENT: 'testing', PAWS_TESTING_ENVIRONMENT_ID: '3f0c9a52-7d1e-4b6a-9c2f-0a1b2c3d4e5f', FIREBASE_PROJECT_ID: 'paws-testing',
-  PAWS_SQL_CONNECTION_STRING: 'Server=tcp:paws-testing-sql.database.windows.net;Database=VetMed-Ops;Encrypt=true'
+  PAWS_SQL_CONNECTION_STRING: 'Server=tcp:paws-testing-sql.database.windows.net;Database=VetMed-Ops;Encrypt=true',
+  PAWS_TESTING_SQL_SERVER: 'paws-testing-sql.database.windows.net'
 };
 
 test('reset refuses anything but an explicitly configured Testing environment, before connecting', async () => {
-  await assert.rejects(main(['--confirm-reset'], { ...TESTING, PAWS_ENVIRONMENT: 'production', PAWS_TESTING_ENVIRONMENT_ID: undefined }), /only runs with PAWS_ENVIRONMENT=testing/);
+  await assert.rejects(main(['--confirm-reset'], { ...TESTING, PAWS_ENVIRONMENT: 'production', PAWS_TESTING_ENVIRONMENT_ID: undefined, PAWS_TESTING_SQL_SERVER: undefined }), /only runs with PAWS_ENVIRONMENT=testing/);
   await assert.rejects(main(['--confirm-reset'], { ...TESTING, PAWS_ENVIRONMENT: undefined }), /PAWS_ENVIRONMENT/);
   await assert.rejects(main(['--confirm-reset'], { ...TESTING, PAWS_SQL_CONNECTION_STRING: 'Server=ITAPPVETOPSDB01;Database=VetMed-Ops' }), /production SQL server/);
   await assert.rejects(main(['--confirm-reset'], { ...TESTING, FIREBASE_PROJECT_ID: 'tester-teaching' }), /production Firebase/);
   await assert.rejects(main([], TESTING), /--confirm-reset/);
+  await assert.rejects(main(['--confirm-reset'], { ...TESTING, PAWS_ENVIRONMENT: 'production', PAWS_TESTING_ENVIRONMENT_ID: undefined }), /not valid in production/);
+  await assert.rejects(main(['--confirm-reset'], { ...TESTING, PAWS_TESTING_SQL_SERVER: 'other-sql.database.windows.net' }), /does not match PAWS_TESTING_SQL_SERVER/);
   await assert.rejects(main(['--confirm-reset'], { ...TESTING, PAWS_TESTING_LOCAL_ODBC: 'Driver={SQL Server};Server=x' }), /only accepted for a \(localdb\)/);
 });
 

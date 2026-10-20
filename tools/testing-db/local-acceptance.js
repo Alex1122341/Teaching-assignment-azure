@@ -63,7 +63,7 @@ EXEC (@sql);`);
 
 function testingEnv(extra = {}) {
   return { PAWS_ENVIRONMENT: 'testing', PAWS_TESTING_ENVIRONMENT_ID: TESTING_ID, FIREBASE_PROJECT_ID: 'paws-testing-local',
-    PAWS_SQL_CONNECTION_STRING: `Server=(localdb)\\${TESTING_INSTANCE};Database=VetMed-Ops`, ...extra };
+    PAWS_SQL_CONNECTION_STRING: `Server=(localdb)\\${TESTING_INSTANCE};Database=VetMed-Ops`, PAWS_TESTING_SQL_SERVER: '(localdb)', ...extra };
 }
 function runtimeEnv(base, gatesOn) {
   const env = { ...base, PAWS_SQL_DRIVER: 'msnodesqlv8', PAWS_SQL_CONNECTION_STRING: base.PAWS_SQL_CONNECTION_STRING + ';Encrypt=true',

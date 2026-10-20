@@ -214,3 +214,31 @@ function renderBar(config, profileEvent, pathname) {
   (listeners['paws-profile'] || []).forEach(fn => fn({ detail: profileEvent }));
   return elements.get('paws-environment-bar').innerHTML;
 }
+
+// ------------------------------------------------------------------ deployment workflows
+const workflow = name => fs.readFileSync(path.join(root, '.github', 'workflows', name), 'utf8');
+
+test('Testing deploy skips quietly until Testing is provisioned, and deploys the tested API runtime', () => {
+  const testing = workflow('paws-testing-deploy.yml');
+  assert.match(testing, /gate:[\s\S]*provisioned=false[\s\S]*TESTING_ARTIFACT_MISSING/);
+  assert.match(testing, /deploy_testing:\s*\n\s*needs: gate\s*\n\s*if: needs\.gate\.outputs\.provisioned == 'true'/);
+  assert.match(testing, /name: azure-beta-\$\{\{ env\.COMMIT_SHA \}\}/);
+  assert.match(testing, /node tools\/beta-api-freeze\.js --artifact \.azure-production\/api/);
+  assert.match(testing, /cp -R \.azure-production\/api\/server\/src testing-image\/server\/src/);
+  assert.match(testing, /docker build -f deploy\/testing\/Dockerfile -t "\$image" testing-image/);
+  assert.doesNotMatch(testing, /docker build[^\n]* \.\s*$/m);
+  assert.match(testing, /PAWS_TESTING_SQL_SERVER/);
+  assert.match(testing, /environment: testing/);
+});
+
+test('Production release keeps its approval gate and gains switchable identity and Testing-pass checks', () => {
+  const hosting = workflow('firebase-hosting-deploy.yml');
+  assert.match(hosting, /environment: production/);
+  assert.match(hosting, /REQUIRE_ENVIRONMENT_IDENTITY: \$\{\{ vars\.PAWS_REQUIRE_ENVIRONMENT_IDENTITY \}\}/);
+  assert.equal((hosting.match(/if \$strictEnvironment == "true" then \.environment == "production"/g) || []).length, 2);
+  assert.equal((hosting.match(/--arg strictEnvironment "\$\{REQUIRE_ENVIRONMENT_IDENTITY:-false\}"/g) || []).length, 2);
+  assert.match(hosting, /if: env\.REQUIRE_TESTING_PASS == 'true'[\s\S]*paws-testing-deploy-\$\{COMMIT_SHA\}[\s\S]*TESTING_PASS_REQUIRED/);
+  const aca = workflow('azure-beta-aca-deploy.yml');
+  assert.match(aca, /environment: production/);
+  assert.match(aca, /PAWS_ENVIRONMENT_NOT_PRODUCTION/);
+});

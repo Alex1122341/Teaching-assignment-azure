@@ -31,8 +31,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy_testing:
+  # Until the Testing resources exist the build produces no Testing artifact. Skip quietly instead of
+  # failing every main push; a manual dispatch still fails loudly so a missing artifact is visible.
+  gate:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      provisioned: ${{ steps.check.outputs.provisioned }}
+    steps:
+      - name: Check the source build produced a Testing artifact
+        id: check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id || github.event.workflow_run.id }}
+          COMMIT_SHA: ${{ inputs.commit_sha || github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          count="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts" --jq "[.artifacts[] | select(.name == \"paws-testing-${COMMIT_SHA}\" and .expired == false)] | length")"
+          if [ "$count" = "1" ]; then echo "provisioned=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "provisioned=false" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo 'TESTING_ARTIFACT_MISSING'; exit 1; fi
+          echo '::notice::Testing is not provisioned yet (no paws-testing artifact); skipping Testing deploy.'
+
+  deploy_testing:
+    needs: gate
+    if: needs.gate.outputs.provisioned == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     environment: testing
@@ -101,6 +125,27 @@ jobs:
           node tools/verify-environment-config.js --artifact .azure-testing/app --environment testing
           node tools/beta-freeze.js --artifact .azure-testing/app --environment testing
 
+      # The Testing API runs the exact API runtime that CI built and froze for this commit,
+      # not a fresh copy of the source tree.
+      - name: Download exact tested API artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: azure-beta-${{ env.COMMIT_SHA }}
+          path: .azure-production
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+
+      - name: Verify tested API artifact (frozen runtime) and stage the image context
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/beta-api-freeze.js --artifact .azure-production/api
+          rm -rf testing-image && mkdir -p testing-image/server
+          cp server/package.json server/package-lock.json testing-image/server/
+          cp -R .azure-production/api/server/src testing-image/server/src
+          diff -r server/src testing-image/server/src
+
       - name: Log in to Azure (Testing identity only)
         uses: azure/login@v2
         with:
@@ -114,7 +159,7 @@ jobs:
           set -euo pipefail
           az acr login --name "$TESTING_ACR_NAME"
           image="$TESTING_ACR_NAME.azurecr.io/paws-testing-api:$COMMIT_SHA"
-          docker build -f deploy/testing/Dockerfile -t "$image" .
+          docker build -f deploy/testing/Dockerfile -t "$image" testing-image
           docker push "$image"
           echo "IMAGE=$image" >> "$GITHUB_ENV"
 
@@ -126,6 +171,8 @@ jobs:
           # provisioning); this deploy only changes the image and the attested release SHA.
           app_env="$(az containerapp show -n "$TESTING_ACA_APP" -g "$TESTING_ACA_RESOURCE_GROUP" --query 'properties.template.containers[0].env' -o json)"
           test "$(jq -r '.[] | select(.name=="PAWS_ENVIRONMENT") | .value' <<< "$app_env")" = "testing"
+          # The runtime refuses any SQL server other than the allow-listed Testing server.
+          test -n "$(jq -r '.[] | select(.name=="PAWS_TESTING_SQL_SERVER") | .value // empty' <<< "$app_env")"
           az containerapp update -n "$TESTING_ACA_APP" -g "$TESTING_ACA_RESOURCE_GROUP" --image "$IMAGE" \
             --set-env-vars "PAWS_RELEASE_SHA=$COMMIT_SHA" "PAWS_RUNTIME_TRUST_ANCHOR=$(node -p "require('./tools/beta-freeze').BASELINE_COMMIT")"
 

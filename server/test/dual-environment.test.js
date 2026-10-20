@@ -10,7 +10,8 @@ const { createSupportService } = require('../src/support/support-service');
 const TEST_ID = '3f0c9a52-7d1e-4b6a-9c2f-0a1b2c3d4e5f';
 const testingEnv = (extra = {}) => ({
   PAWS_ENVIRONMENT: 'testing', PAWS_TESTING_ENVIRONMENT_ID: TEST_ID, FIREBASE_PROJECT_ID: 'paws-testing',
-  PAWS_SQL_CONNECTION_STRING: 'Server=tcp:paws-testing-sql.database.windows.net,1433;Database=VetMed-Ops;Encrypt=true', ...extra
+  PAWS_SQL_CONNECTION_STRING: 'Server=tcp:paws-testing-sql.database.windows.net,1433;Database=VetMed-Ops;Encrypt=true',
+  PAWS_TESTING_SQL_SERVER: 'paws-testing-sql.database.windows.net', ...extra
 });
 
 // ---------------------------------------------------------------- environment identity
@@ -32,10 +33,29 @@ test('testing requires its own identity anchors and rejects production SQL / Fir
   assert.throws(() => resolveEnvironment(testingEnv({ PAWS_TESTING_ENVIRONMENT_ID: 'not-a-uuid' })), /PAWS_TESTING_ENVIRONMENT_ID/);
   assert.throws(() => resolveEnvironment(testingEnv({ FIREBASE_PROJECT_ID: 'tester-teaching' })), /production Firebase/);
   assert.throws(() => resolveEnvironment(testingEnv({ PAWS_SQL_CONNECTION_STRING: undefined })), /explicit SQL server/);
+  assert.throws(() => resolveEnvironment({ PAWS_ENVIRONMENT: 'production', PAWS_TESTING_SQL_SERVER: 'x' }), /not valid in production/);
   for (const server of ['ITAPPVETOPSDB01', 'itappvetopsdb01.ucalgary.ca', 'tcp:ITAPPVETOPSDB01,1433', 'ITAPPVETOPSDB01\\SQL2019',
     'ucvm-teaching-lab-xz-20260911.database.windows.net']) {
     assert.throws(() => resolveEnvironment(testingEnv({ PAWS_SQL_CONNECTION_STRING: `Data Source=${server};Initial Catalog=VetMed-Ops` })), /production SQL server/, server);
   }
+});
+
+test('Testing SQL server must be the one allow-listed host, named exactly once', () => {
+  // Duplicate server keys are ambiguous (drivers disagree which wins), so they are never accepted.
+  assert.equal(sqlServerHost('Server=tcp:paws-testing-sql.database.windows.net;Server=itappvetopsdb01;Database=x'), '');
+  assert.throws(() => resolveEnvironment(testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=tcp:paws-testing-sql.database.windows.net;Server=itappvetopsdb01;Database=VetMed-Ops' })), /exactly one explicit SQL server/);
+  assert.throws(() => resolveEnvironment(testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=tcp:paws-testing-sql.database.windows.net;Data Source=elsewhere;Database=VetMed-Ops' })), /exactly one explicit SQL server/);
+  // Loopback names could reach VetMed-Ops on the production host.
+  for (const server of ['.', '(local)', 'localhost', '127.0.0.1', 'tcp:127.0.0.1,1433', 'lpc:.']) {
+    assert.throws(() => resolveEnvironment(testingEnv({ PAWS_SQL_CONNECTION_STRING: `Server=${server};Database=VetMed-Ops`, PAWS_TESTING_SQL_SERVER: 'localhost' })), /loopback|Testing SQL server/, server);
+  }
+  // The allow-list is mandatory and must match the connection string exactly.
+  assert.throws(() => resolveEnvironment(testingEnv({ PAWS_TESTING_SQL_SERVER: undefined })), /PAWS_TESTING_SQL_SERVER/);
+  assert.throws(() => resolveEnvironment(testingEnv({ PAWS_TESTING_SQL_SERVER: 'other-sql.database.windows.net' })), /does not match PAWS_TESTING_SQL_SERVER/);
+  assert.throws(() => resolveEnvironment(testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=10.1.2.3;Database=VetMed-Ops' })), /does not match PAWS_TESTING_SQL_SERVER/);
+  assert.throws(() => resolveEnvironment(testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=ITAPPVETOPSDB01;Database=VetMed-Ops', PAWS_TESTING_SQL_SERVER: 'itappvetopsdb01' })), /production SQL server/);
+  // A LocalDB Testing database is allowed when it is the allow-listed host.
+  assert.equal(resolveEnvironment(testingEnv({ PAWS_SQL_CONNECTION_STRING: 'Server=(localdb)\\MSSQLLocalDB;Database=VetMed-Ops', PAWS_TESTING_SQL_SERVER: '(localdb)' })).testing, true);
 });
 
 test('SQL host parsing normalises protocol, port and instance', () => {
@@ -243,4 +263,30 @@ test('persona writes keep the real actor on the operation and audit rows', async
   assert.equal(op.params.target, 'fac');
   const audit = queries.find(q => /developer_support_operation/.test(q.text));
   assert.equal(audit.params.actor, 'admin');
+});
+
+// ---------------------------------------------------------------- startup
+test('API start-up retries an unreachable database with backoff but stops on a wrong environment', async () => {
+  const { verifyBeforeListening } = require('../src/runtime/university-api');
+  const waits = [], logs = [];
+  let calls = 0;
+  const flaky = { assertEnvironment: async () => { calls += 1; if (calls < 4) throw Object.assign(new Error('ECONNREFUSED'), { code: 'ESOCKET' }); return true; } };
+  assert.equal(await verifyBeforeListening({ runtime: flaky, wait: async ms => { waits.push(ms); }, log: line => logs.push(JSON.parse(line)) }), true);
+  assert.deepEqual(waits, [1000, 2000, 4000]);
+  assert.ok(logs.every(entry => entry.event === 'paws_api_sql_unavailable_retrying'));
+
+  const capped = [];
+  let n = 0;
+  const slow = { assertEnvironment: async () => { n += 1; if (n < 10) throw new Error('down'); return true; } };
+  await verifyBeforeListening({ runtime: slow, wait: async ms => { capped.push(ms); }, log: () => {} });
+  assert.equal(Math.max(...capped), 60000);
+
+  const wrong = { assertEnvironment: async () => { throw Object.assign(new Error('mismatch'), { code: 'ENVIRONMENT_MISCONFIGURED' }); } };
+  const rejected = [];
+  await assert.rejects(verifyBeforeListening({ runtime: wrong, wait: async () => assert.fail('must not retry'), log: line => rejected.push(JSON.parse(line)) }), /mismatch/);
+  assert.equal(rejected[0].event, 'paws_api_environment_rejected');
+
+  let stopping = false;
+  const stopped = { assertEnvironment: async () => { stopping = true; throw new Error('down'); } };
+  assert.equal(await verifyBeforeListening({ runtime: stopped, isStopping: () => stopping, wait: async () => assert.fail('no wait after stop'), log: () => {} }), false);
 });

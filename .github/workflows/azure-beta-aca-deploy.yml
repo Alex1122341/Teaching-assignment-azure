@@ -130,6 +130,13 @@ jobs:
           test "$mode" = "$EXPECTED_REVISION_MODE"
           fqdn="$(jq -r '.properties.configuration.ingress.fqdn // empty' <<< "$app_json")"
           test "$fqdn" = "$ACA_FQDN"
+          # The runtime refuses to serve without an explicit environment identity. Stop here, before a
+          # new revision is created, rather than activating a revision that answers 503.
+          declared_env="$(jq -r '[.properties.template.containers[0].env[]? | select(.name == "PAWS_ENVIRONMENT") | .value][0] // empty' <<< "$app_json")"
+          if [ "$declared_env" != "production" ]; then
+            echo 'PAWS_ENVIRONMENT_NOT_PRODUCTION: set PAWS_ENVIRONMENT=production on the container app before deploying this release.'
+            exit 1
+          fi
           revisions_json="$(az containerapp revision list --name "$ACA_APP_NAME" --resource-group "$ACA_RESOURCE_GROUP" -o json)"
           active_count="$(jq '[.[] | select(.properties.active == true)] | length' <<< "$revisions_json")"
           test "$active_count" = "1"

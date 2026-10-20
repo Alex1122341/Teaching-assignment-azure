@@ -39,6 +39,7 @@ jobs:
       PAWS_SQL_CONNECTION_STRING: ${{ secrets.PAWS_TESTING_SQL_ADMIN_CONNECTION_STRING }}
       PAWS_SQL_MI_CLIENT_ID: ${{ vars.PAWS_TESTING_SQL_ADMIN_CLIENT_ID }}
       PAWS_TESTING_RUNTIME_PRINCIPAL: ${{ vars.PAWS_TESTING_RUNTIME_PRINCIPAL }}
+      PAWS_TESTING_SQL_SERVER: ${{ vars.PAWS_TESTING_SQL_SERVER }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

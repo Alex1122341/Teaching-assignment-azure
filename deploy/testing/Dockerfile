@@ -1,5 +1,6 @@
 # PAWS Testing API container (University runtime, Testing environment only).
-# Same server source as Production; environment, SQL target, identity project and write gates
+# Build context: the staged directory prepared by paws-testing-deploy.yml, whose server/src comes
+# from the CI-built, freeze-verified API artifact of the commit being deployed. Same server source as Production; environment, SQL target, identity project and write gates
 # come exclusively from the Testing deployment's configuration (GitHub Environment "testing").
 FROM node:22-bookworm-slim
 WORKDIR /app

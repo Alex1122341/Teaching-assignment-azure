@@ -39,6 +39,12 @@ jobs:
     timeout-minutes: 35
     # Production release requires approval from the GitHub Environment "production" reviewers.
     environment: production
+    env:
+      # Set these repository variables to "true" once the Production API reports its environment and
+      # Testing is live: the release then requires an explicit environment identity and a passing
+      # Testing deploy of the exact same commit.
+      REQUIRE_ENVIRONMENT_IDENTITY: ${{ vars.PAWS_REQUIRE_ENVIRONMENT_IDENTITY }}
+      REQUIRE_TESTING_PASS: ${{ vars.PAWS_REQUIRE_TESTING_PASS }}
     steps:
       - name: Checkout deployment workflow
         uses: actions/checkout@v4
@@ -98,6 +104,23 @@ jobs:
           execFileSync('git',['diff','--quiet',oldSha,newSha,'--',...protectedApi],{cwd:root,stdio:'pipe'});
           console.log('STATIC_ONLY_API_SOURCE_IDENTICAL: '+protectedApi.length+' paths');
           NODE
+
+      - name: Verify the exact commit passed Testing (when required)
+        if: env.REQUIRE_TESTING_PASS == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=paws-testing-deploy-${COMMIT_SHA}&per_page=100" --jq '[.artifacts[] | select(.expired == false) | .workflow_run.id] | unique | .[]')"
+          for run_id in $runs; do
+            run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}")"
+            if [ "$(jq -r '.path' <<< "$run_json")" = ".github/workflows/paws-testing-deploy.yml" ] && [ "$(jq -r '.conclusion' <<< "$run_json")" = "success" ]; then
+              echo "Testing deploy run ${run_id} passed for ${COMMIT_SHA}"; exit 0
+            fi
+          done
+          echo 'TESTING_PASS_REQUIRED: this commit has no successful PAWS Testing Deploy'; exit 1
 
       - name: Download exact tested artifact
         uses: actions/download-artifact@v8
@@ -164,11 +187,11 @@ jobs:
 
           runtime_status="$(curl --silent --show-error --max-time 15 -o predeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
           test "$runtime_status" = "200"
-          jq -e '
+          jq -e --arg strictEnvironment "${REQUIRE_ENVIRONMENT_IDENTITY:-false}" '
             .status == "ok" and
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
-            ((.environment // "production") == "production") and
+            (if $strictEnvironment == "true" then .environment == "production" else ((.environment // "production") == "production") end) and
             (.writeGates | type == "object")
           ' predeploy-runtime.json > /dev/null
           if [ "$STATIC_ONLY" = "true" ]; then
@@ -292,12 +315,12 @@ jobs:
 
           runtime_status="$(curl --silent --show-error --max-time 15 -o postdeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
           test "$runtime_status" = "200"
-          jq -e --arg expected "$PREFLIGHT_RELEASE_SHA" '
+          jq -e --arg expected "$PREFLIGHT_RELEASE_SHA" --arg strictEnvironment "${REQUIRE_ENVIRONMENT_IDENTITY:-false}" '
             .status == "ok" and
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
             .releaseSha == $expected and
-            ((.environment // "production") == "production") and
+            (if $strictEnvironment == "true" then .environment == "production" else ((.environment // "production") == "production") end) and
             (.writeGates | type == "object")
           ' postdeploy-runtime.json > /dev/null
           if [ "$STATIC_ONLY" != "true" ]; then

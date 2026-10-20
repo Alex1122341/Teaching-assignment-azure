@@ -34,15 +34,27 @@ class EnvironmentConfigurationError extends Error {
 
 function fail(message) { throw new EnvironmentConfigurationError(message); }
 
+const SERVER_KEYS = Object.freeze(['server', 'datasource', 'address', 'addr', 'networkaddress']);
+
+// Returns the single SQL server host named by a connection string, or '' when there is none OR more
+// than one. Drivers disagree about which duplicate wins, so an ambiguous string is never accepted.
 function sqlServerHost(connectionString) {
+  const hosts = [];
   for (const segment of String(connectionString || '').split(';')) {
     const separator = segment.indexOf('=');
     if (separator < 1) continue;
     const key = segment.slice(0, separator).trim().toLowerCase().replace(/\s+/g, '');
-    if (!['server', 'datasource', 'address', 'addr', 'networkaddress'].includes(key)) continue;
-    return segment.slice(separator + 1).trim().replace(/^tcp:/i, '').replace(/,\d+$/, '').split('\\')[0].toLowerCase();
+    if (!SERVER_KEYS.includes(key)) continue;
+    hosts.push(segment.slice(separator + 1).trim().replace(/^(tcp|np|lpc):/i, '').replace(/,\d+$/, '').split('\\')[0].toLowerCase());
   }
-  return '';
+  return hosts.length === 1 ? hosts[0] : '';
+}
+
+// Hosts that resolve to "this machine" — a Testing API on the production SQL host could reach
+// VetMed-Ops through any of them, so Testing never accepts them (LocalDB is allowed explicitly).
+function isLoopbackSqlHost(host) {
+  const value = String(host || '').toLowerCase();
+  return ['.', '(local)', 'localhost', '127.0.0.1', '::1', '[::1]'].includes(value) || /^127\./.test(value);
 }
 
 function isProductionSqlServer(host) {
@@ -57,6 +69,7 @@ function resolveEnvironment(env = {}) {
   }
   if (name === 'production') {
     if (env.PAWS_TESTING_ENVIRONMENT_ID !== undefined) fail('PAWS_TESTING_ENVIRONMENT_ID is not valid in production');
+    if (env.PAWS_TESTING_SQL_SERVER !== undefined) fail('PAWS_TESTING_SQL_SERVER is not valid in production');
     if (env.PAWS_API_ALLOW_NON_LOOPBACK !== undefined) fail('PAWS_API_ALLOW_NON_LOOPBACK is not valid in production');
     return Object.freeze({ name, testing: false, testingEnvironmentId: null });
   }
@@ -66,8 +79,14 @@ function resolveEnvironment(env = {}) {
     fail('Testing must not trust the production Firebase project');
   }
   const host = sqlServerHost(env.PAWS_SQL_CONNECTION_STRING);
-  if (!host) fail('Testing requires an explicit SQL server in PAWS_SQL_CONNECTION_STRING');
+  if (!host) fail('Testing requires exactly one explicit SQL server in PAWS_SQL_CONNECTION_STRING');
   if (isProductionSqlServer(host)) fail('Testing must not connect to a production SQL server');
+  if (isLoopbackSqlHost(host)) fail('Testing must not connect to a SQL server on this machine by a loopback name');
+  // Allow-list: the Testing deployment names its own SQL server; anything else is refused.
+  const allowed = String(env.PAWS_TESTING_SQL_SERVER || '').trim().toLowerCase();
+  if (!allowed) fail('Testing requires PAWS_TESTING_SQL_SERVER (the Testing SQL server host)');
+  if (isProductionSqlServer(allowed) || isLoopbackSqlHost(allowed)) fail('PAWS_TESTING_SQL_SERVER must name the Testing SQL server');
+  if (host !== allowed) fail('Testing SQL server does not match PAWS_TESTING_SQL_SERVER');
   return Object.freeze({ name, testing: true, testingEnvironmentId: testingEnvironmentId.toLowerCase() });
 }
 
@@ -100,5 +119,6 @@ module.exports = {
   resolveEnvironment,
   assertDatabaseIdentity,
   sqlServerHost,
-  isProductionSqlServer
+  isProductionSqlServer,
+  isLoopbackSqlHost
 };

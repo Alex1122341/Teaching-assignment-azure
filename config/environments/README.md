@@ -6,7 +6,7 @@ selected file into the shipped `paws-api-origin.js` at build time; the committed
 the rendering of `production.json` (enforced by `tests/dual-environment-config.test.js`).
 
 Nothing here is secret: Firebase web config is public by design. SQL connection strings, service-account keys,
-`PAWS_TESTING_ENVIRONMENT_ID` and write gates are server-side deployment settings (GitHub Environment secrets /
+`PAWS_TESTING_ENVIRONMENT_ID` and write gates are server-side deployment settings (GitHub repository secrets /
 variables), never frontend files.
 
 `testing.json` contains `null` until the Testing resources are provisioned (see

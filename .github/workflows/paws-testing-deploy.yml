@@ -98,7 +98,7 @@ jobs:
           test "$(jq -r '.head_sha' <<< "$run_json")" = "$COMMIT_SHA"
           test "$(jq -r '.conclusion' <<< "$run_json")" = "success"
 
-      - name: Verify Testing configuration matches this GitHub Environment
+      - name: Verify Testing configuration matches the repository Testing variables
         shell: bash
         run: |
           set -euo pipefail

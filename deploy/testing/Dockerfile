@@ -1,7 +1,7 @@
 # PAWS Testing API container (University runtime, Testing environment only).
 # Build context: the staged directory prepared by paws-testing-deploy.yml, whose server/src comes
 # from the CI-built, freeze-verified API artifact of the commit being deployed. Same server source as Production; environment, SQL target, identity project and write gates
-# come exclusively from the Testing deployment's configuration (GitHub Environment "testing").
+# come exclusively from the Testing deployment's configuration (repository-level PAWS_TESTING_* settings and the Container App environment).
 FROM node:22-bookworm-slim
 WORKDIR /app
 COPY server/package.json server/package-lock.json ./server/

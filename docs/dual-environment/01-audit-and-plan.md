@@ -43,8 +43,8 @@ Branch `feat/dual-environment-testing`, from `main` @ `0d4b4d9`. Read-only audit
 7. **Testing DB tooling.** `tools/testing-db/` holds a deterministic synthetic generator, a Node reset runner (tedious/Azure SQL or msnodesqlv8/LocalDB), the marker, the migrations with the documented test-only adaptations, the seed and verification. The runner refuses any database without the testing marker, unless the database is completely empty.
 8. **CI/CD.**
    * The build creates both artifacts from the same commit and checks environment configuration and freezes on both.
-   * New `paws-testing-deploy.yml` (GitHub Environment `testing`) deploys automatically after a green main build.
-   * Production release workflows gain `environment: production` (required reviewers) plus environment-identity checks.
+   * New `paws-testing-deploy.yml` (repository-level `PAWS_TESTING_*` settings) deploys automatically after a green main build.
+   * Production release workflows gain environment-identity checks. *(Superseded 2026-10-20: GitHub Environments / required reviewers are unavailable for this private personal repository; approval is release evidence instead. See `05-pr125-inspection.md` I5.)*
    * Existing provenance checks are kept unchanged.
 
 ## 4. Risks

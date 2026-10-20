@@ -38,7 +38,7 @@ test('only stage, preview and commit use the dedicated import connection',async(
 test('real runtime keeps identity and ordinary reads on the default pool and closes the dedicated preview pool',async()=>{
  const d=driver(),project='synthetic-project';
  const admin={initializeApp:()=>({}),auth:()=>({verifyIdToken:async()=>({uid:'root',aud:project,iss:'https://securetoken.google.com/'+project})})};
- const runtime=createSwaSqlRuntime({env:{FIREBASE_PROJECT_ID:project,PAWS_SQL_CONNECTION_STRING:'Server=synthetic;Database=synthetic;Encrypt=true;',PAWS_CALENDAR_ACTIVITY_STAGE_ENABLED:'true'},admin,sql:d.sql});
+ const runtime=createSwaSqlRuntime({env:{PAWS_ENVIRONMENT:'production',FIREBASE_PROJECT_ID:project,PAWS_SQL_CONNECTION_STRING:'Server=synthetic;Database=synthetic;Encrypt=true;',PAWS_CALENDAR_ACTIVITY_STAGE_ENABLED:'true'},admin,sql:d.sql});
  const headers={authorization:'Bearer synthetic','content-type':'application/json'};
  try{
   const preview=await runtime(new Request('http://local/api/v1/calendar-activity-imports/'+ID+'/preview',{method:'POST',headers,body:JSON.stringify({expectedVersion:'0000000000000001'})}));

@@ -26,7 +26,7 @@ test('real runtime mounts the authenticated SQL activity reader, preserves gates
   }};}
  }
  const project='synthetic-project';const admin={initializeApp:()=>({}),auth:()=>({verifyIdToken:async()=>({uid:'root',aud:project,iss:'https://securetoken.google.com/'+project})})};
- const runtime=createSwaSqlRuntime({env:{FIREBASE_PROJECT_ID:project,PAWS_SQL_CONNECTION_STRING:'Server=localhost;Database=VetMed-Ops;Encrypt=true;',PAWS_SQL_DRIVER:'tedious'},admin,sql:{ConnectionPool:FakePool}});
+ const runtime=createSwaSqlRuntime({env:{PAWS_ENVIRONMENT:'production',FIREBASE_PROJECT_ID:project,PAWS_SQL_CONNECTION_STRING:'Server=localhost;Database=VetMed-Ops;Encrypt=true;',PAWS_SQL_DRIVER:'tedious'},admin,sql:{ConnectionPool:FakePool}});
  try{
   const headers={authorization:'Bearer synthetic'};
   const result=await runtime(new Request('http://local/api/v1/calendar-activities?start=2026-11-01&end=2026-11-08',{headers}));assert.equal(result.status,200);assert.equal(seen.find(x=>x.sql.includes('ListCalendarActivities')).params.ActorFirebaseUid,'root');

@@ -12,7 +12,7 @@ test('CCC routes are exact, query-free and never expose recovery route',async()=
 });
 test('CCC stage alone has the 1MiB JSON limit through the University HTTP boundary',async t=>{
  const {createUniversityHttpServer}=require('../src/runtime/university-http-server');
- const server=createUniversityHttpServer({env:{PAWS_RELEASE_SHA:'a'.repeat(40),PAWS_RUNTIME_TRUST_ANCHOR:'b'.repeat(40)},runtime:async()=>({status:200,jsonBody:{ok:true}})});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>server.close());
+ const server=createUniversityHttpServer({env:{PAWS_ENVIRONMENT:'production',PAWS_RELEASE_SHA:'a'.repeat(40),PAWS_RUNTIME_TRUST_ANCHOR:'b'.repeat(40)},runtime:async()=>({status:200,jsonBody:{ok:true}})});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>server.close());
  const root='http://127.0.0.1:'+server.address().port,headers={'content-type':'application/json'},body=JSON.stringify({x:'A'.repeat(800000)});
  assert.equal((await fetch(root+'/api/v1/ccc-replacements',{method:'POST',headers,body})).status,200);
  for(const path of ['/api/v1/ccc-replacements/','/api/v1/ccc-replacements/'+ID+'/commit'])assert.equal((await fetch(root+path,{method:'POST',headers,body})).status,413);

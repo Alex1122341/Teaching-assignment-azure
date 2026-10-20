@@ -81,7 +81,7 @@ function createSupportService({db,verifyToken,findUser,environment={name:'produc
    return await db.transaction(async()=>{
     // Revalidate both profiles and context inside the mutation transaction.
     await context(id,decoded.uid,(await developer(request)).actor);
-    await db.query(`INSERT paws.SupportOperation(OperationId,ContextId,ActorUid,TargetUid,Route) VALUES(@op,@context,@actor,@target,@route); DECLARE @opValue uniqueidentifier=TRY_CONVERT(uniqueidentifier,@op); EXEC sys.sp_set_session_context @key=N'paws_support_operation',@value=@opValue`,{op:operationId,context:id,actor:decoded.uid,target:selected.targetUid,route:request.method+' '+path});
+    await db.query(`INSERT paws.SupportOperation(OperationId,ContextId,ActorUid,TargetUid,Route) VALUES(@op,@context,@actor,@target,@route); DECLARE @opValue uniqueidentifier=CONVERT(uniqueidentifier,@op); EXEC sys.sp_set_session_context @key=N'paws_support_operation',@value=@opValue`,{op:operationId,context:id,actor:decoded.uid,target:selected.targetUid,route:request.method+' '+path});
     const result=await invoke();
     if(result.status>=400)throw Object.assign(fail(result.status,result.jsonBody?.error?.code||'SUPPORT_WRITE_FAILED',result.jsonBody?.error?.message||'Support operation failed.'),{outcome:result});
     await db.query(`EXEC sys.sp_set_session_context @key=N'paws_support_operation',@value=NULL; INSERT paws.AuditEvent(AuditEventId,EventType,EntityType,EntityId,ActorFirebaseUid,OccurredAtUtc,MetadataJson) VALUES(NEWID(),N'developer_support_operation',N'support_operation',@op,@actor,SYSUTCDATETIME(),(SELECT @target AS targetUid,@context AS contextId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER))`,{op:operationId,actor:decoded.uid,target:selected.targetUid,context:id});

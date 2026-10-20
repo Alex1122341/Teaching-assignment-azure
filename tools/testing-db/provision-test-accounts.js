@@ -1,9 +1,13 @@
 'use strict';
 // Creates the Testing sign-in accounts in the TESTING Firebase project and links them to Testing SQL profiles.
 //
-// * Synthetic personas: one Firebase user per seeded paws.UserProfile (fixed UIDs such as syn-owner,
-//   syn-hicc, syn-faculty-a), sharing one password supplied by PAWS_TEST_PERSONA_PASSWORD (a GitHub
-//   Environment secret; never committed).
+// * Synthetic personas: one Firebase user per seeded non-operator paws.UserProfile (fixed UIDs such as
+//   syn-hicc, syn-visc, syn-faculty-a), sharing one password supplied by PAWS_TEST_PERSONA_PASSWORD (a
+//   GitHub Environment secret; never committed).
+// * Operator-class personas (developer, owner, administrator, ADFA General) never get a password
+//   sign-in: anyone holding the shared password could otherwise sign straight in as a developer. They
+//   are reached only by Switch Test Identity from a named operator account; an existing Firebase user
+//   for them is disabled.
 // * Testers / operators (optional): --operators <file.json> with [{ "email": "...", "role": "adfa_regular" }].
 //   Each gets (or keeps) a Testing Firebase account and an active Testing UserProfile with that role.
 //
@@ -16,6 +20,16 @@ const { normalizeBaseRole } = require('../../server/src/auth/role-policy');
 
 const SEED_PERSONAS = Object.freeze(['syn-developer', 'syn-owner', 'syn-admin', 'syn-adfa-general', 'syn-adc', 'syn-lab', 'syn-hicc', 'syn-visc',
   'syn-faculty-a', 'syn-faculty-b', 'syn-faculty-reportee']);
+const OPERATOR_PERSONAS = Object.freeze(['syn-developer', 'syn-owner', 'syn-admin', 'syn-adfa-general']);
+
+// Which seeded personas get a shared-password sign-in and which must stay disabled.
+function accountPlan(uids) {
+  const list = [...new Set(uids)].filter(uid => SEED_PERSONAS.includes(uid));
+  return {
+    signIn: list.filter(uid => !OPERATOR_PERSONAS.includes(uid)),
+    disabled: list.filter(uid => OPERATOR_PERSONAS.includes(uid))
+  };
+}
 
 async function main(argv, env = process.env) {
   const environment = resolveEnvironment(env);
@@ -41,7 +55,13 @@ async function main(argv, env = process.env) {
     await assertDatabaseIdentity(db, environment);
     const profiles = await db.query('SELECT FirebaseUid AS uid, Email AS email, DisplayName AS name FROM paws.UserProfile WHERE FirebaseUid IN (SELECT [value] FROM OPENJSON(@uids))', { uids: JSON.stringify(SEED_PERSONAS) });
     const created = [];
+    const plan = accountPlan(profiles.map(profile => profile.uid));
     for (const profile of profiles) {
+      if (plan.disabled.includes(profile.uid)) {
+        try { await auth.updateUser(profile.uid, { disabled: true }); created.push({ uid: profile.uid, signIn: 'disabled (switch-only persona)' }); }
+        catch (error) { if (error.code !== 'auth/user-not-found') throw error; created.push({ uid: profile.uid, signIn: 'none (switch-only persona)' }); }
+        continue;
+      }
       try { await auth.updateUser(profile.uid, { email: profile.email, password, displayName: profile.name, disabled: false }); }
       catch (error) {
         if (error.code !== 'auth/user-not-found') throw error;
@@ -67,4 +87,4 @@ async function main(argv, env = process.env) {
 }
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(`TESTING_ACCOUNTS_FAILED: ${error.message}`); process.exit(1); });
-module.exports = { main, SEED_PERSONAS };
+module.exports = { main, accountPlan, SEED_PERSONAS, OPERATOR_PERSONAS };

@@ -117,3 +117,13 @@ test('local acceptance never drops a LocalDB database it did not create', () => 
   assert.match(source, /did not create; refusing to drop it/);
   assert.match(source, /paws_acceptance\.StandIn/);
 });
+
+test('operator-class test personas never get a shared-password sign-in', () => {
+  const { accountPlan, SEED_PERSONAS, OPERATOR_PERSONAS } = require('../tools/testing-db/provision-test-accounts');
+  const plan = accountPlan([...SEED_PERSONAS, 'syn-unknown']);
+  assert.deepEqual(plan.disabled.sort(), ['syn-adfa-general', 'syn-admin', 'syn-developer', 'syn-owner']);
+  assert.deepEqual(plan.disabled.sort(), [...OPERATOR_PERSONAS].sort());
+  for (const uid of ['syn-hicc', 'syn-visc', 'syn-faculty-a', 'syn-faculty-b', 'syn-faculty-reportee', 'syn-adc', 'syn-lab']) assert.ok(plan.signIn.includes(uid), uid);
+  for (const uid of OPERATOR_PERSONAS) assert.ok(!plan.signIn.includes(uid), uid);
+  assert.ok(!plan.signIn.includes('syn-unknown') && !plan.disabled.includes('syn-unknown'));
+});

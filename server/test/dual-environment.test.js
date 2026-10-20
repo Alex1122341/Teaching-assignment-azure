@@ -290,3 +290,16 @@ test('API start-up retries an unreachable database with backoff but stops on a w
   const stopped = { assertEnvironment: async () => { stopping = true; throw new Error('down'); } };
   assert.equal(await verifyBeforeListening({ runtime: stopped, isStopping: () => stopping, wait: async () => assert.fail('no wait after stop'), log: () => {} }), false);
 });
+
+// ---------------------------------------------------------------- notifications
+test('the API sends no email, SMS or webhook notifications (Testing cannot reach real people)', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const root = path.join(__dirname, '..');
+  const files = [];
+  const walk = dir => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, entry.name); if (entry.isDirectory()) walk(p); else if (p.endsWith('.js')) files.push(p); } };
+  walk(path.join(root, 'src'));
+  const sender = /nodemailer|smtp|sendgrid|mailgun|twilio|sendMail\s*\(|@azure\/communication|ses\.send|webhook/i;
+  for (const file of files) assert.doesNotMatch(fs.readFileSync(file, 'utf8'), sender, `${path.relative(root, file)} adds an outbound notification path; it must be suppressed in Testing before merging`);
+  const deps = Object.keys(require('../package.json').dependencies || {});
+  for (const dep of deps) assert.doesNotMatch(dep, /mail|smtp|sendgrid|twilio|communication/i, `dependency ${dep}`);
+});

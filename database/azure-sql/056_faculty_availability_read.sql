@@ -151,8 +151,9 @@ BEGIN
   FROM paws.RoleAssignment r
   JOIN paws.RoleAppointmentSchedule p ON p.RoleAssignmentId=r.RoleAssignmentId
   CROSS APPLY OPENJSON(p.PeriodsJson) j
-  CROSS APPLY (SELECT TRY_CONVERT(date,JSON_VALUE(j.value,'$.startDate'),23) StartDate,
-                      TRY_CONVERT(date,JSON_VALUE(j.value,'$.endDate'),23) EndDate) dates
+  CROSS APPLY (SELECT CASE WHEN j.type=5 THEN j.value ELSE N'{}' END PeriodJson) safe
+  CROSS APPLY (SELECT TRY_CONVERT(date,JSON_VALUE(safe.PeriodJson,'$.startDate'),23) StartDate,
+                      TRY_CONVERT(date,JSON_VALUE(safe.PeriodJson,'$.endDate'),23) EndDate) dates
   WHERE r.FacultyId=@FacultyId AND dates.StartDate IS NOT NULL AND (dates.EndDate IS NULL OR dates.EndDate>=dates.StartDate)
     AND dates.StartDate<=COALESCE(@Ceiling,'9999-12-31')
     AND (dates.EndDate IS NULL OR dates.EndDate>=@Floor);
@@ -193,9 +194,10 @@ BEGIN
     ((r.EffectiveDate IS NULL OR r.ExpirationDate<=r.EffectiveDate) AND NOT EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule p WHERE p.RoleAssignmentId=r.RoleAssignmentId))
     OR EXISTS(SELECT 1 FROM paws.RoleAppointmentSchedule p WHERE p.RoleAssignmentId=r.RoleAssignmentId AND (
       LEFT(LTRIM(p.PeriodsJson),1)<>N'[' OR EXISTS(SELECT 1 FROM OPENJSON(p.PeriodsJson) j
-      WHERE j.type<>5 OR TRY_CONVERT(date,JSON_VALUE(j.value,'$.startDate'),23) IS NULL
-       OR (JSON_VALUE(j.value,'$.endDate') IS NOT NULL AND (TRY_CONVERT(date,JSON_VALUE(j.value,'$.endDate'),23) IS NULL
-           OR TRY_CONVERT(date,JSON_VALUE(j.value,'$.endDate'),23)<TRY_CONVERT(date,JSON_VALUE(j.value,'$.startDate'),23))))))));
+      CROSS APPLY (SELECT CASE WHEN j.type=5 THEN j.value ELSE N'{}' END PeriodJson) safe
+      WHERE j.type<>5 OR TRY_CONVERT(date,JSON_VALUE(safe.PeriodJson,'$.startDate'),23) IS NULL
+       OR (JSON_VALUE(safe.PeriodJson,'$.endDate') IS NOT NULL AND (TRY_CONVERT(date,JSON_VALUE(safe.PeriodJson,'$.endDate'),23) IS NULL
+           OR TRY_CONVERT(date,JSON_VALUE(safe.PeriodJson,'$.endDate'),23)<TRY_CONVERT(date,JSON_VALUE(safe.PeriodJson,'$.startDate'),23))))))));
  SELECT (SELECT JSON_QUERY(COALESCE((
    SELECT e.SourceKey eventKey,e.Kind kind,e.Label label,
           CONVERT(char(10),e.StartDate,23) startDate,

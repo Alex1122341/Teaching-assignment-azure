@@ -35,3 +35,9 @@ test('availability rollback requires exact installed definition and refuses unre
  const sql=read('database/azure-sql/rollback_056_faculty_availability_read.sql');
  assert.match(sql,/PAWS_AVAILABILITY_DEFINITION_SHA256/);assert.match(sql,/OBJECT_DEFINITION/);assert.match(sql,/sys\.database_permissions/);assert.match(sql,/55608/);
 });
+
+test('malformed appointment entries are guarded before extracting dates',()=>{
+ const sql=read('database/azure-sql/056_faculty_availability_read.sql');
+ assert.match(sql,/CASE WHEN j\.type=5 THEN j\.value ELSE N'\{\}' END/);
+ assert.doesNotMatch(sql,/JSON_VALUE\(j\.value/);
+});

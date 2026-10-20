@@ -84,7 +84,7 @@
     '<summary class="history-operation-summary"><span>'+when+'</span><span><strong>'+esc(missing(operation.title||operation.changeType))+
     '</strong><small>'+esc(missing(operation.domain))+'</small></span><span>'+recordCount+' record'+(recordCount===1?'':'s')+
     '</span><span>'+changeCount+' field change'+(changeCount===1?'':'s')+' <small class="history-expand-prompt">View details</small></span><span class="history-date-range">'+range+
-    '</span><span>'+valueCell(operation.actor)+'</span></summary><div class="history-operation-details">'+details+'</div></details></td></tr>';
+    '</span><span>'+esc(missing(operation.actor))+'</span></summary><div class="history-operation-details">'+details+'</div></details></td></tr>';
   }).join('')||'<tr><td colspan="6">No recorded operations to display.</td></tr>';
  }
  function browserDownload(file,format){

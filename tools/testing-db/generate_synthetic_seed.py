@@ -84,6 +84,14 @@ for i, f in enumerate(faculty):
            ["FacultyId", "TeachingArea", "ProfessionalCategory", "ServiceDate", "PriorYearsExperience", "SourceImportBatchId", "SourceRow"],
            [f["id"], ["Anatomy", "Pathology", "Medicine", "Surgery", "Epidemiology"][i % 5], "Academic",
             date(2010 + i % 15, 7, 1), float(i % 12), BATCH, i + 2])
+# An active faculty member with no teaching sessions (workload / filter coverage).
+UNASSIGNED = dict(id=uid("faculty", "unassigned"), first="Lane", last="Unassigned", display="Lane Unassigned", src="Unassigned, Lane",
+                  ucid="SYN199999", email="lane.unassigned@example.test")
+insert("paws.Faculty",
+       ["FacultyId", "RecordType", "PreferredFirstName", "PreferredLastName", "DisplayName", "Ucid", "Email", "Stream",
+        "Rank", "Fte", "ReportsToFacultyId", "ReportsToRaw", "Active", "SourceImportBatchId", "SourceRow"],
+       [UNASSIGNED["id"], "faculty", UNASSIGNED["first"], UNASSIGNED["last"], UNASSIGNED["display"], UNASSIGNED["ucid"], UNASSIGNED["email"],
+        "teaching_focused", "Instructor", 0.5, faculty[1]["id"], None, True, BATCH, 40])
 # Placeholder pools used by swaps / sessional replacement.
 for label, rtype in [("Z-Sessional", "sessional_pool"), ("Z-Other", "other_pool")]:
     insert("paws.Faculty", ["FacultyId", "RecordType", "DisplayName", "Active", "SourceImportBatchId"],
@@ -129,6 +137,17 @@ for i, (code, name) in enumerate(COURSES):
 role_assign(1, "VISC", "Cardiology", None, 5.0)
 role_assign(11, "VISC", "Dermatology", None, 5.0)
 role_assign(12, "Rotation / Week Lead", "Small Animal Medicine Rotation", None, 1.0)
+# Role periods outside the current year: one expired (2025-26) and one future (2027-28) appointment.
+def role_period(fi, rtype, subject, year, start, end, doe):
+    global ra_row
+    f = faculty[fi]
+    insert("paws.RoleAssignment",
+           ["RoleAssignmentId", "FacultyId", "SourceFacultyName", "FacultyResolutionStatus", "AcademicYear", "RoleType",
+            "CourseId", "CourseOrSubjectOrRotation", "CourseName", "EffectiveDate", "ExpirationDate", "DoeMappedValue", "SourceImportBatchId", "SourceRow"],
+           [uid("role", ra_row), f["id"], f["src"], "preferred_name", year, rtype, course_id.get(subject), subject, None, start, end, doe, BATCH, ra_row])
+    ra_row += 1
+role_period(3, "Course Coordinator / HICC", "VTMD 200", "2025-26", date(2025, 7, 1), date(2026, 6, 30), 3.0)
+role_period(4, "VISC", "Anatomy", "2027-28", date(2027, 7, 1), date(2028, 6, 30), 5.0)
 
 # ---- DOE rule seed (values migration 026 requires) -------------------------
 seed_row = 2
@@ -186,6 +205,30 @@ while d <= date(2027, 4, 23):
             sessions += 1
     d += timedelta(days=1)
 
+# ---- Deterministic extra sessions (no random draws, so the main data set above is unchanged) ----
+def extra_session(key, year, code, stype, day, start, end, topic, people):
+    global sa_row, sessions
+    cname = dict(COURSES)[code]
+    sid = uid("session-extra", key)
+    insert("paws.Session", ["SessionId", "AcademicYear", "CurriculumYear", "CourseId", "CourseCode", "CourseName", "Topic",
+                            "SessionType", "SessionDate", "StartTime", "EndTime", "Room", "SourceImportBatchId"],
+           [sid, year, str(int(code.split()[1][0]) - 1), course_id[code], code, cname, topic, stype, day, start, end, "TRW 1E20", BATCH])
+    for fi in people:
+        f = faculty[fi]
+        insert("paws.SessionAssignment",
+               ["SessionAssignmentId", "SessionId", "FacultyId", "SourceFacultyName", "FacultyResolutionStatus", "TeachingRole",
+                "LabLead", "CreditedHours", "DoeRate", "DoeQuantity", "DoeUnit", "DoeCredit", "DoeStatus", "SourceImportBatchId", "SourceRow"],
+               [uid("sa", sa_row), sid, f["id"], f["src"], "preferred_name", "Lecture", None, 1.0, 0.3, 1.0, "hour", 0.3, "calculated", BATCH, sa_row])
+        sa_row += 1
+    sessions += 1
+# Previous academic year (2025-26): history, multi-year filters and reports.
+for k in range(6):
+    extra_session(f"prior-{k}", "2025-26", COURSES[k % 4][0], "LEC", date(2026, 3, 2) + timedelta(days=7 * k), time(9, 0), time(9, 50),
+                  f"Prior-year synthetic topic {k + 1}", [2 + (k % 3)])
+# Deliberate conflict: syn-faculty-a (faculty 2) double-booked at the same time in two courses.
+extra_session("conflict-a", "2026-27", "VTMD 206", "LEC", date(2026, 11, 24), time(10, 0), time(10, 50), "Synthetic conflict A", [2])
+extra_session("conflict-b", "2026-27", "VTMD 213", "LEC", date(2026, 11, 24), time(10, 0), time(10, 50), "Synthetic conflict B", [2])
+
 # ---- AFC (away from campus) records ----------------------------------------
 PURPOSES = ["Conference attendance (synthetic)", "Research field work (synthetic)", "Professional development (synthetic)", "Personal (synthetic)"]
 for i in range(45):
@@ -196,7 +239,7 @@ for i in range(45):
 
 rows.append("PRINT N'SYNTHETIC_SEED_BASE_OK sessions=" + str(sessions) + " assignments=" + str(sa_row - 2) + "';")
 OUT.write_text("\n".join(rows) + "\n", encoding="utf-8")
-manifest = dict(faculty=len(faculty), sessions=sessions, sessionAssignments=sa_row - 2, afc=45, users=len(USERS) + 2,
-                roleAssignments=ra_row - 2, courses=len(COURSES))
+manifest = dict(faculty=len(faculty) + 1, sessions=sessions, sessionAssignments=sa_row - 2, afc=45, users=len(USERS) + 2,
+                roleAssignments=ra_row - 2, courses=len(COURSES), academicYears=["2025-26", "2026-27"])
 Path(__file__).with_name("seed-manifest.json").write_text(json.dumps(manifest, indent=2))
 print(manifest)

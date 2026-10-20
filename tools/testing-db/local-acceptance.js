@@ -205,12 +205,42 @@ EXEC(N'CREATE SCHEMA paws_acceptance'); CREATE TABLE paws_acceptance.StandIn (No
     const prodDev = await call(prod, 'syn-developer', 'GET', '/api/v1/support');
     check('F', 'Production developer support still works and reports production mode', prodDev.status === 200 && prodDev.data.mode === 'developer_support');
 
+    // Scenario C2: Testing personas on the newer workflows (PR #125 I1-I3).
+    const c2 = await call(test, 'syn-admin', 'POST', '/api/v1/support/start', { targetUid: 'syn-faculty-a', reason: 'acceptance: newer workflows' });
+    const ctx2 = c2.data && c2.data.contextId;
+    const cal = await call(test, 'syn-admin', 'GET', '/api/v1/calendar-activities?start=2026-09-01&end=2026-12-31', undefined, H(ctx2));
+    check('C', 'faculty persona can open Calendar Activities in Testing', cal.status === 200, `status ${cal.status} ${cal.data && cal.data.error ? cal.data.error.code : ''}`);
+    const forms = await call(test, 'syn-admin', 'GET', '/api/v1/afc-forms/capabilities', undefined, H(ctx2));
+    check('C', 'faculty persona can open AFC Forms in Testing', forms.status === 200, `status ${forms.status}`);
+    const ccc = await call(test, 'syn-admin', 'POST', '/api/v1/ccc-replacements', {}, H(ctx2));
+    check('C', 'persona import writes are refused (run imports as yourself)', ccc.status === 403 && ccc.data.error.code === 'SUPPORT_ROUTE_DENIED', `${ccc.status}`);
+    await call(test, 'syn-admin', 'POST', '/api/v1/support/end', { contextId: ctx2 });
+    const fixtures = await exec(TESTING_INSTANCE, 'VetMed-Ops', `SELECT Status AS status, COUNT(*) AS n FROM paws.AfcRequest GROUP BY Status`);
+    check('G', 'seeded AFC requests cover every lifecycle state', ['pending_report_to', 'pending_admin', 'approved', 'rejected', 'withdrawn'].every(st => fixtures.some(f => f.status === st)), JSON.stringify(fixtures));
+
     // Scenario D: Production unchanged.
     const prodAfter = await prodFingerprint();
     check('D', 'Production database unchanged after all Testing activity', JSON.stringify(prodBefore) === JSON.stringify(prodAfter), JSON.stringify(prodAfter));
+    // After the Production fingerprint: this check itself starts a (Production stand-in) support context.
+    const prodCal = await call(prod, 'syn-developer', 'POST', '/api/v1/support/start', { targetUid: 'syn-faculty-a', reason: 'acceptance: production list unchanged' });
+    const prodCtx = prodCal.data && prodCal.data.contextId;
+    const prodCalRead = await call(prod, 'syn-developer', 'GET', '/api/v1/calendar-activities?start=2026-09-01&end=2026-12-31', undefined, H(prodCtx));
+    check('F', 'Production Developer Support still refuses the newer workflows', prodCalRead.status === 403 && prodCalRead.data.error.code === 'SUPPORT_ROUTE_DENIED', `${prodCalRead.status}`);
+    await call(prod, 'syn-developer', 'POST', '/api/v1/support/end', { contextId: prodCtx });
   } finally {
     await prod.close(); await test.close();
   }
+
+  // Scenario H: reset restores the baseline after UAT changes.
+  const before = await exec(TESTING_INSTANCE, 'VetMed-Ops', `SELECT COUNT(*) AS n FROM paws.Session WHERE Topic = N'Edited in Testing only'`);
+  await resetTool.main(['--confirm-reset'], { ...testingEnv(), PAWS_TESTING_LOCAL_ODBC: odbc(TESTING_INSTANCE, 'VetMed-Ops') }, () => {});
+  const after = await exec(TESTING_INSTANCE, 'VetMed-Ops', `SELECT (SELECT COUNT(*) FROM paws.Session WHERE Topic = N'Edited in Testing only') AS edited,
+    (SELECT COUNT(*) FROM paws.SupportOperation) AS supportOps, (SELECT COUNT(*) FROM paws.AfcRequest) AS afcRequests,
+    (SELECT COUNT(*) FROM paws.UserProfile WHERE FirebaseUid LIKE N'syn-%' AND Active = 1) AS personas,
+    (SELECT COUNT(*) FROM paws_env.EnvironmentIdentity) AS marker`);
+  check('H', 'reset discards UAT edits and support operations', before[0].n === 1 && after[0].edited === 0 && after[0].supportOps === 0, JSON.stringify({ before: before[0], after: after[0] }));
+  check('H', 'reset restores the workflow fixtures and test personas', after[0].afcRequests === 5 && after[0].personas >= 11 && after[0].marker === 1, JSON.stringify(after[0]));
+
   const out = { ok: results.every(r => r.pass), total: results.length, passed: results.filter(r => r.pass).length, odbcDriver: driverName(), results };
   fs.mkdirSync(path.join(ROOT, '.azure-testing'), { recursive: true });
   fs.writeFileSync(path.join(ROOT, '.azure-testing', 'local-acceptance.json'), JSON.stringify(out, null, 2));

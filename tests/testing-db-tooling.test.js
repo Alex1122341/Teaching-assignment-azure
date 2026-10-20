@@ -127,3 +127,45 @@ test('operator-class test personas never get a shared-password sign-in', () => {
   for (const uid of OPERATOR_PERSONAS) assert.ok(!plan.signIn.includes(uid), uid);
   assert.ok(!plan.signIn.includes('syn-unknown') && !plan.disabled.includes('syn-unknown'));
 });
+
+// ------------------------------------------------------------------ fixture coverage (PR #125 I11)
+test('fixture coverage: every seeded workflow has a bounded verification query; every UAT-created one says how to create it', () => {
+  const coverage = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing-db', 'fixture-coverage.json'), 'utf8'));
+  const ids = new Set();
+  for (const item of coverage.workflows) {
+    assert.ok(!ids.has(item.id), `duplicate ${item.id}`); ids.add(item.id);
+    assert.ok(['seeded', 'uat-created'].includes(item.status), item.id);
+    assert.match(item.workflow, /\w/); assert.match(item.fixture, /\w/);
+    if (item.status === 'seeded') {
+      assert.ok(Number.isInteger(item.min) && item.min >= 1, item.id);
+      assert.match(item.query, /^SELECT COUNT\((DISTINCT \w+|\*)\) AS n FROM /, item.id);
+      assert.doesNotMatch(item.query, /;|\b(INSERT|UPDATE|DELETE|DROP|ALTER|EXEC|MERGE|GRANT)\b/i, `${item.id} is read-only`);
+    } else assert.match(item.fixture, /^(UAT|Not pre-seeded)/, item.id);
+  }
+  const workflows = fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing-db', 'seed-workflows.js'), 'utf8');
+  for (const state of ['pending_report_to', 'pending_admin', 'approved', 'rejected', 'withdrawn']) assert.ok(workflows.includes(`afc.${state}`), state);
+  for (const area of ['afc', 'swap', 'ta', 'timetable', 'roles', 'faculty']) assert.ok([...ids].some(id => id.startsWith(area + '.')), area);
+});
+
+test('verifyFixtureCoverage fails the reset when a seeded workflow is missing and skips UAT-created ones', async () => {
+  const { verifyFixtureCoverage } = require('../tools/testing-db/reset-testing-db');
+  const pool = counts => ({ request: () => ({ batch: async text => ({ recordset: [{ n: counts[text] ?? 0 }] }) }) });
+  const coverage = { workflows: [{ id: 'a', status: 'seeded', min: 2, query: 'QA' }, { id: 'b', status: 'uat-created' }] };
+  assert.deepEqual((await verifyFixtureCoverage(pool({ QA: 3 }), coverage)).map(r => r.status), ['ok', 'uat-created']);
+  await assert.rejects(verifyFixtureCoverage(pool({ QA: 1 }), coverage), /fixture coverage incomplete: a 1\/2/);
+});
+
+test('workflow fixtures run only through the guarded runtime and accept only synthetic fixture identities', async () => {
+  const { fixtureAdmin, fixtureEnv, SYNTHETIC_UIDS } = require('../tools/testing-db/seed-workflows');
+  const verifier = fixtureAdmin('paws-testing').auth();
+  assert.equal((await verifier.verifyIdToken('syn-fixture:syn-hicc')).uid, 'syn-hicc');
+  for (const token of ['syn-fixture:real-user', 'syn-fixture:syn-developer', 'syn-fixture:syn-owner', 'syn-token:syn-admin', 'eyJhbGciOi']) await assert.rejects(verifier.verifyIdToken(token), /invalid fixture token/, token);
+  assert.ok(!SYNTHETIC_UIDS.some(uid => ['syn-developer', 'syn-owner', 'syn-adfa-general'].includes(uid)), 'no operator-class fixture identity');
+  const env = fixtureEnv({ PAWS_ENVIRONMENT: 'testing' });
+  assert.equal(env.PAWS_ENVIRONMENT, 'testing');
+  assert.equal(env.PAWS_TA_DRAFT_WRITE_ENABLED, 'true');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing-db', 'reset-testing-db.js'), 'utf8');
+  assert.match(source, /await runtime\.assertEnvironment\(\);\s*return await seedWorkflows/);
+  const seed = fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing-db', 'seed-base.sql'), 'utf8');
+  assert.ok(!/@(?!example\.test)[a-z0-9.-]+\.[a-z]{2,}/i.test(seed.replace(/N'[^']*@example\.test'/g, '')), 'only @example.test addresses');
+});

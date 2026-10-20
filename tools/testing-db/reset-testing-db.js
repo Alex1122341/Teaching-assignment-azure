@@ -13,7 +13,8 @@
 //
 // Steps: marker -> drop all non-marker objects (reset only) -> stand-in principals -> migrations
 // 001-002 -> synthetic seed -> remaining migrations (documented test-only adaptations) ->
-// Teaching Assignment fixture -> runtime principal role membership -> verification.
+// Teaching Assignment fixture -> runtime principal role membership -> workflow fixtures through the
+// real API code (seed-workflows.js) -> verification of counts and fixture-coverage.json.
 //
 // Usage (Azure SQL, from CI with the Testing environment's own identity):
 //   PAWS_ENVIRONMENT=testing PAWS_TESTING_ENVIRONMENT_ID=<uuid> FIREBASE_PROJECT_ID=<testing project> \
@@ -182,6 +183,44 @@ async function applyFile(pool, file, text, vars, log) {
   log(`${file}: ok`);
 }
 
+// Runs seed-workflows.js against this Testing database through the normal runtime (environment guard
+// included). LocalDB goes through the same ODBC override as the reset itself.
+async function runWorkflowFixtures(env, log) {
+  const { seedWorkflows, fixtureAdmin, fixtureEnv } = require('./seed-workflows');
+  const { createSwaSqlRuntime } = require(path.join(ROOT, 'server', 'src', 'runtime', 'swa-sql-runtime'));
+  const local = assertLocalOdbc(env);
+  let runtimeEnv = fixtureEnv(env), sqlModule;
+  if (local) {
+    const base = require(path.join(ROOT, 'server', 'node_modules', 'mssql', 'msnodesqlv8'));
+    class LocalPool extends base.ConnectionPool { constructor(config) { super({ ...config, connectionString: local, options: { ...(config.options || {}), encrypt: false } }); } }
+    sqlModule = Object.assign(Object.create(base), { ConnectionPool: LocalPool });
+    runtimeEnv = { ...runtimeEnv, PAWS_SQL_DRIVER: 'msnodesqlv8', PAWS_SQL_MI_CLIENT_ID: undefined, PAWS_SQL_CONNECTION_STRING: `${env.PAWS_SQL_CONNECTION_STRING};Encrypt=true` };
+  } else {
+    sqlModule = require(path.join(ROOT, 'server', 'node_modules', 'mssql'));
+    runtimeEnv = { ...runtimeEnv, PAWS_SQL_DRIVER: 'tedious' };
+  }
+  const runtime = createSwaSqlRuntime({ env: runtimeEnv, admin: fixtureAdmin(env.FIREBASE_PROJECT_ID), sql: sqlModule });
+  try {
+    await runtime.assertEnvironment();
+    return await seedWorkflows({ handler: runtime, log });
+  } finally {
+    await runtime.close();
+  }
+}
+
+async function verifyFixtureCoverage(pool, coverage = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixture-coverage.json'), 'utf8'))) {
+  const results = [];
+  for (const item of coverage.workflows) {
+    if (item.status !== 'seeded') { results.push({ id: item.id, status: item.status }); continue; }
+    const [row] = await run(pool, item.query);
+    const n = Number(row && row.n);
+    results.push({ id: item.id, status: n >= item.min ? 'ok' : 'missing', n, min: item.min });
+  }
+  const missing = results.filter(result => result.status === 'missing');
+  if (missing.length) throw new Error(`fixture coverage incomplete: ${missing.map(m => `${m.id} ${m.n}/${m.min}`).join(', ')}`);
+  return results;
+}
+
 async function main(argv, env = process.env, log = message => console.log(message)) {
   const environment = resolveEnvironment(env);
   if (!environment.testing) throw new Error('reset-testing-db only runs with PAWS_ENVIRONMENT=testing');
@@ -223,14 +262,19 @@ async function main(argv, env = process.env, log = message => console.log(messag
     await run(pool, fs.readFileSync(path.join(__dirname, 'seed-ta.sql'), 'utf8'));
     outcome.push({ file: 'seed-ta.sql', status: 'ok' }); log('seed-ta.sql: ok');
     const roles = await grantRuntimeRoles(pool, runtimePrincipal);
+    // Workflow fixtures go through the real API code (see seed-workflows.js), then every seeded
+    // workflow in fixture-coverage.json is verified, so a reset always restores the same baseline.
+    const workflowFixtures = await runWorkflowFixtures(env, log);
+    outcome.push({ file: 'seed-workflows.js', status: 'ok' });
+    const fixtureCoverage = await verifyFixtureCoverage(pool);
     const [counts] = await run(pool, `SELECT (SELECT COUNT(*) FROM paws.Faculty) AS faculty, (SELECT COUNT(*) FROM paws.Session) AS sessions,
       (SELECT COUNT(*) FROM paws.UserProfile) AS userProfiles, (SELECT COUNT(*) FROM paws.AfcRecord) AS afcRecords,
       (SELECT COUNT(*) FROM paws_env.EnvironmentIdentity WHERE Environment = N'testing') AS marker`);
     const expected = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed-manifest.json'), 'utf8'));
-    if (counts.marker !== 1 || counts.sessions !== expected.sessions || counts.afcRecords !== expected.afc) {
+    if (counts.marker !== 1 || counts.sessions !== expected.sessions || counts.afcRecords !== expected.afc || counts.faculty !== expected.faculty + 2) {
       throw new Error(`verification failed: ${JSON.stringify(counts)}`);
     }
-    const summary = { ok: true, environment: 'testing', database: state.databaseName, server: host, counts, runtimePrincipal, runtimeRoles: roles, migrations: outcome };
+    const summary = { ok: true, environment: 'testing', database: state.databaseName, server: host, counts, runtimePrincipal, runtimeRoles: roles, migrations: outcome, workflowFixtures, fixtureCoverage };
     log(JSON.stringify(summary));
     return summary;
   } finally {
@@ -242,4 +286,4 @@ if (require.main === module) {
   main(process.argv.slice(2)).catch(error => { console.error(`TESTING_DB_RESET_FAILED: ${error.message}`); process.exit(1); });
 }
 
-module.exports = { main, splitBatches, adapt, assertLocalOdbc, decideAction, markerGrantSql, SKIP, TOLERATED_FAILURES };
+module.exports = { main, splitBatches, adapt, assertLocalOdbc, decideAction, markerGrantSql, verifyFixtureCoverage, SKIP, TOLERATED_FAILURES };

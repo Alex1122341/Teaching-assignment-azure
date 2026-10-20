@@ -1,9 +1,13 @@
 {
-  "faculty": 30,
-  "sessions": 306,
-  "sessionAssignments": 404,
+  "faculty": 31,
+  "sessions": 314,
+  "sessionAssignments": 412,
   "afc": 45,
   "users": 13,
-  "roleAssignments": 11,
-  "courses": 8
+  "roleAssignments": 13,
+  "courses": 8,
+  "academicYears": [
+    "2025-26",
+    "2026-27"
+  ]
 }

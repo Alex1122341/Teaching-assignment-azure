@@ -67,3 +67,16 @@ test('Dashboard renders one expandable operation with all child AFC and field ch
  assert.doesNotMatch(html,/<script>/);
  assert.doesNotMatch(html,/Faculty <One>/);
 });
+
+test('Dashboard controller carries reset timestamp in state and clears it on authorization change',async()=>{
+ const ctrl=createHistoryController({scope:'dashboard',api:{
+  changeHistory:async()=>({snapshot:'token',total:0,rows:[],offset:0,pageSize:100,facets:{},coverage:[],historyBaselineUtc:'2026-10-20T21:13:42.660Z'}),
+  changeHistoryPage:async()=>({rows:[],total:0,offset:0,pageSize:100}),
+  changeHistoryExport:async()=>({rowCount:0,fileBase64:''})
+ }});
+ await ctrl.refresh({});
+ assert.equal(ctrl.state().historyBaselineUtc,'2026-10-20T21:13:42.660Z');
+ ctrl.clear();
+ assert.equal(ctrl.state().historyBaselineUtc,undefined);
+ assert.equal(ctrl.state().canExport,false);
+});

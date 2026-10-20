@@ -102,7 +102,7 @@
   const local=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit'}).formatToParts(new Date()),parts=Object.fromEntries(local.map(p=>[p.type,p.value])),yearStart=Number(parts.year)-(parts.month<'05'?1:0);
   const defaultYear=/^\d{4}-\d{2}$/.test(academicYear||'')?academicYear:`${yearStart}-${String((yearStart+1)%100).padStart(2,'0')}`;
   const field=(key,label,type='search',value='')=>`<label>${label}<input data-history-filter="${key}" type="${type}" value="${esc(value)}" maxlength="256"></label>`;
-  host.innerHTML=`<section class="paws-change-history" aria-label="${title}"><div class="history-heading"><h3>${title}</h3><p>${scope==='timetable'?'Recorded teaching changes across the authorized timetable. Private AFC and DOE values are excluded.':scope==='mine'?'Changes affecting your teaching and working schedule, including changes made by others.':'Recorded Lookup, AFC and DOE Rule Book changes within your permissions.'}</p></div>
+  host.innerHTML=`<section class="paws-change-history" aria-label="${title}"><div class="history-heading"><h3>${title}</h3><p>${scope==='timetable'?'Recorded teaching changes across the authorized timetable. Private AFC and DOE values are excluded.':scope==='mine'?'Changes affecting your teaching and working schedule, including changes made by others.':'Recorded Lookup, AFC and DOE Rule Book changes within your permissions.'}</p>${scope==='dashboard'?'<p class="history-reset-note" data-history-reset-note hidden></p>':''}</div>
    <form class="history-filters"><div class="history-search-row">${field('keyword','Search history (course, faculty, change, name…)')}<label>Academic year<select data-history-filter="academicYear"><option value="${esc(defaultYear)}">${esc(defaultYear)}</option></select></label><div class="history-filter-actions"><button type="submit" data-history-apply>Search</button><button type="button" data-history-reset>Reset</button></div></div><details class="history-advanced"><summary>More filters</summary><div class="history-advanced-grid">${field('course','Course number')}${field('topic','Topic')}<label>VISC subject<select data-history-filter="viscSubject"><option value="">All recorded subjects</option><option value="__not_recorded__">Not recorded</option></select></label>
    <label>Faculty<select data-history-filter="faculty"><option value="">All recorded faculty</option></select></label>
    ${field('start','Changed on/after (UTC)','date')}${field('end','Changed before (UTC)','date')}
@@ -125,6 +125,12 @@
    select.value=selected||(key==='academicYear'?defaultYear:'');
   }
   function render(state){
+   if(scope==='dashboard'){
+    const notice=find('[data-history-reset-note]');
+    const baseline=typeof state.historyBaselineUtc==='string'&&Number.isFinite(Date.parse(state.historyBaselineUtc))?state.historyBaselineUtc:null;
+    notice.hidden=!baseline;
+    notice.textContent=baseline?'New Dashboard History since '+new Date(baseline).toLocaleString('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})+' Calgary time. Previous SQL audit records are preserved.':'';
+   }
    find('[data-history-status]').textContent=state.message;
    find('[data-history-rows]').innerHTML=scope==='dashboard'?renderOperationRows(state.rows):renderRows(state.rows);
    host.querySelectorAll('[data-history-export]').forEach(button=>button.disabled=!state.canExport);

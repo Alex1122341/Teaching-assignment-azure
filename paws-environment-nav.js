@@ -37,7 +37,7 @@
   }
 
   // Pure view model, unit-tested without a DOM.
-  function viewModel(config, me) {
+  function viewModel(config, me, { now = Date.now(), expired = false } = {}) {
     const built = config && config.environment;
     const reported = me && me.environment && me.environment.name;
     const profile = me && me.profile;
@@ -52,13 +52,15 @@
     return {
       state: 'ok',
       testing,
-      label: config.environmentLabel || (testing ? 'TESTING ENVIRONMENT' : 'Production'),
+      label: config.environmentLabel || (testing ? 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY' : 'Production'),
       showBar: testing || (operator && Boolean(config.peerSiteUrl)),
       openTesting: !testing && operator && Boolean(config.peerSiteUrl),
       returnToProduction: testing && Boolean(config.peerSiteUrl),
       switchIdentity: testing && reported === 'testing' && operator,
       actor: support ? { name: support.actorName, role: support.actorRole } : profile ? { name: profile.displayName, role: profile.role } : null,
       persona: support ? { name: support.targetName, role: support.targetRole, expiresAtUtc: support.expiresAtUtc } : null,
+      // The persona session ended: on its own timer, or because the server rejected it.
+      personaExpired: Boolean(support) && (expired || (Boolean(support.expiresAtUtc) && Date.parse(support.expiresAtUtc) <= now)),
       scope: support ? null : profile && profile.facultyId ? 'Own Faculty record' : null
     };
   }
@@ -81,7 +83,7 @@ body.paws-env-locked main,body.paws-env-locked .main-view,body.paws-env-locked .
   function install(win) {
     const doc = win.document;
     const config = win.PAWS_ENVIRONMENT_CONFIG || win.PAWS_API_ORIGIN_CONFIG || null;
-    let lastMe = null;
+    let lastMe = null, expired = false, expiryTimer = null;
 
     function bar() {
       let el = doc.getElementById('paws-environment-bar');
@@ -96,7 +98,12 @@ body.paws-env-locked main,body.paws-env-locked .main-view,body.paws-env-locked .
     }
 
     function render() {
-      const model = viewModel(config, lastMe);
+      const model = viewModel(config, lastMe, { expired });
+      if (expiryTimer) { win.clearTimeout(expiryTimer); expiryTimer = null; }
+      if (model.persona && !model.personaExpired && model.persona.expiresAtUtc) {
+        const wait = Date.parse(model.persona.expiresAtUtc) - Date.now();
+        if (wait > 0 && wait <= 31 * 60 * 1000) expiryTimer = win.setTimeout(render, wait + 1000);
+      }
       const el = bar();
       if (model.state !== 'ok') {
         el.hidden = false; el.className = 'paws-env-bar is-blocked';
@@ -109,21 +116,22 @@ body.paws-env-locked main,body.paws-env-locked .main-view,body.paws-env-locked .
       el.className = 'paws-env-bar' + (model.testing ? ' is-testing' : '');
       const who = model.actor
         ? `Signed in as <strong>${esc(model.actor.name)}</strong> (${esc(roleLabel(model.actor.role))})` +
-          (model.persona ? ` · Testing as <strong>${esc(model.persona.name)}</strong> — effective role <strong>${esc(roleLabel(model.persona.role))}</strong>` +
-            (model.persona.expiresAtUtc ? ` · session ends ${esc(new Date(model.persona.expiresAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}` : '') : '') +
-          (model.testing ? ' · Synthetic test data only' : '')
+          (model.persona && model.personaExpired ? ` · <strong>Test identity session expired</strong> (was ${esc(model.persona.name)}). Return to yourself to continue.` : '') +
+          (model.persona && !model.personaExpired ? ` · Testing as <strong>${esc(model.persona.name)}</strong> — effective role <strong>${esc(roleLabel(model.persona.role))}</strong>` +
+            (model.persona.expiresAtUtc ? ` · session ends ${esc(new Date(model.persona.expiresAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}` : '') : '')
         : (model.testing ? 'Synthetic test data only · sign in with your Testing account' : '');
       const dest = peerDestination(config, win.location.pathname);
       el.innerHTML = `<span class="paws-env-badge">${esc(model.label)}</span><span class="paws-env-who">${who}</span><span class="paws-env-actions">` +
         (model.openTesting ? `<a class="paws-env-link" data-env-open href="${esc(dest)}">Open Testing Environment</a>` : '') +
         (model.returnToProduction ? `<a class="paws-env-link" data-env-return href="${esc(dest)}">Return to Production</a>` : '') +
-        (model.switchIdentity ? `<button type="button" data-env-switch>${model.persona ? 'Change Test Identity' : 'Switch Test Identity'}</button>` : '') +
+        (model.switchIdentity && !model.personaExpired ? `<button type="button" data-env-switch>${model.persona ? 'Change Test Identity' : 'Switch Test Identity'}</button>` : '') +
         (model.persona ? `<button type="button" data-env-self>Return to myself</button>` : '') + '</span>';
       el.querySelector('[data-env-switch]')?.addEventListener('click', () => win.PAWS_SUPPORT && win.PAWS_SUPPORT.open());
-      el.querySelector('[data-env-self]')?.addEventListener('click', () => win.PAWS_SUPPORT && win.PAWS_SUPPORT.leave());
+      el.querySelector('[data-env-self]')?.addEventListener('click', () => (win.PAWS_SUPPORT ? win.PAWS_SUPPORT.leave() : win.location.reload()));
     }
 
-    win.addEventListener('paws-profile', event => { lastMe = event.detail || null; render(); });
+    win.addEventListener('paws-profile', event => { lastMe = event.detail || null; expired = false; render(); });
+    win.addEventListener('paws-support-expired', () => { expired = true; render(); });
     // Pages without the SQL data client (account/password pages) still show who is signed in.
     win.addEventListener('load', () => {
       try {

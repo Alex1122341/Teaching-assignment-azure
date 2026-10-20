@@ -259,3 +259,61 @@ test('a provisioned Testing build contains exactly the shipped manifest and pass
   assert.deepEqual(shipped.sort(), [...assets].sort(), 'Testing artifact ships exactly the manifest (no retired SWA config)');
   assert.deepEqual(verifyArtifact(app, 'testing', dir), []);
 });
+
+// ------------------------------------------------------------------ test identity expiry and wording (PR #125 I9/I10)
+const personaMe = expiresAtUtc => ({ ...me('faculty', { reported: 'testing' }), support: { actorName: 'Ada', actorRole: 'adfa_regular', targetName: 'Casey', targetRole: 'faculty', expiresAtUtc } });
+
+test('a test identity that reaches its expiry time is shown as expired, without the switch button', () => {
+  const live = nav.viewModel(provisionedTesting, personaMe('2026-10-20T21:00:00Z'), { now: Date.parse('2026-10-20T20:59:00Z') });
+  assert.equal(live.personaExpired, false);
+  const ended = nav.viewModel(provisionedTesting, personaMe('2026-10-20T21:00:00Z'), { now: Date.parse('2026-10-20T21:00:01Z') });
+  assert.equal(ended.personaExpired, true);
+  const rejected = nav.viewModel(provisionedTesting, personaMe('2099-01-01T00:00:00Z'), { expired: true });
+  assert.equal(rejected.personaExpired, true, 'a server-side rejection counts as expired');
+  assert.equal(nav.viewModel(provisionedTesting, me('adfa_regular', { reported: 'testing' }), { expired: true }).personaExpired, false, 'no persona, nothing to expire');
+  const html = renderBar(provisionedTesting, personaMe('2000-01-01T00:00:00Z'), '/index.html');
+  assert.match(html, /Test identity session expired/);
+  assert.match(html, /Return to myself/);
+  assert.doesNotMatch(html, /Switch Test Identity|Change Test Identity/);
+  assert.doesNotMatch(html, /effective role/);
+});
+
+test('the Testing banner reads "TESTING ENVIRONMENT — SYNTHETIC DATA ONLY" and shows actor, persona and effective role', () => {
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'config', 'environments', 'testing.json'), 'utf8')).environmentLabel, 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY');
+  assert.equal(nav.viewModel({ ...provisionedTesting, environmentLabel: undefined }, null).label, 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY');
+  const html = renderBar({ ...provisionedTesting, environmentLabel: 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY' }, personaMe('2099-01-01T00:00:00Z'), '/index.html');
+  assert.match(html, /TESTING ENVIRONMENT — SYNTHETIC DATA ONLY/);
+  assert.match(html, /Signed in as <strong>Ada<\/strong> \(ADFAD Administrator\)/);
+  assert.match(html, /Testing as <strong>Casey<\/strong> — effective role <strong>Faculty<\/strong>/);
+  assert.match(html, /session ends/);
+});
+
+test('the data client announces a server-ended support session and never retries it as another identity', async () => {
+  const { createPawsAzureDataClient } = require('../paws-data-client');
+  const events = [];
+  const previous = { dispatchEvent: globalThis.dispatchEvent };
+  globalThis.dispatchEvent = event => { events.push(event); return true; };
+  try {
+    const calls = [];
+    const client = createPawsAzureDataClient({ tokenProvider: async () => 'token', fetchImpl: async (url, init) => { calls.push(init); return { ok: false, status: 403, json: async () => ({ error: { code: 'SUPPORT_CONTEXT_EXPIRED', message: 'Support session ended or expired. Return to your own account.' } }) }; } });
+    await assert.rejects(client.listAfcForms({ facultyId: 'f' }), error => error.code === 'SUPPORT_CONTEXT_EXPIRED');
+    assert.equal(calls.length, 1, 'a 403 is never replayed');
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, 'paws-support-expired');
+    assert.equal(events[0].detail.code, 'SUPPORT_CONTEXT_EXPIRED');
+    const other = createPawsAzureDataClient({ tokenProvider: async () => 'token', fetchImpl: async () => ({ ok: false, status: 403, json: async () => ({ error: { code: 'FORBIDDEN', message: 'no' } }) }) });
+    await assert.rejects(other.listAfcForms({ facultyId: 'f' }));
+    assert.equal(events.length, 1, 'ordinary authorization errors are not session expiry');
+  } finally {
+    if (previous.dispatchEvent === undefined) delete globalThis.dispatchEvent; else globalThis.dispatchEvent = previous.dispatchEvent;
+  }
+});
+
+test('after a server-ended session the page keeps the ended context (requests fail) until Return to myself', () => {
+  const source = fs.readFileSync(path.join(root, 'developer-support.js'), 'utf8');
+  const handler = /addEventListener\('paws-support-expired',([\s\S]*?)\}\);\n/.exec(source);
+  assert.ok(handler, 'developer-support listens for paws-support-expired');
+  assert.doesNotMatch(handler[1], /removeItem/, 'the ended context is not dropped silently');
+  assert.match(handler[1], /onclick=leave/);
+  assert.match(source, /op\.undoable===false\?'Reset to restore'/);
+});

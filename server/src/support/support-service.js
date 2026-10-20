@@ -10,6 +10,30 @@ const PRODUCTION_OPERATOR_ROLES=Object.freeze(['developer']);
 // server itself runs as the Testing environment (never selectable by a client).
 const TESTING_OPERATOR_ROLES=Object.freeze(['developer','owner','adfa_general','administrator','adfa_regular','admin']);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// Developer Support routes (Production and Testing). Their tables are captured by migrations 033-035,
+// so an operation on them can be undone.
+const SUPPORT_ROUTES=/^\/api\/v1\/(me|sessions(?:\/|$)|dashboard(?:\/|$)|swaps(?:\/|$)|teaching-assignments(?:\/|$)|doe(?:\/|$)|afc-requests(?:\/|$))/;
+// Testing personas only: the newer workflows. Their tables are not captured for undo, so writes are
+// recorded under the real operator but cannot be undone (a Testing reset restores them). Writes that run on
+// the separate import SQL pool would commit outside the audited support transaction and stay refused.
+const TESTING_PERSONA_ROUTES=Object.freeze([
+ {family:'calendar-activities',read:/^\/api\/v1\/calendar-activities(?:\/capabilities)?$/,write:/^\/api\/v1\/calendar-activities\/[^/]+\/time-evidence$/,why:'Calendar Activities (038-046): list and time evidence on the request transaction'},
+ {family:'calendar-activity-imports',read:/^\/api\/v1\/calendar-activity-imports\/[^/]+$/,write:null,why:'Calendar imports run on the separate import pool: view only'},
+ {family:'afc-forms',read:/^\/api\/v1\/afc-forms(?:\/capabilities|\/[^/]+\/document)?$/,write:/^\/api\/v1\/afc-forms$/,why:'AFC original forms (048/050): list, download and upload'},
+ {family:'ccc-replacements',read:/^\/api\/v1\/ccc-replacements(?:\/capabilities|\/template|\/[^/]+)$/,write:null,why:'CCC replacement runs on the separate import pool: view only'},
+ {family:'change-history',read:/^\/api\/v1\/change-history(?:\/page|\/export)?$/,write:null,why:'Change History (047) is read-only'},
+ {family:'scheduling-tasks',read:/^\/api\/v1\/scheduling-tasks$/,write:/^\/api\/v1\/scheduling-tasks\/[^/]+\/review$/,why:'Scheduling Tasks (043): list and review'}
+].map(route=>Object.freeze(route)));
+// 'reversible' (Developer Support, undo available), 'recorded' (Testing persona, audited, no undo) or null (denied).
+function routeAccess({testing,method,path}){
+ const value=String(path||'');
+ if(/approved-artifact/.test(value))return null;
+ if(SUPPORT_ROUTES.test(value))return 'reversible';
+ if(!testing)return null;
+ const read=String(method||'').toUpperCase()==='GET';
+ return TESTING_PERSONA_ROUTES.some(route=>read?route.read.test(value):Boolean(route.write&&route.write.test(value)))?'recorded':null;
+}
+const operationUndoable=route=>{const [method,...rest]=String(route||'').split(' ');return routeAccess({testing:false,method,path:rest.join(' ')})==='reversible';};
 const response=(status,jsonBody)=>({status,jsonBody});
 const fail=(status,code,message)=>Object.assign(new Error(message),{status,code});
 
@@ -42,7 +66,7 @@ function createSupportService({db,verifyToken,findUser,environment={name:'produc
   if(request.method==='GET'&&path==='/api/v1/support'){
    const accounts=await db.query(`SELECT FirebaseUid AS uid,DisplayName AS name,BaseRole AS role FROM paws.UserProfile WHERE Active=1 AND MustChangePassword=0 ORDER BY BaseRole,DisplayName`);
    const operations=await db.query(`SELECT TOP(50) o.OperationId AS id,o.Route AS route,o.CreatedAtUtc AS createdAtUtc,o.UndoneAtUtc AS undoneAtUtc,c.Reason AS reason,u.DisplayName AS targetName,u.BaseRole AS targetRole,(SELECT COUNT_BIG(*) FROM paws.SupportChange ch WHERE ch.OperationId=o.OperationId) AS changeCount FROM paws.SupportOperation o JOIN paws.SupportContext c ON c.ContextId=o.ContextId LEFT JOIN paws.UserProfile u ON u.FirebaseUid=o.TargetUid WHERE o.ActorUid=@uid ORDER BY o.CreatedAtUtc DESC`,{uid:actor.firebaseUid});
-   return response(200,{accounts:accounts.filter(a=>isSupportedRole(a.role)&&mayAssume(actor,{baseRole:a.role})),operations,actor:{name:actor.displayName,role:actor.baseRole},environment:{name:environment.name,testing},mode:testing?'testing_persona':'developer_support'});
+   return response(200,{accounts:accounts.filter(a=>isSupportedRole(a.role)&&mayAssume(actor,{baseRole:a.role})),operations:operations.map(op=>({...op,undoable:operationUndoable(op.route)})),actor:{name:actor.displayName,role:actor.baseRole},environment:{name:environment.name,testing},mode:testing?'testing_persona':'developer_support'});
   }
   if(request.method==='POST'&&path==='/api/v1/support/start'){
    const body=await payload(request);const reason=String(body.reason||'').trim(),targetUid=String(body.targetUid||'');
@@ -59,6 +83,8 @@ function createSupportService({db,verifyToken,findUser,environment={name:'produc
   }
   if(request.method==='POST'&&path==='/api/v1/support/undo'){
    const body=await payload(request);if(!UUID.test(String(body.operationId||'')))throw fail(400,'SUPPORT_OPERATION_INVALID','Operation identifier required.');
+   const [operation]=await db.query(`SELECT Route AS route FROM paws.SupportOperation WHERE OperationId=@id AND ActorUid=@uid`,{id:body.operationId,uid:actor.firebaseUid});
+   if(operation&&!operationUndoable(operation.route))throw fail(409,'SUPPORT_UNDO_UNSUPPORTED','This test action cannot be undone. Reset the Testing database to restore it.');
    await db.query(`EXEC paws_api.UndoSupportOperation @OperationId=@id,@ActorUid=@uid`,{id:body.operationId,uid:actor.firebaseUid});return response(200,{undone:true});
   }
   return response(405,{error:{code:'METHOD_NOT_ALLOWED',message:'Support action not available.'}});
@@ -71,7 +97,7 @@ function createSupportService({db,verifyToken,findUser,environment={name:'produc
    if(!id)return await next(request);
    // Identity is always resolved from the real Firebase credential, then from SQL.
    const {decoded,actor}=await developer(request),selected=await context(id,decoded.uid,actor);
-   if(!/^\/api\/v1\/(me|sessions(?:\/|$)|dashboard(?:\/|$)|swaps(?:\/|$)|teaching-assignments(?:\/|$)|doe(?:\/|$)|afc-requests(?:\/|$))/.test(path)||/approved-artifact/.test(path))throw fail(403,'SUPPORT_ROUTE_DENIED','This operation is unavailable in support mode. Return to yourself.');
+   if(!routeAccess({testing,method:request.method,path}))throw fail(403,'SUPPORT_ROUTE_DENIED',testing&&request.method!=='GET'&&/^\/api\/v1\/(calendar-activity-imports|ccc-replacements)(?:\/|$)/.test(path)?'Imports run outside the audited test session. Return to yourself to run them.':'This operation is unavailable in support mode. Return to yourself.');
    const state={decoded:{...decoded,uid:selected.targetUid},contextId:id,targetName:selected.target.displayName,targetRole:selected.target.baseRole,actorName:actor.displayName,actorRole:actor.baseRole};
    const invoke=()=>scope.run(state,()=>next(request));
    if(request.method==='GET'){
@@ -97,4 +123,4 @@ function createSupportService({db,verifyToken,findUser,environment={name:'produc
  }
  return {handle,verify:async token=>{const original=await verifyToken(token);const current=scope.getStore();return current?{...original,uid:current.decoded.uid}:original;}};
 }
-module.exports={createSupportService};
+module.exports={createSupportService,routeAccess,TESTING_PERSONA_ROUTES};

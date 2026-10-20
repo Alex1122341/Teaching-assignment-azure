@@ -1,6 +1,6 @@
 {
   "environment": "testing",
-  "environmentLabel": "TESTING ENVIRONMENT",
+  "environmentLabel": "TESTING ENVIRONMENT — SYNTHETIC DATA ONLY",
   "releaseLabel": "TESTING — SYNTHETIC DATA",
   "apiOrigin": null,
   "siteUrl": null,

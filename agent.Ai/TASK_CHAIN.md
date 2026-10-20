@@ -1,3 +1,7 @@
+## Current: Azure SWA static-hosting code retirement candidate — 2026-10-19
+
+Owner requested unused Azure Static Web Apps release code removal. See `agent.Ai/updates/2026-10-19-retire-azure-swa-static.md`. Branch `chore/remove-retired-azure-swa-static-20261019` (base main `9fcabc0`); removed static-only Azure workflows, PS deployer, SWA config and associated tests, retained Firebase Hosting + exact artifact freeze and University API/SQL/ACA runtime. **Candidate only:** PR, CI, merge and deployment status must be verified; no live mutations performed. Do not delete `swa-api/` or `server/src/runtime/swa-*` due to active API dependencies.
+
 ## Current: MASTER source applied; PR120 empty-search SQL acceptance - 2026-10-19
 
 Read updates/2026-10-19-master-source-applied-empty-search.md. Do not replay completed413CCC/139appointments/110trainees or540migration. Private recovery school/local verified. PR119 main501e9edCI/artifact passed; fresh valid Draft exists with18 held mismatches, Active unchanged. Complete SQL055 PR120 full/isolated acceptance and exact-main checks, apply only the narrow read serialization patch with preserved business fingerprints, then retry real self empty search and browser empty CSV. Finish original Excel/current private Draft report. Original human signoffs remain pending. No API/static/freeze change or healthy runtime restart needed.

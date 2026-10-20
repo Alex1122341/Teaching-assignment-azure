@@ -105,7 +105,7 @@ BEGIN
  WHERE a.FacultyId=@FacultyId AND a.StartDate<=COALESCE(@Ceiling,'9999-12-31')
    AND a.EndDate>=@Floor
    AND (@Mode<>N'upcoming' OR a.EndDate>@Today
-        OR missing.MissingDays>0
+        OR NOT EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId AND t.ActivityDate=@Today)
         OR EXISTS(SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId
                   AND t.ActivityDate=@Today AND t.EndTime>@Clock));
 

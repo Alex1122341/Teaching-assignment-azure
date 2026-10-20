@@ -71,3 +71,16 @@ test('privacy: no unapproved event or field can appear in any operation detail',
  assert.equal(own.length,1);
  assert.doesNotMatch(JSON.stringify(own),/batchRowCount|metadataJson|FacultyId|uid/);
 });
+
+test('a Calendar Activity import projects multiple item rows but remains one Dashboard operation',()=>{
+ const audit='11111111-1111-4111-8111-111111111111';
+ const events=[1,2,3].map(i=>({
+  source:'work',eventId:audit+':22222222-2222-4222-8222-'+String(i).padStart(12,'0'),
+  eventType:'calendar_activity_import_committed',occurredAtUtc:'2026-10-20T15:00:00Z',
+  actorName:'Admin',facultyId:FACULTY_A,
+  afterJson:JSON.stringify({facultyId:FACULTY_A,label:'AFC',category:'away',startDate:'2026-11-11',endDate:'2026-11-12'})
+ }));
+ assert.equal(groupDashboardHistory(events.map(e=>toEntry(e))).length,1);
+ assert.equal(groupDashboardHistory(events.map(e=>toEntry(e)))[0].recordCount,3);
+ assert.notEqual(operationKey(events[0]),operationKey({...events[0],eventType:'calendar_activity_time_resolved'}));
+});

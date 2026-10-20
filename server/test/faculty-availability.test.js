@@ -31,6 +31,11 @@ test('bounded cursor and kind validation prevents unauthorized broad reads',asyn
  assert.equal((await api.list('ok',facultyId,{kind:'sensitive'})).status,400);
  assert.equal((await api.list('ok','bad-uid')).status,400);
 });
+
+test('dates are bounded by SQL date years including rejection of year zero',async()=>{
+ const api=make();assert.equal((await api.list('ok',facultyId,{mode:'from',startDate:'0000-01-01'})).status,400);
+ for(const startDate of ['0001-01-01','0099-12-31','9999-12-31'])assert.equal((await api.list('ok',facultyId,{mode:'from',startDate})).status,200);
+});
 test('SQL adapter is only the reviewed read-only procedure with canonical identity',async()=>{
  const calls=[];
  const repository=createSqlFacultyAvailabilityRepository({query:async(text,args)=>{calls.push({text,args});return[{responseJson:JSON.stringify({items:[],total:0})}]}});

@@ -13,8 +13,13 @@ const facultyId='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222
  const all=[...upcoming.items];let cursor=upcoming.nextCursor;while(cursor){const page=await repo.list({...params,cursor:Number(cursor)});all.push(...page.items);cursor=page.nextCursor;}
  assert.equal(all.length,upcoming.total);assert.equal(new Set(all.map(x=>x.eventKey)).size,all.length);assert.ok(!all.some(x=>x.detail==='Completed today'));assert.ok(all.some(x=>x.kind==='afc'));assert.ok(all.some(x=>x.kind==='pending'));
  assert.ok(all.some(x=>x.label==='Remote work'&&x.availability==='informational'));assert.ok(all.some(x=>x.label==='Partial CCC'&&x.timeStatus==='partial'));
+ assert.ok(all.some(x=>x.eventKey.startsWith('responsibility:')&&x.detail==='Authority-only HICC'&&x.availability==='ongoing'),'Authority-only current HICC must be included');
+ assert.ok(!all.some(x=>x.detail==='Authority-only VISC'),'Expired VISC must not be upcoming');assert.equal(upcoming.coverage.undatedRoles,1,'Explicit empty appointment is inactive, not missing coverage');
  assert.doesNotMatch(JSON.stringify(all),/PRIVATE|private@example|ReasonCode|Doe|Email|UCID/);
  const historic=await repo.list({...params,mode:'range',startDate:'2024-06-01',endDate:'2024-06-01'});assert.ok(historic.items.some(x=>x.kind==='teaching'));assert.ok(historic.items.some(x=>x.kind==='afc'&&x.startDate==='2024-05-01'));assert.ok(historic.items.some(x=>x.kind==='role'&&x.endDate==='2024-06-30'));
+ assert.ok(historic.items.some(x=>x.eventKey.startsWith('responsibility:')&&x.detail==='Authority-only VISC'&&x.endDate==='2024-06-30'));
+ const boundary=await repo.list({...params,mode:'range',kind:'role',startDate:'2024-07-01',endDate:'2024-07-01'});assert.ok(!boundary.items.some(x=>x.detail==='Authority-only VISC'),'Authority expiration is exclusive');
+ console.log('FACULTY_AVAILABILITY_RESPONSIBILITY_WINDOWS_OK');
  const from=await repo.list({...params,mode:'from',startDate:'2024-01-01',limit:100});assert.ok(from.items.some(x=>x.kind==='teaching'&&x.startDate==='2024-06-01'));assert.ok(from.total>upcoming.total);
  const empty=await repo.list({...params,mode:'range',startDate:'1900-01-01',endDate:'1900-01-01'});assert.deepEqual(empty.items,[]);assert.equal(empty.total,0);assert.ok(empty.coverage.undatedSessions>0);
  for(const actorFirebaseUid of ['availability-self','availability-hicc']){await repo.list({...params,actorFirebaseUid});await assert.rejects(repo.list({...params,actorFirebaseUid,facultyId:other}),e=>e.number===55603);}

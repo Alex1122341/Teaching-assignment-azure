@@ -1,7 +1,7 @@
 'use strict';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE=/^\d{4}-\d{2}-\d{2}$/;
-const validDate=v=>DATE.test(v)&&!Number.isNaN(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
+const validDate=v=>DATE.test(v)&&v>='0001-01-01'&&v<='9999-12-31'&&!Number.isNaN(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
 function createFacultyAvailabilityApi({verifyToken,findUser,repository}={}){
  if(!verifyToken||!findUser||!repository)throw Error('Availability dependencies required.');

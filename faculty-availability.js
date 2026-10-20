@@ -5,7 +5,7 @@
  const labels={busy:'Busy',away:'Away / Unavailable',tentative:'Tentative',ongoing:'Ongoing responsibility',time_unconfirmed:'Time unconfirmed',informational:'Recorded work (informational)'};
  function createFacultyAvailability({api,host,getSelfMode=()=>false}={}){
   if(!api||!host)throw Error('Availability host and data API required.');
-  let generation=0,selected='',cursor=null,items=[],loading=false,coverage=null,hasResult=false,roster=[];
+  let generation=0,rosterGeneration=0,rosterTimer=null,selected='',cursor=null,items=[],loading=false,coverage=null,hasResult=false,roster=[];
   host.innerHTML='<div class="section-title">Faculty Availability</div><p class="aux-note">Read-only PAWS commitments, not a guarantee of open calendar time.</p>'+
    '<div class="availability-controls"><label>Faculty member<input id="availability-faculty" class="input" list="availability-faculty-options" autocomplete="off" placeholder="Search a faculty name"></label><datalist id="availability-faculty-options"></datalist>'+
    '<label>Dates<select id="availability-mode" class="select"><option value="upcoming">Ongoing and upcoming (default)</option><option value="from">From date onward</option><option value="range">Custom historical range</option></select></label>'+
@@ -42,23 +42,29 @@
    generation++;selected='';items=[];cursor=null;coverage=null;hasResult=false;loading=false;
    $('availability-search').disabled=false;$('availability-more').disabled=false;render();state(message);
   }
-  async function loadRoster(){
-   const token=++generation;
+  function cancelRoster(){rosterGeneration++;if(rosterTimer!==null){root.clearTimeout(rosterTimer);rosterTimer=null;}}
+  async function loadRoster(search=''){
+   cancelRoster();const token=rosterGeneration;
    state('Loading authorized faculty…');
    try{
-    const value=await api.dashboardFaculty();
-    if(token!==generation)return;
+    const value=await api.dashboardFaculty({search:search||null,limit:200,status:getSelfMode()?'active':'all'});
+    if(token!==rosterGeneration)return;
     const rows=Array.isArray(value)?value:[],counts=new Map();
     rows.forEach(r=>{const n=String(r.displayName||'Name unavailable').trim().toLowerCase();counts.set(n,(counts.get(n)||0)+1);});
-    roster=rows.map((r,i)=>({...r,choice:counts.get(String(r.displayName||'Name unavailable').trim().toLowerCase())>1?String(r.displayName||'Name unavailable')+' · Faculty '+(i+1):String(r.displayName||'Name unavailable')}));
+    roster=rows.map((r,i)=>({facultyId:r.facultyId,choice:counts.get(String(r.displayName||'Name unavailable').trim().toLowerCase())>1?String(r.displayName||'Name unavailable')+' · Faculty '+(i+1):String(r.displayName||'Name unavailable')}));
     options.innerHTML=roster.map(r=>'<option value="'+esc(r.choice)+'"></option>').join('');
-    if(roster.length===1){selected=String(roster[0].facultyId||'');picker.value=roster[0].choice;}
-    state(roster.length?'Select one faculty and search.':'No authorized faculty records available.');
-   }catch(error){if(token===generation)state('Faculty list unavailable. Retry after signing in.');}
+    if(!search&&roster.length===1){selected=String(roster[0].facultyId||'');picker.value=roster[0].choice;}
+    state(roster.length===200?'Showing up to 200 matches. Type a more specific faculty name.':roster.length?'Select one faculty and search.':'No matching authorized faculty. Search another name.');
+   }catch(error){if(token===rosterGeneration){roster=[];options.innerHTML='';state('Faculty list unavailable. Retry after signing in.');}}
   }
   async function search(more=false){
    if(loading)return;
-   const matches=roster.filter(r=>r.choice.toLowerCase()===picker.value.trim().toLowerCase());
+   const before=generation;
+   let matches=roster.filter(r=>r.choice.toLowerCase()===picker.value.trim().toLowerCase());
+   if(!more&&matches.length!==1&&picker.value.trim()){
+    await loadRoster(picker.value.trim());if(before!==generation)return;
+    matches=roster.filter(r=>r.choice.toLowerCase()===picker.value.trim().toLowerCase());
+   }
    if(more){if(!cursor)return;}else{
     if(matches.length!==1){state('Choose one unique faculty name from the list.');return;}
     selected=String(matches[0].facultyId||'');
@@ -83,14 +89,18 @@
   for(const id of ['availability-faculty','availability-start','availability-end','availability-mode','availability-kind']){
    $(id).addEventListener('input',()=>dirty());$(id).addEventListener('change',()=>dirty());
   }
-  return Object.freeze({open:()=>{dirty('Loading authorized faculty…');return loadRoster();},clear:()=>{dirty('Select a faculty member.');roster=[];picker.value='';options.innerHTML='';}});
+  picker.addEventListener('input',()=>{
+   cancelRoster();if(roster.some(r=>r.choice.toLowerCase()===picker.value.trim().toLowerCase()))return;
+   rosterTimer=root.setTimeout(()=>{rosterTimer=null;loadRoster(picker.value.trim());},200);
+  });
+  return Object.freeze({open:()=>{dirty('Loading authorized faculty…');return loadRoster();},clear:()=>{cancelRoster();dirty('Select a faculty member.');roster=[];picker.value='';options.innerHTML='';}});
  }
  root.PAWS_FACULTY_AVAILABILITY={createFacultyAvailability};
  if(root.document&&root.UCVM_PAWS_DATA){
    const host=root.document.getElementById('availability-view');
    const tab=root.document.querySelector('[data-tab="availability"]');
    if(host&&tab){
-     const view=createFacultyAvailability({api:root.UCVM_PAWS_DATA,host});
+     const view=createFacultyAvailability({api:root.UCVM_PAWS_DATA,host,getSelfMode:()=>root.document.body.classList.contains('faculty-self-mode')});
      tab.addEventListener('click',()=>view.open());
      root.document.getElementById('signout-btn')?.addEventListener('click',()=>view.clear());
      root.firebase?.auth?.().onAuthStateChanged(()=>view.clear());

@@ -191,5 +191,8 @@
   ],
   "traineeReadProcedures": [
     "paws_api.ListTraineeSource"
+  ],
+  "availabilityReadProcedures": [
+    "paws_api.ListFacultyAvailability"
   ]
 }

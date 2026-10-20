@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed Dashboard History operation-grouping product is the immutable trust anchor.
-// Prior AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='fe1fa7002ef956f02e767053fbe2f6fea8daf748';
+// Reviewed dual-environment (Production/Testing) product is the immutable trust anchor.
+// Prior Dashboard History operation-grouping, AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='413e87fd9256fae51a8b1722bcf667d60a8a3a55';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

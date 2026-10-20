@@ -11,9 +11,11 @@ const PREVIOUS='b5d33762f3544faa94e47d4b7feaf380f0e8a864';
 const PRODUCT='846858a242cf2a96b0257822ac22d8ab6a770c94';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('Lookup AFC/Leave/DOE governance pins only the reviewed two-file static delta',()=>{
-  assert.equal(freeze.BASELINE_COMMIT,PRODUCT);
-  assert.equal(api.BASELINE_COMMIT,PRODUCT);
-  assert.equal(report.sourceCommit,PRODUCT);
+  // Superseded as the live anchor by the dual-environment promotion; it stays pinned as history.
+  git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);
+  assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
+  const historicalReport=JSON.parse(git('show','6addfb9125066c5dd14ca7a3d7c38be6a01a870a:tools/beta-baseline.json'));
+  assert.equal(historicalReport.sourceCommit,PRODUCT);
   git('merge-base','--is-ancestor',PREVIOUS,PRODUCT);
   git('merge-base','--is-ancestor',PRODUCT,'HEAD');
   const manifest=commit=>JSON.parse(git('show',commit+':tools/static-assets.json')).sort();
@@ -40,8 +42,8 @@ test('Lookup AFC/Leave/DOE governance pins only the reviewed two-file static del
       freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})
     ),true,file);
   }
-  assert.deepEqual(Object.keys(report.sha256).sort(),after);
-  for(const file of after)assert.equal(report.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
+  assert.deepEqual(Object.keys(historicalReport.sha256).sort(),after);
+  for(const file of after)assert.equal(historicalReport.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
   assert.deepEqual(freeze.verifyFreeze({root}).drift,[]);
   assert.deepEqual(api.verifyFreeze({root}).drift,[]);
 });

@@ -1,3 +1,7 @@
+## Current: PR #125 dual-environment readiness (candidate, not merged) — 2026-10-20
+
+Read updates/2026-10-20-pr125-dual-environment-readiness.md and docs/dual-environment/09-deployment-readiness-report.md. Branch feat/paws-testing-environment merged main 15dd739; governance anchor fe1fa70->413e87f (static82/API105/protected108) pending owner review. Testing personas extended (Testing only), release evidence replaces GitHub Environments, workflow fixtures via real API, preflight/env validators. Local LocalDB acceptance on the laptop; no push/merge/deploy/provisioning; Production untouched. Production API hosts need PAWS_ENVIRONMENT=production before the next API release.
+
 ## Current: Azure SWA static-hosting code retirement candidate — 2026-10-19
 
 Owner requested unused Azure Static Web Apps release code removal. See `agent.Ai/updates/2026-10-19-retire-azure-swa-static.md`. Branch `chore/remove-retired-azure-swa-static-20261019` (base main `9fcabc0`); removed static-only Azure workflows, PS deployer, SWA config and associated tests, retained Firebase Hosting + exact artifact freeze and University API/SQL/ACA runtime. **Candidate only:** PR, CI, merge and deployment status must be verified; no live mutations performed. Do not delete `swa-api/` or `server/src/runtime/swa-*` due to active API dependencies.

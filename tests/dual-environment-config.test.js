@@ -242,3 +242,20 @@ test('Production release keeps its approval gate and gains switchable identity a
   assert.match(aca, /environment: production/);
   assert.match(aca, /PAWS_ENVIRONMENT_NOT_PRODUCTION/);
 });
+
+test('a provisioned Testing build contains exactly the shipped manifest and passes the artifact guard', () => {
+  const { execFileSync } = require('node:child_process');
+  const dir = provisionedRoot(provisionedTesting);
+  fs.mkdirSync(path.join(dir, 'tools'), { recursive: true });
+  for (const tool of ['build-testing-release.js', 'render-environment-config.js']) fs.copyFileSync(path.join(root, 'tools', tool), path.join(dir, 'tools', tool));
+  const assets = require('../tools/static-assets.json');
+  for (const file of assets) { fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true }); fs.copyFileSync(path.join(root, file), path.join(dir, file)); }
+  const out = JSON.parse(execFileSync(process.execPath, [path.join(dir, 'tools', 'build-testing-release.js')], { encoding: 'utf8' }));
+  assert.equal(out.ok, true);
+  const app = path.join(dir, '.azure-testing', 'app');
+  const shipped = [];
+  const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else shipped.push(path.relative(app, p).split(path.sep).join('/')); } };
+  walk(app);
+  assert.deepEqual(shipped.sort(), [...assets].sort(), 'Testing artifact ships exactly the manifest (no retired SWA config)');
+  assert.deepEqual(verifyArtifact(app, 'testing', dir), []);
+});

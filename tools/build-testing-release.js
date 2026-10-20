@@ -30,5 +30,4 @@ for (const relative of assets) {
   fs.copyFileSync(path.join(root, relative), destination);
 }
 fs.writeFileSync(path.join(app, 'paws-api-origin.js'), render(loadConfig('testing')));
-fs.copyFileSync(path.join(root, 'staticwebapp.config.json'), path.join(app, 'staticwebapp.config.json'));
 console.log(JSON.stringify({ ok: true, environment: 'testing', output: app, files: assets.length }));

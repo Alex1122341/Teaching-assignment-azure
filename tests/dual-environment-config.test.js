@@ -243,7 +243,7 @@ test('Production release paths share switchable identity, Testing-pass and UAT-a
     assert.doesNotMatch(text, /^\s*environment:\s/m, name);
     assert.match(text, /REQUIRE_TESTING_PASS: \$\{\{ vars\.PAWS_REQUIRE_TESTING_PASS \}\}/, name);
     assert.match(text, /REQUIRE_RELEASE_APPROVAL: \$\{\{ vars\.PAWS_REQUIRE_RELEASE_APPROVAL \}\}/, name);
-    assert.match(text, /if: env\.REQUIRE_TESTING_PASS == 'true' \|\| env\.REQUIRE_RELEASE_APPROVAL == 'true'\n\s*shell: bash[\s\S]*?run: bash tools\/require-release-evidence\.sh/, name);
+    assert.match(text, /if: env\.REQUIRE_TESTING_PASS == 'true' \|\| env\.REQUIRE_RELEASE_APPROVAL == 'true'\r?\n\s*shell: bash[\s\S]*?run: bash tools\/require-release-evidence\.sh/, name);
   }
   assert.ok(aca.indexOf('require-release-evidence.sh') < aca.indexOf('az containerapp update'), 'ACA evidence check precedes any Azure mutation');
   assert.ok(hosting.indexOf('require-release-evidence.sh') < hosting.indexOf('firebase deploy'), 'Hosting evidence check precedes the deploy');
@@ -322,7 +322,7 @@ test('the data client announces a server-ended support session and never retries
 
 test('after a server-ended session the page keeps the ended context (requests fail) until Return to myself', () => {
   const source = fs.readFileSync(path.join(root, 'developer-support.js'), 'utf8');
-  const handler = /addEventListener\('paws-support-expired',([\s\S]*?)\}\);\n/.exec(source);
+  const handler = /addEventListener\('paws-support-expired',([\s\S]*?)\}\);\r?\n/.exec(source);
   assert.ok(handler, 'developer-support listens for paws-support-expired');
   assert.doesNotMatch(handler[1], /removeItem/, 'the ended context is not dropped silently');
   assert.match(handler[1], /onclick=leave/);

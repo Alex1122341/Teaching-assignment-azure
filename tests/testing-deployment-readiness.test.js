@@ -293,7 +293,7 @@ test('Testing database reset: main only, listed operators, runner-only firewall 
   assert.match(text, /RESET_NOT_AUTHORIZED/);
   assert.ok(text.indexOf('RESET_NOT_AUTHORIZED') < text.indexOf('reset-testing-db.js'), 'authorization precedes any SQL connection');
   assert.match(text, /firewall-rule create[\s\S]*--start-ip-address "\$ip" --end-ip-address "\$ip"/);
-  assert.match(text, /name: Close the Testing SQL firewall rule\n\s*if: always\(\)/);
+  assert.match(text, /name: Close the Testing SQL firewall rule\r?\n\s*if: always\(\)/);
   assert.match(text, /paws-testing-reset-\$\{\{ github\.run_id \}\}/);
   assert.doesNotMatch(text, /^\s*environment:\s/m);
   for (const name of ['paws-testing-deploy.yml', 'paws-testing-db-reset.yml', 'paws-release-approval.yml']) {

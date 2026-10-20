@@ -177,6 +177,13 @@
     }
 
     return Object.freeze({
+      facultyAvailability({facultyId,mode='upcoming',startDate=null,endDate=null,kind='all',cursor=null,limit=50}={}){
+        const query=new URLSearchParams({mode,kind,limit:String(limit)});
+        if(startDate)query.set('startDate',startDate);
+        if(endDate)query.set('endDate',endDate);
+        if(cursor)query.set('cursor',String(cursor));
+        return request('/api/v1/faculty/'+encodeURIComponent(facultyId||'')+'/availability?'+query.toString());
+      },
       dashboardTrainees(filters={}){
         const query=new URLSearchParams();for(const key of ['academicYear','query','category','cursor','limit'])if(filters[key]!==undefined&&filters[key]!==null&&filters[key]!=='')query.set(key,String(filters[key]));
         return request('/api/v1/dashboard/trainees?'+query.toString());

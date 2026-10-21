@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {createCccScheduleApi}=require('../src/ccc/ccc-schedule-api');
+const {createCccScheduleApi,sanitizeEntry}=require('../src/ccc/ccc-schedule-api');
 const {createCccScheduleFunctions}=require('../src/runtime/swa-ccc-schedule-functions');
 const {createSqlCccScheduleRepository}=require('../src/data/sql-ccc-schedule-repository');
 const facultyId='11111111-1111-4111-8111-111111111111';
@@ -90,4 +90,29 @@ test('SQL migration isolates CCC and derives half day only from explicit evidenc
  assert.match(sql,/tm\.EvidenceCount=1/);
  assert.match(sql,/paws_runtime_read/);
  assert.doesNotMatch(sql,/\b(?:paws\.RoleAssignment|paws\.AfcRecord|paws\.DoeRuleBook)\b/i);
+});
+test('the longest name the SQL contract can produce is rendered, not turned into a whole-year 503',async()=>{
+ // paws.Faculty: PreferredFirstName/PreferredLastName are nvarchar(128) and
+ // DisplayName is nvarchar(260), so 260 characters is legitimate source data.
+ // A tighter API ceiling would fail the entire academic year for one long name.
+ const longest='A'.repeat(260), tooLong='A'.repeat(261);
+ assert.doesNotThrow(()=>sanitizeEntry({...source,facultyName:longest}));
+ assert.equal(sanitizeEntry({...source,facultyName:longest}).facultyName,longest);
+ assert.throws(()=>sanitizeEntry({...source,facultyName:tooLong}),/Invalid CCC read result/);
+ const make=entries=>createCccScheduleApi({
+  verifyToken:async()=>({uid:'actor'}),findUser:async()=>({active:true,baseRole:'faculty',facultyId}),
+  repository:{list:async()=>({entries})}
+ });
+ const accepted=await make([{...source,facultyName:longest}]).list('token',{academicYear:'2026-27'});
+ assert.equal(accepted.status,200);
+ assert.equal(accepted.body.entries[0].facultyName,longest);
+ assert.equal((await make([{...source,facultyName:tooLong}]).list('token',{academicYear:'2026-27'})).status,503);
+});
+test('SQL 057 prerequisites cover every table the reader joins',()=>{
+ const sql=fs.readFileSync(path.resolve(__dirname,'../../database/azure-sql/057_ccc_schedule_read.sql'),'utf8');
+ const prerequisiteBlock=sql.slice(0,sql.indexOf('BEGIN TRANSACTION'));
+ for(const table of ['paws.CalendarActivity','paws.CalendarActivityDayTime','paws.Faculty','paws.Course','paws.UserProfile']){
+  assert.match(prerequisiteBlock,new RegExp("OBJECT_ID\\(N'"+table.replace('.','\\.')+"',N'U'\\)"),table);
+  assert.match(sql,new RegExp('(?:FROM|JOIN) '+table.replace('.','\\.')+'\\b'),table);
+ }
 });

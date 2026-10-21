@@ -47,10 +47,15 @@ if(root&&root.document){
  refresh.addEventListener('click',()=>{generation++;loading=false;loadError=false;load();});
  doc.addEventListener('visibilitychange',()=>{if(doc.visibilityState==='visible'&&valid()&&!loading)load();});
  // Signed-out and switched accounts must not retain a cross-faculty view.
- root.firebase?.auth?.().onAuthStateChanged(user=>{
-  if(!user&& !overlay.hidden)close();
-  else if(user&& !overlay.hidden){generation++;loading=false;entries=[];load();}
- });
+ // firebase.auth() throws until some other script has called initializeApp(), so
+ // this must never be allowed to abort module setup: PAWS_CCC_SCHEDULE and the
+ // profile listener below are what make the button work at all.
+ try{
+  root.firebase?.auth?.().onAuthStateChanged(user=>{
+   if(!user&& !overlay.hidden)close();
+   else if(user&& !overlay.hidden){generation++;loading=false;entries=[];load();}
+  });
+ }catch(_){/* timetable.js closes the viewer on sign-out and reloads on paws-profile */}
  root.addEventListener('paws-profile',event=>{
   if(!overlay.hidden){generation++;loading=false;entries=[];load();}
  });

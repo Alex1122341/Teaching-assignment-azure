@@ -7,7 +7,8 @@ SET XACT_ABORT ON;
 IF OBJECT_ID(N'paws_api.ListCccSchedule',N'P') IS NOT NULL
  THROW 55700,'Inspect the existing CCC reader before applying this migration.',1;
 IF OBJECT_ID(N'paws.CalendarActivity',N'U') IS NULL OR OBJECT_ID(N'paws.CalendarActivityDayTime',N'U') IS NULL
- OR OBJECT_ID(N'paws.Faculty',N'U') IS NULL OR OBJECT_ID(N'paws.UserProfile',N'U') IS NULL
+ OR OBJECT_ID(N'paws.Faculty',N'U') IS NULL OR OBJECT_ID(N'paws.Course',N'U') IS NULL
+ OR OBJECT_ID(N'paws.UserProfile',N'U') IS NULL
  OR DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NULL
  THROW 55700,'CCC reader prerequisites are missing.',1;
 BEGIN TRANSACTION;

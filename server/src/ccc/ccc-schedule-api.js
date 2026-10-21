@@ -8,11 +8,19 @@ const validYear=value=>{
 };
 const validDate=value=>typeof value==='string'&&/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)&&
  !Number.isNaN(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
+// Bounds mirror the SQL contract that produces these values. A name is either
+// CONCAT(PreferredFirstName,' ',PreferredLastName) over two nvarchar(128)
+// columns (<=257) or the nvarchar(260) DisplayName fallback, so 260 is the real
+// maximum. A tighter ceiling would turn one long but legitimate source name into
+// a 503 for the entire academic year instead of rendering it.
+const FACULTY_NAME_MAX=260;
+const BLOCK_LABEL_MAX=1000;
+const COURSE_CODE_MAX=64;
 function sanitizeEntry(row){
  if(!row||!validDate(row.date)||!validDate(row.endDate)||row.date>row.endDate
-   ||typeof row.facultyName!=='string'||!row.facultyName.trim()||row.facultyName.length>256
-   ||row.blockLabel!=null&&(typeof row.blockLabel!=='string'||row.blockLabel.length>1000)
-   ||row.courseCode!=null&&(typeof row.courseCode!=='string'||row.courseCode.length>64)
+   ||typeof row.facultyName!=='string'||!row.facultyName.trim()||row.facultyName.length>FACULTY_NAME_MAX
+   ||row.blockLabel!=null&&(typeof row.blockLabel!=='string'||row.blockLabel.length>BLOCK_LABEL_MAX)
+   ||row.courseCode!=null&&(typeof row.courseCode!=='string'||row.courseCode.length>COURSE_CODE_MAX)
    ||![true,false,0,1].includes(row.halfDay))throw Error('Invalid CCC read result.');
  return {
   date:row.date,endDate:row.endDate,blockLabel:row.blockLabel??null,

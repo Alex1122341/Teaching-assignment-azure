@@ -79,5 +79,7 @@
   "change-history.css",
   "change-history.js",
   "calendar-activities.css",
-  "faculty-admin-activity-import.js"
+  "faculty-admin-activity-import.js",
+  "faculty-availability.js",
+  "faculty-availability.css"
 ]

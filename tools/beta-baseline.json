@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "a3317b1d30b1caa66c81ee5f4be2932f941b565b",
+  "sourceCommit": "370c30a21d99ae7227f97f1e0cb781864c674768",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -49,8 +49,10 @@
     "faculty-admin-trainees.css": "521709a8efcc501a6b73aead35d50dd6d112e0486440abf5fc6b151826e788fb",
     "faculty-admin-trainees.js": "d8b7dd181e3fb2f45d97f92cb6a11dd0b4f63382cb3ca63f646de67f6b86e06f",
     "faculty-admin.css": "1cb9cbb5bc9ff3014122f2efeb9e4f34f266790578ac932dcad346294eed224d",
-    "faculty-admin.html": "dc7c3546ae8208deb18ba0c18f24fe692c1565f33f58a4797c268c957ee82b23",
-    "faculty-admin.js": "f4f0ead21a3a55de91a6c057d91032623eaa7e982916974b851c01244e84aa0a",
+    "faculty-admin.html": "865f685588d7e512ddd1d4986eef0038a37314acd665336772f2a3451518d253",
+    "faculty-admin.js": "3a8615df766638c8a72fb8692cf5bd0fd41a77c11e7b43e8e4fe372f92c9a4e7",
+    "faculty-availability.css": "e75900906205561f6bbb15905fb704fa6b915f3f85320c8c1a490bd2a6c96219",
+    "faculty-availability.js": "5430b4eb7b8911b1ccbeee8763579676f52c107163b9b521e703552c13492171",
     "faculty-doe.js": "9eed9943a21bf57bedbaf1020230e1e69ec25ca05117f8d0201c50f68afcf4c1",
     "faculty-name.js": "85d22a5b28365b7017d4e77cc5f78f8a16ed7e3a1332e36aecc65590e36bbc03",
     "faculty-role-periods.js": "b4dee985428629d7f09b1434b3269ad219b05d2d3be39fc38512a4c297bb3f80",
@@ -65,7 +67,7 @@
     "password.js": "5cb24c52f7b3841f29cff171993bc474ac93545dc30369a3b50c3ab22d131955",
     "paws-api-origin.js": "9347514edf209df80b039105746e401941f08d566c20fb5f80e5e3be24a53135",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
-    "paws-data-client.js": "ab27f0c241f06c3d9e039bd26191d27cdd39b81458e61b08c81daca38c9d1ff0",
+    "paws-data-client.js": "94719182e2cea55fe851397cbce48f6e3f998ac1531296c1705130a8fca386d3",
     "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170",
     "scheduling-core.js": "d8e1321c42aa63c617668d86787d562fc1ba347ba8f5001c9671faf6b3e8ae3a",
     "session-guard.js": "fd8e2415ed80d1eac771246be1e4c78910ce5c1101ac2bd147e56b84e56af78e",

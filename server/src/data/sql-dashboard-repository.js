@@ -388,7 +388,7 @@ function createSqlDashboardRepository(db) {
       }
 
       if (search) {
-        predicates.push("(f.DisplayName LIKE @search ESCAPE '\\' OR f.Email LIKE @search ESCAPE '\\' OR f.Ucid LIKE @search ESCAPE '\\')");
+        predicates.push(`(f.DisplayName LIKE @search ESCAPE '\\' OR ${facultyDisplayNameSql()} LIKE @search ESCAPE '\\' OR f.Email LIKE @search ESCAPE '\\' OR f.Ucid LIKE @search ESCAPE '\\')`);
         params.search = likePattern(search);
       }
 

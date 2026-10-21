@@ -53,6 +53,9 @@ const {createCalendarActivityFunctions}=require('./swa-calendar-activity-functio
 const {createSchedulingTaskApi}=require('../scheduling/scheduling-task-api');
 const {createSqlSchedulingTaskRepository}=require('../data/sql-scheduling-task-repository');
 const {createSchedulingTaskFunctions}=require('./swa-scheduling-task-functions');
+const {createFacultyAvailabilityApi}=require('../availability/faculty-availability-api');
+const {createSqlFacultyAvailabilityRepository}=require('../data/sql-faculty-availability-repository');
+const {createFacultyAvailabilityFunctions}=require('./swa-faculty-availability-functions');
 const {createChangeHistoryApi}=require('../history/change-history-api');
 const {createSqlChangeHistoryRepository}=require('../data/sql-change-history-repository');
 const {createChangeHistoryFunctions}=require('./swa-change-history-functions');
@@ -162,6 +165,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),workflowPreviewService:doeWorkflowPreviewService,worksheetService:doeWorksheetService,writeGates
   })});
   const calendarActivityRoutes=createCalendarActivityFunctions({api:createCalendarActivityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCalendarActivityRepository(db,{importDb:calendarImportDb}),writeGates})});
+  const facultyAvailabilityRoutes=createFacultyAvailabilityFunctions({api:createFacultyAvailabilityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlFacultyAvailabilityRepository(db)})});
   const schedulingTaskRoutes=createSchedulingTaskFunctions({api:createSchedulingTaskApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlSchedulingTaskRepository(db),writeGates})});
   const historyRoutes=createChangeHistoryFunctions({api:createChangeHistoryApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlChangeHistoryRepository(db)})});
   const afcFormRoutes=createAfcFormFunctions({api:createAfcFormApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlAfcFormRepository(db),writeGates})});
@@ -171,6 +175,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     if(pathname==='/api/v1/afc-forms'||pathname.startsWith('/api/v1/afc-forms/'))return afcFormRoutes(request);
     if(pathname==='/api/v1/ccc-replacements'||pathname.startsWith('/api/v1/ccc-replacements/'))return cccReplacementRoutes(request);
     if (pathname==='/api/v1/change-history'||pathname.startsWith('/api/v1/change-history/')) return historyRoutes(request);
+    if (/^\/api\/v1\/faculty\/[^/]+\/availability$/.test(pathname))return facultyAvailabilityRoutes(request);
     if (pathname==='/api/v1/scheduling-tasks'||pathname.startsWith('/api/v1/scheduling-tasks/')) return schedulingTaskRoutes(request);
     if (pathname==='/api/v1/calendar-activities'||pathname.startsWith('/api/v1/calendar-activities/')||pathname==='/api/v1/calendar-activity-imports'||pathname.startsWith('/api/v1/calendar-activity-imports/')) return calendarActivityRoutes(request);
     if (pathname === '/api/v1/swaps' || pathname.startsWith('/api/v1/swaps/')) return swapRoutes(request);

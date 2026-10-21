@@ -100,17 +100,17 @@
   if(!host)throw Error('A history container is required.');
   const title={mine:'My Change History',timetable:'Calendar Changes',dashboard:'Dashboard History'}[scope];
   const local=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit'}).formatToParts(new Date()),parts=Object.fromEntries(local.map(p=>[p.type,p.value])),yearStart=Number(parts.year)-(parts.month<'05'?1:0);
-  const defaultYear=/^\d{4}-\d{2}$/.test(academicYear||'')?academicYear:`${yearStart}-${String((yearStart+1)%100).padStart(2,'0')}`;
+  const defaultYear=scope==='dashboard'?'all':/^\d{4}-\d{2}$/.test(academicYear||'')?academicYear:`${yearStart}-${String((yearStart+1)%100).padStart(2,'0')}`;
   const field=(key,label,type='search',value='')=>`<label>${label}<input data-history-filter="${key}" type="${type}" value="${esc(value)}" maxlength="256"></label>`;
-  host.innerHTML=`<section class="paws-change-history" aria-label="${title}"><div class="history-heading"><h3>${title}</h3><p>${scope==='timetable'?'Recorded teaching changes across the authorized timetable. Private AFC and DOE values are excluded.':scope==='mine'?'Changes affecting your teaching and working schedule, including changes made by others.':'Recorded Lookup, AFC and DOE Rule Book changes within your permissions.'}</p>${scope==='dashboard'?'<p class="history-reset-note" data-history-reset-note hidden></p>':''}</div>
-   <form class="history-filters"><div class="history-search-row">${field('keyword','Search history (course, faculty, change, name…)')}<label>Academic year<select data-history-filter="academicYear"><option value="${esc(defaultYear)}">${esc(defaultYear)}</option></select></label><div class="history-filter-actions"><button type="submit" data-history-apply>Search</button><button type="button" data-history-reset>Reset</button></div></div><details class="history-advanced"><summary>More filters</summary><div class="history-advanced-grid">${field('course','Course number')}${field('topic','Topic')}<label>VISC subject<select data-history-filter="viscSubject"><option value="">All recorded subjects</option><option value="__not_recorded__">Not recorded</option></select></label>
+  host.innerHTML=`<section class="paws-change-history" aria-label="${title}"><div class="history-heading"><h3>${title}</h3><p>${scope==='timetable'?'Recorded teaching changes across the authorized timetable. Private AFC and DOE values are excluded.':scope==='mine'?'Changes affecting your teaching and working schedule, including changes made by others.':'Recorded Lookup, AFC and DOE Rule Book changes within your permissions.'}</p>${scope==='dashboard'?'<p class="history-reset-note" data-history-archive-note hidden></p>':''}</div>
+   <form class="history-filters"><div class="history-search-row">${field('keyword','Search history (course, faculty, change, name…)')}<label>Academic year<select data-history-filter="academicYear"><option value="${esc(defaultYear)}">${esc(defaultYear==='all'?'All recorded years':defaultYear)}</option></select></label><div class="history-filter-actions"><button type="submit" data-history-apply>Search</button><button type="button" data-history-reset>Reset</button></div></div><details class="history-advanced"><summary>More filters</summary><div class="history-advanced-grid">${field('course','Course number')}${field('topic','Topic')}<label>VISC subject<select data-history-filter="viscSubject"><option value="">All recorded subjects</option><option value="__not_recorded__">Not recorded</option></select></label>
    <label>Faculty<select data-history-filter="faculty"><option value="">All recorded faculty</option></select></label>
    ${field('start','Changed on/after (UTC)','date')}${field('end','Changed before (UTC)','date')}
    <label>Change type<select data-history-filter="changeType"><option value="">All change types</option></select></label>
    <label>Domain<select data-history-filter="domain"><option value="">All permitted domains</option>${(scope==='dashboard'?['Lookup','AFC','DOE Rule Book','Working schedule']:scope==='mine'?['Teaching','Working schedule']:['Teaching']).map(v=>`<option>${v}</option>`).join('')}</select></label>
    </div></details></form>
    <div class="history-toolbar"><p data-history-status role="status" aria-live="polite"></p><div><button type="button" data-history-export="csv" disabled>Download CSV</button><button type="button" data-history-export="xlsx" disabled>Download Excel</button></div></div>
-   <details class="history-coverage"><summary>History coverage and privacy</summary><ul data-history-coverage></ul><p>Search covers every permitted change in the selected academic year. N/A means the source did not record a value. Expand a long value to read it in full.</p></details>
+   <details class="history-coverage"><summary>History coverage and privacy</summary><ul data-history-coverage></ul><p>Search covers permitted changes in the selected academic year, or all years for Dashboard History. N/A means the source did not record a value. Expand a long value to read it in full.</p></details>
    <div class="history-table-scroll" tabindex="0" role="region" aria-label="Filtered change history table"><table><thead><tr>${(scope==='dashboard'?['Time','Operation / Domain','Affected records','Changes','Start / End','By whom']:['Time','Type / Domain','Session / Faculty','Change · From → To','Start / End','By whom']).map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody data-history-rows></tbody></table></div>
    <div class="history-paging"><button type="button" data-history-prev disabled>Previous</button><span data-history-page></span><button type="button" data-history-next disabled>Next</button></div></section>`;
   const find=selector=>host.querySelector(selector),form=find('form'),inputs=[...host.querySelectorAll('[data-history-filter]')];
@@ -119,17 +119,17 @@
   function options(key,rows){
    const select=find(`[data-history-filter="${key}"]`),selected=select.value,selectedName=select.selectedOptions[0]?.textContent||selected;
    const first={faculty:'All recorded faculty',changeType:'All change types',academicYear:'All recorded years',viscSubject:'All recorded subjects'}[key];
-   select.innerHTML=(key==='academicYear'?'':`<option value="">${first}</option>`)+rows.map(row=>`<option value="${esc(row.key)}">${esc(row.name)}</option>`).join('');
+   select.innerHTML=(key==='academicYear'?(scope==='dashboard'?'<option value="all">All recorded years</option>':''):`<option value="">${first}</option>`)+rows.map(row=>`<option value="${esc(row.key)}">${esc(row.name)}</option>`).join('');
    // Preserve a selected filter even if its new result set is empty.
    if(selected&&!rows.some(row=>row.key===selected))select.insertAdjacentHTML('beforeend',`<option value="${esc(selected)}">${esc(selectedName)}</option>`);
    select.value=selected||(key==='academicYear'?defaultYear:'');
   }
   function render(state){
    if(scope==='dashboard'){
-    const notice=find('[data-history-reset-note]');
-    const baseline=typeof state.historyBaselineUtc==='string'&&Number.isFinite(Date.parse(state.historyBaselineUtc))?state.historyBaselineUtc:null;
-    notice.hidden=!baseline;
-    notice.textContent=baseline?'New Dashboard History since '+new Date(baseline).toLocaleString('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})+' Calgary time. Previous SQL audit records are preserved.':'';
+    const notice=find('[data-history-archive-note]');
+    const first=typeof state.historyArchiveStartUtc==='string'&&Number.isFinite(Date.parse(state.historyArchiveStartUtc))?state.historyArchiveStartUtc:null;
+    notice.hidden=!first;
+    notice.textContent=first?'Historical operations restored since '+new Date(first).toLocaleDateString('en-CA',{timeZone:'UTC',year:'numeric',month:'short',day:'2-digit'})+' (UTC), grouped by recorded submission. All original SQL audits are preserved.':'';
    }
    find('[data-history-status]').textContent=state.message;
    find('[data-history-rows]').innerHTML=scope==='dashboard'?renderOperationRows(state.rows):renderRows(state.rows);

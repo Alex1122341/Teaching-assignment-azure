@@ -1,3 +1,7 @@
+## Current: owner superseded reset, restoring original grouped Dashboard History — 2026-10-20
+
+Dashboard display now reads preserved historical SQL AuditEvent/DOE sources from 2026-10-05 UTC, groups by real submission, shows all academic years by default and keeps field/role allowlists. Owner expressly supersedes only 2026-10-20 display-reset floor; no SQL audit, migration, DOE, AFC, role, My History or Calendar Changes mutation is authorized. Candidate product `a3317b1d30b1caa66c81ee5f4be2932f941b565b` on `feat/dashboard-history-archive-restoration-20261020`; freeze promotion, CI, PR and full real-data release still pending. See `docs/dashboard-history-archive-restoration-20261020.md`.
+
 ## Current: Owner-approved Dashboard History one-time presentation reset — 2026-10-20
 
 Fixed Dashboard-only SQL read baseline at `2026-10-20T21:13:42.660Z`; keep all underlying AuditEvent/DOE audits and other History scopes. Branch `feat/dashboard-history-reset-baseline-20261020` product `573dbe468eb23b177d92317f9a6e3ec04d2c94ec` from main `15dd7390d613bd3bd2163f411b81bc4ffdf22fd1`; code/tests are candidate-only until freeze governance, full CI, PR acceptance and separate real-data University API/Hosting release. No SQL deletion, replay, migration, DOE publish, recalculation, or changes to 27 gates. See `docs/dashboard-history-reset-baseline-20261020.md`.

@@ -114,47 +114,80 @@ test('Dashboard pagination counts complete operations instead of individual chan
  assert.equal(second.body.rows[0].recordCount,1);
 });
 
-test('Dashboard reset clamps SQL UTC range, hides older audits from grouped export and allows boundary/new events',async()=>{
- const {DASHBOARD_HISTORY_BASELINE_UTC:cutoff}=require('../src/history/change-history-api');
+test('restored Dashboard displays pre-reset source audits, grouped by operation and all academic years',async()=>{
+ const {DASHBOARD_HISTORY_ARCHIVE_START_UTC:floor}=require('../src/history/change-history-api');
  const fid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
- const event=(id,date)=>({source:'audit',eventId:id,eventType:'afc_record_created',entityType:'afc_record',
-  occurredAtUtc:date,actorName:'Admin',afterJson:JSON.stringify({facultyId:fid,startDate:'2026-11-10',endDate:'2026-11-10',purpose:'Vacation',active:true}),
+ const event=(key,changedAt,workDate)=>({source:'audit',eventId:key,eventType:'afc_record_created',entityType:'afc_record',
+  occurredAtUtc:changedAt,actorName:'Recorded Admin',
+  afterJson:JSON.stringify({facultyId:fid,startDate:workDate,endDate:workDate,purpose:'Vacation',active:true}),
   contextJson:JSON.stringify({affectedFaculty:[{facultyId:fid,displayName:'Faculty A'}]})});
- const events=[event('old','2026-10-20T21:13:42.659Z'),event('boundary',cutoff),event('new','2026-10-20T22:00:00.000Z'),event('invalid','invalid')];
- let args;
- const api=createChangeHistoryApi({verifyToken:async()=>({uid:'actor'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'adfa_general'}),
-  repository:{list:async input=>{args=input;return events;}},clock:()=>Date.parse('2026-10-21T12:00:00Z')});
- const q=await api.query('token',{scope:'dashboard',academicYear:'2026-27',start:'2019-01-01',end:'9999-12-31'});
- assert.equal(q.status,200);assert.equal(q.body.historyBaselineUtc,cutoff);
- assert.equal(args.startUtc,cutoff);assert.equal(args.endUtc,'2026-10-22T00:00:00.000Z');
- assert.equal(q.body.total,2);assert.ok(q.body.rows.every(row=>Date.parse(row.changeDate)>=Date.parse(cutoff)));
- assert.match(q.body.coverage[0],/older SQL audit events were retained/i);
- const csv=await api.export('token',{snapshot:q.body.snapshot,format:'csv'});
- assert.equal(csv.status,200);assert.equal(csv.body.rowCount,2);
- assert.doesNotMatch(Buffer.from(csv.body.fileBase64,'base64').toString('utf8'),/old|invalid/);
+ const source=[event('excluded','2026-10-04T23:59:59.999Z','2026-11-10'),
+  event('first',floor,'2026-11-10'),
+  event('restored','2026-10-16T12:00:00Z','2025-04-20'),
+  event('future','2026-10-20T22:00:00Z','2026-11-10'),
+  event('invalid','not-a-date','2026-11-10')];
+ let lastArgs;
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'admin'}),
+  findUser:async()=>({active:true,baseRole:'adfa_general'}),
+  repository:{list:async params=>{lastArgs=params;return source;}},
+  clock:()=>Date.parse('2026-10-21T12:00:00Z')});
+ const q=await api.query('token',{scope:'dashboard',start:'2019-01-01',end:'9999-12-31'});
+ assert.equal(q.status,200);
+ assert.equal(q.body.filters.academicYear,'all');
+ assert.equal(q.body.historyArchiveStartUtc,floor);
+ assert.equal(lastArgs.startUtc,floor);
+ assert.equal(lastArgs.endUtc,'2026-10-22T00:00:00.000Z');
+ assert.equal(q.body.total,3);
+ assert.ok(q.body.rows.some(row=>row.changeDate.startsWith('2026-10-16')));
+ assert.ok(q.body.rows.every(row=>row.recordCount===1&&row.changeCount>=3));
+ assert.ok(q.body.facets.academicYears.includes('2024-25'));
+ assert.match(q.body.coverage[0],/historical dashboard operations are restored/i);
+ for(const format of ['csv','xlsx']){
+  const e=await api.export('token',{snapshot:q.body.snapshot,format});
+  assert.equal(e.status,200);assert.equal(e.body.rowCount,3);
+  assert.ok(e.body.fileBase64.length>50);
+ }
+ const selected=await api.query('token',{scope:'dashboard',academicYear:'2024-25'});
+ assert.equal(selected.status,200);assert.equal(selected.body.total,1);
+ assert.match(selected.body.rows[0].changeDate,/2026-10-16/);
+ const narrow=await api.query('token',{scope:'dashboard',start:'2026-10-20'});
+ assert.equal(narrow.status,200);assert.equal(narrow.body.total,1);
+ assert.equal(lastArgs.startUtc,'2026-10-20T00:00:00.000Z');
 });
-test('Pre-baseline Dashboard end yields a valid empty snapshot and export without reading SQL',async()=>{
+test('Dashboard filters entirely before archive bounds produce an authorized empty snapshot without SQL',async()=>{
  let calls=0;
- const api=createChangeHistoryApi({verifyToken:async()=>({uid:'actor'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'adfa_general'}),
-  repository:{list:async()=>{calls++;return [];}},clock:()=>Date.parse('2026-10-21T12:00:00Z')});
- const q=await api.query('token',{scope:'dashboard',academicYear:'2026-27',start:'2026-10-01',end:'2026-10-20'});
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'admin'}),
+  findUser:async()=>({active:true,baseRole:'adfa_general'}),
+  repository:{list:async()=>{calls++;return [];}},
+  clock:()=>Date.parse('2026-10-21T12:00:00Z')});
+ const q=await api.query('token',{scope:'dashboard',start:'2026-01-01',end:'2026-10-05'});
  assert.equal(q.status,200);assert.equal(q.body.total,0);assert.equal(calls,0);
- const csv=await api.export('token',{snapshot:q.body.snapshot,format:'csv'});
- assert.equal(csv.status,200);assert.equal(csv.body.rowCount,0);
+ const e=await api.export('token',{snapshot:q.body.snapshot,format:'csv'});
+ assert.equal(e.status,200);assert.equal(e.body.rowCount,0);
 });
-test('Client-supplied cutoff cannot bypass Dashboard, while My History and Calendar Changes retain old events',async()=>{
+test('archive time spoofing fails closed; My History and Calendar Changes retain their prior scope rules',async()=>{
  const fid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
  const old={source:'audit',eventId:'old-session',eventType:'session_updated',entityType:'session',entityId:fid,
   occurredAtUtc:'2026-10-16T10:00:00Z',beforeJson:'{"room":"Old"}',afterJson:'{"room":"New"}',
   contextJson:JSON.stringify({academicYear:'2026-27',affectedFaculty:[{facultyId:fid,displayName:'Teacher'}]})};
  const seen=[];
- const api=createChangeHistoryApi({verifyToken:async()=>({uid:'faculty'}),findUser:async()=>({active:true,mustChangePassword:false,baseRole:'faculty',facultyId:fid}),
-  repository:{list:async arg=>{seen.push(arg);return [old];}},clock:()=>Date.parse('2026-10-21T12:00:00Z')});
- assert.equal((await api.query('token',{scope:'dashboard',historyBaselineUtc:'2019-01-01T00:00:00.000Z'})).status,400);
- assert.equal((await api.query('token',{scope:'dashboard',startUtc:'2019-01-01T00:00:00.000Z'})).status,400);
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'faculty'}),
+  findUser:async()=>({active:true,baseRole:'faculty',facultyId:fid}),
+  repository:{list:async filters=>{seen.push(filters);return [old];}},
+  clock:()=>Date.parse('2026-10-21T12:00:00Z')});
+ for(const filters of [{scope:'dashboard',historyBaselineUtc:'0001-01-01T00:00:00.000Z'},
+  {scope:'dashboard',startUtc:'0001-01-01T00:00:00.000Z'},
+  {scope:'mine',academicYear:'all'},{scope:'timetable',academicYear:'all'}])
+  assert.equal((await api.query('token',filters)).status,400);
  assert.equal(seen.length,0);
- assert.equal((await api.query('token',{scope:'dashboard',academicYear:'2026-27'})).body.total,0);
- assert.equal((await api.query('token',{scope:'mine',academicYear:'2026-27'})).body.total,1);
- assert.equal((await api.query('token',{scope:'timetable',academicYear:'2026-27'})).body.total,1);
+ const dash=await api.query('token',{scope:'dashboard'});
+ assert.equal(dash.status,200);
+ // Public session updates stay excluded from the private Dashboard scope.
+ assert.equal(dash.body.total,0);
+ const mine=await api.query('token',{scope:'mine',academicYear:'2026-27'});
+ const timetable=await api.query('token',{scope:'timetable',academicYear:'2026-27'});
+ assert.equal(mine.status,200);assert.equal(mine.body.total,1);
+ assert.equal(timetable.status,200);assert.equal(timetable.body.total,1);
+ assert.equal(seen[0].startUtc,'2026-10-05T00:00:00.000Z');
  assert.equal(seen[1].startUtc,undefined);assert.equal(seen[2].startUtc,undefined);
 });

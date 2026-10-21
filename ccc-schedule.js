@@ -7,7 +7,7 @@ if(root&&root.document){
  if(!overlay||!button)return;
  const closeButton=doc.getElementById('ccc-schedule-close'),years=doc.getElementById('ccc-schedule-year'),search=doc.getElementById('ccc-schedule-search'),
   refresh=doc.getElementById('ccc-schedule-refresh'),status=doc.getElementById('ccc-schedule-status'),body=doc.getElementById('ccc-schedule-body');
- let generation=0,entries=[],previousFocus=null,timeout=null,loading=false;
+ let generation=0,entries=[],previousFocus=null,timeout=null,loading=false,loadError=false;
  const localYear=()=>{const date=new Date(),parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit'}).formatToParts(date);
   const y=Number(parts.find(x=>x.type==='year').value),m=Number(parts.find(x=>x.type==='month').value),start=m<5?y-1:y;return start+'-'+String((start+1)%100).padStart(2,'0');};
  function currentUid(){return root.firebase?.auth?.().currentUser?.uid||'';}
@@ -16,25 +16,25 @@ if(root&&root.document){
  function render(){
   const filtered=lib.filterEntries(entries,search.value);
   const dates=lib.groupEntries(filtered);
-  status.textContent=loading?'Loading CCC schedule…':filtered.length+' assignment'+(filtered.length===1?'':'s')+' · '+dates.size+' schedule row'+(dates.size===1?'':'s');
-  body.innerHTML=dates.size?'<table class="ccc-schedule-table"><thead><tr><th>Date</th><th>Session / Block</th><th>Faculty</th></tr></thead><tbody>'+
+  status.textContent=loading?'Loading CCC schedule…':loadError?'CCC schedule could not be loaded. Choose Refresh to retry.':filtered.length+' assignment'+(filtered.length===1?'':'s')+' · '+dates.size+' schedule row'+(dates.size===1?'':'s');
+  body.innerHTML=loadError?'<p class="ccc-schedule-empty" role="alert">CCC schedule data is unavailable. No records are being shown until a successful refresh.</p>':dates.size?'<table class="ccc-schedule-table"><thead><tr><th>Date</th><th>Session / Block</th><th>Faculty</th></tr></thead><tbody>'+
    [...dates.values()].map(group=>'<tr><td class="ccc-schedule-date">'+lib.escape(group.date)+(group.endDate!==group.date?' – '+lib.escape(group.endDate):'')+'</td><td>'+lib.escape(group.blockLabel||group.courseCode||'CCC')+(group.blockLabel&&group.courseCode?'<small>'+lib.escape(group.courseCode)+'</small>':'')+'</td><td>'+group.staff.map(row=>'<div class="ccc-schedule-person">'+lib.escape(row.facultyName)+(row.halfDay?' <span class="ccc-schedule-half">Half day</span>':'')+'</div>').join('')+'</td></tr>').join('')+
    '</tbody></table>':'<p class="ccc-schedule-empty">No CCC assignments match the selected year or search.</p>';
  }
  async function load(){
-  if(!valid()||loading)return;loading=true;const token=++generation,uid=currentUid(),selected=years.value;status.textContent='Loading CCC schedule…';body.textContent='';
+  if(!valid()||loading)return;loading=true;loadError=false;const token=++generation,uid=currentUid(),selected=years.value;status.textContent='Loading CCC schedule…';body.textContent='';
   try{
    const data=await root.UCVM_PAWS_DATA.cccSchedule(selected);
    if(token!==generation||uid!==currentUid()||!valid()||selected!==years.value)return;
    if(data.academicYear!==selected||!Array.isArray(data.entries)||data.entries.length>2500)throw Error('Invalid CCC schedule response');
-   entries=data.entries.filter(item=>item&&lib.validDate(item.date)&&lib.validDate(item.endDate)&&typeof item.facultyName==='string');
+   if(data.entries.some(item=>!item||!lib.validDate(item.date)||!lib.validDate(item.endDate)||item.date>item.endDate||typeof item.facultyName!=='string'||!item.facultyName.trim()||typeof item.halfDay!=='boolean'))throw Error('Invalid CCC schedule record');
+   entries=data.entries;
    loading=false;render();
-  }catch(error){if(token!==generation||uid!==currentUid()||!valid())return;loading=false;entries=[];body.textContent='';
-   status.textContent='CCC schedule could not be loaded. Choose Refresh to retry.';}
+  }catch(error){if(token!==generation||uid!==currentUid()||!valid())return;loading=false;loadError=true;entries=[];render();}
  }
  function open(){if(!currentUid())return;previousFocus=doc.activeElement;overlay.hidden=false;overlay.setAttribute('aria-hidden','false');
   populate();search.value='';closeButton.focus();load();if(timeout)root.clearInterval(timeout);timeout=root.setInterval(()=>{if(valid()&&!loading)load();},60000);}
- function close(){generation++;loading=false;entries=[];body.textContent='';overlay.hidden=true;overlay.setAttribute('aria-hidden','true');
+ function close(){generation++;loading=false;loadError=false;entries=[];body.textContent='';overlay.hidden=true;overlay.setAttribute('aria-hidden','true');
   if(timeout)root.clearInterval(timeout);timeout=null;if(previousFocus?.isConnected)previousFocus.focus();}
  closeButton.addEventListener('click',close);
  overlay.addEventListener('click',event=>{if(event.target===overlay)close();});
@@ -42,10 +42,18 @@ if(root&&root.document){
   if(event.key==='Tab'){const focusable=[...overlay.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled])')];
    if(!focusable.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&doc.activeElement===first){event.preventDefault();last.focus();}
    else if(!event.shiftKey&&doc.activeElement===last){event.preventDefault();first.focus();}}});
- years.addEventListener('change',()=>{generation++;loading=false;load();});
+ years.addEventListener('change',()=>{generation++;loading=false;loadError=false;load();});
  search.addEventListener('input',()=>{if(!loading)render();});
- refresh.addEventListener('click',()=>{generation++;loading=false;load();});
+ refresh.addEventListener('click',()=>{generation++;loading=false;loadError=false;load();});
  doc.addEventListener('visibilitychange',()=>{if(doc.visibilityState==='visible'&&valid()&&!loading)load();});
+ // Signed-out and switched accounts must not retain a cross-faculty view.
+ root.firebase?.auth?.().onAuthStateChanged(user=>{
+  if(!user&& !overlay.hidden)close();
+  else if(user&& !overlay.hidden){generation++;loading=false;entries=[];load();}
+ });
+ root.addEventListener('paws-profile',event=>{
+  if(!overlay.hidden){generation++;loading=false;entries=[];load();}
+ });
  root.PAWS_CCC_SCHEDULE=Object.freeze({open,close});
 }
 })(typeof window==='undefined'?null:window,function(){

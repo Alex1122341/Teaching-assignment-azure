@@ -74,6 +74,14 @@ test('invalid SQL payload, private SQL exception and corrupt row fail closed',as
  }
  assert.equal((await make({list:async()=>{throw Object.assign(Error('secret'),{number:55701});}}).list('token',{academicYear:'2026-27'})).status,403);
 });
+test('CCC SQL rollback requires installed-definition hash and refuses unexpected permissions',()=>{
+ const sql=fs.readFileSync(path.resolve(__dirname,'../../database/azure-sql/rollback_057_ccc_schedule_read.sql'),'utf8');
+ assert.match(sql,/PAWS_CCC_SCHEDULE_DEFINITION_SHA256/);
+ assert.match(sql,/HASHBYTES\('SHA2_256',@Definition\)/);
+ assert.match(sql,/sys\.database_permissions/);
+ assert.match(sql,/REVOKE EXECUTE ON OBJECT::paws_api\.ListCccSchedule FROM paws_runtime_read/);
+ assert.doesNotMatch(sql,/DELETE\s+(?:paws|staging)\./i);
+});
 test('SQL migration isolates CCC and derives half day only from explicit evidence',()=>{
  const sql=fs.readFileSync(path.resolve(__dirname,'../../database/azure-sql/057_ccc_schedule_read.sql'),'utf8');
  assert.match(sql,/a\.Category=N'ccc'/);

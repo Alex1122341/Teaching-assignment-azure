@@ -33,6 +33,13 @@ test('schedule rows with matching start date but different end dates stay separa
   ['2026-10-21',['A','C']],['2026-10-22',['B']]
  ]);
 });
+test('schedule loader keeps error state distinct from an empty authorized result',()=>{
+ const source=read('ccc-schedule.js');
+ assert.match(source,/loadError=true;entries=\[\];render\(\)/);
+ assert.match(source,/loadError\?'CCC schedule could not be loaded/);
+ assert.match(source,/data\.entries\.some\(item=>/);
+ assert.match(source,/onAuthStateChanged/);
+});
 test('viewer does not create availability records, write CCC or calculate DOE',()=>{
  const js=read('ccc-schedule.js');
  assert.match(js,/cccSchedule\(selected\)/);

@@ -911,6 +911,10 @@ test('AFC and LAB freeze promotion protects only the reviewed runtime delta',()=
 
 test('Historical Dashboard presentation reset remains pinned at its independently reviewed immutable 2026-10-20 product',()=>{
  const previous='fe1fa7002ef956f02e767053fbe2f6fea8daf748',accepted='573dbe468eb23b177d92317f9a6e3ec04d2c94ec';
+ const historicReset=JSON.parse(execFileSync('git',['show','1b4c3fb3be383119039ee170660c395d8e556847:tools/beta-baseline.json'],{cwd:root,encoding:'utf8'}));
+ assert.equal(historicReset.sourceCommit,accepted);
+ assert.ok(execFileSync('git',['show','1b4c3fb3be383119039ee170660c395d8e556847:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'}).includes("const BASELINE_COMMIT='"+accepted+"'"));
+ execFileSync('git',['merge-base','--is-ancestor',accepted,freeze.BASELINE_COMMIT],{cwd:root});
  const staticBefore=historicalStaticPaths(previous),staticAfter=historicalStaticPaths(accepted);
  const apiBefore=historicalApiPaths(previous),apiAfter=historicalApiPaths(accepted);
  assert.deepEqual(staticAfter,staticBefore);

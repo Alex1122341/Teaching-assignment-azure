@@ -1,5 +1,7 @@
 # PAWS FACULTY AVAILABILITY — FINAL ACCEPTANCE & RELEASE REPORT
 
+Latest cloud follow-up reports Node22, complete Git objects, PowerShell, Java and Docker now available, root964pass/0fail/52skip and static build/freeze pass. One server recovery test remains unresolved; SQL image, emulator and GitHub access remain blocked. These are user-reported cloud results. The pasted SHA is still39 characters; verified local target remains32f3dd0fc06ba07aaa875f2e65838d7cf14b1931. See the cloud-return sections below.
+
 Date: 2026-10-21 (America/Edmonton). This is a blocked-release evidence record; it is not a deployment receipt.
 
 ## Release decision
@@ -67,3 +69,20 @@ SQL:
 5. Merge existing PR124 only after all required gates; exact-main CI/artifact; stage exact-main API, coordinated University API then Firebase Hosting-only release.
 6. Recheck real users, privacy, source counts, health, CORS, unchanged gates and business fingerprints; issue a new live acceptance receipt only when verified.
 
+## Cloud check returned by Owner — 2026-10-21
+
+This is a user-supplied cloud execution report, not independently retrieved GitHub Actions evidence. The cloud environment reported Node24.19.0, no complete historical Git objects, no PowerShell/disposable SQL target, Firestore emulator download HTTP403 Domain forbidden, and GitHub API403. Root901pass/63fail/52skip and server792pass/5fail/5skip were reported; the identified environment failures make these unsuitable as supported-environment acceptance. No product regression has been independently established by that report. Cloud build191 files passed, but has no GitHub artifact ID/digest.
+
+The pasted target SHA `32f3dd0fc06ba07aaa8752f65838d7cf14b1931` is39 characters. Local Git verifies the40-character target `32f3dd0fc06ba07aaa875f2e65838d7cf14b1931`, parent `ad2493629420fe66e107f95a75c222e3457f60f4`. The cloud claim of exact PR-ref equality needs correction or an untruncated immutable checkout receipt. Do not silently normalize the cloud report into verified exact-head CI.
+
+Existing local supported-environment pass evidence is retained; no code, freeze, permission, SQL, merge or deployment change is warranted merely to accommodate the limited cloud environment. Next cloud check must begin with prerequisite verification and stop unsupported suites before running them. Report cloud execution, GitHub Actions status and unavailable components separately. Keep the same PR target; these record updates remain local and do not advance the checked branch.
+
+## Cloud follow-up and recovery fixture diagnosis — 2026-10-21
+
+Owner's second cloud report says Node22.14.0, PowerShell7.4.7, Java21, Docker daemon and1103-commit full Git clone are now available. Root964pass/0fail/52skip; server796pass/1fail/5skip. Static repository freeze, combined191-file build and static artifact freeze pass. SQL Server image pull403, emulator download403 and invalid cloud GH_TOKEN/API403 remain blockers. No current cloud API artifact freeze result was supplied. The pasted target still has39 characters; obtain raw `git rev-parse --verify HEAD` output before certifying exact-head identity. No token was requested or inspected locally.
+
+The remaining server test `recovery verifies UTF-16LE content hash before any SQL connection` assumes `os.tmpdir()` is accepted as a recovery-artifact location. The production module first rejects source-tree paths, any ancestor with .git, Hosting artifact locations, links/reparse points. The reported path rejection occurs before the intended hash check.
+
+Local paired reproduction on Node22/Windows PowerShell: set TEMP/TMP to an ignored directory inside this worktree and run only that test:1fail with the exact reported outside-repository message. Restore normal external TEMP/TMP and run the same unchanged test:1pass/0fail. The fixed invalid expected hash prevents SQL connection. No runtime source or security check was changed.
+
+This reproduces a sufficient cause, not the cloud filesystem layout itself. Next cloud step: print actual temporary/repository paths, verify a private external temporary directory through Get-PrivateCalendarRecoveryPath, then rerun the single test and server suite. Preserve path restrictions and the hash-before-SQL assertion. If no acceptable external directory exists, retain an environment blocker rather than weakening the guard or skipping the test silently. Leave PR target32f3dd0 unchanged; these evidence notes remain local/uncommitted.

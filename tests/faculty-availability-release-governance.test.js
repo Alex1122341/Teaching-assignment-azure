@@ -4,8 +4,11 @@ const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),a
 const BASE='1b4c3fb3be383119039ee170660c395d8e556847',PRODUCT='a0c0e6829f313f13486265a0bb60dd8bd641b27e',ORIGINAL='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const tree=ref=>new Map(git('ls-tree','-r',ref).split(/\r?\n/).map(line=>{const [meta,file]=line.split('\t');return[file,meta.split(' ')[2]];}));
-test('release freeze retains latest accepted History reset and exact original Availability runtime',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+test('historical release freeze retains independently accepted History reset and original Availability runtime',()=>{
+ const report=JSON.parse(git('show','27316316670ef7f363f7401f940b1303e1e5e859:tools/beta-baseline.json'));
+ assert.ok(git('show','27316316670ef7f363f7401f940b1303e1e5e859:tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ assert.equal(report.sourceCommit,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
  for(const ancestor of [BASE,ORIGINAL,'7fb4229fb718173f0d3cd6b8102451ddbfba0e48'])git('merge-base','--is-ancestor',ancestor,PRODUCT);
  git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  const manifest=ref=>JSON.parse(git('show',ref+':tools/static-assets.json')).sort(),before=manifest(BASE),after=manifest(PRODUCT);

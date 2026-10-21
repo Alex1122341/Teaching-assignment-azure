@@ -16,9 +16,9 @@ test('repository binds verified identity and exclusive UTC range inside consiste
  await createSqlChangeHistoryRepository(db).list({actorFirebaseUid:'verified',scope:'mine',start:'2026-10-01',end:'2026-10-17'});
 });
 
-test('SQL repository refuses unbounded Dashboard caller and uses exact millisecond boundary',async()=>{
+test('SQL repository refuses unbounded Dashboard caller and binds the earliest restored archive date',async()=>{
  const {createSqlChangeHistoryRepository}=require('../src/data/sql-change-history-repository');
- const {DASHBOARD_HISTORY_BASELINE_UTC:cutoff}=require('../src/history/change-history-api');
+ const {DASHBOARD_HISTORY_ARCHIVE_START_UTC:cutoff}=require('../src/history/change-history-api');
  let calls=0;
  const db={transaction:async cb=>cb(),query:async(sql,params)=>{
   calls++;assert.match(sql,/ListChangeHistoryEvents/);assert.equal(params.Scope,'dashboard');

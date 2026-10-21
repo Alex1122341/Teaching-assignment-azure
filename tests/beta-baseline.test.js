@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='573dbe468eb23b177d92317f9a6e3ec04d2c94ec';
+const BASELINE_COMMIT='a3317b1d30b1caa66c81ee5f4be2932f941b565b';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
@@ -909,8 +909,8 @@ test('AFC and LAB freeze promotion protects only the reviewed runtime delta',()=
   execFileSync('git',['merge-base','--is-ancestor',previous,AFC_LAB_PRODUCT_COMMIT],{cwd:root});
 });
 
-test('Dashboard presentation reset governance promotes only the reviewed two static and two API file changes',()=>{
- const previous='fe1fa7002ef956f02e767053fbe2f6fea8daf748',accepted=BASELINE_COMMIT;
+test('Historical Dashboard presentation reset remains pinned at its independently reviewed immutable 2026-10-20 product',()=>{
+ const previous='fe1fa7002ef956f02e767053fbe2f6fea8daf748',accepted='573dbe468eb23b177d92317f9a6e3ec04d2c94ec';
  const staticBefore=historicalStaticPaths(previous),staticAfter=historicalStaticPaths(accepted);
  const apiBefore=historicalApiPaths(previous),apiAfter=historicalApiPaths(accepted);
  assert.deepEqual(staticAfter,staticBefore);
@@ -929,4 +929,33 @@ test('Dashboard presentation reset governance promotes only the reviewed two sta
   freeze.readBaselineFile({root,baselineCommit:previous,file}),
   freeze.readBaselineFile({root,baselineCommit:accepted,file})
  ),file);
+});
+
+test('Dashboard archive restoration promotes only one reviewed protected frontend and one API source change',()=>{
+ const previous='573dbe468eb23b177d92317f9a6e3ec04d2c94ec',accepted=BASELINE_COMMIT;
+ const staticBefore=historicalStaticPaths(previous),staticAfter=historicalStaticPaths(accepted);
+ const apiBefore=historicalApiPaths(previous),apiAfter=historicalApiPaths(accepted);
+ assert.deepEqual(staticAfter,staticBefore);
+ assert.deepEqual(apiAfter,apiBefore);
+ assert.equal(staticAfter.length,81);
+ assert.equal(apiAfter.length,104);
+ const changed=execFileSync('git',['diff','--name-only',previous,accepted],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+ assert.deepEqual(changed.filter(file=>staticAfter.includes(file)).sort(),['change-history.js']);
+ assert.deepEqual(changed.filter(file=>apiAfter.includes(file)).sort(),['server/src/history/change-history-api.js']);
+ assert.equal(changed.some(file=>file.startsWith('database/azure-sql/')),false);
+ assert.equal(changed.some(file=>file.endsWith('write-gates.js')),false);
+ for(const file of staticAfter.filter(file=>!changed.includes(file)))assert.ok(freeze.bytesMatch(
+  freeze.readBaselineFile({root,baselineCommit:previous,file}),
+  freeze.readBaselineFile({root,baselineCommit:accepted,file})
+ ),file);
+ for(const file of apiAfter.filter(file=>!changed.includes(file)))assert.ok(freeze.bytesMatch(
+  freeze.readBaselineFile({root,baselineCommit:previous,file}),
+  freeze.readBaselineFile({root,baselineCommit:accepted,file})
+ ),file);
+ const serverSource=freeze.readBaselineFile({root,baselineCommit:accepted,file:'server/src/history/change-history-api.js'}).toString('utf8');
+ assert.match(serverSource,/DASHBOARD_HISTORY_ARCHIVE_START_UTC='2026-10-05T00:00:00.000Z'/);
+ assert.doesNotMatch(serverSource,/DASHBOARD_HISTORY_BASELINE_UTC/);
+ const ui=freeze.readBaselineFile({root,baselineCommit:accepted,file:'change-history.js'}).toString('utf8');
+ assert.match(ui,/All recorded years/);
+ assert.match(ui,/historyArchiveStartUtc/);
 });

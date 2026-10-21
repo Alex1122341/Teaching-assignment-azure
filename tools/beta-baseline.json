@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "573dbe468eb23b177d92317f9a6e3ec04d2c94ec",
+  "sourceCommit": "a3317b1d30b1caa66c81ee5f4be2932f941b565b",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -24,7 +24,7 @@
     "calendar-activities.css": "49f5bed0355d578b0a8fab6db0b8c3c950ea5ce2ff5370cca9b3650af8b93eae",
     "calendar-activities.js": "ae6f0f9baac5caa235c78205066f2bd2a07111cc5cf04184c4c2a24b161fe9b7",
     "change-history.css": "44af30c0e099649545d85b37c0a085ba4d754fa73d0055f956f410240e2c8619",
-    "change-history.js": "bd761d4896f468604d0b0fa1191a40975c79ae7108889ba06ed309d841085f16",
+    "change-history.js": "b9e42d8a54928779f2486ba980b552aaa3b552560dba7f468ec79d2cd49f3972",
     "dashboard-view-model.js": "a5053b05b2af89f7653a486af268a03c4daa0f91418dbad80b43ce75747c7163",
     "data-index.js": "f13a995cb9056769881270f60db8cdbdbadc15b5e123460fe42a027eaa95a80f",
     "derived-index-health.js": "2b73be0fbda68e91c06971bc848f7ca0a3d9407363e295cc6cf3d41c8846b3f6",

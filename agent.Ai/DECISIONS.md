@@ -1,3 +1,7 @@
+## Owner decision — restore historical grouped Dashboard History (supersedes 2026-10-20 display reset)
+
+Restore current Dashboard History visibility for all records in the protected October 5 onward SQL audit archive, grouped by recorded user operation instead of raw field row. Old 6,000+ visual entries and 9,175 derived field differences are not new SQL audit events; the originals remain 1,792 events at archive capture. Preserve all SQL source audits, business tables and authorization, existing 27 gates and no import/replay. Dashboard alone defaults to all academic years and reads from server-enforced SQL date bounds. My History and Calendar Changes are unchanged. The earlier reset floor 2026-10-20T21:13:42.660Z was owner-reversed only as a Dashboard presentation rule, not as a data-deletion instruction. See `docs/dashboard-history-archive-restoration-20261020.md`.
+
 ## Owner-approved Dashboard History one-time presentation reset — 2026-10-20
 
 Owner explicitly selected hiding all old Dashboard History entries, establishing one fixed current-state display baseline `2026-10-20T21:13:42.660Z`, showing only later changes and preserving all original SQL audits. This decision changes **presentation scope only**, not business data or immutable audit sources. My Change History and Calendar Changes remain unchanged. A client cannot override the server's UTC reset boundary. Real-data rollout requires exact reviewed freeze/CI and coordinated University API / Firebase Hosting acceptance. See `docs/dashboard-history-reset-baseline-20261020.md`.

@@ -47,8 +47,11 @@ test('closed academic-year input and no arbitrary scope/filter fields',async()=>
 test('HTTP route disallows writes, duplicate parameters and secret filters',async()=>{
  const r=createCccScheduleFunctions({api:harness().api});
  const request=(p,method='GET',token='token')=>r({url:'https://local.test'+p,method,headers:{get:()=>token?'Bearer '+token:''}});
- assert.equal((await request('/api/v1/ccc-schedule?academicYear=2026-27')).status,200);
- assert.equal((await request('/api/v1/ccc-schedule?academicYear=2026-27','POST')).status,405);
+ const schedule=await request('/api/v1/ccc-schedule?academicYear=2026-27');
+ assert.equal(schedule.status,200);
+ assert.deepEqual(schedule.headers,{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});
+ const deniedMethod=await request('/api/v1/ccc-schedule?academicYear=2026-27','POST');
+ assert.equal(deniedMethod.status,405);assert.equal(deniedMethod.headers['Cache-Control'],'private, no-store');
  assert.equal((await request('/api/v1/ccc-schedule?academicYear=2026-27&academicYear=2027-28')).status,400);
  assert.equal((await request('/api/v1/ccc-schedule?academicYear=2026-27&facultyId=private')).status,400);
  assert.equal((await request('/api/v1/ccc-schedule')).status,400);

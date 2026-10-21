@@ -13,7 +13,7 @@ const {execFileSync}=require('node:child_process');
 
 // Reviewed restoration of source-audited Dashboard History is the immutable trust anchor.
 // Prior AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='a6e555424241499abbfeb1f7401dcd4918ca886c';
+const BASELINE_COMMIT='a3317b1d30b1caa66c81ee5f4be2932f941b565b';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

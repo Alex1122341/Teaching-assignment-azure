@@ -23,6 +23,6 @@ Supersedes the 2026-10-20 reset *display rule only*. The owner explicitly reques
 ## Acceptance and rollback
 - Ensure restored pre-reset records, Oct 5 inclusive boundary, correct ordering, archive-end filters, all-years default, explicit-year narrowing and old-source provenance; prove no duplicate events from importing archive (no import occurs).
 - Verify faculty cannot read others' records and My/Calendar behavior unchanged. Verify grouping, 100-operation pagination, CSV/XLSX and snapshot authorization.
-- Promote separately reviewed exact product SHA `a6e555424241499abbfeb1f7401dcd4918ca886c` with a protected static/API file-diff assertion, full root/server/emulator CI and SQL acceptance.
+- Promote separately reviewed exact product SHA `a3317b1d30b1caa66c81ee5f4be2932f941b565b` with a protected static/API file-diff assertion, full root/server/emulator CI and SQL acceptance.
 - Controlled real-data release: stage isolated port, compare **27 exact** write gates, SQL and anonymous 401; retain exact old runtime and recovery config; cut over University API before Firebase Hosting. Verify released SHA and matching public 81/81 static files, then use existing recovery CheckOnly. Roll back if any gate fails.
 - Operational caveat: the historic `PAWSApi-Temporary-SA` login task still points at `C:\PAWS\Runtime`, so post-reboot autostart remains a separately tracked issue. No change in this feature.

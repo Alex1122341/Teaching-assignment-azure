@@ -1,6 +1,6 @@
 ## Current: owner superseded reset, restoring original grouped Dashboard History — 2026-10-20
 
-Dashboard display now reads preserved historical SQL AuditEvent/DOE sources from 2026-10-05 UTC, groups by real submission, shows all academic years by default and keeps field/role allowlists. Owner expressly supersedes only 2026-10-20 display-reset floor; no SQL audit, migration, DOE, AFC, role, My History or Calendar Changes mutation is authorized. Candidate product `a6e555424241499abbfeb1f7401dcd4918ca886c` on `feat/dashboard-history-archive-restoration-20261020`; freeze promotion, CI, PR and full real-data release still pending. See `docs/dashboard-history-archive-restoration-20261020.md`.
+Dashboard display now reads preserved historical SQL AuditEvent/DOE sources from 2026-10-05 UTC, groups by real submission, shows all academic years by default and keeps field/role allowlists. Owner expressly supersedes only 2026-10-20 display-reset floor; no SQL audit, migration, DOE, AFC, role, My History or Calendar Changes mutation is authorized. Candidate product `a3317b1d30b1caa66c81ee5f4be2932f941b565b` on `feat/dashboard-history-archive-restoration-20261020`; freeze promotion, CI, PR and full real-data release still pending. See `docs/dashboard-history-archive-restoration-20261020.md`.
 
 ## Current: Owner-approved Dashboard History one-time presentation reset — 2026-10-20
 

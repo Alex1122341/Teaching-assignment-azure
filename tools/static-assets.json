@@ -81,5 +81,7 @@
   "calendar-activities.css",
   "faculty-admin-activity-import.js",
   "faculty-availability.js",
-  "faculty-availability.css"
+  "faculty-availability.css",
+  "ccc-schedule.js",
+  "ccc-schedule.css"
 ]

@@ -10,16 +10,17 @@ const {calgaryAcademicYear,validYear,yearsInRange}=require('./history-year');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const QUERY_KEYS=new Set(['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain','keyword']);
 const TTL=600000,MAX_BYTES=6*1024*1024,MAX_ROWS=10000,PAGE_SIZE=100;
-// Owner-approved one-time Dashboard display reset. The underlying audits
-// remain immutable; this fixed UTC barrier survives refreshes and restarts.
-const DASHBOARD_HISTORY_BASELINE_UTC='2026-10-20T21:13:42.660Z';
+// Owner-approved archive restoration: existing SQL audits remain immutable.
+// Earliest AuditEvent source: 2026-10-05; this stable UTC day avoids the SQL
+// reader's ten-year range guard while showing every preserved archive event.
+const DASHBOARD_HISTORY_ARCHIVE_START_UTC='2026-10-05T00:00:00.000Z';
 const DAY_MS=86400000;
 function dashboardReadWindow(filters,now){
  const requestedStart=filters.start+'T00:00:00.000Z';
  const requestedEnd=filters.end+'T00:00:00.000Z';
  // Bound open-ended UI queries to tomorrow UTC for the existing SQL range guard.
  const tomorrow=new Date(now+DAY_MS).toISOString().slice(0,10)+'T00:00:00.000Z';
- return {startUtc:requestedStart>DASHBOARD_HISTORY_BASELINE_UTC?requestedStart:DASHBOARD_HISTORY_BASELINE_UTC,
+ return {startUtc:requestedStart>DASHBOARD_HISTORY_ARCHIVE_START_UTC?requestedStart:DASHBOARD_HISTORY_ARCHIVE_START_UTC,
   endUtc:requestedEnd<tomorrow?requestedEnd:tomorrow};
 }
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
@@ -37,7 +38,8 @@ function normalizeFilters(input,now){
  const start=input.start||'0001-01-01',end=input.end||'9999-12-31';
  if(!validDate(start)||!validDate(end)||start>=end)return null;
  if(input.faculty&&!UUID.test(input.faculty))return null;
- const academicYear=input.academicYear||calgaryAcademicYear(now);if(!validYear(academicYear))return null;
+ const academicYear=input.academicYear||(input.scope==='dashboard'?'all':calgaryAcademicYear(now));
+ if(!(input.scope==='dashboard'&&academicYear==='all')&&!validYear(academicYear))return null;
  if(input.domain&&!['Teaching','Working schedule','Lookup','AFC','DOE Rule Book'].includes(input.domain))return null;
  return {...input,academicYear,start,end};
 }
@@ -82,23 +84,27 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
    try{
     const dashboard=filters.scope==='dashboard';
     const window=dashboard?dashboardReadWindow(filters,clock()):null;
-    // Ranges ending before the reset yield an authorized empty snapshot.
+    // Date ranges ending before the original audit archive remain empty.
     const events=dashboard&&window.endUtc<=window.startUtc?[]:await repository.list({
      actorFirebaseUid:auth.uid,scope:filters.scope,start:filters.start,end:filters.end,
      ...(window?{startUtc:window.startUtc,endUtc:window.endUtc}:{})
     });
     if(!Array.isArray(events))throw Error('Invalid history source.');
     if(events.length>MAX_ROWS)return historyLimit();
-    const projected=[],operations=[],years=new Set([filters.academicYear]);
+    const projected=[],operations=[],years=new Set([calgaryAcademicYear(clock())]);
+    // All-years is exclusively a Dashboard option. The My/Calendar scopes
+    // retain their existing strict academic-year and faculty-privacy rules.
+    const viewFilters=dashboard&&filters.academicYear==='all'?{...filters,academicYear:null}:filters;
     for(const event of events){
-     // Defense in depth against a stale or incorrectly implemented SQL adapter.
+     // Defense in depth: any stale adapter output must honor the trusted
+     // source-date window before authorization projection and grouping.
      if(dashboard){
       const when=new Date(event?.occurredAtUtc).getTime();
-      if(!Number.isFinite(when)||when<Date.parse(DASHBOARD_HISTORY_BASELINE_UTC))continue;
+      if(!Number.isFinite(when)||when<Date.parse(window.startUtc)||when>=Date.parse(window.endUtc))continue;
      }
      const available=projectHistoryEvent(event,{...auth,scope:filters.scope});
      for(const row of available){for(const year of row._years)years.add(year);for(const range of row._ranges||[])for(const year of yearsInRange(...range))years.add(year);}
-     const matched=filterHistoryRows(available,filters);
+     const matched=filterHistoryRows(available,viewFilters);
      if(filters.scope==='dashboard'){
       // Match a complete, authorized event before grouping: a matching Purpose must
       // not hide Start/End/Faculty detail from that same user submission.
@@ -122,8 +128,8 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
     const facultyOptions=new Map();
     for(const row of projected)for(const option of row._facultyOptions)if(UUID.test(option.key))facultyOptions.set(option.key,option.name);
     return ok({...pageBody(handle,item,0),filters,
-     ...(dashboard?{historyBaselineUtc:DASHBOARD_HISTORY_BASELINE_UTC}:{}),facets:{changeTypes:[...new Set(projected.map(row=>row.changeType))].sort(),faculties:[...facultyOptions].map(([key,name])=>({key,name})),academicYears:[...years].filter(Boolean).sort(),viscSubjects:[...new Set(projected.map(row=>row.viscSubject).filter(Boolean))].sort()},coverage:[
-     ...(dashboard?['Dashboard History shows only changes since '+DASHBOARD_HISTORY_BASELINE_UTC+'. Older SQL audit events were retained, not deleted.']:[]),
+     ...(dashboard?{historyArchiveStartUtc:DASHBOARD_HISTORY_ARCHIVE_START_UTC}:{}),facets:{changeTypes:[...new Set(projected.map(row=>row.changeType))].sort(),faculties:[...facultyOptions].map(([key,name])=>({key,name})),academicYears:[...years].filter(Boolean).sort(),viscSubjects:[...new Set(projected.map(row=>row.viscSubject).filter(Boolean))].sort()},coverage:[
+     ...(dashboard?['Historical Dashboard operations are restored from '+DASHBOARD_HISTORY_ARCHIVE_START_UTC+' and consolidated by recorded submission. Source SQL audit events remain unchanged.']:[]),
      'Only recorded SQL audits are available. Older events may lack previous values or proof of affected faculty; My Change History excludes unproven membership.',
      'History is limited to the selected academic year: recorded teaching/policy year, AFC/work date ranges, or Calgary change year for global Lookup edits. Missing evidence in other domains is excluded. VISC mappings are not inferred.',
      'Exports contain every row in this filtered snapshot. Refresh after 10 minutes or after permissions change.'
@@ -155,4 +161,4 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
   }
  });
 }
-module.exports={createChangeHistoryApi,normalizeFilters,DASHBOARD_HISTORY_BASELINE_UTC,dashboardReadWindow};
+module.exports={createChangeHistoryApi,normalizeFilters,DASHBOARD_HISTORY_ARCHIVE_START_UTC,dashboardReadWindow};

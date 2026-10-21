@@ -91,7 +91,7 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
     });
     if(!Array.isArray(events))throw Error('Invalid history source.');
     if(events.length>MAX_ROWS)return historyLimit();
-    const projected=[],operations=[],years=new Set([calgaryAcademicYear(clock())]);
+    const projected=[],operations=[],years=new Set([dashboard?calgaryAcademicYear(clock()):filters.academicYear]);
     // All-years is exclusively a Dashboard option. The My/Calendar scopes
     // retain their existing strict academic-year and faculty-privacy rules.
     const viewFilters=dashboard&&filters.academicYear==='all'?{...filters,academicYear:null}:filters;

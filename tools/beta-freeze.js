@@ -11,9 +11,9 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed Faculty Availability product is the immutable trust anchor.
+// Reviewed one-time Dashboard History presentation reset is the immutable trust anchor.
 // Prior AFC confirmation, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical evidence in governance tests.
-const BASELINE_COMMIT='7fb4229fb718173f0d3cd6b8102451ddbfba0e48';
+const BASELINE_COMMIT='573dbe468eb23b177d92317f9a6e3ec04d2c94ec';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

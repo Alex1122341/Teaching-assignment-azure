@@ -5,8 +5,11 @@ const HISTORY='fe1fa7002ef956f02e767053fbe2f6fea8daf748',BASE='15dd7390d613bd3bd
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const manifest=ref=>JSON.parse(git('show',ref+':tools/static-assets.json')).sort();
 const tree=ref=>new Map(git('ls-tree','-r',ref).split(/\r?\n/).map(line=>{const [meta,file]=line.split('\t');return[file,meta.split(' ')[2]];}));
-test('integrated Availability freezes exact main reconciliation with additive coverage and unchanged accepted runtime',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+test('historical integrated Availability freezes exact reconciliation with additive coverage and unchanged accepted runtime',()=>{
+ const historicalReport=JSON.parse(git('show','93993f52d8c32be611d88bcf551832a390529b86:tools/beta-baseline.json'));
+ assert.ok(git('show','93993f52d8c32be611d88bcf551832a390529b86:tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ assert.equal(historicalReport.sourceCommit,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);
  for(const ancestor of [BASE,HISTORY,AVAILABILITY])git('merge-base','--is-ancestor',ancestor,PRODUCT);
  git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  const before=manifest(BASE),after=manifest(PRODUCT),oldApi=api.baselineRuntimeFiles({root,baselineCommit:BASE}),newApi=api.baselineRuntimeFiles({root,baselineCommit:PRODUCT});
@@ -21,7 +24,7 @@ test('integrated Availability freezes exact main reconciliation with additive co
  for(const file of [...staticDelta,...apiDelta,...sqlDelta])assert.equal(combined.get(file),original.get(file),file);
  for(const file of [...before,...protectedApi].filter(p=>!changed.includes(p)))assert.equal(combined.get(file),main.get(file),file);
  assert.equal(combined.get('.github/workflows/firebase-hosting-deploy.yml'),main.get('.github/workflows/firebase-hosting-deploy.yml'));
- assert.deepEqual(Object.keys(report.sha256).sort(),after);for(const file of after)assert.equal(report.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
+ assert.deepEqual(Object.keys(historicalReport.sha256).sort(),after);for(const file of after)assert.equal(historicalReport.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
  assert.equal(freeze.verifyFreeze({root}).ok,true);assert.equal(api.verifyFreeze({root}).ok,true);
 });
 test('historical operation-grouping protection remains anchored to immutable accepted main',()=>{

@@ -10,6 +10,18 @@ const {calgaryAcademicYear,validYear,yearsInRange}=require('./history-year');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const QUERY_KEYS=new Set(['scope','start','end','course','topic','viscSubject','faculty','changeType','academicYear','domain','keyword']);
 const TTL=600000,MAX_BYTES=6*1024*1024,MAX_ROWS=10000,PAGE_SIZE=100;
+// Owner-approved one-time Dashboard display reset. The underlying audits
+// remain immutable; this fixed UTC barrier survives refreshes and restarts.
+const DASHBOARD_HISTORY_BASELINE_UTC='2026-10-20T21:13:42.660Z';
+const DAY_MS=86400000;
+function dashboardReadWindow(filters,now){
+ const requestedStart=filters.start+'T00:00:00.000Z';
+ const requestedEnd=filters.end+'T00:00:00.000Z';
+ // Bound open-ended UI queries to tomorrow UTC for the existing SQL range guard.
+ const tomorrow=new Date(now+DAY_MS).toISOString().slice(0,10)+'T00:00:00.000Z';
+ return {startUtc:requestedStart>DASHBOARD_HISTORY_BASELINE_UTC?requestedStart:DASHBOARD_HISTORY_BASELINE_UTC,
+  endUtc:requestedEnd<tomorrow?requestedEnd:tomorrow};
+}
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
 const ok=body=>({status:200,body});
 const invalid=()=>fail(400,'INVALID_HISTORY_QUERY','The history query contains invalid or unsupported fields.');
@@ -68,11 +80,22 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
    if(queries.has(auth.uid)||queries.size>=2)return fail(429,'HISTORY_BUSY','A history query is running. Retry shortly.');
    queries.add(auth.uid);
    try{
-    const events=await repository.list({actorFirebaseUid:auth.uid,scope:filters.scope,start:filters.start,end:filters.end});
+    const dashboard=filters.scope==='dashboard';
+    const window=dashboard?dashboardReadWindow(filters,clock()):null;
+    // Ranges ending before the reset yield an authorized empty snapshot.
+    const events=dashboard&&window.endUtc<=window.startUtc?[]:await repository.list({
+     actorFirebaseUid:auth.uid,scope:filters.scope,start:filters.start,end:filters.end,
+     ...(window?{startUtc:window.startUtc,endUtc:window.endUtc}:{})
+    });
     if(!Array.isArray(events))throw Error('Invalid history source.');
     if(events.length>MAX_ROWS)return historyLimit();
     const projected=[],operations=[],years=new Set([filters.academicYear]);
     for(const event of events){
+     // Defense in depth against a stale or incorrectly implemented SQL adapter.
+     if(dashboard){
+      const when=new Date(event?.occurredAtUtc).getTime();
+      if(!Number.isFinite(when)||when<Date.parse(DASHBOARD_HISTORY_BASELINE_UTC))continue;
+     }
      const available=projectHistoryEvent(event,{...auth,scope:filters.scope});
      for(const row of available){for(const year of row._years)years.add(year);for(const range of row._ranges||[])for(const year of yearsInRange(...range))years.add(year);}
      const matched=filterHistoryRows(available,filters);
@@ -98,7 +121,9 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
     snapshots.set(handle,item);
     const facultyOptions=new Map();
     for(const row of projected)for(const option of row._facultyOptions)if(UUID.test(option.key))facultyOptions.set(option.key,option.name);
-    return ok({...pageBody(handle,item,0),filters,facets:{changeTypes:[...new Set(projected.map(row=>row.changeType))].sort(),faculties:[...facultyOptions].map(([key,name])=>({key,name})),academicYears:[...years].filter(Boolean).sort(),viscSubjects:[...new Set(projected.map(row=>row.viscSubject).filter(Boolean))].sort()},coverage:[
+    return ok({...pageBody(handle,item,0),filters,
+     ...(dashboard?{historyBaselineUtc:DASHBOARD_HISTORY_BASELINE_UTC}:{}),facets:{changeTypes:[...new Set(projected.map(row=>row.changeType))].sort(),faculties:[...facultyOptions].map(([key,name])=>({key,name})),academicYears:[...years].filter(Boolean).sort(),viscSubjects:[...new Set(projected.map(row=>row.viscSubject).filter(Boolean))].sort()},coverage:[
+     ...(dashboard?['Dashboard History shows only changes since '+DASHBOARD_HISTORY_BASELINE_UTC+'. Older SQL audit events were retained, not deleted.']:[]),
      'Only recorded SQL audits are available. Older events may lack previous values or proof of affected faculty; My Change History excludes unproven membership.',
      'History is limited to the selected academic year: recorded teaching/policy year, AFC/work date ranges, or Calgary change year for global Lookup edits. Missing evidence in other domains is excluded. VISC mappings are not inferred.',
      'Exports contain every row in this filtered snapshot. Refresh after 10 minutes or after permissions change.'
@@ -130,4 +155,4 @@ function createChangeHistoryApi({verifyToken,findUser,repository,clock=Date.now,
   }
  });
 }
-module.exports={createChangeHistoryApi,normalizeFilters};
+module.exports={createChangeHistoryApi,normalizeFilters,DASHBOARD_HISTORY_BASELINE_UTC,dashboardReadWindow};

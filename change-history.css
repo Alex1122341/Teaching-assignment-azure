@@ -65,3 +65,5 @@
 .paws-change-history .history-details-table th:nth-child(1){width:24%}
 .paws-change-history .history-details-table th:nth-child(2),.paws-change-history .history-details-table th:nth-child(3){width:38%}
 .paws-change-history .history-details-table th{position:static}
+
+.history-reset-note{margin:3px 0 8px;padding:7px 10px;border-left:3px solid #8995a6;background:#f5f7fa;font-size:12px;color:#4b5b70}

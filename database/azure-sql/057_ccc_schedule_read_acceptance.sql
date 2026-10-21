@@ -43,7 +43,7 @@ INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,
  (N'ccc-password',N'password@example.test',N'Synthetic Password',N'owner',NULL,1,1),
  (N'ccc-unlinked',N'unlinked@example.test',N'Synthetic Unlinked',N'faculty',NULL,1,0);
 
-/* 12 synthetic CCC rows: 9 inside 2026-27, 1 next year, 1 inactive faculty, 1 wrong category. */
+/* 12 synthetic CCC rows: 10 inside 2026-27, 1 next year, 1 inactive faculty; plus 1 non-CCC activity. */
 INSERT paws.CalendarActivity(ActivityId,FacultyId,Category,OriginalLabel,StartDate,EndDate,CourseId,ImportBatchId,ImportRowId,
  SourceSha256,SourceSheet,SourceRow,CreatedByUid,StaffingKind,StaffingLabel,BlockLabel,SourceColumn,SourceSlotKey)
  SELECT NEWID(),rows.faculty,N'ccc',rows.label,rows.starts,rows.ends,@Course,@Batch,rows.rowid,@Sha,N'Synthetic',rows.n,N'ccc-owner',
@@ -98,7 +98,7 @@ DECLARE @Rejected bit;
 /* Every supported role reads the same cross-faculty year. */
 INSERT @Result EXEC paws_api.ListCccSchedule N'ccc-owner','2026-27';
 SELECT @Response=responseJson FROM @Result;DELETE @Result;
-IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>9 THROW 55790,'Owner year coverage is not 9 CCC rows.',1;
+IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>10 THROW 55790,'Owner year coverage is not 10 CCC rows.',1;
 IF EXISTS(SELECT 1 FROM OPENJSON(@Response,'$.entries') WHERE JSON_VALUE(value,'$.date')=N'2027-05-01') THROW 55790,'Next academic year leaked into 2026-27.',1;
 IF EXISTS(SELECT 1 FROM OPENJSON(@Response,'$.entries') WHERE JSON_VALUE(value,'$.date')=N'2026-11-01') THROW 55790,'Inactive faculty CCC row was published.',1;
 IF EXISTS(SELECT 1 FROM OPENJSON(@Response,'$.entries') WHERE JSON_VALUE(value,'$.date')=N'2026-11-07') THROW 55790,'Non-CCC category leaked into the CCC schedule.',1;
@@ -115,32 +115,31 @@ IF NOT EXISTS(SELECT 1 FROM OPENJSON(@Response,'$.entries') WHERE JSON_VALUE(val
 IF NOT EXISTS(SELECT 1 FROM OPENJSON(@Response,'$.entries') WHERE JSON_VALUE(value,'$.date')=N'2026-10-21' AND JSON_VALUE(value,'$.endDate')=N'2026-10-22')
  THROW 55790,'A distinct end date was collapsed onto the shared start date.',1;
 IF EXISTS(SELECT 1 FROM OPENJSON(@Response,'$.entries') WHERE JSON_VALUE(value,'$.courseCode')<>N'292') THROW 55790,'Course code was not joined from paws.Course.',1;
-IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>9 THROW 55790,'CCC reader duplicated or dropped rows.',1;
-IF (SELECT COUNT(DISTINCT CONCAT(JSON_VALUE(value,'$.date'),'|',JSON_VALUE(value,'$.endDate'),'|',JSON_VALUE(value,'$.blockLabel'),'|',JSON_VALUE(value,'$.facultyName'))) FROM OPENJSON(@Response,'$.entries'))<>9
- THROW 55790,'CCC reader produced duplicate schedule rows.',1;
+IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>10 THROW 55790,'CCC reader duplicated or dropped rows.',1;
+IF (SELECT COUNT(DISTINCT CONCAT(JSON_VALUE(value,'$.date'),'|',JSON_VALUE(value,'$.endDate'),'|',JSON_VALUE(value,'$.blockLabel'),'|',JSON_VALUE(value,'$.facultyName'))) FROM OPENJSON(@Response,'$.entries'))<>10 THROW 55790,'CCC reader produced duplicate schedule rows.',1;
 IF EXISTS(SELECT 1 FROM OPENJSON(@Response,'$.entries') CROSS APPLY OPENJSON(value) field
    WHERE field.[key] NOT IN(N'date',N'endDate',N'blockLabel',N'courseCode',N'facultyName',N'halfDay'))
  THROW 55790,'CCC reader exposed a field outside the six-key allowlist.',1;
 
 INSERT @Result EXEC paws_api.ListCccSchedule N'ccc-faculty','2026-27';
 SELECT @Response=responseJson FROM @Result;DELETE @Result;
-IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>9 THROW 55790,'Linked faculty did not receive the cross-faculty CCC year.',1;
+IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>10 THROW 55790,'Linked faculty did not receive the cross-faculty CCC year.',1;
 
 INSERT @Result EXEC paws_api.ListCccSchedule N'ccc-hicc','2026-27';
 SELECT @Response=responseJson FROM @Result;DELETE @Result;
-IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>9 THROW 55790,'HICC did not receive the cross-faculty CCC year.',1;
+IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>10 THROW 55790,'HICC did not receive the cross-faculty CCC year.',1;
 
 INSERT @Result EXEC paws_api.ListCccSchedule N'ccc-visc','2026-27';
 SELECT @Response=responseJson FROM @Result;DELETE @Result;
-IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>9 THROW 55790,'VISC did not receive the cross-faculty CCC year.',1;
+IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>10 THROW 55790,'VISC did not receive the cross-faculty CCC year.',1;
 
 INSERT @Result EXEC paws_api.ListCccSchedule N'ccc-adc','2026-27';
 SELECT @Response=responseJson FROM @Result;DELETE @Result;
-IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>9 THROW 55790,'ADC did not receive the cross-faculty CCC year.',1;
+IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>10 THROW 55790,'ADC did not receive the cross-faculty CCC year.',1;
 
 INSERT @Result EXEC paws_api.ListCccSchedule N'ccc-lab','2026-27';
 SELECT @Response=responseJson FROM @Result;DELETE @Result;
-IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>9 THROW 55790,'LAB did not receive the cross-faculty CCC year.',1;
+IF (SELECT COUNT(*) FROM OPENJSON(@Response,'$.entries'))<>10 THROW 55790,'LAB did not receive the cross-faculty CCC year.',1;
 
 /* Academic-year boundaries: the next year contains exactly its own row. */
 INSERT @Result EXEC paws_api.ListCccSchedule N'ccc-owner','2027-28';

@@ -91,3 +91,18 @@ test('every column the acceptance script writes exists on its target table',()=>
   }
  }
 });
+
+test('synthetic CCC acceptance year counts match the actual inserted fixture rows',()=>{
+ // Static regression only: this does not replace SQL Server execution.
+ const begin=acceptance.indexOf('/* 12 synthetic CCC rows:');
+ const end=acceptance.indexOf(') rows(faculty,label,starts,ends,rowid,n,kind,stafflabel,block,col);',begin);
+ assert.ok(begin>=0&&end>begin,'synthetic activity fixture is present');
+ const block=acceptance.slice(begin,end);
+ const rows=[...block.matchAll(/^\s*\((@ActiveFaculty|@OtherFaculty|@InactiveFaculty|CAST\(NULL AS uniqueidentifier\)),N'[^']+','(\d{4}-\d{2}-\d{2})','(\d{4}-\d{2}-\d{2})',@Row\d+,/gm)];
+ assert.equal(rows.length,12,'synthetic fixture inserts exactly twelve CCC rows');
+ const expected=rows.filter(m=>m[1]!=='@InactiveFaculty'&&m[2]<'2027-05-01'&&m[3]>='2026-05-01').length;
+ assert.equal(expected,10,'ten active CCC rows belong to academic year 2026-27');
+ const guards=[...acceptance.matchAll(/<>\s*(\d+)\s+THROW 55790,'(?:Owner year coverage|CCC reader duplicated|CCC reader produced duplicate|Linked faculty|HICC did not|VISC did not|ADC did not|LAB did not)/g)];
+ assert.equal(guards.length,8,'owner, read-role and dedup checks all specify fixture size');
+ for(const match of guards)assert.equal(Number(match[1]),expected,'asserted year count must equal inserted fixture');
+});

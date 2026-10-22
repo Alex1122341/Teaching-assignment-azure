@@ -32,3 +32,11 @@ Download-only bootstrap launch requested elevation; Windows returned “operatio
 Finish concrete administrative SQL/backup transport and shared-instance harness; install approved LocalDB/ODBC prerequisites; run both fresh disposable harnesses; preserve fingerprints and target/driver/engine receipts. Only after all synthetic SQL checks pass may the bounded live inventory/provisioning step run. Verify real strict TLS, actual runtime identity and effective cross-database denial from VET-C31293. An earlier launcher-parsing failure or this desktop's short-name DNS lookup is not evidence that the University database is absent or that its server-side operator lacks access.
 
 Independent account-provisioning/host/workflow code may proceed while these human prerequisites remain pending. Task3 is not complete, and no merge/deployment readiness follows from its unit tests.
+
+## Task4 account tooling checkpoint
+
+Account provisioning now uses the shared guarded Windows connector for the University profile. It verifies target/UUID and the complete reserved synthetic profile set before initializing Auth. Privileged synthetic personas remain disabled/switch-only; named operators must have distinct emails and UIDs. Existing named operator passwords are not changed. Normalize roles with the existing shared policy; do not infer or create a real operator from an incidental spreadsheet email.
+
+Explicit service-account JSON must identify the Testing project. Malformed JSON, SDK and SQL failures receive fixed public error text; raw passwords, private keys, paths and SDK errors are never echoed. Synthetic test output excludes emails and passwords. The original first two CLI arguments remain compatible; an optional third dependency object supports unit tests only.
+
+Task4 code regressions pass, but no real Auth account or provider setting was changed. The independent Testing SQL database, authorized Testing credential/operator input and real token/disabled-user verification remain pending. Do not stage the old099 API artifact or call these unit tests real deployed UAT. Ordinary SQL reset does not call Auth provisioning or rotate named operator passwords.

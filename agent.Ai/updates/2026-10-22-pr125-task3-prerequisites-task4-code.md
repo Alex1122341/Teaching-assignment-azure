@@ -1,0 +1,9 @@
+# PR125 — Task3 prerequisites and Task4 code
+
+2026-10-22. Branch feat/paws-testing-environment. Task2 complete product1a5e5e6ee70b739f10325c3369d1c9691466b10d with task-done76/76 pass. Task3 partial codef8bbc2a41718240375c814a384908889db8cd9ed: orchestration/permission policy6/6 unit tests, no live SQL transport, private backup/restore or shared-instance harness yet. Never mark Task3 complete from mocks.
+
+Desktop has no LocalDB/ODBC18 and is not elevated. Downloaded official SQL2025 bootstrap and ODBC18 MSI with Valid Microsoft Authenticode signatures; hashes recorded in operations12. DownloadOnly bootstrap hit elevation/user-cancel failure. No LocalDB media/installation or database created; no ODBC install attempted. Do not retry elevation/bypass policy. Keep human prerequisites pending and continue independent work per Owner's instruction.
+
+Task4 account code uses guarded Windows connector, validates complete reserved profiles/credentials before Auth, preserves switch-only privileged personas and named operator passwords, normalizes role aliases and prevents named-operator elevation of any shared-password persona. Fixed public failure messages hide JSON/SDK/SQL credential details. Initial RED3 (one zero-write boundary already passed), additional operator RED2; final combined account/admin/migration/tooling37/37 PASS. Initial old implementation attempted DNS before dependency routing; lookup failed, no SQL session/Auth writes succeeded. This is not a University connectivity/access finding.
+
+Task3 and Task4 real SQL/Auth/token acceptance remain pending. No real Firebase provider/account, SQL/grant/gate, API/Hosting, push/merge or release changes. Task5 host/artifact preparation may proceed against tests; actual staging waits for a newly reviewed official candidate artifact in Task7. Do not reuse099 receipts for new code. See docs/dual-environment/12-university-testing-operations.md and approved plan ledger.

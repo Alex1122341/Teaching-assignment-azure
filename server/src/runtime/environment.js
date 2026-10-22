@@ -14,6 +14,7 @@
 // for. Configuration supplied by users or requests never participates.
 
 const ENVIRONMENTS = Object.freeze(['production', 'testing']);
+const { resolveSqlTarget, EnvironmentConfigurationError } = require('./sql-environment-target');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // Production identity anchors that a Testing runtime must never use.
@@ -23,14 +24,6 @@ const PRODUCTION_SQL_SERVERS = Object.freeze([
   'itappvetopsdb01',
   'ucvm-teaching-lab-xz-20260911.database.windows.net'
 ]);
-
-class EnvironmentConfigurationError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'EnvironmentConfigurationError';
-    this.code = 'ENVIRONMENT_MISCONFIGURED';
-  }
-}
 
 function fail(message) { throw new EnvironmentConfigurationError(message); }
 
@@ -79,6 +72,9 @@ function resolveEnvironment(env = {}) {
   if (name === 'production') {
     if (env.PAWS_TESTING_ENVIRONMENT_ID !== undefined) fail('PAWS_TESTING_ENVIRONMENT_ID is not valid in production');
     if (env.PAWS_TESTING_SQL_SERVER !== undefined) fail('PAWS_TESTING_SQL_SERVER is not valid in production');
+    for (const key of ['PAWS_TESTING_SQL_PROFILE', 'PAWS_TESTING_DATABASE', 'PAWS_TESTING_LOCAL_ODBC']) {
+      if (env[key] !== undefined) fail(`${key} is not valid in production`);
+    }
     if (env.PAWS_API_ALLOW_NON_LOOPBACK !== undefined) fail('PAWS_API_ALLOW_NON_LOOPBACK is not valid in production');
     return Object.freeze({ name, testing: false, testingEnvironmentId: null });
   }
@@ -86,6 +82,10 @@ function resolveEnvironment(env = {}) {
   if (!UUID.test(testingEnvironmentId)) fail('Testing requires PAWS_TESTING_ENVIRONMENT_ID (UUID)');
   if (PRODUCTION_FIREBASE_PROJECT_IDS.includes(String(env.FIREBASE_PROJECT_ID || '').trim())) {
     fail('Testing must not trust the production Firebase project');
+  }
+  if (env.PAWS_TESTING_SQL_PROFILE !== undefined || env.PAWS_TESTING_DATABASE !== undefined) {
+    resolveSqlTarget(env);
+    return Object.freeze({ name, testing: true, testingEnvironmentId: testingEnvironmentId.toLowerCase() });
   }
   const host = sqlServerHost(env.PAWS_SQL_CONNECTION_STRING);
   if (!host) fail('Testing requires exactly one explicit SQL server in PAWS_SQL_CONNECTION_STRING');

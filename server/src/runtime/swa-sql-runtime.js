@@ -69,12 +69,15 @@ const {createCccReplacementApi}=require('../calendar/ccc-replacement-api');
 const {createSqlCccReplacementRepository}=require('../data/sql-ccc-replacement-repository');
 const {createCccReplacementFunctions}=require('./swa-ccc-replacement-functions');
 const { resolveEnvironment, assertDatabaseIdentity } = require('./environment');
+const { resolveSqlTarget, compileTargetGuard } = require('./sql-environment-target');
 
 function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
   // Fail closed before any SQL or Firebase configuration is used.
   const environment = resolveEnvironment(env);
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
   const allowSelfSigned = parseBooleanFlag(env.PAWS_SQL_ALLOW_SELF_SIGNED, 'PAWS_SQL_ALLOW_SELF_SIGNED');
+  const target = resolveSqlTarget(env);
+  const targetGuard = target ? compileTargetGuard(target) : undefined;
   const connectionConfig = buildSqlConnectionConfig({
     connectionString: env.PAWS_SQL_CONNECTION_STRING,
     miClientId: env.PAWS_SQL_MI_CLIENT_ID,
@@ -82,8 +85,8 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     allowSelfSigned
   });
   const sqlClient = sql || require(driver === 'msnodesqlv8' ? 'mssql/msnodesqlv8' : 'mssql');
-  const db = createSqlConnection({ config: connectionConfig, sql: sqlClient });
-  const calendarImportDb = createSqlConnection({ config: connectionConfig, sql: sqlClient, requestTimeoutMs: 90000 });
+  const db = createSqlConnection({ config: connectionConfig, sql: sqlClient, targetGuard });
+  const calendarImportDb = createSqlConnection({ config: connectionConfig, sql: sqlClient, requestTimeoutMs: 90000, targetGuard });
   const users = createSqlUserRepository(db);
   const sessions = createSqlSessionRepository(db);
   const dashboard = {

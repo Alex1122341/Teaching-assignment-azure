@@ -156,12 +156,15 @@ function buildSqlConnectionConfig({ connectionString, miClientId, driver, allowS
   };
 }
 
-function createSqlConnection({ connectionString, miClientId, driver, allowSelfSigned = false, config, sql, requestTimeoutMs }) {
+function createSqlConnection({ connectionString, miClientId, driver, allowSelfSigned = false, config, sql, requestTimeoutMs, targetGuard }) {
   if (requestTimeoutMs !== undefined && (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1000 || requestTimeoutMs > 120000)) {
     throw Error('SQL request timeout must be an integer from 1000 to 120000 milliseconds');
   }
   const connectionConfig = config || buildSqlConnectionConfig({ connectionString, miClientId, driver, allowSelfSigned });
-  let pool;
+  const guard = targetGuard ? { text: targetGuard.text, params: { ...targetGuard.params } } : null;
+  if (guard && (typeof guard.text !== 'string' || !guard.text.trim() ||
+      Object.keys(guard.params).some(name => !/^pawsTarget/.test(name)))) throw Error('Invalid SQL target guard');
+  let pool, connecting;
   const transactions = new AsyncLocalStorage();
   return {
     isTransactionActive() { return Boolean(transactions.getStore()); },
@@ -180,6 +183,7 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
       }catch(error){if(!rolledBack)await transaction.rollback().catch(()=>{});throw error;}
     },
     async query(text, params = {}, options = {}) {
+      if (Object.keys(params).some(name => /^pawsTarget/i.test(name))) throw Error('Reserved SQL target parameter');
       const state=transactions.getStore();
       if(state && !options.transactionQueued){
         const pending=state.chain.then(()=>this.query(text,params,{...options,transactionQueued:true}));
@@ -193,17 +197,26 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
       } else {
         const connectStarted = timing ? timing.start('sql_connect') : null;
         try {
-          const candidate = new sql.ConnectionPool(connectionConfig);
-          // msnodesqlv8 reads the pool budget, not request.timeout. Configure this
-          // private pool once before connecting; never change a shared live pool.
-          if (requestTimeoutMs !== undefined) candidate.config.requestTimeout = requestTimeoutMs;
-          pool = pool || await candidate.connect();
+          if (!connecting) {
+            const candidate = new sql.ConnectionPool(connectionConfig);
+            // Configure this owned pool before its first connection; concurrent
+            // cold requests must share it rather than leak competing pools.
+            if (requestTimeoutMs !== undefined) candidate.config.requestTimeout = requestTimeoutMs;
+            connecting = Promise.resolve().then(() => candidate.connect()).then(connected => {
+              pool = connected;
+            }).catch(async error => {
+              try { await candidate.close(); } catch (_) { /* retain the original connection failure */ }
+              throw error;
+            }).finally(() => { connecting = undefined; });
+          }
+          await connecting;
         } finally {
           if (timing) timing.end('sql_connect', connectStarted, 'cold');
         }
       }
       const request = state ? new sql.Request(state.transaction) : pool.request();
       if(Object.prototype.hasOwnProperty.call(params,'pawsInternalSupportOperation'))throw Error('Reserved SQL parameter');
+      if (guard) for (const [name, value] of Object.entries(guard.params)) request.input(name, value);
       if(state?.operationId)request.input('pawsInternalSupportOperation',state.operationId);
       for (const [name, value] of Object.entries(params)) {
         // An explicitly supplied `null` is a real SQL NULL and must be bound:
@@ -218,8 +231,14 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
         // inferred string parameter type never reaches the sql_variant argument (driver-independent).
         // CONVERT (not TRY_CONVERT): a malformed id must fail the write, never silently skip capture.
         const contextValue=state?.operationId?"DECLARE @pawsInternalSupportOperationValue uniqueidentifier=CONVERT(uniqueidentifier,@pawsInternalSupportOperation);\nEXEC sys.sp_set_session_context @key=N'paws_support_operation',@value=@pawsInternalSupportOperationValue;\n":"EXEC sys.sp_set_session_context @key=N'paws_support_operation',@value=NULL;\n";
-        const result = await request.query(contextValue+text);
+        const result = await request.query((guard ? guard.text : '')+contextValue+text);
         return result.recordset || [];
+      } catch (error) {
+        if (error && (error.number === 55880 || error.originalError?.info?.number === 55880)) {
+          error.code = 'ENVIRONMENT_MISCONFIGURED';
+          error.message = 'The SQL environment target was rejected.';
+        }
+        throw error;
       } finally {
         if (timing && queryMetric) timing.end(queryMetric, queryStarted);
       }
@@ -229,6 +248,7 @@ function createSqlConnection({ connectionString, miClientId, driver, allowSelfSi
       return true;
     },
     async close() {
+      if (connecting) await connecting.catch(() => {});
       if (pool) {
         const current = pool;
         pool = undefined;

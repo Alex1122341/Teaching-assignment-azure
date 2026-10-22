@@ -73,7 +73,6 @@
   const detailCache = new Map();
   const detailPending = new Map();
   function invalidateFacultyDetails() {
-    // A write must start fresh reads; older requests cannot repopulate the cache.
     ++detailGeneration; ++detailLoadToken;
     detailCache.clear(); detailPending.clear(); selectedDetail = null;
   }
@@ -217,18 +216,19 @@
   function updateAfcWriteControls() { window.UCVM_AFC_RECORDS.updateWriteControls(UCVM_PAWS_DATA, $, afcSubmitInFlight, afcSingleActions.isUnconfirmed()); }
 
   function selectTab(tabName) {
-    if (selfMode&&!['lookup','trainees'].includes(tabName)) return;
+    if (selfMode&&!['lookup','trainees','availability'].includes(tabName)) return;
     if(activeTab!==tabName)traineesEntry?.clear();
     activeTab = tabName || 'lookup';
     document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.tab === activeTab));
-    ['lookup', 'summary', 'roles', 'doe-overview', 'doe-list', 'doe-rules', 'afc-records','trainees'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
+    ['lookup','availability','summary','roles','doe-overview','doe-list','doe-rules','afc-records','trainees'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
     renderActiveTab();
   }
 
   function renderActiveTab() {
-    if(activeTab==='trainees')return traineesEntry?.open();
-    if (activeTab === 'summary') return loadTeachingSummary();
-    if (activeTab === 'roles') return loadRoles();
+  if(activeTab==='availability')return;
+  if(activeTab==='trainees')return traineesEntry?.open();
+  if (activeTab === 'summary') return loadTeachingSummary();
+  if (activeTab === 'roles') return loadRoles();
     if (activeTab === 'doe-overview') return loadDoeOverview();
     if (activeTab === 'doe-list') return loadDoeList();
     if (activeTab === 'doe-rules') return doePolicyView?.loadHistory();
@@ -610,7 +610,7 @@
     canRecalculate: () => !selfMode && dashboardGeneral(currentUser) && UCVM_PAWS_DATA.doeRecalculateEnabled?.() === true
   });
   doePolicyView?.mount($('doe-rules-content'));
-  function installSelfModeStyles() { if ($('faculty-self-mode-style')) return; const style = document.createElement('style'); style.id = 'faculty-self-mode-style'; style.textContent = 'body.faculty-self-mode .tabs .tab:not([data-tab="lookup"]):not([data-tab="trainees"]),body.faculty-self-mode .tabs a,body.faculty-self-mode .kpis,body.faculty-self-mode .summary-source-banner,body.faculty-self-mode #lookup-view > .toolbar,body.faculty-self-mode .result-pane,body.faculty-self-mode #sync-status{display:none!important}body.faculty-self-mode .lookup-grid{display:block;min-height:0}body.faculty-self-mode .profile-pane{width:100%;min-width:0;padding:18px}'; document.head.appendChild(style); }
+  function installSelfModeStyles() { if ($('faculty-self-mode-style')) return; const style = document.createElement('style'); style.id = 'faculty-self-mode-style'; style.textContent = 'body.faculty-self-mode .tabs .tab:not([data-tab="lookup"]):not([data-tab="trainees"]):not([data-tab="availability"]),body.faculty-self-mode .tabs a,body.faculty-self-mode .kpis,body.faculty-self-mode .summary-source-banner,body.faculty-self-mode #lookup-view > .toolbar,body.faculty-self-mode .result-pane,body.faculty-self-mode #sync-status{display:none!important}body.faculty-self-mode .lookup-grid{display:block;min-height:0}body.faculty-self-mode .profile-pane{width:100%;min-width:0;padding:18px}'; document.head.appendChild(style); }
   function lock(message) { traineesEntry?.clear(); afcForms?.clear();facultyArchive?.clear();cccReplace?.clear();closeHistory();if($('faculty-history-btn'))$('faculty-history-btn').disabled=true;$('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
   function unlock() { if($('faculty-history-btn'))$('faculty-history-btn').disabled=false;$('auth-gate').classList.add('hidden'); }
   function debounce(fn, wait = 160) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; }

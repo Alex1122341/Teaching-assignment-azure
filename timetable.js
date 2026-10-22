@@ -981,6 +981,7 @@
     $('manage-users-btn').addEventListener('click', openUserManager);
     // BETA-R4D-12B2A1: visibility and click share one capability helper so they can
     // never disagree. Self-service roles reach the Dashboard's self-service view.
+    $('ccc-schedule-btn').addEventListener('click', () => { if(currentUser) window.PAWS_CCC_SCHEDULE?.open(); });
     $('faculty-dashboard-btn').addEventListener('click', () => {
       if (UCVM.canOpenFacultyDashboard(currentUser)) window.location.href = 'faculty-admin.html';
     });
@@ -1924,6 +1925,7 @@
         if (!user) {
           text.textContent = 'Firebase Auth + SQL Access Ready';
           currentUser = null;
+          window.PAWS_CCC_SCHEDULE?.close();
           activityTypeFilter.resetForUser();
           ++workingActivityRenderToken;window.PAWS_CALENDAR_ACTIVITIES?.clear();
           if($('working-activities-lane'))$('working-activities-lane').innerHTML='';
@@ -2250,6 +2252,7 @@
     $('outlook-invite-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
     $('manage-users-btn').classList.toggle('hidden', !(UCVM.general(currentUser) || currentUser?.role === 'hicc'));
     $('faculty-dashboard-btn').classList.toggle('hidden', !UCVM.canOpenFacultyDashboard(currentUser));
+    $('ccc-schedule-btn').classList.toggle('hidden', !currentUser);
     $('swap-inbox-btn').classList.toggle('hidden',!currentUser);
     $('swap-inbox-btn').onclick=()=>window.PAWS_SWAP?.openQueue();
     window.PAWS_SWAP?.syncUser();

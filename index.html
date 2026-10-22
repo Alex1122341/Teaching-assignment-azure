@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="timetable.css">
   <link rel="stylesheet" href="change-history.css">
   <link rel="stylesheet" href="calendar-activities.css">
+  <link rel="stylesheet" href="ccc-schedule.css">
   <link rel="stylesheet" href="swap-workflow-sql.css">
 
   <link rel="stylesheet" href="workspace.css">
@@ -18,7 +19,7 @@
         <div class="ucalgary-wordmark">UNIVERSITY OF CALGARY</div>
         <div class="ucalgary-faculty">Faculty of Veterinary Medicine</div>
       </div>
-      <div class="timetable-top-actions"><button class="masthead-link hidden" id="faculty-dashboard-btn">Faculty Dashboard</button><button class="masthead-link hidden" id="teaching-assignments-btn">Teaching Assignments</button><button class="masthead-link hidden" id="swap-inbox-btn">SWAP inbox</button><div class="ucalgary-product">Teaching Assignment &amp; Academic Scheduling</div></div>
+      <div class="timetable-top-actions"><button class="masthead-link hidden" id="faculty-dashboard-btn">Faculty Dashboard</button><button class="masthead-link hidden" type="button" id="ccc-schedule-btn">CCC Schedule</button><button class="masthead-link hidden" id="teaching-assignments-btn">Teaching Assignments</button><button class="masthead-link hidden" id="swap-inbox-btn">SWAP inbox</button><div class="ucalgary-product">Teaching Assignment &amp; Academic Scheduling</div></div>
     </div>
     <div class="ucalgary-gold-rule"></div>
   </header>
@@ -218,6 +219,7 @@
   </section>
 
   <div class="modal-container" id="modal"></div>
+  <section class="ccc-schedule-overlay" id="ccc-schedule-overlay" role="dialog" aria-modal="true" aria-labelledby="ccc-schedule-heading" aria-hidden="true" hidden><div class="ccc-schedule-shell"><header class="ccc-schedule-header"><div><h2 id="ccc-schedule-heading">CCC Schedule</h2><p>Community Care Clinic · Current scheduled faculty</p></div><button type="button" id="ccc-schedule-close" aria-label="Close CCC schedule">×</button></header><div class="ccc-schedule-controls"><label>Academic year <select id="ccc-schedule-year"></select></label><label>Search <input id="ccc-schedule-search" type="search" placeholder="Faculty, block, date" /></label><button id="ccc-schedule-refresh" type="button">Refresh</button></div><p class="ccc-schedule-status" id="ccc-schedule-status" role="status" aria-live="polite"></p><div class="ccc-schedule-body" id="ccc-schedule-body"></div></div></section>
   <div class="toast" id="toast"></div>
   <div id="runtime-error" style="display:none;position:fixed;left:12px;right:12px;bottom:56px;z-index:99999;background:#8b0000;color:white;padding:12px 16px;border-radius:8px;font:14px/1.4 Arial,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.28)"></div>
   <script>
@@ -236,7 +238,7 @@
     <script src="adfa-swap-panel.js"></script>
     <script src="swap-workflow-sql.js"></script>
   <script src="workspace-tasks.js"></script>
-  <script src="lab-session-detail.js"></script><script src="calendar-activities.js"></script><script src="timetable.js"></script>
+  <script src="lab-session-detail.js"></script><script src="calendar-activities.js"></script><script src="ccc-schedule.js"></script><script src="timetable.js"></script>
   <script src="afc-workflow-sql.js"></script>
   <script src="afc-workflow.js"></script>
   <script src="change-history.js"></script><script src="afc-timetable-panel.js"></script>

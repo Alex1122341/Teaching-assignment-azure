@@ -261,6 +261,8 @@ async function main(argv, env = process.env, log = message => console.log(messag
     }
     await run(pool, fs.readFileSync(path.join(__dirname, 'seed-ta.sql'), 'utf8'));
     outcome.push({ file: 'seed-ta.sql', status: 'ok' }); log('seed-ta.sql: ok');
+    await run(pool, fs.readFileSync(path.join(__dirname, 'seed-readers.sql'), 'utf8'));
+    outcome.push({ file: 'seed-readers.sql', status: 'ok' }); log('seed-readers.sql: ok');
     const roles = await grantRuntimeRoles(pool, runtimePrincipal);
     // Workflow fixtures go through the real API code (see seed-workflows.js), then every seeded
     // workflow in fixture-coverage.json is verified, so a reset always restores the same baseline.

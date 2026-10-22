@@ -17,6 +17,8 @@ const SUPPORT_ROUTES=/^\/api\/v1\/(me|sessions(?:\/|$)|dashboard(?:\/|$)|swaps(?
 // recorded under the real operator but cannot be undone (a Testing reset restores them). Writes that run on
 // the separate import SQL pool would commit outside the audited support transaction and stay refused.
 const TESTING_PERSONA_ROUTES=Object.freeze([
+ {family:'faculty-availability',read:/^\/api\/v1\/faculty\/[^/]+\/availability$/,write:null,why:'Faculty Availability (056): read only; API and SQL retain persona own-Faculty scope'},
+ {family:'ccc-schedule',read:/^\/api\/v1\/ccc-schedule$/,write:null,why:'CCC Schedule (057): authorized read-only public scheduling fields'},
  {family:'calendar-activities',read:/^\/api\/v1\/calendar-activities(?:\/capabilities)?$/,write:/^\/api\/v1\/calendar-activities\/[^/]+\/time-evidence$/,why:'Calendar Activities (038-046): list and time evidence on the request transaction'},
  {family:'calendar-activity-imports',read:/^\/api\/v1\/calendar-activity-imports\/[^/]+$/,write:null,why:'Calendar imports run on the separate import pool: view only'},
  {family:'afc-forms',read:/^\/api\/v1\/afc-forms(?:\/capabilities|\/[^/]+\/document)?$/,write:/^\/api\/v1\/afc-forms$/,why:'AFC original forms (048/050): list, download and upload'},

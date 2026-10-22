@@ -67,3 +67,26 @@ test('Dashboard renders one expandable operation with all child AFC and field ch
  assert.doesNotMatch(html,/<script>/);
  assert.doesNotMatch(html,/Faculty <One>/);
 });
+
+test('Dashboard controller carries restored archive timestamp in state and clears it on authorization change',async()=>{
+ const ctrl=createHistoryController({scope:'dashboard',api:{
+  changeHistory:async()=>({snapshot:'token',total:0,rows:[],offset:0,pageSize:100,facets:{},coverage:[],historyArchiveStartUtc:'2026-10-05T00:00:00.000Z'}),
+  changeHistoryPage:async()=>({rows:[],total:0,offset:0,pageSize:100}),
+  changeHistoryExport:async()=>({rowCount:0,fileBase64:''})
+ }});
+ await ctrl.refresh({});
+ assert.equal(ctrl.state().historyArchiveStartUtc,'2026-10-05T00:00:00.000Z');
+ ctrl.clear();
+ assert.equal(ctrl.state().historyArchiveStartUtc,undefined);
+ assert.equal(ctrl.state().canExport,false);
+});
+
+test('Dashboard UI offers all academic years, retains detailed safe operations, and does not alter other history scopes',()=>{
+ const ui=fs.readFileSync('change-history.js','utf8');
+ assert.match(ui,/scope==='dashboard'\?'all'/);
+ assert.match(ui,/All recorded years/);
+ assert.match(ui,/data-history-archive-note/);
+ assert.match(ui,/grouped by recorded submission/);
+ assert.doesNotMatch(ui,/New Dashboard History since|data-history-reset-note/);
+ assert.match(ui,/scope==='dashboard'\?renderOperationRows\(state.rows\):renderRows\(state.rows\)/);
+});

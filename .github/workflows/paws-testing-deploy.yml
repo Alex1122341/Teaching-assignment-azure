@@ -210,7 +210,9 @@ jobs:
         run: |
           set -euo pipefail
           test "$TESTING_FIREBASE_PROJECT_ID" != "tester-teaching"
-          rm -rf .deploy-static && cp -r .azure-testing/app .deploy-static
+          rm -rf .firebase-production/app
+          mkdir -p .firebase-production
+          cp -r .azure-testing/app .firebase-production/app
           ./node_modules/.bin/firebase deploy --only hosting --project "$TESTING_FIREBASE_PROJECT_ID" \
             --config firebase.hosting-only.json --non-interactive --message "Testing release $COMMIT_SHA from build $SOURCE_RUN_ID"
 

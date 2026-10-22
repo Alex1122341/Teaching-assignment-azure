@@ -48,11 +48,17 @@ const { createDoeApi } = require('../doe/doe-api');
 const { createDoeFunctions } = require('./swa-doe-functions');
 const { createSupportService } = require('../support/support-service');
 const {createCalendarActivityApi}=require('../calendar/calendar-activity-api');
+const {createCccScheduleApi}=require('../ccc/ccc-schedule-api');
+const {createSqlCccScheduleRepository}=require('../data/sql-ccc-schedule-repository');
+const {createCccScheduleFunctions}=require('./swa-ccc-schedule-functions');
 const {createSqlCalendarActivityRepository}=require('../data/sql-calendar-activity-repository');
 const {createCalendarActivityFunctions}=require('./swa-calendar-activity-functions');
 const {createSchedulingTaskApi}=require('../scheduling/scheduling-task-api');
 const {createSqlSchedulingTaskRepository}=require('../data/sql-scheduling-task-repository');
 const {createSchedulingTaskFunctions}=require('./swa-scheduling-task-functions');
+const {createFacultyAvailabilityApi}=require('../availability/faculty-availability-api');
+const {createSqlFacultyAvailabilityRepository}=require('../data/sql-faculty-availability-repository');
+const {createFacultyAvailabilityFunctions}=require('./swa-faculty-availability-functions');
 const {createChangeHistoryApi}=require('../history/change-history-api');
 const {createSqlChangeHistoryRepository}=require('../data/sql-change-history-repository');
 const {createChangeHistoryFunctions}=require('./swa-change-history-functions');
@@ -164,16 +170,20 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const swapRoutes = createSwapFunctions({api:createSwapApi({
     verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),workflowPreviewService:doeWorkflowPreviewService,worksheetService:doeWorksheetService,writeGates
   })});
+  const cccScheduleRoutes=createCccScheduleFunctions({api:createCccScheduleApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCccScheduleRepository(db)})});
   const calendarActivityRoutes=createCalendarActivityFunctions({api:createCalendarActivityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCalendarActivityRepository(db,{importDb:calendarImportDb}),writeGates})});
+  const facultyAvailabilityRoutes=createFacultyAvailabilityFunctions({api:createFacultyAvailabilityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlFacultyAvailabilityRepository(db)})});
   const schedulingTaskRoutes=createSchedulingTaskFunctions({api:createSchedulingTaskApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlSchedulingTaskRepository(db),writeGates})});
   const historyRoutes=createChangeHistoryFunctions({api:createChangeHistoryApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlChangeHistoryRepository(db)})});
   const afcFormRoutes=createAfcFormFunctions({api:createAfcFormApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlAfcFormRepository(db),writeGates})});
   const cccReplacementRoutes=createCccReplacementFunctions({api:createCccReplacementApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCccReplacementRepository(db,{importDb:calendarImportDb}),writeGates})});
   const route = async request => {
     const pathname = new URL(request.url).pathname;
+    if(pathname==='/api/v1/ccc-schedule')return cccScheduleRoutes(request);
     if(pathname==='/api/v1/afc-forms'||pathname.startsWith('/api/v1/afc-forms/'))return afcFormRoutes(request);
     if(pathname==='/api/v1/ccc-replacements'||pathname.startsWith('/api/v1/ccc-replacements/'))return cccReplacementRoutes(request);
     if (pathname==='/api/v1/change-history'||pathname.startsWith('/api/v1/change-history/')) return historyRoutes(request);
+    if (/^\/api\/v1\/faculty\/[^/]+\/availability$/.test(pathname))return facultyAvailabilityRoutes(request);
     if (pathname==='/api/v1/scheduling-tasks'||pathname.startsWith('/api/v1/scheduling-tasks/')) return schedulingTaskRoutes(request);
     if (pathname==='/api/v1/calendar-activities'||pathname.startsWith('/api/v1/calendar-activities/')||pathname==='/api/v1/calendar-activity-imports'||pathname.startsWith('/api/v1/calendar-activity-imports/')) return calendarActivityRoutes(request);
     if (pathname === '/api/v1/swaps' || pathname.startsWith('/api/v1/swaps/')) return swapRoutes(request);

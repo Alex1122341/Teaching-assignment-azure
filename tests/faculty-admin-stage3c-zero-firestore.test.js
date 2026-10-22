@@ -163,8 +163,8 @@ test('A / D. the page loads only the Firebase app+auth CDN and bounded local scr
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['change-history.js', 'session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-environment-nav.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-admin.js']);
-  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 27, '27 script elements total (incl. shared environment switcher); Trainees is deferred');
+  assert.deepEqual(local, ['change-history.js', 'session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-environment-nav.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-admin.js', 'faculty-availability.js']);
+  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 28, '27 script elements total; Trainees is deferred');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
 
@@ -470,12 +470,13 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
   assert.equal(/\bfirestore\b/i.test(CLIENT_SOURCE), false, 'paws-data-client.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(CONTINUITY_SOURCE), false, 'paws-auth-continuity.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(ADMIN_SOURCE), false, 'faculty-admin.js: no Firestore dependency');
+  assert.equal(/\bfirestore\b/i.test(read('faculty-availability.js')), false, 'availability module: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(DOE_RENDERER_SOURCE), false, 'faculty-admin-doe-renderer.js: no Firestore dependency');
   const doeWorksheetSource = read('faculty-admin-doe-worksheet.js');
   assert.equal(/\bfirestore\b/i.test(doeWorksheetSource), false, 'faculty-admin-doe-worksheet.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(AFC_BATCH_SOURCE), false, 'faculty-admin-afc-batch.js: no Firestore dependency');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['change-history.js', 'session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-environment-nav.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-admin.js']);
+  assert.deepEqual(local, ['change-history.js', 'session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-environment-nav.js', 'paws-auth-continuity.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-admin.js', 'faculty-availability.js']);
 });
 
 test('92 / 94 / 96. the controller stays bounded with contract DOE detail and overview', () => {

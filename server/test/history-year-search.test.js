@@ -49,8 +49,8 @@ test('default search and year choices cover older retained changes; explicit cha
 });
 
 test('year choices include intermediate academic years of retained date ranges',async()=>{
- const range={source:'audit',eventId:'range',eventType:'afc_record_created',occurredAtUtc:'2026-10-17T12:00:00Z',afterJson:{facultyId:F,startDate:'2024-04-30',endDate:'2025-05-01'}};
- const api=createChangeHistoryApi({verifyToken:async()=>({uid:'admin'}),findUser:async()=>({baseRole:'owner',active:true}),clock:()=>Date.parse('2026-10-18T01:00:00Z'),repository:{list:async()=>[range]}});
+ const range={source:'audit',eventId:'range',eventType:'afc_record_created',occurredAtUtc:'2026-10-20T22:00:00Z',afterJson:{facultyId:F,startDate:'2024-04-30',endDate:'2025-05-01'}};
+ const api=createChangeHistoryApi({verifyToken:async()=>({uid:'admin'}),findUser:async()=>({baseRole:'owner',active:true}),clock:()=>Date.parse('2026-10-21T01:00:00Z'),repository:{list:async()=>[range]}});
  const q=await api.query('t',{scope:'dashboard'});for(const y of ['2023-24','2024-25','2025-26'])assert.ok(q.body.facets.academicYears.includes(y),y);
 });
 test('mixed valid/malformed and non-string explicit year evidence cannot produce inferred year rows',()=>{

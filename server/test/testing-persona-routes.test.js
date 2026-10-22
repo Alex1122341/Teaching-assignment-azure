@@ -52,6 +52,7 @@ function harness(environment, { target = 'fac', actor = 'admin', operationRoute 
 }
 
 const NEW_READS = [
+  '/api/v1/faculty/11111111-1111-4111-8111-111111111111/availability', '/api/v1/ccc-schedule',
   '/api/v1/calendar-activities', '/api/v1/calendar-activities/capabilities',
   '/api/v1/calendar-activity-imports/4b0e9f1c-2d3a-4c5b-8e6f-7a8b9c0d1e2f',
   '/api/v1/afc-forms', '/api/v1/afc-forms/capabilities', '/api/v1/afc-forms/4b0e9f1c-2d3a-4c5b-8e6f-7a8b9c0d1e2f/document',
@@ -59,6 +60,42 @@ const NEW_READS = [
   '/api/v1/change-history', '/api/v1/change-history/page', '/api/v1/change-history/export',
   '/api/v1/scheduling-tasks'
 ];
+
+test('latest read panels retain real persona scope and stay GET-only in Testing', async () => {
+  const { createFacultyAvailabilityApi } = require('../src/availability/faculty-availability-api');
+  const { createCccScheduleApi } = require('../src/ccc/ccc-schedule-api');
+  const ids = { fac: '11111111-1111-4111-8111-111111111111', hicc: '22222222-2222-4222-8222-222222222222', visc: '33333333-3333-4333-8333-333333333333' };
+  for (const target of ['fac', 'hicc', 'visc', 'admin', 'dev']) {
+    const { support, req } = harness(TEST, { target, actor: target === 'dev' ? 'dev' : 'admin' });
+    const actor = target === 'dev' ? 'dev' : 'admin', queried = [];
+    const dependencies = { verifyToken: support.verify, findUser: async uid => ({ ...USERS[uid], facultyId: ids[uid] }) };
+    const availability = createFacultyAvailabilityApi({ ...dependencies, repository: { async list(params) {
+      queried.push(params.actorFirebaseUid);
+      return { items: [], total: 0, nextCursor: null, today: '2026-10-22', coverage: { undatedSessions: 0, undatedRoles: 0 } };
+    } } });
+    const ccc = createCccScheduleApi({ ...dependencies, repository: { async list(params) { queried.push(params.actorFirebaseUid); return { entries: [] }; } } });
+    const next = async request => {
+      const pathname = new URL(request.url).pathname;
+      const value = pathname === '/api/v1/ccc-schedule'
+        ? await ccc.list(actor, { academicYear: '2026-27' })
+        : await availability.list(actor, pathname.split('/')[4]);
+      return { status: value.status, jsonBody: value.body };
+    };
+    assert.equal((await support.handle(req(actor, '/api/v1/faculty/' + (ids[target] || ids.fac) + '/availability'), next)).status, 200, target + ' own availability');
+    const cross = await support.handle(req(actor, '/api/v1/faculty/ffffffff-ffff-4fff-8fff-ffffffffffff/availability'), next);
+    assert.equal(cross.status, ids[target] ? 403 : 200, target + ' must keep original Faculty scope');
+    assert.equal((await support.handle(req(actor, '/api/v1/ccc-schedule'), next)).status, 200, target + ' CCC schedule');
+    assert.ok(queried.every(uid => uid === target), 'domain repositories receive the persona, never the operator');
+    for (const method of ['POST', 'PATCH', 'PUT', 'DELETE']) {
+      for (const pathname of ['/api/v1/ccc-schedule', '/api/v1/faculty/' + ids.fac + '/availability']) {
+        assert.equal((await support.handle(req(actor, pathname, { method }), () => { throw Error('write reached domain'); })).jsonBody.error.code, 'SUPPORT_ROUTE_DENIED');
+      }
+    }
+    for (const pathname of ['/api/v1/ccc-schedule/export', '/api/v1/faculty/' + ids.fac + '/availability/write']) {
+      assert.equal((await support.handle(req(actor, pathname), next)).jsonBody.error.code, 'SUPPORT_ROUTE_DENIED');
+    }
+  }
+});
 const NEW_RECORDED_WRITES = [
   '/api/v1/calendar-activities/4b0e9f1c-2d3a-4c5b-8e6f-7a8b9c0d1e2f/time-evidence',
   '/api/v1/afc-forms',
@@ -191,6 +228,6 @@ test('Production operation listing and undo are unchanged', async () => {
 
 test('the Testing persona route table is explicit and covers every newer API family', () => {
   const families = TESTING_PERSONA_ROUTES.map(route => route.family).sort();
-  assert.deepEqual(families, ['afc-forms', 'calendar-activities', 'calendar-activity-imports', 'ccc-replacements', 'change-history', 'scheduling-tasks']);
+  assert.deepEqual(families, ['afc-forms', 'calendar-activities', 'calendar-activity-imports', 'ccc-replacements', 'ccc-schedule', 'change-history', 'faculty-availability', 'scheduling-tasks']);
   for (const route of TESTING_PERSONA_ROUTES) assert.match(route.why, /\w/);
 });

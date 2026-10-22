@@ -32,9 +32,9 @@ test('W1E permission contract covers every SQL repository object and stored proc
     ...contract.readProcedures, ...contract.p2ReadProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
-    ...contract.calendarReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
+    ...contract.calendarReadProcedures, ...contract.cccScheduleReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
     ...contract.schedulingReadProcedures,...Object.values(contract.schedulingWriteSets).flat(),
-    ...contract.afcFormProcedures,...contract.afcRecordDocumentProcedures,...contract.cccReplacementProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions,...contract.masterRefreshTrustedProcedures,...contract.traineeReadProcedures
+    ...contract.afcFormProcedures,...contract.afcRecordDocumentProcedures,...contract.cccReplacementProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions,...contract.masterRefreshTrustedProcedures,...contract.traineeReadProcedures,...contract.availabilityReadProcedures
   ];
   assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects,...contract.afcRecordDocumentReadObjects,...contract.masterRefreshReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
@@ -169,4 +169,11 @@ test('MASTER source writes stay in the empty trusted operator role and trainee r
  assert.doesNotMatch(trainee,/GRANT SELECT[^;]*TO paws_runtime/i);
  assert.doesNotMatch(master,/GRANT EXECUTE[^;]*MasterRefresh[^;]*TO paws_runtime/i);
  assert.doesNotMatch(ccc,/GRANT EXECUTE[^;]*StageMasterCccReplacement[^;]*TO paws_runtime/i);
+});
+
+test('Availability adds only one scoped read procedure and no table grants or memberships',()=>{
+ const availability=fs.readFileSync(path.join(root,'database/azure-sql/056_faculty_availability_read.sql'),'utf8');
+ assert.deepEqual(contract.availabilityReadProcedures,['paws_api.ListFacultyAvailability']);
+ assert.deepEqual([...availability.matchAll(/GRANT EXECUTE ON OBJECT::([\w.]+) TO paws_runtime_read/g)].map(m=>m[1]),contract.availabilityReadProcedures);
+ assert.doesNotMatch(availability,/ALTER ROLE|CREATE USER|GRANT SELECT|GRANT[^;]*ON SCHEMA|\b(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+)?(?:paws|staging)\./i);
 });

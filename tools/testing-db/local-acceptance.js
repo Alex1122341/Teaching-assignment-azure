@@ -49,17 +49,15 @@ async function exec(instance, database, text) {
   const pool = await new sql.ConnectionPool({ connectionString: odbc(instance, database) }).connect();
   try { return (await pool.request().batch(text)).recordset || []; } finally { await pool.close(); }
 }
-// Only ever drops a database this script created: one carrying the Testing marker or the acceptance
-// stand-in marker. A developer's own local copy (for example of real data) is never dropped.
-async function recreateEmpty(instance) {
+// Each acceptance run creates fresh databases. Even a Testing/stand-in marker cannot prove this run
+// owns an existing database, so refuse it without querying or dropping any of its objects.
+async function createEmptyAcceptanceDatabase(instance) {
   const [existing] = await exec(instance, 'master', `SELECT DB_ID(N'VetMed-Ops') AS id`);
   if (existing && existing.id !== null) {
-    const [owned] = await exec(instance, 'VetMed-Ops', `SELECT CASE WHEN OBJECT_ID(N'paws_env.EnvironmentIdentity', N'U') IS NOT NULL OR OBJECT_ID(N'paws_acceptance.StandIn', N'U') IS NOT NULL THEN 1 ELSE 0 END AS owned`);
-    if (!owned || owned.owned !== 1) throw new Error(`(localdb)\\${instance} already has a VetMed-Ops database that local acceptance did not create; refusing to drop it`);
+    throw new Error(`(localdb)\\${instance} already has a VetMed-Ops database; refusing to reuse it. Choose two fresh acceptance instance names.`);
   }
   // LocalDB instances share one default data folder, so each instance gets its own file names.
-  await exec(instance, 'master', `IF DB_ID(N'VetMed-Ops') IS NOT NULL BEGIN ALTER DATABASE [VetMed-Ops] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [VetMed-Ops]; END;
-DECLARE @dir nvarchar(400) = CONVERT(nvarchar(400), SERVERPROPERTY('InstanceDefaultDataPath'));
+  await exec(instance, 'master', `DECLARE @dir nvarchar(400) = CONVERT(nvarchar(400), SERVERPROPERTY('InstanceDefaultDataPath'));
 DECLARE @sql nvarchar(max) = N'CREATE DATABASE [VetMed-Ops] ON (NAME = N''VetMedOps_${instance}'', FILENAME = N''' + @dir + N'${instance}_VetMed-Ops.mdf'')
   LOG ON (NAME = N''VetMedOps_${instance}_log'', FILENAME = N''' + @dir + N'${instance}_VetMed-Ops_log.ldf'')';
 EXEC (@sql);`);
@@ -111,7 +109,7 @@ const fingerprint = () => require('node:crypto').randomBytes(32).toString('hex')
 
 async function main() {
   // 1. Two independent databases.
-  await recreateEmpty(TESTING_INSTANCE);
+  await createEmptyAcceptanceDatabase(TESTING_INSTANCE);
   await resetTool.main(['--confirm-reset', '--initialise-empty'], { ...testingEnv(), PAWS_TESTING_LOCAL_ODBC: odbc(TESTING_INSTANCE, 'VetMed-Ops') }, () => {});
   check('setup', 'Testing database initialised with marker + synthetic data', true);
   await expectReject('setup', 'reset refuses a database without the Testing marker', async () => {
@@ -119,7 +117,7 @@ async function main() {
     try { await resetTool.main(['--confirm-reset'], { ...testingEnv({ PAWS_TESTING_ENVIRONMENT_ID: '7e570000-0000-4000-8000-0000000000aa' }), PAWS_TESTING_LOCAL_ODBC: odbc(TESTING_INSTANCE, 'VetMed-Ops') }, () => {}); }
     catch (err) { if (/different environment/.test(err.message)) { e.code = 'ENVIRONMENT_MISCONFIGURED'; e.message = err.message; throw e; } throw err; }
   });
-  await recreateEmpty(PROD_INSTANCE);
+  await createEmptyAcceptanceDatabase(PROD_INSTANCE);
   await resetTool.main(['--confirm-reset', '--initialise-empty'], { ...testingEnv({ PAWS_TESTING_ENVIRONMENT_ID: '7e570000-0000-4000-8000-00000000beef', PAWS_SQL_CONNECTION_STRING: `Server=(localdb)\\${PROD_INSTANCE};Database=VetMed-Ops` }),
     PAWS_TESTING_LOCAL_ODBC: odbc(PROD_INSTANCE, 'VetMed-Ops') }, () => {});
   await exec(PROD_INSTANCE, 'VetMed-Ops', `DROP TABLE paws_env.EnvironmentIdentity; DROP SCHEMA paws_env;
@@ -178,6 +176,26 @@ EXEC(N'CREATE SCHEMA paws_acceptance'); CREATE TABLE paws_acceptance.StandIn (No
     const fEdit = await call(test, 'syn-admin', 'PATCH', `/api/v1/sessions/${target.id}`, { topic: 'faculty cannot edit' }, H(ctxF));
     check('C', 'faculty persona cannot use administrator writes', fEdit.status === 403);
     const meA = (await call(test, 'syn-faculty-a', 'GET', '/api/v1/me')).data.profile;
+    // Current-main read panels: use the real HTTP/runtime/SQL path under a Testing persona.
+    const meB = (await call(test, 'syn-faculty-b', 'GET', '/api/v1/me')).data.profile;
+    const work = [], seenCursors = new Set();
+    let workCursor = '0', workTotal = null, workOk = true;
+    while (workCursor !== null) {
+      if (seenCursors.has(workCursor) || seenCursors.size > 20) { workOk = false; break; }
+      seenCursors.add(workCursor);
+      const page = await call(test, 'syn-admin', 'GET', `/api/v1/faculty/${meA.facultyId}/availability?mode=range&startDate=2026-05-01&endDate=2027-05-31&kind=work&limit=1&cursor=${workCursor}`, undefined, H(ctxF));
+      if (page.status !== 200 || !Array.isArray(page.data.items) || (workTotal !== null && workTotal !== page.data.total)) { workOk = false; break; }
+      workTotal = page.data.total; work.push(...page.data.items); workCursor = page.data.nextCursor;
+    }
+    check('C', 'Availability pagination returns all work rows', workOk && workTotal === 4 && work.length === 4 && new Set(work.map(x => x.eventKey)).size === 4, `${work.length}/${workTotal}; ${seenCursors.size} pages`);
+    check('C', 'Availability retains cross-year ranges and unconfirmed clocks', work.some(x => x.startDate === '2027-04-29' && x.endDate === '2027-05-03' && x.availability === 'time_unconfirmed'));
+    const crossAvailability = await call(test, 'syn-admin', 'GET', `/api/v1/faculty/${meB.facultyId}/availability`, undefined, H(ctxF));
+    check('C', 'Availability denies another faculty', crossAvailability.status === 403);
+    const cccSchedule = await call(test, 'syn-admin', 'GET', '/api/v1/ccc-schedule?academicYear=2026-27', undefined, H(ctxF));
+    const cccEntries = cccSchedule.data?.entries || [];
+    check('C', 'CCC Schedule includes assigned and Locum', cccSchedule.status === 200 && cccEntries.length === 3 && cccEntries.some(x => x.facultyName === 'Locum') && cccEntries.some(x => x.facultyName === meA.displayName));
+    check('C', 'CCC Schedule excludes the next academic year', cccEntries.length > 0 && cccEntries.every(x => x.date >= '2026-05-01' && x.endDate <= '2027-04-30'));
+    check('C', 'CCC Schedule exposes only public schedule fields', cccEntries.length > 0 && cccEntries.every(x => Object.keys(x).sort().join(',') === 'blockLabel,courseCode,date,endDate,facultyName,halfDay'));
     const afc = await call(test, 'syn-admin', 'POST', '/api/v1/afc-requests', { startDate: '2027-03-08', endDate: '2027-03-09', reason: 'vacation', coverage: 'Colleague covers', contactAddress: '1 Test Way', contactPhone: '403-555-0100',
       termsAccepted: true, termsVersion: 'ucvm-afc-terms-page2-v1', termsSource: 'absence-from-campus-app.pdf#page=2',
       applicantSignature: { mode: 'typed', name: meA.displayName, uid: 'syn-faculty-a', signedAt: new Date().toISOString(), fingerprint: fingerprint(), attested: true } }, H(ctxF));
@@ -264,6 +282,8 @@ EXEC(N'CREATE SCHEMA paws_acceptance'); CREATE TABLE paws_acceptance.StandIn (No
     (SELECT COUNT(*) FROM paws_env.EnvironmentIdentity) AS marker`);
   check('H', 'reset discards UAT edits and support operations', before[0].n === 1 && after[0].edited === 0 && after[0].supportOps === 0, JSON.stringify({ before: before[0], after: after[0] }));
   check('H', 'reset restores the workflow fixtures and test personas', after[0].afcRequests === 5 && after[0].personas >= 11 && after[0].marker === 1, JSON.stringify(after[0]));
+  const readerCounts = await exec(TESTING_INSTANCE, 'VetMed-Ops', `SELECT COUNT(*) AS n FROM paws.CalendarActivity WHERE SourceSheet=N'Synthetic readers'`);
+  check('H', 'reset restores the current-main reader fixtures', readerCounts[0].n === 6, `${readerCounts[0].n} activities`);
 
   const out = { ok: results.every(r => r.pass), total: results.length, passed: results.filter(r => r.pass).length, odbcDriver: driverName(), results };
   fs.mkdirSync(path.join(ROOT, '.azure-testing'), { recursive: true });

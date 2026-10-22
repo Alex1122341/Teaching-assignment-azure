@@ -7,6 +7,13 @@ const os = require('node:os');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
+test('Testing deploy stages the accepted artifact at the configured Firebase public directory', () => {
+  const hosting = JSON.parse(fs.readFileSync(path.join(root, 'firebase.hosting-only.json'), 'utf8')).hosting.public;
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/paws-testing-deploy.yml'), 'utf8');
+  assert.equal(hosting, '.firebase-production/app');
+  assert.ok(workflow.includes(`cp -r .azure-testing/app ${hosting}`), 'Testing must publish the accepted artifact, not a different staging tree');
+  assert.match(workflow, /--config firebase\.hosting-only\.json/);
+});
 const { GATE_ENV, createWriteGates } = require('../server/src/data/write-gates');
 const { verifyTestingApiEnv, parseEnvFile } = require('../tools/verify-testing-api-env');
 const { preflight } = require('../tools/testing-preflight');

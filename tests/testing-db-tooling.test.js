@@ -14,6 +14,38 @@ const TESTING = {
   PAWS_TESTING_SQL_SERVER: 'paws-testing-sql.database.windows.net'
 };
 
+test('local acceptance refuses every pre-existing database before destructive SQL, even a marked one', async () => {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(path.join(root, 'tools/testing-db/local-acceptance.js'), 'utf8');
+  const queries = [];
+  class Pool {
+    async connect() { return this; }
+    async close() {}
+    request() { return { batch: async text => {
+      queries.push(text);
+      if (/SELECT DB_ID/.test(text)) return { recordset: [{ id: 7 }] };
+      if (/AS owned/.test(text)) return { recordset: [{ owned: 1 }] };
+      throw Error('Unexpected SQL attempted against a pre-existing database');
+    } }; }
+  }
+  const fakeRequire = name => {
+    if (name.includes('mssql')) return { ConnectionPool: Pool };
+    if (name === 'node:child_process') return { execSync(command) {
+      if (command.startsWith('powershell')) return 'ODBC Driver 18 for SQL Server';
+      if (command === 'SqlLocalDB.exe info') return 'MSSQLLocalDB\nPAWSProdSim';
+      return 'State: Running\nInstance pipe name: np:\\\\.\\pipe\\LOCALDB#unit\\tsql\\query';
+    } };
+    if (name.includes('swa-sql-runtime') || name.includes('university-http-server')) return {};
+    if (name === './reset-testing-db') return { main() { throw Error('Reset must not run'); } };
+    return require(name);
+  };
+  const context = { require: fakeRequire, module: { exports: {} }, process: { env: {} }, __dirname: path.join(root, 'tools/testing-db'), console };
+  vm.runInNewContext(source + '\nthis.runAcceptance = main;', context);
+  await assert.rejects(context.runAcceptance(), /already has a VetMed-Ops database.*refusing/i);
+  assert.equal(queries.length, 1, 'only the master database-existence probe may run');
+  assert.ok(queries.every(sql => !/\b(DROP|ALTER|CREATE)\b/i.test(sql)));
+});
+
 test('reset refuses anything but an explicitly configured Testing environment, before connecting', async () => {
   await assert.rejects(main(['--confirm-reset'], { ...TESTING, PAWS_ENVIRONMENT: 'production', PAWS_TESTING_ENVIRONMENT_ID: undefined, PAWS_TESTING_SQL_SERVER: undefined }), /only runs with PAWS_ENVIRONMENT=testing/);
   await assert.rejects(main(['--confirm-reset'], { ...TESTING, PAWS_ENVIRONMENT: undefined }), /PAWS_ENVIRONMENT/);
@@ -112,9 +144,10 @@ test('reset workflow initialises an empty database only when the operator asks f
   assert.match(workflow, /--confirm-reset --initialise-empty/);
 });
 
-test('local acceptance never drops a LocalDB database it did not create', () => {
+test('local acceptance creates fresh databases and contains no database-drop path', () => {
   const source = fs.readFileSync(path.join(root, 'tools/testing-db/local-acceptance.js'), 'utf8');
-  assert.match(source, /did not create; refusing to drop it/);
+  assert.match(source, /already has a VetMed-Ops database; refusing to reuse it/);
+  assert.doesNotMatch(source, /DROP DATABASE|ALTER DATABASE/i);
   assert.match(source, /paws_acceptance\.StandIn/);
 });
 
@@ -153,6 +186,21 @@ test('verifyFixtureCoverage fails the reset when a seeded workflow is missing an
   const coverage = { workflows: [{ id: 'a', status: 'seeded', min: 2, query: 'QA' }, { id: 'b', status: 'uat-created' }] };
   assert.deepEqual((await verifyFixtureCoverage(pool({ QA: 3 }), coverage)).map(r => r.status), ['ok', 'uat-created']);
   await assert.rejects(verifyFixtureCoverage(pool({ QA: 1 }), coverage), /fixture coverage incomplete: a 1\/2/);
+});
+
+test('reset seeds current Availability and CCC readers after all forward migrations', () => {
+  const coverage = JSON.parse(fs.readFileSync(path.join(root, 'tools/testing-db/fixture-coverage.json'), 'utf8'));
+  for (const id of ['availability.work', 'ccc.assigned', 'ccc.locum', 'ccc.other-year']) {
+    const item = coverage.workflows.find(row => row.id === id);
+    assert.equal(item?.status, 'seeded', id);
+    assert.ok(item.min >= 1, id);
+  }
+  const source = fs.readFileSync(path.join(root, 'tools/testing-db/reset-testing-db.js'), 'utf8');
+  assert.ok(source.indexOf("'seed-readers.sql'") > source.indexOf('for (const file of files)'));
+  const acceptance = fs.readFileSync(path.join(root, 'tools/testing-db/local-acceptance.js'), 'utf8');
+  for (const label of ['Availability pagination returns all work rows', 'Availability denies another faculty', 'CCC Schedule includes assigned and Locum', 'CCC Schedule excludes the next academic year']) {
+    assert.ok(acceptance.includes(label), label);
+  }
 });
 
 test('workflow fixtures run only through the guarded runtime and accept only synthetic fixture identities', async () => {

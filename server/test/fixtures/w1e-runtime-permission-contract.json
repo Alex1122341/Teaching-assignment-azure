@@ -144,6 +144,9 @@
     "paws_api.ListCalendarActivities",
     "paws_api.GetCalendarActivityImport"
   ],
+  "cccScheduleReadProcedures": [
+    "paws_api.ListCccSchedule"
+  ],
   "calendarWriteSets": {
     "stage": [
       "paws_api.StageCalendarActivityImport",
@@ -191,5 +194,8 @@
   ],
   "traineeReadProcedures": [
     "paws_api.ListTraineeSource"
+  ],
+  "availabilityReadProcedures": [
+    "paws_api.ListFacultyAvailability"
   ]
 }

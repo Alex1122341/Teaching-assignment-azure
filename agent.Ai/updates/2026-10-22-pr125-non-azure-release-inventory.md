@@ -1,7 +1,9 @@
 # Agent Update — PR125 non-Azure release inventory
 
-**Date:** 2026-10-22  
-**Repository:** Alex1122341/Teaching-assignment-azure  
+**Date:** 2026-10-22
+
+**Repository:** Alex1122341/Teaching-assignment-azure
+
 **Task status:** PARTIAL / infrastructure design pending
 
 ## Goal and breakpoint

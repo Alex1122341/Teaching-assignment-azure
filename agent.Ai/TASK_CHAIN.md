@@ -1,4 +1,8 @@
-## Current: PR125 local Testing written-design review — 2026-10-22
+## Current: PR125 University Testing database written-design review — 2026-10-22
+
+Owner chose a separate Testing DB on ITAPPVETOPSDB01 for online Testing, correcting the just-written all-local DB draft. API remains temporary VET-C31293; LocalDB is acceptance-only. Review docs/superpowers/specs/2026-10-22-pr125-university-testing-design.md next, then writing-plans after approval. Proposed DB VetMed-Ops-Testing not created/verified; runtime hard-deny of server and reset hardcoded VetMed-Ops require reviewed guard/adapter changes. No granting current runtime Production access; no Production SQL changes. Preserve no-Azure/no-runner, main provenance, real UAT, freeze promotion and coherent rollout. See updates/2026-10-22-pr125-university-testing-design.md.
+
+## Historical: PR125 local Testing written-design review — 2026-10-22
 
 Owner approved VET-C31293 topology. Written design docs/superpowers/specs/2026-10-22-pr125-local-testing-design.md ready/self-reviewed. Next: Owner reviews this document; on approval invoke writing-plans, prepare sequential plan using existing tools, and obtain concrete plan review before implementing/installing. Preserve current product099 CI/artifact as historical source-bound evidence. No live mutations or runtime/freeze changes. See updates/2026-10-22-pr125-local-testing-design.md.
 

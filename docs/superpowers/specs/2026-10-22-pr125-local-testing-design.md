@@ -1,7 +1,8 @@
 # PR125: temporary Testing on VET-C31293
 
-Date: 2026-10-22 (America/Edmonton)  
-Status: **Written design awaiting Owner review. Implementation not authorized by this document alone.**
+Date: 2026-10-22 (America/Edmonton)
+
+Status: **SUPERSEDED for online Testing database placement.** The Owner subsequently selected an independent Testing database on ITAPPVETOPSDB01. Review `2026-10-22-pr125-university-testing-design.md` instead. The LocalDB topology below is a retained historical draft, not implementation authorization.
 
 ## 1. Intent and approved direction
 

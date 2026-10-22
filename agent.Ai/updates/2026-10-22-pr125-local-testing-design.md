@@ -1,7 +1,9 @@
 # Agent Update — PR125 local Testing design
 
-**Date:** 2026-10-22 (America/Edmonton)  
-**Repository:** Alex1122341/Teaching-assignment-azure  
+**Date:** 2026-10-22 (America/Edmonton)
+
+**Repository:** Alex1122341/Teaching-assignment-azure
+
 **Task status:** PARTIAL / written-design review pending
 
 ## Goal and starting breakpoint

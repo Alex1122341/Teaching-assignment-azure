@@ -1,4 +1,8 @@
-## Current: PR125 local Testing direction approved; written design ready — 2026-10-22
+## Current: PR125 independent University Testing DB design ready — 2026-10-22
+
+Latest Owner correction: online Testing database must remain on ITAPPVETOPSDB01 in an independent Testing DB. Proposed name VetMed-Ops-Testing; do not infer it exists. Keep VET-C31293 API/tunnel and separate Firebase project; LocalDB only for disposable acceptance. Revised written design docs/superpowers/specs/2026-10-22-pr125-university-testing-design.md self-reviewed and pending Owner review. It requires exact host/database/UUID boundaries, same-instance/two-DB synthetic tests, strict TLS, runtime/admin permission separation and narrow Testing-only adaptations for existing migration DB_NAME guards; authoritative Production migrations stay unchanged. No installation, DB/permission mutation or release. LocalDB-only design is superseded; prior CI applies to099 product only. See updates/2026-10-22-pr125-university-testing-design.md.
+
+## Historical: PR125 local Testing direction approved; written design ready — 2026-10-22
 
 Owner selected VET-C31293 as the temporary synthetic Testing host. Written design docs/superpowers/specs/2026-10-22-pr125-local-testing-design.md completed and self-reviewed; awaiting written-design review before writing-plans. It reuses LocalDB/University API/Firebase tools, uses manual local API staging plus main-defined workflow verification/Hosting publication, retains real UAT/immutable freezes and no Azure or self-hosted runner. Actual LocalDB/ODBC installation, Firebase enablement, new provider tooling and releases not performed. This is documentation-only work on existing PR125 branch; prior CI evidence remains for product099d6b8, not a newly implemented system. Resume updates/2026-10-22-pr125-local-testing-design.md. Prior snapshots below are historical.
 

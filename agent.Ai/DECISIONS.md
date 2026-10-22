@@ -1,4 +1,8 @@
-## Owner-approved temporary Testing host — 2026-10-22
+## Owner correction: online Testing uses an independent University DB — 2026-10-22
+
+Owner clarified online Testing must use ITAPPVETOPSDB01 and explicitly selected an independent Testing database, not the real VetMed-Ops database. Preserve current-computer API/tunnel direction; LocalDB is only disposable acceptance infrastructure. Proposed DB name VetMed-Ops-Testing is in written design docs/superpowers/specs/2026-10-22-pr125-university-testing-design.md, awaiting review. This supersedes the prior online-LocalDB design/blanket separate-SQL-server requirement only; preserve synthetic data, exact server/database/UUID guards, Production non-mutation and real scope/freeze/acceptance. No DB creation/grant/install/deploy occurred. Reusing the server is not authorization to reset/migrate/copy Production or open public SQL.
+
+## Historical: Owner-approved temporary Testing host — 2026-10-22
 
 Owner explicitly selected current computer VET-C31293 for private LocalDB, loopback-only API, separate HTTPS tunnel and separate Firebase Testing project, with synthetic data only. This approves direction/host; written design docs/superpowers/specs/2026-10-22-pr125-local-testing-design.md awaits Owner review before implementation planning. No installation, credential/configuration change or deployment occurred. Desktop sleep/network availability and quick-tunnel hostname remain operational constraints. University Production remains unchanged; no self-hosted GitHub runner or Azure provisioning is introduced. Earlier inventory below describes the preceding audit stage.
 

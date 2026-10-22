@@ -363,7 +363,7 @@ test('KPI labels describe HICC/VISC as roles and drop the retired Firestore metr
 test('Lookup renders the API roster and searches only the permitted fields', async () => {
   const h = await driveAdmin();
   assert.equal(h.byId('result-count').textContent, ROSTER.length);
-  assert.match(h.byId('result-list').innerHTML, /Ada One/);
+  assert.match(h.byId('result-list').innerHTML, /One, Ada/);
   assert.match(h.byId('result-list').innerHTML, /12 sessions · 0 roles · Upcoming AFC: loading · Remaining DOE: loading/);
 
   const blob = slice('function searchBlob', 'function filteredLookup');
@@ -409,7 +409,7 @@ test('selecting one faculty issues exactly one detail request and renders the AP
   assert.deepEqual(h.calls.filter(c => c.startsWith('dashboardFacultyById')), ['dashboardFacultyById:f-2'], 'exactly one detail request');
 
   const pane = h.byId('profile-pane').innerHTML;
-  assert.match(pane, /Ada One/, 'faculty identity comes from the API detail');
+  assert.match(pane, /One, Ada/, 'faculty identity comes from the API detail');
   assert.match(pane, /Teaching-Focused/, 'professionalProfile renders');
   assert.match(pane, /Renewal pending/, 'jointAppointments render');
   assert.match(pane, /VETM 300/, 'roles render');
@@ -537,9 +537,9 @@ test('a detail 404 preserves the roster and reports not found', async () => {
   const h = await driveAdmin({ facultyById: async () => { throw notFound; } });
   await h.clickRow('f-2');
   const roster = h.byId('result-list').innerHTML;
-  assert.match(roster, /Ada One/);
-  assert.match(roster, /Bo Two/);
-  assert.match(roster, /Cy Three/);
+  assert.match(roster, /One, Ada/);
+  assert.match(roster, /Two, Bo/);
+  assert.match(roster, /Three, Cy/);
   assert.equal(h.byId('result-count').textContent, ROSTER.length, 'the roster must survive a failed detail load');
   assert.deepEqual(h.rowIds(), ['f-1', 'f-2', 'f-3']);
   assert.match(h.byId('profile-pane').innerHTML, /not found/i);

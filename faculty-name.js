@@ -4,7 +4,7 @@
   const spaces = value => text(value).replace(/\s+/g, ' ');
   // Retain the old export for compatibility; rendered names now use format().
   const removeCommas = value => spaces(value).replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
-  const unchanged = /^(?:Locum|TBD|Unassigned|Other\s*\/\s*Unassigned|Name unavailable|Not provided|Unknown faculty|Unknown|No instructor assigned|No faculty|Faculty \d+|UCVM User|Signed-in account|N\/A)$/i;
+  const unchanged = /^(?:Locum|TBD|Unassigned|Other\s*\/\s*Unassigned|Name unavailable|Not provided|Unknown faculty|Unknown|No instructor assigned|Instructor not provided|Faculty not provided|Not assigned|No faculty|Faculty \d+|UCVM User|Signed-in account|N\/A)$/i;
   function formatText(value) {
     const name = spaces(value);
     if (!name || unchanged.test(name) || /^[^\s@]+@[^\s@]+$/.test(name) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}$/i.test(name)) return name;
@@ -24,7 +24,7 @@
   }
   function formatList(value) {
     // Instructor lists are semicolon/newline-delimited. Commas belong within names.
-    return String(value ?? '').split(/([;\n]+)/).map(part => /^[;\n]+$/.test(part) ? part : formatText(part)).join('').trim();
+    return String(value ?? '').split(/([;\n]+)/).map(part => /^[;\n]+$/.test(part) ? part : part.replace(/^([ \t]*)(.*?)([ \t]*)$/, (_all,leading,name,trailing) => leading + formatText(name) + trailing)).join('').trim();
   }
   window.PAWS_FACULTY_NAME = Object.freeze({ format, formatList, removeCommas });
 })();

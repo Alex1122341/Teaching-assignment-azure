@@ -454,7 +454,7 @@ test('all 85 current protected files are byte-identical to the immutable accepte
 test('the CCC Schedule freeze promotion adds exactly two static files and changes exactly three',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const previous='370c30a21d99ae7227f97f1e0cb781864c674768';
-  const accepted=BASELINE_COMMIT;
+  const accepted='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
   const before=JSON.parse(execFileSync('git',['show',previous+':tools/static-assets.json'],{cwd:root,encoding:'utf8'})).sort();
   const after=JSON.parse(execFileSync('git',['show',accepted+':tools/static-assets.json'],{cwd:root,encoding:'utf8'})).sort();
   assert.equal(before.length,83);
@@ -463,7 +463,7 @@ test('the CCC Schedule freeze promotion adds exactly two static files and change
   assert.deepEqual(after.filter(name=>!before.includes(name)),['ccc-schedule.css','ccc-schedule.js']);
   // The promotion is this governance change, so the report under test is the
   // working-tree one; at the product commit it still names the previous anchor.
-  assert.equal(baseline.sourceCommit,accepted);
+  assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(Object.keys(baseline.sha256).length,85);
   const changed=before.filter(name=>{
     const oldBlob=execFileSync('git',['show',previous+':'+name],{cwd:root,maxBuffer:1<<28});

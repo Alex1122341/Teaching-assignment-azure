@@ -15,7 +15,7 @@ test('faculty name display uses last name, comma, first name, preferring structu
  assert.equal(names.format(names.format('David Hall')),'Hall, David');
 });
 test('faculty name display preserves non-person labels, IDs and email placeholders',()=>{
- for(const value of ['Locum','TBD','Other / Unassigned','Unknown faculty','Faculty 001','Name unavailable','admin@ucalgary.ca','11111111-1111-4111-8111-111111111111']){
+ for(const value of ['Locum','TBD','Other / Unassigned','Unknown faculty','Faculty 001','Faculty not provided','Instructor not provided','Name unavailable','admin@ucalgary.ca','11111111-1111-4111-8111-111111111111']){
   assert.equal(names.format(value),value);
  }
  assert.equal(names.format(''), '');
@@ -38,18 +38,18 @@ test('faculty-name helper is loaded on every standalone faculty UI page before c
 test('UI-specific name sinks format without changing request/storage contracts',()=>{
  const expected={
   'timetable.js':['displayFacultyList(s.instructor','displayFaculty(swapFacultyName'],
-  'ccc-schedule.js':['PAWS_FACULTY_NAME.format(row.facultyName)'],
+  'ccc-schedule.js':['PAWS_FACULTY_NAME?.format?.(row.facultyName)'],
   'faculty-admin.js':['PAWS_FACULTY_NAME.format(record'],
   'faculty-admin-doe-worksheet.js':['showFaculty(row.displayName'],
   'faculty-admin-trainees.js':['showFaculty(r.displayName)'],
   'faculty-availability.js':['showFaculty(r)'],
   'adfa-swap-panel.js':['showFaculty(candidate.displayName)'],
-  'faculty-admin-ccc-replacement.js':['PAWS_FACULTY_NAME?.format(r.displayName'],
+  'faculty-admin-ccc-replacement.js':['PAWS_FACULTY_NAME?.format?.(r.displayName'],
   'teaching-assignments.js':['displayFaculty(a.facultyName'],
   'user-management.js':['displayFaculty(user.name)'],
   'workspace-tasks.js':['showFaculty(task.displayName'],
   'approval-workflow.js':['displayFacultyList(assignedArray(s)'],
-  'afc-workflow-sql.js':['PAWS_FACULTY_NAME.format(request.facultyName)']
+  'afc-workflow-sql.js':['showFaculty(request.facultyName)']
  };
  for(const [file,patterns] of Object.entries(expected))for(const text of patterns)assert.ok(read(file).includes(text),file+' missing '+text);
  const user=read('user-management.js');

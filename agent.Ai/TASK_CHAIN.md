@@ -1,4 +1,12 @@
-## Current: PR125 latest-main refresh locally verified - 2026-10-22
+## Current: PR125 local Testing written-design review — 2026-10-22
+
+Owner approved VET-C31293 topology. Written design docs/superpowers/specs/2026-10-22-pr125-local-testing-design.md ready/self-reviewed. Next: Owner reviews this document; on approval invoke writing-plans, prepare sequential plan using existing tools, and obtain concrete plan review before implementing/installing. Preserve current product099 CI/artifact as historical source-bound evidence. No live mutations or runtime/freeze changes. See updates/2026-10-22-pr125-local-testing-design.md.
+
+## Historical: PR125 non-Azure release path — 2026-10-22
+
+Azure is retired per owner. Finish existing PR125 with isolated Firebase Auth/Hosting plus a non-Azure Testing SQL/API host, preserving environment guards/freezes/real UAT and University API then Firebase-only Production release. Current desktopVET-C31293 is feasible for temporary LocalDB (15.5GiB RAM,16.7GiB free, Node22) but LocalDB/current ODBC absent; owner asks feasibility, topology approval pending. Fresh candidate099 CI and official artifact pass; Testing skipped, no deployment or merge. Resolve stale Interactive/Logon task vs pinned production launcher during reviewed rollout; CheckOnly currently passes. Resume audit11/update2026-10-22-pr125-non-azure-release-inventory.md; do not recreate Azure or replay Production data operations.
+
+## Historical: PR125 latest-main refresh locally verified - 2026-10-22
 
 Existing branch feat/paws-testing-environment includes mainad605dbb9ab92457df972703c723e2b991fa284c (PR131), originalPRhead2994c73 and prior35a integration. Reviewed product424242603af2d6ff313d6db3520e6d04ad5f9024, separate governance5abbb2ce3247c00f98f97212de35fa897bf62bb1,86static/111API+3inputs. Standards/Spec/product and separate governance READY. Latest root npmtest 1093total/1041pass/0fail/52skip; complete server serial 860total/856pass/0fail/4skip; latestfocused88/88, governance6/6, parser41/41; latest build/artifact freezes PASS. Default-concurrency server runs had4 PDF/Excel worker timeouts each; serial success uses unchanged inputs/limits and does not erase this qualification. NewLocalDBacceptance and deployedTestingUAT remainunrun; unprovisionedTestingbuild explicitlyskips. Deliver through existingPR125 branch/body, no newPR, mainmerge or deploy. Prior snapshots below arehistorical.
 

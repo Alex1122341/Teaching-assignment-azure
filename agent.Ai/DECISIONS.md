@@ -1,3 +1,11 @@
+## Owner-approved temporary Testing host — 2026-10-22
+
+Owner explicitly selected current computer VET-C31293 for private LocalDB, loopback-only API, separate HTTPS tunnel and separate Firebase Testing project, with synthetic data only. This approves direction/host; written design docs/superpowers/specs/2026-10-22-pr125-local-testing-design.md awaits Owner review before implementation planning. No installation, credential/configuration change or deployment occurred. Desktop sleep/network availability and quick-tunnel hostname remain operational constraints. University Production remains unchanged; no self-hosted GitHub runner or Azure provisioning is introduced. Earlier inventory below describes the preceding audit stage.
+
+## Owner direction: Azure retired for PR125 infrastructure — 2026-10-22
+
+Owner explicitly states Azure has retired and the uploaded PR125 infrastructure/release directive must be adapted while retaining release standards. Do not provision ACA/ACR/Azure SQL/Entra resources for this mission. Existing Firebase Hosting/Auth and University API/SQL remain the actual Production path. Preserve SQL/environment isolation, real authenticated Testing UAT, immutable product/governance anchors, exact artifact evidence, unchanged Production gates/data and rollback. Legacy workflow/artifact/Node module names do not authorize reviving Azure or deleting active API dependencies. A non-Azure Testing topology is pending design; owner has asked about the current computer, not yet approved an implemented replacement. See docs/dual-environment/11-non-azure-release-inventory-20261022.md.
+
 ## Owner-authorized local acceptance for Availability PR124 — 2026-10-21
 
 Owner explicitly authorizes local acceptance, then merge and publication because GitHub CI usage is exhausted. For this task, local exact-source/full-history Node22 root/server/emulator/build/artifact evidence replaces mandatory Actions/exact-main CI provenance. Preserve independent product/governance review, Git-object freezes, real authentication/scope, exact-main local artifact attestations, unchanged27 gates/business fingerprints and coordinated University API then Firebase Hosting-only publication. Do not alter workflows, fabricate green runs/artifact IDs or weaken authorization. See docs/faculty-availability-local-release-authorization-20261021.md.

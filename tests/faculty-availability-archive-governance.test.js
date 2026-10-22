@@ -2,9 +2,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const BASE='33c4e9f4506e4632e673c2e8a462bc9987ce7e51',PRODUCT='370c30a21d99ae7227f97f1e0cb781864c674768',ORIGINAL='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
-// The current anchor is the reviewed CCC Schedule product, which must retain the
-// accepted Availability release unchanged apart from its own reviewed delta.
-const ANCHOR='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
+// Verify Availability's original release delta against the immutable CCC product,
+// separately from the current presentation-only faculty name promotion.
+const PREVIOUS_ANCHOR='5b135dfc91332a6fad29376d1d88d9acd33fd62a',ANCHOR='5948db79e8bccb4170c15a79bbbc127cfe37e155';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const tree=ref=>new Map(git('ls-tree','-r',ref).split(/\r?\n/).map(line=>{const [meta,file]=line.split('\t');return[file,meta.split(' ')[2]];}));
 test('release freeze retains latest accepted History archive restoration and exact original Availability runtime',()=>{
@@ -27,8 +27,11 @@ test('release freeze retains latest accepted History archive restoration and exa
  assert.equal(combined.get('.github/workflows/firebase-hosting-deploy.yml'),main.get('.github/workflows/firebase-hosting-deploy.yml'));
  assert.deepEqual(Object.keys(report.sha256).sort(),manifest(ANCHOR));for(const file of manifest(ANCHOR))assert.equal(report.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:ANCHOR,file})),file);
  assert.deepEqual(after.filter(file=>!manifest(ANCHOR).includes(file)),[],'the CCC promotion must not drop Availability protection');
- const anchorTree=tree(ANCHOR);
- assert.deepEqual(after.filter(file=>anchorTree.get(file)!==combined.get(file)).sort(),['index.html','paws-data-client.js','timetable.js']);
+ const historicCccTree=tree(PREVIOUS_ANCHOR);
+ assert.deepEqual(after.filter(file=>historicCccTree.get(file)!==combined.get(file)).sort(),['index.html','paws-data-client.js','timetable.js']);
+ const newAnchorTree=tree(ANCHOR);
+ for(const file of manifest(PREVIOUS_ANCHOR))assert.ok(newAnchorTree.has(file),'previous protected asset missing: '+file);
+ assert.deepEqual(manifest(ANCHOR),manifest(PREVIOUS_ANCHOR),'the display-only promotion must not alter protected inventory');
  assert.equal(freeze.verifyFreeze({root}).ok,true);assert.equal(api.verifyFreeze({root}).ok,true);
 });
 

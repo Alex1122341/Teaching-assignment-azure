@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="change-history.css">
   <link rel="stylesheet" href="calendar-activities.css">
   <link rel="stylesheet" href="ccc-schedule.css">
+  <link rel="stylesheet" href="leadership-directory.css">
   <link rel="stylesheet" href="swap-workflow-sql.css">
 
   <link rel="stylesheet" href="workspace.css">
@@ -51,7 +52,7 @@
         <span class="brand-line brand-line-1" id="ui-brand-year">2026-2027</span>
         <span class="brand-line brand-line-2" id="ui-brand-name">UCVM</span>
         <span class="brand-line brand-line-3" id="ui-brand-page">Teaching Schedule</span>
-        <button class="course-list-btn" id="course-list-btn">Course List</button>
+        <div class="leadership-list-actions" id="leadership-list-actions" role="group" aria-label="Teaching leadership lists"><button class="course-list-btn hidden" type="button" id="hicc-cc-list-btn">HICC–CC List</button><button class="course-list-btn hidden" type="button" id="visc-list-btn">VISC List</button></div>
       </div>
 
       <div class="filter-stack">
@@ -220,6 +221,7 @@
 
   <div class="modal-container" id="modal"></div>
   <section class="ccc-schedule-overlay" id="ccc-schedule-overlay" role="dialog" aria-modal="true" aria-labelledby="ccc-schedule-heading" aria-hidden="true" hidden><div class="ccc-schedule-shell"><header class="ccc-schedule-header"><div><h2 id="ccc-schedule-heading">CCC Schedule</h2><p>Community Care Clinic · Current scheduled faculty</p></div><button type="button" id="ccc-schedule-close" aria-label="Close CCC schedule">×</button></header><div class="ccc-schedule-controls"><label>Academic year <select id="ccc-schedule-year"></select></label><label>Search <input id="ccc-schedule-search" type="search" placeholder="Faculty, block, date" /></label><button id="ccc-schedule-refresh" type="button">Refresh</button></div><p class="ccc-schedule-status" id="ccc-schedule-status" role="status" aria-live="polite"></p><div class="ccc-schedule-body" id="ccc-schedule-body"></div></div></section>
+  <section class="leadership-directory-overlay" id="leadership-directory-overlay" aria-hidden="true" hidden><div class="leadership-directory-shell" role="dialog" aria-modal="true" aria-labelledby="leadership-directory-heading" aria-describedby="leadership-directory-subtitle"><header class="leadership-directory-header"><div><h2 id="leadership-directory-heading">HICC–CC List</h2><p id="leadership-directory-subtitle"></p></div><button type="button" id="leadership-directory-close" aria-label="Close list">×</button></header><div class="leadership-directory-controls"><label><input type="checkbox" id="leadership-directory-show-all"> Show inactive / upcoming</label><button type="button" id="leadership-directory-refresh">Refresh</button></div><p class="leadership-directory-status" id="leadership-directory-status" role="status" aria-live="polite"></p><div class="leadership-directory-body" id="leadership-directory-body"></div></div></section>
   <div class="toast" id="toast"></div>
   <div id="runtime-error" style="display:none;position:fixed;left:12px;right:12px;bottom:56px;z-index:99999;background:#8b0000;color:white;padding:12px 16px;border-radius:8px;font:14px/1.4 Arial,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.28)"></div>
   <script>
@@ -238,7 +240,7 @@
     <script src="adfa-swap-panel.js"></script>
     <script src="swap-workflow-sql.js"></script>
   <script src="workspace-tasks.js"></script>
-  <script src="lab-session-detail.js"></script><script src="calendar-activities.js"></script><script src="ccc-schedule.js"></script><script src="timetable.js"></script>
+  <script src="lab-session-detail.js"></script><script src="calendar-activities.js"></script><script src="ccc-schedule.js"></script><script src="leadership-directory.js"></script><script src="timetable.js"></script>
   <script src="afc-workflow-sql.js"></script>
   <script src="afc-workflow.js"></script>
   <script src="change-history.js"></script><script src="afc-timetable-panel.js"></script>

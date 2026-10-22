@@ -20,8 +20,8 @@ test('retired faculty assets are absent from disk, manifest and all runtime link
 
 test('production manifest contains the complete static dependency graph and no stale visible names',()=>{
  const manifest=JSON.parse(read('tools/static-assets.json'));
-  assert.equal(manifest.length,85);
- for(const name of ['faculty-availability.js','faculty-availability.css','faculty-admin-trainees.js','faculty-admin-trainees.css','ccc-schedule.js','ccc-schedule.css'])assert.ok(manifest.includes(name),name);
+  assert.equal(manifest.length,87);
+ for(const name of ['faculty-availability.js','faculty-availability.css','faculty-admin-trainees.js','faculty-admin-trainees.css','ccc-schedule.js','ccc-schedule.css','leadership-directory.js','leadership-directory.css'])assert.ok(manifest.includes(name),name);
  for(const name of ['change-history.js','change-history.css','approval-scheduling.js','afc-form-values.js','afc-form-state.js','afc-timetable-panel.js','audit-details.js','derived-index-health.js','faculty-account-planner.js','faculty-doe.js','faculty-swap-handoff.js','faculty-swap-safe.js','index-maintenance.js','paws-auth-continuity.js','paws-login-performance.js','scheduling-core.js','timetable-selection.js','user-management.css'])assert.ok(manifest.includes(name),name);
  const runtime=manifest.filter(name=>/\.(html|js)$/.test(name)).map(read).join('\n');
  assert.doesNotMatch(runtime,/Faculty Directory|Faculty Admin Dashboard|Open Faculty Dashboard/);

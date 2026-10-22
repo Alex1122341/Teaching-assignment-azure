@@ -83,5 +83,7 @@
   "faculty-availability.js",
   "faculty-availability.css",
   "ccc-schedule.js",
-  "ccc-schedule.css"
+  "ccc-schedule.css",
+  "leadership-directory.css",
+  "leadership-directory.js"
 ]

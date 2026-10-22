@@ -589,6 +589,8 @@
       },
       reviewSchedulingTask(issueKey,input={}){return request('/api/v1/scheduling-tasks/'+encodeURIComponent(String(issueKey))+'/review',{method:'POST',body:pickFields(input,['academicYear','expectedEvidenceVersion','expectedReviewVersion','reviewStatus'])});},
       cccSchedule(academicYear){return request('/api/v1/ccc-schedule?academicYear='+encodeURIComponent(String(academicYear)));},
+      // Read-only HICC–CC / VISC directory (server-side allow-listed projection; no DOE fields).
+      leadershipDirectory(academicYear){return request('/api/v1/dashboard/leadership-directory?academicYear='+encodeURIComponent(String(academicYear)));},
       async listCalendarActivities(input={}){
         const query=new URLSearchParams();for(const key of ['start','end','facultyKey','category','cursor','limit','includeFacultyKeys'])if(input[key]!==undefined&&input[key]!==null&&input[key]!=='')query.set(key,String(input[key]));
         return request('/api/v1/calendar-activities'+(query.size?'?'+query.toString():''));

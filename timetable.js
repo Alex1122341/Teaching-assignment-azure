@@ -996,7 +996,9 @@
       if (currentUser && ['faculty','hicc','visc','developer','owner','administrator','adfa_general','adfa_regular','admin'].includes(String(currentUser.role || '').trim().toLowerCase())) window.location.href = 'teaching-assignments.html';
     });
     $('my-timetable-btn').addEventListener('click', () => { myTimetableOnly = !myTimetableOnly; $('my-timetable-btn').textContent = myTimetableOnly ? 'Show All Timetable' : 'My Timetable'; render(); });
-    $('course-list-btn').addEventListener('click', openCourseList);
+    // HICC–CC / VISC directory for the academic year the Teaching Schedule is showing.
+    $('hicc-cc-list-btn').addEventListener('click', () => { if(currentUser) window.PAWS_LEADERSHIP_DIRECTORY?.open('hicc-cc', window.UCVM_PAGE_DATA.academicYear() || sqlAcademicYearForDate(ymd(new Date()))); });
+    $('visc-list-btn').addEventListener('click', () => { if(currentUser) window.PAWS_LEADERSHIP_DIRECTORY?.open('visc', window.UCVM_PAGE_DATA.academicYear() || sqlAcademicYearForDate(ymd(new Date()))); });
     $('export-csv').addEventListener('click', () => openExportDialog('csv'));
     $('export-calendar').addEventListener('click', () => openExportDialog('ics'));
     $('outlook-invite-btn').addEventListener('click', openOutlookInviteDialog);
@@ -1933,6 +1935,7 @@
           text.textContent = 'Firebase Auth + SQL Access Ready';
           currentUser = null;
           window.PAWS_CCC_SCHEDULE?.close();
+          window.PAWS_LEADERSHIP_DIRECTORY?.close();
           activityTypeFilter.resetForUser();
           ++workingActivityRenderToken;window.PAWS_CALENDAR_ACTIVITIES?.clear();
           if($('working-activities-lane'))$('working-activities-lane').innerHTML='';
@@ -2260,6 +2263,8 @@
     $('manage-users-btn').classList.toggle('hidden', !(UCVM.general(currentUser) || currentUser?.role === 'hicc'));
     $('faculty-dashboard-btn').classList.toggle('hidden', !UCVM.canOpenFacultyDashboard(currentUser));
     $('ccc-schedule-btn').classList.toggle('hidden', !currentUser);
+    $('hicc-cc-list-btn').classList.toggle('hidden', !currentUser);
+    $('visc-list-btn').classList.toggle('hidden', !currentUser);
     $('swap-inbox-btn').classList.toggle('hidden',!currentUser);
     $('swap-inbox-btn').onclick=()=>window.PAWS_SWAP?.openQueue();
     window.PAWS_SWAP?.syncUser();
@@ -2275,15 +2280,6 @@
 
   function openUserManager() {
     if (UCVM.general(currentUser) || currentUser?.role === 'hicc') location.href = 'user-management.html';
-  }
-
-  function openCourseList() {
-    const rows=courseCodes().map(code=>{const base=COURSES.find(c=>String(c.code)===code);const live=sessions.find(x=>String(x.course)===code);return{code,year:base?.year||live?.year||'',name:base?.name||live?.courseName||''}});
-    showModal(`
-      <div class="modal-header"><div class="modal-title">Course List</div><div class="modal-subtitle">Courses present in the synchronized 2026-2027 All Faculty Summaries timetable</div></div>
-      <div class="modal-body"><div class="user-table-wrap"><table class="user-table"><thead><tr><th>Course</th><th>Year</th><th>Name</th></tr></thead><tbody>${rows.map(c => `<tr><td><strong>${escapeHtml(c.code)}</strong></td><td>${c.year?'Year '+escapeHtml(c.year):'—'}</td><td>${escapeHtml(c.name||'')}</td></tr>`).join('')}</tbody></table></div></div>
-      <div class="modal-footer"><span></span><button class="btn btn-secondary" id="course-close">Close</button></div>`);
-    $('course-close').onclick = closeModal;
   }
 
   function openExportDialog(format){

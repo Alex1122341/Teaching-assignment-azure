@@ -108,7 +108,8 @@ test('two-column table: role distinguished (HICC vs CC), scope or Not recorded, 
   const visc = lib.renderTable('visc', sample().visc);
   assert.match(visc, /<th scope="col">Subject<\/th><th scope="col">Faculty<\/th>/);
   assert.match(visc, /VISC<\/span> · <span class="leadership-scope">Anatomy/);
-  assert.match(lib.renderTable('visc', []), /No VISC appointments are recorded for this academic year/);
+  assert.equal(lib.renderTable('visc', []), '<p class="leadership-directory-empty">No VISC appointments are recorded for this academic year.</p>');
+  assert.match(lib.renderTable('visc', [], 2), /No Active or Dates needed appointments\. 2 inactive or upcoming records are hidden/);
 });
 
 test('responses are validated: wrong year, foreign role types, bad dates or statuses are rejected', () => {

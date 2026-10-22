@@ -23,7 +23,7 @@ if(root&&root.document){
   const all=data?data[list.key]:[];
   const rows=lib.visibleRows(all,showAll.checked);
   status.textContent=lib.countText(rows.length,all.length,showAll.checked);
-  body.innerHTML=lib.renderTable(kind,rows);
+  body.innerHTML=lib.renderTable(kind,rows,all.length-rows.length);
  }
  async function load(){
   if(!open_()||!currentUid())return;
@@ -100,9 +100,9 @@ if(root&&root.document){
   check(value.hiccCc,['HICC','Course Coordinator']);check(value.visc,['VISC']);
   return value;
  }
- function renderTable(kind,rows){
+ function renderTable(kind,rows,hidden=0){
   const list=LISTS[kind];
-  if(!rows.length)return '<p class="leadership-directory-empty">'+escape(list.empty)+' Use “Show inactive / upcoming” to see other records.</p>';
+  if(!rows.length)return '<p class="leadership-directory-empty">'+(hidden?escape('No Active or Dates needed appointments. '+hidden+' inactive or upcoming record'+(hidden===1?' is':'s are')+' hidden; use “Show inactive / upcoming”.'):escape(list.empty))+'</p>';
   return '<table class="leadership-directory-table"><caption class="leadership-sr-only">'+escape(list.title)+'</caption><thead><tr><th scope="col">'+escape(list.scopeHeading)+'</th><th scope="col">Faculty</th></tr></thead><tbody>'+
    rows.map(row=>'<tr><td><span class="leadership-role leadership-role-'+escape(ROLE_LABEL[row.roleType].toLowerCase())+'">'+escape(ROLE_LABEL[row.roleType])+'</span> · '+
     (row.scope?'<span class="leadership-scope">'+escape(row.scope)+'</span>':'<span class="leadership-missing">Not recorded</span>')+'</td>'+

@@ -20,9 +20,9 @@
 .leadership-directory-table th{position:sticky;top:0;background:var(--surface-2);text-align:left;color:var(--text-2);font-size:11px;text-transform:uppercase;letter-spacing:.03em;z-index:2}
 .leadership-directory-table th:first-child{width:44%}
 .leadership-directory-table td,.leadership-directory-table th{border-bottom:1px solid var(--border);padding:10px 12px;vertical-align:top;overflow-wrap:anywhere}
-.leadership-role{display:inline-block;min-width:3.4em;font-weight:800;letter-spacing:.02em;color:var(--uc-red)}
+.leadership-role{font-weight:800;letter-spacing:.02em;color:var(--uc-red)}
 html.dark .leadership-role{color:#ff8a99}
-.leadership-role-cc{color:var(--text)}
+.leadership-role-cc,html.dark .leadership-role-cc{color:var(--text)}
 .leadership-scope{font-weight:600}
 .leadership-missing{color:var(--text-3);font-style:italic}
 .leadership-name{display:block;font-weight:600}

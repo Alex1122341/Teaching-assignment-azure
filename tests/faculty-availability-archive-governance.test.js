@@ -2,13 +2,16 @@
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const BASE='33c4e9f4506e4632e673c2e8a462bc9987ce7e51',PRODUCT='370c30a21d99ae7227f97f1e0cb781864c674768',ORIGINAL='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
-// The current anchor is the reviewed CCC Schedule product, which must retain the
-// accepted Availability release unchanged apart from its own reviewed delta.
+// Preserve the exact historical CCC Schedule promotion while requiring its
+// accepted Availability lineage to remain an ancestor of the current anchor.
 const ANCHOR='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const tree=ref=>new Map(git('ls-tree','-r',ref).split(/\r?\n/).map(line=>{const [meta,file]=line.split('\t');return[file,meta.split(' ')[2]];}));
 test('release freeze retains latest accepted History archive restoration and exact original Availability runtime',()=>{
- assert.equal(freeze.BASELINE_COMMIT,ANCHOR);assert.equal(api.BASELINE_COMMIT,ANCHOR);assert.equal(report.sourceCommit,ANCHOR);
+ const report=JSON.parse(git('show','119333537d340fa649f97c6f61f659f9f671863b:tools/beta-baseline.json'));
+ assert.ok(git('show','119333537d340fa649f97c6f61f659f9f671863b:tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+ANCHOR+"'"));
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,ANCHOR);
+ git('merge-base','--is-ancestor',ANCHOR,freeze.BASELINE_COMMIT);
  git('merge-base','--is-ancestor',PRODUCT,ANCHOR);
  for(const ancestor of [BASE,ORIGINAL,'7fb4229fb718173f0d3cd6b8102451ddbfba0e48'])git('merge-base','--is-ancestor',ancestor,PRODUCT);
  git('merge-base','--is-ancestor',PRODUCT,'HEAD');

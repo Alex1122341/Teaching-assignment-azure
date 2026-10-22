@@ -51,6 +51,8 @@ Identity switching reuses Developer Support (`server/src/support/support-service
 | `/afc-forms` (list, capabilities, document; upload) | denied | read; upload | no (reset restores) |
 | `/ccc-replacements` | denied | view capabilities/template/staged source; **stage/preview/commit refused** | — |
 | `/change-history` (query, page, export) | denied | read | — |
+| `/faculty/{id}/availability` (SQL056) | denied | exact GET only; real API/SQL own-faculty restrictions remain | — |
+| `/ccc-schedule` (SQL057) | denied | exact GET only; public schedule fields, academic year required | — |
 | `/scheduling-tasks` (list; `…/{id}/review`) | denied | read; review | no (reset restores) |
 | anything else | denied | denied | — |
 

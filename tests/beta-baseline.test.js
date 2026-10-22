@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
+const BASELINE_COMMIT='35a84164d4a330e6f6d0427b4850a7836445832f';
 const PREVIOUS_OPERATION_GROUPING_BASELINE_COMMIT='fe1fa7002ef956f02e767053fbe2f6fea8daf748';
 const DUAL_ENVIRONMENT_PRODUCT_COMMIT='413e87fd9256fae51a8b1722bcf667d60a8a3a55';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
@@ -221,7 +221,7 @@ test('Calendar activity freeze promotion preserves AFC LAB coverage and names th
 });
 
 // A. Baseline identity -------------------------------------------------------
-test('beta identity is pinned to the DOE Rule Book / Faculty Lookup product baseline',()=>{
+test('beta identity is pinned to the reviewed integrated dual-environment product baseline',()=>{
   assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(baseline.siteUrl,'https://tester-teaching.web.app');
   assert.equal(freeze.BASELINE_COMMIT,BASELINE_COMMIT);
@@ -453,20 +453,21 @@ test('all 86 current protected files are byte-identical to the immutable accepte
   }
 });
 
-test('the CCC Schedule freeze promotion adds exactly two static files and changes exactly three',()=>{
+test('historical CCC Schedule freeze promotion adds exactly two static files and changes exactly three',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const previous='370c30a21d99ae7227f97f1e0cb781864c674768';
-  const accepted=BASELINE_COMMIT;
+  const accepted='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
+  const historicalReport=JSON.parse(execFileSync('git',['show','119333537d340fa649f97c6f61f659f9f671863b:tools/beta-baseline.json'],{cwd:root,encoding:'utf8'}));
+  assert.ok(execFileSync('git',['show','119333537d340fa649f97c6f61f659f9f671863b:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'}).includes(`const BASELINE_COMMIT='${accepted}'`));
+  execFileSync('git',['merge-base','--is-ancestor',accepted,BASELINE_COMMIT],{cwd:root});
   const before=JSON.parse(execFileSync('git',['show',previous+':tools/static-assets.json'],{cwd:root,encoding:'utf8'})).sort();
   const after=JSON.parse(execFileSync('git',['show',accepted+':tools/static-assets.json'],{cwd:root,encoding:'utf8'})).sort();
   assert.equal(before.length,83);
   assert.equal(after.length,85);
   assert.deepEqual(before.filter(name=>!after.includes(name)),[],'the promotion must not remove protection');
   assert.deepEqual(after.filter(name=>!before.includes(name)),['ccc-schedule.css','ccc-schedule.js']);
-  // The promotion is this governance change, so the report under test is the
-  // working-tree one; at the product commit it still names the previous anchor.
-  assert.equal(baseline.sourceCommit,accepted);
-  assert.equal(Object.keys(baseline.sha256).length,86);
+  assert.equal(historicalReport.sourceCommit,accepted);
+  assert.equal(Object.keys(historicalReport.sha256).length,85);
   const changed=before.filter(name=>{
     const oldBlob=execFileSync('git',['show',previous+':'+name],{cwd:root,maxBuffer:1<<28});
     const newBlob=execFileSync('git',['show',accepted+':'+name],{cwd:root,maxBuffer:1<<28});
@@ -999,4 +1000,22 @@ test('Dashboard archive restoration promotes only one reviewed protected fronten
  const ui=freeze.readBaselineFile({root,baselineCommit:accepted,file:'change-history.js'}).toString('utf8');
  assert.match(ui,/All recorded years/);
  assert.match(ui,/historyArchiveStartUtc/);
+});
+
+test('dual-environment freeze promotion (on main fe1fa70) protects only the reviewed runtime delta',()=>{
+  const previous=PREVIOUS_OPERATION_GROUPING_BASELINE_COMMIT;
+  const man=commit=>freeze.readBaselineManifest({root,baselineCommit:commit}).slice().sort();
+  const oldStatic=man(previous),newStatic=man(DUAL_ENVIRONMENT_PRODUCT_COMMIT);
+  assert.equal(oldStatic.length,81);assert.equal(newStatic.length,82);
+  assert.deepEqual(oldStatic.filter(f=>!newStatic.includes(f)),[]);
+  assert.deepEqual(newStatic.filter(f=>!oldStatic.includes(f)),['paws-environment-nav.js']);
+  const oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(DUAL_ENVIRONMENT_PRODUCT_COMMIT);
+  assert.equal(oldApi.length,104);assert.equal(newApi.length,105);
+  assert.deepEqual(oldApi.filter(f=>!newApi.includes(f)),[]);
+  assert.deepEqual(newApi.filter(f=>!oldApi.includes(f)),['server/src/runtime/environment.js']);
+  const changed=execFileSync('git',['diff','--name-only',previous,DUAL_ENVIRONMENT_PRODUCT_COMMIT],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+  assert.deepEqual(changed.filter(f=>newStatic.includes(f)).sort(),['bulk-import-ui.js','developer-support.js','faculty-access.js','faculty-admin.html','faculty-admin.js','index.html','password.html','paws-api-origin.js','paws-data-client.js','paws-environment-nav.js','teaching-assignments.html','teaching-assignments.js','timetable.js','user-management.html']);
+  assert.deepEqual(changed.filter(f=>newApi.includes(f)).sort(),['server/src/data/sql-connection.js','server/src/data/write-gates.js','server/src/runtime/environment.js','server/src/runtime/swa-sql-runtime.js','server/src/runtime/university-api.js','server/src/runtime/university-http-server.js','server/src/support/support-service.js']);
+  assert.deepEqual(changed.filter(f=>f.startsWith('database/')),[]);
+  execFileSync('git',['merge-base','--is-ancestor',previous,DUAL_ENVIRONMENT_PRODUCT_COMMIT],{cwd:root});
 });

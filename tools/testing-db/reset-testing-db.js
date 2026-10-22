@@ -28,7 +28,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { resolveEnvironment, sqlServerHost } = require('../../server/src/runtime/environment');
+const { resolveSqlTarget } = require('../../server/src/runtime/sql-environment-target');
 const { buildSqlConnectionConfig } = require('../../server/src/data/sql-connection');
+const { connectTestingProfile } = require('./connection-profile');
+const { adaptUniversitySql, sourceHash, assertUniversityInventory } = require('./university-migration-adapter');
 
 const ROOT = path.resolve(__dirname, '../..');
 const MIGRATIONS = path.join(ROOT, 'database', 'azure-sql');
@@ -155,12 +158,19 @@ SELECT @schemas += N'DROP SCHEMA ' + QUOTENAME(name) + N';' FROM sys.schemas WHE
 EXEC sys.sp_executesql @schemas;`);
 }
 
-async function ensurePrincipals(pool, runtimePrincipal, azure) {
+async function assertWindowsPrincipal(pool, runtimePrincipal) {
+    // Provisioning must map the actual Windows login before reset. Never
+    // silently substitute a WITHOUT LOGIN user for the runtime identity.
+    const rows = await run(pool, `SELECT name FROM sys.database_principals WHERE name=N'${runtimePrincipal.replace(/'/g, "''")}' AND type IN ('U','G');`);
+    if (rows.length !== 1) throw new Error('University Testing runtime principal must be an existing mapped Windows identity');
+}
+
+async function ensurePrincipals(pool, runtimePrincipal, azure, university = false) {
   for (const name of STAND_IN_PRINCIPALS) {
     await run(pool, `IF USER_ID(N'${name}') IS NULL CREATE USER ${'[' + name + ']'} WITHOUT LOGIN;`);
   }
   const escaped = runtimePrincipal.replace(/]/g, ']]');
-  await run(pool, azure
+  if (!university) await run(pool, azure
     ? `IF USER_ID(N'${runtimePrincipal.replace(/'/g, "''")}') IS NULL CREATE USER [${escaped}] FROM EXTERNAL PROVIDER;`
     : `IF USER_ID(N'${runtimePrincipal.replace(/'/g, "''")}') IS NULL CREATE USER [${escaped}] WITHOUT LOGIN;`);
   // Match the hardened production database: public holds only CONNECT at database scope.
@@ -195,6 +205,9 @@ async function runWorkflowFixtures(env, log) {
     class LocalPool extends base.ConnectionPool { constructor(config) { super({ ...config, connectionString: local, options: { ...(config.options || {}), encrypt: false } }); } }
     sqlModule = Object.assign(Object.create(base), { ConnectionPool: LocalPool });
     runtimeEnv = { ...runtimeEnv, PAWS_SQL_DRIVER: 'msnodesqlv8', PAWS_SQL_MI_CLIENT_ID: undefined, PAWS_SQL_CONNECTION_STRING: `${env.PAWS_SQL_CONNECTION_STRING};Encrypt=true` };
+  } else if (env.PAWS_TESTING_SQL_PROFILE === 'university-testing') {
+    sqlModule = require(path.join(ROOT, 'server', 'node_modules', 'mssql', 'msnodesqlv8'));
+    runtimeEnv = { ...runtimeEnv, PAWS_SQL_DRIVER: 'msnodesqlv8' };
   } else {
     sqlModule = require(path.join(ROOT, 'server', 'node_modules', 'mssql'));
     runtimeEnv = { ...runtimeEnv, PAWS_SQL_DRIVER: 'tedious' };
@@ -221,7 +234,7 @@ async function verifyFixtureCoverage(pool, coverage = JSON.parse(fs.readFileSync
   return results;
 }
 
-async function main(argv, env = process.env, log = message => console.log(message)) {
+async function main(argv, env = process.env, log = message => console.log(message), dependencies = {}) {
   const environment = resolveEnvironment(env);
   if (!environment.testing) throw new Error('reset-testing-db only runs with PAWS_ENVIRONMENT=testing');
   if (!argv.includes('--confirm-reset')) throw new Error('Pass --confirm-reset to initialise or reset the Testing database');
@@ -229,39 +242,58 @@ async function main(argv, env = process.env, log = message => console.log(messag
   const host = sqlServerHost(env.PAWS_SQL_CONNECTION_STRING);
   const azure = /\.database\.windows\.net$/i.test(host);
   const runtimePrincipal = String(env.PAWS_TESTING_RUNTIME_PRINCIPAL || 'paws_testing_runtime').trim();
-  const { pool } = await connect(env);
+  const university = env.PAWS_TESTING_SQL_PROFILE === 'university-testing';
+  const target = university ? resolveSqlTarget(env) : null;
+  if (!runtimePrincipal || /[\x00-\x1f]/.test(runtimePrincipal) || runtimePrincipal.length>128 || (university && !/^[A-Za-z0-9_.@\\ -]+$/.test(runtimePrincipal))) throw new Error('Invalid Testing runtime principal');
+  const files = fs.readdirSync(MIGRATIONS).filter(f => /^\d{3}_.*\.sql$/.test(f) && !/(rollback|_proof|_acceptance)/.test(f)).sort();
+  if (university) assertUniversityInventory([...files,'seed-base.sql','seed-ta.sql','seed-readers.sql']);
+  const sources = new Map(), receipts = [];
+  // Validate the complete inventory BEFORE connecting or dropping any object.
+  for (const file of [...files,'seed-base.sql','seed-ta.sql','seed-readers.sql']) {
+    const original = fs.readFileSync(path.join(file.startsWith('seed-') ? __dirname : MIGRATIONS,file),'utf8');
+    const converted = university ? adaptUniversitySql({file,text:original,sourceSha256:sourceHash(original),target}) : {text:original};
+    const text = adapt(file,converted.text,runtimePrincipal);
+    sources.set(file,text);
+    if (university) receipts.push({file,normalization:'utf8-lf',sourceSha256:converted.sourceSha256,
+      transformedSha256:converted.transformedSha256,effectiveSha256:sourceHash(text),guardCount:converted.guardCount});
+  }
+  const connection = university ? await connectTestingProfile(env, dependencies) : await connect(env);
+  const { pool } = connection;
   try {
-    const state = await readState(pool);
-    if (state.databaseName !== 'VetMed-Ops') throw new Error(`The Testing database must be named VetMed-Ops (the migrations require it); found ${state.databaseName}`);
+    const state = university ? await connection.inspectState() : await readState(pool);
+    const expectedDatabase = university ? connection.target.database : 'VetMed-Ops';
+    if (state.databaseName !== expectedDatabase) throw new Error('The Testing database does not match the resolved target');
     const action = decideAction(state, environment.testingEnvironmentId, { initialiseEmpty: argv.includes('--initialise-empty') });
+    if (university && action==='reset') await assertWindowsPrincipal(pool,runtimePrincipal);
     if (action === 'reset') {
       log('marker verified: resetting existing Testing database');
       await dropAll(pool);
     } else {
       log('empty database: initialising new Testing database');
-      await createMarker(pool, environment.testingEnvironmentId);
+      if (university) await connection.initializeMarker();
+      else await createMarker(pool, environment.testingEnvironmentId);
+      if (university) await assertWindowsPrincipal(pool,runtimePrincipal);
     }
-    await ensurePrincipals(pool, runtimePrincipal, azure);
-    const files = fs.readdirSync(MIGRATIONS).filter(f => /^\d{3}_.*\.sql$/.test(f) && !/(rollback|_proof|_acceptance)/.test(f)).sort();
+    await ensurePrincipals(pool, runtimePrincipal, azure, university);
     const vars = { PAWS_API_PRINCIPAL: runtimePrincipal };
     const outcome = [];
     for (const file of files) {
       if (SKIP[file]) { outcome.push({ file, status: 'skipped', reason: SKIP[file] }); log(`${file}: skipped (${SKIP[file]})`); }
       else {
-        try { await applyFile(pool, file, adapt(file, fs.readFileSync(path.join(MIGRATIONS, file), 'utf8'), runtimePrincipal), { ...vars }, log); outcome.push({ file, status: 'ok' }); }
+        try { await applyFile(pool, file, sources.get(file), { ...vars }, log); outcome.push({ file, status: 'ok' }); }
         catch (error) {
           if (!TOLERATED_FAILURES[file]) throw new Error(`${file} failed: ${error.message}`);
           outcome.push({ file, status: 'tolerated', reason: TOLERATED_FAILURES[file] }); log(`${file}: tolerated (${TOLERATED_FAILURES[file]})`);
         }
       }
       if (file === SEED_AFTER) {
-        await run(pool, fs.readFileSync(path.join(__dirname, 'seed-base.sql'), 'utf8'));
+        await run(pool, sources.get('seed-base.sql'));
         outcome.push({ file: 'seed-base.sql', status: 'ok' }); log('seed-base.sql: ok');
       }
     }
-    await run(pool, fs.readFileSync(path.join(__dirname, 'seed-ta.sql'), 'utf8'));
+    await run(pool, sources.get('seed-ta.sql'));
     outcome.push({ file: 'seed-ta.sql', status: 'ok' }); log('seed-ta.sql: ok');
-    await run(pool, fs.readFileSync(path.join(__dirname, 'seed-readers.sql'), 'utf8'));
+    await run(pool, sources.get('seed-readers.sql'));
     outcome.push({ file: 'seed-readers.sql', status: 'ok' }); log('seed-readers.sql: ok');
     const roles = await grantRuntimeRoles(pool, runtimePrincipal);
     // Workflow fixtures go through the real API code (see seed-workflows.js), then every seeded
@@ -276,7 +308,7 @@ async function main(argv, env = process.env, log = message => console.log(messag
     if (counts.marker !== 1 || counts.sessions !== expected.sessions || counts.afcRecords !== expected.afc || counts.faculty !== expected.faculty + 2) {
       throw new Error(`verification failed: ${JSON.stringify(counts)}`);
     }
-    const summary = { ok: true, environment: 'testing', database: state.databaseName, server: host, counts, runtimePrincipal, runtimeRoles: roles, migrations: outcome, workflowFixtures, fixtureCoverage };
+    const summary = { ok: true, environment: 'testing', database: state.databaseName, server: host, counts, runtimePrincipal, runtimeRoles: roles, migrations: outcome, migrationReceipts:receipts, workflowFixtures, fixtureCoverage };
     log(JSON.stringify(summary));
     return summary;
   } finally {

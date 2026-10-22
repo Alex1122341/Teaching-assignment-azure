@@ -1,0 +1,250 @@
+{
+  "version": 1,
+  "normalization": "utf8-lf",
+  "files": {
+    "001_foundation.sql": {
+      "sourceSha256": "f6665e863a93733fdf79d3e09150d062df49f0093a11677bd8441ce1a20354c7",
+      "guardCount": 0
+    },
+    "002_calendar_view.sql": {
+      "sourceSha256": "d6b6371d0506dacd9bcff248ea45f603df842eb946f3a672e75153406360a381",
+      "guardCount": 0
+    },
+    "003_app_permissions.sql": {
+      "sourceSha256": "77877c1c97eddad64c5ce9ce78146b2b05a43dfe7a37c3ac5319c21a6c3e12b1",
+      "guardCount": 0
+    },
+    "004_swa_beta_permissions.sql": {
+      "sourceSha256": "aa4cde6c077b490b6805ed7b0eaee3bdc42e50f3a26def5219593813010d2149",
+      "guardCount": 0
+    },
+    "005_teaching_assignment_authority_foundation.sql": {
+      "sourceSha256": "c1f872f564d9b987dfb119ecc0e46b606463a5bfd1f6ec08cba4c27ea92ae766",
+      "guardCount": 0
+    },
+    "006_teaching_responsibility_concurrent_assignees.sql": {
+      "sourceSha256": "506b9dd18a146ccf122d7689f583b981a05c0b980d6be2a4e03744debee90322",
+      "guardCount": 0
+    },
+    "007_afc_manual_write_foundation.sql": {
+      "sourceSha256": "b5391c9fdc35c6144d1b9a44389390d55ca0919d0a8dadc0167a8eca1db27120",
+      "guardCount": 0
+    },
+    "007_afc_manual_write_permissions.sql": {
+      "sourceSha256": "5e944549b35ad2ec291b8c69c2cac61cb37f8161c523b87a172f68243984e785",
+      "guardCount": 0
+    },
+    "008_doe_faculty_target_foundation.sql": {
+      "sourceSha256": "c1980a61f3769306b1d47f008ff0ae9708f710e413f5a6d044e8661531dd6976",
+      "guardCount": 0
+    },
+    "009_afc_request_foundation.sql": {
+      "sourceSha256": "2cc8e6d62c86635ec8bc601fb8a10158136984335d619d9ac5fc01313ba3bbc2",
+      "guardCount": 0
+    },
+    "010_afc_approval_foundation.sql": {
+      "sourceSha256": "58d19c7f0aea158f3b855d692f13a6b35cc1ed66ef81ea8f66f1e66151ef7f9e",
+      "guardCount": 0
+    },
+    "011_afc_approved_artifact.sql": {
+      "sourceSha256": "66778f5441dc681ca4a856097e8575d44e64a64dd02cb1a83b25662ad0451e63",
+      "guardCount": 0
+    },
+    "012_session_edit_api.sql": {
+      "sourceSha256": "0a7353a1fcd0e5ded4cab1c661a9c7ad7915cec0a1615e5ba3a68baff977fa61",
+      "guardCount": 0
+    },
+    "013_doe_faculty_allocation.sql": {
+      "sourceSha256": "53e7d93631e3d47c4d433103338ddf489d113499dbead615189426ef534a0955",
+      "guardCount": 0
+    },
+    "014_doe_rule_book_and_fte_provenance.sql": {
+      "sourceSha256": "6af241f849e15762962af5fdcb417a0c32d16582e26a8abc252f68c4b7f620de",
+      "guardCount": 0
+    },
+    "015_afc_manual_batch.sql": {
+      "sourceSha256": "47e483edae595969320b8ff33513194fbe6eeb0c2e85c70a15ab0fdcb69859e1",
+      "guardCount": 0
+    },
+    "016_session_edit_boundary_reconciliation.sql": {
+      "sourceSha256": "ffbb61267f44d1c48444a38ed999b663547e04d96e656baa12cb4f7e76f947cb",
+      "guardCount": 1
+    },
+    "017_w1e_runtime_least_privilege.sql": {
+      "sourceSha256": "3487c00eabe496f7871775fff94f6fa0d88524c837b8d177774c66e5a8746ca2",
+      "guardCount": 1
+    },
+    "018_w1h_afc_runtime_write_roles.sql": {
+      "sourceSha256": "942312c0652bb616e14dc013717bc2379386b7347ac82fdb5e30a0e010cc523e",
+      "guardCount": 1
+    },
+    "019_session_create_and_assignment_api.sql": {
+      "sourceSha256": "1b5e783c8257c6045055d7754f829e050503adc5e3f2a1f82289881bb30e9dcb",
+      "guardCount": 1
+    },
+    "020_teaching_assignment_workflow.sql": {
+      "sourceSha256": "017905eed1b71d6c6fadc907ad66c943cc0a763b262f2cb6079a0cf0376a486a",
+      "guardCount": 1
+    },
+    "021_teaching_assignment_workflow_api.sql": {
+      "sourceSha256": "e0d944d7bfa530605e96a0e1b0a2e5b72936f8f6843b76fe02a5d5baf6d1d789",
+      "guardCount": 1
+    },
+    "022_teaching_assignment_workflow_permissions.sql": {
+      "sourceSha256": "c2ef1ed8b098edbd6b8f1ed74fc723d11f14ac3aa7d3a3f0df76188b67f29a79",
+      "guardCount": 1
+    },
+    "023_faculty_admin_write.sql": {
+      "sourceSha256": "43d1b7521211fdab0eea90f36a170e8a56a961b732ad14e1e2697cb306c02eba",
+      "guardCount": 1
+    },
+    "024_faculty_admin_profile_version_fix.sql": {
+      "sourceSha256": "fca5c33a2db02b39b9776d463d8fa508fb2c00dc784d072550c82b6e61e86267",
+      "guardCount": 1
+    },
+    "025_auth1_developer_role_authorization.sql": {
+      "sourceSha256": "8a0b96b2a1066ba32b71db1b9de0faa17a7c172c2760b2a69143a71006321463",
+      "guardCount": 1
+    },
+    "026_annual_doe_engine.sql": {
+      "sourceSha256": "d2831e95c7001bf2588dc75239a48325ec6693b43a5253b65111dcb7dc34ede1",
+      "guardCount": 0
+    },
+    "027_doe_runtime_permissions.sql": {
+      "sourceSha256": "023258a9bf97d42ca4d6d0d6a11991bc814f40d6a59d43b5f6a8054763d73cb7",
+      "guardCount": 1
+    },
+    "028_doe_supervision_source.sql": {
+      "sourceSha256": "be98a6553131e36abbdda5932378db0aae8878f22eb79655bec2fe7535c8288e",
+      "guardCount": 1
+    },
+    "029_manual_doe_assignment.sql": {
+      "sourceSha256": "c86a4f83625b82dc03d9b5008f95ff6dbe99fbb0f874b0d72273c47307ee9f5b",
+      "guardCount": 1
+    },
+    "030_session_swap.sql": {
+      "sourceSha256": "38c9f334cbe26e161fa70fc3f24403cc2b35ee515910d3e73bb9850dfb05fb7f",
+      "guardCount": 1
+    },
+    "031_session_swap_permissions.sql": {
+      "sourceSha256": "6199ddf5526b9a369002bcbf8326d99994df2bddb347810fd75e9731d11aaca5",
+      "guardCount": 1
+    },
+    "032_faculty_hr_identity.sql": {
+      "sourceSha256": "14adc2a81002c0df40d0405d17cd5370ed9d037ff4fb0bca1c0452672d85d517",
+      "guardCount": 1
+    },
+    "033_developer_support.sql": {
+      "sourceSha256": "585f63e00b967c4fc725f4b163fffe58eb3b430e29d1da2f36c6caafcf9ac807",
+      "guardCount": 1
+    },
+    "034_developer_support_binary_capture.sql": {
+      "sourceSha256": "63377c5282d2b37c744ee49fd477cad76cc5280713d884cad882600907e2e6c9",
+      "guardCount": 1
+    },
+    "035_role_appointment_periods.sql": {
+      "sourceSha256": "345387ca47269204868ce1ba091a417c7e0a1336d8ce60f2028c47a6ce8594b8",
+      "guardCount": 1
+    },
+    "036_afc_record_cancel.sql": {
+      "sourceSha256": "073a9128631255f86c68bfb8d707a1e7ccae76c53932e297760ce28d1a648235",
+      "guardCount": 1
+    },
+    "037_afc_version_encoding.sql": {
+      "sourceSha256": "4933c37873e1a876a414ff3c97e7958a14b5600d881476f4fb10a34d982fdfe5",
+      "guardCount": 1
+    },
+    "038_calendar_activity_foundation.sql": {
+      "sourceSha256": "826c47c0cfb6b199fbb538eccff54037d83f013efdf17bd11d04cdeb5f00e685",
+      "guardCount": 1
+    },
+    "039_calendar_activity_swap.sql": {
+      "sourceSha256": "f499ac66ee2c4a1a6ea6551885884da0581342d9aa16a3a8d57513cc95aade57",
+      "guardCount": 1
+    },
+    "040_calendar_activity_commands.sql": {
+      "sourceSha256": "1e12e50db06b87c009909c5350e90bcc5cdcb6a700d77e5d766f04d6f4fd2139",
+      "guardCount": 1
+    },
+    "041_calendar_activity_permissions.sql": {
+      "sourceSha256": "c1127a1911b702b076f57ffc910294eee78ba44944c3be9d3fdca19de4b8b7c7",
+      "guardCount": 1
+    },
+    "042_adfa_swap_preview.sql": {
+      "sourceSha256": "503bebef7d3a280927b63fc22a2622e55c9608fd0947ca6fe1b0e97e94c5793f",
+      "guardCount": 1
+    },
+    "043_scheduling_tasks.sql": {
+      "sourceSha256": "6ed0339ff6fc7f96bce298015e1879980fc7d6b4dc50cd8e752c26ea7cb282f3",
+      "guardCount": 1
+    },
+    "044_calendar_empty_activity_array.sql": {
+      "sourceSha256": "e1703350b255fa1bc900615f461a9400c46dd30e4be0e14d150fdccfdf97d873",
+      "guardCount": 1
+    },
+    "045_calendar_away_classification.sql": {
+      "sourceSha256": "3c1b6abdf45bef7ca1dac3622249708eebd95cae7eb458bd34636891245ebdcb",
+      "guardCount": 1
+    },
+    "046_calendar_commit_preflight.sql": {
+      "sourceSha256": "d0a738bf3a1a7643aaa9a9a182a164ed38dbcbd48040920357dcbfe5839cfee8",
+      "guardCount": 1
+    },
+    "047_change_history.sql": {
+      "sourceSha256": "83e4b2c0916ca1b0ca425083f5f82b986f4b781589d03e0472c80cabedf6cb46",
+      "guardCount": 1
+    },
+    "048_afc_form_upload.sql": {
+      "sourceSha256": "1ea413c6cc220b2dfe58776043e86790104c615b2df99362873373be83ac083d",
+      "guardCount": 1
+    },
+    "049_ccc_full_replacement.sql": {
+      "sourceSha256": "7eff384a43c831e9e0a4293dc40c04f49e703a59aa58a0236c59b58904913331",
+      "guardCount": 1
+    },
+    "050_afc_record_documents.sql": {
+      "sourceSha256": "ddef740684c98980470a2ceb04201ae67e8615312a0ff32590084a88078e2171",
+      "guardCount": 1
+    },
+    "051_record_document_history.sql": {
+      "sourceSha256": "c460645c094de0fb9e6c2f1034f1e3ab4291b6b9ea8bb92bb0eb51e05ddec70e",
+      "guardCount": 1
+    },
+    "052_master_source_refresh.sql": {
+      "sourceSha256": "f643f4def702447c351949ecaa45312e25b3a25358be4cb9b59e54a7aa1ec2a8",
+      "guardCount": 1
+    },
+    "053_ccc_master_slots.sql": {
+      "sourceSha256": "abe97d0e177bb5e3e068636e00b8ed74eaa0a09cf09ca1a04ec4f442f6edcbd6",
+      "guardCount": 1
+    },
+    "054_trainee_source_evidence.sql": {
+      "sourceSha256": "3b25f60d9fc34062538d4b89e8fb61dde5f18536b92ce837ba25b8dc2ef4acd4",
+      "guardCount": 1
+    },
+    "055_trainee_empty_results.sql": {
+      "sourceSha256": "5c2c2f4b7306ec0fefcf91ed4ce5437828aa33d2b5ed0fbd7c1742f329ea8a07",
+      "guardCount": 1
+    },
+    "056_faculty_availability_read.sql": {
+      "sourceSha256": "5eb433380591a1cb4c01118ada57a54f718276a875a823eeacedccd450d3abfc",
+      "guardCount": 1
+    },
+    "057_ccc_schedule_read.sql": {
+      "sourceSha256": "17d929dac66419560bd49898d037c0144f575edd6a5b2f6239ea69c9866a7d22",
+      "guardCount": 1
+    },
+    "seed-base.sql": {
+      "sourceSha256": "24cf7e2b22da75c46509b21d7b8769934e3f09f304b070c8c1fd2902471adbe1",
+      "guardCount": 0
+    },
+    "seed-readers.sql": {
+      "sourceSha256": "5ca7dbc0939200cde017b981968c5bf779d0c72bdbd4b7ca13bfb0f264c7b999",
+      "guardCount": 1
+    },
+    "seed-ta.sql": {
+      "sourceSha256": "500e2ec3ece53917ab9db8e28a2c58ca96a4ac2f7a014adde6e76ff7dc490cb1",
+      "guardCount": 0
+    }
+  }
+}

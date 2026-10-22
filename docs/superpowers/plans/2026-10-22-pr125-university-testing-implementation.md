@@ -47,7 +47,7 @@ New helpers are tooling unless explicitly under `server/src`. Any new shipped AP
 
 ---
 
-### Task1: Bind runtime SQL to the actual server/database identity
+### Task 1: Bind runtime SQL to the actual server/database identity
 
 **Files:** Create `server/src/runtime/sql-environment-target.js`, `server/test/university-testing-target.test.js`; modify `server/src/runtime/environment.js`, `server/src/data/sql-connection.js`, `server/src/runtime/swa-sql-runtime.js`, `server/test/dual-environment.test.js`, `server/test/sql-connection-windows.test.js`.
 
@@ -64,7 +64,7 @@ New helpers are tooling unless explicitly under `server/src`. Any new shipped AP
 - [ ] **4. Run green:** `node --test server/test/university-testing-target.test.js server/test/dual-environment.test.js server/test/sql-connection-windows.test.js server/test/testing-persona-routes.test.js`; all executed tests pass, wrong-target spies show zero business calls.
 - [ ] **5. Commit** only Task1 paths: `feat(testing): bind University SQL target and runtime batches`.
 
-### Task2: Make Testing migrations and reset safe for the independent DB
+### Task 2: Make Testing migrations and reset safe for the independent DB
 
 **Files:** Create `tools/testing-db/university-migration-adapter.js`, `university-guard-manifest.json`, `connection-profile.js`; modify `tools/testing-db/reset-testing-db.js`; test `tests/testing-db-tooling.test.js` and new `tests/university-testing-migrations.test.js`.
 
@@ -77,7 +77,7 @@ New helpers are tooling unless explicitly under `server/src`. Any new shipped AP
 - [ ] **4. Run green** the same commands, plus `git diff --exit-code -- database/azure-sql` to prove no Production migration edit. Record per-file source/transformed hashes and fixture verification without secrets.
 - [ ] **5. Commit:** `feat(testing): adapt guarded migrations for independent University DB`.
 
-### Task3: Prove shared-instance isolation and provision the Testing DB
+### Task 3: Prove shared-instance isolation and provision the Testing DB
 
 **Files:** Create `tools/testing-db/shared-instance-acceptance.js`, `university-admin.js`, `tests/university-testing-admin.test.js`; extend `tools/testing-db/local-acceptance.js`; add `docs/dual-environment/12-university-testing-operations.md`.
 
@@ -90,7 +90,7 @@ New helpers are tooling unless explicitly under `server/src`. Any new shipped AP
 - [ ] **4. Inventory and provision live Testing only after green synthetic tests:** read canonical existing University SQL configuration safely, physical server/certificate/storage, existing target name and effective Windows identity permissions. Use existing University admin access to create the new DB if absent, keep TRUSTWORTHY/DB_CHAINING OFF, map only a suitable existing runtime principal to scoped Testing roles, initialize synthetic migrations/fixtures, and capture read-only Production before/after fingerprints. Verify strict-TLS connection from VET-C31293. Missing connectivity/permission is pending; do not infer access-denied from the earlier failed literal-extraction probe or enable public SQL.
 - [ ] **5. Run green** Task3 tests plus both SQL harnesses; save private sanitized receipts with actual SHA/engine/driver/operator/target. Commit code and sanitized operations documentation: `feat(testing): verify shared-server database isolation and guarded administration`.
 
-### Task4: Connect Testing Firebase accounts through the guarded Windows profile
+### Task 4: Connect Testing Firebase accounts through the guarded Windows profile
 
 **Files:** Modify `tools/testing-db/provision-test-accounts.js`, `tools/testing-db/connection-profile.js`; create `tests/testing-account-windows-profile.test.js`; update `tests/testing-db-tooling.test.js` and operations runbook.
 
@@ -103,7 +103,7 @@ New helpers are tooling unless explicitly under `server/src`. Any new shipped AP
 - [ ] **4. Run green** the same tests; verify actual account provisioning and Testing Firebase token project/disabled-user behavior privately without logging tokens/passwords. Actual deployed API role/cross-faculty checks run in Task8 after the new candidate API artifact exists; do not stage an old099 runtime against the new DB to satisfy this step.
 - [ ] **5. Commit:** `feat(testing): provision Firebase accounts through guarded Windows SQL`.
 
-### Task5: Stage and supervise the desktop API with artifact attestation
+### Task 5: Stage and supervise the desktop API with artifact attestation
 
 **Files:** Create `tools/testing-host/artifact-attestation.js`, `host-policy.js`, `Invoke-PawsTestingHost.ps1`, `testing-host.template.json`, `tests/testing-host-artifacts.test.js`, `tests/testing-host-process.test.js`; update operations runbook.
 
@@ -116,7 +116,7 @@ New helpers are tooling unless explicitly under `server/src`. Any new shipped AP
 - [ ] **4. Run green** tests and PowerShell parser/policy checks with fake processes and fixture artifacts. Prepare the private host profile and separate Testing tunnel, record its actual origin for Task7; an ingress with no candidate API yet is explicitly NOT_READY. Actual Stage/Start/Check/Stop, SQL/Auth, restart and attestation run in Task8 after Task7 creates the reviewed candidate CI artifact. Do not silently reuse a Production tunnel or mapped admin credential.
 - [ ] **5. Commit:** `feat(testing): stage attested desktop API and supervised ingress`.
 
-### Task6: Replace Azure deployment dependencies with verified Testing Hosting
+### Task 6: Replace Azure deployment dependencies with verified Testing Hosting
 
 **Files:** Modify `.github/workflows/paws-testing-deploy.yml`, `tools/verify-testing-api-env.js`, `tools/testing-preflight.js`, `tools/verify-release-evidence.js`, `tests/testing-deployment-readiness.test.js`, `tests/azure-deployment.test.js`; retire `.github/workflows/paws-testing-db-reset.yml`, `azure-beta-aca-deploy.yml`, `azure-beta-acr-publish.yml`; update setup/runbook/status/uat docs. Preserve `azure-beta-build.yml` path/artifact names, `deploy/aca/Dockerfile` freeze input and `paws-release-approval.yml` interfaces.
 
@@ -129,7 +129,7 @@ New helpers are tooling unless explicitly under `server/src`. Any new shipped AP
 - [ ] **4. Run green** both suites plus `node --test tests/dual-environment-config.test.js tests/firebase-hosting-config.test.js tests/startup-recovery.test.js`; review workflow permissions/trigger/source binding and update instructions to remove active Azure requirements while preserving dated historical claims.
 - [ ] **5. Commit:** `feat(testing): publish verified University Testing without Azure deployment`.
 
-### Task7: Commit actual environment values, review product and promote freezes
+### Task 7: Commit actual environment values, review product and promote freezes
 
 **Files:** Modify `config/environments/testing.json`, `production.json`, rendered `paws-api-origin.js`, `tools/beta-freeze.js`, `tools/static-assets.json`, `tools/beta-baseline.json`, API freeze inventory as required; add `docs/dual-environment-freeze-promotion-20261022-university-testing.md` and `tests/university-testing-governance.test.js`; update continuity/current runbooks.
 
@@ -142,7 +142,7 @@ New helpers are tooling unless explicitly under `server/src`. Any new shipped AP
 - [ ] **4. Run full verification sequentially:** `npm test`; `npm test --prefix server`; `npm run test:emulator`; `node tools/build-beta-release.js`; `node tools/build-testing-release.js`; `node tools/verify-beta-candidate.js`; `node tools/beta-api-freeze.js`; static/API artifact freezes; `node tools/verify-environment-config.js --repository`; both environment artifact checks; focused new governance tests. Expected: zero unexplained failures, complete Testing artifact with no unprovisioned skip. If parser concurrency timeouts recur, isolate unchanged tests and record default plus controlled serial results, never erase the failure qualification.
 - [ ] **5. Push existing PR125** without force after scope/secret/whitespace checks. Obtain fresh exact-candidate Build/emulator/SQL CI and official artifact digest; previous099 evidence does not cover new code. If Actions quota blocks, prepare an exact-SHA cloud handoff prompt and continue other checks; do not reuse a PR124-only waiver. Update readiness docs/ledger statuses with actual candidate/source evidence, never mark deployment from a build.
 
-### Task8: Accept candidate, merge, reaccept exact-main and release coherently
+### Task 8: Accept candidate, merge, reaccept exact-main and release coherently
 
 **Files:** Add `docs/dual-environment/13-university-testing-acceptance-release.md`; update status/operations/uat docs and `agent.Ai/` continuity. Operational private files stay outside Git and Hosting. No new business feature code is planned here; findings return to the owning regression task and invalidate downstream receipts as appropriate.
 

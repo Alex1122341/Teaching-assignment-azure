@@ -196,7 +196,7 @@ test('reset seeds current Availability and CCC readers after all forward migrati
     assert.ok(item.min >= 1, id);
   }
   const source = fs.readFileSync(path.join(root, 'tools/testing-db/reset-testing-db.js'), 'utf8');
-  assert.ok(source.indexOf("'seed-readers.sql'") > source.indexOf('for (const file of files)'));
+  assert.ok(source.indexOf("await run(pool, sources.get('seed-readers.sql'))") > source.indexOf('for (const file of files)'));
   const acceptance = fs.readFileSync(path.join(root, 'tools/testing-db/local-acceptance.js'), 'utf8');
   for (const label of ['Availability pagination returns all work rows', 'Availability denies another faculty', 'CCC Schedule includes assigned and Locum', 'CCC Schedule excludes the next academic year']) {
     assert.ok(acceptance.includes(label), label);

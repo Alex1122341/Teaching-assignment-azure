@@ -1,4 +1,11 @@
-## Current: PR125 concrete implementation-plan review — 2026-10-22
+## Current: PR125 implementation Task2 complete; Task3 next — 2026-10-22
+
+Task2 adds a manifest-bound migration adapter (61 inputs/42 guards), strict-TLS Windows administrative connector, guarded reset/seed paths and hash receipts. Fixed bootstrap is transactional; ordinary SQL always checks exact database/server/UUID; module DDL stays first in a parameter-bound inner batch. Focused26/26; wider76/76 before final scanner expansion; task-done records final command. No real SQL/infra changes or publication. Production migrations unchanged; native isolation proof remains Task3 and freeze promotion Task7. Read updates/2026-10-22-pr125-university-testing-task2.md and plan ledger. Owner already approved sequential implementation; continue without another permission request.
+## Current: PR125 Task1 verified; continue Task2 — 2026-10-22
+
+Plan approved; do not ask again. Task1 committed773e766: exact SQL target/UUID and same-request guards on both pools; concurrency/lifecycle fixes. Focused89pass, uninterrupted full server serial892pass/0fail/4skip. All failures/standby evidence retained; no native SQL or release acceptance yet. Next use executing-plans task-start for Task2 and read its brief: bounded migration adapter, shared Windows connector and guarded reset for VetMed-Ops-Testing while Production sources remain unchanged. Source-bound progress ledger .superpowers/sdd/2026-10-22-pr125-university-testing-implementation/progress.md is authoritative. Full new root/freeze/CI after Task7 promotion; no pushes/live mutations yet. See updates/2026-10-22-pr125-university-testing-task1.md.
+
+## Historical: PR125 concrete implementation-plan review — 2026-10-22
 
 Written design approved; eight-task docs/superpowers/plans/2026-10-22-pr125-university-testing-implementation.md ready/self-reviewed. Next: Owner confirms this concrete plan, then invoke executing-plans and begin Task1 targeted failing regressions. Preserve sequential/native execution and final independent review, already selected. Do not ask again for host/database/design or general release authorization. No dependency installation, Testing DB creation, grants, config/workflow/runtime/freeze edits, merge or release yet. Source product099 CI is historical only. See updates/2026-10-22-pr125-university-testing-plan.md.
 

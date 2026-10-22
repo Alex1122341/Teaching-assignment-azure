@@ -44,7 +44,7 @@ test('faculty-name promotion makes no changes to protected API inputs or SQL mig
  assert.equal(before.length,110);
  assert.deepEqual(after,before);
  const protectedApi=[...before,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES];
- const changedFiles=changed(OLD,PRODUCT);
+ const changedFiles=changed(PRIOR_MAIN,PRODUCT);
  assert.deepEqual(changedFiles.filter(f=>protectedApi.includes(f)),[]);
  assert.deepEqual(changedFiles.filter(f=>f.startsWith('database/azure-sql/')),[]);
 });

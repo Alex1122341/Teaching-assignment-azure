@@ -32,7 +32,7 @@ test('W1E permission contract covers every SQL repository object and stored proc
     ...contract.readProcedures, ...contract.p2ReadProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
-    ...contract.calendarReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
+    ...contract.calendarReadProcedures, ...contract.cccScheduleReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
     ...contract.schedulingReadProcedures,...Object.values(contract.schedulingWriteSets).flat(),
     ...contract.afcFormProcedures,...contract.afcRecordDocumentProcedures,...contract.cccReplacementProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions,...contract.masterRefreshTrustedProcedures,...contract.traineeReadProcedures,...contract.availabilityReadProcedures
   ];

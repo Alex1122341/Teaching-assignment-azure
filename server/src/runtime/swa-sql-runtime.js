@@ -48,6 +48,9 @@ const { createDoeApi } = require('../doe/doe-api');
 const { createDoeFunctions } = require('./swa-doe-functions');
 const { createSupportService } = require('../support/support-service');
 const {createCalendarActivityApi}=require('../calendar/calendar-activity-api');
+const {createCccScheduleApi}=require('../ccc/ccc-schedule-api');
+const {createSqlCccScheduleRepository}=require('../data/sql-ccc-schedule-repository');
+const {createCccScheduleFunctions}=require('./swa-ccc-schedule-functions');
 const {createSqlCalendarActivityRepository}=require('../data/sql-calendar-activity-repository');
 const {createCalendarActivityFunctions}=require('./swa-calendar-activity-functions');
 const {createSchedulingTaskApi}=require('../scheduling/scheduling-task-api');
@@ -164,6 +167,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const swapRoutes = createSwapFunctions({api:createSwapApi({
     verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),workflowPreviewService:doeWorkflowPreviewService,worksheetService:doeWorksheetService,writeGates
   })});
+  const cccScheduleRoutes=createCccScheduleFunctions({api:createCccScheduleApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCccScheduleRepository(db)})});
   const calendarActivityRoutes=createCalendarActivityFunctions({api:createCalendarActivityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCalendarActivityRepository(db,{importDb:calendarImportDb}),writeGates})});
   const facultyAvailabilityRoutes=createFacultyAvailabilityFunctions({api:createFacultyAvailabilityApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlFacultyAvailabilityRepository(db)})});
   const schedulingTaskRoutes=createSchedulingTaskFunctions({api:createSchedulingTaskApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlSchedulingTaskRepository(db),writeGates})});
@@ -172,6 +176,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const cccReplacementRoutes=createCccReplacementFunctions({api:createCccReplacementApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCccReplacementRepository(db,{importDb:calendarImportDb}),writeGates})});
   const route = async request => {
     const pathname = new URL(request.url).pathname;
+    if(pathname==='/api/v1/ccc-schedule')return cccScheduleRoutes(request);
     if(pathname==='/api/v1/afc-forms'||pathname.startsWith('/api/v1/afc-forms/'))return afcFormRoutes(request);
     if(pathname==='/api/v1/ccc-replacements'||pathname.startsWith('/api/v1/ccc-replacements/'))return cccReplacementRoutes(request);
     if (pathname==='/api/v1/change-history'||pathname.startsWith('/api/v1/change-history/')) return historyRoutes(request);

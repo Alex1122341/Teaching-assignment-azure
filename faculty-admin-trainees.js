@@ -3,6 +3,7 @@
  const CATEGORIES=['undergrad','vetm506','preceptor','im','grad_primary','grad_cosupervised','postdoc'];
  const LABELS=['Undergraduate','VETM 506','Fourth-year preceptor','IM','Graduate primary','Graduate co-supervisor','Postdoc'];
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const showFaculty=value=>root?.PAWS_FACULTY_NAME?.format?.(value)||String(value||'');
  const value=v=>v===null||v===undefined?'Not provided':esc(v);
  const doe=v=>v===null||v===undefined?'Not provided':Number.isFinite(Number(v))?esc(Number(v).toLocaleString('en-CA',{maximumFractionDigits:4}))+'%':'Not provided';
  const stamp=user=>JSON.stringify(user?{uid:user.uid,role:user.role,facultyId:user.facultyId}:null);
@@ -32,7 +33,7 @@
   };
  }
  function renderRows(rows){
-  return rows.map(r=>`<tr><th scope="row">${esc(r.displayName)}</th>${CATEGORIES.map((_,i)=>`<td>${value(r.rawCounts?.[i])}</td>`).join('')}<td>${value(r.supervisionAssignments??r.rawCounts?.reduce((a,n)=>a+(n??0),0))}</td><td>${doe(r.sourceDoe)}</td><td>${doe(r.currentRawDoe)}</td><td>${doe(r.currentAppliedDoe)}</td><td><span class="trainee-status">${esc(String(r.sourceStatus||'not_provided').replaceAll('_',' '))}</span></td><td>${r.privateNotes&&Object.keys(r.privateNotes).length?`<details><summary>Notes &amp; source</summary><dl>${Object.entries(r.privateNotes).map(([key,note])=>`<dt>${esc(key)}</dt><dd>${esc(note)}</dd>`).join('')}</dl><small>${r.sourceRef?esc(`${r.sourceRef.sheet}!${r.sourceRef.column}${r.sourceRef.row}`):'Source cell not provided'}</small></details>`:'Not provided'}</td></tr>`).join('')||'<tr><td colspan="14" class="trainee-empty">No permitted trainee records match these filters.</td></tr>';
+  return rows.map(r=>`<tr><th scope="row">${esc(showFaculty(r.displayName))}</th>${CATEGORIES.map((_,i)=>`<td>${value(r.rawCounts?.[i])}</td>`).join('')}<td>${value(r.supervisionAssignments??r.rawCounts?.reduce((a,n)=>a+(n??0),0))}</td><td>${doe(r.sourceDoe)}</td><td>${doe(r.currentRawDoe)}</td><td>${doe(r.currentAppliedDoe)}</td><td><span class="trainee-status">${esc(String(r.sourceStatus||'not_provided').replaceAll('_',' '))}</span></td><td>${r.privateNotes&&Object.keys(r.privateNotes).length?`<details><summary>Notes &amp; source</summary><dl>${Object.entries(r.privateNotes).map(([key,note])=>`<dt>${esc(key)}</dt><dd>${esc(note)}</dd>`).join('')}</dl><small>${r.sourceRef?esc(`${r.sourceRef.sheet}!${r.sourceRef.column}${r.sourceRef.row}`):'Source cell not provided'}</small></details>`:'Not provided'}</td></tr>`).join('')||'<tr><td colspan="14" class="trainee-empty">No permitted trainee records match these filters.</td></tr>';
  }
  function renderSummary(s,administrator=false){
   if(!s)return '';

@@ -11,13 +11,13 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed read-only CCC Schedule is the immutable trust anchor: it adds the
-// authenticated cross-faculty CCC reader (SQL 057, API route, client viewer) on
-// top of the accepted Faculty Availability + restored Dashboard History product.
+// Reviewed faculty presentation-only names are the immutable trust anchor:
+// display "Last, First" without changing the SQL identity, ownership, or write
+// behavior of the accepted CCC, Availability and Dashboard History release.
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
+const BASELINE_COMMIT='ba915e99ca06677d58e129f6fb671bd40d21600e';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

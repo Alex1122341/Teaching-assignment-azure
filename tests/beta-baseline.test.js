@@ -11,7 +11,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
+const BASELINE_COMMIT='ba915e99ca06677d58e129f6fb671bd40d21600e';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
@@ -454,7 +454,7 @@ test('all 85 current protected files are byte-identical to the immutable accepte
 test('the CCC Schedule freeze promotion adds exactly two static files and changes exactly three',()=>{
   const apiFreeze=require('../tools/beta-api-freeze.js');
   const previous='370c30a21d99ae7227f97f1e0cb781864c674768';
-  const accepted=BASELINE_COMMIT;
+  const accepted='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
   const before=JSON.parse(execFileSync('git',['show',previous+':tools/static-assets.json'],{cwd:root,encoding:'utf8'})).sort();
   const after=JSON.parse(execFileSync('git',['show',accepted+':tools/static-assets.json'],{cwd:root,encoding:'utf8'})).sort();
   assert.equal(before.length,83);
@@ -463,7 +463,7 @@ test('the CCC Schedule freeze promotion adds exactly two static files and change
   assert.deepEqual(after.filter(name=>!before.includes(name)),['ccc-schedule.css','ccc-schedule.js']);
   // The promotion is this governance change, so the report under test is the
   // working-tree one; at the product commit it still names the previous anchor.
-  assert.equal(baseline.sourceCommit,accepted);
+  assert.equal(baseline.sourceCommit,BASELINE_COMMIT);
   assert.equal(Object.keys(baseline.sha256).length,85);
   const changed=before.filter(name=>{
     const oldBlob=execFileSync('git',['show',previous+':'+name],{cwd:root,maxBuffer:1<<28});

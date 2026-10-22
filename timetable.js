@@ -1427,7 +1427,7 @@
     };
     const title = seed.courseName ? `${seed.course} - ${seed.courseName}` : `${seed.course} · LAB`;
     const position = [seed.semester, seed.week ? `Week ${seed.week}` : ''].filter(Boolean).join(' ');
-    showModal(`<div class="modal-header"><div class="modal-title">🧪 ${escapeHtml(title)}</div><div class="modal-subtitle">${formatLongDate(parseYmd(seed.date))}${position ? ` · ${escapeHtml(position)}` : ''}</div></div><div class="modal-body">${window.UCVM_LAB_DETAIL.render(model,{actions})}</div><div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button></div>`);
+    showModal(`<div class="modal-header"><div class="modal-title">🧪 ${escapeHtml(title)}</div><div class="modal-subtitle">${formatLongDate(parseYmd(seed.date))}${position ? ` · ${escapeHtml(position)}` : ''}</div></div><div class="modal-body">${window.UCVM_LAB_DETAIL.render(model,{actions,formatFacultyName:displayFacultyList})}</div><div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button></div>`);
     $('modal').querySelector('.modal-box')?.classList.add('lab-detail-modal');
     $('detail-close').onclick = closeModal;
     const rows = [...model.stations, ...model.srl];

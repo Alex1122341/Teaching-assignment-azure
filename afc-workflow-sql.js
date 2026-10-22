@@ -62,7 +62,7 @@
       if(!SELF_ROLES.has(actorRole())||!writeCapabilities.requestLifecycle)return'';
       const displayName=profile().displayName||user()?.displayName||user()?.email||'Signed-in account';
       return '<details class="afc-new"><summary>New AFC request</summary><form id="afc-sql-form">'+
-        '<p class="afc-autofill">Submitting as '+e(displayName)+'. The University API determines faculty identity and workflow routing.</p>'+
+        '<p class="afc-autofill">Submitting as '+e(window.PAWS_FACULTY_NAME.format(displayName))+'. The University API determines faculty identity and workflow routing.</p>'+
         '<div class="afc-grid"><label>Start date<input type="date" name="startDate" required></label>'+
         '<label>End date<input type="date" name="endDate" required></label>'+
         '<label>Reason<select name="reason" required><option value="vacation">Vacation</option><option value="business_other">Business / Other</option></select></label></div>'+
@@ -90,7 +90,7 @@
       if(a.canReject&&writeCapabilities.decisions)controls.push('<button type="button" data-afc-action="reject" data-afc-id="'+e(id)+'">Sign &amp; reject</button>');
       if(status==='approved'&&AFC_REQUEST_UUID.test(id))controls.push('<button type="button" data-afc-download="'+e(id)+'">Download Approved PDF</button>');
       if(a.canRecommend&&ADMIN_ROLES.has(actorRole()))details.push('<p class="afc-note">An administrator may sign on behalf of Reports To; the server remains authoritative.</p>');
-      return '<article class="afc-card"><header><strong>'+e(request.facultyName)+'</strong><span class="afc-status '+e(status)+'">'+e(statusLabel(status))+'</span></header>'+
+      return '<article class="afc-card"><header><strong>'+e(window.PAWS_FACULTY_NAME.format(request.facultyName))+'</strong><span class="afc-status '+e(status)+'">'+e(statusLabel(status))+'</span></header>'+
         details.join('')+(status==='approved'?'<p class="afc-note" role="status" id="afc-download-status-'+e(id)+'"></p>':'')+
         (controls.length?'<div class="afc-review">'+controls.join('')+'</div>':'')+'</article>';
     }

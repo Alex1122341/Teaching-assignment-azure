@@ -4,6 +4,16 @@ Owner requests updating existing PR125. Working branch `feat/paws-testing-enviro
 
 ## Historical: CCC Schedule PR #130 candidate verification — 2026-10-21
 
+## Current: faculty name display PR #131 corrected product SHA — 2026-10-22
+
+PR #131 (`feature/faculty-display-last-first-20261022`) corrects the previous headless and legacy test breakage: browser-only name presentation now gracefully falls back when DOM globals are absent, the historical CCC freeze test stays pinned to its old product receipt, input-display separators preserve spacing, and only UI assertions are updated to `Last, First`. Final candidate product SHA `ba915e99ca06677d58e129f6fb671bd40d21600e`, prior product candidate `5948db79e8bccb4170c15a79bbbc127cfe37e155` superseded. Exactly 18 of 85 static protected files differ from original anchor, zero API/SQL source differences; governance follows product with no protected runtime blob changes. Initial PR CI at previous candidate returned 941 PASS / 40 FAIL / 52 SKIP; current SHA CI unverified. PR remains DRAFT, no merge/deploy. See `agent.Ai/updates/2026-10-22-faculty-name-ci-regression-corrections.md`.
+
+## Current: Last-name-first display presentation-only PR — 2026-10-22
+
+Branch `feature/faculty-display-last-first-20261022` starts at Beta `main` `924cc6761a3b2dfba4f19c2df912436cbd965b43`. Candidate product SHA `5948db79e8bccb4170c15a79bbbc127cfe37e155` changes the on-screen presentation of faculty names to `Last, First` with a single shared formatter and minimal render-time overrides. Protects original names/IDs for matching, filtering, writes and SQL. Exactly 18 of 85 existing static protected files changed; zero API/SQL changes; separate Freeze Governance promotion points to the product SHA. Regression and complete GitHub CI are pending. **NOT MERGED, NOT DEPLOYED.** See `agent.Ai/updates/2026-10-22-faculty-name-last-first.md`. PR #125 remains separate.
+
+## Current: CCC Schedule PR #130 candidate verification — 2026-10-21
+
 PR130 remains Draft/unmerged, branch `feature/ccc-schedule-readonly-20261021`. The last accepted starting main is `a46c3bd9075af146177b7a0b614a4955e829c2fd`. Product fix `0be27151369aff17c71419a9fc92a96d99b3e0cf` protects distinct CCC source end-date ranges in the UI and sets `Cache-Control: private, no-store` on every CCC Schedule API result; targeted tests were extended. These new code bytes have **not yet been independently executed/accepted**. Prior executor evidence at `c10c662da9e8d5f3ea6ab83a09b8ea4e822b97e4`: CCC focused22pass, server805pass/0fail/4skip, partial root229pass/2freeze-drift failures. Node22/npm ci remains stuck, emulator and SQL057 disposable testing unrun, GitHub Actions zero-step failures, independent product/security and freeze governance incomplete. No merge, production SQL057, API cutover or Firebase deployment. Next executor action: verify fresh HEAD, run dependency-free Node22 targeted tests and `node --check`, then collect full install/root/emulator/SQL evidence as available; do not claim earlier test totals cover new code. See `agent.Ai/updates/2026-10-21-ccc-schedule-cache-and-range-fix.md`.
 
 ## Current: CCC Schedule product corrected; freeze promoted to 5b135df — 2026-10-21

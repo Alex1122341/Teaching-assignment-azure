@@ -18,8 +18,8 @@
     const stations=all.filter(row=>text(row.type).toUpperCase()==='LAB');
     return {seed,stations,srl:all.filter(row=>text(row.type).toUpperCase()==='SRL'),slots:[...new Set(stations.map(slot))].sort()};
   }
-  function render(model,{actions=()=>''}={}){
-    const title=row=>`<strong>${escape(row.topic||'Activity not provided')}</strong><div class="lab-instructor">${escape(row.instructor||'Instructor not provided')}</div>${row.pendingSwap?'<span class="sql-swap-pending">SWAP PENDING</span>':''}`;
+  function render(model,{actions=()=>'',formatFacultyName=value=>String(value||'')}={}){
+    const title=row=>`<strong>${escape(row.topic||'Activity not provided')}</strong><div class="lab-instructor">${escape(formatFacultyName(row.instructor||'Instructor not provided'))}</div>${row.pendingSwap?'<span class="sql-swap-pending">SWAP PENDING</span>':''}`;
     const room=row=>escape(row.room||'Room not provided');
     const hasActions=[...model.stations,...model.srl].some(row=>Boolean(actions(row)));
     const actionHead=hasActions?'<th scope="col">Actions</th>':'';

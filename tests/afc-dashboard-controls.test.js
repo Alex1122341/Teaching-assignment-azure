@@ -123,7 +123,7 @@ test('Dashboard keeps AFC creation closed when the server denies its capability'
 });
 test('AFC faculty labels expose names while retaining canonical IDs as values', async()=>{
   const {element}=await dashboard();
-  assert.match(element('afc-faculty').innerHTML,new RegExp(`value="${ID}">Ada One</option>`));
+  assert.match(element('afc-faculty').innerHTML,new RegExp(`value="${ID}">One, Ada</option>`));
   assert.doesNotMatch(element('afc-faculty').innerHTML,new RegExp(`>[^<]*${ID}`));
 });
 test('AFC row deletion confirms, cancels the exact version, and refreshes the active list', async()=>{

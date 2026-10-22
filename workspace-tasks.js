@@ -1,5 +1,6 @@
 (function(root){
  'use strict';
+ const showFaculty=value=>root.PAWS_FACULTY_NAME?.format(value)||String(value||'');
  const TYPES={instructor_overlap:'Instructor overlap',afc_unavailable:'Unavailable',duplicate_assignment:'Duplicate assignment',duplicate_session_assignment:'Duplicate session assignment',invalid_schedule:'Invalid schedule',missing_schedule:'Missing schedule',calendar_activity_overlap:'Working activity overlap',calendar_time_unknown:'Working time not provided'};
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let panel,button,adapter,generation=0,owner=null,started=false,year='',years=[],params={},query='',mode='all';
@@ -14,10 +15,10 @@
   const options=(values,key,label,selected,placeholder,selectedLabel)=>`${placeholder?'<option value="">'+esc(placeholder)+'</option>':''}`+values.map(row=>`<option value="${esc(row[key])}" data-label="${esc(row[label])}"${String(row[key])===selected?' selected':''}>${esc(row[label])}</option>`).join('')+(selected&&!values.some(row=>String(row[key])===selected)?`<option value="${esc(selected)}" data-label="${esc(selectedLabel||selected)}" selected>${esc(selectedLabel||selected)} (not in current issues)</option>`:'');
   panel.querySelector('[data-task-year]').innerHTML=options(years.map(academicYear=>({academicYear})),'academicYear','academicYear',year,'');
   const facultySelect=panel.querySelector('[data-task-filter="facultyKey"]'),selectedFaculty=facultySelect.selectedOptions[0];
-  facultySelect.innerHTML=options(facets.faculty,'facultyKey','displayName',params.facultyKey,'All faculty in scope',selectedFaculty&&selectedFaculty.value===params.facultyKey?selectedFaculty.dataset.label:undefined);
+  facultySelect.innerHTML=options(facets.faculty.map(row=>({...row,displayName:showFaculty(row.displayName)})),'facultyKey','displayName',params.facultyKey,'All faculty in scope',selectedFaculty&&selectedFaculty.value===params.facultyKey?selectedFaculty.dataset.label:undefined);
   panel.querySelector('[data-task-filter="courseCode"]').innerHTML=options(facets.courses,'courseCode','courseCode',params.courseCode,'All courses');
  }
- function matchesSearch(item){return !query||[item.displayName,item.courseCode,item.date,item.type,item.title,item.reason,item.topic].join(' ').toLowerCase().includes(query);}
+ function matchesSearch(item){return !query||[item.displayName,showFaculty(item.displayName),item.courseCode,item.date,item.type,item.title,item.reason,item.topic].join(' ').toLowerCase().includes(query);}
  function navigationVisible(item){
   if(params.facultyKey||params.type||params.reviewStatus||params.undated==='only')return false;
   return (!params.courseCode||item.courseCode===params.courseCode)&&(!params.start||item.date>=params.start&&item.date<params.end);
@@ -25,7 +26,7 @@
  function card(task){
   const reviewed=task.reviewStatus==='Reviewed',status=reviewed?(task.severity==='Conflict'?'Reviewed · Conflict remains':'Reviewed · Issue remains'):'Unreviewed';
   const related=(task.relatedSessions||[]).map(session=>`<div class="workspace-conflict-reference"><small>${esc([session.courseCode?'VETM '+session.courseCode:'Course not provided',session.date,session.startTime,session.endTime].filter(Boolean).join(' · '))}</small><button type="button" data-open-session="${esc(session.id)}">Open conflicting session</button></div>`).join('');
-  return `<article class="workspace-task workspace-issue" data-issue-key="${esc(task.issueKey)}"><div class="workspace-issue-badges"><span class="workspace-issue-severity ${task.severity==='Conflict'?'is-conflict':'is-review'}">${esc(task.severity)}</span><span>${esc(status)}</span></div><strong>${esc(TYPES[task.type]||'Schedule issue')}</strong><span>${esc(task.displayName||'Faculty not provided')} · ${esc(task.courseCode?'VETM '+task.courseCode:'Course not provided')}</span><small>${esc(task.date||'Date not provided')} · ${esc(task.startTime&&task.endTime?task.startTime+'–'+task.endTime:'Time not provided')}</small><div class="workspace-issue-actions"><button type="button" data-open-session="${esc(task.sessionId)}">Open session</button>${task.canReview?`<button type="button" data-review-issue="${esc(task.issueKey)}"${loading||reviewBusy?' disabled':''}>${reviewed?'Reopen review':'Mark reviewed'}</button>`:''}</div>${related}</article>`;
+  return `<article class="workspace-task workspace-issue" data-issue-key="${esc(task.issueKey)}"><div class="workspace-issue-badges"><span class="workspace-issue-severity ${task.severity==='Conflict'?'is-conflict':'is-review'}">${esc(task.severity)}</span><span>${esc(status)}</span></div><strong>${esc(TYPES[task.type]||'Schedule issue')}</strong><span>${esc(showFaculty(task.displayName||'Faculty not provided'))} · ${esc(task.courseCode?'VETM '+task.courseCode:'Course not provided')}</span><small>${esc(task.date||'Date not provided')} · ${esc(task.startTime&&task.endTime?task.startTime+'–'+task.endTime:'Time not provided')}</small><div class="workspace-issue-actions"><button type="button" data-open-session="${esc(task.sessionId)}">Open session</button>${task.canReview?`<button type="button" data-review-issue="${esc(task.issueKey)}"${loading||reviewBusy?' disabled':''}>${reviewed?'Reopen review':'Mark reviewed'}</button>`:''}</div>${related}</article>`;
  }
  function render(){
   if(!panel)return;

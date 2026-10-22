@@ -6,8 +6,11 @@ const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const manifest=ref=>JSON.parse(git('show',ref+':tools/static-assets.json')).sort();
 const tree=ref=>new Map(git('ls-tree','-r',ref).split(/\r?\n/).map(line=>{const [meta,file]=line.split('\t');return[file,meta.split(' ')[2]];}));
 
-test('reviewed integrated environment product retains current main and protects only its bounded runtime delta',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+test('historical reviewed integrated environment product retains current main and protects only its bounded runtime delta',()=>{
+ const report=JSON.parse(git('show','637203c:tools/beta-baseline.json'));
+ assert.ok(git('show','a30ad39:tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,PRODUCT);
+ git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);
  for(const parent of [MAIN,ORIGINAL])git('merge-base','--is-ancestor',parent,PRODUCT);
  git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  const before=manifest(MAIN),after=manifest(PRODUCT),oldApi=api.baselineRuntimeFiles({root,baselineCommit:MAIN}),newApi=api.baselineRuntimeFiles({root,baselineCommit:PRODUCT});

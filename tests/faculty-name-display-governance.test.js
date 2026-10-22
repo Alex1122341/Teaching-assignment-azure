@@ -48,12 +48,14 @@ test('faculty-name promotion makes no changes to protected API inputs or SQL mig
  assert.deepEqual(changedFiles.filter(f=>protectedApi.includes(f)),[]);
  assert.deepEqual(changedFiles.filter(f=>f.startsWith('database/azure-sql/')),[]);
 });
-test('governance changes zero protected application bytes and pins exact product commit',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);
- assert.equal(api.BASELINE_COMMIT,PRODUCT);
+test('historical name governance changes zero protected application bytes and pins exact product commit',()=>{
+ const report=JSON.parse(git('show','31e4bee:tools/beta-baseline.json'));
+ assert.ok(git('show','31e4bee:tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
  assert.equal(report.sourceCommit,PRODUCT);
  assert.deepEqual(Object.keys(report.sha256).sort(),JSON.parse(git('show',PRODUCT+':tools/static-assets.json')).sort());
- assert.deepEqual(changed(PRODUCT,'HEAD').filter(f=>Object.hasOwn(report.sha256,f)||f.startsWith('server/src/')||f.startsWith('swa-api/')||api.BUILD_DEFINITION_FILES.includes(f)||api.REPOSITORY_INPUT_FILES.includes(f)),[]);
+ assert.deepEqual(changed(PRODUCT,'31e4bee').filter(f=>Object.hasOwn(report.sha256,f)||f.startsWith('server/src/')||f.startsWith('swa-api/')||api.BUILD_DEFINITION_FILES.includes(f)||api.REPOSITORY_INPUT_FILES.includes(f)),[]);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
  assert.equal(api.verifyFreeze({root}).ok,true);
 });

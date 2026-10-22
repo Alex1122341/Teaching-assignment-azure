@@ -14,7 +14,7 @@ const {execFileSync}=require('node:child_process');
 // Reviewed integrated dual-environment product retains main Availability, CCC
 // Schedule and restored History. Original promotions remain pinned separately
 // in historical governance tests; this promotion adds no drift exceptions.
-const BASELINE_COMMIT='35a84164d4a330e6f6d0427b4850a7836445832f';
+const BASELINE_COMMIT='424242603af2d6ff313d6db3520e6d04ad5f9024';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

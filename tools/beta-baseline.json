@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "35a84164d4a330e6f6d0427b4850a7836445832f",
+  "sourceCommit": "424242603af2d6ff313d6db3520e6d04ad5f9024",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -78,15 +78,15 @@
     "swap-workflow-sql.css": "cf3e55658199335b85a420d4f1c8f81814dee3aa7e3e8709374f3e93956b0318",
     "swap-workflow-sql.js": "cac16c19d7656b763c813f6838463be8f330a9cf81c35971c679738124ccf0fa",
     "teaching-assignments.css": "54b0774aa7dd55add0b8c6876c148eb94b20a747a7e50506ebc2587d56d51f66",
-    "teaching-assignments.html": "80138df3d6afe4ad0b9a628ecb7406a856547a36f6f9acff87935f789d33bf4e",
-    "teaching-assignments.js": "aa86eec12fbed8be43f6545f727fea9f8e54e3eb2031666ba6d9224c68f4fc50",
+    "teaching-assignments.html": "315593c952282a14b5f6a88e08966f7d61e09b4cf933bc792f621fc8875d4398",
+    "teaching-assignments.js": "d3bb202b139f4176dd83e5bf1a5b844edb43ffd1006f63e92be437aba4c1e449",
     "timetable-selection.js": "a6085d77bb2e11ecba8a8d043765166c446ad3ca9c10a4f86bdb5b170227b5c2",
     "timetable.css": "19eebdeb52d0df393b24e41b92741e8859f4c625d58cb55fe17146bbea91b166",
-    "timetable.js": "390fae0b4a57631a42cd16022c174df5473b1964105eeb5515a8a61aa7128909",
+    "timetable.js": "ef8a47d73f3b228a98a814e8cb0f8234d5f6f25d7cea492301fe89cc86712e5b",
     "user-management.css": "de65cb308772e82be4f551ad505ae7b718736c0cdfd531dedf7b971c089cfe02",
-    "user-management.html": "b98705132597fbcd89bf741c1530016884d3e51db5d1d4365aba3c10db70710c",
-    "user-management.js": "4986db09f4a7e03c6ea44ba0a91f4bf2dceacf8edafc2db8f7f19f98782006d4",
-    "workspace-tasks.js": "6e87bba27702b78b185f7b2b970873b5b1ace4f702b6525de99d8630323db3db",
+    "user-management.html": "860e59411ae338dc6c60e4fdd85978e6d08d02cb46b8a1d9b2cdd913c13af16b",
+    "user-management.js": "36ebae9ff0bfddbac604d4a40b05783aa9ee6960cf18ac1e9127ed481a33bc2f",
+    "workspace-tasks.js": "4520839dd547c21d6d9e6e49ddc2f8a5645f3d06b8954c3f53840edf9200a6c6",
     "workspace.css": "031da8fa7c98c99eea8bf3bf27a7c83de5682eb117a92048082cbdb59782ca99"
   }
 }

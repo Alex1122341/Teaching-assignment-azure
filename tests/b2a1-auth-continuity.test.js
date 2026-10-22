@@ -92,7 +92,7 @@ test('A8 every classification carries a non-destructive message', () => {
 // ---------------------------------------------------------------------------
 // B. Common API client: 401 -> forced token refresh -> exactly one retry.
 // ---------------------------------------------------------------------------
-const { createPawsAzureDataClient } = require('../paws-data-client.js');
+const { createPawsDataClient } = require('../paws-data-client.js');
 
 function client({ responses, refreshFails = false }) {
   const attempts = [];
@@ -101,7 +101,7 @@ function client({ responses, refreshFails = false }) {
   return {
     attempts,
     tokenCalls,
-    client: createPawsAzureDataClient({
+    client: createPawsDataClient({
       tokenProvider: async options => {
         tokenCalls.push(options);
         if (options && options.forceRefresh === true) {

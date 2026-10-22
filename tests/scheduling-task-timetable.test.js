@@ -7,7 +7,7 @@ function harness(){
  const state={rows:[{id:'existing',academicYear:'2026-27',topic:'old'}],fetches:0,notifications:0,opened:[],errors:[]};
  const context={state,console,Map,Promise,Boolean,String,Number,Math,Date,
   window:{PAWS_TASKS:{configure:adapter=>{state.adapter=adapter;}}},
-  fetchAzureSessions:async()=>{state.fetches++;return state.rows.map(row=>({...row}));},
+  fetchPawsSessions:async()=>{state.fetches++;return state.rows.map(row=>({...row}));},
   publishPageData:()=>{state.notifications++;},calendarTimingDisposition:()=>({}),unpositionedReason:()=>'',
   openSessionDetail:(id,session)=>state.opened.push({id,topic:session?.topic}),toast:message=>state.errors.push(message),
   parseYmd:value=>new Date(value),academicPositionForDate:()=>({semester:'fall',week:1}),WEEK_COUNT:52,
@@ -36,12 +36,12 @@ test('real Tasks timetable adapter refreshes cached scope and opens current or n
 });
 test('real Tasks navigation ignores results from a previous account and reports a failed refresh',async()=>{
  const {state,context}=harness();
- context.fetchAzureSessions=()=>new Promise(resolve=>{state.resolve=resolve;});
+ context.fetchPawsSessions=()=>new Promise(resolve=>{state.resolve=resolve;});
  const pending=state.adapter.openSession('new-session');
  await Promise.resolve();vm.runInContext("currentUser={uid:'synthetic-b'};",context);
  state.resolve([{id:'new-session',topic:'other-account'}]);await pending;
  assert.equal(state.opened.length,0);
- context.fetchAzureSessions=async()=>{throw Error('PRIVATE backend');};
+ context.fetchPawsSessions=async()=>{throw Error('PRIVATE backend');};
  await state.adapter.openSession('existing');
  assert.equal(state.opened.length,0);assert.match(state.errors.at(-1),/could not be refreshed/i);assert.doesNotMatch(state.errors.join(' '),/PRIVATE/);
 });

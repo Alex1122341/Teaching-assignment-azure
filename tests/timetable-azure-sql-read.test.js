@@ -46,7 +46,7 @@ test('login profile comes from /api/v1/me through the shared Azure data client',
 });
 
 test('visible, range, date and all-session read helpers use Azure API only',()=>{
-  const start=src.indexOf('function azureSessionRow');
+  const start=src.indexOf('function mapPawsSessionRow');
   const end=src.indexOf('function invalidateAllSessions',start);
   const body=src.slice(start,end);
   assert.match(body,/UCVM_PAWS_DATA\.listSessions/);
@@ -56,8 +56,8 @@ test('visible, range, date and all-session read helpers use Azure API only',()=>
 
 test('timetable subscription has no Firestore fallback',()=>{
   const body=functionBody('async function subscribeSessions','function refreshSessionScope');
-  assert.match(body,/fetchAzureSessions/);
-  assert.match(body,/scheduleSource = sessions\.length \? 'azure-sql' : 'azure-sql-empty'/);
+  assert.match(body,/fetchPawsSessions/);
+  assert.match(body,/scheduleSource = sessions\.length \? 'vetmed-ops' : 'vetmed-ops-empty'/);
   assert.doesNotMatch(body,/onSnapshot|collection\(SESSION_COLLECTION\)/);
 });
 

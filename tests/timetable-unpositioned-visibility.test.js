@@ -246,5 +246,5 @@ test('R4D-9G: no Firestore session fallback introduced and writes stay disabled'
   const body=src.slice(src.indexOf('function unpositionedSessionsHtml'),src.indexOf('function renderDay'));
   assert.doesNotMatch(body,/onSnapshot|collection\(SESSION_COLLECTION\)/);
   assert.doesNotMatch(body,/sessionWritesEnabled\s*\(/);
-  assert.match(src,/scheduleSource = sessions\.length \? 'azure-sql' : 'azure-sql-empty'/);
+  assert.match(src,/scheduleSource = sessions\.length \? 'vetmed-ops' : 'vetmed-ops-empty'/);
 });

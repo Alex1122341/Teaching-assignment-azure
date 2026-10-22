@@ -163,7 +163,7 @@ function createHarness(overrides = {}) {
   };
 
   const pawsData = {
-    sessionBackend: () => 'azure-sql',
+    sessionBackend: () => 'vetmed-ops',
     sessionWritesEnabled: () => false,
     currentUser: async () => { calls.push('currentUser'); return overrides.currentUser ? overrides.currentUser() : ADMIN_PROFILE; },
     dashboardSummary: async () => { calls.push('dashboardSummary'); return overrides.summary ? overrides.summary() : SUMMARY; },

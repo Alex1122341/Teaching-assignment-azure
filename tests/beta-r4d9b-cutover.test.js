@@ -14,7 +14,7 @@ test('data client uses the centralized temporary University API origin for profi
   assert.match(source,/PAWS_API_ORIGIN_CONFIG/);
   assert.match(source,/const url=apiOrigin\+path/);
   assert.match(source,/fetchImpl\(url,buildInit\(token\)\)/);
-  const client=require('../paws-data-client.js').createPawsAzureDataClient({
+  const client=require('../paws-data-client.js').createPawsDataClient({
     fetchImpl:async(url,options)=>{assert.equal(new URL(url).origin,originConfig.apiOrigin);assert.match(url,/\/api\/v1\//);assert.equal(options.headers.Authorization,'Bearer test-token');return {ok:true,json:async()=>({profile:{role:'adfa_general'},sessions:[]})}},
     tokenProvider:async()=> 'test-token'
   });
@@ -27,7 +27,7 @@ test('data client uses the centralized temporary University API origin for profi
 test('data client has no Firestore fallback and fails closed without a token',async()=>{
   const source=read('paws-data-client.js');
   assert.doesNotMatch(source,/firestore|collection\(['"]sessions/);
-  const client=require('../paws-data-client.js').createPawsAzureDataClient({fetchImpl:async()=>{throw new Error('must not fetch')},tokenProvider:async()=>''});
+  const client=require('../paws-data-client.js').createPawsDataClient({fetchImpl:async()=>{throw new Error('must not fetch')},tokenProvider:async()=>''});
   await assert.rejects(()=>client.listSessions(),error=>error.code==='UNAUTHENTICATED');
 });
 
@@ -44,7 +44,7 @@ test('Firebase Hosting is static-only while the University API artifact remains 
 
 test('timetable reads fail closed and representative mutation gates stay disabled',()=>{
   const source=read('timetable.js');
-  assert.match(source,/scheduleSource='azure-sql-error'/);
+  assert.match(source,/scheduleSource='vetmed-ops-error'/);
   assert.match(source,/sessionWritesEnabled\(\)/);
   assert.match(source,/if\s*\(enabled\)\s*return true/);
   assert.doesNotMatch(source,/catch[^{]*\{[^}]*collection\(['"]sessions/);

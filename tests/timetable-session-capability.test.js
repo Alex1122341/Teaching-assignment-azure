@@ -40,7 +40,7 @@ test('the timetable source banner distinguishes authorized SQL editors from read
   ]) {
     const nodes = new Map();
     const context = {
-      scheduleSource: 'azure-sql',
+      scheduleSource: 'vetmed-ops',
       currentUser: { role },
       $: id => { if (!nodes.has(id)) nodes.set(id, { classList: { toggle() {}, add() {} } }); return nodes.get(id); },
       canEditExistingSqlSession: () => ['owner', 'administrator', 'adfa_general', 'adfa_regular', 'admin'].includes(role),

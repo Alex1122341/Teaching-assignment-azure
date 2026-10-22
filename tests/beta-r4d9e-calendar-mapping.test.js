@@ -7,7 +7,7 @@ const vm=require('node:vm');
 const source=fs.readFileSync('timetable.js','utf8');
 const academic=source.match(/function academicPositionForDate\(d\) \{[\s\S]*?\n  \}/)?.[0];
 const parse=source.match(/function parseYmd\(s\) \{[\s\S]*?\n  \}/)?.[0];
-const azure=source.match(/function azureSessionRow\(row\)\{[\s\S]*?\r?\n  \}\r?\n  async function fetchAzureSessions/)?.[0]?.replace(/\r?\n  async function fetchAzureSessions[\s\S]*$/,'');
+const azure=source.match(/function mapPawsSessionRow\(row\)\{[\s\S]*?\r?\n  \}\r?\n  async function fetchPawsSessions/)?.[0]?.replace(/\r?\n  async function fetchPawsSessions[\s\S]*$/,'');
 assert.ok(academic&&parse&&azure,'calendar mapping helpers must remain discoverable');
 
 function map(date){
@@ -22,7 +22,7 @@ function map(date){
     ${parse}
     function splitInstructorNames(v){return String(v||'').split(/[;\\n]+/).map(x=>x.trim()).filter(Boolean)}
     ${azure}
-    result=azureSessionRow({id:'sql-1',date:'${date}',curriculumYear:1,courseCode:'581',sessionType:'SRL',startTime:'00:00:00',endTime:'00:00:00'});
+    result=mapPawsSessionRow({id:'sql-1',date:'${date}',curriculumYear:1,courseCode:'581',sessionType:'SRL',startTime:'00:00:00',endTime:'00:00:00'});
   `,context);
   return context.result;
 }
@@ -46,7 +46,7 @@ test('canonical academic mapping covers representative Fall and Winter dates',()
 
 test('calendar range and rendering contracts remain SQL-only and fail closed',()=>{
   assert.match(source,/listSessions\(range\)/);
-  assert.match(source,/fetchAzureSessions\(\)\.then/);
+  assert.match(source,/fetchPawsSessions\(\)\.then/);
   assert.match(source,/s\.semester\s*!==\s*selectedSemester/);
   assert.match(source,/s\.week\s*===\s*selectedWeek/);
   assert.match(source,/function renderDay/);

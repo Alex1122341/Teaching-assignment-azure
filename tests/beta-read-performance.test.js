@@ -42,7 +42,7 @@ test('navigation checks full in-memory cache before issuing another session requ
   const end=source.indexOf('\n  function refreshSessionScope',start);
   const body=source.slice(start,end);
   assert.match(body,/cachedSessionsForRange/);
-  assert.ok(body.indexOf('cachedSessionsForRange')<body.indexOf('fetchAzureSessions'),'cache must be checked before network');
+  assert.ok(body.indexOf('cachedSessionsForRange')<body.indexOf('fetchPawsSessions'),'cache must be checked before network');
 });
 
 test('range helper also uses the full cache before SQL',()=>{
@@ -51,7 +51,7 @@ test('range helper also uses the full cache before SQL',()=>{
   const end=source.indexOf('\n  async function ensureSessionsForDates',start);
   const body=source.slice(start,end);
   assert.match(body,/cachedSessionsForRange/);
-  assert.ok(body.indexOf('cachedSessionsForRange')<body.indexOf('fetchAzureSessions'),'full cache must precede range fetch');
+  assert.ok(body.indexOf('cachedSessionsForRange')<body.indexOf('fetchPawsSessions'),'full cache must precede range fetch');
 });
 
 test('login unlock does not wait for full-session prefetch',()=>{

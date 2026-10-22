@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {renderRows}=require('../change-history');
-const {createPawsAzureDataClient}=require('../paws-data-client');
+const {createPawsDataClient}=require('../paws-data-client');
 test('history keyword and selected year reach the authenticated API without accepting hidden identity filters',async()=>{
- let url;const api=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async u=>{url=u;return {ok:true,json:async()=>({rows:[]})};}});
+ let url;const api=createPawsDataClient({tokenProvider:async()=>'token',fetchImpl:async u=>{url=u;return {ok:true,json:async()=>({rows:[]})};}});
  await api.changeHistory({scope:'timetable',academicYear:'2026-27',keyword:'wet lab 206',actorFirebaseUid:'hidden'});
  const q=new URL(url).searchParams;assert.equal(q.get('keyword'),'wet lab 206');assert.equal(q.get('academicYear'),'2026-27');assert.equal(q.has('actorFirebaseUid'),false);
 });

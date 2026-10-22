@@ -1,10 +1,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const {createHistoryController,renderRows}=require('../change-history');
-const {createPawsAzureDataClient}=require('../paws-data-client');
+const {createPawsDataClient}=require('../paws-data-client');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('client closes filter/page/export fields and sends authenticated GET only',async()=>{
- const calls=[],client=createPawsAzureDataClient({tokenProvider:async()=>'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({rows:[]})};}});
+ const calls=[],client=createPawsDataClient({tokenProvider:async()=>'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({rows:[]})};}});
  await client.changeHistory({scope:'mine',course:'206',actorFirebaseUid:'spoof',facultyId:'private'});
  await client.changeHistoryPage('handle',100);await client.changeHistoryExport('handle','xlsx');
  assert.deepEqual(Object.fromEntries(new URL(calls[0].url).searchParams),{scope:'mine',course:'206'});

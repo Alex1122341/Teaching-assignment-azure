@@ -41,8 +41,8 @@ test('document downloader drops bytes after logout and suppresses simultaneous d
  const request=download(D);await download(D);assert.equal(calls,1);uid='';resolve({bytes:new Uint8Array([1])});await request;assert.equal(downloads,0);
 });
 test('authenticated manual AFC client sends only optional original document binding and supported record fields',async()=>{
- const {createPawsAzureDataClient}=require('../paws-data-client');let body;
- const api=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async(_,options)=>{body=JSON.parse(options.body);return {ok:true,json:async()=>({afcRecordId:F})};}});
+ const {createPawsDataClient}=require('../paws-data-client');let body;
+ const api=createPawsDataClient({tokenProvider:async()=>'token',fetchImpl:async(_,options)=>{body=JSON.parse(options.body);return {ok:true,json:async()=>({afcRecordId:F})};}});
  await api.createDashboardAfcRecord({facultyId:F,startDate:'2026-11-01',endDate:'2026-11-02',reasonCode:'vacation',documentId:D,actorFirebaseUid:'spoof'});
  assert.equal(body.documentId,D);assert.equal(body.actorFirebaseUid,undefined);
 });

@@ -35,9 +35,9 @@ test('the combined timetable loads the API-origin configuration before the share
 });
 
 test('the data client sends Firebase-authenticated API calls to the configured Beta origin', async () => {
-  const { createPawsAzureDataClient } = require('../paws-data-client.js');
+  const { createPawsDataClient } = require('../paws-data-client.js');
   const requests = [];
-  const client = createPawsAzureDataClient({
+  const client = createPawsDataClient({
     fetchImpl: async (url, init) => {
       requests.push({ url, init });
       return { ok: true, json: async () => ({ profile: { role: 'faculty' }, sessions: [] }) };

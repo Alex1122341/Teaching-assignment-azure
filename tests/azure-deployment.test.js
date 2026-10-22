@@ -49,7 +49,7 @@ test('Firebase Hosting is the only active static site deployment workflow',()=>{
   assert.deepEqual(firebase.hosting.redirects.find(x=>x.source==='/faculty-dashboard.html'),{source:'/faculty-dashboard.html',destination:'/index.html',type:301});
 });
 
-test('Azure SQL and optional Container Apps API packaging/deployment remain separately protected',()=>{
+test('SQL acceptance and API packaging stay protected while Azure mutation entrypoints are retired',()=>{
   for(const file of [
     '.github/workflows/azure-beta-acr-publish.yml',
     '.github/workflows/azure-beta-aca-deploy.yml',
@@ -60,12 +60,11 @@ test('Azure SQL and optional Container Apps API packaging/deployment remain sepa
     'deploy/aca/Dockerfile'
   ])assert.ok(fs.existsSync(path.join(root,file)),file);
   const acap=read('.github/workflows/azure-beta-acr-publish.yml');
-  assert.match(acap,/azure-beta-build\.yml/);
-  assert.match(acap,/beta-api-freeze\.js --artifact \.azure-production\/api/);
-  assert.doesNotMatch(acap,/staticwebapp\.config\.json|Azure\/static-web-apps-deploy/);
+  assert.match(acap,/RETIRED_OPERATION/);
+  assert.doesNotMatch(acap,/azure\/login|az acr|docker (?:build|push)|staticwebapp\.config\.json|Azure\/static-web-apps-deploy/);
   const aca=read('.github/workflows/azure-beta-aca-deploy.yml');
-  assert.match(aca,/azure-beta-acr-publish\.yml/);
-  assert.doesNotMatch(aca,/Azure\/static-web-apps-deploy/);
+  assert.match(aca,/RETIRED_OPERATION/);
+  assert.doesNotMatch(aca,/azure\/login|az containerapp|Azure\/static-web-apps-deploy/);
 });
 
 test('frozen release verification covers all manifest files, not a retired Azure SWA config sentinel',()=>{

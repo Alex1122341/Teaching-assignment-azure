@@ -7,6 +7,9 @@ const { classifyAcrTagLookup } = require('../tools/beta-acr-tag-guard');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+// Preserve dated Azure governance assertions at their accepted historical
+// source; current retirement is enforced by azure-deployment.test.js.
+const historicalAzure=file=>require('node:child_process').execFileSync('git',['cat-file','blob','099d6b809f9bf3618e77bb5f5a139043b28d10e4:'+file],{cwd:root,encoding:'utf8',stdio:['ignore','pipe','pipe']});
 
 test('ACR tag guard refuses an existing exact-SHA tag', () => {
   assert.equal(classifyAcrTagLookup({ status: 0, stderr: '' }), 'EXISTS');
@@ -64,8 +67,8 @@ test('Azure Beta Build installs the locked server dependencies before server tes
   assert.ok(serverInstall < serverTests, 'server dependencies must be installed before server tests run');
 });
 
-test('ACR Publish consumes the tested artifact and remains publish-only', () => {
-  const workflow = read('.github/workflows/azure-beta-acr-publish.yml');
+test('historical ACR Publish at099d6b8 consumes the tested artifact and remains publish-only', () => {
+  const workflow = historicalAzure('.github/workflows/azure-beta-acr-publish.yml');
   assert.match(workflow, /source_run_id:/);
   assert.match(workflow, /commit_sha:/);
   assert.match(workflow, /actions\/runs\/\$\{SOURCE_RUN_ID\}/);
@@ -85,8 +88,8 @@ test('ACR Publish consumes the tested artifact and remains publish-only', () => 
   assert.doesNotMatch(workflow, /contents:\s*write/);
 });
 
-test('ACA Deploy gates exact runs, digest activation, health, and anonymous route smoke', () => {
-  const workflow = read('.github/workflows/azure-beta-aca-deploy.yml');
+test('historical ACA Deploy at099d6b8 gates exact runs, digest activation, health, and anonymous route smoke', () => {
+  const workflow = historicalAzure('.github/workflows/azure-beta-aca-deploy.yml');
   assert.match(workflow, /source_run_id:/);
   assert.match(workflow, /publish_run_id:/);
   assert.match(workflow, /commit_sha:/);
@@ -122,14 +125,11 @@ test('ACA Deploy gates exact runs, digest activation, health, and anonymous rout
   assert.doesNotMatch(workflow, /ROLLBACK_AUTOMATED\s*=\s*true/);
 });
 
-test('retired Azure SWA deployment is absent; independent ACA and Firebase workflows stay gated',()=>{
+test('retired Azure deployments cannot mutate; Firebase workflow stays gated',()=>{
   assert.equal(fs.existsSync(path.join(root,'.github/workflows/azure-beta-deploy.yml')),false);
   const aca=read('.github/workflows/azure-beta-aca-deploy.yml');
-  assert.match(aca,/azure-beta-acr-publish\.yml/);
-  assert.match(aca,/aca-deploy-\$\{\{ inputs\.commit_sha \}\}/);
-  assert.match(aca,/authBoundaryPassed/);
-  assert.match(aca,/sqlHealthPassed/);
-  assert.doesNotMatch(aca,/Azure\/static-web-apps-deploy/);
+  assert.match(aca,/RETIRED_OPERATION/);
+  assert.doesNotMatch(aca,/az containerapp|azure\/login|Azure\/static-web-apps-deploy/);
   const hosting=read('.github/workflows/firebase-hosting-deploy.yml');
   assert.match(hosting,/workflow_dispatch:/);
   assert.match(hosting,/source_run_id:/);

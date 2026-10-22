@@ -1,3 +1,4 @@
+> **2026-10-22 update — Azure retired.** Active University Testing operations are in [12-university-testing-operations.md](12-university-testing-operations.md). API: VET-C31293; online SQL: ITAPPVETOPSDB01 / VetMed-Ops-Testing; independent Firebase identity. Earlier Azure provisioning/reset/revision instructions below are historical and must not be executed. Code preparation is not live acceptance; SQL installation/isolation, Auth, actual API staging and final release remain pending.
 # PAWS dual environment: infrastructure inventory and Owner setup
 
 These steps need the PAWS Owner's accounts (Azure, Firebase, GitHub repository owner). None of them changes Production data. Replace every `<placeholder>`; nothing here is a real resource name until the Owner creates it. Run `node tools/testing-preflight.js` at any point to see what is still missing.

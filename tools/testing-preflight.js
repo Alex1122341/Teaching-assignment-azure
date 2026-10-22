@@ -19,13 +19,13 @@ const GUIDE = 'docs/dual-environment/03-setup-and-deployment.md';
 const STEPS = Object.freeze({
   firebase: `Create the Testing Firebase project and web app, then copy its web config into config/environments/testing.json (${GUIDE} §2.1).`,
   siteUrl: `Create the Testing Firebase Hosting site and set siteUrl to its https://<site>.web.app origin (${GUIDE} §2.1).`,
-  apiOrigin: `Create the Testing Container App with HTTPS ingress and set apiOrigin to its ingress origin (${GUIDE} §2.3).`,
+  apiOrigin: `Prepare the independent desktop Testing HTTPS tunnel and record its actual origin (${GUIDE}; current University procedure: docs/dual-environment/12-university-testing-operations.md).`,
   peer: `In the same reviewed change, set production.json peerSiteUrl to the Testing siteUrl, regenerate paws-api-origin.js and promote the freeze (${GUIDE} §5).`,
-  apiEnv: `Set the Container App environment from deploy/testing/testing-api.env.template and re-run with --api-env (${GUIDE} §2.4).`,
+  apiEnv: `Validate the private Windows profile with --profile university-testing and supply non-secret settings (${GUIDE}; current University operations §Task5).`,
   live: `Deploy Testing (PAWS Testing Deploy workflow) and re-run with --live (${GUIDE} §6).`
 });
 
-function offlineChecks({ root = ROOT, apiEnv = null } = {}) {
+function offlineChecks({ root = ROOT, apiEnv = null, profile } = {}) {
   const checks = [];
   const add = (id, status, detail, action) => checks.push({ id, status, detail, ...(action ? { action } : {}) });
   let production, testing;
@@ -45,9 +45,9 @@ function offlineChecks({ root = ROOT, apiEnv = null } = {}) {
   } else add('config.production.peer', 'skip', 'waits for the Testing siteUrl');
 
   if (apiEnv) {
-    const { errors, gates } = verifyTestingApiEnv(apiEnv, { root });
-    add('api.environment', errors.length ? 'fail' : 'pass', errors.length ? errors.join('; ') : `Container App environment accepted; open gates: ${Object.entries(gates).filter(([, on]) => on).length}/${Object.keys(gates).length}`, errors.length ? STEPS.apiEnv : null);
-  } else add('api.environment', 'skip', 'Container App environment not supplied (--api-env)', STEPS.apiEnv);
+    const { errors, gates } = verifyTestingApiEnv(apiEnv, { root, profile });
+    add('api.environment', errors.length ? 'fail' : 'pass', errors.length ? errors.join('; ') : `Testing environment accepted; open gates: ${Object.entries(gates).filter(([, on]) => on).length}/${Object.keys(gates).length}`, errors.length ? STEPS.apiEnv : null);
+  } else add('api.environment', 'skip', 'Private Testing environment not supplied (--api-env)', STEPS.apiEnv);
   return { checks, production, testing };
 }
 
@@ -58,7 +58,7 @@ async function fetchWithTimeout(fetchImpl, url, init = {}, ms = 15000) {
   finally { clearTimeout(timer); }
 }
 
-async function liveChecks({ production, testing, fetchImpl = fetch }) {
+async function liveChecks({ production, testing, fetchImpl = fetch, expectedSha, expectedGates, trustAnchor, skipSite=false }) {
   const checks = [];
   const add = (id, status, detail, action) => checks.push({ id, status, detail, ...(action ? { action } : {}) });
   const complete = validatePair(production, testing, { complete: true }).length === 0;
@@ -74,8 +74,11 @@ async function liveChecks({ production, testing, fetchImpl = fetch }) {
     const body = await response.json();
     if (body.status !== 'ok' || body.environment !== 'testing') throw new Error(`runtime reports status=${body.status} environment=${body.environment}`);
     if (!body.writeGates || typeof body.writeGates !== 'object') throw new Error('runtime does not report its write gates');
+    if(expectedSha&&(body.releaseSha!==expectedSha||body.service!=='paws-university-api'||body.authority!=='vetmed-ops-sql'))throw Error('Testing API runtime/source SHA mismatch');
+    if(trustAnchor&&body.runtimeTrustAnchor!==trustAnchor)throw Error('Testing API runtime trust anchor mismatch');
+    if(expectedGates&&require('./testing-runtime-attestation').canonicalDigest(body.writeGates)!==require('./testing-runtime-attestation').canonicalDigest(expectedGates))throw Error('Testing API runtime gate fingerprint mismatch');
     return `Testing API ${body.releaseSha || '(no release)'}; ${Object.values(body.writeGates).filter(Boolean).length} gates open`;
-  }, 'Check the Container App revision logs for paws_api_environment_rejected or paws_api_sql_unavailable_retrying');
+  }, 'Check the private desktop supervisor receipt, University SQL connectivity and target identity');
   await probe('live.api.sql', async () => {
     const response = await fetchWithTimeout(fetchImpl, `${api}/api/health/sql`);
     if (response.status !== 200) throw new Error(`GET /api/health/sql returned ${response.status}`);
@@ -91,10 +94,10 @@ async function liveChecks({ production, testing, fetchImpl = fetch }) {
     const own = await preflight(site);
     if (own.status !== 204 || own.headers.get('access-control-allow-origin') !== site) throw new Error(`Testing site preflight returned ${own.status}`);
     const foreign = await preflight(production.siteUrl);
-    if (foreign.status === 204) throw new Error('the Testing API accepts browser calls from the Production site');
+    if (foreign.status !== 403) throw new Error('the Testing API does not explicitly refuse the Production site');
     return 'only the Testing site may call the Testing API';
   }, 'Set PAWS_API_ALLOWED_ORIGINS to exactly the Testing siteUrl');
-  await probe('live.site.config', async () => {
+  if(!skipSite)await probe('live.site.config', async () => {
     const response = await fetchWithTimeout(fetchImpl, `${site}/paws-api-origin.js?preflight=${Date.now()}`);
     if (response.status !== 200) throw new Error(`GET ${site}/paws-api-origin.js returned ${response.status}`);
     const served = (await response.text()).replace(/\r\n/g, '\n');
@@ -104,8 +107,8 @@ async function liveChecks({ production, testing, fetchImpl = fetch }) {
   return checks;
 }
 
-async function preflight({ root = ROOT, apiEnv = null, live = false, fetchImpl } = {}) {
-  const offline = offlineChecks({ root, apiEnv });
+async function preflight({ root = ROOT, apiEnv = null, live = false, fetchImpl, profile } = {}) {
+  const offline = offlineChecks({ root, apiEnv, profile });
   const checks = [...offline.checks];
   if (live && offline.production && offline.testing) checks.push(...await liveChecks({ production: offline.production, testing: offline.testing, fetchImpl }));
   const failed = checks.filter(check => check.status === 'fail');
@@ -113,13 +116,14 @@ async function preflight({ root = ROOT, apiEnv = null, live = false, fetchImpl }
 }
 
 if (require.main === module) {
-  const argv = process.argv.slice(2);
-  const at = argv.indexOf('--api-env');
-  const apiEnv = at >= 0 ? JSON.parse(fs.readFileSync(argv[at + 1], 'utf8')) : null;
-  preflight({ apiEnv, live: argv.includes('--live') }).then(result => {
+  Promise.resolve().then(()=>{
+   const argv = process.argv.slice(2),at = argv.indexOf('--api-env'),profileAt=argv.indexOf('--profile');
+   const apiEnv = at >= 0 ? JSON.parse(fs.readFileSync(argv[at + 1], 'utf8')) : null;
+   return preflight({ apiEnv, live: argv.includes('--live'),profile:profileAt>=0?argv[profileAt+1]:undefined });
+  }).then(result => {
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.ok ? 0 : 1);
-  }, error => { console.error(error.message); process.exit(1); });
+  }, () => { console.error('Testing private preflight configuration could not be read or validated.'); process.exit(1); });
 }
 
 module.exports = { preflight, offlineChecks, liveChecks, STEPS };

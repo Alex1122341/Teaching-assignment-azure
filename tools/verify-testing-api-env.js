@@ -1,5 +1,6 @@
 'use strict';
-// Validates the Testing API (Container App) environment before a Testing revision is activated.
+// Validates the active University Testing profile explicitly. The default
+// legacy Container App profile remains for historical compatibility only.
 //
 //   node tools/verify-testing-api-env.js --aca-env <file.json>     # `az containerapp show ... --query properties.template.containers[0].env`
 //   node tools/verify-testing-api-env.js --env-file <file.env>     # KEY=VALUE lines (for example a filled copy of the template)
@@ -21,7 +22,7 @@ const { loadConfig } = require('./render-environment-config');
 const ROOT = path.resolve(__dirname, '..');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KNOWN = new Set([
-  'PAWS_ENVIRONMENT', 'PAWS_TESTING_ENVIRONMENT_ID', 'PAWS_TESTING_SQL_SERVER', 'PAWS_SQL_CONNECTION_STRING', 'PAWS_SQL_MI_CLIENT_ID',
+  'PAWS_ENVIRONMENT', 'PAWS_TESTING_ENVIRONMENT_ID', 'PAWS_TESTING_SQL_SERVER', 'PAWS_TESTING_SQL_PROFILE', 'PAWS_TESTING_DATABASE', 'PAWS_SQL_CONNECTION_STRING', 'PAWS_SQL_MI_CLIENT_ID',
   'PAWS_SQL_DRIVER', 'PAWS_SQL_ALLOW_SELF_SIGNED', 'PAWS_API_HOST', 'PAWS_API_PORT', 'PAWS_API_ALLOW_NON_LOOPBACK', 'PAWS_API_ALLOWED_ORIGINS',
   'PAWS_API_MAX_BODY_BYTES', 'PAWS_RELEASE_SHA', 'PAWS_RUNTIME_TRUST_ANCHOR', ...Object.values(GATE_ENV)
 ]);
@@ -33,14 +34,14 @@ function parseEnvFile(text) {
   for (const line of String(text).split(/\r?\n/)) {
     if (!line.trim() || /^\s*#/.test(line)) continue;
     const at = line.indexOf('=');
-    if (at < 1) throw new Error(`Invalid line in env file: ${line.slice(0, 40)}`);
+    if (at < 1 || !/^[A-Z][A-Z0-9_]*$/.test(line.slice(0,at).trim())) throw new Error('Invalid setting line in private env file');
     entries.push({ name: line.slice(0, at).trim(), value: line.slice(at + 1) });
   }
   return entries;
 }
 
 // entries: [{ name, value } | { name, secretRef }] as returned by the Container App API.
-function verifyTestingApiEnv(entries, { root = ROOT } = {}) {
+function verifyTestingApiEnv(entries, { root = ROOT, profile } = {}) {
   const errors = [];
   if (!Array.isArray(entries)) return { errors: ['environment must be an array of { name, value | secretRef }'], gates: null };
   const env = {}, secretRefs = new Set(), seen = new Set();
@@ -53,17 +54,24 @@ function verifyTestingApiEnv(entries, { root = ROOT } = {}) {
     else env[name] = entry.value === undefined || entry.value === null ? '' : String(entry.value);
   }
   for (const name of Object.keys(env)) if (/<[^>]*>/.test(env[name])) errors.push(`${name} still contains a <placeholder>`);
-  for (const name of SECRET_ONLY) if (name in env) errors.push(`${name} must be a Container App secret reference, not a plain value`);
+  for (const name of SECRET_ONLY) if (name in env) errors.push(`${name} must remain a private secret reference, not a plain value`);
   for (const name of PLAIN_REQUIRED) if (secretRefs.has(name)) errors.push(`${name} must be a plain value so it can be verified (it carries no secret)`);
   for (const name of [...seen].filter(n => n.startsWith('PAWS_'))) if (!KNOWN.has(name)) errors.push(`${name} is not a PAWS setting (typo?)`);
-  if (/password|pwd\s*=/i.test(env.PAWS_SQL_CONNECTION_STRING || '')) errors.push('PAWS_SQL_CONNECTION_STRING must not contain a password; use the Testing managed identity');
+  if (/password|pwd\s*=/i.test(env.PAWS_SQL_CONNECTION_STRING || '')) errors.push('PAWS_SQL_CONNECTION_STRING must not contain a password; use the reviewed identity');
 
   try { const environment = resolveEnvironment(env); if (!environment.testing) errors.push('PAWS_ENVIRONMENT must be testing'); }
   catch (error) { errors.push(error.message); }
 
-  if (!UUID.test(env.PAWS_SQL_MI_CLIENT_ID || '')) errors.push('PAWS_SQL_MI_CLIENT_ID must be the Testing managed identity client id (UUID)');
-  if (env.PAWS_SQL_DRIVER !== 'tedious') errors.push('PAWS_SQL_DRIVER must be tedious in the container');
-  if (env.PAWS_API_HOST !== '0.0.0.0' || env.PAWS_API_ALLOW_NON_LOOPBACK !== 'true') errors.push('the container must bind PAWS_API_HOST=0.0.0.0 with PAWS_API_ALLOW_NON_LOOPBACK=true');
+  if (profile==='university-testing') {
+    if(env.PAWS_TESTING_SQL_PROFILE!=='university-testing'||env.PAWS_TESTING_DATABASE!=='VetMed-Ops-Testing')errors.push('University Testing requires the explicit profile and named independent database');
+    if(env.PAWS_SQL_DRIVER!=='msnodesqlv8'||env.PAWS_SQL_MI_CLIENT_ID!==undefined)errors.push('University Testing requires Windows msnodesqlv8 with no Azure identity');
+    if(env.PAWS_API_HOST!=='127.0.0.1'||env.PAWS_API_PORT!=='18788'||env.PAWS_API_ALLOW_NON_LOOPBACK!==undefined)errors.push('University Testing must bind loopback port18788 only');
+  }else {
+    if(profile!==undefined)errors.push('Unknown Testing deployment profile');
+    if (!UUID.test(env.PAWS_SQL_MI_CLIENT_ID || '')) errors.push('PAWS_SQL_MI_CLIENT_ID must be the Testing managed identity client id (UUID)');
+    if (env.PAWS_SQL_DRIVER !== 'tedious') errors.push('PAWS_SQL_DRIVER must be tedious in the container');
+    if (env.PAWS_API_HOST !== '0.0.0.0' || env.PAWS_API_ALLOW_NON_LOOPBACK !== 'true') errors.push('the container must bind PAWS_API_HOST=0.0.0.0 with PAWS_API_ALLOW_NON_LOOPBACK=true');
+  }
   if ('PAWS_SQL_ALLOW_SELF_SIGNED' in env && env.PAWS_SQL_ALLOW_SELF_SIGNED !== 'false') errors.push('PAWS_SQL_ALLOW_SELF_SIGNED must be absent or false for Azure SQL');
 
   let testing = null, production = null;
@@ -95,13 +103,13 @@ function main(argv) {
   if (arg('--aca-env')) entries = JSON.parse(fs.readFileSync(arg('--aca-env'), 'utf8'));
   else if (arg('--env-file')) entries = parseEnvFile(fs.readFileSync(arg('--env-file'), 'utf8'));
   else throw new Error('Usage: --aca-env <file.json> | --env-file <file.env>');
-  const { errors, gates } = verifyTestingApiEnv(entries);
+  const { errors, gates } = verifyTestingApiEnv(entries,{profile:arg('--profile')});
   if (errors.length) { console.error(JSON.stringify({ ok: false, errors }, null, 2)); process.exit(1); }
   console.log(JSON.stringify({ ok: true, environment: 'testing', gates }));
 }
 
 if (require.main === module) {
-  try { main(process.argv.slice(2)); } catch (error) { console.error(error.message); process.exit(1); }
+  try { main(process.argv.slice(2)); } catch { console.error('Testing environment configuration could not be read or validated.'); process.exit(1); }
 }
 
 module.exports = { verifyTestingApiEnv, parseEnvFile, KNOWN };

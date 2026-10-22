@@ -1,3 +1,4 @@
+> **2026-10-22 update — Azure retired.** Active University Testing operations are in [12-university-testing-operations.md](12-university-testing-operations.md). API: VET-C31293; online SQL: ITAPPVETOPSDB01 / VetMed-Ops-Testing; independent Firebase identity. Earlier Azure provisioning/reset/revision instructions below are historical and must not be executed. Code preparation is not live acceptance; SQL installation/isolation, Auth, actual API staging and final release remain pending.
 # PAWS Testing: guide for ADFAD testers
 
 The Testing environment is the same PAWS application with the same pages, buttons, filters and rules, connected to its own separate database of **made-up (synthetic) data**. Nothing you do in Testing reaches the real PAWS, and no email or message is sent to anyone.

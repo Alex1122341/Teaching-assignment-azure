@@ -11,14 +11,17 @@ test('Testing deploy stages the accepted artifact at the configured Firebase pub
   const hosting = JSON.parse(fs.readFileSync(path.join(root, 'firebase.hosting-only.json'), 'utf8')).hosting.public;
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/paws-testing-deploy.yml'), 'utf8');
   assert.equal(hosting, '.firebase-production/app');
-  assert.ok(workflow.includes(`cp -r .azure-testing/app ${hosting}`), 'Testing must publish the accepted artifact, not a different staging tree');
-  assert.match(workflow, /--config firebase\.hosting-only\.json/);
+  const publisher=fs.readFileSync(path.join(root,'tools/publish-testing-hosting.js'),'utf8');
+  assert.match(workflow,/publish-testing-hosting\.js/);
+  assert.ok(publisher.includes("path.join(ROOT,'.azure-testing/app')")&&publisher.includes("path.join(ROOT,'.firebase-production/app')"));
+  assert.match(publisher,/['"]--config['"],['"]firebase\.hosting-only\.json['"]/);
 });
 const { GATE_ENV, createWriteGates } = require('../server/src/data/write-gates');
 const { verifyTestingApiEnv, parseEnvFile } = require('../tools/verify-testing-api-env');
 const { preflight } = require('../tools/testing-preflight');
 const { loadConfig, validateConfig, validatePair, render } = require('../tools/render-environment-config');
 const { findEvidence, checkEvidence } = require('../tools/verify-release-evidence');
+const publishModule=fs.existsSync(path.join(root,'tools/publish-testing-hosting.js'))?require('../tools/publish-testing-hosting'):{};
 
 const production = loadConfig('production');
 const testingConfig = {
@@ -31,6 +34,7 @@ function configRoot(testing = testingConfig, prod = { ...production, peerSiteUrl
   fs.mkdirSync(path.join(dir, 'config', 'environments'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'config', 'environments', 'production.json'), JSON.stringify(prod));
   fs.writeFileSync(path.join(dir, 'config', 'environments', 'testing.json'), JSON.stringify(testing));
+  fs.mkdirSync(path.join(dir,'deploy/testing'),{recursive:true});fs.copyFileSync(path.join(root,'deploy/testing/write-gate-matrix.json'),path.join(dir,'deploy/testing/write-gate-matrix.json'));
   return dir;
 }
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
@@ -77,6 +81,42 @@ const goodEnv = () => [
   ...Object.values(GATE_ENV).map(name => ({ name, value: 'true' }))
 ];
 const withEnv = (patch, base = goodEnv()) => { const map = new Map(base.map(e => [e.name, e])); for (const [k, v] of Object.entries(patch)) { if (v === undefined) map.delete(k); else map.set(k, typeof v === 'object' ? { name: k, ...v } : { name: k, value: v }); } return [...map.values()]; };
+
+const universityEnv=()=>withEnv({PAWS_TESTING_SQL_PROFILE:'university-testing',PAWS_TESTING_DATABASE:'VetMed-Ops-Testing',
+ PAWS_TESTING_SQL_SERVER:'itappvetopsdb01',PAWS_SQL_CONNECTION_STRING:'Server=ITAPPVETOPSDB01;Database=VetMed-Ops-Testing;Encrypt=true;TrustServerCertificate=false',
+ PAWS_SQL_MI_CLIENT_ID:undefined,PAWS_SQL_DRIVER:'msnodesqlv8',PAWS_API_HOST:'127.0.0.1',PAWS_API_PORT:'18788',PAWS_API_ALLOW_NON_LOOPBACK:undefined});
+test('University preflight needs no Azure identity',()=>{
+ const dir=configRoot(),options={root:dir,profile:'university-testing'};
+ assert.deepEqual(verifyTestingApiEnv(universityEnv(),options).errors,[]);
+ for(const patch of [{PAWS_TESTING_SQL_PROFILE:undefined},{PAWS_TESTING_DATABASE:undefined},{PAWS_SQL_CONNECTION_STRING:'Server=ITAPPVETOPSDB01;Database=VetMed-Ops-Testing;Encrypt=false'},
+  {PAWS_SQL_MI_CLIENT_ID:'1b2c3d4e-5f60-4718-9a0b-1c2d3e4f5a6b'},{PAWS_TA_DRAFT_WRITE_ENABLED:undefined}]){
+  assert.ok(verifyTestingApiEnv(withEnv(patch,universityEnv()),options).errors.length>0);
+ }
+});
+test('malformed private env lines never echo credential content',()=>{
+ assert.throws(()=>parseEnvFile('DO_NOT_LOG_SECRET'),error=>!error.message.includes('DO_NOT_LOG_SECRET'));
+});
+test('preflight CLI sanitizes malformed private JSON',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'paws-private-preflight-')),file=path.join(dir,'private.json');fs.writeFileSync(file,'DO_NOT_LOG_SECRET');
+ const result=require('node:child_process').spawnSync(process.execPath,[path.join(root,'tools/testing-preflight.js'),'--api-env',file,'--profile','university-testing'],{encoding:'utf8'});
+ assert.notEqual(result.status,0);assert.ok(!(result.stdout+result.stderr).includes('DO_NOT_LOG_SECRET'));
+});
+test('publisher verifies bytes from the Testing artifact rather than the working repository',()=>{
+ assert.equal(typeof publishModule.verifyTestingStaticArtifact,'function');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'paws-static-probe-')),source=path.join(dir,'artifact');fs.mkdirSync(source);
+ fs.writeFileSync(path.join(dir,'index.html'),'repository bytes');fs.writeFileSync(path.join(source,'index.html'),'artifact bytes');
+ const freeze={protectedPaths:()=>['index.html'],verifyFreeze(options){assert.equal(options.readWorking({file:'index.html'}).toString(),'artifact bytes');return {ok:true};}};
+ assert.equal(publishModule.verifyTestingStaticArtifact({root:dir,source,freeze}).ok,true);
+ fs.writeFileSync(path.join(source,'unlisted-private.txt'),'must not publish');assert.throws(()=>publishModule.verifyTestingStaticArtifact({root:dir,source,freeze}),/artifact|inventory/i);
+});
+test('Testing publication verifies every served artifact byte including binary files',async()=>{
+ assert.equal(typeof publishModule.verifyServedArtifacts,'function');
+ const source=fs.mkdtempSync(path.join(os.tmpdir(),'paws-served-proof-'));fs.writeFileSync(path.join(source,'index.html'),'accepted html');fs.writeFileSync(path.join(source,'guide.pdf'),Buffer.from([0,1,2,255]));
+ const files=['index.html','guide.pdf'],seen=[];
+ const fetchImpl=async url=>{const name=new URL(url).pathname.slice(1);seen.push(name);return {status:200,arrayBuffer:async()=>fs.readFileSync(path.join(source,name))};};
+ await publishModule.verifyServedArtifacts({source,files,siteUrl:testingConfig.siteUrl,commitSha:'a'.repeat(40),fetchImpl});assert.deepEqual(seen.sort(),files.sort());
+ await assert.rejects(publishModule.verifyServedArtifacts({source,files,siteUrl:testingConfig.siteUrl,commitSha:'a'.repeat(40),fetchImpl:async()=>({status:200,arrayBuffer:async()=>Buffer.from('old response')})}),/served|artifact|byte/i);
+});
 
 test('Testing API environment: the reviewed profile is accepted and reports its gate map', () => {
   const { errors, gates } = verifyTestingApiEnv(goodEnv(), { root: configRoot() });
@@ -208,6 +248,28 @@ test('preflight --live passes only when the deployed API and site are the Testin
   }
 });
 
+test('offline staged API cannot publish Hosting',async()=>{
+ assert.equal(typeof publishModule.publishTesting,'function','Publishing must be guarded by a testable probe boundary');
+ const gates=Object.fromEntries(Object.keys(GATE_ENV).map(key=>[key,true])),anchor=require('../tools/beta-freeze').BASELINE_COMMIT;
+ const attestation={version:1,kind:'operator-runtime-attestation',status:'READY',repository:'Alex1122341/Teaching-assignment-azure',commitSha:'a'.repeat(40),sourceRunId:202,
+  sourceArtifactId:777,sourceArtifactDigest:'sha256:'+'c'.repeat(64),trustAnchor:anchor,targetProfile:'university-testing',
+  target:{profile:'university-testing',host:'itappvetopsdb01',physicalServer:'ITAPPVETOPSDB01',database:'VetMed-Ops-Testing',environmentId:'7e570000-0000-4000-8000-00000000c0de'},
+  firebaseProjectId:testingConfig.firebase.projectId,apiOrigin:testingConfig.apiOrigin,siteUrl:testingConfig.siteUrl,gates,
+  gateFingerprint:publishModule.canonicalDigest(gates),stagedManifestDigest:'d'.repeat(64),nodeMajor:22,sqlDriver:'msnodesqlv8',strictTls:true};
+ const build={id:202,repository:{full_name:attestation.repository},path:'.github/workflows/azure-beta-build.yml',event:'push',head_branch:'main',head_sha:attestation.commitSha,status:'completed',conclusion:'success'};
+ const sourceArtifact={id:777,name:'azure-beta-'+attestation.commitSha,expired:false,digest:attestation.sourceArtifactDigest,workflow_run:{id:202,head_sha:attestation.commitSha}};
+ const dir=configRoot(),runtime={status:'ok',service:'paws-university-api',authority:'vetmed-ops-sql',environment:'testing',releaseSha:attestation.commitSha,runtimeTrustAnchor:anchor,writeGates:gates};
+ for(const patch of [{offline:true},{runtime:{...runtime,releaseSha:'b'.repeat(40)}},{runtime:{...runtime,writeGates:{}}},{me:200},{foreignCors:204},
+  {attestation:{...attestation,targetProfile:'azure'}},{attestation:{...attestation,stagedManifestDigest:'wrong'}},{attestationDigest:'0'.repeat(64)}]){
+  const calls=[],a=patch.attestation||attestation;
+  await assert.rejects(publishModule.publishTesting({root:dir,commitSha:attestation.commitSha,build,sourceArtifact,attestation:a,attestationDigest:patch.attestationDigest||publishModule.canonicalDigest(a),
+   fetchImpl:patch.offline?async()=>{throw Error('offline');}:fakeFetch({runtime,...patch}),deployHosting:async()=>calls.push('hosting')}),/Testing|attestation|API|probe|gate|runtime/i);
+  assert.deepEqual(calls,[]);
+ }
+ const calls=[];const result=await publishModule.publishTesting({root:dir,commitSha:attestation.commitSha,build,sourceArtifact,attestation,attestationDigest:publishModule.canonicalDigest(attestation),fetchImpl:fakeFetch({runtime}),deployHosting:async()=>calls.push('hosting')});
+ assert.deepEqual(calls,['hosting']);assert.equal(result.status,'success');assert.equal(result.targetProfile,'university-testing');
+});
+
 // ------------------------------------------------------------------ release evidence
 const REPO = 'Alex1122341/Teaching-assignment-azure';
 const SHA = 'b'.repeat(40);
@@ -221,6 +283,7 @@ function evidenceApi({ testingRun = {}, job = 'success', build = {}, approvalRun
   return async p => {
     if (p.includes('/actions/artifacts?name=paws-testing-deploy-')) return { artifacts: [...extraArtifacts, { id: 1, name: `paws-testing-deploy-${SHA}`, expired: false, created_at: '2026-10-20T01:00:00Z', workflow_run: { id: 101 } }] };
     if (p.includes('/actions/artifacts?name=paws-release-approval-')) return { artifacts: [{ id: 3, name: `paws-release-approval-${SHA}`, expired: false, created_at: '2026-10-20T02:00:00Z', workflow_run: { id: 303 } }] };
+    if(p==='/repos/'+REPO+'/actions/runs/202/artifacts?per_page=100')return {artifacts:[{id:777,name:'azure-beta-'+SHA,expired:false,digest:'sha256:'+'c'.repeat(64),workflow_run:{id:202,head_sha:SHA}}]};
     const jobs = /\/runs\/(\d+)\/jobs/.exec(p);
     if (jobs) return { jobs: [{ name: jobs[1] === '303' ? 'record_approval' : 'deploy_testing', conclusion: jobs[1] === '303' ? 'success' : job }] };
     const run = /\/runs\/(\d+)$/.exec(p);
@@ -228,7 +291,11 @@ function evidenceApi({ testingRun = {}, job = 'success', build = {}, approvalRun
     throw new Error('unexpected ' + p);
   };
 }
-const testingEvidence = { environment: 'testing', commitSha: SHA, sourceRunId: '202', status: 'success' };
+const evidenceGates=Object.fromEntries(Object.keys(GATE_ENV).map(key=>[key,true])),evidenceAnchor=require('../tools/beta-freeze').BASELINE_COMMIT;
+const evidenceAttestation={version:1,kind:'operator-runtime-attestation',status:'READY',repository:REPO,commitSha:SHA,sourceRunId:202,sourceArtifactId:777,sourceArtifactDigest:'sha256:'+'c'.repeat(64),trustAnchor:evidenceAnchor,targetProfile:'university-testing',
+ target:{profile:'university-testing',host:'itappvetopsdb01',physicalServer:'ITAPPVETOPSDB01',database:'VetMed-Ops-Testing',environmentId:'7e570000-0000-4000-8000-00000000c0de'},firebaseProjectId:testingConfig.firebase.projectId,apiOrigin:testingConfig.apiOrigin,siteUrl:testingConfig.siteUrl,
+ gates:evidenceGates,gateFingerprint:publishModule.canonicalDigest(evidenceGates),stagedManifestDigest:'d'.repeat(64),nodeMajor:22,sqlDriver:'msnodesqlv8',strictTls:true};
+const testingEvidence = { environment: 'testing', commitSha: SHA, sourceRunId: '202', status: 'success',runId:101,targetProfile:'university-testing',runtimeAttestation:evidenceAttestation,runtimeAttestationDigest:publishModule.canonicalDigest(evidenceAttestation),sourceArtifactDigest:evidenceAttestation.sourceArtifactDigest,trustAnchor:evidenceAnchor,gateFingerprint:evidenceAttestation.gateFingerprint,apiOrigin:testingConfig.apiOrigin,siteUrl:testingConfig.siteUrl };
 const approvalEvidence = { kind: 'release-approval', commitSha: SHA, approver: 'Alex1122341', uatOutcome: 'passed', decision: 'approved', uatReference: 'PR #125 comment', testingRunId: '101' };
 
 test('Testing-pass evidence: a main-defined successful deploy of the same SHA from a main build qualifies', async () => {
@@ -236,6 +303,14 @@ test('Testing-pass evidence: a main-defined successful deploy of the same SHA fr
   const found = await findEvidence({ api, repository: REPO, kind: 'testing', sha: SHA });
   assert.equal(found.runId, 101);
   assert.equal((await checkEvidence({ api, repository: REPO, kind: 'testing', sha: SHA, evidence: testingEvidence, found })).ok, true);
+});
+
+test('Testing evidence rejects missing runtime proof changed digest and another source artifact',async()=>{
+ const api=evidenceApi(),found=await findEvidence({api,repository:REPO,kind:'testing',sha:SHA});
+ for(const patch of [{runtimeAttestation:undefined},{runtimeAttestationDigest:'0'.repeat(64)},
+  {sourceArtifactDigest:'sha256:'+'f'.repeat(64)},{gateFingerprint:'f'.repeat(64)},{trustAnchor:'f'.repeat(40)},{runId:999}]){
+  await assert.rejects(checkEvidence({api,repository:REPO,kind:'testing',sha:SHA,evidence:{...testingEvidence,...patch},found}),/attestation|digest|source|gate|anchor|run/i);
+ }
 });
 
 test('Testing-pass evidence cannot be forged by a branch workflow, a skipped job, a wrong file or another build', async () => {
@@ -270,6 +345,22 @@ test('UAT approval evidence: only a listed approver, a passed UAT and a named Te
   await assert.rejects(findEvidence({ api: evidenceApi({ approvalRun: { conclusion: 'failure' } }), repository: REPO, kind: 'approval', sha: SHA }), /RELEASE_APPROVAL_REQUIRED|concluded failure/);
 });
 
+test('approval cannot substitute another Testing run',async()=>{
+ const api=evidenceApi(),found=await findEvidence({api,repository:REPO,kind:'approval',sha:SHA});
+ await assert.rejects(checkEvidence({api,repository:REPO,kind:'approval',sha:SHA,evidence:{...approvalEvidence,testingRunId:'999'},found,approvers:['alex1122341']}),/Testing.*run|accepted.*Testing|mismatch/i);
+});
+
+test('University Testing deployment workflow has no Azure mutation or automatic publish path',()=>{
+ const text=workflow('paws-testing-deploy.yml');
+ assert.ok(!text.includes('azure/login'));
+ assert.doesNotMatch(text,/workflow_run:|az containerapp|az acr|id-token: write/);
+ assert.match(text,/runtime_attestation_json:/);assert.match(text,/runtime_attestation_sha256:/);
+ assert.match(text,/refs\/heads\/main/);assert.match(text,/publish-testing-hosting\.js/);
+ for(const file of ['paws-testing-db-reset.yml','azure-beta-aca-deploy.yml','azure-beta-acr-publish.yml']){
+  const retired=workflow(file);assert.doesNotMatch(retired,/azure\/login|az (?:containerapp|acr|sql)|reset-testing-db\.js|docker (?:build|push)/i);assert.match(retired,/retired/i);
+ }
+});
+
 // ------------------------------------------------------------------ workflows
 const workflow = name => read(path.join('.github', 'workflows', name));
 
@@ -292,17 +383,10 @@ test('release evidence helper requires main and checks every requested kind agai
   assert.match(script, /check --kind "\$kind" --sha "\$COMMIT_SHA" --run "\$run_id"/);
 });
 
-test('Testing database reset: main only, listed operators, runner-only firewall rule removed afterwards, evidence kept', () => {
+test('retired cloud reset cannot mutate SQL and live reset stays in guarded University tooling', () => {
   const text = workflow('paws-testing-db-reset.yml');
-  assert.match(text, /if: inputs\.confirm == 'RESET-TESTING'/);
-  assert.match(text, /RESET_NOT_MAIN/);
-  assert.match(text, /RESET_OPERATORS: \$\{\{ vars\.PAWS_TESTING_RESET_OPERATORS \}\}/);
-  assert.match(text, /RESET_NOT_AUTHORIZED/);
-  assert.ok(text.indexOf('RESET_NOT_AUTHORIZED') < text.indexOf('reset-testing-db.js'), 'authorization precedes any SQL connection');
-  assert.match(text, /firewall-rule create[\s\S]*--start-ip-address "\$ip" --end-ip-address "\$ip"/);
-  assert.match(text, /name: Close the Testing SQL firewall rule\r?\n\s*if: always\(\)/);
-  assert.match(text, /paws-testing-reset-\$\{\{ github\.run_id \}\}/);
-  assert.doesNotMatch(text, /^\s*environment:\s/m);
+  assert.match(text,/RETIRED_OPERATION/);assert.doesNotMatch(text,/azure\/login|az sql|reset-testing-db\.js|id-token: write/);
+  const local=read('tools/testing-db/university-admin.js');assert.match(local,/RESET-TESTING/);assert.match(local,/backupTesting/);assert.match(local,/withExclusiveReset/);
   for (const name of ['paws-testing-deploy.yml', 'paws-testing-db-reset.yml', 'paws-release-approval.yml']) {
     assert.doesNotMatch(workflow(name), /FIREBASE_SERVICE_ACCOUNT_TESTER_TEACHING/, `${name} never uses the Production Firebase credential`);
   }

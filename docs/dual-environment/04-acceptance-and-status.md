@@ -1,3 +1,4 @@
+> **2026-10-22 update — Azure retired.** Active University Testing operations are in [12-university-testing-operations.md](12-university-testing-operations.md). API: VET-C31293; online SQL: ITAPPVETOPSDB01 / VetMed-Ops-Testing; independent Firebase identity. Earlier Azure provisioning/reset/revision instructions below are historical and must not be executed. Code preparation is not live acceptance; SQL installation/isolation, Auth, actual API staging and final release remain pending.
 # PAWS dual environment: acceptance checklist
 
 The status and evidence for each item are in `09-deployment-readiness-report.md`. This page is the checklist to run, once locally and again in the deployed Testing environment.

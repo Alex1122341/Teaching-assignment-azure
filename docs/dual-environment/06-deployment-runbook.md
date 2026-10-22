@@ -1,3 +1,4 @@
+> **2026-10-22 update — Azure retired.** Active University Testing operations are in [12-university-testing-operations.md](12-university-testing-operations.md). API: VET-C31293; online SQL: ITAPPVETOPSDB01 / VetMed-Ops-Testing; independent Firebase identity. Earlier Azure provisioning/reset/revision instructions below are historical and must not be executed. Code preparation is not live acceptance; SQL installation/isolation, Auth, actual API staging and final release remain pending.
 # PAWS Testing: deployment runbook
 
 For the Owner and operators. Setup is in `03-setup-and-deployment.md`; testers use `08-admin-uat-guide.md`.

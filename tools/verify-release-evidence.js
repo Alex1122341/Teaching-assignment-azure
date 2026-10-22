@@ -17,6 +17,9 @@
 //
 // Environment: GH_TOKEN (actions:read), GITHUB_REPOSITORY, optional GITHUB_API_URL.
 const fs = require('node:fs');
+const path = require('node:path');
+const {canonicalDigest,validateRuntimeAttestation}=require('./testing-runtime-attestation');
+const {BASELINE_COMMIT}=require('./beta-freeze');
 
 const SHA = /^[0-9a-f]{40}$/;
 const KINDS = Object.freeze({
@@ -70,7 +73,7 @@ async function findEvidence({ api, repository, kind, sha }) {
 }
 
 // Validates the evidence file downloaded from the run returned by findEvidence.
-async function checkEvidence({ api, repository, kind, sha, evidence, found, approvers = [] }) {
+async function checkEvidence({ api, repository, kind, sha, evidence, found, approvers = [], expectedTestingConfig }) {
   if (!evidence || typeof evidence !== 'object') fail('EVIDENCE_FILE', 'evidence file is missing or not JSON');
   if (evidence.commitSha !== sha) fail('EVIDENCE_SHA_MISMATCH', `evidence names ${evidence.commitSha}, expected ${sha}`);
   if (kind === 'testing') {
@@ -79,7 +82,16 @@ async function checkEvidence({ api, repository, kind, sha, evidence, found, appr
     const build = await api(`/repos/${repository}/actions/runs/${encodeURIComponent(String(evidence.sourceRunId))}`);
     assertRun(build, { repository, workflow: BUILD_WORKFLOW, label: 'build' });
     if (build.event !== 'push' || build.head_sha !== sha) fail('EVIDENCE_BUILD_MISMATCH', `build ${build.id} is ${build.event} of ${build.head_sha}`);
-    return { ok: true, kind, sha, runId: found && found.runId, sourceRunId: build.id };
+    if(String(evidence.runId)!==String(found?.runId)||evidence.targetProfile!=='university-testing'||!evidence.runtimeAttestation||canonicalDigest(evidence.runtimeAttestation)!==evidence.runtimeAttestationDigest)fail('EVIDENCE_ATTESTATION','Testing runtime attestation/run digest mismatch');
+    const expectedGates=Object.fromEntries(JSON.parse(fs.readFileSync(path.join(__dirname,'../deploy/testing/write-gate-matrix.json'),'utf8')).gates.map(row=>[row.gate,row.testing]));
+    try{validateRuntimeAttestation(evidence.runtimeAttestation,{commitSha:sha,testing:expectedTestingConfig||{apiOrigin:evidence.apiOrigin,siteUrl:evidence.siteUrl,firebase:{projectId:evidence.runtimeAttestation.firebaseProjectId}},trustAnchor:BASELINE_COMMIT,expectedGates});}
+    catch{fail('EVIDENCE_ATTESTATION','Testing runtime attestation source/target/gates are not accepted');}
+    const proof=evidence.runtimeAttestation;
+    if(proof.sourceRunId!==build.id||proof.sourceArtifactDigest!==evidence.sourceArtifactDigest||evidence.trustAnchor!==BASELINE_COMMIT||proof.trustAnchor!==evidence.trustAnchor||proof.gateFingerprint!==evidence.gateFingerprint)fail('EVIDENCE_ATTESTATION','Testing source artifact/gate/trust anchor digest mismatch');
+    const artifacts=await api(`/repos/${repository}/actions/runs/${build.id}/artifacts?per_page=100`);
+    const source=(artifacts.artifacts||[]).filter(item=>item.id===proof.sourceArtifactId&&item.name==='azure-beta-'+sha&&!item.expired&&item.digest===proof.sourceArtifactDigest&&item.workflow_run?.id===build.id&&item.workflow_run?.head_sha===sha);
+    if(source.length!==1)fail('EVIDENCE_ARTIFACT','Testing source artifact digest is unavailable or mismatched');
+    return { ok: true, kind, sha, runId: found && found.runId, sourceRunId: build.id,targetProfile:'university-testing',runtimeAttestationDigest:evidence.runtimeAttestationDigest };
   }
   const list = approvers.map(item => String(item).trim().toLowerCase()).filter(Boolean);
   if (!list.length) fail('RELEASE_APPROVERS_UNSET', 'PAWS_RELEASE_APPROVERS is empty');
@@ -87,6 +99,8 @@ async function checkEvidence({ api, repository, kind, sha, evidence, found, appr
   const approver = String(found && found.actor || '').toLowerCase();
   if (!list.includes(approver) || String(evidence.approver || '').toLowerCase() !== approver) fail('EVIDENCE_APPROVER', `approval run was started by ${approver || 'unknown'}, who is not a listed approver`);
   if (!evidence.testingRunId) fail('EVIDENCE_RESULT', 'approval evidence does not name the Testing deploy it accepted');
+  const acceptedTesting=await findEvidence({api,repository,kind:'testing',sha});
+  if(String(evidence.testingRunId)!==String(acceptedTesting.runId))fail('EVIDENCE_TESTING_RUN_MISMATCH','Approval does not name the currently accepted Testing run');
   return { ok: true, kind, sha, runId: found.runId, approver };
 }
 
@@ -102,7 +116,7 @@ async function main(argv, env = process.env) {
   if (arg('--run') && String(found.runId) !== String(arg('--run'))) fail('EVIDENCE_RUN_CHANGED', `qualifying run changed from ${arg('--run')} to ${found.runId}`);
   if (command !== 'check') fail('EVIDENCE_USAGE', 'usage: find|check --kind testing|approval --sha <sha> [--file <evidence.json>] [--approvers a,b]');
   const evidence = JSON.parse(fs.readFileSync(arg('--file'), 'utf8'));
-  return checkEvidence({ api, repository, kind, sha, evidence, found, approvers: String(arg('--approvers') || env.PAWS_RELEASE_APPROVERS || '').split(',') });
+  return checkEvidence({ api, repository, kind, sha, evidence, found, approvers: String(arg('--approvers') || env.PAWS_RELEASE_APPROVERS || '').split(','),expectedTestingConfig:require('./render-environment-config').loadConfig('testing') });
 }
 
 if (require.main === module) {

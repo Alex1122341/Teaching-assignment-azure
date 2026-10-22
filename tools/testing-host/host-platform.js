@@ -63,7 +63,7 @@ function verifyStaged(profile){
   if(!/^[a-f0-9]{64}$/.test(profile.releaseManifestSha256||'')||sha(assertNoLinks(profile.releaseManifestPath))!==profile.releaseManifestSha256)return null;
   const manifest=readJson(profile.releaseManifestPath);
   if(!/^[a-f0-9]{40}$/.test(manifest.commitSha||'')||!Array.isArray(manifest.stagedFiles)||manifest.stagedFiles.some(row=>!safeRelative(row.path)||!/^[a-f0-9]{64}$/.test(row.sha256||'')))return null;
-  if(stable(manifest.target)!==stable(profile.target)||stable(manifest.gateMap)!==stable(profile.gateMap)||manifest.firebaseProjectId!==profile.firebaseProjectId||manifest.allowedOrigin!==profile.allowedOrigin||manifest.nodeSha256!==profile.nodeSha256||!Array.isArray(manifest.supervisorFiles)||manifest.supervisorFiles.length!==8)return null;
+  if(stable(manifest.target)!==stable(profile.target)||stable(manifest.gateMap)!==stable(profile.gateMap)||manifest.firebaseProjectId!==profile.firebaseProjectId||manifest.allowedOrigin!==profile.allowedOrigin||manifest.nodeSha256!==profile.nodeSha256||!Array.isArray(manifest.supervisorFiles)||manifest.supervisorFiles.length!==9)return null;
   const version=privatePath(profile,'versions/'+manifest.commitSha);
   const actual=hashTree(assertNoLinks(version));
   if(JSON.stringify(actual)!==JSON.stringify(manifest.stagedFiles))return null;
@@ -130,7 +130,7 @@ async function stage(profile,descriptor,observed,configPath){
  const npm=path.join(path.dirname(process.execPath),'node_modules/npm/bin/npm-cli.js');assertNoLinks(npm);
  execFileSync(process.execPath,[npm,'ci','--omit=dev','--no-audit','--no-fund','--prefix',path.join(api,'server')],{cwd:version,env:cleanOsEnvironment(),stdio:['ignore','pipe','pipe'],timeout:300000,maxBuffer:2*1024**2,windowsHide:true});
  const supervisorFiles=[];
- for(const file of ['tools/testing-host/host-cli.js','tools/testing-host/host-platform.js','tools/testing-host/host-policy.js','tools/testing-host/artifact-attestation.js','tools/testing-host/Invoke-PawsTestingHost.ps1','tools/testing-db/university-admin.js','server/src/runtime/sql-environment-target.js','server/src/data/write-gates.js']){
+ for(const file of ['tools/testing-host/host-cli.js','tools/testing-host/host-platform.js','tools/testing-host/host-policy.js','tools/testing-host/artifact-attestation.js','tools/testing-host/Invoke-PawsTestingHost.ps1','tools/testing-runtime-attestation.js','tools/testing-db/university-admin.js','server/src/runtime/sql-environment-target.js','server/src/data/write-gates.js']){
   const source=path.join(descriptor.checkout,file),blob=execFileSync('git',['cat-file','blob',accepted.commitSha+':'+file],{cwd:descriptor.checkout,stdio:['ignore','pipe','pipe']});
   if(normalize(fs.readFileSync(assertNoLinks(source)))!==normalize(blob))throw Error('Testing supervisor source differs from accepted commit');
   const destination=path.join(version,'supervisor',file);fs.mkdirSync(path.dirname(destination),{recursive:true});fs.copyFileSync(source,destination,fs.constants.COPYFILE_EXCL);supervisorFiles.push({path:file,sha256:sha(source)});

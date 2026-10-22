@@ -138,10 +138,9 @@ test('the runtime principal is granted read access to the Testing marker, and no
   assert.doesNotMatch(source, /GRANT (INSERT|UPDATE|DELETE|CONTROL|ALTER)[^;]*EnvironmentIdentity/);
 });
 
-test('reset workflow initialises an empty database only when the operator asks for it', () => {
+test('cloud reset is retired and cannot initialize a database', () => {
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/paws-testing-db-reset.yml'), 'utf8');
-  assert.match(workflow, /initialise_empty:[\s\S]*default: false/);
-  assert.match(workflow, /--confirm-reset --initialise-empty/);
+  assert.match(workflow,/RETIRED_OPERATION/);assert.doesNotMatch(workflow,/reset-testing-db\.js|--initialise-empty|az sql|azure\/login/);
 });
 
 test('local acceptance creates fresh databases and contains no database-drop path', () => {

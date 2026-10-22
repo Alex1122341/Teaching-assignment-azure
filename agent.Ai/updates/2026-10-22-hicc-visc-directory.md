@@ -22,7 +22,7 @@ Preserved: SQL authority, server-side authorization, admin Roles endpoint unchan
 Authorization: all supported active accounts may read the directory projection. Status rules mirror faculty-role-periods.js (parity test). No DOE, role-edit, or data change.
 
 ## 7. Tests / CI evidence
-Linux root 1036/983 pass/1 env fail/52 skip; server 842/832/5 env fail/5 skip — same env failures as main 924cc676. Windows server 842/835/3 Docker fail/4 skip. LocalDB SQL check pass. UI 8/8 layouts pass. Emulator NOT EXECUTED. GitHub Actions not used (per brief).
+Linux root 1036/983 pass/1 env fail/52 skip; server 842/832/5 env fail/5 skip — same env failures as main 924cc676. Windows root 1036/984 pass/0 fail/52 skip; Windows server 842/835/3 Docker fail/4 skip. LocalDB SQL check pass. UI 8/8 layouts pass. Emulator NOT EXECUTED. GitHub Actions not used (per brief).
 
 ## 8. Live operations
 ### Performed

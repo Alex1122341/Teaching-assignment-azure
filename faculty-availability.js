@@ -1,6 +1,7 @@
 (function(root){
  'use strict';
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const showFaculty=row=>root.PAWS_FACULTY_NAME?.format(row)||String(row?.displayName||'Name unavailable');
  const kinds={all:'All records',teaching:'Teaching',work:'Work beyond teaching',afc:'AFC / Leave',pending:'Pending absence',role:'Roles / Appointments'};
  const labels={busy:'Busy',away:'Away / Unavailable',tentative:'Tentative',ongoing:'Ongoing responsibility',time_unconfirmed:'Time unconfirmed',informational:'Recorded work (informational)'};
  function createFacultyAvailability({api,host,getSelfMode=()=>false}={}){
@@ -50,8 +51,8 @@
     const value=await api.dashboardFaculty({search:search||null,limit:200,status:getSelfMode()?'active':'all'});
     if(token!==rosterGeneration)return;
     const rows=Array.isArray(value)?value:[],counts=new Map();
-    rows.forEach(r=>{const n=String(r.displayName||'Name unavailable').trim().toLowerCase();counts.set(n,(counts.get(n)||0)+1);});
-    roster=rows.map((r,i)=>({facultyId:r.facultyId,choice:counts.get(String(r.displayName||'Name unavailable').trim().toLowerCase())>1?String(r.displayName||'Name unavailable')+' · Faculty '+(i+1):String(r.displayName||'Name unavailable')}));
+    rows.forEach(r=>{const n=showFaculty(r).toLowerCase();counts.set(n,(counts.get(n)||0)+1);});
+    roster=rows.map((r,i)=>{const name=showFaculty(r);return {facultyId:r.facultyId,choice:counts.get(name.toLowerCase())>1?name+' · Faculty '+(i+1):name};});
     options.innerHTML=roster.map(r=>'<option value="'+esc(r.choice)+'"></option>').join('');
     if(!search&&roster.length===1){selected=String(roster[0].facultyId||'');picker.value=roster[0].choice;}
     state(roster.length===200?'Showing up to 200 matches. Type a more specific faculty name.':roster.length?'Select one faculty and search.':'No matching authorized faculty. Search another name.');

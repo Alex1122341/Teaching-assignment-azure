@@ -9,6 +9,7 @@
     let reviewPopover = null, reviewTrigger = null, reviewRequest = 0;
     const reviewDetails = new Map();
     const esc = escapeHtml;
+    const showFaculty = value => typeof window === 'object' && window.PAWS_FACULTY_NAME ? window.PAWS_FACULTY_NAME.format(value) : String(value || '');
     const referenceBubble = (text, label = 'Reference') => `<details class="reference-bubble"><summary aria-label="${esc(label)} details"><span aria-hidden="true">ⓘ</span> ${esc(label)}</summary><div class="reference-bubble-content">${esc(text || 'Source not recorded')}</div></details>`;
 
     function reviewButton(facultyId, field = 'DOE', count = 0) {
@@ -239,7 +240,7 @@
         reviewPopover.addEventListener('toggle', () => { if (reviewPopover.matches(':popover-open')) positionReview(); }, true);
         window.addEventListener('resize', () => { if (reviewPopover.matches(':popover-open')) positionReview(); });
       }
-      reviewPopover.innerHTML = `<div class="doe-review-head"><div><h2 id="doe-review-title">DOE review reasons</h2><p>${esc(row.displayName || facultyId)} · ${esc(year)}</p></div><button type="button" class="btn btn-small" data-doe-review-close aria-label="Close DOE review reasons">Close</button></div><div class="doe-review-body" aria-live="polite" aria-busy="true"><p>Loading current review reasons…</p></div>`;
+      reviewPopover.innerHTML = `<div class="doe-review-head"><div><h2 id="doe-review-title">DOE review reasons</h2><p>${esc(showFaculty(row.displayName || facultyId))} · ${esc(year)}</p></div><button type="button" class="btn btn-small" data-doe-review-close aria-label="Close DOE review reasons">Close</button></div><div class="doe-review-body" aria-live="polite" aria-busy="true"><p>Loading current review reasons…</p></div>`;
       if (!reviewPopover.matches(':popover-open')) reviewPopover.showPopover({ source: button });
       positionReview();
       reviewPopover.querySelector('[data-doe-review-close]').focus({ preventScroll: true });
@@ -282,7 +283,7 @@
         const state = row.status === 'calculated' ? 'Calculated' : reviewButton(row.facultyId, 'Calculation status', row.issueCount);
         const value = (number, label) => finite(number) === null ? reviewButton(row.facultyId, label) : esc(formatDoe(number));
         const action = editAction(row.facultyId);
-        return `<tr><td><strong>${esc(row.displayName || person.displayName || row.facultyId)}</strong><div class="muted">${esc(row.facultyId)}</div></td><td>${esc([person.rank, specialty].filter(Boolean).join(' · ') || '—')}</td><td>${value(target, 'Target DOE')}</td><td>${value(row.scheduledTeachingDoe, 'Scheduled teaching DOE')}</td><td>${value(row.roleDoe, 'Role DOE')}</td><td>${value(row.rawSupervisionDoe, 'Raw supervision DOE')}</td><td>${value(row.appliedSupervisionDoe, 'Applied supervision DOE')}</td><td>${value(row.adjustmentDoe, 'Adjustment DOE')}</td><td><strong>${value(assigned, 'Assigned DOE')}</strong></td><td>${remainingText}</td><td>${policySummary(row)}</td><td>${state}</td><td><button type="button" class="btn btn-small" data-doe-view="${esc(row.facultyId)}">View DOE</button>${action}</td></tr>`;
+        return `<tr><td><strong>${esc(showFaculty(person.preferredFirstName && person.preferredLastName ? person : row.displayName || person.displayName || row.facultyId))}</strong><div class="muted">${esc(row.facultyId)}</div></td><td>${esc([person.rank, specialty].filter(Boolean).join(' · ') || '—')}</td><td>${value(target, 'Target DOE')}</td><td>${value(row.scheduledTeachingDoe, 'Scheduled teaching DOE')}</td><td>${value(row.roleDoe, 'Role DOE')}</td><td>${value(row.rawSupervisionDoe, 'Raw supervision DOE')}</td><td>${value(row.appliedSupervisionDoe, 'Applied supervision DOE')}</td><td>${value(row.adjustmentDoe, 'Adjustment DOE')}</td><td><strong>${value(assigned, 'Assigned DOE')}</strong></td><td>${remainingText}</td><td>${policySummary(row)}</td><td>${state}</td><td><button type="button" class="btn btn-small" data-doe-view="${esc(row.facultyId)}">View DOE</button>${action}</td></tr>`;
       });
       body.innerHTML = rows.join('') || '<tr><td colspan="13" class="empty">No Faculty Worksheets are available for the current Academic Year.</td></tr>';
     }

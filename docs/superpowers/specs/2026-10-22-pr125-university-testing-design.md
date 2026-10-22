@@ -2,7 +2,7 @@
 
 Date: 2026-10-22 (America/Edmonton)
 
-Status: **Written design awaiting Owner review. No implementation or live release claimed.**
+Status: **Written design approved by Owner on2026-10-22. Concrete implementation plan awaits review. No implementation or live release claimed.**
 
 ## 1. Intent and latest Owner decisions
 
@@ -127,4 +127,4 @@ Direction settled: temporary API on VET-C31293, online independent Testing DB on
 
 Self-review completed: target-pair parsing/markers, per-connection/admin-batch checks, same-instance isolation, immutable Production migrations versus bounded Testing adapters, runtime/admin identity separation, local versus live acceptance, candidate/main bootstrap, unsigned receipt limits, tunnel drift and rollback boundaries. The earlier online-LocalDB spec is explicitly superseded.
 
-Written design awaits Owner review. Approval permits writing the concrete implementation plan using writing-plans. Review that plan before installing/provisioning or implementing profile/workflow changes; retain the previously selected sequential execution and final independent review. Nothing here reports a database created, software installed, Testing live, PR merged or Production released.
+Owner approved this written design and requested the concrete implementation plan. The plan is `../plans/2026-10-22-pr125-university-testing-implementation.md`; review it before installing/provisioning or implementing profile/workflow changes, retaining sequential execution and final independent review. Nothing here reports a database created, software installed, Testing live, PR merged or Production released.

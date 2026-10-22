@@ -1,3 +1,7 @@
+## Owner approves University Testing written design — 2026-10-22
+
+Owner explicitly approved docs/superpowers/specs/2026-10-22-pr125-university-testing-design.md and requested implementation planning. Eight-task plan docs/superpowers/plans/2026-10-22-pr125-university-testing-implementation.md now captures host/database guards, Testing-only migration adaptation, shared-instance acceptance/administration, Firebase account integration, desktop staging, non-Azure deploy/evidence, reviewed freeze/config and coherent release. Concrete plan review remains pending under writing-plans; preserve already-selected sequential execution/final independent review. No implementation or live action is implied by this planning approval.
+
 ## Owner correction: online Testing uses an independent University DB — 2026-10-22
 
 Owner clarified online Testing must use ITAPPVETOPSDB01 and explicitly selected an independent Testing database, not the real VetMed-Ops database. Preserve current-computer API/tunnel direction; LocalDB is only disposable acceptance infrastructure. Proposed DB name VetMed-Ops-Testing is in written design docs/superpowers/specs/2026-10-22-pr125-university-testing-design.md, awaiting review. This supersedes the prior online-LocalDB design/blanket separate-SQL-server requirement only; preserve synthetic data, exact server/database/UUID guards, Production non-mutation and real scope/freeze/acceptance. No DB creation/grant/install/deploy occurred. Reusing the server is not authorization to reset/migrate/copy Production or open public SQL.

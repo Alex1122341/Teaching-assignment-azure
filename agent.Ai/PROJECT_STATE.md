@@ -1,4 +1,8 @@
-## Current: PR125 independent University Testing DB design ready — 2026-10-22
+## Current: PR125 University Testing design approved; concrete plan ready — 2026-10-22
+
+Owner approved revised written design, requested plan. Eight-task plan docs/superpowers/plans/2026-10-22-pr125-university-testing-implementation.md completed/self-reviewed, pending concrete plan confirmation before executing-plans. Direction unchanged: VET-C31293 API, ITAPPVETOPSDB01/VetMed-Ops-Testing independent synthetic DB, separate Firebase, LocalDB acceptance-only. Guard/reset/driver/host/deploy/freeze/UAT/release tasks carry exact interfaces, red-green commands and evidence boundaries. Dependency review deferred actual API staging until new candidate CI artifact exists; old099 artifact cannot prove new profile. Documentation only; no installs/SQL/Firebase/workflow/runtime/freeze edits or release. See updates/2026-10-22-pr125-university-testing-plan.md.
+
+## Historical: PR125 independent University Testing DB design ready — 2026-10-22
 
 Latest Owner correction: online Testing database must remain on ITAPPVETOPSDB01 in an independent Testing DB. Proposed name VetMed-Ops-Testing; do not infer it exists. Keep VET-C31293 API/tunnel and separate Firebase project; LocalDB only for disposable acceptance. Revised written design docs/superpowers/specs/2026-10-22-pr125-university-testing-design.md self-reviewed and pending Owner review. It requires exact host/database/UUID boundaries, same-instance/two-DB synthetic tests, strict TLS, runtime/admin permission separation and narrow Testing-only adaptations for existing migration DB_NAME guards; authoritative Production migrations stay unchanged. No installation, DB/permission mutation or release. LocalDB-only design is superseded; prior CI applies to099 product only. See updates/2026-10-22-pr125-university-testing-design.md.
 

@@ -1,4 +1,8 @@
-## Current: PR125 University Testing database written-design review — 2026-10-22
+## Current: PR125 concrete implementation-plan review — 2026-10-22
+
+Written design approved; eight-task docs/superpowers/plans/2026-10-22-pr125-university-testing-implementation.md ready/self-reviewed. Next: Owner confirms this concrete plan, then invoke executing-plans and begin Task1 targeted failing regressions. Preserve sequential/native execution and final independent review, already selected. Do not ask again for host/database/design or general release authorization. No dependency installation, Testing DB creation, grants, config/workflow/runtime/freeze edits, merge or release yet. Source product099 CI is historical only. See updates/2026-10-22-pr125-university-testing-plan.md.
+
+## Historical: PR125 University Testing database written-design review — 2026-10-22
 
 Owner chose a separate Testing DB on ITAPPVETOPSDB01 for online Testing, correcting the just-written all-local DB draft. API remains temporary VET-C31293; LocalDB is acceptance-only. Review docs/superpowers/specs/2026-10-22-pr125-university-testing-design.md next, then writing-plans after approval. Proposed DB VetMed-Ops-Testing not created/verified; runtime hard-deny of server and reset hardcoded VetMed-Ops require reviewed guard/adapter changes. No granting current runtime Production access; no Production SQL changes. Preserve no-Azure/no-runner, main provenance, real UAT, freeze promotion and coherent rollout. See updates/2026-10-22-pr125-university-testing-design.md.
 

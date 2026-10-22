@@ -1,0 +1,368 @@
+name: One-Time PR131 Static Hosting Release (Verified Successful Job)
+
+on:
+  push:
+    branches: [release/pr131-static-only-20261022]
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FIREBASE_PROJECT_ID: tester-teaching
+  FIREBASE_SITE_URL: https://tester-teaching.web.app
+
+concurrency:
+  group: firebase-hosting-live
+  cancel-in-progress: false
+
+jobs:
+  deploy_hosting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout deployment workflow
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify requested source build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: 39814482758
+          COMMIT_SHA: ad605dbb9ab92457df972703c723e2b991fa284c
+        run: |
+          set -euo pipefail
+          test -n "$SOURCE_RUN_ID"
+          [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+          git fetch --no-tags origin main
+          git cat-file -e "$COMMIT_SHA^{commit}"
+          git merge-base --is-ancestor "$COMMIT_SHA" origin/main
+
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}")"
+          test "$(jq -r '.repository.full_name' <<< "$run_json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.path' <<< "$run_json")" = ".github/workflows/azure-beta-build.yml"
+          test "$(jq -r '.event' <<< "$run_json")" = "push"
+          test "$(jq -r '.head_branch' <<< "$run_json")" = "main"
+          test "$(jq -r '.head_sha' <<< "$run_json")" = "$COMMIT_SHA"
+          # One-time Owner-authorized fallback for GitHub's stuck top-level run status.
+          # Require every completed test/build job AND its steps to be green, and
+          # the exact named signed artifact digest to match. Never accept failure.
+          run_status="$(jq -r '.status' <<< "$run_json")"
+          run_conclusion="$(jq -r '.conclusion' <<< "$run_json")"
+          if [[ "$run_status" == "completed" ]]; then
+            test "$run_conclusion" = "success"
+          else
+            test "$run_status" = "in_progress"
+            jobs_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/jobs?per_page=100")"
+            jq -e '
+              .total_count == 1 and
+              ([.jobs[] | select(
+                .name == "test_and_build" and
+                .status == "completed" and
+                .conclusion == "success" and
+                (.steps | length > 0 and all(.[]; .status == "completed" and .conclusion == "success"))
+              )] | length) == 1
+            ' <<< "$jobs_json" > /dev/null
+            echo 'OWNER_EXCEPTION: completed successful test_and_build job + pinned artifact; top-level workflow stuck in_progress'
+          fi
+          artifacts_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts?per_page=100")"
+          jq -e --arg name "azure-beta-$COMMIT_SHA" --arg digest "sha256:2cfb6b1bc2beda16e5609a6834347c5574e0843ffdf0d678ab90f03ed9d9b84c" '
+            any(.artifacts[]; .name == $name and .digest == $digest and .expired == false)
+          ' <<< "$artifacts_json" > /dev/null
+          # The dedicated release branch may add ONLY this reviewed one-time
+          # release workflow. All application source is bit-identical to main.
+          test "$(git rev-parse origin/main)" = "$COMMIT_SHA"
+          files_changed="$(git diff --name-only "$COMMIT_SHA" HEAD)"
+          test "$files_changed" = ".github/workflows/pr131-static-owner-release.yml"
+
+      - name: Attest unchanged University API for static-only release
+        if: true
+        shell: bash
+        env:
+          LIVE_API_SHA: 924cc6761a3b2dfba4f19c2df912436cbd965b43
+          TARGET_SHA: ad605dbb9ab92457df972703c723e2b991fa284c
+        run: |
+          set -euo pipefail
+          [[ "$LIVE_API_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$LIVE_API_SHA^{commit}"
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$LIVE_API_SHA" "$TARGET_SHA"
+          node - <<'NODE'
+          'use strict';
+          const {execFileSync}=require('node:child_process');
+          const api=require('./tools/beta-api-freeze');
+          const root=process.cwd(),oldSha=process.env.LIVE_API_SHA,newSha=process.env.TARGET_SHA;
+          const original=api.baselineRuntimeFiles({root,baselineCommit:oldSha}).sort();
+          const proposed=api.baselineRuntimeFiles({root,baselineCommit:newSha}).sort();
+          if(JSON.stringify(original)!==JSON.stringify(proposed))throw Error('Protected API inventory changed');
+          const protectedApi=[...new Set([...original,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES])];
+          execFileSync('git',['diff','--quiet',oldSha,newSha,'--',...protectedApi],{cwd:root,stdio:'pipe'});
+          console.log('STATIC_ONLY_API_SOURCE_IDENTICAL: '+protectedApi.length+' paths');
+          NODE
+
+      - name: Download exact tested artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: azure-beta-ad605dbb9ab92457df972703c723e2b991fa284c
+          path: .firebase-production
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 39814482758
+
+      - name: Verify P4 static artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .firebase-production/app/index.html
+          test -f .firebase-production/app/faculty-admin.js
+          test -f .firebase-production/app/faculty-admin.html
+          test -f .firebase-production/app/faculty-admin-doe-renderer.js
+          test -f .firebase-production/app/faculty-admin-doe-policy.js
+          test -f .firebase-production/app/paws-api-origin.js
+
+          grep -Fq 'Effective DOE Total' .firebase-production/app/faculty-admin.js
+          grep -Fq 'Teaching Review' .firebase-production/app/faculty-admin.js
+          grep -Fq 'Role Review' .firebase-production/app/faculty-admin.js
+          grep -Fq 'Annual DOE Rule Book' .firebase-production/app/faculty-admin.html
+          grep -Fq 'calculatedDoeCredit' .firebase-production/app/faculty-admin-doe-renderer.js
+
+      - name: Derive source API origin
+        id: source_identity
+        shell: bash
+        env:
+          COMMIT_SHA: ad605dbb9ab92457df972703c723e2b991fa284c
+        run: |
+          set -euo pipefail
+          git show "$COMMIT_SHA:paws-api-origin.js" > source-paws-api-origin.js
+          api_origin="$(node - <<'NODE'
+          const config = require('./source-paws-api-origin.js');
+          const url = new URL(config.apiOrigin);
+          if (url.protocol !== 'https:' || !['', '/'].includes(url.pathname) || url.search || url.hash || url.username || url.password) {
+            throw new Error('paws-api-origin.js must contain a bare HTTPS origin');
+          }
+          process.stdout.write(url.origin);
+          NODE
+          )"
+          echo "apiOrigin=$api_origin" >> "$GITHUB_OUTPUT"
+
+      - name: Verify University API before Firebase release
+        id: predeploy_api
+        shell: bash
+        env:
+          API_ORIGIN: ${{ steps.source_identity.outputs.apiOrigin }}
+          COMMIT_SHA: ad605dbb9ab92457df972703c723e2b991fa284c
+          STATIC_ONLY: true
+          EXPECTED_LIVE_API_SHA: 924cc6761a3b2dfba4f19c2df912436cbd965b43
+        run: |
+          set -euo pipefail
+
+          sql_status="$(curl --silent --show-error --max-time 15 -o predeploy-sql.json -w '%{http_code}' "$API_ORIGIN/api/health/sql" || true)"
+          test "$sql_status" = "200"
+          jq -e '.status == "ok" and .service == "paws-beta-sql-runtime"' predeploy-sql.json > /dev/null
+
+          runtime_status="$(curl --silent --show-error --max-time 15 -o predeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
+          test "$runtime_status" = "200"
+          jq -e '
+            .status == "ok" and
+            .service == "paws-university-api" and
+            .authority == "vetmed-ops-sql" and
+            (.writeGates | type == "object")
+          ' predeploy-runtime.json > /dev/null
+          if [ "$STATIC_ONLY" = "true" ]; then
+            jq -e --arg expected "$EXPECTED_LIVE_API_SHA" '.releaseSha == $expected' predeploy-runtime.json > /dev/null
+          else
+            # A full release requires the exact matching API. Live DOE gates
+            # are independently authorized and must never be switched off by
+            # the Firebase static publisher. Validate all booleans and attest
+            # the complete pre/post gate fingerprint below.
+            jq -e --arg commit "$COMMIT_SHA" '
+              .releaseSha == $commit and
+              (.writeGates | type == "object" and length > 0 and all(.[]; type == "boolean"))
+            ' predeploy-runtime.json > /dev/null
+          fi
+          echo "apiReleaseSha=$(jq -r '.releaseSha' predeploy-runtime.json)" >> "$GITHUB_OUTPUT"
+          echo "gateHash=$(jq -cS '.writeGates' predeploy-runtime.json | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+
+          auth_status="$(curl --silent --show-error --max-time 15 -o /dev/null -w '%{http_code}' "$API_ORIGIN/api/v1/me" || true)"
+          test "$auth_status" = "401"
+
+          echo 'apiPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Verify Firebase-site CORS before release
+        id: predeploy_cors
+        shell: bash
+        env:
+          API_ORIGIN: ${{ steps.source_identity.outputs.apiOrigin }}
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 15 -D predeploy-cors.txt -o /dev/null -w '%{http_code}' \
+            -X OPTIONS "$API_ORIGIN/api/health/runtime" \
+            -H "Origin: $FIREBASE_SITE_URL" \
+            -H 'Access-Control-Request-Method: GET' \
+            -H 'Access-Control-Request-Headers: authorization,content-type' || true)"
+          test "$status" = "204"
+          grep -Fqi "access-control-allow-origin: $FIREBASE_SITE_URL" predeploy-cors.txt
+          grep -Eiq '^access-control-allow-methods:.*GET.*OPTIONS' predeploy-cors.txt
+          grep -Eiq '^access-control-allow-headers:.*Authorization.*Content-Type' predeploy-cors.txt
+          echo 'corsPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_TESTER_TEACHING }}'
+          project_id: tester-teaching
+
+      - name: Install locked Firebase CLI
+        run: npm ci --ignore-scripts
+
+      - name: Deploy Hosting only
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/firebase deploy \
+            --only hosting \
+            --project "$FIREBASE_PROJECT_ID" \
+            --config firebase.hosting-only.json \
+            --non-interactive \
+            --message "GitHub Actions release ad605dbb9ab92457df972703c723e2b991fa284c from build 39814482758"
+
+      - name: Verify public Firebase bytes converge
+        id: static_verify
+        shell: bash
+        env:
+          COMMIT_SHA: ad605dbb9ab92457df972703c723e2b991fa284c
+        run: |
+          set -euo pipefail
+          files=(
+            index.html
+            faculty-name.js
+            timetable.js
+            ccc-schedule.js
+            user-management.js
+            teaching-assignments.js
+            faculty-admin.js
+            faculty-admin.html
+            faculty-admin-doe-renderer.js
+            faculty-admin-doe-policy.js
+            paws-api-origin.js
+          )
+
+          mkdir -p public-firebase
+          passed=false
+          for attempt in $(seq 1 12); do
+            all_match=true
+            for file in "${files[@]}"; do
+              expected=".firebase-production/app/$file"
+              target="public-firebase/$file"
+              status="$(curl --silent --show-error --max-time 20 -o "$target" -w '%{http_code}' "$FIREBASE_SITE_URL/$file?p4=$COMMIT_SHA&attempt=$attempt" || true)"
+              if [ "$status" != "200" ] || ! cmp -s "$expected" "$target"; then
+                all_match=false
+              fi
+            done
+
+            if [ "$all_match" = true ]; then
+              passed=true
+              break
+            fi
+            sleep 10
+          done
+
+          if [ "$passed" != true ]; then
+            echo 'FIREBASE_STATIC_CONVERGENCE_BLOCKER'
+            exit 1
+          fi
+
+          grep -Fq 'Effective DOE Total' public-firebase/faculty-admin.js
+          grep -Fq 'Teaching Review' public-firebase/faculty-admin.js
+          grep -Fq 'Role Review' public-firebase/faculty-admin.js
+          grep -Fq 'Annual DOE Rule Book' public-firebase/faculty-admin.html
+          echo 'staticHashesPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Verify University API after Firebase release
+        id: postdeploy_api
+        shell: bash
+        env:
+          API_ORIGIN: ${{ steps.source_identity.outputs.apiOrigin }}
+          COMMIT_SHA: ad605dbb9ab92457df972703c723e2b991fa284c
+          STATIC_ONLY: true
+          PREFLIGHT_GATE_HASH: ${{ steps.predeploy_api.outputs.gateHash }}
+          PREFLIGHT_RELEASE_SHA: ${{ steps.predeploy_api.outputs.apiReleaseSha }}
+        run: |
+          set -euo pipefail
+
+          sql_status="$(curl --silent --show-error --max-time 15 -o postdeploy-sql.json -w '%{http_code}' "$API_ORIGIN/api/health/sql" || true)"
+          test "$sql_status" = "200"
+          jq -e '.status == "ok" and .service == "paws-beta-sql-runtime"' postdeploy-sql.json > /dev/null
+
+          runtime_status="$(curl --silent --show-error --max-time 15 -o postdeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
+          test "$runtime_status" = "200"
+          jq -e --arg expected "$PREFLIGHT_RELEASE_SHA" '
+            .status == "ok" and
+            .service == "paws-university-api" and
+            .authority == "vetmed-ops-sql" and
+            .releaseSha == $expected and
+            (.writeGates | type == "object")
+          ' postdeploy-runtime.json > /dev/null
+          if [ "$STATIC_ONLY" != "true" ]; then
+            jq -e --arg commit "$COMMIT_SHA" '
+              .releaseSha == $commit and
+              (.writeGates | type == "object" and length > 0 and all(.[]; type == "boolean"))
+            ' postdeploy-runtime.json > /dev/null
+          fi
+          test "$(jq -cS '.writeGates' postdeploy-runtime.json | sha256sum | cut -d ' ' -f 1)" = "$PREFLIGHT_GATE_HASH"
+
+          echo 'apiPassed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Write Firebase deploy evidence
+        if: always()
+        shell: bash
+        env:
+          COMMIT_SHA: ad605dbb9ab92457df972703c723e2b991fa284c
+          SOURCE_RUN_ID: 39814482758
+          API_ORIGIN: ${{ steps.source_identity.outputs.apiOrigin }}
+          PRE_API: ${{ steps.predeploy_api.outputs.apiPassed == 'true' && 'true' || 'false' }}
+          PRE_CORS: ${{ steps.predeploy_cors.outputs.corsPassed == 'true' && 'true' || 'false' }}
+          STATIC_HASHES: ${{ steps.static_verify.outputs.staticHashesPassed == 'true' && 'true' || 'false' }}
+          POST_API: ${{ steps.postdeploy_api.outputs.apiPassed == 'true' && 'true' || 'false' }}
+          STATIC_ONLY: true
+          EXPECTED_LIVE_API_SHA: 924cc6761a3b2dfba4f19c2df912436cbd965b43
+          PREFLIGHT_API_SHA: ${{ steps.predeploy_api.outputs.apiReleaseSha }}
+          PREFLIGHT_GATE_HASH: ${{ steps.predeploy_api.outputs.gateHash }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg commitSha "$COMMIT_SHA" \
+            --arg sourceRunId "$SOURCE_RUN_ID" \
+            --arg deployRunId "$GITHUB_RUN_ID" \
+            --arg deployRunNumber "$GITHUB_RUN_NUMBER" \
+            --arg siteUrl "$FIREBASE_SITE_URL" \
+            --arg apiOrigin "$API_ORIGIN" \
+            --arg staticOnly "$STATIC_ONLY" \
+            --arg expectedLiveApiSha "$EXPECTED_LIVE_API_SHA" \
+            --arg preflightApiSha "$PREFLIGHT_API_SHA" \
+            --arg preflightGateHash "$PREFLIGHT_GATE_HASH" \
+            --arg deployedAtUtc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson apiPre "$PRE_API" \
+            --argjson corsPre "$PRE_CORS" \
+            --argjson staticHashesPassed "$STATIC_HASHES" \
+            --argjson apiPost "$POST_API" \
+            '{repository:$repository,commitSha:$commitSha,sourceRunId:$sourceRunId,deployRunId:$deployRunId,deployRunNumber:$deployRunNumber,siteUrl:$siteUrl,apiOrigin:$apiOrigin,staticOnly:($staticOnly=="true"),expectedLiveApiSha:$expectedLiveApiSha,preflightApiSha:$preflightApiSha,preflightGateHash:$preflightGateHash,apiPre:$apiPre,corsPre:$corsPre,staticHashesPassed:$staticHashesPassed,apiPost:$apiPost,deployedAtUtc:$deployedAtUtc}' \
+            > firebase-deploy-evidence.json
+
+      - name: Upload Firebase deploy evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: firebase-hosting-deploy-ad605dbb9ab92457df972703c723e2b991fa284c
+          path: firebase-deploy-evidence.json
+          if-no-files-found: error
+          retention-days: 14

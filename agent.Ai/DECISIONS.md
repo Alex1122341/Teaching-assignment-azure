@@ -1,3 +1,7 @@
+## Owner direction: retire non-database Azure dependencies — 2026-10-22
+
+The owner clarified that Microsoft Azure is retired for PAWS frontend and API deployment; Microsoft SQL Server / Azure-related **database** support may remain. The supported browser path is Firebase Hosting + Firebase Authentication, with the University-hosted Node API and \`VetMed-Ops\` SQL database. Do not design new ACA/ACR dependencies or provision paid Azure Testing infrastructure from the unmerged PR #125. The separate PR #133 removes legacy Azure browser naming only; it does not retire historical SQL migrations, the protected University API or its approved frozen artifact contract. Non-DB Azure workflow/container retirement requires a separate, verified API/build deployment migration with no Production interruption.
+
 ## Owner-authorized local acceptance for Availability PR124 — 2026-10-21
 
 Owner explicitly authorizes local acceptance, then merge and publication because GitHub CI usage is exhausted. For this task, local exact-source/full-history Node22 root/server/emulator/build/artifact evidence replaces mandatory Actions/exact-main CI provenance. Preserve independent product/governance review, Git-object freezes, real authentication/scope, exact-main local artifact attestations, unchanged27 gates/business fingerprints and coordinated University API then Firebase Hosting-only publication. Do not alter workflows, fabricate green runs/artifact IDs or weaken authorization. See docs/faculty-availability-local-release-authorization-20261021.md.

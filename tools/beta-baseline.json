@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "ba915e99ca06677d58e129f6fb671bd40d21600e",
+  "sourceCommit": "f78b10a1401bcb8675f8fd5414ec3d98eafa1ffd",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -69,7 +69,7 @@
     "password.js": "5cb24c52f7b3841f29cff171993bc474ac93545dc30369a3b50c3ab22d131955",
     "paws-api-origin.js": "9347514edf209df80b039105746e401941f08d566c20fb5f80e5e3be24a53135",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
-    "paws-data-client.js": "02e03b77cc994995d075403f413bd050f59b1774035150044c2acb315017147e",
+    "paws-data-client.js": "a36c1ad3fd54d18fcfa32fa2aabe9b2ac3c095ae584098e38a92e1b76c8abf20",
     "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170",
     "scheduling-core.js": "d8e1321c42aa63c617668d86787d562fc1ba347ba8f5001c9671faf6b3e8ae3a",
     "session-guard.js": "fd8e2415ed80d1eac771246be1e4c78910ce5c1101ac2bd147e56b84e56af78e",
@@ -81,7 +81,7 @@
     "teaching-assignments.js": "6bcf88f9bc9e2a67c0383dc21b59b07a4f8fb53e1f865be24223e84c383d45f1",
     "timetable-selection.js": "a6085d77bb2e11ecba8a8d043765166c446ad3ca9c10a4f86bdb5b170227b5c2",
     "timetable.css": "19eebdeb52d0df393b24e41b92741e8859f4c625d58cb55fe17146bbea91b166",
-    "timetable.js": "6b34240ef132b12d571256eed3489abc3bf0c159eeeec0720753bb6bb27d38ad",
+    "timetable.js": "d916e40f6144ffed40c015be46da9f28ea26929ebc61db736f305b59a82c910d",
     "user-management.css": "de65cb308772e82be4f551ad505ae7b718736c0cdfd531dedf7b971c089cfe02",
     "user-management.html": "1e85481ae965a3b77d187470fa666bcb59561900718576e8751cc28369d3aab5",
     "user-management.js": "36ebae9ff0bfddbac604d4a40b05783aa9ee6960cf18ac1e9127ed481a33bc2f",

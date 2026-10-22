@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PRIOR_MAIN='924cc6761a3b2dfba4f19c2df912436cbd965b43';
+const ACCEPTED_MAIN='ad605dbb9ab92457df972703c723e2b991fa284c',ACTIVE='f78b10a1401bcb8675f8fd5414ec3d98eafa1ffd';
 const OLD='5b135dfc91332a6fad29376d1d88d9acd33fd62a',PRODUCT='ba915e99ca06677d58e129f6fb671bd40d21600e';
 const expected=[
   "adfa-swap-panel.js",
@@ -49,11 +50,11 @@ test('faculty-name promotion makes no changes to protected API inputs or SQL mig
  assert.deepEqual(changedFiles.filter(f=>f.startsWith('database/azure-sql/')),[]);
 });
 test('governance changes zero protected application bytes and pins exact product commit',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);
- assert.equal(api.BASELINE_COMMIT,PRODUCT);
- assert.equal(report.sourceCommit,PRODUCT);
- assert.deepEqual(Object.keys(report.sha256).sort(),JSON.parse(git('show',PRODUCT+':tools/static-assets.json')).sort());
- assert.deepEqual(changed(PRODUCT,'HEAD').filter(f=>Object.hasOwn(report.sha256,f)||f.startsWith('server/src/')||f.startsWith('swa-api/')||api.BUILD_DEFINITION_FILES.includes(f)||api.REPOSITORY_INPUT_FILES.includes(f)),[]);
+ assert.equal(freeze.BASELINE_COMMIT,ACTIVE);
+ assert.equal(api.BASELINE_COMMIT,ACTIVE);
+ assert.equal(report.sourceCommit,ACTIVE);
+ assert.deepEqual(Object.keys(report.sha256).sort(),JSON.parse(git('show',ACTIVE+':tools/static-assets.json')).sort());
+ assert.deepEqual(changed(PRODUCT,ACCEPTED_MAIN).filter(f=>Object.hasOwn(report.sha256,f)||f.startsWith('server/src/')||f.startsWith('swa-api/')||api.BUILD_DEFINITION_FILES.includes(f)||api.REPOSITORY_INPUT_FILES.includes(f)),[]);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
  assert.equal(api.verifyFreeze({root}).ok,true);
 });

@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PRIOR_MAIN='924cc6761a3b2dfba4f19c2df912436cbd965b43';
-const OLD='5b135dfc91332a6fad29376d1d88d9acd33fd62a',PRODUCT='5948db79e8bccb4170c15a79bbbc127cfe37e155';
+const OLD='5b135dfc91332a6fad29376d1d88d9acd33fd62a',PRODUCT='ba915e99ca06677d58e129f6fb671bd40d21600e';
 const expected=[
   "adfa-swap-panel.js",
   "afc-workflow-sql.js",

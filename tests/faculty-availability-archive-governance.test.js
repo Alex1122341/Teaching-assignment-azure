@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),a
 const BASE='33c4e9f4506e4632e673c2e8a462bc9987ce7e51',PRODUCT='370c30a21d99ae7227f97f1e0cb781864c674768',ORIGINAL='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
 // Verify Availability's original release delta against the immutable CCC product,
 // separately from the current presentation-only faculty name promotion.
-const PREVIOUS_ANCHOR='5b135dfc91332a6fad29376d1d88d9acd33fd62a',ANCHOR='5948db79e8bccb4170c15a79bbbc127cfe37e155';
+const PREVIOUS_ANCHOR='5b135dfc91332a6fad29376d1d88d9acd33fd62a',ANCHOR='ba915e99ca06677d58e129f6fb671bd40d21600e';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const tree=ref=>new Map(git('ls-tree','-r',ref).split(/\r?\n/).map(line=>{const [meta,file]=line.split('\t');return[file,meta.split(' ')[2]];}));
 test('release freeze retains latest accepted History archive restoration and exact original Availability runtime',()=>{

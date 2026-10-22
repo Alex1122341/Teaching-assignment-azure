@@ -1,5 +1,7 @@
 # PAWS dual environment: deployment readiness report (2026-10-20)
 
+**Historical report.** The current PR125/main reconciliation and fresh evidence are in [the 2026-10-22 refresh report](10-main-refresh-readiness-20261022.md). The commit IDs,44/44 LocalDB result and suite totals below describe the earlier product only; they are not acceptance of the current integrated branch.
+
 Repository `Alex1122341/Teaching-assignment-azure`, PR #125, branch `feat/paws-testing-environment`, merged with `main` @ `15dd739`. Product anchor `413e87f`, governance `cd7f0a6`, branch tip is the latest commit on the branch (see `git log 15dd739..HEAD`).
 
 ## Readiness decision

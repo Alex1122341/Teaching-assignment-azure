@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {createActivityTypeFilter,renderRangeLane}=require('../calendar-activities');
+const {createActivityTypeFilter,renderRangeLane}=require('../frontend/scripts/calendar-activities.js');
 const vm=require('node:vm'),sourceFunction=require('../test-support/source-function');
 
 test('owner revision excludes Remote work from work filters and selection',()=>{

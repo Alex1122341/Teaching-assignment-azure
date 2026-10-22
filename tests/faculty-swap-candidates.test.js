@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const index=require('../data-index.js');
+const index=require('../frontend/scripts/data-index.js');
 
 test('faculty swap projection exposes only safe identity and binary AFC ranges',()=>{
  assert.equal(typeof index.buildFacultySwapIndexes,'function');

@@ -1,18 +1,19 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..');
-const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+const root=repositoryPath(__dirname,'..');
+const read=file=>fs.readFileSync(repositoryPath(root,file),'utf8');
 
 test('Firebase is the only static Hosting build target',()=>{
  const firebase=JSON.parse(read('firebase.json'));
  const manifest=JSON.parse(read('tools/static-assets.json'));
  assert.equal(firebase.hosting.public,'.deploy-static');
  assert.deepEqual(firebase.hosting.predeploy,['node tools/build-static.js']);
- assert.ok(!fs.existsSync(path.join(root,'staticwebapp.config.json')));
+ assert.ok(!fs.existsSync(repositoryPath(root,'staticwebapp.config.json')));
  for(const file of ['index.html','faculty-admin.html','approval-workflow.js','faculty-swap-safe.js','absence-from-campus-app.pdf'])assert.ok(manifest.includes(file),file+' is required');
 });
 
@@ -29,7 +30,7 @@ test('static manifest excludes repository, development and retired Azure routing
 });
 
 test('static builder validates sources and copies only the manifest',()=>{
- const builder=read('tools/build-static.js');
+ const builder=read('tools/build/static-bundle.js')+read('tools/build/frontend-paths.js');
  assert.match(builder,/static-assets\.json/);
  assert.match(builder,/path\.resolve/);
  assert.match(builder,/startsWith/);
@@ -45,13 +46,13 @@ test('Firebase retains the historic faculty-dashboard redirect',()=>{
 });
 
 test('generated Firebase Hosting directory is exactly the application allowlist',()=>{
- execFileSync(process.execPath,[path.join(root,'tools/build-static.js')],{cwd:root,encoding:'utf8',timeout:30000});
- const output=path.join(root,'.deploy-static');
+ execFileSync(process.execPath,[repositoryPath(root,'tools/build-static.js')],{cwd:root,encoding:'utf8',timeout:30000});
+ const output=repositoryPath(root,'.deploy-static');
  const manifest=JSON.parse(read('tools/static-assets.json'));
  assert.ok(manifest.includes('dashboard-view-model.js'));
  assert.ok(manifest.includes('paws-login-performance.js'));
  assert.deepEqual(fs.readdirSync(output).sort(),[...manifest].sort());
- for(const name of manifest)assert.deepEqual(fs.readFileSync(path.join(output,name)),fs.readFileSync(path.join(root,name)));
+ for(const name of manifest)assert.deepEqual(fs.readFileSync(path.join(output,name)),fs.readFileSync(repositoryPath(root,name)));
  assert.equal(fs.existsSync(path.join(output,'faculty-dashboard.html')),false);
  assert.equal(fs.existsSync(path.join(output,'staticwebapp.config.json')),false);
 });

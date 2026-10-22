@@ -1,7 +1,8 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const sourceFunction=require('../test-support/source-function');
-const {createPawsDataClient}=require('../paws-data-client');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 const {createDataApi}=require('../server/src/data/data-api');
 const {createSqlSessionRepository}=require('../server/src/data/sql-session-repository');
 const own='11111111-1111-4111-8111-111111111111';
@@ -15,9 +16,9 @@ function pipeline(profile){
   const reply=await api.sessions(init.headers.Authorization.slice(7),Object.fromEntries(parsed.searchParams));return{ok:reply.status===200,status:reply.status,json:async()=>reply.body};
  }});
  const context={Date,Map,Set,Promise,console,currentUser:{uid:'synthetic-uid'},UCVM_PAWS_DATA:client,allSessionsCache:null,allSessionsOwnerUid:'',allSessionsLoading:null,allSessionsLoadingUid:'',allSessionsLoadGeneration:0,sessionCache:new Map(),pageDataSubscribers:new Set()};context.window=context;vm.createContext(context);
- const text=fs.readFileSync('timetable.js','utf8');
+ const text=fs.readFileSync(repositoryPath(process.cwd(), 'timetable.js'),'utf8');
  for(const name of ['SPRING_BASE_MONDAY','FALL_BASE_MONDAY','WINTER_BASE_MONDAY','WEEK_COUNT']){const line=text.split('\n').find(line=>line.includes(`const ${name} =`));assert.ok(line);vm.runInContext(line,context);}
- for(const file of ['scheduling-core.js','timetable-selection.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
+ for(const file of ['scheduling-core.js','timetable-selection.js'])vm.runInContext(fs.readFileSync(repositoryPath(process.cwd(),file),'utf8'),context);
  for(const name of ['addDays','parseYmd','academicPositionForDate','splitInstructorNames','mapPawsSessionRow','fetchPawsSessions','fullSessionCacheForUser','publishPageData','ensureAllSessions'])vm.runInContext(sourceFunction('timetable.js',name),context);
  return{context,calls};
 }

@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 // BETA-R4D-10B Stage 3C1 — retired role access policy alignment.
 //
 // The Dashboard controller must never authorize a role that the locked
@@ -9,11 +10,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 
-const root = path.resolve(__dirname, '..');
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const read = file => fs.readFileSync(repositoryPath(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
 const ACCESS_SOURCE = read('faculty-access.js');
 const SERVER_SOURCE = read('server/src/data/dashboard-api.js');

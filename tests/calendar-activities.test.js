@@ -1,8 +1,8 @@
 'use strict';
-const test=require('node:test');const assert=require('node:assert/strict');const {createCalendarActivityView}=require('../calendar-activities');
+const test=require('node:test');const assert=require('node:assert/strict');const {createCalendarActivityView}=require('../frontend/scripts/calendar-activities.js');
 const row={activityId:'private-id',facultyKey:'public-key',facultyDisplayName:'Synthetic Faculty',category:'ccc',label:'CCC Day',startDate:'2026-04-29',endDate:'2026-05-03',timeStatus:'not_provided',timeEvidence:[]};
 test('academic context supports the existing short year and full year without assigning an activity year',()=>{
- const {academicRange}=require('../calendar-activities');
+ const {academicRange}=require('../frontend/scripts/calendar-activities.js');
  assert.deepEqual(academicRange('2026-27'),{start:'2026-05-01',end:'2027-05-01'});
  assert.deepEqual(academicRange('2026-2027'),academicRange('2026-27'));
  assert.equal(academicRange('2026-28'),null);assert.equal(academicRange(''),null);

@@ -1,6 +1,7 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
+const root=repositoryPath(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
 const previous='0798408fa819f6040953ccf325d5cfb5e06ca7fc',product='331a636544e7232dbe98f67edbdf1cfbfa0e535d';
 test('login recovery freeze changes exactly the API origin and preserves all API bytes and protected paths',()=>{
  const historical=execFileSync('git',['show','6b5e744530308c2153d89ddd488731a9f4708c30:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});assert.ok(historical.includes("const BASELINE_COMMIT='"+product+"'"));execFileSync('git',['merge-base','--is-ancestor',product,freeze.BASELINE_COMMIT],{cwd:root});assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);

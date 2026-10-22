@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const read=p=>fs.readFileSync(p,'utf8');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const read=p=>fs.readFileSync(repositoryPath(process.cwd(),p),'utf8');
 test('Dashboard has dedicated availability tab, view, module and stylesheet',()=>{
  const html=read('faculty-admin.html'),admin=read('faculty-admin.js'),client=read('paws-data-client.js');
  assert.match(html,/data-tab="availability"/);

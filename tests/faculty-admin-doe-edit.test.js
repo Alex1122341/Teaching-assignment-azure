@@ -1,5 +1,6 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -28,7 +29,7 @@ class Element {
 function setup(api) {
   const window = { confirm: () => true };
   const document = { createElement: () => new Element('section') };
-  vm.runInNewContext(fs.readFileSync('faculty-admin-doe-edit.js', 'utf8'), { window, document }, { filename: 'faculty-admin-doe-edit.js' });
+  vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-doe-edit.js'), 'utf8'), { window, document }, { filename: 'faculty-admin-doe-edit.js' });
 
   const form = new Element('form');
   form.dataset.facultyId = 'faculty-1';

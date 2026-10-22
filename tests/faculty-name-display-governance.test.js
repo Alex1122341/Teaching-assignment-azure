@@ -1,6 +1,7 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
+const root=repositoryPath(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PRIOR_MAIN='924cc6761a3b2dfba4f19c2df912436cbd965b43';
 const ACCEPTED_MAIN='ad605dbb9ab92457df972703c723e2b991fa284c',ACTIVE='f78b10a1401bcb8675f8fd5414ec3d98eafa1ffd';
 const OLD='5b135dfc91332a6fad29376d1d88d9acd33fd62a',PRODUCT='ba915e99ca06677d58e129f6fb671bd40d21600e';

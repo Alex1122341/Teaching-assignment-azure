@@ -1,6 +1,7 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
+const root=repositoryPath(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const BASE='33c4e9f4506e4632e673c2e8a462bc9987ce7e51',PRODUCT='370c30a21d99ae7227f97f1e0cb781864c674768',ORIGINAL='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
 // Verify Availability's original release delta against the immutable CCC product,
 // separately from the current presentation-only faculty name promotion.

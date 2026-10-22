@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 // BETA-R4D-9G: sessions outside the Day/Week calendar grid must never disappear.
 //
 // The defect: `unpositionedSessionsHtml()` admitted a session only when
@@ -9,8 +10,8 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const src=fs.readFileSync('timetable.js','utf8');
-const css=fs.readFileSync('timetable.css','utf8');
+const src=fs.readFileSync(repositoryPath(process.cwd(), 'timetable.js'),'utf8');
+const css=fs.readFileSync(repositoryPath(process.cwd(), 'timetable.css'),'utf8');
 
 const CAL_START=450, CAL_END=1020; // 07:30 - 17:00
 
@@ -180,7 +181,7 @@ test('R4D-9G: shipped timetable.js uses the shared disposition helper, not ad-ho
 });
 
 test('post-P3 Check Needed list covers the selected academic year and partitions by canonical disposition',()=>{
-  const html=fs.readFileSync('index.html','utf8');
+  const html=fs.readFileSync(repositoryPath(process.cwd(), 'index.html'),'utf8');
   assert.match(html,/id="list-global-controls"/);
   assert.match(html,/id="list-academic-year"/);
   assert.match(html,/id="list-session-mode"/);

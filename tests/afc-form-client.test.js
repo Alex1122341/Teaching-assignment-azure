@@ -1,5 +1,5 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict');const {createPawsDataClient}=require('../paws-data-client');
+const test=require('node:test'),assert=require('node:assert/strict');const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 test('AFC form client uses authenticated exact routes and explicit payload allowlist',async()=>{
  const calls=[],c=createPawsDataClient({tokenProvider:async()=>'token',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({documents:[]})};}});
  await c.afcFormCapabilities();await c.listAfcForms({facultyId:'faculty',limit:25,actorFirebaseUid:'spoof'});await c.uploadAfcForm({facultyId:'f',requestId:'r',fileName:'x.pdf',contentType:'application/pdf',fileBase64:'bytes',reason:'private',actorFirebaseUid:'spoof'});

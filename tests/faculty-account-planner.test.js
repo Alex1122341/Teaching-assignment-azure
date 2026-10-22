@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const planner=require('../faculty-account-planner.js');
+const planner=require('../frontend/scripts/faculty-account-planner.js');
 
 test('source HICC and VISC roles become unique managed roles with workload DOE',()=>{
  const faculty={facultySummary2026_27:{roles:[

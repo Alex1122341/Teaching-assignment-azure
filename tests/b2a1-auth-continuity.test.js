@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 // BETA-R4D-12B2A1 — Timetable <-> Dashboard authentication continuity.
 //
 // Core rule: AUTHENTICATION SESSION != API AVAILABILITY, and
@@ -14,9 +15,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const sourceFunction = require('../test-support/source-function.js');
 
-const root = path.resolve(__dirname, '..');
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const ORIGIN = require('../paws-api-origin.js').apiOrigin;
+const root = repositoryPath(__dirname, '..');
+const read = file => fs.readFileSync(repositoryPath(root, file), 'utf8');
+const ORIGIN = require('../frontend/scripts/paws-api-origin.js').apiOrigin;
 
 // A fake response shape matching what the data client expects.
 function response({ status, body = {}, ok = null }) {
@@ -27,7 +28,7 @@ function response({ status, body = {}, ok = null }) {
 // A. Shared auth-continuity classification (pure: no credentials, no tokens,
 //    no SQL, no Firestore).
 // ---------------------------------------------------------------------------
-const continuity = require('../paws-auth-continuity.js');
+const continuity = require('../frontend/scripts/paws-auth-continuity.js');
 
 test('A1 auth-continuity helper performs no I/O and stores nothing', () => {
   const source = read('paws-auth-continuity.js');
@@ -92,7 +93,7 @@ test('A8 every classification carries a non-destructive message', () => {
 // ---------------------------------------------------------------------------
 // B. Common API client: 401 -> forced token refresh -> exactly one retry.
 // ---------------------------------------------------------------------------
-const { createPawsDataClient } = require('../paws-data-client.js');
+const { createPawsDataClient } = require('../frontend/scripts/paws-data-client.js');
 
 function client({ responses, refreshFails = false }) {
   const attempts = [];
@@ -475,7 +476,7 @@ test('D8 Faculty Dashboard loads shared auth/data helpers before its controller'
 // ---------------------------------------------------------------------------
 // E. Session guard must not treat normal navigation as reload abuse.
 // ---------------------------------------------------------------------------
-const guard = require('../session-guard.js');
+const guard = require('../frontend/scripts/session-guard.js');
 
 function memoryStorage(seed = {}) {
   const values = new Map(Object.entries(seed));

@@ -1,14 +1,14 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
 const vm=require('node:vm');
 const sourceFunction=require('../test-support/source-function.js');
-const {createPawsDataClient}=require('../paws-data-client.js');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 
-const root=path.resolve(__dirname,'..');
-const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+const root=repositoryPath(__dirname,'..');
+const read=file=>fs.readFileSync(repositoryPath(root,file),'utf8');
 
 test('Azure session client preserves a 6000-row response without truncation',async()=>{
   const rows=Array.from({length:6000},(_,i)=>({id:String(i+1),date:'2026-09-01'}));

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createPawsDataClient}=require('../paws-data-client');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 function fixture(type='text/csv; charset=utf-8'){
  const calls=[],bytes=new TextEncoder().encode('\uFEFFFaculty,Source DOE\r\nExample,0\r\n');
  const api=createPawsDataClient({tokenProvider:async()=>'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,status:200,headers:{get:key=>key==='content-type'?type:null},json:async()=>({rows:[]}),arrayBuffer:async()=>bytes.buffer};}});

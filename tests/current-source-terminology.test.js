@@ -1,12 +1,13 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const root = path.resolve(__dirname, '..');
+const root = repositoryPath(__dirname, '..');
 const runtimeCopyFiles = ['index.html', 'faculty-admin.html', 'faculty-admin.js', 'faculty-admin-enhancements.js', 'timetable.js', 'afc-workflow.js', 'user-management.html', 'user-management.js', 'faculty-access.js'];
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const read = file => fs.readFileSync(repositoryPath(root, file), 'utf8');
 
 test('current UI identifies VetMed-Ops and the PAWS University API as the business-data path', () => {
   const html = read('faculty-admin.html');

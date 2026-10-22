@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 // BETA-R4D-10B Stage 3A — Dashboard core Azure SQL read cutover.
 //
 // These tests execute the REAL production faculty-admin.js inside a vm sandbox
@@ -9,11 +10,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 
-const root = path.resolve(__dirname, '..');
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const read = file => fs.readFileSync(repositoryPath(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
 
 const KPI_IDS = ['kpi-total', 'kpi-sessions', 'kpi-assignments', 'kpi-courses', 'kpi-roles', 'kpi-hicc', 'kpi-visc', 'kpi-afc', 'kpi-grid', 'kpi-check'];
@@ -449,7 +449,7 @@ test('the core flow never invokes the legacy Firestore loaders', () => {
 
 test('AFC purpose appears only in the selected detail', () => {
   assert.match(slice('function renderFacultyAfc', 'function currentAcademicYear'), /UCVM_AFC_RECORDS\.profileAfc/, 'selected detail delegates to the AFC renderer');
-  const html=require('../faculty-admin-afc-records').profileAfc([{purpose:'Synthetic private purpose',notes:'<unsafe>',startDate:'2026-11-01',endDate:'2026-11-02'}],{selfMode:true});
+  const html=require('../frontend/scripts/faculty-admin-afc-records.js').profileAfc([{purpose:'Synthetic private purpose',notes:'<unsafe>',startDate:'2026-11-01',endDate:'2026-11-02'}],{selfMode:true});
   assert.match(html,/Synthetic private purpose/,'AFC purpose is rendered in the authorized detail');assert.match(html,/N\/A/);assert.doesNotMatch(html,/<unsafe>/);
   assert.doesNotMatch(slice('function renderLookup', 'function teachingSummaryDoeStatus'), /purpose/i, 'the roster must not expose AFC purpose');
   assert.doesNotMatch(read('faculty-admin.html'), /away purpose/);

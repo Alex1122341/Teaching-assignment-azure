@@ -1,12 +1,13 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const API_ORIGIN=require('../paws-api-origin.js').apiOrigin;
-const {createPawsDataClient}=require('../paws-data-client.js');
+const API_ORIGIN=require('../frontend/scripts/paws-api-origin.js').apiOrigin;
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 
 test('PAWS client is fixed to VetMed-Ops mode and exposes no backend selector or legacy write capability',()=>{
-  const source=fs.readFileSync('paws-data-client.js','utf8');
+  const source=fs.readFileSync(repositoryPath(process.cwd(), 'paws-data-client.js'),'utf8');
   const client=createPawsDataClient({fetchImpl:async()=>({ok:true,json:async()=>({})}),tokenProvider:async()=>'t'});
   assert.equal(client.sessionBackend(),'vetmed-ops');
   assert.equal(client.sessionWritesEnabled(),false);
@@ -203,7 +204,7 @@ test('Dashboard aggregate methods use lazy read-only endpoints and preserve resp
 });
 
 test('Dashboard client exposes explicit AFC methods without Firestore fallback',()=>{
-  const source=fs.readFileSync('paws-data-client.js','utf8');
+  const source=fs.readFileSync(repositoryPath(process.cwd(), 'paws-data-client.js'),'utf8');
   const client=createPawsDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
     'facultyAvailability','dashboardTrainees','exportDashboardTrainees',

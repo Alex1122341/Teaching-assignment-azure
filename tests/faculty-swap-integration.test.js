@@ -1,10 +1,10 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
-const root=path.resolve(__dirname,'..');
-const read=name=>fs.readFileSync(path.join(root,name),'utf8');
-const maintenance=require('../index-maintenance.js');
+const root=repositoryPath(__dirname,'..');
+const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
+const maintenance=require('../frontend/scripts/index-maintenance.js');
 const {functionBody}=require('../test-support/source-contract.js');
 
 test('index maintenance exposes swap-index writers and safe AFC range patching',()=>{
@@ -37,7 +37,7 @@ test('faculty session modal routes assigned replacements directly to the privacy
 });
 
 test('legacy faculty swap handoff remains a non-intercepting compatibility asset',()=>{
- const handoffPath=path.join(root,'faculty-swap-handoff.js');
+ const handoffPath=repositoryPath(root,'faculty-swap-handoff.js');
  assert.equal(fs.existsSync(handoffPath),true,'faculty-swap-handoff.js must remain deployable');
  const src=fs.readFileSync(handoffPath,'utf8');
  assert.match(src,/UCVM_SAFE_SWAP_HANDOFF=\{mode:'direct-session-modal'\}/);

@@ -1,10 +1,11 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const firebase = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, '..', 'firebase.json'), 'utf8')
+  fs.readFileSync(repositoryPath(__dirname, '..', 'firebase.json'), 'utf8')
 );
 const cacheControl = 'no-cache, max-age=0, must-revalidate';
 

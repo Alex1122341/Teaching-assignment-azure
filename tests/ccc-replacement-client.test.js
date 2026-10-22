@@ -1,5 +1,5 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),{createPawsDataClient}=require('../paws-data-client');
+const test=require('node:test'),assert=require('node:assert/strict'),{createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 test('CCC client sends authenticated closed source/preview/complete-year bindings',async()=>{
  const calls=[],client=createPawsDataClient({tokenProvider:async()=>'token',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({})};}});
  await client.cccReplacementCapabilities();await client.stageCccReplacement({requestId:'r',academicYear:'2026-27',dataset:'ccc-calendar',sourceSha256:'hash',fileName:'CCC.xlsx',fileBase64:'bytes',actorFirebaseUid:'spoof',rows:['private']});await client.getCccReplacement('id');await client.previewCccReplacement('id',{expectedVersion:'v',actorFirebaseUid:'spoof'});await client.commitCccReplacement('id',{expectedVersion:'v',manifestSha256:'m',sourceSha256:'s',academicYear:'2026-27',dataset:'ccc-calendar',idempotencyKey:'key',confirm:true,completeDataset:true,targetIds:['private']});

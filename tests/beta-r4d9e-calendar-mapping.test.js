@@ -1,10 +1,11 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-const source=fs.readFileSync('timetable.js','utf8');
+const source=fs.readFileSync(repositoryPath(process.cwd(), 'timetable.js'),'utf8');
 const academic=source.match(/function academicPositionForDate\(d\) \{[\s\S]*?\n  \}/)?.[0];
 const parse=source.match(/function parseYmd\(s\) \{[\s\S]*?\n  \}/)?.[0];
 const azure=source.match(/function mapPawsSessionRow\(row\)\{[\s\S]*?\r?\n  \}\r?\n  async function fetchPawsSessions/)?.[0]?.replace(/\r?\n  async function fetchPawsSessions[\s\S]*$/,'');

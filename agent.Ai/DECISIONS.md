@@ -1,3 +1,7 @@
+## Owner extends PR #133 to organize source and simplify code - 2026-10-22
+
+Keep the same PR. Organize browser files into clear folders, consolidate duplicated build logic and preserve public application behavior. This is not authorization to remove security/compatibility guards, rewrite SQL or merge/deploy. The runtime byte baseline remains unchanged; preserve historical provenance and prove source relocation separately.
+
 ## Owner direction: retire non-database Azure dependencies — 2026-10-22
 
 The owner clarified that Microsoft Azure is retired for PAWS frontend and API deployment; Microsoft SQL Server / Azure-related **database** support may remain. The supported browser path is Firebase Hosting + Firebase Authentication, with the University-hosted Node API and \`VetMed-Ops\` SQL database. Do not design new ACA/ACR dependencies or provision paid Azure Testing infrastructure from the unmerged PR #125. The separate PR #133 removes legacy Azure browser naming only; it does not retire historical SQL migrations, the protected University API or its approved frozen artifact contract. Non-DB Azure workflow/container retirement requires a separate, verified API/build deployment migration with no Production interruption.

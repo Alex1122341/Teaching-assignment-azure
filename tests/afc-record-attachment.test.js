@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSingleActions}=require('../faculty-admin-afc-records'),forms=require('../faculty-admin-afc-forms');
+const {createSingleActions}=require('../frontend/scripts/faculty-admin-afc-records.js'),forms=require('../frontend/scripts/faculty-admin-afc-forms.js');
 const F='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',D='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const file={name:'Original.pdf',size:9,type:'application/pdf',arrayBuffer:async()=>new TextEncoder().encode('synthetic').buffer};
 test('Create AFC waits for optional archive and confirms the exact PDF link before clearing the form',async()=>{
@@ -41,7 +41,7 @@ test('document downloader drops bytes after logout and suppresses simultaneous d
  const request=download(D);await download(D);assert.equal(calls,1);uid='';resolve({bytes:new Uint8Array([1])});await request;assert.equal(downloads,0);
 });
 test('authenticated manual AFC client sends only optional original document binding and supported record fields',async()=>{
- const {createPawsDataClient}=require('../paws-data-client');let body;
+ const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');let body;
  const api=createPawsDataClient({tokenProvider:async()=>'token',fetchImpl:async(_,options)=>{body=JSON.parse(options.body);return {ok:true,json:async()=>({afcRecordId:F})};}});
  await api.createDashboardAfcRecord({facultyId:F,startDate:'2026-11-01',endDate:'2026-11-02',reasonCode:'vacation',documentId:D,actorFirebaseUid:'spoof'});
  assert.equal(body.documentId,D);assert.equal(body.actorFirebaseUid,undefined);

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createPawsDataClient}=require('../paws-data-client');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 test('AFC capability refresh cannot retain an earlier write grant after a failed request',async()=>{
   let allowed=true;
   const client=createPawsDataClient({tokenProvider:async()=> 'token',fetchImpl:async()=>({ok:allowed,status:allowed?200:403,json:async()=>allowed?{writeCapabilities:{afcSingle:true,afcBatch:true,afcCancel:true}}:{error:{code:'ROLE_DENIED'}}})});

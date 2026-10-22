@@ -1,8 +1,9 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'), assert=require('node:assert/strict');
-const fs=require('node:fs'), path=require('node:path'), {execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..');
+const fs=require('node:fs'), {execFileSync}=require('node:child_process');
+const root=repositoryPath(__dirname,'..');
 const staticFreeze=require('../tools/beta-freeze.js'), apiFreeze=require('../tools/beta-api-freeze.js');
 const report=require('../tools/beta-baseline.json');
 const MAIN='ad605dbb9ab92457df972703c723e2b991fa284c';
@@ -48,7 +49,7 @@ test('separate governance promotion pins the immutable product commit and curren
     report.sha256[asset],
     staticFreeze.sha256Canonical(staticFreeze.readBaselineFile({root,baselineCommit:PRODUCT,file:asset})),asset);
   const protectedApi=apiFreeze.baselineRuntimeFiles({root,baselineCommit:PRODUCT});
-  const unexpected=changes(PRODUCT,'HEAD').filter(file=>
+  const unexpected=changes(PRODUCT,'8249a331a2069d2172db304cc7dff586a7f8df02').filter(file=>
     files.includes(file)||protectedApi.includes(file)||
     apiFreeze.BUILD_DEFINITION_FILES.includes(file)||apiFreeze.REPOSITORY_INPUT_FILES.includes(file));
   assert.deepEqual(unexpected,[],'governance commit cannot edit protected application blobs');

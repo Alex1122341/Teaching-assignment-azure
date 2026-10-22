@@ -1,13 +1,13 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 const sourceFunction = require('../test-support/source-function');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'timetable.js'), 'utf8');
+const source = fs.readFileSync(repositoryPath(__dirname, '..', 'timetable.js'), 'utf8');
 
 test('SQL session create controls use the separate server capability and multi-edit stays closed', () => {
   assert.match(source, /const sessionCreateEnabled\s*=\s*Boolean\(window\.UCVM_PAWS_DATA\?\.sessionCreateEnabled\?\.\(\)\)/);

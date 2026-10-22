@@ -1,10 +1,9 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
-
-const root=path.resolve(__dirname,'..');
-const workflow=fs.readFileSync(path.join(root,'approval-workflow.js'),'utf8');
+const root=repositoryPath(__dirname,'..');
+const workflow=fs.readFileSync(repositoryPath(root,'approval-workflow.js'),'utf8');
 
 test('pending faculty swap requests visibly mark their matching calendar session',()=>{
  assert.match(workflow,/r\.status\s*===\s*'pending'\s*&&\s*r\.requestType\s*===\s*'faculty_swap'/);

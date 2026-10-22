@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createPawsDataClient}=require('../paws-data-client');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 test('SWAP preview uses authenticated GET with opaque candidate and assignment keys only',async()=>{
  let observed;
  const client=createPawsDataClient({tokenProvider:async()=>'synthetic',fetchImpl:async(url,init)=>{observed={url,init};return{ok:true,json:async()=>({preview:{status:'calculated',sessionDoeCredit:2}})};}});

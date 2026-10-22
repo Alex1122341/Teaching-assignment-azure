@@ -1,12 +1,13 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 
-const root=path.resolve(__dirname,'..');
-const read=relative=>fs.readFileSync(path.join(root,relative),'utf8');
-const originConfig=require('../paws-api-origin.js');
+const root=repositoryPath(__dirname,'..');
+const read=relative=>fs.readFileSync(repositoryPath(root,relative),'utf8');
+const originConfig=require('../frontend/scripts/paws-api-origin.js');
 
 test('data client uses the centralized temporary University API origin for profile and sessions',async()=>{
   const source=read('paws-data-client.js');
@@ -14,7 +15,7 @@ test('data client uses the centralized temporary University API origin for profi
   assert.match(source,/PAWS_API_ORIGIN_CONFIG/);
   assert.match(source,/const url=apiOrigin\+path/);
   assert.match(source,/fetchImpl\(url,buildInit\(token\)\)/);
-  const client=require('../paws-data-client.js').createPawsDataClient({
+  const client=require('../frontend/scripts/paws-data-client.js').createPawsDataClient({
     fetchImpl:async(url,options)=>{assert.equal(new URL(url).origin,originConfig.apiOrigin);assert.match(url,/\/api\/v1\//);assert.equal(options.headers.Authorization,'Bearer test-token');return {ok:true,json:async()=>({profile:{role:'adfa_general'},sessions:[]})}},
     tokenProvider:async()=> 'test-token'
   });
@@ -27,7 +28,7 @@ test('data client uses the centralized temporary University API origin for profi
 test('data client has no Firestore fallback and fails closed without a token',async()=>{
   const source=read('paws-data-client.js');
   assert.doesNotMatch(source,/firestore|collection\(['"]sessions/);
-  const client=require('../paws-data-client.js').createPawsDataClient({fetchImpl:async()=>{throw new Error('must not fetch')},tokenProvider:async()=>''});
+  const client=require('../frontend/scripts/paws-data-client.js').createPawsDataClient({fetchImpl:async()=>{throw new Error('must not fetch')},tokenProvider:async()=>''});
   await assert.rejects(()=>client.listSessions(),error=>error.code==='UNAUTHENTICATED');
 });
 

@@ -1,8 +1,9 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const src=fs.readFileSync('timetable.js','utf8');
+const src=fs.readFileSync(repositoryPath(process.cwd(), 'timetable.js'),'utf8');
 
 test('account bootstrap drops prior session data before resetting its type catalog or exposing the new identity',()=>{
  const start=src.indexOf('async function bootstrapForUser'),identity=src.indexOf('currentUser = {',start);
@@ -17,16 +18,16 @@ test('working activity ranges use SQL outside the timed session grid and clear o
   assert.match(body,/loadRange/);assert.match(body,/renderRangeLane/);
   assert.match(body,/Working activities could not be loaded/);
   assert.match(src,/PAWS_CALENDAR_ACTIVITIES\?\.clear/);
-  const html=fs.readFileSync('index.html','utf8');
+  const html=fs.readFileSync(repositoryPath(process.cwd(), 'index.html'),'utf8');
   assert.match(html,/id="working-activities-lane"/);assert.match(html,/id="activity-type-filter"/);
   assert.doesNotMatch(html,/id="(?:show-working-activities|show-ccc|activity-category-filter|filter-type)"/);
   assert.ok(html.indexOf('calendar-activities.js')<html.indexOf('src="timetable.js"'));
 });
 
 test('faculty schedule uses self scope or the authorized administrator mapping and import is admin only',()=>{
-  const dashboard=fs.readFileSync('faculty-admin.js','utf8');
+  const dashboard=fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.js'),'utf8');
   assert.match(dashboard,/createFacultySchedule/);
-  assert.match(fs.readFileSync('calendar-activities.js','utf8'),/loadFacultyRange\(facultyId,range,\{self:isSelf\(\)\}\)/);
+  assert.match(fs.readFileSync(repositoryPath(process.cwd(), 'calendar-activities.js'),'utf8'),/loadFacultyRange\(facultyId,range,\{self:isSelf\(\)\}\)/);
   assert.match(dashboard,/PAWS_ACTIVITY_IMPORT\?\.createAdminEntry/);
   assert.match(dashboard,/workImport\?\.clear/);
   assert.match(dashboard,/!selfMode && dashboardAdmin\(currentUser\)/);

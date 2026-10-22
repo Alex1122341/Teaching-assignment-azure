@@ -1,7 +1,8 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const lab=require('../lab-session-detail');
-const source=fs.readFileSync('timetable.js','utf8');
+const lab=require('../frontend/scripts/lab-session-detail.js');
+const source=fs.readFileSync(repositoryPath(process.cwd(), 'timetable.js'),'utf8');
 const handler=source.slice(source.indexOf('  function openLabSessionDetail(seed)'),source.indexOf('  async function openSqlSessionAssignmentForm'));
 const seed={id:'one',type:'LAB',date:'2026-10-16',course:'206',courseName:'Healthy Animals I',academicYear:'2026-27',year:1,start:'08:30',end:'12:30',assignmentManagementAvailable:true};
 function harness(editEnabled=true){

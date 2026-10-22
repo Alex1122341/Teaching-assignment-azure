@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createPawsDataClient}=require('../paws-data-client'),{createController}=require('../faculty-admin-ccc-replacement');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js'),{createController}=require('../frontend/scripts/faculty-admin-ccc-replacement.js');
 test('CCC template button downloads through authenticated API with no staging or commit request',async()=>{
  const calls=[],downloads=[],file={fileName:'CCC-template.xlsx',contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',fileBase64:Buffer.from('PK\x03\x04template').toString('base64')};
  const api=createPawsDataClient({tokenProvider:async()=>'token',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>url.endsWith('/template')?file:{writeCapabilities:{cccReplaceStage:false,cccReplaceCommit:false}}};}});

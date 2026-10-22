@@ -1,11 +1,12 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..');
+const root=repositoryPath(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
@@ -43,7 +44,7 @@ const PREVIOUS_P3B2_BASELINE_COMMIT='9d15cb7cd28cdda0eb56a34ccb99777c1d488569';
 const PREVIOUS_API_BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
 const PREVIOUS_STATIC_BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
 const PREVIOUS_BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
-const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
+const manifest=()=>JSON.parse(fs.readFileSync(repositoryPath(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
   return JSON.parse(execFileSync('git',['show',`${ref}:tools/static-assets.json`],{cwd:root,encoding:'utf8'}));
@@ -446,7 +447,7 @@ test('all 85 current protected files are byte-identical to the immutable accepte
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
-      fs.readFileSync(path.join(root,name))
+      fs.readFileSync(repositoryPath(root,name))
     ),true,name);
   }
 });
@@ -690,7 +691,7 @@ test('B0 runtime candidate files are protected and byte-identical to the promote
     assert.ok(freeze.protectedPaths({root}).includes(name),`${name} must be protected`);
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
-      fs.readFileSync(path.join(root,name))
+      fs.readFileSync(repositoryPath(root,name))
     ),true,name);
   }
 });
@@ -774,7 +775,7 @@ test('API freeze shares the promoted CCC Schedule static baseline and has zero r
 });
 
 test('API freeze imports the single static baseline constant',()=>{
-  const apiFreezeSource=fs.readFileSync(path.join(root,'tools/beta-api-freeze.js'),'utf8');
+  const apiFreezeSource=fs.readFileSync(repositoryPath(root,'tools/beta-api-freeze.js'),'utf8');
   assert.doesNotMatch(apiFreezeSource,/const\s+BASELINE_COMMIT\s*=/);
   assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
 });

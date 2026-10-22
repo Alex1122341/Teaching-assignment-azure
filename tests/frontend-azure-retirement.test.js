@@ -1,12 +1,11 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
-
-const root = path.resolve(__dirname, '..');
-const publishedAssets = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'static-assets.json'), 'utf8'));
+const root = repositoryPath(__dirname, '..');
+const publishedAssets = JSON.parse(fs.readFileSync(repositoryPath(root, 'tools', 'static-assets.json'), 'utf8'));
 const retiredCloudFrontend = /azure|staticwebapp|static-web-app|azurestaticapps\.net|azurecontainerapps\.io|azurewebsites\.net|@azure\/|\bmsal\b|login\.microsoftonline\.com|\.azure-production/i;
 
 test('Firebase static manifest has no retired Azure frontend references', () => {
@@ -14,14 +13,14 @@ test('Firebase static manifest has no retired Azure frontend references', () => 
   assert.ok(publishedAssets.includes('timetable.js'));
   for (const asset of publishedAssets) {
     if (/\.pdf$/i.test(asset)) continue;
-    const content = fs.readFileSync(path.join(root, asset), 'utf8');
+    const content = fs.readFileSync(repositoryPath(root, asset), 'utf8');
     assert.doesNotMatch(content, retiredCloudFrontend, asset);
   }
 });
 
 test('browser API client uses the existing University API contract without Azure exports', () => {
-  const source = fs.readFileSync(path.join(root, 'paws-data-client.js'), 'utf8');
-  const api = require('../paws-data-client.js');
+  const source = fs.readFileSync(repositoryPath(root, 'paws-data-client.js'), 'utf8');
+  const api = require('../frontend/scripts/paws-data-client.js');
   assert.equal(typeof api.createPawsDataClient, 'function');
   assert.match(source, /root\.UCVM_PAWS_DATA=api\.createPawsDataClient\(\)/);
   assert.match(source, /sessionBackend:\(\)=> 'vetmed-ops'/);
@@ -37,7 +36,7 @@ test('Firebase Hosting configuration and frontend environment origins avoid reti
     'config/environments/testing.template.json'
   ];
   for (const relative of candidates) {
-    const absolute = path.join(root, relative);
+    const absolute = repositoryPath(root, relative);
     if (!fs.existsSync(absolute)) continue;
     const data = fs.readFileSync(absolute, 'utf8');
     if (relative.startsWith('config/environments/')) {

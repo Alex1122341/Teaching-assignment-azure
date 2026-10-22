@@ -1,10 +1,11 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const root=path.resolve(__dirname,'..');
-const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+const root=repositoryPath(__dirname,'..');
+const read=file=>fs.readFileSync(repositoryPath(root,file),'utf8');
 
 test('retired Azure Static Web Apps deployment entrypoints and routing config are absent',()=>{
   for(const file of [
@@ -13,8 +14,8 @@ test('retired Azure Static Web Apps deployment entrypoints and routing config ar
     'tools/deploy_azure_static_web.ps1',
     'staticwebapp.config.json',
     'tests/static-release-workflow.test.js'
-  ])assert.equal(fs.existsSync(path.join(root,file)),false,file);
-  const combined=fs.readdirSync(path.join(root,'.github/workflows')).filter(f=>f.endsWith('.yml')).map(f=>read('.github/workflows/'+f)).join('\n');
+  ])assert.equal(fs.existsSync(repositoryPath(root,file)),false,file);
+  const combined=fs.readdirSync(repositoryPath(root,'.github/workflows')).filter(f=>f.endsWith('.yml')).map(f=>read('.github/workflows/'+f)).join('\n');
   assert.doesNotMatch(combined,/Azure\/static-web-apps-deploy|AZURE_STATIC_WEB_APPS_API_TOKEN|\.azurestaticapps\.net/);
 });
 
@@ -58,7 +59,7 @@ test('Azure SQL and optional Container Apps API packaging/deployment remain sepa
     'server/src/runtime/swa-sql-runtime.js',
     'server/src/runtime/university-api.js',
     'deploy/aca/Dockerfile'
-  ])assert.ok(fs.existsSync(path.join(root,file)),file);
+  ])assert.ok(fs.existsSync(repositoryPath(root,file)),file);
   const acap=read('.github/workflows/azure-beta-acr-publish.yml');
   assert.match(acap,/azure-beta-build\.yml/);
   assert.match(acap,/beta-api-freeze\.js --artifact \.azure-production\/api/);

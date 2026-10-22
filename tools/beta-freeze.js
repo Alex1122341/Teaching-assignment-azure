@@ -19,6 +19,7 @@ const {execFileSync}=require('node:child_process');
 // evidence in governance tests.
 const BASELINE_COMMIT='f78b10a1401bcb8675f8fd5414ec3d98eafa1ffd';
 const MANIFEST_PATH='tools/static-assets.json';
+const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 
 function defaultRoot(){
   return path.resolve(__dirname,'..');
@@ -62,11 +63,11 @@ function baselineCommitExists(root,baselineCommit){
 }
 
 function readBaselineFile({root=defaultRoot(),baselineCommit=BASELINE_COMMIT,file}={}){
-  return gitBlob(root,`${baselineCommit}:${file}`);
+  return gitBlob(root,`${baselineCommit}:${sourcePathAtCommit(root,baselineCommit,file)}`);
 }
 
 function readWorkingFile({root=defaultRoot(),file}={}){
-  return fs.readFileSync(path.join(root,file));
+  return fs.readFileSync(assetSourcePath(root,file));
 }
 
 function readCurrentManifest({root=defaultRoot(),manifestPath=MANIFEST_PATH}={}){

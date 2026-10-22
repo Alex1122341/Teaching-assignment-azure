@@ -1,11 +1,11 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
 const vm=require('node:vm');
-const root=path.resolve(__dirname,'..');
-function load(){const context={window:{}};vm.runInNewContext(fs.readFileSync(path.join(root,'approval-scheduling.js'),'utf8'),context);return context.window.UCVM_APPROVAL_SCHEDULING}
+const root=repositoryPath(__dirname,'..');
+function load(){const context={window:{}};vm.runInNewContext(fs.readFileSync(repositoryPath(root,'approval-scheduling.js'),'utf8'),context);return context.window.UCVM_APPROVAL_SCHEDULING}
 const plain=value=>JSON.parse(JSON.stringify(value));
 
 test('approval scheduling policy requires deliberate override only for real conflicts',()=>{

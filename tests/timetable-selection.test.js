@@ -1,15 +1,15 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
 const vm=require('node:vm');
-const root=path.resolve(__dirname,'..');
+const root=repositoryPath(__dirname,'..');
 
 function load(){
  const context={window:{},Date};
- vm.runInNewContext(fs.readFileSync(path.join(root,'scheduling-core.js'),'utf8'),context);
- vm.runInNewContext(fs.readFileSync(path.join(root,'timetable-selection.js'),'utf8'),context);
+ vm.runInNewContext(fs.readFileSync(repositoryPath(root,'scheduling-core.js'),'utf8'),context);
+ vm.runInNewContext(fs.readFileSync(repositoryPath(root,'timetable-selection.js'),'utf8'),context);
  return context.window.UCVM_TIMETABLE_SELECTION;
 }
 const plain=value=>JSON.parse(JSON.stringify(value));
@@ -17,7 +17,7 @@ const baseSession={id:'s1',date:'2026-10-07',year:1,course:'204',type:'LEC',star
 
 test('selection module requires the canonical scheduling core',()=>{
  const context={window:{},Date};
- assert.throws(()=>vm.runInNewContext(fs.readFileSync(path.join(root,'timetable-selection.js'),'utf8'),context),/scheduling core/i);
+ assert.throws(()=>vm.runInNewContext(fs.readFileSync(repositoryPath(root,'timetable-selection.js'),'utf8'),context),/scheduling core/i);
 });
 
 test('selection persists by session id, toggles, clears, and enforces 200 limit',()=>{

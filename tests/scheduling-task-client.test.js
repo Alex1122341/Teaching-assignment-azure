@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');
-const {createPawsDataClient}=require('../paws-data-client');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 test('Tasks client uses authenticated scoped routes and excludes caller identity fields',async()=>{
  const calls=[];const client=createPawsDataClient({tokenProvider:async()=> 'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({tasks:[],total:0})};}});
  await client.schedulingTasks({academicYear:'2026-27',undated:'only',limit:50,actorFirebaseUid:'SPOOF',facultyId:'PRIVATE'});

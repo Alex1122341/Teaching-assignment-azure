@@ -1,12 +1,11 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
-
-const root = path.resolve(__dirname, '..');
-const originConfig = require('../paws-api-origin.js');
+const root = repositoryPath(__dirname, '..');
+const originConfig = require('../frontend/scripts/paws-api-origin.js');
 
 test('P3 Beta API origin is one explicitly temporary, replaceable HTTPS configuration', () => {
   const parsed = new URL(originConfig.apiOrigin);
@@ -18,7 +17,7 @@ test('P3 Beta API origin is one explicitly temporary, replaceable HTTPS configur
 
   const shippedFiles = require('../tools/static-assets.json');
   const references = shippedFiles.filter(file => {
-    const source = fs.readFileSync(path.join(root, file), 'utf8');
+    const source = fs.readFileSync(repositoryPath(root, file), 'utf8');
     return source.includes(new URL(originConfig.apiOrigin).hostname);
   });
   assert.deepEqual(references, ['paws-api-origin.js']);
@@ -26,7 +25,7 @@ test('P3 Beta API origin is one explicitly temporary, replaceable HTTPS configur
 
 test('the combined timetable loads the API-origin configuration before the shared data client', () => {
   for (const file of ['index.html', 'faculty-admin.html']) {
-    const html = fs.readFileSync(path.join(root, file), 'utf8');
+    const html = fs.readFileSync(repositoryPath(root, file), 'utf8');
     const originScript = html.indexOf('<script src="paws-api-origin.js"></script>');
     const clientScript = html.indexOf('<script src="paws-data-client.js"></script>');
     assert.ok(originScript >= 0, `${file}: the central API-origin file is loaded`);
@@ -35,7 +34,7 @@ test('the combined timetable loads the API-origin configuration before the share
 });
 
 test('the data client sends Firebase-authenticated API calls to the configured Beta origin', async () => {
-  const { createPawsDataClient } = require('../paws-data-client.js');
+  const { createPawsDataClient } = require('../frontend/scripts/paws-data-client.js');
   const requests = [];
   const client = createPawsDataClient({
     fetchImpl: async (url, init) => {

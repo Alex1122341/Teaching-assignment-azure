@@ -1,7 +1,8 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');const assert=require('node:assert/strict');const vm=require('node:vm');const fs=require('node:fs');const path=require('node:path');
 const sourceFunction=require('../test-support/source-function');
-const source=fs.readFileSync(path.join(__dirname,'../timetable.js'),'utf8');
+const source=fs.readFileSync(repositoryPath(__dirname,'../timetable.js'),'utf8');
 // Run the shipped adapter and cache implementation, stubbing only external fetch/UI boundaries.
 function harness(){
  const state={rows:[{id:'existing',academicYear:'2026-27',topic:'old'}],fetches:0,notifications:0,opened:[],errors:[]};

@@ -31,5 +31,6 @@ test('School preparation is fixed to private P drive and refuses existing direct
  assert.match(text,/ITAPPVETOPSDB01/);assert.match(text,/P:\\PAWS\\Testing/);
  assert.match(text,/PREPARED_NOT_READY/);assert.match(text,/FileMode\]::CreateNew/);
  assert.match(text,/SetAccessRuleProtection\(\$true,\$false\)/);
+ assert.match(text,/Get-Content[^\r\n]*\$DbaScriptPath[^\r\n]*-Encoding UTF8/);
  assert.doesNotMatch(text,/Start-Process|Start-Service|Restart-Service|Stop-Process|msiexec|SqlLocalDB|TrustServerCertificate=true/i);
 });

@@ -4,6 +4,8 @@
 
 ## Approved topology
 
+Current executed checkpoint: School private layout/draft prepared (all27false), source-only native Check reports ARTIFACT_NOT_VERIFIED, no API/key/tunnel. Filled private DBA script is ready but unexecuted because actual create permission is0. On2026-10-23 fixed-project cloud operation enabled Testing email/password with password required; all other Auth config unchanged, no users/keys. Owner's maintenance restoration was published independently via PR134/main188451e and current Production ingress is cultures-please-skirt-tba.trycloudflare.com. Older uninitialized/provider-disabled statements below describe previous checkpoints; see newest School/Auth/recovery continuity update.
+
 Temporary API: ITAPPVETOPSDB01, private P: runtime, 127.0.0.1:18788. Online SQL: ITAPPVETOPSDB01 / VetMed-Ops-Testing using strict-TLS full hostname itappvetopsdb01.uc.ucalgary.ca. Separate Firebase project: paws-testing-ucvm-20261022. LocalDB acceptance omitted by Owner. Production remains VetMed-Ops; no Production migration/reset/grant or gate change accompanies this work.
 
 ## Tool boundaries

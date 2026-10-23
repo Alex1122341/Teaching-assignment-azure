@@ -58,14 +58,14 @@ try {
  if($nodeHash -cne $ExpectedNodeSha256){throw 'Installed Node differs from inventory'}
  $nodeVersion=& $node --version
  if($LASTEXITCODE -ne 0 -or $nodeVersion -notmatch '^v22\.'){throw 'Installed Node22 is required'}
- $template=Get-Content -LiteralPath $TemplatePath -Raw | ConvertFrom-Json
+ $template=Get-Content -LiteralPath $TemplatePath -Raw -Encoding UTF8 | ConvertFrom-Json
  $expected=@('computerName','windowsIdentity','apiPort','target','firebaseProjectId','allowedOrigin','gateMap','privateRoot','releaseManifestPath','releaseManifestSha256','nodeExe','nodeSha256')|Sort-Object
  if((@($template.PSObject.Properties.Name|Sort-Object) -join ',') -cne ($expected -join ',')){throw 'Unexpected host template fields'}
  if($template.computerName -cne 'ITAPPVETOPSDB01' -or $template.privateRoot -cne $hostRoot -or $template.apiPort -ne 18788 -or $template.firebaseProjectId -cne 'paws-testing-ucvm-20261022' -or $template.allowedOrigin -cne 'https://paws-testing-ucvm-20261022.web.app'){throw 'Host template differs from approved topology'}
  if($template.target.profile -cne 'university-testing' -or $template.target.physicalServer -cne 'ITAPPVETOPSDB01' -or $template.target.host -cne 'itappvetopsdb01.uc.ucalgary.ca' -or $template.target.database -cne 'VetMed-Ops-Testing'){throw 'Host template target differs from approval'}
  $gates=@($template.gateMap.PSObject.Properties)
  if($gates.Count -ne 27 -or @($gates|Where-Object{$_.Value -isnot [bool] -or $_.Value}).Count){throw 'Preparation requires all27 gates explicitly false'}
- $dba=Get-Content -LiteralPath $DbaScriptPath -Raw
+ $dba=Get-Content -LiteralPath $DbaScriptPath -Raw -Encoding UTF8
  if(([regex]::Matches($dba,'REPLACE_WITH_PRIVATE_TESTING_UUID')).Count -ne 1){throw 'Unexpected DBA script placeholder'}
  $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
  $script:currentSid=$identity.User

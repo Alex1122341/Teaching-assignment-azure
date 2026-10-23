@@ -1,4 +1,8 @@
-## Current: PR125 School P: host approved; preparation in progress — 2026-10-22
+## Current: live Beta restored; resume PR125 main integration — 2026-10-23
+
+PR134 restored maintenance-broken Production and published exactmain188451e Hosting-only,85served hashes match, API924cc67/gates unchanged, browser authenticated timetable rendered, Recovery siteReady=true. New origin cultures-please-skirt-tba.trycloudflare.com. PR125 remains separate/incomplete; merge newmain and update/render its Production origin so a later publish cannot regress it. School P: private prep completed/PREPARED_NOT_READY,27falsegates, actual Check ARTIFACT_NOT_VERIFIED, filled DBA scriptready/unexecuted, no18788/API/tunnel/key. Testing email/password config now enabled via approved fixed-project cloud helper; other settings unchanged, no users/keys. No local tests/install, new CI or PR125 release claim. Read updates/2026-10-23-school-preparation-auth-and-live-recovery.md.
+
+## Historical: PR125 School P: host approved; preparation in progress — 2026-10-22
 
 Owner selected the exact School-host option: ITAPPVETOPSDB01/P:, independent18788/tunnel/VetMed-Ops-Testing. Runtime root `P:\PAWS\Testing\Host`; administrative Backups/Evidence `P:\PAWS\Testing`. Host policy/template/stop proof changed to School only, full TLS FQDN; private ACL/Git/link checks preserved. Preparation script creates only a new private filesystem tree, all27 gates false, allocated-not-SQL-verified UUID/draft and a filled DBA script; starts no API/tunnel and makes no SQL/Auth change. Next execute this preparation remotely with signed/hash-pinned installed Node22; local tests/installations remain waived. SQL creation still requires DBA (current account has zero rights). Read updates/2026-10-22-pr125-school-host-approved.md. Older pending-selection statements below are historical.
 

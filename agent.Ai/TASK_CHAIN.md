@@ -1,4 +1,8 @@
-## Current: PR125 School P: preparation; no local tests/install — 2026-10-22
+## Current: PR125 integrate restored main188451e — 2026-10-23
+
+Urgent live restore completed independently via PR134; original API/gates/data unchanged, Hosting85verified and browser works. Continue PR125 by merging188451e and rendering actual Production origincultures-please-skirt-tba; preserve separate maintenance freeze/history. School filesystem/draft/ACL prep and actual NOT_READY Check recorded; Testing email/password enabled, no accounts/key. DB creation still DBA-only; no local suite/install or Testing release. Newest update2026-10-23-school-preparation-auth-and-live-recovery.md has all exact receipts.
+
+## Historical: PR125 School P: preparation; no local tests/install — 2026-10-22
 
 Owner host selection approved: exact ITAPPVETOPSDB01/P:\PAWS\Testing\Host/18788 plus separate tunnel/DB. Source policies and fixtures adjusted, unrun under no-local-tests direction. Execute guarded private-directory/draft preparation on the remote machine; no API staging/start before accepted source artifacts and target are ready. Native Check may report expected ARTIFACT_NOT_VERIFIED; that is not deployment acceptance. DB still absent/current account cannot create it. Continue other setup where independent; keep actual runtime/permission/artifact/UAT gaps explicit. Newest update2026-10-22-pr125-school-host-approved.md.
 

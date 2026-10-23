@@ -787,10 +787,10 @@ test('API freeze shares the promoted HICC–CC / VISC directory static baseline 
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,114);
+  assert.equal(result.runtimeFiles.length,115);
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,117);
+  assert.equal(result.protected,118);
   assert.ok(result.runtimeFiles.includes('server/src/auth/role-policy.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-calculator.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-course-catalog-2026-27.js'));

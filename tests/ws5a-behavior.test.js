@@ -5,7 +5,7 @@ const fs=require('node:fs'),vm=require('node:vm');
 const sourceFunction=require('../test-support/source-function');
 const root=repositoryPath(__dirname,'..');
 function loadCore(){const context={window:{},Date};vm.runInNewContext(fs.readFileSync(repositoryPath(root,'scheduling-core.js'),'utf8'),context);return context.window.UCVM_SCHEDULING;}
-function timetable(names,extra={}){const context={window:{},scheduling:loadCore(),...extra};vm.createContext(context);vm.runInContext(names.map(name=>sourceFunction('timetable.js',name)).join('\n'),context);return context;}
+function timetable(names,extra={}){const context={window:{},scheduling:loadCore(),displayFaculty:require('../frontend/scripts/faculty-name').format,...extra};vm.createContext(context);vm.runInContext(names.map(name=>sourceFunction('timetable.js',name)).join('\n'),context);return context;}
 
 test('unknown target timing remains check_needed even with plausible stored times or no peers',()=>{assert.equal(loadCore().findFacultyConflicts({date:'2026-10-01',start:'09:00',end:'10:00',timeUnknown:true}).status,'check_needed');});
 test('a row without an id is not excluded when no exclusion is requested',()=>{assert.equal(loadCore().findFacultyConflicts({date:'2026-10-01',start:'09:00',end:'10:00',sessions:[{date:'2026-10-01',start:'09:30',end:'10:30'}],isAssigned:()=>true}).status,'conflict');});

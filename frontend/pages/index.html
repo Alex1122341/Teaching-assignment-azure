@@ -80,7 +80,7 @@
 
         <div class="filter-block-row filter-block-row-top" id="week-pill-block">
           <span class="filter-block-label">Week</span>
-          <div class="week-btn-lines">
+          <div class="week-btn-lines" id="academic-week-navigator" role="group" aria-label="Academic weeks">
             <div class="btn-row btn-row-left" id="week-btn-row-1"></div>
             <div class="btn-row btn-row-left" id="week-btn-row-2"></div>
           </div>
@@ -129,8 +129,9 @@
             <span class="fbar-label">Activity type</span>
             <div id="activity-type-filter"></div>
           </div>
-          <button class="fbar-reset" id="reset-filters">Reset</button>
+          <button class="fbar-reset" id="reset-filters" title="Reset all filters and return to Fall Week 1">Reset</button>
         </div>
+        <div class="schedule-active-filters" id="schedule-active-filters" hidden></div>
       </div>
     </div>
   </div>
@@ -139,11 +140,13 @@
     <div class="main-view" id="main-view">
       <div class="cal-column">
         <div class="cal-toolbar">
+          <div class="calendar-period-actions">
           <button class="btn-cal-today" id="cal-today">Today</button>
           <div class="cal-nav">
-            <button class="btn-cal-nav" id="cal-prev">&lt;</button>
+            <button class="btn-cal-nav" id="cal-prev" aria-label="Previous period">&lt;</button>
             <span class="cal-label-text" id="cal-label"></span>
-            <button class="btn-cal-nav" id="cal-next">&gt;</button>
+            <button class="btn-cal-nav" id="cal-next" aria-label="Next period">&gt;</button>
+          </div>
           </div>
           <div class="cal-toolbar-right">
             <div id="list-global-controls" class="list-global-controls hidden" aria-label="Academic year session list">
@@ -172,7 +175,6 @@
                 </div>
               </div>
             </details>
-            <button class="fbar-reset" id="color-toggle">Colors: On</button>
             <div class="cal-view-toggle">
               <button class="cal-view-btn hidden" id="cal-changes-btn" type="button" aria-haspopup="dialog">Changes</button>
               <button class="cal-view-btn" id="cal-day-btn">Day</button>
@@ -180,6 +182,7 @@
               <button class="cal-view-btn" id="cal-month-btn">Month</button>
               <button class="cal-view-btn" id="cal-list-btn">List</button>
             </div>
+            <details class="calendar-view-options"><summary>View options</summary><div><button class="fbar-reset" id="color-toggle">Colors: On</button></div></details>
           </div>
         </div>
         <div class="cal-card" id="cal-card">
@@ -240,7 +243,7 @@
     <script src="adfa-swap-panel.js"></script>
     <script src="swap-workflow-sql.js"></script>
   <script src="workspace-tasks.js"></script>
-  <script src="lab-session-detail.js"></script><script src="calendar-activities.js"></script><script src="ccc-schedule.js"></script><script src="leadership-directory.js"></script><script src="timetable.js"></script>
+  <script src="lab-session-detail.js"></script><script src="calendar-activities.js"></script><script src="ccc-schedule.js"></script><script src="leadership-directory.js"></script><script src="workspace-navigation.js"></script><script src="schedule-filter-view.js"></script><script src="timetable.js"></script>
   <script src="afc-workflow-sql.js"></script>
   <script src="afc-workflow.js"></script>
   <script src="change-history.js"></script><script src="afc-timetable-panel.js"></script>

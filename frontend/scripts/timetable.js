@@ -454,7 +454,12 @@
   let selectionDoeState = new Map();
 
   const $ = (id) => document.getElementById(id);
-  const activityTypeFilter = window.PAWS_CALENDAR_ACTIVITIES.createActivityTypeFilter({host:$('activity-type-filter'),onChange:()=>render()});
+  let scheduleWorkspace = null;
+  let contentFilterBatch = false;
+  const activityTypeFilter = window.PAWS_CALENDAR_ACTIVITIES.createActivityTypeFilter({host:$('activity-type-filter'),onChange:()=>{if(!contentFilterBatch)render();}});
+  const activeFilterView = window.PAWS_SCHEDULE_FILTER_VIEW.mount($('schedule-active-filters'),{
+    onRemove:changeContentFilter,onClear:()=>changeContentFilter('clear'),focusFallback:$('search-input')
+  });
   const memoryStore = {};
   function storageGet(key) {
     try { return window.localStorage ? window.localStorage.getItem(key) : (memoryStore[key] ?? null); }
@@ -477,6 +482,7 @@
     button.setAttribute('aria-expanded',String(expanded));
     const chevron=button.querySelector('.schedule-filter-chevron');
     if(chevron)chevron.textContent=expanded?'⌃':'⌄';
+    if(expanded)syncWeekUI();
     if(persist)try{window.sessionStorage.setItem(SCHEDULE_FILTERS_KEY,String(expanded))}catch(_){ }
   }
   function initializeScheduleFilters(matchMedia=window.matchMedia.bind(window)) {
@@ -926,21 +932,41 @@
     for (let w = 1; w <= WEEK_COUNT; w++) {
       const b = document.createElement('button');
       b.className = 'pill-btn' + (w === selectedWeek ? ' active' : '');
-      b.textContent = `W${w}`; b.dataset.week = w;
+      const start=weekStart(w,selectedSemester),end=addDays(start,4);
+      b.textContent = window.PAWS_SCHEDULE_FILTER_VIEW.weekLabel(w,start,end); b.dataset.week = w;
+      b.type='button';b.setAttribute('aria-pressed',String(w===selectedWeek));
+      b.title=`Week ${w}: ${formatDate(start)}, ${start.getFullYear()} to ${formatDate(end)}, ${end.getFullYear()}`;
       b.addEventListener('click', () => { selectedWeek = w; syncWeekUI(); refreshSessionScope(); });
       (w <= 8 ? r1 : r2).appendChild(b);
       const opt = document.createElement('option'); opt.value = w; opt.textContent = `Week ${w} - ${formatDate(weekStart(w, selectedSemester))}`;
       if (w === selectedWeek) opt.selected = true;
       mobile.appendChild(opt);
     }
+    syncWeekUI();
   }
 
   function syncWeekUI() {
-    document.querySelectorAll('[data-week]').forEach(b => b.classList.toggle('active', Number(b.dataset.week) === selectedWeek));
+    document.querySelectorAll('[data-week]').forEach(b => {const selected=Number(b.dataset.week)===selectedWeek;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));});
     $('week-mobile-select').value = String(selectedWeek);
+    requestAnimationFrame(()=>{
+      const host=$('academic-week-navigator'),active=host.querySelector('[aria-pressed="true"]');
+      if(!active||!host.clientWidth)return;
+      const bounds=host.getBoundingClientRect(),selected=active.getBoundingClientRect();
+      if(selected.left<bounds.left||selected.right>bounds.right)host.scrollLeft+=(selected.left+selected.right-bounds.left-bounds.right)/2;
+    });
   }
 
   function bindControls() {
+    window.addEventListener('resize',syncWeekUI);
+    if(window.ResizeObserver)new ResizeObserver(syncWeekUI).observe($('academic-week-navigator'));
+    $('academic-week-navigator').addEventListener('keydown',event=>{
+      const active=event.target.closest('[data-week]');
+      if(!active||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+      event.preventDefault();
+      const buttons=[...$('academic-week-navigator').querySelectorAll('[data-week]')],index=buttons.indexOf(active);
+      const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:Math.max(0,Math.min(buttons.length-1,index+(event.key==='ArrowRight'?1:-1)));
+      if(next!==index)buttons[next].click();buttons[next].focus();
+    });
     $('year-btn-row').addEventListener('click', e => {
       const b = e.target.closest('[data-year]'); if (!b) return;
       selectedYear = b.dataset.year;
@@ -1011,6 +1037,50 @@
       if(roleIsFaculty(currentUser)){viewMode=lastFacultyTeachingView;myTimetableOnly=true}
       setViewButtons();refreshSessionScope();
     });
+    initializeWorkspaceNavigation();
+  }
+
+  function initializeWorkspaceNavigation() {
+    const home=document.createElement('a');home.href='index.html';home.textContent='Teaching Schedule';home.setAttribute('aria-current','page');
+    const entry=(id,icon)=>({node:$(id),icon});
+    scheduleWorkspace=window.PAWS_WORKSPACE_NAVIGATION.mount({document,window,header:document.querySelector('.ucalgary-masthead-inner'),
+      groups:[
+        {label:'Teaching',entries:[{node:home,icon:'▦'},entry('teaching-assignments-btn','≡'),entry('ccc-schedule-btn','C'),entry('hicc-cc-list-btn','H'),entry('visc-list-btn','V')]},
+        {label:'Faculty',entries:[entry('faculty-dashboard-btn','♙')]},
+        {label:'Workflows',entries:[entry('swap-inbox-btn','⇄'),entry('afc-request-btn','↗'),entry('my-change-history-btn','◷')]},
+        {label:'Administration',entries:[entry('manage-users-btn','⚙')]}
+      ],globalNodes:[document.querySelector('.timetable-top-actions'),document.querySelector('.conn-status'),$('account-toggle'),$('dark-toggle')]});
+  }
+
+  function renderActiveContentFilters() {
+    const month=$('filter-month');
+    activeFilterView.render({search:$('search-input').value,month:month.value==='all'?null:{value:month.value,label:month.selectedOptions[0].textContent},
+      courses:courseFilterActive?[...selectedCourses]:null,typeKeys:activityTypeFilter.selectedKeys(),types:activityTypeFilter.options()});
+  }
+
+  function changeContentFilter(kind,value) {
+    let scopeChanged=false,coursesChanged=false;
+    contentFilterBatch=true;
+    try{
+      if(kind==='clear'){
+        $('search-input').value='';$('filter-month').value='all';selectedCourses.clear();courseFilterActive=false;
+        activityTypeFilter.reset();scopeChanged=true;coursesChanged=true;
+      }else if(kind==='search')$('search-input').value='';
+      else if(kind==='month'){$('filter-month').value='all';scopeChanged=true;}
+      else if(kind==='course'){selectedCourses.delete(value);coursesChanged=true;}
+      else if(kind==='type')activityTypeFilter.setSelected(activityTypeFilter.selectedKeys().filter(key=>key!==value));
+      else if(kind==='restore-courses'){courseFilterActive=false;selectedCourses.clear();coursesChanged=true;}
+      else if(kind==='restore-types')activityTypeFilter.reset();
+      else return;
+    }finally{contentFilterBatch=false;}
+    if(coursesChanged)populateCourseFilter();
+    if(scopeChanged){
+      const range=visibleSessionRange(),sameScope=currentUser&&sessionUnsubscribe&&sessionRangeKey===`${viewMode}:${range.start}:${range.end}`;
+      // Same-range subscriptions return early. Changed ranges repaint on load;
+      // an extra immediate render would request the activity lane twice.
+      if(sameScope)render();else renderActiveContentFilters();
+      refreshSessionScope();
+    }else render();
   }
 
   function resetFilters() {
@@ -1067,6 +1137,7 @@
     else if(viewMode==='month')renderMonth();
     else renderList();
     renderWorkingActivities();
+    renderActiveContentFilters();
   }
 
   function workingActivityRange() {
@@ -2278,6 +2349,7 @@
     updateScheduleSourceUI();
     $('my-timetable-btn').classList.toggle('hidden', !currentUser || roleIsFaculty(currentUser));
     $('my-timetable-btn').textContent = currentUser && myTimetableOnly ? 'Show All Timetable' : 'My Timetable';
+    scheduleWorkspace?.sync(Boolean(currentUser));
   }
 
   function openUserManager() {

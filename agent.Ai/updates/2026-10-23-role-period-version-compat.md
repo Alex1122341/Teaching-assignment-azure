@@ -45,3 +45,7 @@ Repair the Role & Appointment active-period edit error “Reload this appointmen
 
 ## 7. Current breakpoint and next safe action
 Finish governance verification/commit, push branch, create a new PR against currently accepted main, inspect full GitHub CI, review the changed-file list and test exact PR head. Do not merge or deploy implicitly and do not copy this fix into the unrelated PR125.
+
+## CI gate correction — 2026-10-23
+
+Initial exact-PR-head Azure Beta Build run 40021261223 failed at root `npm test` (1025 pass, 5 fail, 52 skip): four historical `tests/beta-baseline.test.js` assertions and one `tests/person-name-governance.test.js` assertion still pinned the active freeze to the previous Person Name product (`5a3117d4`). There were no Role Period behavior test failures. The fix updates the *active* baseline reference to reviewed product `4c23f7f`, while explicitly preserving the historic Person Name product and its accepted-main Git evidence. No runtime bytes, scope, SQL, DOE or gates changed in this follow-up test-only correction. A targeted rerun of the previous five failure cases plus one related historical case passed 6/6. Updated exact-HEAD full CI remains required.

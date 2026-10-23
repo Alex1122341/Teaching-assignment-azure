@@ -1,10 +1,11 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 function fixture(rows=[{facultyId:'first',displayName:'Example Faculty'},{facultyId:'second',displayName:'Second Faculty'}],config={}){
  const nodes=new Map(),node=()=>({value:'',innerHTML:'',textContent:'',disabled:false,hidden:false,listeners:{},addEventListener(k,fn){(this.listeners[k]??=[]).push(fn)},fire(k){for(const fn of this.listeners[k]||[])fn({target:this})}});
  const host={innerHTML:'',querySelector:s=>{if(!nodes.has(s))nodes.set(s,node());return nodes.get(s)}};
  const pending=[],rosterCalls=[],timers=new Map();let timerId=0;
- const ctx={setTimeout:fn=>{timers.set(++timerId,fn);return timerId},clearTimeout:id=>timers.delete(id)};vm.runInNewContext(fs.readFileSync('faculty-availability.js','utf8'),ctx);
+ const ctx={setTimeout:fn=>{timers.set(++timerId,fn);return timerId},clearTimeout:id=>timers.delete(id)};vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'faculty-availability.js'),'utf8'),ctx);
  const view=ctx.PAWS_FACULTY_AVAILABILITY.createFacultyAvailability({host,getSelfMode:config.getSelfMode,api:{dashboardFaculty:async p=>{rosterCalls.push(p);return config.dashboardFaculty?config.dashboardFaculty(p):rows},facultyAvailability:p=>new Promise((resolve,reject)=>pending.push({p,resolve,reject}))}});
  const $=id=>host.querySelector('#availability-'+id);$('mode').value='upcoming';$('kind').value='all';
  return{view,$,pending,rosterCalls,flushRoster:async()=>{for(const fn of [...timers.values()]){timers.clear();fn();}await tick();}};

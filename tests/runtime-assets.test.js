@@ -1,8 +1,8 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
-const root=path.resolve(__dirname,'..'),read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const root=repositoryPath(__dirname,'..'),read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 
 test('runtime pages omit the undeployed Functions SDK',()=>{
  for(const name of ['index.html','faculty-admin.html','user-management.html'])assert.doesNotMatch(read(name),/firebase-functions-compat/);
@@ -11,7 +11,7 @@ test('runtime pages omit the undeployed Functions SDK',()=>{
 test('retired faculty assets are absent from disk, manifest and all runtime links',()=>{
  const manifest=JSON.parse(read('tools/static-assets.json'));
  for(const name of ['faculty-dashboard.html','faculty-dashboard.js']){
-  assert.equal(fs.existsSync(path.join(root,name)),false,name);
+  assert.equal(fs.existsSync(repositoryPath(root,name)),false,name);
   assert.equal(manifest.includes(name),false,name);
  }
  const runtime=manifest.filter(name=>/\.(html|js|css)$/.test(name)).map(read).join('\n');
@@ -46,7 +46,7 @@ test('Spark AFC client and its PDF template remain deployable',()=>{
 });
 
 test('undeployed callable implementation and completed migration are removed',()=>{
- for(const name of ['functions/index.js','functions/afc-pdf.js','functions/bootstrap-general.js','tools/migrate_assigned_ad_rest.js'])assert.equal(fs.existsSync(path.join(root,name)),false,name);
+ for(const name of ['functions/index.js','functions/afc-pdf.js','functions/bootstrap-general.js','tools/migrate_assigned_ad_rest.js'])assert.equal(fs.existsSync(repositoryPath(root,name)),false,name);
  const deployed=JSON.parse(read('tools/static-assets.json')).map(read).join('\n');
  assert.doesNotMatch(deployed,/httpsCallable|bootstrapGeneral|replaceGroupAssignment/);
 });

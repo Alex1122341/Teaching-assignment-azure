@@ -1,10 +1,11 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const {createHistoryController,renderRows}=require('../change-history');
-const {createPawsAzureDataClient}=require('../paws-data-client');
+const {createHistoryController,renderRows}=require('../frontend/scripts/change-history.js');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('client closes filter/page/export fields and sends authenticated GET only',async()=>{
- const calls=[],client=createPawsAzureDataClient({tokenProvider:async()=>'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({rows:[]})};}});
+ const calls=[],client=createPawsDataClient({tokenProvider:async()=>'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({rows:[]})};}});
  await client.changeHistory({scope:'mine',course:'206',actorFirebaseUid:'spoof',facultyId:'private'});
  await client.changeHistoryPage('handle',100);await client.changeHistoryExport('handle','xlsx');
  assert.deepEqual(Object.fromEntries(new URL(calls[0].url).searchParams),{scope:'mine',course:'206'});
@@ -40,7 +41,7 @@ test('rendered source values are escaped, UTC and Calgary time are labelled, and
  assert.doesNotMatch(html,/<img|<script>/);assert.match(html,/&lt;img/);assert.match(html,/Calgary/);assert.match(html,/UTC/);
 });
 test('all three Beta entry points use the shared SQL history and include self-mode Dashboard entry',()=>{
- const index=fs.readFileSync('index.html','utf8'),dashboard=fs.readFileSync('faculty-admin.html','utf8'),panel=fs.readFileSync('afc-timetable-panel.js','utf8');
+ const index=fs.readFileSync(repositoryPath(process.cwd(), 'index.html'),'utf8'),dashboard=fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.html'),'utf8'),panel=fs.readFileSync(repositoryPath(process.cwd(), 'afc-timetable-panel.js'),'utf8');
  for(const html of [index,dashboard]){assert.match(html,/change-history\.js/);assert.match(html,/change-history\.css/);}
  assert.match(index,/id="cal-changes-btn"/);assert.match(dashboard,/id="faculty-history-btn"/);
  assert.match(panel,/scope:.*mine/);assert.doesNotMatch(panel,/UCVM\.logs\(/);
@@ -48,7 +49,7 @@ test('all three Beta entry points use the shared SQL history and include self-mo
 });
 
 test('Dashboard renders one expandable operation with all child AFC and field changes',()=>{
- const {renderOperationRows}=require('../change-history');
+ const {renderOperationRows}=require('../frontend/scripts/change-history.js');
  const html=renderOperationRows([{
   changeDate:'2026-10-20T16:10:00Z',title:'2 AFC Records Created',domain:'AFC',actor:'ADFAD Admin',
   recordCount:2,changeCount:4,startDate:'2026-11-09',endDate:'2026-11-10',
@@ -82,7 +83,7 @@ test('Dashboard controller carries restored archive timestamp in state and clear
 });
 
 test('Dashboard UI offers all academic years, retains detailed safe operations, and does not alter other history scopes',()=>{
- const ui=fs.readFileSync('change-history.js','utf8');
+ const ui=fs.readFileSync(repositoryPath(process.cwd(), 'change-history.js'),'utf8');
  assert.match(ui,/scope==='dashboard'\?'all'/);
  assert.match(ui,/All recorded years/);
  assert.match(ui,/data-history-archive-note/);

@@ -11,13 +11,15 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed Teaching Schedule HICC–CC / VISC directory is the immutable trust anchor: it adds the
-// read-only leadership directory (API route, client lists) on top of the accepted CCC Schedule,
-// Faculty Availability and restored Dashboard History product. Prior CCC Schedule, AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
+// Reviewed faculty presentation-only names are the immutable trust anchor:
+// display "Last, First" without changing the SQL identity, ownership, or write
+// behavior of the accepted CCC, Availability and Dashboard History release.
+// Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='de4d3cacb395e71677ca4088c37ef5367895bf12';
+const BASELINE_COMMIT='2946257c6c01e0201257d5745187e2648abcda50';
 const MANIFEST_PATH='tools/static-assets.json';
+const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 
 function defaultRoot(){
   return path.resolve(__dirname,'..');
@@ -61,11 +63,11 @@ function baselineCommitExists(root,baselineCommit){
 }
 
 function readBaselineFile({root=defaultRoot(),baselineCommit=BASELINE_COMMIT,file}={}){
-  return gitBlob(root,`${baselineCommit}:${file}`);
+  return gitBlob(root,`${baselineCommit}:${sourcePathAtCommit(root,baselineCommit,file)}`);
 }
 
 function readWorkingFile({root=defaultRoot(),file}={}){
-  return fs.readFileSync(path.join(root,file));
+  return fs.readFileSync(assetSourcePath(root,file));
 }
 
 function readCurrentManifest({root=defaultRoot(),manifestPath=MANIFEST_PATH}={}){

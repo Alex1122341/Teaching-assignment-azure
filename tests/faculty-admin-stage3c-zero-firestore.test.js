@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 // BETA-R4D-10B Stage 3C — zero-Firestore Dashboard proof + frontend acceptance.
 //
 // The controller is executed inside a vm sandbox where:
@@ -11,11 +12,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 
-const root = path.resolve(__dirname, '..');
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const read = file => fs.readFileSync(repositoryPath(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
 const MANAGEMENT_SOURCE = read('faculty-admin-management.js');
 const DOE_RENDERER_SOURCE = read('faculty-admin-doe-renderer.js');
@@ -279,7 +279,7 @@ test('T / U. KPIs are driven exclusively by the API summary with no legacy fallb
 test('V / W. Lookup is API-only with no legacy fallback', async () => {
   const h = await drive();
   assert.equal(h.byId('result-count').textContent, ROSTER.length);
-  assert.match(h.byId('result-list').innerHTML, /Ada One/);
+  assert.match(h.byId('result-list').innerHTML, /One, Ada/);
   assert.match(h.byId('result-list').innerHTML, /12 sessions · 0 roles · Upcoming AFC: loading · Remaining DOE: loading/);
   assert.equal(/__api/.test(ADMIN_SOURCE), false, 'no API/legacy row discrimination remains');
   const lookup = ADMIN_SOURCE.slice(ADMIN_SOURCE.indexOf('function renderLookup'), ADMIN_SOURCE.indexOf('function teachingSummaryDoeStatus'));

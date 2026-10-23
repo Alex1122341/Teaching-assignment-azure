@@ -1,11 +1,12 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const root = path.resolve(__dirname, '..');
-const read = name => fs.readFileSync(path.join(root, name), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const read = name => fs.readFileSync(repositoryPath(root, name), 'utf8');
 
 test('Azure SQL asset loading skips all legacy approval dependencies', async () => {
   const loaded = [];
@@ -20,7 +21,7 @@ test('Azure SQL asset loading skips all legacy approval dependencies', async () 
       createElement: () => ({})
     },
     addEventListener: (name, callback) => listeners.set(name, callback),
-    UCVM_PAWS_DATA: { sessionBackend: () => 'azure-sql' }
+    UCVM_PAWS_DATA: { sessionBackend: () => 'vetmed-ops' }
   };
   context.window = context;
 
@@ -97,7 +98,7 @@ function approvalBoundaryScenario(client) {
 
 test('approval workflow fails closed for every non-firestore backend state', () => {
   const cases = [
-    ['azure-sql', { sessionBackend: () => 'azure-sql' }],
+    ['vetmed-ops', { sessionBackend: () => 'vetmed-ops' }],
     ['missing client', undefined],
     ['missing method', {}],
     ['throwing method', { sessionBackend: () => { throw new Error('backend unavailable'); } }],
@@ -143,7 +144,7 @@ function afcBoundaryScenario(client) {
 
 test('AFC uses the same safe unavailable facade for missing and unknown backends', async () => {
   const cases = [
-    ['azure-sql', { sessionBackend: () => 'azure-sql' }],
+    ['vetmed-ops', { sessionBackend: () => 'vetmed-ops' }],
     ['missing client', undefined],
     ['missing method', {}],
     ['throwing method', { sessionBackend: () => { throw new Error('backend unavailable'); } }],
@@ -166,7 +167,7 @@ test('approval-workflow fails closed before UCVM or Firestore initialization on 
   let firestoreTouches = 0;
   let createdNodes = 0;
   const context = {
-    UCVM_PAWS_DATA: { sessionBackend: () => 'azure-sql' },
+    UCVM_PAWS_DATA: { sessionBackend: () => 'vetmed-ops' },
     UCVM: { init: () => { initCalls += 1; throw new Error('UCVM.init must not run'); } },
     firebase: new Proxy({}, { get() { firestoreTouches += 1; throw new Error('Firestore must not be touched'); } }),
     document: {
@@ -228,7 +229,7 @@ function azureAfcPanelHarness() {
       callbacks.push(callback);
       listeners.set(name, callbacks);
     },
-    UCVM_PAWS_DATA: { sessionBackend: () => 'azure-sql' },
+    UCVM_PAWS_DATA: { sessionBackend: () => 'vetmed-ops' },
     PAWS_CHANGE_HISTORY: { mount: (_container, options) => { context.historyOptions = options; return { destroy() { context.historyDestroyed = true; } }; } },
     UCVM: { logs: () => { throw new Error('Legacy history must not be touched'); } },
     UCVM_AFC_ACTIONS: { decide: () => { context.decideCalls += 1; } },

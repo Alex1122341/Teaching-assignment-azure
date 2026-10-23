@@ -1,15 +1,15 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 // Teaching Schedule HICC–CC / VISC directory: page wiring, rendering rules and parity with the
 // Faculty Dashboard effective-period rules (faculty-role-periods.js).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 
-const root = path.resolve(__dirname, '..');
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const lib = require('../leadership-directory');
+const root = repositoryPath(__dirname, '..');
+const read = file => fs.readFileSync(repositoryPath(root, file), 'utf8');
+const lib = require(repositoryPath(root,'leadership-directory.js'));
 const { classify } = require('../server/src/roles/role-effective-status');
 
 test('Course List is replaced by exactly two buttons under the Teaching Schedule heading', () => {

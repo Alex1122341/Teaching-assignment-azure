@@ -2,6 +2,22 @@
 
 Read updates/2026-10-22-hicc-visc-directory.md and docs/hicc-visc-directory-20261022.md. Branch feature/hicc-visc-directory-20261022 on main 924cc676: Course List replaced by HICC–CC List / VISC List, read-only /api/v1/dashboard/leadership-directory (no DOE, no migration). Governance anchor 5b135df -> de4d3ca (static 87 / API 114 / protected 117) pending review. Production release blocked on Owner access; no live operations.
 
+## Current: PR #133 source organization and build simplification - 2026-10-22
+
+The Owner extended the same PR to tidy the repository. From checkpoint `8249a33`, all 85 browser sources moved into `frontend/{pages,scripts,styles,assets}` without changing public URLs or runtime bytes. Root files reduced from 96 to 11. Static packaging is shared in `tools/build/static-bundle.js`; test source resolution and exact-commit Firebase API-origin lookup follow the new layout. Immutable runtime anchor `f78b10a` stays unchanged. Initial 46 targeted checks passed; corrected path-harness suite passed 57 with one Windows symlink-permission skip. Final exact-HEAD CI remains the completion authority. No merge, database mutation or live deployment. See `docs/architecture/repository-layout.md`.
+
+## Current: Azure frontend dependency retirement PR #133 — 2026-10-22
+
+Draft PR #133, branch \`chore/retire-azure-frontend-coupling-20261022\`, starts from Beta main \`ad605dbb\`. Product commit \`f78b10a\` replaces stale Azure names in two published browser assets and updates related tests; 54 targeted tests passed. A separate freeze governance commit promotes this exact product commit; final CI acceptance still must be confirmed. Full audit: \`docs/azure-frontend-retirement-audit-20261022.md\`. No merge, SQL write or Production deploy. Independent PR #125 is blocked by retired non-DB Azure Testing architecture and must be reviewed separately.
+
+## Current: faculty name display PR #131 corrected product SHA — 2026-10-22
+
+PR #131 (`feature/faculty-display-last-first-20261022`) corrects the previous headless and legacy test breakage: browser-only name presentation now gracefully falls back when DOM globals are absent, the historical CCC freeze test stays pinned to its old product receipt, input-display separators preserve spacing, and only UI assertions are updated to `Last, First`. Final candidate product SHA `ba915e99ca06677d58e129f6fb671bd40d21600e`, prior product candidate `5948db79e8bccb4170c15a79bbbc127cfe37e155` superseded. Exactly 18 of 85 static protected files differ from original anchor, zero API/SQL source differences; governance follows product with no protected runtime blob changes. Initial PR CI at previous candidate returned 941 PASS / 40 FAIL / 52 SKIP; current SHA CI unverified. PR remains DRAFT, no merge/deploy. See `agent.Ai/updates/2026-10-22-faculty-name-ci-regression-corrections.md`.
+
+## Current: Last-name-first display presentation-only PR — 2026-10-22
+
+Branch `feature/faculty-display-last-first-20261022` starts at Beta `main` `924cc6761a3b2dfba4f19c2df912436cbd965b43`. Candidate product SHA `5948db79e8bccb4170c15a79bbbc127cfe37e155` changes the on-screen presentation of faculty names to `Last, First` with a single shared formatter and minimal render-time overrides. Protects original names/IDs for matching, filtering, writes and SQL. Exactly 18 of 85 existing static protected files changed; zero API/SQL changes; separate Freeze Governance promotion points to the product SHA. Regression and complete GitHub CI are pending. **NOT MERGED, NOT DEPLOYED.** See `agent.Ai/updates/2026-10-22-faculty-name-last-first.md`. PR #125 remains separate.
+
 ## Current: CCC Schedule PR #130 candidate verification — 2026-10-21
 
 PR130 remains Draft/unmerged, branch `feature/ccc-schedule-readonly-20261021`. The last accepted starting main is `a46c3bd9075af146177b7a0b614a4955e829c2fd`. Product fix `0be27151369aff17c71419a9fc92a96d99b3e0cf` protects distinct CCC source end-date ranges in the UI and sets `Cache-Control: private, no-store` on every CCC Schedule API result; targeted tests were extended. These new code bytes have **not yet been independently executed/accepted**. Prior executor evidence at `c10c662da9e8d5f3ea6ab83a09b8ea4e822b97e4`: CCC focused22pass, server805pass/0fail/4skip, partial root229pass/2freeze-drift failures. Node22/npm ci remains stuck, emulator and SQL057 disposable testing unrun, GitHub Actions zero-step failures, independent product/security and freeze governance incomplete. No merge, production SQL057, API cutover or Firebase deployment. Next executor action: verify fresh HEAD, run dependency-free Node22 targeted tests and `node --check`, then collect full install/root/emulator/SQL evidence as available; do not claim earlier test totals cover new code. See `agent.Ai/updates/2026-10-21-ccc-schedule-cache-and-range-fix.md`.
@@ -1489,4 +1505,8 @@ Read-only comparison complete; manual versus automatic DOE interaction clarifica
 
 ## 2026-10-08 — Reference parity design review
 Owner approved retaining manual signed DOE over the automatic policy baseline. Written specification: docs/superpowers/specs/2026-10-08-faculty-ui-doe-rulebook-parity-design.md. Current gate: written-spec review; implementation plan follows its approval. No product or live changes.
+
+# Maintenance recovery in progress — 2026-10-23
+
+Owner requests live Beta website restoration after School restart. Existing pinned Recovery restored API924cc67/SQL200/anonymous401 and matching27gates. New actual origin cultures-please-skirt-tba.trycloudflare.com requires Hosting pointer repair. Separate main-based branch contains one shipped origin change, reviewed product00ed3f0/separate governance87d5051, independent product+governance READY,85served baseline files matched oldmain, candidate repository/artifact freezes pass. No local tests/installs or CI pass claimed. Rollback version captured; next merge repair PR, rebuild exactmain, publish Hosting-only, verify served85/gates/CORS/browser, update Recovery PublishedOrigin with backup. See newest2026-10-23-maintenance-origin-recovery-ready.md. PR125 remains separate/incomplete; do not deploy its runtime.
 

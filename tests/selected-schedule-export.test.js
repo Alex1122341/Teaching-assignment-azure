@@ -1,6 +1,7 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-function load(){const context={window:{},Date};for(const file of ['scheduling-core.js','timetable-selection.js'])vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context);return context.window.UCVM_TIMETABLE_SELECTION;}
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+function load(){const context={window:{},Date};for(const file of ['scheduling-core.js','timetable-selection.js'])vm.runInNewContext(fs.readFileSync(repositoryPath(__dirname,'..',file),'utf8'),context);return context.window.UCVM_TIMETABLE_SELECTION;}
 const plain=value=>JSON.parse(JSON.stringify(value));
 test('selected report contains only chosen authorized sessions in chronological order and public fields',()=>{
  const source=[{id:'late',course:'207',courseName:'Course Seven',date:'2026-11-06',start:'10:00',end:'11:00',topic:'Later',type:'LAB',instructor:'Faculty Beta',room:'Room B',ucid:'PRIVATE',email:'PRIVATE',doeCredit:99,assignments:[{facultyId:'PRIVATE'}]},

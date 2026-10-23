@@ -1,5 +1,6 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -45,7 +46,7 @@ function setup({ canAdmin = true, canPublish = false, canRecalculate = false } =
   };
   let structuredPatch = { rules: [], references: [], courseMappings: [], subjectMappings: [], exceptions: [], reservePolicy: {} };
   const window = { confirm: () => true, UCVM_FACULTY_DOE_RULEBOOK: { create: () => ({ mount() {}, setLocked() {}, editorOpen: () => false, isDirty: () => false, setBundle(value) { if(value)structuredPatch = { rules:value.rules, references:value.references, courseMappings:value.courseMappings, subjectMappings:value.subjectMappings, exceptions:value.exceptions, reservePolicy:value.reservePolicy }; }, getPatch: () => structuredPatch }) } };
-  vm.runInNewContext(fs.readFileSync('faculty-admin-doe-policy.js', 'utf8'), { window }, { filename: 'faculty-admin-doe-policy.js' });
+  vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-doe-policy.js'), 'utf8'), { window }, { filename: 'faculty-admin-doe-policy.js' });
   const view = window.UCVM_FACULTY_DOE_POLICY.create({ api, getAcademicYear: () => '2026-27', canAdmin: () => canAdmin, canPublish: () => canPublish, canRecalculate: () => canRecalculate });
   view.mount(host);
   return { view, host, nodes, calls, setStructuredPatch(value) { structuredPatch=value; } };

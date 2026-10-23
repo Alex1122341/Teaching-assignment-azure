@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 // BETA-R4D-10B Stage 3A — Dashboard core Azure SQL read cutover.
 //
 // These tests execute the REAL production faculty-admin.js inside a vm sandbox
@@ -9,11 +10,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 
-const root = path.resolve(__dirname, '..');
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const read = file => fs.readFileSync(repositoryPath(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
 
 const KPI_IDS = ['kpi-total', 'kpi-sessions', 'kpi-assignments', 'kpi-courses', 'kpi-roles', 'kpi-hicc', 'kpi-visc', 'kpi-afc', 'kpi-grid', 'kpi-check'];
@@ -163,7 +163,7 @@ function createHarness(overrides = {}) {
   };
 
   const pawsData = {
-    sessionBackend: () => 'azure-sql',
+    sessionBackend: () => 'vetmed-ops',
     sessionWritesEnabled: () => false,
     currentUser: async () => { calls.push('currentUser'); return overrides.currentUser ? overrides.currentUser() : ADMIN_PROFILE; },
     dashboardSummary: async () => { calls.push('dashboardSummary'); return overrides.summary ? overrides.summary() : SUMMARY; },
@@ -363,7 +363,7 @@ test('KPI labels describe HICC/VISC as roles and drop the retired Firestore metr
 test('Lookup renders the API roster and searches only the permitted fields', async () => {
   const h = await driveAdmin();
   assert.equal(h.byId('result-count').textContent, ROSTER.length);
-  assert.match(h.byId('result-list').innerHTML, /Ada One/);
+  assert.match(h.byId('result-list').innerHTML, /One, Ada/);
   assert.match(h.byId('result-list').innerHTML, /12 sessions · 0 roles · Upcoming AFC: loading · Remaining DOE: loading/);
 
   const blob = slice('function searchBlob', 'function filteredLookup');
@@ -409,7 +409,7 @@ test('selecting one faculty issues exactly one detail request and renders the AP
   assert.deepEqual(h.calls.filter(c => c.startsWith('dashboardFacultyById')), ['dashboardFacultyById:f-2'], 'exactly one detail request');
 
   const pane = h.byId('profile-pane').innerHTML;
-  assert.match(pane, /Ada One/, 'faculty identity comes from the API detail');
+  assert.match(pane, /One, Ada/, 'faculty identity comes from the API detail');
   assert.match(pane, /Teaching-Focused/, 'professionalProfile renders');
   assert.match(pane, /Renewal pending/, 'jointAppointments render');
   assert.match(pane, /VETM 300/, 'roles render');
@@ -449,7 +449,7 @@ test('the core flow never invokes the legacy Firestore loaders', () => {
 
 test('AFC purpose appears only in the selected detail', () => {
   assert.match(slice('function renderFacultyAfc', 'function currentAcademicYear'), /UCVM_AFC_RECORDS\.profileAfc/, 'selected detail delegates to the AFC renderer');
-  const html=require('../faculty-admin-afc-records').profileAfc([{purpose:'Synthetic private purpose',notes:'<unsafe>',startDate:'2026-11-01',endDate:'2026-11-02'}],{selfMode:true});
+  const html=require('../frontend/scripts/faculty-admin-afc-records.js').profileAfc([{purpose:'Synthetic private purpose',notes:'<unsafe>',startDate:'2026-11-01',endDate:'2026-11-02'}],{selfMode:true});
   assert.match(html,/Synthetic private purpose/,'AFC purpose is rendered in the authorized detail');assert.match(html,/N\/A/);assert.doesNotMatch(html,/<unsafe>/);
   assert.doesNotMatch(slice('function renderLookup', 'function teachingSummaryDoeStatus'), /purpose/i, 'the roster must not expose AFC purpose');
   assert.doesNotMatch(read('faculty-admin.html'), /away purpose/);
@@ -537,9 +537,9 @@ test('a detail 404 preserves the roster and reports not found', async () => {
   const h = await driveAdmin({ facultyById: async () => { throw notFound; } });
   await h.clickRow('f-2');
   const roster = h.byId('result-list').innerHTML;
-  assert.match(roster, /Ada One/);
-  assert.match(roster, /Bo Two/);
-  assert.match(roster, /Cy Three/);
+  assert.match(roster, /One, Ada/);
+  assert.match(roster, /Two, Bo/);
+  assert.match(roster, /Three, Cy/);
   assert.equal(h.byId('result-count').textContent, ROSTER.length, 'the roster must survive a failed detail load');
   assert.deepEqual(h.rowIds(), ['f-1', 'f-2', 'f-3']);
   assert.match(h.byId('profile-pane').innerHTML, /not found/i);

@@ -1,9 +1,9 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const path=require('node:path');
 const {execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..');
+const root=repositoryPath(__dirname,'..');
 const freeze=require('../tools/beta-freeze');
 const api=require('../tools/beta-api-freeze');
 const report=require('../tools/beta-baseline.json');

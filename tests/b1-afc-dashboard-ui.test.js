@@ -1,13 +1,14 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const afcBatch = require('../faculty-admin-afc-batch');
+const afcBatch = require('../frontend/scripts/faculty-admin-afc-batch.js');
 
-const html = fs.readFileSync('faculty-admin.html', 'utf8');
-const js = fs.readFileSync('faculty-admin.js', 'utf8');
-const recordsJs = fs.readFileSync('faculty-admin-afc-records.js', 'utf8');
+const html = fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.html'), 'utf8');
+const js = fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.js'), 'utf8');
+const recordsJs = fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-afc-records.js'), 'utf8');
 
 test('B1 admin dashboard exposes an isolated AFC Records tab and create form', () => {
   assert.match(html, /data-tab="afc-records"/);

@@ -1,11 +1,12 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 
-const root=path.resolve(__dirname,'..');
+const root=repositoryPath(__dirname,'..');
 const {
   injectTestBanner,
   buildFacultyDashboardRedirect,
@@ -59,14 +60,14 @@ test('Pages staging changes only the supplied build directory',()=>{
 });
 
 test('tracked web entry points use relative internal URLs for the Pages project subpath',()=>{
-  const assets=JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
+  const assets=JSON.parse(fs.readFileSync(repositoryPath(root,'tools/static-assets.json'),'utf8'));
   for(const name of assets.filter(value=>value.endsWith('.html'))){
-    const source=fs.readFileSync(path.join(root,name),'utf8');
+    const source=fs.readFileSync(repositoryPath(root,name),'utf8');
     assert.doesNotMatch(source,/(?:href|src)=["']\/(?!\/)/i,`${name} has a root-absolute internal URL`);
   }
   const rootNavigation=/(?:window\.)?location(?:\.href)?\s*=\s*["']\/(?!\/)|(?:window\.)?location\.(?:assign|replace)\(\s*["']\/(?!\/)/i;
   for(const name of assets.filter(value=>value.endsWith('.js'))){
-    const source=fs.readFileSync(path.join(root,name),'utf8');
+    const source=fs.readFileSync(repositoryPath(root,name),'utf8');
     assert.doesNotMatch(source,rootNavigation,`${name} has root-absolute browser navigation`);
   }
 });

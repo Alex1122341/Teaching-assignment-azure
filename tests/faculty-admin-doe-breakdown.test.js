@@ -1,11 +1,12 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 function worksheetView(){
   const context={window:{}};
-  vm.runInNewContext(fs.readFileSync('faculty-admin-doe-worksheet.js','utf8'),context,{filename:'faculty-admin-doe-worksheet.js'});
+  vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-doe-worksheet.js'),'utf8'),context,{filename:'faculty-admin-doe-worksheet.js'});
   return context.window.UCVM_FACULTY_DOE_WORKSHEET.create({
     api:{},escapeHtml:v=>String(v??'').replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])),
     formatDoe:v=>v===null?'Needs Review':Number(v).toFixed(2)+'%',

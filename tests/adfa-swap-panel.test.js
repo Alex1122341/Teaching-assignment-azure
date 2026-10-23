@@ -8,7 +8,7 @@ const preview={status:'calculated',assignment:{displayName:'Outgoing synthetic',
 function host(){const nodes=new Map();return{innerHTML:'',querySelector(selector){if(!nodes.has(selector))nodes.set(selector,{value:'',textContent:'',disabled:false,onclick:null,oninput:null});return nodes.get(selector);}};}
 
 test('ADFA shows the requested outgoing metrics and separate contract/current/remaining/projected replacement columns',async()=>{
- const {createController}=require('../adfa-swap-panel'),view=host();
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js'),view=host();
  const initial={...preview,outgoing:{current:preview.outgoing.current,projected:null,deltaDoe:null}};
  const controller=createController({host:view,api:{swapFacultyPreview:async args=>args.candidateKey?preview:initial},session,assignments,candidates});
  await controller.open('assignment');
@@ -26,7 +26,7 @@ test('ADFA shows the requested outgoing metrics and separate contract/current/re
 });
 
 test('availability explains public conflicts and marks restricted or unconfirmed details without revealing AFC reasons',async()=>{
- const {createController}=require('../adfa-swap-panel'),view=host();
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js'),view=host();
  let value={...preview,availability:{status:'Unavailable',conflicts:[{courseCode:'<SYN206>',startTime:'09:00:00',endTime:'10:00:00'}],reason:'PRIVATE VACATION',afcPurpose:'PRIVATE PURPOSE'}};
  const controller=createController({host:view,api:{swapFacultyPreview:async()=>value},session,assignments,candidates});
  await controller.open('assignment');
@@ -39,7 +39,7 @@ test('availability explains public conflicts and marks restricted or unconfirmed
 
 // Break caught: ADFA sees only a dropdown/placeholder rather than server-provided DOE totals.
 test('ADFA candidate panel renders current and projected DOE beside live availability',async()=>{
- const {createController}=require('../adfa-swap-panel');
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js');
  const view=host(),controller=createController({host:view,api:{swapFacultyPreview:async()=>preview},session,assignments,candidates,isCurrent:()=>true,onSelect(){}});
  await controller.open('assignment');
  assert.match(view.innerHTML,/Current assignment/);
@@ -55,7 +55,7 @@ test('ADFA candidate panel renders current and projected DOE beside live availab
 
 // Break caught: selecting a cached Available row after its real availability changed.
 test('selecting a candidate rechecks availability and refuses a new Needs Review result',async()=>{
- const {createController}=require('../adfa-swap-panel');let value=preview,chosen='';
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js');let value=preview,chosen='';
  const controller=createController({host:host(),api:{swapFacultyPreview:async()=>value},session,assignments,candidates,isCurrent:()=>true,onSelect:key=>{chosen=key;}});
  await controller.open('assignment');
  value={...preview,availability:{status:'Needs Review',conflicts:[]}};
@@ -71,7 +71,7 @@ test('selecting a candidate rechecks availability and refuses a new Needs Review
 
 // Break caught: opening a dialog requests DOE worksheets for the entire faculty directory.
 test('search and paging load only the visible six candidates',async()=>{
- const {createController}=require('../adfa-swap-panel'),calls=[],view=host();
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js'),calls=[],view=host();
  const faculty=Array.from({length:13},(_,i)=>({candidateKey:'key-'+i,displayName:'Person '+String(i).padStart(2,'0')}));
  const controller=createController({host:view,api:{swapFacultyPreview:async args=>{calls.push(args);return preview;}},session,assignments,candidates:faculty,isCurrent:()=>true});
  await controller.open('assignment');
@@ -84,13 +84,13 @@ test('search and paging load only the visible six candidates',async()=>{
 });
 
 test('an incomplete availability response cannot select a candidate',async()=>{
- const {createController}=require('../adfa-swap-panel');let selected='';
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js');let selected='';
  const controller=createController({host:host(),api:{swapFacultyPreview:async()=>({...preview,availability:{}})},session,assignments,candidates,onSelect:key=>{selected=key;}});
  await controller.open('assignment');assert.equal(await controller.select('incoming'),false);assert.equal(selected,'');
 });
 
 test('selection is visible and authorized timetable conflict details are escaped',async()=>{
- const {createController}=require('../adfa-swap-panel'),view=host();
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js'),view=host();
  const value={...preview,availability:{status:'Unavailable',conflicts:[{courseCode:'<SYN101>',date:'2026-11-05',startTime:'09:30',endTime:'10:30'}]}};
  const controller=createController({host:view,api:{swapFacultyPreview:async()=>value},session,assignments,candidates});
  await controller.open('assignment');await controller.select('incoming');
@@ -99,7 +99,7 @@ test('selection is visible and authorized timetable conflict details are escaped
 });
 
 test('clearing the outgoing assignment clears candidates and pending selection',async()=>{
- const {createController}=require('../adfa-swap-panel'),view=host();let selected='';
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js'),view=host();let selected='';
  const controller=createController({host:view,api:{swapFacultyPreview:async()=>preview},session,assignments,candidates,onSelect:key=>{selected=key;}});
  await controller.open('assignment');await controller.select('incoming');await controller.open('');
  assert.equal(selected,'');assert.doesNotMatch(view.innerHTML,/Incoming synthetic/);
@@ -107,7 +107,7 @@ test('clearing the outgoing assignment clears candidates and pending selection',
 });
 
 test('a stale assignment preview clears cached faculty values and offers a session reload',async()=>{
- const {createController}=require('../adfa-swap-panel'),view=host();let stale=false,calls=0,reloads=0;
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js'),view=host();let stale=false,calls=0,reloads=0;
  const controller=createController({host:view,api:{swapFacultyPreview:async()=>{calls++;if(stale)throw Object.assign(Error('PRIVATE ERROR'),{status:409});return preview;}},session,assignments,candidates,onReload:()=>{reloads++;}});
  await controller.open('assignment');await controller.select('incoming');stale=true;const before=calls;
  await controller.open('assignment');
@@ -117,7 +117,7 @@ test('a stale assignment preview clears cached faculty values and offers a sessi
 });
 
 test('failed selection clears projected outgoing DOE and reports unavailable without inventing zero',async()=>{
- const {createController}=require('../adfa-swap-panel'),view=host();let failed=false,selected='';
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js'),view=host();let failed=false,selected='';
  const controller=createController({host:view,api:{swapFacultyPreview:async()=>{if(failed)throw Object.assign(Error('PRIVATE ERROR'),{status:503});return preview;}},session,assignments,candidates,onSelect:key=>{selected=key;}});
  await controller.open('assignment');await controller.select('incoming');failed=true;
  assert.equal(await controller.verifySelection('incoming'),false);assert.equal(selected,'');
@@ -126,7 +126,7 @@ test('failed selection clears projected outgoing DOE and reports unavailable wit
 });
 
 test('leaving the dialog ignores pending preview results and sends no further requests',async()=>{
- const {createController}=require('../adfa-swap-panel'),view=host();let current=true,release,calls=0;
+ const {createController}=require('../frontend/scripts/adfa-swap-panel.js'),view=host();let current=true,release,calls=0;
  const controller=createController({host:view,api:{swapFacultyPreview:async()=>{calls++;await new Promise(resolve=>{release=resolve;});return preview;}},session,assignments,candidates,isCurrent:()=>current});
  const pending=controller.open('assignment');current=false;release();await pending;
  assert.equal(calls,1);assert.equal(await controller.select('incoming'),false);assert.equal(calls,1);assert.doesNotMatch(view.innerHTML,/12\.00%/);

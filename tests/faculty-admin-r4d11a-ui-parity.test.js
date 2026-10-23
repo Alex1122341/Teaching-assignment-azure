@@ -1,15 +1,16 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const html = fs.readFileSync('faculty-admin.html', 'utf8');
-const source = fs.readFileSync('faculty-admin.js', 'utf8');
-const doeRenderer = fs.readFileSync('faculty-admin-doe-renderer.js', 'utf8');
-const afcRenderer = fs.readFileSync('faculty-admin-afc-records.js', 'utf8');
+const html = fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.html'), 'utf8');
+const source = fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.js'), 'utf8');
+const doeRenderer = fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-doe-renderer.js'), 'utf8');
+const afcRenderer = fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-afc-records.js'), 'utf8');
 const profileSource = `${source}\n${doeRenderer}\n${afcRenderer}`;
-const client = fs.readFileSync('paws-data-client.js', 'utf8');
+const client = fs.readFileSync(repositoryPath(process.cwd(), 'paws-data-client.js'), 'utf8');
 
 test('admin exposes the read-only parity tabs and gated Annual DOE Rule Book', () => {
   for (const [id, label] of [['lookup', 'Lookup'], ['summary', 'Teaching Summary'], ['roles', 'Roles & Appointments'], ['doe-overview', 'DOE Overview']]) {
@@ -23,7 +24,7 @@ test('admin exposes the read-only parity tabs and gated Annual DOE Rule Book', (
   assert.match(html, /data-tab="doe-rules" id="doe-rules-tab"/);
   assert.match(html, /id="doe-rules-content"/);
   assert.match(html, /faculty-admin-doe-policy\.js/);
-  const policy = fs.readFileSync('faculty-admin-doe-policy.js', 'utf8') + fs.readFileSync('faculty-admin-doe-rulebook.js', 'utf8');
+  const policy = fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-doe-policy.js'), 'utf8') + fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-doe-rulebook.js'), 'utf8');
   for (const label of ['Academic Year', 'Policy Version', 'Course Mapping', 'VISC Subjects', 'Preview &amp; Validate', 'History', 'Publish', 'Recalculate']) assert.ok(policy.includes(label), label);
   assert.match(policy, /api\.validateDoePolicyDraft/);
   assert.match(policy, /api\.previewDoePolicyImpact/);
@@ -34,7 +35,7 @@ test('rich profile uses the API view model for DOE and year/course/session expan
   assert.match(source,/UCVM_AFC_RECORDS\.profileAfc/);
   assert.match(html, /dashboard-view-model\.js/);
   assert.match(profileSource, /groupTeachingAssignments\(/);
-  const worksheet = fs.readFileSync('faculty-admin-doe-worksheet.js', 'utf8');
+  const worksheet = fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-doe-worksheet.js'), 'utf8');
   assert.match(source, /doeWorksheetView\?\.loadDetail/);
   assert.match(worksheet, /api\.doeWorksheet\(/);
   assert.match(worksheet, /server-authoritative/i);

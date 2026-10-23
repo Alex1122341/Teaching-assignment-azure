@@ -1,18 +1,18 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
 const vm=require('node:vm');
 const sourceFunction=require('../test-support/source-function.js');
-const {createPawsAzureDataClient}=require('../paws-data-client.js');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 
-const root=path.resolve(__dirname,'..');
-const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+const root=repositoryPath(__dirname,'..');
+const read=file=>fs.readFileSync(repositoryPath(root,file),'utf8');
 
 test('Azure session client preserves a 6000-row response without truncation',async()=>{
   const rows=Array.from({length:6000},(_,i)=>({id:String(i+1),date:'2026-09-01'}));
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'t',
     fetchImpl:async()=>({ok:true,status:200,json:async()=>({sessions:rows})})
   });
@@ -38,7 +38,7 @@ test('range reads prefer the current users completed full-session cache before n
   const body=source.slice(start,end);
   assert.match(body,/cachedSessionsForRange\(currentUser,range\)/);
   assert.match(body,/if\(cachedAll\)return cachedAll/);
-  assert.ok(body.indexOf('cachedSessionsForRange')<body.indexOf('fetchAzureSessions'));
+  assert.ok(body.indexOf('cachedSessionsForRange')<body.indexOf('fetchPawsSessions'));
 });
 
 test('visible timetable subscription prefers user-owned full-session memory cache when available',()=>{
@@ -47,8 +47,8 @@ test('visible timetable subscription prefers user-owned full-session memory cach
   const end=source.indexOf('function refreshSessionScope',start);
   const body=source.slice(start,end);
   assert.match(body,/cachedSessionsForRange/);
-  assert.match(body,/fetchAzureSessions/);
-  assert.ok(body.indexOf('cachedSessionsForRange')<body.indexOf('fetchAzureSessions'));
+  assert.match(body,/fetchPawsSessions/);
+  assert.ok(body.indexOf('cachedSessionsForRange')<body.indexOf('fetchPawsSessions'));
 });
 
 test('full-session prefetch is scheduled only after T7 unlock and does not block login',()=>{

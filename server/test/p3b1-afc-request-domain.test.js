@@ -1,13 +1,12 @@
 'use strict';
 
+const { repositoryPath } = require('../../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
-
-const root = path.resolve(__dirname, '..', '..');
-const migration = fs.readFileSync(path.join(root, 'database', 'azure-sql', '009_afc_request_foundation.sql'), 'utf8');
-const rollback = fs.readFileSync(path.join(root, 'database', 'azure-sql', 'rollback_009_afc_request_foundation.sql'), 'utf8');
+const root = repositoryPath(__dirname, '..', '..');
+const migration = fs.readFileSync(repositoryPath(root, 'database', 'azure-sql', '009_afc_request_foundation.sql'), 'utf8');
+const rollback = fs.readFileSync(repositoryPath(root, 'database', 'azure-sql', 'rollback_009_afc_request_foundation.sql'), 'utf8');
 const { createAfcRequestApi } = require('../src/afc/afc-request-api');
 const { createSqlAfcRequestRepository, SUBMIT_PROCEDURE, WITHDRAW_PROCEDURE } = require('../src/data/sql-afc-request-repository');
 

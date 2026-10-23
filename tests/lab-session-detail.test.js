@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const lab=require('../lab-session-detail');
+const lab=require('../frontend/scripts/lab-session-detail.js');
 const seed={id:'lab-1',date:'2026-10-16',course:'206',courseName:'Healthy Animals I',year:1,academicYear:'2026-27',type:'LAB',topic:'Station One',room:'Room A',instructor:'Instructor One',start:'08:30',end:'12:30'};
 test('LAB detail gathers only authorized same-course same-date same-year LAB and SRL rows',()=>{
   const rows=[seed,{...seed,id:'lab-2',topic:'Station Two',start:'09:15',end:'16:15'}, {...seed,id:'srl',type:'SRL',topic:'Research'}, {...seed,id:'wrong-date',date:'2026-10-17'}, {...seed,id:'wrong-year',year:2}, {...seed,id:'wrong-course',course:'207'}, {...seed,id:'ccc',isCcc:true}, {...seed,id:'lecture',type:'LEC'},seed];

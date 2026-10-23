@@ -1,5 +1,6 @@
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),sourceFunction=require('../test-support/source-function.js');
-const root=path.resolve(__dirname,'..'),read=n=>fs.readFileSync(path.join(root,n),'utf8');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),sourceFunction=require('../test-support/source-function.js');
+const root=repositoryPath(__dirname,'..'),read=n=>fs.readFileSync(repositoryPath(root,n),'utf8');
 test('large pages keep structure while loading cacheable modules',()=>{const main=read('index.html'),admin=read('faculty-admin.html');assert.match(main,/timetable\.css/);assert.match(main,/timetable\.js/);assert.match(admin,/faculty-admin\.css/);assert.match(admin,/faculty-admin\.js/);assert.ok(main.length<50000,`index ${main.length}`);assert.ok(admin.length<40000,`admin ${admin.length}`)});
 test('legacy AFC PDF/decision scripts remain dormant until a trusted API replaces them',()=>{const html=read('index.html');assert.match(html,/asset-loader\.js/);assert.doesNotMatch(html,/pdf-lib\.min\.js|afc-pdf-browser\.js|afc-actions\.js/);const loader=read('asset-loader.js'),actions=read('afc-actions.js');assert.match(loader,/function loadScriptOnce/);assert.match(loader,/function ensureApprovalWorkflow\(\)\{[\s\S]*?return false/);assert.match(actions,/direct Firestore mutation is disabled/);assert.doesNotMatch(actions,/ensureAfcPdf\(\)/)});
 

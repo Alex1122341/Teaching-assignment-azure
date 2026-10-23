@@ -1,10 +1,10 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../password.js'),'utf8');
+const source=fs.readFileSync(repositoryPath(__dirname,'../password.js'),'utf8');
 
 function setup({updatePasswordError=null}={}){
  const calls=[];

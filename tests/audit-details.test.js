@@ -1,13 +1,13 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
 const vm=require('node:vm');
 
 function load(){
  const context={window:{}};
- vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','audit-details.js'),'utf8'),context);
+ vm.runInNewContext(fs.readFileSync(repositoryPath(__dirname,'..','audit-details.js'),'utf8'),context);
  return context.window.UCVM_AUDIT_DETAILS;
 }
 const plain=value=>JSON.parse(JSON.stringify(value));

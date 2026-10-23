@@ -1264,3 +1264,7 @@ Owner approved retaining manual signed DOE over the automatic policy baseline. W
 
 Finish current Tasks12–14 work/Away migration acceptance first. Then advance09 My Change History export,10 faculty-visible timetable Changes tab,11 history filters/downloads. Include Faculty Dashboard authorized history of Lookup data changes, AFC changes and DOE Rule Book changes. Owner directs recommended decisions without questions; record and skip genuinely human-only dependencies and continue other implementable work. Preserve privacy, source/coverage notices and durable audit evidence; do not fabricate historical events. These features belong in a separate feature PR after111, not in its bounded SQL correction. Prior instructions forbidding any next-task work are superseded for09–11 only.
 
+# Immediate: restore live maintenance-broken ingress — 2026-10-23
+
+Use separate reviewed origin-only repair from currentmain, exactmain build/immutable freezes and Hosting-only publication, then served85/runtime/SQL/gates/CORS/browser and Recovery config synchronization. Existing API restored, no business-data migration. Owner waives local tests/install; no greenCI claim. PR125/School Testing stays separate and resumes after live restoration. Read2026-10-23-maintenance-origin-recovery-ready update before acting.
+

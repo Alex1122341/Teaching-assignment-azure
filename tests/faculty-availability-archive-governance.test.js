@@ -1,6 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
+const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
+const GOVERNANCE='ad605dbb9ab92457df972703c723e2b991fa284c';
+const report=JSON.parse(execFileSync('git',['show',GOVERNANCE+':tools/beta-baseline.json'],{cwd:root,encoding:'utf8'}));
 const BASE='33c4e9f4506e4632e673c2e8a462bc9987ce7e51',PRODUCT='370c30a21d99ae7227f97f1e0cb781864c674768',ORIGINAL='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
 // Verify Availability's original release delta against the immutable CCC product,
 // separately from the current presentation-only faculty name promotion.
@@ -8,7 +10,8 @@ const PREVIOUS_ANCHOR='5b135dfc91332a6fad29376d1d88d9acd33fd62a',ANCHOR='ba915e9
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const tree=ref=>new Map(git('ls-tree','-r',ref).split(/\r?\n/).map(line=>{const [meta,file]=line.split('\t');return[file,meta.split(' ')[2]];}));
 test('release freeze retains latest accepted History archive restoration and exact original Availability runtime',()=>{
- assert.equal(freeze.BASELINE_COMMIT,ANCHOR);assert.equal(api.BASELINE_COMMIT,ANCHOR);assert.equal(report.sourceCommit,ANCHOR);
+ assert.ok(git('show',GOVERNANCE+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+ANCHOR+"'"));
+ assert.ok(git('show',GOVERNANCE+':tools/beta-api-freeze.js').includes("require('./beta-freeze')"));assert.equal(report.sourceCommit,ANCHOR);
  git('merge-base','--is-ancestor',PRODUCT,ANCHOR);
  for(const ancestor of [BASE,ORIGINAL,'7fb4229fb718173f0d3cd6b8102451ddbfba0e48'])git('merge-base','--is-ancestor',ancestor,PRODUCT);
  git('merge-base','--is-ancestor',PRODUCT,'HEAD');

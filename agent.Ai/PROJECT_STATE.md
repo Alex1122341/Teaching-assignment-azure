@@ -1555,3 +1555,11 @@ Read-only comparison complete; manual versus automatic DOE interaction clarifica
 ## 2026-10-08 — Reference parity design review
 Owner approved retaining manual signed DOE over the automatic policy baseline. Written specification: docs/superpowers/specs/2026-10-08-faculty-ui-doe-rulebook-parity-design.md. Current gate: written-spec review; implementation plan follows its approval. No product or live changes.
 
+# Maintenance recovery in progress — 2026-10-23
+
+Owner requests live Beta website restoration after School restart. Existing pinned Recovery restored API924cc67/SQL200/anonymous401 and matching27gates. New actual origin cultures-please-skirt-tba.trycloudflare.com requires Hosting pointer repair. Separate main-based branch contains one shipped origin change, reviewed product00ed3f0/separate governance87d5051, independent product+governance READY,85served baseline files matched oldmain, candidate repository/artifact freezes pass. No local tests/installs or CI pass claimed. Rollback version captured; next merge repair PR, rebuild exactmain, publish Hosting-only, verify served85/gates/CORS/browser, update Recovery PublishedOrigin with backup. See newest2026-10-23-maintenance-origin-recovery-ready.md. PR125 remains separate/incomplete; do not deploy its runtime.
+
+# Current PR125: maintenance main integrated, live website restored — 2026-10-23
+
+Incoming main188451e/PR134 is integrated normally with six conflicts explicitly resolved. PR125 Production config/render now uses recovered cultures-please-skirt-tba origin; no old address regression. Keep current branch freeze intentionally unpromoted until final review/config, preserve dated maintenance and prior historical checks. Live exactmain188451e Hosting85verified/browserauthenticated/Recoveryready remains separate; no PR125 deployment. School P: prep/ACL/draft completed, all27false, nativeCheck ARTIFACT_NOT_VERIFIED; filled DBA script current SHA d03c9ec2...def882 ready/unexecuted, current account creation0. Testing email/password enabled/no users/key. No local tests/install. Read newest2026-10-23-pr125-maintenance-main-integration.md; pending actualDBA creation/runtime/artifact/UAT.
+

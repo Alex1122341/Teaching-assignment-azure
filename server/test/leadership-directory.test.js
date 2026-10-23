@@ -101,8 +101,8 @@ test('HICC and Course Coordinator enter HICC–CC, VISC enters VISC only; everyt
     row('Manual DOE adjustment', 'x', 'I Person')
   ];
   const directory = buildDirectory(rows, { academicYear: '2026-27', asOfDate: '2026-10-22' });
-  assert.deepEqual(directory.hiccCc.map(e => [e.roleType, e.facultyName]), [['HICC', 'B Person'], ['Course Coordinator', 'A Person'], ['HICC', 'H Person']]);
-  assert.deepEqual(directory.visc.map(e => [e.roleType, e.facultyName]), [['VISC', 'C Person']]);
+  assert.deepEqual(directory.hiccCc.map(e => [e.roleType, e.facultyName]), [['HICC', 'Person, B'], ['Course Coordinator', 'Person, A'], ['HICC', 'Person, H']]);
+  assert.deepEqual(directory.visc.map(e => [e.roleType, e.facultyName]), [['VISC', 'Person, C']]);
   assert.deepEqual(ROLE_TYPES, ['HICC', 'Course Coordinator', 'VISC']);
 });
 

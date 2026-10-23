@@ -8,6 +8,7 @@ const root=repositoryPath(__dirname,'..');
 
 function load(){
  const context={window:{},Date};
+ vm.runInNewContext(fs.readFileSync(repositoryPath(root,'faculty-name.js'),'utf8'),context);
  vm.runInNewContext(fs.readFileSync(repositoryPath(root,'scheduling-core.js'),'utf8'),context);
  vm.runInNewContext(fs.readFileSync(repositoryPath(root,'timetable-selection.js'),'utf8'),context);
  return context.window.UCVM_TIMETABLE_SELECTION;

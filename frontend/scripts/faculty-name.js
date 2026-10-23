@@ -1,10 +1,14 @@
-(() => {
+(function(root, factory) {
+  const names = factory();
+  if (typeof module === 'object' && module.exports) module.exports = names;
+  if (root) root.PAWS_FACULTY_NAME = names;
+})(typeof window === 'undefined' ? null : window, function() {
   'use strict';
   const text = value => value == null ? '' : String(value).trim();
   const spaces = value => text(value).replace(/\s+/g, ' ');
   // Retain the old export for compatibility; rendered names now use format().
   const removeCommas = value => spaces(value).replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
-  const unchanged = /^(?:Locum|TBD|Unassigned|Other\s*\/\s*Unassigned|Name unavailable|Not provided|Unknown faculty|Unknown|No instructor assigned|Instructor not provided|Faculty not provided|Not assigned|No faculty|Faculty \d+|UCVM User|Signed-in account|N\/A)$/i;
+  const unchanged = /^(?:Locum|TBD(?:\s*[-–:].*)?|Unassigned|Other\s*\/\s*Unassigned|Name unavailable|Not provided|Not recorded|Unknown faculty|Unknown|No instructor assigned|Instructor not provided|Faculty not provided|Faculty name not recorded|Not assigned|No faculty|Faculty \d+|UCVM User|PAWS user|UCVM Scheduling|Signed-in account|Selected account|N\/A)$/i;
   function formatText(value) {
     const name = spaces(value);
     if (!name || unchanged.test(name) || /^[^\s@]+@[^\s@]+$/.test(name) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}$/i.test(name)) return name;
@@ -17,14 +21,16 @@
   }
   function format(record, fallback = '') {
     if (!record || typeof record !== 'object') return formatText(record) || formatText(fallback);
-    const first = spaces(record.preferredFirstName ?? record.PreferredFirstName ?? record.firstName ?? record.FirstName);
-    const last = spaces(record.preferredLastName ?? record.PreferredLastName ?? record.lastName ?? record.LastName);
+    const first = [record.preferredFirstName, record.PreferredFirstName, record.firstName, record.FirstName].map(spaces).find(Boolean) || '';
+    const last = [record.preferredLastName, record.PreferredLastName, record.lastName, record.LastName].map(spaces).find(Boolean) || '';
     if (first && last) return last + ', ' + first;
-    return formatText(record.preferredFullName ?? record.PreferredFullName ?? record.displayName ?? record.DisplayName ?? record.name ?? record.facultyName) || formatText(fallback) || (last || first);
+    if (last || first) return last || first;
+    const label = [record.preferredFullName, record.PreferredFullName, record.displayName, record.DisplayName, record.name, record.facultyName].map(spaces).find(Boolean);
+    return formatText(label) || formatText(fallback);
   }
   function formatList(value) {
     // Instructor lists are semicolon/newline-delimited. Commas belong within names.
     return String(value ?? '').split(/([;\n]+)/).map(part => /^[;\n]+$/.test(part) ? part : part.replace(/^([ \t]*)(.*?)([ \t]*)$/, (_all,leading,name,trailing) => leading + formatText(name) + trailing)).join('').trim();
   }
-  window.PAWS_FACULTY_NAME = Object.freeze({ format, formatList, removeCommas });
-})();
+  return Object.freeze({ format, formatList, removeCommas });
+});

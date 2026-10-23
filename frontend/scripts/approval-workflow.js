@@ -341,11 +341,11 @@ async function hydrateApprovalImpacts(){
   const warnings=[];
   if(r.requestType==='faculty_swap'){
     const outF=resolveFaculty(r.fromFaculty),inF=resolveFaculty(r.toFaculty),outAv=availabilityFor(outF,current.date,current.start,current.end,current.id,current.timeUnknown===true),inAv=availabilityFor(inF,current.date,current.start,current.end,current.id,current.timeUnknown===true);
-    if(outAv.available!==true)warnings.push(`Outgoing ${r.fromFaculty?.name||facultyName(outF)}: ${availabilityDetail(outAv,current.start,current.end)}`);
-    if(inAv.available!==true)warnings.push(`Incoming ${r.toFaculty?.name||facultyName(inF)}: ${availabilityDetail(inAv,current.start,current.end)}`);
+    if(outAv.available!==true)warnings.push(`Outgoing ${displayFaculty(r.fromFaculty?.name||facultyName(outF))}: ${availabilityDetail(outAv,current.start,current.end)}`);
+    if(inAv.available!==true)warnings.push(`Incoming ${displayFaculty(r.toFaculty?.name||facultyName(inF))}: ${availabilityDetail(inAv,current.start,current.end)}`);
   }else if(r.requestType==='session_edit'){
     const date=r.patch?.date||current.date,start=r.patch?.start||current.start,end=r.patch?.end||current.end;
-    for(const a of assignedArray(current)){const f=resolveFaculty({facultyId:a.ucid,name:a.name}),av=availabilityFor(f,date,start,end,current.id,current.timeUnknown===true&&start===current.start&&end===current.end);if(av.available!==true)warnings.push(`${a.name||facultyName(f)}: ${availabilityDetail(av,start,end)}`)}
+    for(const a of assignedArray(current)){const f=resolveFaculty({facultyId:a.ucid,name:a.name}),av=availabilityFor(f,date,start,end,current.id,current.timeUnknown===true&&start===current.start&&end===current.end);if(av.available!==true)warnings.push(`${displayFaculty(a.name||facultyName(f))}: ${availabilityDetail(av,start,end)}`)}
   }
   return warnings;
  }

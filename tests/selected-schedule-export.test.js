@@ -1,7 +1,7 @@
 'use strict';
 const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-function load(){const context={window:{},Date};for(const file of ['scheduling-core.js','timetable-selection.js'])vm.runInNewContext(fs.readFileSync(repositoryPath(__dirname,'..',file),'utf8'),context);return context.window.UCVM_TIMETABLE_SELECTION;}
+function load(){const context={window:{},Date};for(const file of ['faculty-name.js','scheduling-core.js','timetable-selection.js'])vm.runInNewContext(fs.readFileSync(repositoryPath(__dirname,'..',file),'utf8'),context);return context.window.UCVM_TIMETABLE_SELECTION;}
 const plain=value=>JSON.parse(JSON.stringify(value));
 test('selected report contains only chosen authorized sessions in chronological order and public fields',()=>{
  const source=[{id:'late',course:'207',courseName:'Course Seven',date:'2026-11-06',start:'10:00',end:'11:00',topic:'Later',type:'LAB',instructor:'Faculty Beta',room:'Room B',ucid:'PRIVATE',email:'PRIVATE',doeCredit:99,assignments:[{facultyId:'PRIVATE'}]},
@@ -10,8 +10,8 @@ test('selected report contains only chosen authorized sessions in chronological 
  const model=load().createExport(source);model.selectCourses(['207','206']);
  assert.equal(model.size,2);
  assert.deepEqual(plain(model.preview()),[
-  {courseCode:'206',courseName:'Course Six',date:'2026-11-05',startTime:'09:00',endTime:'10:00',topic:'Earlier',type:'LEC',faculty:'Faculty Alpha',room:'Room A',visc:'Not provided'},
-  {courseCode:'207',courseName:'Course Seven',date:'2026-11-06',startTime:'10:00',endTime:'11:00',topic:'Later',type:'LAB',faculty:'Faculty Beta',room:'Room B',visc:'Not provided'}]);
+  {courseCode:'206',courseName:'Course Six',date:'2026-11-05',startTime:'09:00',endTime:'10:00',topic:'Earlier',type:'LEC',faculty:'Alpha, Faculty',room:'Room A',visc:'Not provided'},
+  {courseCode:'207',courseName:'Course Seven',date:'2026-11-06',startTime:'10:00',endTime:'11:00',topic:'Later',type:'LAB',faculty:'Beta, Faculty',room:'Room B',visc:'Not provided'}]);
  model.toggle('early');assert.equal(model.size,1);assert.equal(model.preview()[0].courseCode,'207');
  assert.doesNotMatch(JSON.stringify(model.preview()),/PRIVATE|assignments|doeCredit|ucid|email/);
  assert.throws(()=>model.toggle('not-authorized'),/authorized/i);

@@ -131,9 +131,9 @@ test('SQL-authoritative fields map to the reviewed form without inferred identit
   assert.equal(values.fields['Primary Department'], '30060 - Faculty of Veterinary Medicine');
   assert.equal(values.fields['Appt Type'], ' ');
   assert.equal(values.fields['Expiry Date'], '');
-  assert.equal(values.fields['Staff Member Name'], 'Jane Doe');
-  assert.equal(values.fields.Name, 'Report To Example');
-  assert.equal(values.fields.Name_2, 'Admin Example');
+  assert.equal(values.fields['Staff Member Name'], 'Doe, Jane');
+  assert.equal(values.fields.Name, 'Example, Report To');
+  assert.equal(values.fields.Name_2, 'Example, Admin');
   assert.equal(values.fields['Please provide details of arrangements to cover absenceRow1'], 'No teaching assignments during this period.');
   assert.equal(values.signatures.applicant.displayName, 'Jane Doe');
   assert.equal(values.signatures.reportTo.imageDataUrl.startsWith('data:image/png;base64,'), true);

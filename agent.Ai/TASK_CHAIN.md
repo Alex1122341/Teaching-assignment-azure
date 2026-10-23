@@ -1,3 +1,7 @@
+## Current: PAWS name constitution candidate — 2026-10-23
+
+Branch feat/paws-person-name-constitution-20261023 starts from accepted main2664fee. Implements shared Last name, First name labels, structured/partial names, new output names and PAWS_CONSTITUTION.md; source identities, audits, immutable PDFs and DOE remain untouched. Product review corrections are in progress; no merge/deploy for this candidate. No local suites/install. Follow-on requested UI work targets Teaching Schedule and leadership lists after names acceptance.
+
 ## Current: PR132/133 complete — 2026-10-23
 
 Both reviewed/merged/published/liveaccepted. Currentmain/API2664fee,anchor8570198,Hosting0bf901b15bb72eef;87served files match,27gates unchanged, real Faculty91/35read+403admin denial, real Chrome dialogs/refresh/keyboard passed. Recovery siteReadytrue;candidate-only18789 stopped. Actual latest PR CI success, no local tests/installations. See updates/2026-10-23-pr132-pr133-release-acceptance.md. Do not redo migrations/replacements or publish obsolete85file133artifact. Resume separate125 only against its own current ledger/School DB authority blocker and integrate current frontend layout deliberately.

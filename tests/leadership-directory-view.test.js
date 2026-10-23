@@ -77,8 +77,8 @@ test('status lines: Active with current end, open-ended, Inactive, gap, Upcoming
 const sample = () => ({
   academicYear: '2026-27', asOfDate: '2026-10-22',
   hiccCc: [
-    { roleType: 'HICC', scope: 'VTMD 300', facultyName: 'Avery <Testwell>', status: 'active', startDate: '2026-07-01', endDate: '2027-06-30' },
-    { roleType: 'Course Coordinator', scope: 'VTMD 300', facultyName: 'Casey Mockford', status: 'dates-needed', startDate: null, endDate: null },
+    { roleType: 'HICC', scope: 'VTMD 300', facultyName: '<Testwell>, Avery', status: 'active', startDate: '2026-07-01', endDate: '2027-06-30' },
+    { roleType: 'Course Coordinator', scope: 'VTMD 300', facultyName: 'Mockford, Casey', status: 'dates-needed', startDate: null, endDate: null },
     { roleType: 'HICC', scope: null, facultyName: 'Devon Fakeley', status: 'inactive', startDate: null, endDate: '2026-10-01' },
     { roleType: 'Course Coordinator', scope: 'VTMD 401', facultyName: 'Emerson Dummer', status: 'upcoming', startDate: '2027-01-05', endDate: null }
   ],
@@ -102,7 +102,7 @@ test('two-column table: role distinguished (HICC vs CC), scope or Not recorded, 
   assert.match(html, /leadership-role-hicc">HICC<\/span> · <span class="leadership-scope">VTMD 300/);
   assert.match(html, /leadership-role-cc">CC<\/span> · <span class="leadership-scope">VTMD 300/);
   assert.match(html, /<span class="leadership-missing">Not recorded<\/span>/);
-  assert.match(html, /Avery &lt;Testwell&gt;/);
+  assert.match(html, /&lt;Testwell&gt;, Avery/);
   assert.doesNotMatch(html, /<Testwell>/);
   assert.match(html, /leadership-status-dates-needed">Dates needed · End date not recorded/);
   const visc = lib.renderTable('visc', sample().visc);

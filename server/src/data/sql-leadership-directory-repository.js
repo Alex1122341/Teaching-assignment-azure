@@ -26,6 +26,8 @@ function createSqlLeadershipDirectoryRepository(db) {
                 NULLIF(LTRIM(RTRIM(r.CourseOrSubjectOrRotation)), N'') AS recordedScope,
                 course.CourseCode AS courseCode,
                 ${facultyDisplayNameSql('f')} AS facultyName,
+                f.PreferredFirstName AS facultyFirstName,
+                f.PreferredLastName AS facultyLastName,
                 CONVERT(varchar(36), r.FacultyId) AS facultyKey,
                 CONVERT(varchar(36), r.RoleAssignmentId) AS appointmentKey,
                 CONVERT(varchar(10), r.EffectiveDate, 23) AS effectiveDate,

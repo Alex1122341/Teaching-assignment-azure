@@ -18,15 +18,8 @@
   // Firebase Web configuration is public by design. This local harness uses the
   // separate Tester Teaching project for REAL Authentication and REAL role lookup.
   // Firebase Authentication remains live. Timetable session reads come from the same-origin PAWS University API backed by VetMed-Ops; no bundled timetable data is shipped with this page.
-  const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY",
-    authDomain: "tester-teaching.firebaseapp.com",
-    projectId: "tester-teaching",
-    storageBucket: "tester-teaching.firebasestorage.app",
-    messagingSenderId: "566638053186",
-    appId: "1:566638053186:web:90e04b52251c4b859baadb",
-    measurementId: "G-F7HW5XX4JE"
-  };
+  // Firebase web config comes only from the environment rendering (paws-api-origin.js).
+  const FIREBASE_CONFIG = (window.PAWS_ENVIRONMENT_CONFIG&&window.PAWS_ENVIRONMENT_CONFIG.firebase)||null;
   const AUTH_SETTINGS_KEY = 'ucvm_email_phone_role_settings_v6';
   const DEFAULT_AUTH_SETTINGS = {
     allowedDomain: 'ucalgary.ca',
@@ -2029,7 +2022,7 @@
     showModal(`
       <div class="modal-header"><div class="modal-title">Sign in to UCVM Timetable</div><div class="modal-subtitle">Sign in with your authorized account to view the live timetable.</div></div>
       <div class="modal-body">
-        <div class="login-cheatsheet"><strong>Firebase project:</strong> Tester Teaching (<code>tester-teaching</code>)<br>Enable the matching provider in Firebase Authentication. Your Firebase UID must also have an active reviewed row in VetMed-Ops <code>paws.UserProfile</code>, authorized by the PAWS University API.</div>
+        <div class="login-cheatsheet"><strong>Firebase project:</strong> <code>${(typeof PAWS_ENVIRONMENT_CONFIG !== 'undefined' && PAWS_ENVIRONMENT_CONFIG && PAWS_ENVIRONMENT_CONFIG.firebase) ? PAWS_ENVIRONMENT_CONFIG.firebase.projectId : 'not configured'}</code><br>Enable the matching provider in Firebase Authentication. Your Firebase UID must also have an active reviewed row in VetMed-Ops <code>paws.UserProfile</code>, authorized by the PAWS University API.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
           <button type="button" class="btn btn-primary" id="choose-email" style="padding:16px">Email + Password</button>
           <button type="button" class="btn btn-primary" id="choose-phone" style="padding:16px">Phone + SMS Code</button>
@@ -2196,7 +2189,7 @@
       <div class="modal-header"><div class="modal-title">Local Authentication Preferences</div><div class="modal-subtitle">Firebase Authentication signs users in. The PAWS University API checks the VetMed-Ops paws.UserProfile to authorize Beta access.</div></div>
       <form id="auth-setup-form"><div class="modal-body">
         <div class="login-cheatsheet">
-          <strong>Firebase test project:</strong> Tester Teaching (<code>tester-teaching</code>)<br><br>
+          <strong>Firebase test project:</strong> <code>${(typeof PAWS_ENVIRONMENT_CONFIG !== 'undefined' && PAWS_ENVIRONMENT_CONFIG && PAWS_ENVIRONMENT_CONFIG.firebase) ? PAWS_ENVIRONMENT_CONFIG.firebase.projectId : 'not configured'}</code><br><br>
           <strong>Current Beta access path:</strong><br>
           1. Firebase Authentication verifies Email/Password or Phone identity.<br>
           2. PAWS University API authorizes the Firebase identity against the VetMed-Ops <code>paws.UserProfile</code>.<br>

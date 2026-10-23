@@ -1,0 +1,106 @@
+name: PAWS Release Approval
+
+# Records the Admin UAT outcome and the Owner's release approval for one exact commit.
+#
+# GitHub Environment "Required reviewers" are not available for this private, personally owned repository,
+# so this workflow is the approval record. Production release workflows require a successful run of it for
+# the same commit when the repository variable PAWS_REQUIRE_RELEASE_APPROVAL is "true".
+#
+# A run qualifies only when it was started from main by a GitHub login listed in the owner-managed
+# repository variable PAWS_RELEASE_APPROVERS, the commit is on main, it has a successful PAWS Testing
+# Deploy, and the UAT outcome is "passed". A "failed" outcome is recorded too, but the run fails and
+# never counts as approval.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact commit that completed Admin UAT in Testing
+        required: true
+        type: string
+      uat_outcome:
+        description: Admin UAT result in Testing
+        required: true
+        type: choice
+        options: [passed, failed]
+      uat_reference:
+        description: Where the UAT record is (issue, PR comment or document link)
+        required: true
+        type: string
+
+run-name: Release approval ${{ inputs.commit_sha }} (${{ inputs.uat_outcome }})
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: paws-release-approval-${{ inputs.commit_sha }}
+  cancel-in-progress: false
+
+jobs:
+  record_approval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      COMMIT_SHA: ${{ inputs.commit_sha }}
+      UAT_OUTCOME: ${{ inputs.uat_outcome }}
+      UAT_REFERENCE: ${{ inputs.uat_reference }}
+      APPROVER: ${{ github.triggering_actor }}
+      PAWS_RELEASE_APPROVERS: ${{ vars.PAWS_RELEASE_APPROVERS }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify approver, commit and Testing deployment
+        id: verify
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [ "$GITHUB_REF" = "refs/heads/main" ] || { echo 'APPROVAL_NOT_MAIN'; exit 1; }
+          [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'APPROVAL_SHA'; exit 1; }
+          git merge-base --is-ancestor "$COMMIT_SHA" origin/main || { echo 'APPROVAL_COMMIT_NOT_ON_MAIN'; exit 1; }
+          approver="$(tr '[:upper:]' '[:lower:]' <<< "$APPROVER")"
+          listed=false
+          IFS=',' read -ra approvers <<< "$(tr '[:upper:]' '[:lower:]' <<< "${PAWS_RELEASE_APPROVERS:-}")"
+          for item in "${approvers[@]}"; do [ "$(xargs <<< "$item")" = "$approver" ] && listed=true; done
+          [ "$listed" = true ] || { echo "APPROVER_NOT_LISTED: $APPROVER is not in PAWS_RELEASE_APPROVERS"; exit 1; }
+          [ -n "$(xargs <<< "$UAT_REFERENCE")" ] || { echo 'UAT_REFERENCE_REQUIRED'; exit 1; }
+          found="$(node tools/verify-release-evidence.js find --kind testing --sha "$COMMIT_SHA")"
+          run_id="$(jq -r '.runId' <<< "$found")"
+          dir="$(mktemp -d)"
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "paws-testing-deploy-$COMMIT_SHA" --dir "$dir"
+          node tools/verify-release-evidence.js check --kind testing --sha "$COMMIT_SHA" --run "$run_id" --file "$dir/testing-deploy-evidence.json"
+          echo "testing_run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Write approval evidence
+        shell: bash
+        env:
+          TESTING_RUN_ID: ${{ steps.verify.outputs.testing_run_id }}
+        run: |
+          set -euo pipefail
+          decision="$([ "$UAT_OUTCOME" = "passed" ] && echo approved || echo rejected)"
+          jq -n --arg commitSha "$COMMIT_SHA" --arg approver "$APPROVER" --arg uatOutcome "$UAT_OUTCOME" --arg decision "$decision" \
+            --arg uatReference "$UAT_REFERENCE" --arg testingRunId "$TESTING_RUN_ID" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{kind:"release-approval",commitSha:$commitSha,approver:$approver,uatOutcome:$uatOutcome,decision:$decision,uatReference:$uatReference,testingRunId:$testingRunId,recordedAtUtc:$at}' > release-approval-evidence.json
+          cat release-approval-evidence.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: paws-release-approval-${{ inputs.commit_sha }}
+          path: release-approval-evidence.json
+          retention-days: 90
+
+      - name: A failed UAT outcome never approves a release
+        if: inputs.uat_outcome != 'passed'
+        run: |
+          echo 'UAT_FAILED: outcome recorded; this commit is not approved for Production.'
+          exit 1

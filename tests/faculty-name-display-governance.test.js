@@ -3,7 +3,6 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PRIOR_MAIN='924cc6761a3b2dfba4f19c2df912436cbd965b43';
 const OLD='5b135dfc91332a6fad29376d1d88d9acd33fd62a',PRODUCT='ba915e99ca06677d58e129f6fb671bd40d21600e';
-const GOVERNANCE='ad605dbb9ab92457df972703c723e2b991fa284c';
 const expected=[
   "adfa-swap-panel.js",
   "afc-workflow-sql.js",
@@ -49,13 +48,14 @@ test('faculty-name promotion makes no changes to protected API inputs or SQL mig
  assert.deepEqual(changedFiles.filter(f=>protectedApi.includes(f)),[]);
  assert.deepEqual(changedFiles.filter(f=>f.startsWith('database/azure-sql/')),[]);
 });
-test('governance changes zero protected application bytes and pins exact product commit',()=>{
- const historicalReport=JSON.parse(git('show',GOVERNANCE+':tools/beta-baseline.json'));
- assert.ok(git('show',GOVERNANCE+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
- assert.ok(git('show',GOVERNANCE+':tools/beta-api-freeze.js').includes("require('./beta-freeze')"));
- assert.equal(historicalReport.sourceCommit,PRODUCT);
- assert.deepEqual(Object.keys(historicalReport.sha256).sort(),JSON.parse(git('show',PRODUCT+':tools/static-assets.json')).sort());
- assert.deepEqual(changed(PRODUCT,GOVERNANCE).filter(f=>Object.hasOwn(historicalReport.sha256,f)||f.startsWith('server/src/')||f.startsWith('swa-api/')||api.BUILD_DEFINITION_FILES.includes(f)||api.REPOSITORY_INPUT_FILES.includes(f)),[]);
+test('historical name governance changes zero protected application bytes and pins exact product commit',()=>{
+ const report=JSON.parse(git('show','31e4bee:tools/beta-baseline.json'));
+ assert.ok(git('show','31e4bee:tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
+ assert.equal(report.sourceCommit,PRODUCT);
+ assert.deepEqual(Object.keys(report.sha256).sort(),JSON.parse(git('show',PRODUCT+':tools/static-assets.json')).sort());
+ assert.deepEqual(changed(PRODUCT,'31e4bee').filter(f=>Object.hasOwn(report.sha256,f)||f.startsWith('server/src/')||f.startsWith('swa-api/')||api.BUILD_DEFINITION_FILES.includes(f)||api.REPOSITORY_INPUT_FILES.includes(f)),[]);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
  assert.equal(api.verifyFreeze({root}).ok,true);
 });

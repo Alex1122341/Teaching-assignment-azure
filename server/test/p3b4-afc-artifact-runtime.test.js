@@ -115,6 +115,7 @@ test('actual SQL runtime mounts the artifact route and rejects anonymous callers
   }
   const runtime = createSwaSqlRuntime({
     env: {
+      PAWS_ENVIRONMENT: 'production',
       FIREBASE_PROJECT_ID: 'test-project',
       PAWS_SQL_CONNECTION_STRING: 'Server=localhost;Database=VetMed-Ops;Encrypt=true;',
       PAWS_SQL_DRIVER: 'tedious'

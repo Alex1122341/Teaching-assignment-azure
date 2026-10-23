@@ -1,0 +1,259 @@
+{
+  "ok": true,
+  "total": 44,
+  "passed": 44,
+  "odbcDriver": "SQL Server",
+  "results": [
+    {
+      "scenario": "setup",
+      "name": "Testing database initialised with marker + synthetic data",
+      "pass": true
+    },
+    {
+      "scenario": "setup",
+      "name": "reset refuses a database without the Testing marker",
+      "pass": true,
+      "detail": "This database belongs to a different environment; refusing to touch it"
+    },
+    {
+      "scenario": "setup",
+      "name": "production stand-in built on a separate SQL instance without a Testing marker",
+      "pass": true
+    },
+    {
+      "scenario": "F",
+      "name": "production runtime refuses the Testing database",
+      "pass": true,
+      "detail": "The production runtime is connected to a non-production database"
+    },
+    {
+      "scenario": "F",
+      "name": "testing runtime refuses the production database (no marker)",
+      "pass": true,
+      "detail": "The testing runtime is not connected to its declared Testing database"
+    },
+    {
+      "scenario": "F",
+      "name": "testing runtime refuses a Testing DB with another environment id",
+      "pass": true,
+      "detail": "The testing runtime is not connected to its declared Testing database"
+    },
+    {
+      "scenario": "F",
+      "name": "testing runtime refuses the production SQL server name",
+      "pass": true,
+      "detail": "Testing must not connect to a production SQL server"
+    },
+    {
+      "scenario": "F",
+      "name": "testing runtime refuses the production Firebase project",
+      "pass": true,
+      "detail": "Testing must not trust the production Firebase project"
+    },
+    {
+      "scenario": "F",
+      "name": "missing PAWS_ENVIRONMENT refuses to start",
+      "pass": true,
+      "detail": "PAWS_ENVIRONMENT must be exactly \"production\" or \"testing\""
+    },
+    {
+      "scenario": "A",
+      "name": "each API reports its own environment",
+      "pass": true,
+      "detail": "production / testing"
+    },
+    {
+      "scenario": "A",
+      "name": "Testing /me identifies the testing environment",
+      "pass": true
+    },
+    {
+      "scenario": "B",
+      "name": "administrator edits a Testing session",
+      "pass": true,
+      "detail": "status 200"
+    },
+    {
+      "scenario": "B",
+      "name": "the edit is not visible in Production",
+      "pass": true,
+      "detail": "Synthetic topic 3"
+    },
+    {
+      "scenario": "B",
+      "name": "Production keeps its own (disabled) write gates",
+      "pass": true
+    },
+    {
+      "scenario": "C",
+      "name": "administrator sees persona list in Testing",
+      "pass": true,
+      "detail": "8 personas"
+    },
+    {
+      "scenario": "C",
+      "name": "persona list excludes higher-privileged accounts",
+      "pass": true,
+      "detail": "adc,administrator,faculty,faculty,faculty,hicc,lab,visc"
+    },
+    {
+      "scenario": "C",
+      "name": "escalation to a higher persona is rejected",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "scenario": "C",
+      "name": "faculty persona: effective role faculty, real actor retained",
+      "pass": true,
+      "detail": "{\"id\":\"86e4cd32-e587-425d-b84c-a0f450debb68\",\"actorName\":\"Synthetic Admin\",\"actorRole\":\"administrator\",\"targetName\":\"Casey Mockford\",\"targetRole\":\"faculty\",\"expiresAtUtc\":\"2026-10-20 21:49:36.8744034\",\"mode\":\"testing_persona\"}"
+    },
+    {
+      "scenario": "C",
+      "name": "faculty persona sees only own scoped timetable",
+      "pass": true,
+      "detail": "19/308"
+    },
+    {
+      "scenario": "C",
+      "name": "faculty persona is denied administrator data",
+      "pass": true
+    },
+    {
+      "scenario": "C",
+      "name": "faculty persona cannot use administrator writes",
+      "pass": true
+    },
+    {
+      "scenario": "C",
+      "name": "faculty persona can use faculty self-service writes",
+      "pass": true,
+      "detail": "status 201 "
+    },
+    {
+      "scenario": "C",
+      "name": "audit keeps the real administrator as actor",
+      "pass": true,
+      "detail": "{\"ActorUid\":\"syn-admin\",\"TargetUid\":\"syn-faculty-a\"}"
+    },
+    {
+      "scenario": "C",
+      "name": "ended persona context is rejected",
+      "pass": true
+    },
+    {
+      "scenario": "C",
+      "name": "HICC persona sees only its own packages",
+      "pass": true,
+      "detail": "2 packages"
+    },
+    {
+      "scenario": "C",
+      "name": "HICC persona cannot read the full faculty roster",
+      "pass": true
+    },
+    {
+      "scenario": "C",
+      "name": "expired persona context is rejected",
+      "pass": true
+    },
+    {
+      "scenario": "C",
+      "name": "returning to self restores the administrator",
+      "pass": true
+    },
+    {
+      "scenario": "F",
+      "name": "a non-operator cannot use a persona context header",
+      "pass": true
+    },
+    {
+      "scenario": "F",
+      "name": "a faculty user cannot start identity switching",
+      "pass": true
+    },
+    {
+      "scenario": "F",
+      "name": "Production identity switching is unchanged (developer only)",
+      "pass": true
+    },
+    {
+      "scenario": "F",
+      "name": "Production developer support still works and reports production mode",
+      "pass": true
+    },
+    {
+      "scenario": "P",
+      "name": "full-year timetable read p95 under 3000 ms (20 sequential)",
+      "pass": true,
+      "detail": "p95 174 ms"
+    },
+    {
+      "scenario": "P",
+      "name": "10 concurrent Dashboard summaries all succeed, p95 under 5000 ms",
+      "pass": true,
+      "detail": "statuses 200 p95 66 ms"
+    },
+    {
+      "scenario": "P",
+      "name": "5 concurrent edits of different sessions commit or fail cleanly (no partial writes)",
+      "pass": true,
+      "detail": "committed 2/5, persisted 2, failures 503:SQL_UNAVAILABLE,503:SQL_UNAVAILABLE,503:SQL_UNAVAILABLE"
+    },
+    {
+      "scenario": "P",
+      "name": "concurrent session edit success rate (informational)",
+      "pass": true,
+      "informational": true,
+      "detail": "2/5 committed"
+    },
+    {
+      "scenario": "C",
+      "name": "faculty persona can open Calendar Activities in Testing",
+      "pass": true,
+      "detail": "status 200 "
+    },
+    {
+      "scenario": "C",
+      "name": "faculty persona can open AFC Forms in Testing",
+      "pass": true,
+      "detail": "status 200"
+    },
+    {
+      "scenario": "C",
+      "name": "persona import writes are refused (run imports as yourself)",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "scenario": "G",
+      "name": "seeded AFC requests cover every lifecycle state",
+      "pass": true,
+      "detail": "[{\"status\":\"approved\",\"n\":1},{\"status\":\"pending_admin\",\"n\":1},{\"status\":\"pending_report_to\",\"n\":2},{\"status\":\"rejected\",\"n\":1},{\"status\":\"withdrawn\",\"n\":1}]"
+    },
+    {
+      "scenario": "D",
+      "name": "Production database unchanged after all Testing activity",
+      "pass": true,
+      "detail": "{\"faculty\":1997258771,\"sessions\":1861824301,\"assignments\":-2100348161,\"audit\":13,\"supportOps\":0}"
+    },
+    {
+      "scenario": "F",
+      "name": "Production Developer Support still refuses the newer workflows",
+      "pass": true,
+      "detail": "403"
+    },
+    {
+      "scenario": "H",
+      "name": "reset discards UAT edits and support operations",
+      "pass": true,
+      "detail": "{\"before\":{\"n\":1},\"after\":{\"edited\":0,\"supportOps\":0,\"afcRequests\":5,\"personas\":12,\"marker\":1}}"
+    },
+    {
+      "scenario": "H",
+      "name": "reset restores the workflow fixtures and test personas",
+      "pass": true,
+      "detail": "{\"edited\":0,\"supportOps\":0,\"afcRequests\":5,\"personas\":12,\"marker\":1}"
+    }
+  ]
+}

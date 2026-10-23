@@ -56,6 +56,10 @@
         if(body?.error?.details!==undefined)error.details=body.error.details;
         if(Array.isArray(body?.error?.errors))error.errors=body.error.errors;
         if(body?.error?.currentRevision!==undefined)error.currentRevision=body.error.currentRevision;
+        // A support / test-identity session that ended server-side is announced once to the page shell.
+        if(['SUPPORT_CONTEXT_EXPIRED','SUPPORT_CONTEXT_INVALID'].includes(error.code)&&typeof root?.dispatchEvent==='function'&&typeof root?.CustomEvent==='function'){
+          root.dispatchEvent(new root.CustomEvent('paws-support-expired',{detail:{code:error.code}}));
+        }
         if(Array.isArray(body?.rows))error.rows=body.rows;
         throw error;
       }

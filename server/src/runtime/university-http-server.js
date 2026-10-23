@@ -3,6 +3,7 @@
 const http = require('node:http');
 const { isIP } = require('node:net');
 const { createWriteGates } = require('../data/write-gates');
+const { resolveEnvironment } = require('./environment');
 
 const DEFAULT_MAX_BODY_BYTES = 64 * 1024;
 const ABSOLUTE_MAX_BODY_BYTES = 1024 * 1024;
@@ -24,8 +25,11 @@ function parseOrigins(value) {
   return origins;
 }
 
-function assertLoopbackHost(host) {
+function assertLoopbackHost(host, environment = null, env = {}) {
   const normalized = String(host || '').toLowerCase();
+  // A Testing container behind its own HTTPS ingress may bind all interfaces, but
+  // only when the Testing environment explicitly opts in. Production stays loopback-only.
+  if (environment && environment.testing && env.PAWS_API_ALLOW_NON_LOOPBACK === 'true' && normalized === '0.0.0.0') return normalized;
   if (normalized === 'localhost' || normalized === '::1' || normalized === '127.0.0.1') return normalized;
   const ipVersion = isIP(normalized);
   if (ipVersion === 6 && normalized === '0:0:0:0:0:0:0:1') return '::1';
@@ -54,7 +58,8 @@ function runtimeIdentity(env) {
   if (typeof runtimeTrustAnchor !== 'string' || !/^[0-9a-f]{40}$/.test(runtimeTrustAnchor)) {
     throw new Error('PAWS_RUNTIME_TRUST_ANCHOR must be a lowercase 40-character Git commit SHA');
   }
-  return Object.freeze({ releaseSha, runtimeTrustAnchor, writeGates: createWriteGates(env) });
+  const environment = resolveEnvironment(env);
+  return Object.freeze({ releaseSha, runtimeTrustAnchor, environment: environment.name, writeGates: createWriteGates(env) });
 }
 
 async function readBody(request, limit) {
@@ -86,10 +91,13 @@ function createUniversityHttpServer({
   logger = console
 } = {}) {
   if (typeof runtime !== 'function') throw new TypeError('runtime must be a request handler');
-  const bindHost = assertLoopbackHost(host);
+  const identity = runtimeIdentity(env);
+  if (runtime.environment !== undefined && runtime.environment !== identity.environment) {
+    throw new Error('Runtime and HTTP server environments differ');
+  }
+  const bindHost = assertLoopbackHost(host, resolveEnvironment(env), env);
   const origins = parseOrigins(env.PAWS_API_ALLOWED_ORIGINS);
   const bodyLimit = maxBodyBytes(env);
-  const identity = runtimeIdentity(env);
 
   return http.createServer(async (incoming, outgoing) => {
     const origin = incoming.headers.origin;
@@ -146,6 +154,7 @@ function createUniversityHttpServer({
         status: 'ok',
         service: 'paws-university-api',
         authority: 'vetmed-ops-sql',
+        environment: identity.environment,
         releaseSha: identity.releaseSha,
         runtimeTrustAnchor: identity.runtimeTrustAnchor,
         writeGates: identity.writeGates

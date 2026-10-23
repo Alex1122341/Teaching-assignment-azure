@@ -1,6 +1,7 @@
 /* Shared Firebase identity and faculty portal helpers for Spark Basic Mode. */
 window.UCVM=(()=>{
- const config={apiKey:'AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY',authDomain:'tester-teaching.firebaseapp.com',projectId:'tester-teaching',storageBucket:'tester-teaching.firebasestorage.app',messagingSenderId:'566638053186',appId:'1:566638053186:web:90e04b52251c4b859baadb'};
+ // Firebase web config comes only from the environment rendering (paws-api-origin.js).
+ const config=(window.PAWS_ENVIRONMENT_CONFIG&&window.PAWS_ENVIRONMENT_CONFIG.firebase)||null;
  const rawRole=r=>String((r&&typeof r==='object'?r.role:r)||'').toLowerCase();
  const role=r=>({owner:'adfa_general',administrator:'adfa_regular',other_office:'other_office',adfa_general:'adfa_general',adfa_regular:'adfa_regular',admin:'adfa_regular',editor:'faculty',viewer:'faculty'}[rawRole(r)]||rawRole(r));
  const admin=p=>['developer','adfa_general','adfa_regular'].includes(role(p?.role));
@@ -43,7 +44,7 @@ window.UCVM=(()=>{
  installStableWeekLanes();
  let persistenceStarted=false;
  function init(){
-  if(!firebase.apps.length)firebase.initializeApp(config);
+  if(!firebase.apps.length)firebase.initializeApp(config);// null config: the Firebase SDK refuses to start (fail closed)
   const db=firebase.firestore();
   if(!persistenceStarted){
    persistenceStarted=true;

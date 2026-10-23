@@ -1,10 +1,10 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
-const root=path.resolve(__dirname,'..');
+const root=repositoryPath(__dirname,'..');
 const {functionBody}=require('../test-support/source-contract.js');
-const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 
 test('assigned faculty replacement uses the live session object already owned by the session modal',()=>{
  const src=read('approval-workflow.js');

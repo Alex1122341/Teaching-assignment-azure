@@ -1,8 +1,7 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const path=require('node:path');
-
-const modulePath=path.resolve(__dirname,'../data-index.js');
+const modulePath=repositoryPath(__dirname,'../data-index.js');
 
 test('faculty index keeps list, search, DOE and override information',()=>{
  const api=require(modulePath);

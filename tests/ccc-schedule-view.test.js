@@ -1,7 +1,8 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const {escape,validDate,filterEntries,groupEntries}=require('../ccc-schedule');
-const read=p=>fs.readFileSync(p,'utf8');
+const {escape,validDate,filterEntries,groupEntries}=require('../frontend/scripts/ccc-schedule.js');
+const read=p=>fs.readFileSync(repositoryPath(process.cwd(),p),'utf8');
 test('CCC schedule is available beside Faculty Dashboard with isolated modal',()=>{
  const html=read('index.html');assert.match(html,/faculty-dashboard-btn[^]*ccc-schedule-btn/);
  assert.match(html,/ccc-schedule-overlay/);assert.match(html,/ccc-schedule\.css/);assert.match(html,/ccc-schedule\.js/);
@@ -76,7 +77,7 @@ function fakeEnvironment({authThrows=true,entries=[],fail=false}={}){
 function loadViewer(env){
  const vm=require('node:vm');
  const context=vm.createContext({window:env.root,document:env.document,module:undefined,Intl,Date,JSON,Map,Set,String,Number,Array,Object,Error,Boolean,console});
- vm.runInContext(fs.readFileSync('ccc-schedule.js','utf8'),context);
+ vm.runInContext(fs.readFileSync(repositoryPath(process.cwd(), 'ccc-schedule.js'),'utf8'),context);
  return env.root.PAWS_CCC_SCHEDULE;
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));

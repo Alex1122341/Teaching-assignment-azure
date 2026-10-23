@@ -17,10 +17,9 @@ const {execFileSync}=require('node:child_process');
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-// Reviewed maintenance repair changes only the public temporary API origin.
-// All prior product/governance receipts remain independently pinned.
-const BASELINE_COMMIT='00ed3f0b2a7936b7957797df944b0fdd91341946';
+const BASELINE_COMMIT='2946257c6c01e0201257d5745187e2648abcda50';
 const MANIFEST_PATH='tools/static-assets.json';
+const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 
 function defaultRoot(){
   return path.resolve(__dirname,'..');
@@ -64,11 +63,11 @@ function baselineCommitExists(root,baselineCommit){
 }
 
 function readBaselineFile({root=defaultRoot(),baselineCommit=BASELINE_COMMIT,file}={}){
-  return gitBlob(root,`${baselineCommit}:${file}`);
+  return gitBlob(root,`${baselineCommit}:${sourcePathAtCommit(root,baselineCommit,file)}`);
 }
 
 function readWorkingFile({root=defaultRoot(),file}={}){
-  return fs.readFileSync(path.join(root,file));
+  return fs.readFileSync(assetSourcePath(root,file));
 }
 
 function readCurrentManifest({root=defaultRoot(),manifestPath=MANIFEST_PATH}={}){

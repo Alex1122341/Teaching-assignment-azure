@@ -1,6 +1,7 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
+const root=repositoryPath(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PRODUCT='d7e4887cb413667fef0d992105148defb19f856c',PREVIOUS='9eb2dafea78674013a6c7fd894cdb1b6f2342c3f';
 test('compact year history and record originals pin the independently reviewed product without protection removal',()=>{
  const pinned=execFileSync('git',['show','a3a3efa8ddee1d0cc3e3ef15c35280e692b33d2d:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});assert.ok(pinned.includes("const BASELINE_COMMIT='"+PRODUCT+"'"));execFileSync('git',['merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT],{cwd:root});assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);

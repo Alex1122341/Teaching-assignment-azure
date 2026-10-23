@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {publicActivity}=require('../src/data/sql-calendar-activity-repository');
-const {createCalendarActivityView,renderRangeLane}=require('../../calendar-activities');
+const {createCalendarActivityView,renderRangeLane}=require('../../frontend/scripts/calendar-activities.js');
 const locum={activityId:'slot-1',category:'ccc',staffingKind:'unassigned',staffingLabel:'Locum',blockLabel:'Example <Block>',facultyKey:null,facultyDisplayName:null,label:'CCC',startDate:'2026-10-20',endDate:'2026-10-20',timeStatus:'not_provided'};
 test('unassigned CCC has a literal label and no invented faculty identity or private evidence',()=>{
  const row=publicActivity({...locum,facultyId:'private-id',privateNotes:'confidential',sourceColumn:'C'});

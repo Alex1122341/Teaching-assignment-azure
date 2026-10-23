@@ -1,7 +1,7 @@
 'use strict';
-const test=require('node:test');const assert=require('node:assert/strict');const {createPawsAzureDataClient}=require('../paws-data-client');
+const test=require('node:test');const assert=require('node:assert/strict');const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 test('activity methods use authenticated University routes and bind only the explicit input fields',async()=>{
- const calls=[];const client=createPawsAzureDataClient({tokenProvider:async()=> 'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({activities:[],nextCursor:null})};}});
+ const calls=[];const client=createPawsDataClient({tokenProvider:async()=> 'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({activities:[],nextCursor:null})};}});
  await client.listCalendarActivities({start:'2026-05-01',end:'2026-05-08',category:'ccc',includeFacultyKeys:true});await client.calendarActivityCapabilities();
  await client.stageCalendarActivityImport({requestId:'r',sourceSha256:'sha',fileName:'file.xlsx',fileBase64:'base64',actorFirebaseUid:'spoof',rows:[]});
  await client.getCalendarActivityImport('batch/id');await client.previewCalendarActivityImport('batch/id',{expectedVersion:'version',actorFirebaseUid:'spoof'});

@@ -1,9 +1,9 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
-const root=path.resolve(__dirname,'..');
-const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const root=repositoryPath(__dirname,'..');
+const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 
 test('faculty, HICC, and VISC can open Faculty Dashboard from the timetable',()=>{
  const src=read('asset-loader.js');

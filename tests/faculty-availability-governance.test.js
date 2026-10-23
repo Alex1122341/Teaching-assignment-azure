@@ -1,6 +1,7 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
+const root=repositoryPath(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PREVIOUS='846858a242cf2a96b0257822ac22d8ab6a770c94',BASE='6addfb9125066c5dd14ca7a3d7c38be6a01a870a',PRODUCT='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('historical Availability pins the independently reviewed product with exact additive static/API coverage',()=>{

@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -7,7 +8,7 @@ const engine=require('../server/src/domain/doe-policy-engine');
 
 function book(){
   const context={window:{}};
-  vm.runInNewContext(fs.readFileSync('faculty-admin-doe-rulebook.js','utf8'),context,{filename:'faculty-admin-doe-rulebook.js'});
+  vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-doe-rulebook.js'),'utf8'),context,{filename:'faculty-admin-doe-rulebook.js'});
   return context.window.UCVM_FACULTY_DOE_RULEBOOK.create({editable:()=>true});
 }
 function lecture(){
@@ -76,7 +77,7 @@ test('Simple list shows editable Weight / Credit Per and keeps Restrictions coll
 });
 test('Active Rule Book displays read-only weight and rate basis fields',()=>{
   const context={window:{}};
-  vm.runInNewContext(fs.readFileSync('faculty-admin-doe-rulebook.js','utf8'),context,{filename:'faculty-admin-doe-rulebook.js'});
+  vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin-doe-rulebook.js'),'utf8'),context,{filename:'faculty-admin-doe-rulebook.js'});
   const view=context.window.UCVM_FACULTY_DOE_RULEBOOK.create({editable:()=>false});
   const row=view.renderSimpleRow(lecture(),0);
   assert.match(row,/data-doe-inline-weight[^>]*disabled/);

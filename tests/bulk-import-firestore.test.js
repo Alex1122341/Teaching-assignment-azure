@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const firestoreStore=require('../bulk-import-firestore.js');
+const firestoreStore=require('../frontend/scripts/bulk-import-firestore.js');
 
 function recordingDb(){
   const commits=[];

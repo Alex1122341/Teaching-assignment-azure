@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');
-const {createPawsAzureDataClient}=require('../paws-data-client');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 test('Tasks client uses authenticated scoped routes and excludes caller identity fields',async()=>{
- const calls=[];const client=createPawsAzureDataClient({tokenProvider:async()=> 'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({tasks:[],total:0})};}});
+ const calls=[];const client=createPawsDataClient({tokenProvider:async()=> 'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({tasks:[],total:0})};}});
  await client.schedulingTasks({academicYear:'2026-27',undated:'only',limit:50,actorFirebaseUid:'SPOOF',facultyId:'PRIVATE'});
  await client.reviewSchedulingTask('key/id',{academicYear:'2026-27',expectedEvidenceVersion:'e',expectedReviewVersion:'v',reviewStatus:'Reviewed',actorFirebaseUid:'SPOOF'});
  assert.match(calls[0].url,/\/scheduling-tasks\?.*academicYear=2026-27/);assert.match(calls[1].url,/\/scheduling-tasks\/key%2Fid\/review$/);

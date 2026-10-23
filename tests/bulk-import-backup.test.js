@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const backup=require('../bulk-import-backup.js');
+const backup=require('../frontend/scripts/bulk-import-backup.js');
 class FakeTimestamp{constructor(seconds,nanoseconds){this.seconds=seconds;this.nanoseconds=nanoseconds}toDate(){return new Date(this.seconds*1000)}}
 
 test('backup codec round-trips timestamps',()=>{

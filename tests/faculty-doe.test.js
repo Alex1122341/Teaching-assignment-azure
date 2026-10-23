@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const DOE=require('../faculty-doe.js');
+const DOE=require('../frontend/scripts/faculty-doe.js');
 
 test('override DOE wins over contract DOE',()=>{
  assert.deepEqual(

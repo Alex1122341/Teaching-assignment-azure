@@ -1,14 +1,14 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
 const vm=require('node:vm');
-const root=path.resolve(__dirname,'..');
+const root=repositoryPath(__dirname,'..');
 
 function load(){
   const context={window:{},Date};
-  vm.runInNewContext(fs.readFileSync(path.join(root,'scheduling-core.js'),'utf8'),context);
+  vm.runInNewContext(fs.readFileSync(repositoryPath(root,'scheduling-core.js'),'utf8'),context);
   return context.window.UCVM_SCHEDULING;
 }
 

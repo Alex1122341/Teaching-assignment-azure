@@ -1,10 +1,11 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const nameContext = { window: {} };
-vm.runInNewContext(fs.readFileSync('faculty-name.js','utf8'),nameContext);
+vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'faculty-name.js'),'utf8'),nameContext);
 const name = nameContext.window.PAWS_FACULTY_NAME;
 const ID = '11111111-1111-4111-8111-111111111111';
 async function dashboard({ enabled = true, confirm = true, apiOverrides = {} } = {}) {
@@ -34,14 +35,14 @@ async function dashboard({ enabled = true, confirm = true, apiOverrides = {} } =
     document: { getElementById: element, querySelectorAll:selector=>selector==='.tab'?[element('afc-records-tab')]:[], querySelector:()=>null, activeElement:null, body:{classList:{add(){},remove(){}}} },
     firebase: { apps:[{}], auth:authFn }, UCVM_PAWS_DATA:api, console, setTimeout, clearTimeout, performance,
     location:{href:'https://local/faculty-admin.html'}, history:{length:1},
-    window: { UCVM_AFC_RECORDS:require('../faculty-admin-afc-records'), confirm:()=>confirm, setTimeout:()=>0, PAWS_FACULTY_NAME:name, UCVM_AFC_BATCH:require('../faculty-admin-afc-batch'),
+    window: { UCVM_AFC_RECORDS:require('../frontend/scripts/faculty-admin-afc-records.js'), confirm:()=>confirm, setTimeout:()=>0, PAWS_FACULTY_NAME:name, UCVM_AFC_BATCH:require('../frontend/scripts/faculty-admin-afc-batch.js'),
       UCVM_FACULTY_DOE_RENDERER:{create:()=>({})}, UCVM_FACULTY_DOE_WORKSHEET:{create:()=>({bindList(){}})},
       UCVM_FACULTY_ADMIN_MANAGEMENT:{create:()=>({bind(){},editAction:()=>''})},
       PAWS_ROLE_PERIODS:{today:()=> '2026-10-13',create:()=>({})} }
   };
   element('afc-records-tab').dataset={tab:'afc-records'};
   element('afc-active-filter').value='true';
-  vm.runInNewContext(fs.readFileSync('faculty-admin.js','utf8'),context);
+  vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.js'),'utf8'),context);
   await auth.changed({uid:'user',email:'admin@example.test'});
   await new Promise(resolve=>setImmediate(resolve));
   return {element, api, cancellations};

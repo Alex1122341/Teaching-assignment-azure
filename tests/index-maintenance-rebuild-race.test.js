@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const api=require('../index-maintenance.js');
+const api=require('../frontend/scripts/index-maintenance.js');
 
 function raceDb(){
  const collections={

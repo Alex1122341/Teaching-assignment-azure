@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {createSqlAfcWorkflow}=require('../afc-workflow-sql.js');
+const {createSqlAfcWorkflow}=require('../frontend/scripts/afc-workflow-sql.js');
 
 const requestId='11111111-2222-4333-8444-555555555555';
 

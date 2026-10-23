@@ -3,8 +3,8 @@
   const api=factory(root);
   if(typeof module==='object'&&module.exports)module.exports=api;
   if(root){
-    root.createPawsAzureDataClient=api.createPawsAzureDataClient;
-    root.UCVM_PAWS_DATA=api.createPawsAzureDataClient();
+    root.createPawsDataClient=api.createPawsDataClient;
+    root.UCVM_PAWS_DATA=api.createPawsDataClient();
   }
 })(typeof window==='undefined'?globalThis:window,function(root){
   'use strict';
@@ -36,7 +36,7 @@
     try{return await response.json()}catch(_){return{}}
   }
 
-  function createPawsAzureDataClient({
+  function createPawsDataClient({
     fetchImpl=(typeof fetch==='function'?fetch.bind(globalThis):null),
     tokenProvider=defaultTokenProvider
   }={}){
@@ -643,5 +643,5 @@
     return '/api/v1/swaps/'+encodeURIComponent(id);
   }
 
-  return {createPawsAzureDataClient};
+  return {createPawsDataClient};
 });

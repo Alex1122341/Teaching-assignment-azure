@@ -1,13 +1,12 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
-
-const root = path.resolve(__dirname, '..');
-const rules = fs.readFileSync(path.join(root, 'firestore.rules'), 'utf8');
-const page = fs.readFileSync(path.join(root, 'user-management.js'), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const rules = fs.readFileSync(repositoryPath(root, 'firestore.rules'), 'utf8');
+const page = fs.readFileSync(repositoryPath(root, 'user-management.js'), 'utf8');
 
 test('legacy User Management needs a compatibility profile and remains below SQL authority', () => {
   assert.match(page, /doc\(`users\/\$\{u\.uid\}`\)\.get\(\)/);

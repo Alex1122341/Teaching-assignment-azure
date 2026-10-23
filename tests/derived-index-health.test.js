@@ -1,11 +1,12 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const ui=require('../derived-index-health.js');
-const root=path.resolve(__dirname,'..');
-const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const ui=require('../frontend/scripts/derived-index-health.js');
+const root=repositoryPath(__dirname,'..');
+const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 
 test('manual rebuild is visible only for General semantics',()=>{
  const access={general:p=>['owner','adfa_general'].includes(p.role)};

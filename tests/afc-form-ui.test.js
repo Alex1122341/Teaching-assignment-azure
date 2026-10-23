@@ -1,8 +1,9 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict');const {createController}=require('../faculty-admin-afc-forms');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict');const {createController}=require('../frontend/scripts/faculty-admin-afc-forms.js');
 const ID='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',file={name:'Synthetic.pdf',type:'application/pdf',size:9,arrayBuffer:async()=>new TextEncoder().encode('synthetic').buffer};
 test('AFC Records mounts one authorized upload controller and clears it on sign-out',()=>{
- const fs=require('node:fs'),path=require('node:path'),read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
+ const fs=require('node:fs'),read=f=>fs.readFileSync(repositoryPath(__dirname,'..',f),'utf8');
  assert.match(read('faculty-admin.html'),/id="afc-form-documents"/);assert.match(read('faculty-admin.html'),/src="faculty-admin-afc-forms.js"/);assert.match(read('faculty-admin.js'),/PAWS_AFC_FORMS/);assert.match(read('faculty-admin.js'),/afcForms\?\.clear\(\)/);assert.match(read('tools/static-assets.json'),/faculty-admin-afc-forms.js/);
 });
 function harness({gate=true,uploadFailure=null,defer=null}={}){let uid='actor',keys=0;const nodes=new Map(),host={innerHTML:'',querySelector:s=>{if(!nodes.has(s))nodes.set(s,{});return nodes.get(s);},querySelectorAll:()=>[]};const calls=[];

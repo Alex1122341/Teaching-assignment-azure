@@ -1,8 +1,9 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const {createSqlAfcWorkflow,requestActions}=require('../afc-workflow-sql.js');
+const {createSqlAfcWorkflow,requestActions}=require('../frontend/scripts/afc-workflow-sql.js');
 
 function harness(overrides={}){
   const calls=[];
@@ -47,7 +48,7 @@ test('SQL AFC workflow lists scoped API rows, escapes content, and never referen
   assert.doesNotMatch(panel.innerHTML,/A <B>/);
   assert.match(panel.innerHTML,/Approved\./);
   assert.doesNotMatch(panel.innerHTML,/PDF delivery is pending/);
-  const source=fs.readFileSync('afc-workflow-sql.js','utf8');
+  const source=fs.readFileSync(repositoryPath(process.cwd(), 'afc-workflow-sql.js'),'utf8');
   assert.doesNotMatch(source,/db\\.collection|pdf_chunks|afc_audit/i);
 });
 
@@ -94,8 +95,8 @@ test('workflow refuses UI actions outside the current server-returned ownership 
 
 
 test('SQL AFC facade delegates only to the API for VetMed-Ops and fails closed otherwise',()=>{
-  const source=fs.readFileSync('afc-workflow.js','utf8');
-  const html=fs.readFileSync('index.html','utf8');
+  const source=fs.readFileSync(repositoryPath(process.cwd(), 'afc-workflow.js'),'utf8');
+  const html=fs.readFileSync(repositoryPath(process.cwd(), 'index.html'),'utf8');
   assert.match(source,/backend\(\)==='vetmed-ops'&&window\.UCVM_AFC_SQL/);
   assert.match(source,/Firestore AFC access is disabled/);
   assert.ok(html.indexOf('afc-workflow-sql.js')<html.indexOf('afc-workflow.js'));

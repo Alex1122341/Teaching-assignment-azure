@@ -1,10 +1,10 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
-const ui=require('../bulk-import-ui.js');
-const root=path.resolve(__dirname,'..');
+const ui=require('../frontend/scripts/bulk-import-ui.js');
+const root=repositoryPath(__dirname,'..');
 
 test('preflight summary exposes management-facing counts and warnings',()=>{
  const result=ui.summarizePreflight({source:{sourceWorkbook:'MASTER.xlsx'},analysis:{facultyExpected:118,sessionExpected:2400,createdSessionIds:['a'],updatedSessionIds:['b','c'],staleSessionIds:['old'],noSourceFacultyIds:['f1'],requiresTypedImportConfirmation:true},warnings:['Large change'],errors:[]});
@@ -42,14 +42,14 @@ test('raw file payload preserves exact bytes used for fingerprinting',async()=>{
 });
 
 test('the API-only Faculty Dashboard does not load the bulk import UI',()=>{
- const html=fs.readFileSync(path.join(root,'faculty-admin.html'),'utf8');
+ const html=fs.readFileSync(repositoryPath(root,'faculty-admin.html'),'utf8');
  assert.equal(html.includes('bulk-import-core.js'),false);
  assert.equal(html.includes('bulk-import-controller.js'),false);
  assert.equal(html.includes('bulk-import-ui.js'),false);
 });
 
 test('bulk import runtime injects the full derived-index verifier and atomic writer',()=>{
- const js=fs.readFileSync(path.join(root,'bulk-import-ui.js'),'utf8');
+ const js=fs.readFileSync(repositoryPath(root,'bulk-import-ui.js'),'utf8');
  assert.match(js,/rebuildIndexes:\(\{faculty,sessions,actor:who\}\)=>indexMaintenance\.writeDerivedIndexes\(db,faculty,sessions,who\)/);
  assert.match(js,/verifyIndexes:\(\{faculty,sessions\}\)=>indexMaintenance\.verifyDerivedIndexes\(db,\{faculty,sessions\}\)/);
  assert.doesNotMatch(js,/verifyDerivedIndexesProvisional/);

@@ -1,9 +1,8 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
-
-const modulePath = path.resolve(__dirname, '..', 'session-guard.js');
+const modulePath = repositoryPath(__dirname, '..', 'session-guard.js');
 
 function loadGuard() {
   assert.ok(fs.existsSync(modulePath), 'session-guard.js must exist');
@@ -84,7 +83,7 @@ test('page-default cleanup clears the timeout notice after authentication withou
 });
 
 test('successful timetable authorization clears notice only after access bootstrap succeeds',()=>{
-  const source=require('node:fs').readFileSync(require('node:path').resolve(__dirname,'..','timetable.js'),'utf8');
+  const source=require('node:fs').readFileSync(require('../tools/build/frontend-paths').repositoryPath(__dirname,'..','timetable.js'),'utf8');
   const start=source.indexOf('async function bootstrapForUser');
   const end=source.indexOf('auth.onAuthStateChanged',start);
   const body=source.slice(start,end);

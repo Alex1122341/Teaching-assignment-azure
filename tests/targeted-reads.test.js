@@ -1,9 +1,9 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
-const root=path.resolve(__dirname,'..');
-const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const root=repositoryPath(__dirname,'..');
+const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 
 test('Faculty Admin is an API-only reader with no Firestore surface',()=>{
  const source=read('faculty-admin.js');
@@ -66,7 +66,7 @@ test('Timetable editing helpers request only affected Azure date ranges and scop
  const source=read('timetable.js');
  assert.match(source,/function ensureSessionsForDates/);
  assert.match(source,/ensureSessionsForRange\(dates\[0\],dates\[dates\.length-1\]\)/);
- assert.match(source,/fetchAzureSessions\(\{start:range\.start,end:/);
+ assert.match(source,/fetchPawsSessions\(\{start:range\.start,end:/);
  for(const name of ['openSwapModal','startSessionSelection','openBulkSessionForm','openSessionForm']){
   const start=source.indexOf(`function ${name}`);
   const next=source.indexOf('\n  function ',start+1);

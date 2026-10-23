@@ -1,5 +1,6 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -7,8 +8,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { buildCandidate } = require('../tools/p3-stage-a/build-candidate');
 
-const root = path.resolve(__dirname, '..');
-const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const read = relative => fs.readFileSync(repositoryPath(root, relative), 'utf8');
 
 function createFixture() {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'p3-stage-a-repo-'));

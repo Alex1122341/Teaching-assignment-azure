@@ -1,6 +1,7 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
+const root=repositoryPath(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const BASE='1b4c3fb3be383119039ee170660c395d8e556847',PRODUCT='a0c0e6829f313f13486265a0bb60dd8bd641b27e',ORIGINAL='23e35c8bd0d107a22fcea6f00c88e9f221f0fa53';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const tree=ref=>new Map(git('ls-tree','-r',ref).split(/\r?\n/).map(line=>{const [meta,file]=line.split('\t');return[file,meta.split(' ')[2]];}));

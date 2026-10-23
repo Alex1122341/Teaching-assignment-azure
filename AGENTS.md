@@ -24,13 +24,21 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 - The immutable static/API freeze is promoted only through an explicit reviewed governance commit anchored to the accepted product commit. P1's protected static and API runtime changes require their own separately reviewed freeze promotion in the same coherent PR; never add drift exceptions or silently move the anchor.
 - The active Beta architecture is Firebase Hosting → Firebase Authentication (identity) → temporary Cloudflare HTTPS ingress → University Node API → `ITAPPVETOPSDB01` / `VetMed-Ops`. SQL is the business-data authority; do not restore Firestore business reads or writes.
-- **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (83 entries); the API freeze currently protects 107 API runtime files plus its build definition and two repository inputs (110 protected paths total).
+- **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (85 entries); the API freeze currently protects 110 API runtime files plus its build definition and two repository inputs (113 protected paths total).
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.
 - `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .azure-production/app` to validate a built or downloaded artifact.
 - `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.
 - Normal CI fails if any shipped runtime asset drifts from the baseline. Existing CI freeze checks must validate both the repository and build artifact; Firebase Hosting release remains a static-only `--only hosting` action.
 - Changing the baseline is explicit future release work: it requires updating the frozen baseline commit reference, the manifest-derived protection, and the documentation together, in a reviewed change. It is never an implicit side effect of a feature commit.
 - The feature branch is not live until its pull request is merged, exact-main push CI passes, and the directed Firebase Hosting deployment succeeds. Never treat a candidate build as a deployment.
+
+## Repository layout
+
+- Browser sources live in `frontend/pages/`, `frontend/scripts/`, `frontend/styles/` and `frontend/assets/`. Do not create duplicate browser files at the repository root.
+- `tools/static-assets.json` continues to list **public URLs**, not source locations. `tools/build/frontend-paths.js` resolves source locations; `tools/build/static-bundle.js` is the single static packaging implementation.
+- Build with `npm run build` and preview `.deploy-static/`; serving `frontend/pages/` directly does not reproduce the published URL layout.
+- All 85 published assets retain their original bytes and URL names during this relocation. Historical immutable revisions retain their original paths; do not rewrite old acceptance receipts or remove file protection to satisfy a rename.
+- See `README.md` and `docs/architecture/repository-layout.md` for the directory map and scope. API/SQL logic and existing release artifact identity are unchanged by source organization.
 
 ## Application architecture
 

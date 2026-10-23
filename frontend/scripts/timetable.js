@@ -215,7 +215,7 @@
 
   async function getRoleProfile() {
     if (!window.UCVM_PAWS_DATA) {
-      const error = new Error('The PAWS Azure data client is unavailable.');
+      const error = new Error('The PAWS data client is unavailable.');
       error.code = 'PAWS_DATA_CLIENT_MISSING';
       throw error;
     }
@@ -326,7 +326,7 @@
     for(const row of rows)sessionCache.set(row.id,row);
     if(!sessionCacheRanges.some(item=>item.start===range.start&&item.end===range.end))sessionCacheRanges.push({...range});
   }
-  function azureSessionRow(row){
+  function mapPawsSessionRow(row){
     const academicYear=String(row?.academicYear||'');
     const curriculumYear=Number(row?.curriculumYear)||Number((academicYear.match(/\d+/)||[])[0])||1;
     const instructor=String(row?.instructorNames||'').trim();
@@ -362,10 +362,10 @@
       sourceSystem:'VetMed-Ops'
     };
   }
-  async function fetchAzureSessions(range={}){
-    if(!window.UCVM_PAWS_DATA)throw new Error('The PAWS Azure data client is unavailable.');
+  async function fetchPawsSessions(range={}){
+    if(!window.UCVM_PAWS_DATA)throw new Error('The PAWS data client is unavailable.');
     const rows=await window.UCVM_PAWS_DATA.listSessions(range);
-    return rows.map(azureSessionRow).filter(row=>row.id);
+    return rows.map(mapPawsSessionRow).filter(row=>row.id);
   }
   async function ensureSessionsForRange(start,end){
     const range={start:String(start||'').slice(0,10),end:String(end||'').slice(0,10)};
@@ -375,7 +375,7 @@
     const covered=sessionCacheRanges.some(item=>item.start<=range.start&&item.end>=range.end);
     if(covered)return pageSessions().filter(row=>row.date>=range.start&&row.date<=range.end);
     const key=`${range.start}:${range.end}`;
-    if(!sessionRangeLoads.has(key))sessionRangeLoads.set(key,fetchAzureSessions({start:range.start,end:ymd(addDays(parseYmd(range.end),1))}).then(rows=>{
+    if(!sessionRangeLoads.has(key))sessionRangeLoads.set(key,fetchPawsSessions({start:range.start,end:ymd(addDays(parseYmd(range.end),1))}).then(rows=>{
       cacheSessionRange(range,rows);publishPageData();return rows.slice();
     }).finally(()=>sessionRangeLoads.delete(key)));
     return sessionRangeLoads.get(key);
@@ -406,7 +406,7 @@
       return profileSnapshots.get(uid);
     }
   };
-  let scheduleSource = 'azure-sql-pending';
+  let scheduleSource = 'vetmed-ops-pending';
   let currentUser = null;
   window.PAWS_SWAP?.configure({getUser:()=>currentUser,onChanged:async()=>{
     invalidateAllSessions();await Promise.all([refreshSessionScope(),window.PAWS_SWAP.refreshPending()]);render();window.PAWS_TASKS?.refresh();
@@ -527,14 +527,14 @@
   }
 
   function updateScheduleSourceUI() {
-    const live = scheduleSource === 'azure-sql';
+    const live = scheduleSource === 'vetmed-ops';
     const sqlEditEnabled = Boolean(window.UCVM_PAWS_DATA && window.UCVM_PAWS_DATA.sessionEditEnabled?.());
     const canEditLiveSession = canEditExistingSqlSession() && sqlEditEnabled;
     const text = $('conn-text');
     if (text && currentUser) {
       if (live) text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · VetMed-Ops timetable${canEditLiveSession ? '' : ' (read only)'}`;
-      else if (scheduleSource === 'azure-sql-empty') text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · No VetMed-Ops timetable sessions`;
-      else if (scheduleSource === 'azure-sql-error') text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · VetMed-Ops timetable unavailable`;
+      else if (scheduleSource === 'vetmed-ops-empty') text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · No VetMed-Ops timetable sessions`;
+      else if (scheduleSource === 'vetmed-ops-error') text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · VetMed-Ops timetable unavailable`;
       else text.textContent = `Authorized: ${UCVM.label(currentUser.role)} · Connecting to VetMed-Ops timetable`;
     }
     const publish = $('publish-firestore-schedule');
@@ -572,14 +572,14 @@
     try{
       const requestRange=viewMode==='list'?{}:{start:range.start,end:ymd(addDays(parseYmd(range.end),1))};
       const cachedAll=cachedSessionsForRange(currentUser,viewMode==='list'?null:range);
-      const rows=cachedAll||await fetchAzureSessions(requestRange);
+      const rows=cachedAll||await fetchPawsSessions(requestRange);
       if(cancelled)return false;
       sessions=rows;
       activityTypeFilter.setSessionTypes(rows.map(row=>row.type));
       cacheSessionRange(range,rows);
       publishPageData();
       window.dispatchEvent(new Event('ucvm:sessions-updated'));
-      scheduleSource = sessions.length ? 'azure-sql' : 'azure-sql-empty';
+      scheduleSource = sessions.length ? 'vetmed-ops' : 'vetmed-ops-empty';
       populateCourseFilter();
       updateScheduleSourceUI();
       render();
@@ -588,7 +588,7 @@
       if(cancelled)return false;
       console.error('[VetMed-Ops timetable sessions]',err);
       sessions=[];
-      scheduleSource='azure-sql-error';
+      scheduleSource='vetmed-ops-error';
       populateCourseFilter();
       updateScheduleSourceUI();
       toast('VetMed-Ops timetable data could not be loaded from the PAWS University API.',true);
@@ -606,7 +606,7 @@
     if(allSessionsLoading&&allSessionsLoadingUid===ownerUid)return allSessionsLoading;
     const generation=++allSessionsLoadGeneration;
     allSessionsLoadingUid=ownerUid;
-    const load=fetchAzureSessions().then(rows=>{
+    const load=fetchPawsSessions().then(rows=>{
       if(generation!==allSessionsLoadGeneration||String(currentUser?.uid||'')!==ownerUid)return[];
       allSessionsCache=rows.slice();
       allSessionsOwnerUid=ownerUid;
@@ -1394,7 +1394,7 @@
     if (!s.isCcc && String(s.type).toUpperCase() === 'LAB' && window.UCVM_LAB_DETAIL) return openLabSessionDetail(s);
     const edit = !s.isCcc&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-primary" id="detail-edit">Edit Session</button>` : '';
     const assignmentEdit = !s.isCcc&&s.assignmentManagementAvailable===true&&canEditExistingSqlSession()&&window.UCVM_PAWS_DATA?.sessionEditEnabled?.() ? `<button class="btn btn-secondary" id="detail-assignments">Manage Instructors</button>` : '';
-    const swap = !s.isCcc&&currentUser&&window.PAWS_SWAP&&scheduleSource==='azure-sql' ? `<button class="btn btn-primary" id="detail-swap">SWAP request</button>` : '';
+    const swap = !s.isCcc&&currentUser&&window.PAWS_SWAP&&scheduleSource==='vetmed-ops' ? `<button class="btn btn-primary" id="detail-swap">SWAP request</button>` : '';
     const labDetails = Array.isArray(s.labDetails) && s.labDetails.length > 1
       ? `<div class="login-cheatsheet"><strong>Lab stations / activities</strong><br><br>${s.labDetails.map(d => `<div style="margin-bottom:8px"><strong>${escapeHtml(d.topic)}</strong>${d.instructor ? `<br>${escapeHtml(displayFacultyList(d.instructor))}` : ''}${d.room ? `<br><span style="color:var(--text-3)">${escapeHtml(d.room)}</span>` : ''}</div>`).join('')}</div>`
       : '';
@@ -1423,7 +1423,7 @@
     const actions = row => {
       const id = escapeHtml(row.id);
       const edit = canEditExistingSqlSession() && window.UCVM_PAWS_DATA?.sessionEditEnabled?.();
-      return `${currentUser && window.PAWS_SWAP && scheduleSource === 'azure-sql' ? `<button class="btn btn-secondary" data-lab-action="swap" data-lab-id="${id}">SWAP request</button>` : ''}${edit && row.assignmentManagementAvailable === true ? `<button class="btn btn-secondary" data-lab-action="instructors" data-lab-id="${id}">Manage Instructors</button>` : ''}${edit ? `<button class="btn btn-primary" data-lab-action="edit" data-lab-id="${id}">Edit Session</button>` : ''}`;
+      return `${currentUser && window.PAWS_SWAP && scheduleSource === 'vetmed-ops' ? `<button class="btn btn-secondary" data-lab-action="swap" data-lab-id="${id}">SWAP request</button>` : ''}${edit && row.assignmentManagementAvailable === true ? `<button class="btn btn-secondary" data-lab-action="instructors" data-lab-id="${id}">Manage Instructors</button>` : ''}${edit ? `<button class="btn btn-primary" data-lab-action="edit" data-lab-id="${id}">Edit Session</button>` : ''}`;
     };
     const title = seed.courseName ? `${seed.course} - ${seed.courseName}` : `${seed.course} · LAB`;
     const position = [seed.semester, seed.week ? `Week ${seed.week}` : ''].filter(Boolean).join(' ');

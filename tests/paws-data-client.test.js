@@ -1,13 +1,14 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const API_ORIGIN=require('../paws-api-origin.js').apiOrigin;
-const {createPawsAzureDataClient}=require('../paws-data-client.js');
+const API_ORIGIN=require('../frontend/scripts/paws-api-origin.js').apiOrigin;
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 
 test('PAWS client is fixed to VetMed-Ops mode and exposes no backend selector or legacy write capability',()=>{
-  const source=fs.readFileSync('paws-data-client.js','utf8');
-  const client=createPawsAzureDataClient({fetchImpl:async()=>({ok:true,json:async()=>({})}),tokenProvider:async()=>'t'});
+  const source=fs.readFileSync(repositoryPath(process.cwd(), 'paws-data-client.js'),'utf8');
+  const client=createPawsDataClient({fetchImpl:async()=>({ok:true,json:async()=>({})}),tokenProvider:async()=>'t'});
   assert.equal(client.sessionBackend(),'vetmed-ops');
   assert.equal(client.sessionWritesEnabled(),false);
   assert.doesNotMatch(source,/firestore/i);
@@ -16,7 +17,7 @@ test('PAWS client is fixed to VetMed-Ops mode and exposes no backend selector or
 
 test('P4 DOE methods use the authenticated University API and send assignment facts without calculated DOE',async()=>{
   const calls=[];
-  const client=createPawsAzureDataClient({tokenProvider:async()=>'doe-token',fetchImpl:async(url,init)=>{
+  const client=createPawsDataClient({tokenProvider:async()=>'doe-token',fetchImpl:async(url,init)=>{
     calls.push({url,init});
     return {ok:true,json:async()=>({writeCapabilities:{doeAdmin:true,doeManualAssignment:false,doePolicyPublish:false,doeRecalculate:false},policy:{version:{policyVersionId:'p1'}},preview:{resultDoe:12,ruleKey:'hicc-course-unit'},worksheet:{status:'calculated'},worksheets:[{facultyId:'f1'}],assignment:{assignmentFactId:'a1',resultDoe:12},target:{effectiveTargetDoe:25}})};
   }});
@@ -50,7 +51,7 @@ test('P4 DOE methods use the authenticated University API and send assignment fa
 
 test('P4 Rule Book lifecycle methods use narrow authenticated API routes and revision preconditions',async()=>{
   const calls=[];
-  const client=createPawsAzureDataClient({tokenProvider:async()=>'policy-token',fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({policy:{version:{policyVersionId:'p1',revision:2}},history:[],validation:{valid:true},impact:{},publication:{},recalculation:{}})}}});
+  const client=createPawsDataClient({tokenProvider:async()=>'policy-token',fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({policy:{version:{policyVersionId:'p1',revision:2}},history:[],validation:{valid:true},impact:{},publication:{},recalculation:{}})}}});
   await client.doePolicyVersion({policyVersionId:'p/1'});
   await client.doePolicyHistory({academicYear:'2026-27'});
   await client.createDoePolicyDraft({academicYear:'2026-27'});
@@ -75,7 +76,7 @@ test('P4 Rule Book lifecycle methods use narrow authenticated API routes and rev
 test('current user and sessions use the University-origin bearer GET requests',async()=>{
   const calls=[];
   const origin=API_ORIGIN;
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'firebase-id-token',
     fetchImpl:async(url,init)=>{
       calls.push({url,init});
@@ -96,11 +97,11 @@ test('current user and sessions use the University-origin bearer GET requests',a
 
 test('missing token and API failures fail closed without alternate data source',async()=>{
   let called=false;
-  const noToken=createPawsAzureDataClient({tokenProvider:async()=>'',fetchImpl:async()=>{called=true;throw new Error('should not call')}});
+  const noToken=createPawsDataClient({tokenProvider:async()=>'',fetchImpl:async()=>{called=true;throw new Error('should not call')}});
   await assert.rejects(noToken.currentUser(),e=>e.code==='UNAUTHENTICATED');
   assert.equal(called,false);
 
-  const failed=createPawsAzureDataClient({
+  const failed=createPawsDataClient({
     tokenProvider:async()=>'x',
     fetchImpl:async()=>({ok:false,status:403,json:async()=>({error:{code:'PROFILE_REQUIRED',message:'No SQL profile'}})})
   });
@@ -109,7 +110,7 @@ test('missing token and API failures fail closed without alternate data source',
 
 test('Dashboard summary uses the bearer GET endpoint and returns a deterministic summary object',async()=>{
   const calls=[];
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'dashboard-token',
     fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({summary:{activeFacultyCount:120,hiccCount:64,viscCount:35}})}}
   });
@@ -122,7 +123,7 @@ test('Dashboard summary uses the bearer GET endpoint and returns a deterministic
 
 test('Dashboard summary omits blank academic year and query-encodes a supplied year',async()=>{
   const urls=[];
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'t',
     fetchImpl:async url=>{urls.push(url);return{ok:true,json:async()=>({})}}
   });
@@ -134,7 +135,7 @@ test('Dashboard summary omits blank academic year and query-encodes a supplied y
 
 test('Dashboard faculty query safely encodes reserved search characters and returns only the roster array',async()=>{
   let request;
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'t',
     fetchImpl:async(url,init)=>{request={url,init};return{ok:true,json:async()=>({faculty:[{facultyId:'F1'}],ignored:true})}}
   });
@@ -144,14 +145,14 @@ test('Dashboard faculty query safely encodes reserved search characters and retu
 });
 
 test('Dashboard faculty returns an empty roster when the response shape is missing',async()=>{
-  const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({faculty:null})})});
+  const client=createPawsDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({faculty:null})})});
   assert.deepEqual(await client.dashboardFaculty(),[]);
 });
 
 test('Dashboard detail requires a faculty id, encodes the path segment, and preserves the complete body',async()=>{
   let url='';
   const response={faculty:{facultyId:'F/1 ?'},roles:[],afcRecords:[],teachingAssignments:[],academicYear:'2026/27'};
-  const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async value=>{url=value;return{ok:true,json:async()=>response}}});
+  const client=createPawsDataClient({tokenProvider:async()=>'t',fetchImpl:async value=>{url=value;return{ok:true,json:async()=>response}}});
   await assert.rejects(client.dashboardFacultyById('  '),/facultyId is required/i);
   assert.equal(await client.dashboardFacultyById('F/1 ?',{academicYear:'2026/27'}),response);
   assert.equal(url,`${API_ORIGIN}/api/v1/dashboard/faculty/F%2F1%20%3F?academicYear=2026%2F27`);
@@ -160,7 +161,7 @@ test('Dashboard detail requires a faculty id, encodes the path segment, and pres
 test('Dashboard methods preserve API status, code, and server message without a fallback',async()=>{
   // B2A1: 401 now triggers one forced token refresh + retry; a second 401 becomes SESSION_REAUTH_REQUIRED.
   for(const [status,code] of [[400,'INVALID_ACADEMIC_YEAR'],[403,'ROLE_DENIED'],[404,'FACULTY_NOT_FOUND'],[503,'SQL_UNAVAILABLE']]){
-    const client=createPawsAzureDataClient({
+    const client=createPawsDataClient({
       tokenProvider:async()=>'t',
       fetchImpl:async()=>({ok:false,status,json:async()=>({error:{code,message:`failure ${status}`}})})
     });
@@ -168,7 +169,7 @@ test('Dashboard methods preserve API status, code, and server message without a 
   }
   // 401 path: first 401 -> refresh -> second 401 -> SESSION_REAUTH_REQUIRED (status preserved).
   let calls=0;
-  const client401=createPawsAzureDataClient({
+  const client401=createPawsDataClient({
     tokenProvider:async(opts)=>(opts&&opts.forceRefresh?'refreshed':'normal'),
     fetchImpl:async()=>{calls++;return{ok:false,status:401,json:async()=>({error:{code:'UNAUTHENTICATED',message:'failure 401'}})};}
   });
@@ -178,7 +179,7 @@ test('Dashboard methods preserve API status, code, and server message without a 
 
 test('Dashboard aggregate methods use lazy read-only endpoints and preserve response shapes',async()=>{
   const calls=[];
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'t',
     fetchImpl:async(url,init)=>{
       calls.push({url,init});
@@ -203,8 +204,8 @@ test('Dashboard aggregate methods use lazy read-only endpoints and preserve resp
 });
 
 test('Dashboard client exposes explicit AFC methods without Firestore fallback',()=>{
-  const source=fs.readFileSync('paws-data-client.js','utf8');
-  const client=createPawsAzureDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
+  const source=fs.readFileSync(repositoryPath(process.cwd(), 'paws-data-client.js'),'utf8');
+  const client=createPawsDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
     'facultyAvailability','dashboardTrainees','exportDashboardTrainees',
     'changeHistory','changeHistoryPage','changeHistoryExport','schedulingTasks','reviewSchedulingTask',
@@ -216,7 +217,7 @@ test('Dashboard client exposes explicit AFC methods without Firestore fallback',
 
 test('AFC write capabilities use an authenticated read-only GET and accept only explicit booleans',async()=>{
   const calls=[];
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'capability-token',
     fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({writeCapabilities:{requestLifecycle:true,decisions:'true',approvedArtifactCreation:false}})}}
   });
@@ -228,7 +229,7 @@ test('AFC write capabilities use an authenticated read-only GET and accept only 
 });
 
 test('session create capabilities are fetched explicitly and legacy Firestore writes stay disabled',async()=>{
-  const client=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async()=>({ok:true,json:async()=>({writeCapabilities:{sessionEdit:true,sessionCreate:true,afcSingle:true,afcBatch:'true'}})})});
+  const client=createPawsDataClient({tokenProvider:async()=>'token',fetchImpl:async()=>({ok:true,json:async()=>({writeCapabilities:{sessionEdit:true,sessionCreate:true,afcSingle:true,afcBatch:'true'}})})});
   assert.equal(client.sessionWritesEnabled(),false);
   assert.equal(client.sessionCreateEnabled(),false);
   const capabilities=await client.refreshWriteCapabilities();
@@ -241,7 +242,7 @@ test('session create capabilities are fetched explicitly and legacy Firestore wr
 });
 
 test('session create, batch and assignment client methods use narrow API routes and allowlists',async()=>{
-  const calls=[];const client=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({session:{id:'s'},sessions:[{id:'s'}]})}}});
+  const calls=[];const client=createPawsDataClient({tokenProvider:async()=>'token',fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({session:{id:'s'},sessions:[{id:'s'}]})}}});
   await client.createSession({academicYear:'2026-27',courseCode:'315',actorFirebaseUid:'forged'});
   await client.createSessionBatch({requestId:'request',sessions:[{date:'2026-10-06',doeCredit:9}]});
   await client.replaceSessionAssignments('session/1',[{facultyId:'faculty-1',teachingRole:'Lecture',displayName:'forged'}]);
@@ -255,7 +256,7 @@ test('session create, batch and assignment client methods use narrow API routes 
 
 test('existing-session scalar edits use the authenticated University API PATCH route',async()=>{
   const calls=[];
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'session-edit-token',
     fetchImpl:async(url,init)=>{calls.push({url,init});return{ok:true,json:async()=>({session:{id:'s1',topic:'Updated'}})}}
   });
@@ -271,7 +272,7 @@ test('existing-session scalar edits use the authenticated University API PATCH r
 });
 
 test('session writes preserve server DOE status so the UI can disclose Needs Review',async()=>{
-  const client=createPawsAzureDataClient({tokenProvider:async()=>'token',fetchImpl:async()=>({ok:true,json:async()=>({session:{id:'s1'},doe:{status:'needs_review',issueCodes:['COURSE_MAPPING_REQUIRED']}})})});
+  const client=createPawsDataClient({tokenProvider:async()=>'token',fetchImpl:async()=>({ok:true,json:async()=>({session:{id:'s1'},doe:{status:'needs_review',issueCodes:['COURSE_MAPPING_REQUIRED']}})})});
   const saved=await client.patchSession('s1',{topic:'Updated'});
   assert.deepEqual(saved.doeRecalculation,{status:'needs_review',issueCodes:['COURSE_MAPPING_REQUIRED']});
 });
@@ -279,7 +280,7 @@ test('session writes preserve server DOE status so the UI can disclose Needs Rev
 test('session PATCH replays once only after explicit 401 and never on other failures', async () => {
   const requests = [];
   const tokenOptions = [];
-  const client = createPawsAzureDataClient({
+  const client = createPawsDataClient({
     tokenProvider: async options => { tokenOptions.push(options?.forceRefresh === true); return options?.forceRefresh ? 'fresh' : 'initial'; },
     fetchImpl: async (url, init) => {
       requests.push({ url, init });
@@ -295,7 +296,7 @@ test('session PATCH replays once only after explicit 401 and never on other fail
 
   for (const status of [403, 409, 500, 503]) {
     let calls = 0, tokens = 0;
-    const failing = createPawsAzureDataClient({
+    const failing = createPawsDataClient({
       tokenProvider: async options => { tokens++; return options?.forceRefresh ? 'fresh' : 'initial'; },
       fetchImpl: async () => { calls++; return { ok: false, status, json: async () => ({ error: { code: 'NO_REPLAY' } }) }; }
     });
@@ -307,7 +308,7 @@ test('session PATCH replays once only after explicit 401 and never on other fail
 
 test('B1 client uses explicit AFC GET and POST methods with business fields only', async () => {
   const calls = [];
-  const client = createPawsAzureDataClient({
+  const client = createPawsDataClient({
     tokenProvider: async () => 't',
     fetchImpl: async (url, init) => {
       calls.push({ url, init });
@@ -325,7 +326,7 @@ test('B1 client uses explicit AFC GET and POST methods with business fields only
 
 test('AFC multi-input client sends exact purposes only to the authenticated SQL batch route', async () => {
   const calls = [];
-  const client = createPawsAzureDataClient({
+  const client = createPawsDataClient({
     tokenProvider: async () => 't',
     fetchImpl: async (url, init) => { calls.push({ url, init }); return { ok: true, json: async () => ({ requestId: 'r1', rows: [{ rowIndex: 0 }] }) }; }
   });
@@ -342,7 +343,7 @@ test('AFC multi-input client sends exact purposes only to the authenticated SQL 
 
 test('P3B3 AFC request and decision methods use the University API with bounded payloads',async()=>{
   const calls=[];
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'afc-token',
     fetchImpl:async(url,init)=>{
       calls.push({url,init});
@@ -393,7 +394,7 @@ test('P3B3 AFC request and decision methods use the University API with bounded 
 
 test('P3B3 AFC POST retries once only after explicit 401 and never after other failures',async()=>{
   let tokenCalls=0,fetchCalls=0;
-  const retried=createPawsAzureDataClient({
+  const retried=createPawsDataClient({
     tokenProvider:async options=>{tokenCalls++;return options?.forceRefresh?'fresh-token':'old-token'},
     fetchImpl:async(_url,init)=>{
       fetchCalls++;
@@ -408,7 +409,7 @@ test('P3B3 AFC POST retries once only after explicit 401 and never after other f
 
   for(const status of [403,404,503]){
     fetchCalls=0;tokenCalls=0;
-    const noReplay=createPawsAzureDataClient({
+    const noReplay=createPawsDataClient({
       tokenProvider:async options=>{tokenCalls++;return options?.forceRefresh?'fresh-token':'old-token'},
       fetchImpl:async()=>{fetchCalls++;return{ok:false,status,json:async()=>({error:{code:'FAIL'}})}}
     });
@@ -418,7 +419,7 @@ test('P3B3 AFC POST retries once only after explicit 401 and never after other f
   }
 
   fetchCalls=0;tokenCalls=0;
-  const transport=createPawsAzureDataClient({
+  const transport=createPawsDataClient({
     tokenProvider:async options=>{tokenCalls++;return options?.forceRefresh?'fresh-token':'old-token'},
     fetchImpl:async()=>{fetchCalls++;throw Error('offline')}
   });
@@ -439,7 +440,7 @@ function binaryResponse(bytes,{status=200,contentType='application/pdf',contentD
 
 test('P3B4 approved-artifact GET and POST preserve exact PDF bytes and response metadata',async()=>{
   const calls=[],pdf=[0x25,0x50,0x44,0x46,0x00,0xff,0x0a];
-  const client=createPawsAzureDataClient({
+  const client=createPawsDataClient({
     tokenProvider:async()=>'artifact-token',
     fetchImpl:async(url,init)=>{calls.push({url,init});return binaryResponse(pdf)}
   });
@@ -465,7 +466,7 @@ test('P3B4 approved-artifact GET and POST preserve exact PDF bytes and response 
 test('P3B4 artifact calls force-refresh and replay exactly once only after HTTP 401',async()=>{
   for(const method of ['getApprovedAfcArtifact','createApprovedAfcArtifact']){
     const tokens=[],requests=[];
-    const client=createPawsAzureDataClient({
+    const client=createPawsDataClient({
       tokenProvider:async options=>{tokens.push(options?.forceRefresh===true);return options?.forceRefresh?'fresh-token':'initial-token'},
       fetchImpl:async(_url,init)=>{
         requests.push(init);
@@ -486,7 +487,7 @@ test('P3B4 artifact calls force-refresh and replay exactly once only after HTTP 
 test('P3B4 artifact POST parses fixed JSON errors and never replays non-401 or transport failures',async()=>{
   for(const [status,code] of [[403,'ROLE_DENIED'],[404,'REQUEST_NOT_FOUND'],[409,'ARTIFACT_CONFLICT'],[500,'SQL_UNAVAILABLE'],[503,'SQL_UNAVAILABLE']]){
     let tokenCalls=0,fetchCalls=0;
-    const client=createPawsAzureDataClient({
+    const client=createPawsDataClient({
       tokenProvider:async()=>{tokenCalls++;return't'},
       fetchImpl:async()=>{fetchCalls++;return{ok:false,status,async json(){return{error:{code,message:'bounded failure'}}}}}
     });
@@ -496,7 +497,7 @@ test('P3B4 artifact POST parses fixed JSON errors and never replays non-401 or t
     assert.equal(tokenCalls,1,`${status} does not force-refresh`);
   }
   let transportCalls=0,transportTokens=0;
-  const transport=createPawsAzureDataClient({
+  const transport=createPawsDataClient({
     tokenProvider:async()=>{transportTokens++;return't'},
     fetchImpl:async()=>{transportCalls++;throw Error('network unavailable')}
   });

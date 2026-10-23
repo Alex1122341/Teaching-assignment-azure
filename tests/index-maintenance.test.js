@@ -1,13 +1,14 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 
-const root=path.resolve(__dirname,'..');
-const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const root=repositoryPath(__dirname,'..');
+const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 
 test('maintenance helpers replace and remove sessions without losing faculty IDs',()=>{
- const api=require(path.join(root,'index-maintenance.js'));
+ const api=require(repositoryPath(root,'index-maintenance.js'));
  const next={id:'s2',assignments:[{ucid:'1002'},{facultyId:'1001'}]};
  const replaced=api.replaceSession([{id:'s1'},{id:'s2',assignments:[]}],next);
  assert.deepEqual(replaced.find(x=>x.id==='s2').facultyIds,['1001','1002']);
@@ -39,7 +40,7 @@ test('derived settings writes are denied to all browser roles',()=>{
 });
 
 test('session deltas update totals, courses, faculty counts, and assigned DOE',()=>{
- const api=require(path.join(root,'index-maintenance.js'));
+ const api=require(repositoryPath(root,'index-maintenance.js'));
  const facultyIndex={entries:[
   {id:'1001',name:'Alex',sessionCount:1,assignedTeachingDOE:5},
   {id:'1002',name:'Blair',sessionCount:0,assignedTeachingDOE:10}
@@ -57,7 +58,7 @@ test('session deltas update totals, courses, faculty counts, and assigned DOE',(
 });
 
 test('create and delete session deltas are reversible and empty changes are idempotent',()=>{
- const api=require(path.join(root,'index-maintenance.js'));
+ const api=require(repositoryPath(root,'index-maintenance.js'));
  const index={entries:[{id:'1001',sessionCount:0,assignedTeachingDOE:7}]},stats={sessionCount:0,assignedFacultyCount:0,courseCounts:{}};
  const session={id:'s1',course:'300',assignments:[{facultyId:'1001',doeCredit:1.25}]};
  const added=api.applySessionChanges(index,stats,[{before:null,after:session}]);
@@ -73,8 +74,8 @@ function fakeSettingsDb(docs){
 }
 
 function fullVerifierFixture(){
- const api=require(path.join(root,'index-maintenance.js'));
- const dataIndex=require(path.join(root,'data-index.js'));
+ const api=require(repositoryPath(root,'index-maintenance.js'));
+ const dataIndex=require(repositoryPath(root,'data-index.js'));
  const faculty=[
   {__id:'1001',preferredFullName:'Alex',active:true,doe:{teaching:20}},
   {__id:'1002',preferredFullName:'Blair',active:true,doe:{teaching:20}}
@@ -166,7 +167,7 @@ function fakeBatchDb(initial={}){
 }
 
 test('writeDerivedIndexes commits all four settings documents in one batch',async()=>{
- const api=require(path.join(root,'index-maintenance.js'));
+ const api=require(repositoryPath(root,'index-maintenance.js'));
  const db=fakeBatchDb({
   faculty_swap_map:{schemaVersion:'ucvm-faculty-swap-map-v1',entries:[{key:'stable',facultyId:'1001'}]},
   faculty_swap_index:{schemaVersion:'ucvm-faculty-swap-index-v1',entries:[{key:'stable',name:'Alex',aliases:['Alex'],unavailableRanges:[]}]}

@@ -1,17 +1,18 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..');
+const root=repositoryPath(__dirname,'..');
 const baseline=require('../tools/beta-baseline.json');
 const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='00ed3f0b2a7936b7957797df944b0fdd91341946';
+const BASELINE_COMMIT='2946257c6c01e0201257d5745187e2648abcda50';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
 const DOE_LOOKUP_LAYOUT_PRODUCT_COMMIT='3cd51cacbd7de32367c55bf203a47801d5763abf';
@@ -43,7 +44,7 @@ const PREVIOUS_P3B2_BASELINE_COMMIT='9d15cb7cd28cdda0eb56a34ccb99777c1d488569';
 const PREVIOUS_API_BASELINE_COMMIT='1608577e474d58a2949c1a504bd9368f79d629ee';
 const PREVIOUS_STATIC_BASELINE_COMMIT='1224fc5fb5f19a410f18c4f6d966c374498039b4';
 const PREVIOUS_BASELINE_COMMIT='6bfd637af57955ded38e6a39d2c055bec67a0aa0';
-const manifest=()=>JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
+const manifest=()=>JSON.parse(fs.readFileSync(repositoryPath(root,'tools/static-assets.json'),'utf8'));
 
 function baselineJson(ref){
   return JSON.parse(execFileSync('git',['show',`${ref}:tools/static-assets.json`],{cwd:root,encoding:'utf8'}));
@@ -446,7 +447,7 @@ test('all 85 current protected files are byte-identical to the immutable accepte
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
-      fs.readFileSync(path.join(root,name))
+      fs.readFileSync(repositoryPath(root,name))
     ),true,name);
   }
 });
@@ -690,7 +691,7 @@ test('B0 runtime candidate files are protected and byte-identical to the promote
     assert.ok(freeze.protectedPaths({root}).includes(name),`${name} must be protected`);
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
-      fs.readFileSync(path.join(root,name))
+      fs.readFileSync(repositoryPath(root,name))
     ),true,name);
   }
 });
@@ -774,7 +775,7 @@ test('API freeze shares the promoted CCC Schedule static baseline and has zero r
 });
 
 test('API freeze imports the single static baseline constant',()=>{
-  const apiFreezeSource=fs.readFileSync(path.join(root,'tools/beta-api-freeze.js'),'utf8');
+  const apiFreezeSource=fs.readFileSync(repositoryPath(root,'tools/beta-api-freeze.js'),'utf8');
   assert.doesNotMatch(apiFreezeSource,/const\s+BASELINE_COMMIT\s*=/);
   assert.match(apiFreezeSource,/require\('\.\/beta-freeze'\)/);
 });

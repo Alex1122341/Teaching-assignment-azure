@@ -13,11 +13,12 @@ test('integrated PR133 retains restored origin and changes only two public asset
   for(const file of protectedApi)assert.ok(freeze.bytesMatch(git('show',BASE+':'+file),git('show',PRODUCT+':'+file)),file);
   assert.equal(git('diff','--name-only',BASE,PRODUCT,'--','database').toString().trim(),'');
 });
-test('integrated governance pins immutable product and changes no shipped bytes',()=>{
-  assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);
-  assert.equal(require('../tools/beta-baseline.json').sourceCommit,PRODUCT);
+test('historical integrated PR133 governance pins immutable product and changes no shipped bytes',()=>{
+  const governance='44b83afa53527030951a1c0d9c01903a98a46371';
+  assert.ok(git('show',governance+':tools/beta-freeze.js').toString().includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+  assert.equal(JSON.parse(git('show',governance+':tools/beta-baseline.json')).sourceCommit,PRODUCT);
   const manifest=JSON.parse(git('show',PRODUCT+':tools/static-assets.json'));
-  for(const file of manifest)assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file}),freeze.readWorkingFile({root,file})),file);
+  for(const file of manifest)assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file}),freeze.readBaselineFile({root,baselineCommit:governance,file})),file);
   const protectedApi=[...api.baselineRuntimeFiles({root,baselineCommit:PRODUCT}),...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES];
-  assert.deepEqual(git('diff','--name-only',PRODUCT,'HEAD').toString().trim().split(/\r?\n/).filter(file=>protectedApi.includes(file)||file.startsWith('frontend/')),[]);
+  assert.deepEqual(git('diff','--name-only',PRODUCT,governance).toString().trim().split(/\r?\n/).filter(file=>protectedApi.includes(file)||file.startsWith('frontend/')),[]);
 });

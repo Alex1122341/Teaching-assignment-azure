@@ -1,3 +1,7 @@
+## Current: HICC–CC / VISC directory candidate (not merged/released) — 2026-10-22
+
+Read updates/2026-10-22-hicc-visc-directory.md and docs/hicc-visc-directory-20261022.md. Branch feature/hicc-visc-directory-20261022 on main 924cc676: Course List replaced by HICC–CC List / VISC List, read-only /api/v1/dashboard/leadership-directory (no DOE, no migration). Governance anchor 5b135df -> de4d3ca (static 87 / API 114 / protected 117) pending review. Production release blocked on Owner access; no live operations.
+
 ## Current: PR #133 source organization and build simplification - 2026-10-22
 
 The Owner extended the same PR to tidy the repository. From checkpoint `8249a33`, all 85 browser sources moved into `frontend/{pages,scripts,styles,assets}` without changing public URLs or runtime bytes. Root files reduced from 96 to 11. Static packaging is shared in `tools/build/static-bundle.js`; test source resolution and exact-commit Firebase API-origin lookup follow the new layout. Immutable runtime anchor `f78b10a` stays unchanged. Initial 46 targeted checks passed; corrected path-harness suite passed 57 with one Windows symlink-permission skip. Final exact-HEAD CI remains the completion authority. No merge, database mutation or live deployment. See `docs/architecture/repository-layout.md`.

@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "5a3117d4aec48b685e734651f4caa24d9050ba4f",
+  "sourceCommit": "4c23f7f1d096437c4fcc020556cb1f0253701ecb",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -57,7 +57,7 @@
     "faculty-availability.js": "3e44cb71afe4ea4c89d27ab01fa30df792105746561baeb5f2c0c81fe4f5bf39",
     "faculty-doe.js": "9eed9943a21bf57bedbaf1020230e1e69ec25ca05117f8d0201c50f68afcf4c1",
     "faculty-name.js": "118264ae497909027f195548bb1f291a88528a3de0090f1cbf29bd976cb0fe26",
-    "faculty-role-periods.js": "b4dee985428629d7f09b1434b3269ad219b05d2d3be39fc38512a4c297bb3f80",
+    "faculty-role-periods.js": "ec3bfdff22bcf4101514504d6666556c55fcb18cb39425b73f21b7f75033fbac",
     "faculty-swap-handoff.js": "1b68dcf3e287c97097640051a26634b95d321c89e392600a9e97bc45c97d3ce7",
     "faculty-swap-safe.js": "558c3150444f2a9ad66ac54437618297f6e45632d0375d502816e3eda331649c",
     "index-maintenance.js": "5c642608b123abf95d6a7a912c92fdf0fc56c45b980d724458f5b2c448789109",

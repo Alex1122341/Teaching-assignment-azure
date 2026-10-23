@@ -17,7 +17,9 @@ const {execFileSync}=require('node:child_process');
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='ba915e99ca06677d58e129f6fb671bd40d21600e';
+// Reviewed maintenance repair changes only the public temporary API origin.
+// All prior product/governance receipts remain independently pinned.
+const BASELINE_COMMIT='00ed3f0b2a7936b7957797df944b0fdd91341946';
 const MANIFEST_PATH='tools/static-assets.json';
 
 function defaultRoot(){

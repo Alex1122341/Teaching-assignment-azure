@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "ba915e99ca06677d58e129f6fb671bd40d21600e",
+  "sourceCommit": "00ed3f0b2a7936b7957797df944b0fdd91341946",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -67,7 +67,7 @@
     "maintenance-state.js": "5b3c31bd41385322776f2eeab88a46827f7b0095f7cd26ac03aa44c267d1f1df",
     "password.html": "0ec6f0635e0fe94c8a49f4fd9428607bb174d673d41875d82bb32e5c266e8d6c",
     "password.js": "5cb24c52f7b3841f29cff171993bc474ac93545dc30369a3b50c3ab22d131955",
-    "paws-api-origin.js": "9347514edf209df80b039105746e401941f08d566c20fb5f80e5e3be24a53135",
+    "paws-api-origin.js": "84bdf73016a198cce85302357890df9d878c691d5217d6f3a4a706ed6dc25391",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
     "paws-data-client.js": "02e03b77cc994995d075403f413bd050f59b1774035150044c2acb315017147e",
     "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170",

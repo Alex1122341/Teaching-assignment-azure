@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "4ca3c710061c7169cba73597ba366ff0ab9b2243",
+  "sourceCommit": "ec4a191b8798f6cada285079989144142822fb50",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -88,7 +88,7 @@
     "user-management.css": "de65cb308772e82be4f551ad505ae7b718736c0cdfd531dedf7b971c089cfe02",
     "user-management.html": "1e85481ae965a3b77d187470fa666bcb59561900718576e8751cc28369d3aab5",
     "user-management.js": "36ebae9ff0bfddbac604d4a40b05783aa9ee6960cf18ac1e9127ed481a33bc2f",
-    "workspace-navigation.js": "3637b361300f7a545ac45abeac545b55af80841424693d7de0a4c7bcbb8c3d76",
+    "workspace-navigation.js": "806b42b3c22ecf2150753353c4f1dbbc999ee61f65aed0e55e613fd61d5e9eea",
     "workspace-tasks.js": "4520839dd547c21d6d9e6e49ddc2f8a5645f3d06b8954c3f53840edf9200a6c6",
     "workspace.css": "ce0c1c332ef27f25cf908102bec72b00c829c8f892f3358ffb5291ae3e0ec6ed"
   }

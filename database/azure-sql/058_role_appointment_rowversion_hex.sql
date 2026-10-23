@@ -5,7 +5,8 @@ SET NOCOUNT ON;
 IF DB_NAME()<>N'VetMed-Ops' THROW 55880,'Requires VetMed-Ops.',1;
 IF OBJECT_ID(N'paws.RoleAppointmentSchedule',N'U') IS NULL OR OBJECT_ID(N'paws_api.SetRoleAppointmentPeriods',N'P') IS NULL
  THROW 55881,'Existing Role Appointment schedule and approved procedure required.',1;
-GOCREATE OR ALTER PROCEDURE paws_api.SetRoleAppointmentPeriods
+GO
+CREATE OR ALTER PROCEDURE paws_api.SetRoleAppointmentPeriods
  @RoleAssignmentId uniqueidentifier,@ExpectedVersion varchar(18),@PeriodsJson nvarchar(max),@ActorFirebaseUid nvarchar(128)
 AS
 BEGIN

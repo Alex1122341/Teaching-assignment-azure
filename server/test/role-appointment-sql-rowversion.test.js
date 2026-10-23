@@ -43,3 +43,9 @@ test('verified SQL patch keeps optimistic concurrency check and no data resets',
   assert.match(sql, /paws\.AuditEvent/);
   assert.doesNotMatch(sql, /\b(?:ALTER\s+TABLE|DROP\s+TABLE|TRUNCATE\s+TABLE|DELETE\s+FROM\s+paws\.RoleAssignment)\b/i);
 });
+
+test('SQLCMD batch terminator is a standalone GO line before CREATE OR ALTER', () => {
+  const sql = fs.readFileSync(newMigration, 'utf8');
+  assert.match(sql, /\r?\nGO\r?\nCREATE OR ALTER PROCEDURE paws_api\.SetRoleAppointmentPeriods\b/);
+  assert.doesNotMatch(sql, /GOCREATE OR ALTER/i);
+});

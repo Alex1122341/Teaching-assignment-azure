@@ -5,6 +5,7 @@
  if(root)root.PAWS_CHANGE_HISTORY=api;
 })(typeof window==='undefined'?globalThis:window,function(root){
  'use strict';
+ const names=typeof module==='object'&&module.exports?require('./faculty-name'):root.PAWS_FACULTY_NAME;
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const missing=value=>value===null||value===undefined||value===''||value==='Not recorded'||value==='—'?'N/A':String(value);
  function createHistoryController({api,scope,onState=()=>{},download=()=>{}}){
@@ -56,7 +57,7 @@
    const when=valid?`<time datetime="${esc(date.toISOString())}" title="${esc(date.toISOString())} UTC">${esc(date.toLocaleString('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}))}</time><small>Calgary</small>`:'N/A';
    const endpoint=end=>{const d=row[end?'endDate':'startDate'],t=row[end?'endTime':'startTime'];return d?`${esc(d)}${t?' '+esc(t):''}`:'N/A';};
    const label=String(row.changeType||'N/A').replaceAll('_',' ');
-   return `<tr><td>${when}</td><td><span>${esc(label)}</span><small>${esc(missing(row.domain))}</small></td><td>${row.course?`<strong>${esc(row.course)}</strong> · `:''}${valueCell(row.session||row.affectedFaculty)}${row.session&&row.affectedFaculty?`<small>${valueCell(row.affectedFaculty)}</small>`:''}</td><td class="history-change"><strong class="history-field">${esc(missing(row.field))}</strong><div class="history-from-to"><span><span class="history-value-label">From </span>${valueCell(row.previousValue)}</span><span aria-hidden="true"> → </span><span><span class="history-value-label">To </span>${valueCell(row.updatedValue)}</span></div></td><td><span class="history-date-range">${endpoint(false)}<br>${endpoint(true)}</span></td><td>${valueCell(row.actor)}</td></tr>`;
+   return `<tr><td>${when}</td><td><span>${esc(label)}</span><small>${esc(missing(row.domain))}</small></td><td>${row.course?`<strong>${esc(row.course)}</strong> · `:''}${valueCell(row.session||names.formatList(row.affectedFaculty))}${row.session&&row.affectedFaculty?`<small>${valueCell(names.formatList(row.affectedFaculty))}</small>`:''}</td><td class="history-change"><strong class="history-field">${esc(missing(row.field))}</strong><div class="history-from-to"><span><span class="history-value-label">From </span>${valueCell(row.previousValue)}</span><span aria-hidden="true"> → </span><span><span class="history-value-label">To </span>${valueCell(row.updatedValue)}</span></div></td><td><span class="history-date-range">${endpoint(false)}<br>${endpoint(true)}</span></td><td>${valueCell(names.format(row.actor))}</td></tr>`;
   }).join('')||'<tr><td colspan="6">No recorded changes to display.</td></tr>';
  }
 
@@ -76,7 +77,7 @@
     const fieldRows=fields.map(change=>'<tr><td>'+esc(missing(change.field))+'</td><td>'+valueCell(change.previousValue)+'</td><td>'+valueCell(change.updatedValue)+'</td></tr>').join('');
     const subject=[record.course,record.session].filter(Boolean).map(esc).join(' · ');
     const recordDates=[record.startDate,record.endDate].filter(Boolean).map(esc).join(' → ');
-    return '<section class="history-operation-record"><h4>Record '+(i+1)+' of '+records.length+(record.affectedFaculty?' · '+esc(record.affectedFaculty):'')+'</h4>'+
+    return '<section class="history-operation-record"><h4>Record '+(i+1)+' of '+records.length+(record.affectedFaculty?' · '+esc(names.formatList(record.affectedFaculty)):'')+'</h4>'+
       (subject?'<p>'+subject+'</p>':'')+(recordDates?'<p>'+recordDates+'</p>':'')+
       '<table class="history-details-table"><thead><tr><th scope="col">Field</th><th scope="col">From</th><th scope="col">To</th></tr></thead><tbody>'+fieldRows+'</tbody></table></section>';
    }).join('');
@@ -84,7 +85,7 @@
     '<summary class="history-operation-summary"><span>'+when+'</span><span><strong>'+esc(missing(operation.title||operation.changeType))+
     '</strong><small>'+esc(missing(operation.domain))+'</small></span><span>'+recordCount+' record'+(recordCount===1?'':'s')+
     '</span><span>'+changeCount+' field change'+(changeCount===1?'':'s')+' <small class="history-expand-prompt">View details</small></span><span class="history-date-range">'+range+
-    '</span><span>'+esc(missing(operation.actor))+'</span></summary><div class="history-operation-details">'+details+'</div></details></td></tr>';
+    '</span><span>'+esc(missing(names.format(operation.actor)))+'</span></summary><div class="history-operation-details">'+details+'</div></details></td></tr>';
   }).join('')||'<tr><td colspan="6">No recorded operations to display.</td></tr>';
  }
  function browserDownload(file,format){
@@ -119,7 +120,7 @@
   function options(key,rows){
    const select=find(`[data-history-filter="${key}"]`),selected=select.value,selectedName=select.selectedOptions[0]?.textContent||selected;
    const first={faculty:'All recorded faculty',changeType:'All change types',academicYear:'All recorded years',viscSubject:'All recorded subjects'}[key];
-   select.innerHTML=(key==='academicYear'?(scope==='dashboard'?'<option value="all">All recorded years</option>':''):`<option value="">${first}</option>`)+rows.map(row=>`<option value="${esc(row.key)}">${esc(row.name)}</option>`).join('');
+   select.innerHTML=(key==='academicYear'?(scope==='dashboard'?'<option value="all">All recorded years</option>':''):`<option value="">${first}</option>`)+rows.map(row=>`<option value="${esc(row.key)}">${esc(key==='faculty'?names.format(row.name):row.name)}</option>`).join('');
    // Preserve a selected filter even if its new result set is empty.
    if(selected&&!rows.some(row=>row.key===selected))select.insertAdjacentHTML('beforeend',`<option value="${esc(selected)}">${esc(selectedName)}</option>`);
    select.value=selected||(key==='academicYear'?defaultYear:'');

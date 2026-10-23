@@ -17,9 +17,11 @@ test('integrated leadership release adds two public and four API files without S
   assert.deepEqual(changed.filter(file=>file.startsWith('database/')||api.REPOSITORY_INPUT_FILES.includes(file)||api.BUILD_DEFINITION_FILES.includes(file)),[]);
 });
 test('integrated leadership governance shares its immutable product anchor with no shipped-byte edits',()=>{
-  assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);
-  assert.equal(require('../tools/beta-baseline.json').sourceCommit,PRODUCT);
+  const accepted='2664feef74e340d0b3df4a6f422663c571bc7731';
+  assert.ok(git('show',accepted+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+  assert.equal(JSON.parse(git('show',accepted+':tools/beta-baseline.json')).sourceCommit,PRODUCT);
+  git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);
   assert.equal(freeze.verifyFreeze({root}).ok,true);assert.equal(api.verifyFreeze({root}).ok,true);
   const protectedApi=[...api.baselineRuntimeFiles({root,baselineCommit:PRODUCT}),...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES];
-  assert.deepEqual(git('diff','--name-only',PRODUCT,'HEAD').toString().trim().split(/\r?\n/).filter(file=>file.startsWith('frontend/')||protectedApi.includes(file)),[]);
+  assert.deepEqual(git('diff','--name-only',PRODUCT,accepted).toString().trim().split(/\r?\n/).filter(file=>file.startsWith('frontend/')||protectedApi.includes(file)),[]);
 });

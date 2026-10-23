@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## PAWS Constitution
+
+Before changing any person-name display or generated output, read and follow [PAWS_CONSTITUTION.md](PAWS_CONSTITUTION.md). The mandatory PAWS presentation is **Last name, First name**, through the shared formatter; preserve source identity and historical evidence. Include formatter coverage in review.
+
 ## Agent continuity memory
 
 If you do not already have reliable recent PAWS project context, you MUST read `agent.Ai/AGENT.md`, `agent.Ai/PROJECT_STATE.md`, `agent.Ai/TASK_CHAIN.md`, `agent.Ai/DECISIONS.md`, and the newest file under `agent.Ai/updates/` before starting substantive work.
@@ -24,7 +28,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 - The immutable static/API freeze is promoted only through an explicit reviewed governance commit anchored to the accepted product commit. P1's protected static and API runtime changes require their own separately reviewed freeze promotion in the same coherent PR; never add drift exceptions or silently move the anchor.
 - The active Beta architecture is Firebase Hosting → Firebase Authentication (identity) → temporary Cloudflare HTTPS ingress → University Node API → `ITAPPVETOPSDB01` / `VetMed-Ops`. SQL is the business-data authority; do not restore Firestore business reads or writes.
-- **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (85 entries); the API freeze currently protects 110 API runtime files plus its build definition and two repository inputs (113 protected paths total).
+- **All** shipped static runtime assets are protected. Derive the current protected counts from `tools/static-assets.json` and `tools/beta-api-freeze.js`; preserve the full union with the frozen manifests.
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.
 - `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .azure-production/app` to validate a built or downloaded artifact.
 - `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.

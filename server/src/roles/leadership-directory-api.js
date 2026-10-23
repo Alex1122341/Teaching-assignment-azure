@@ -3,6 +3,7 @@
 const { validateAuthorizedProfile } = require('../data/data-api');
 const { canonicalAcademicYear } = require('../data/academic-year');
 const { calgaryDate, classify } = require('./role-effective-status');
+const names = require('../domain/person-name');
 
 // Teaching Schedule HICC–CC / VISC directory (read-only).
 //
@@ -37,7 +38,7 @@ function buildDirectory(rows, { academicYear, asOfDate }) {
     const roleType = Object.hasOwn(ROLE_LABELS, roleKey) ? ROLE_LABELS[roleKey] : '';
     const group = GROUP[roleType];
     if (!group) continue;
-    const facultyName = trimmed(row.facultyName, NAME_MAX);
+    const facultyName = trimmed(names.format({firstName:row.facultyFirstName,lastName:row.facultyLastName,displayName:row.facultyName}), NAME_MAX);
     if (!facultyName) continue;
     const completeScope = trimmed(row.courseCode, Infinity) || trimmed(row.recordedScope, Infinity);
     const scope = trimmed(completeScope, SCOPE_MAX);

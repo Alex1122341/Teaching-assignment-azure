@@ -689,7 +689,7 @@
   }
   function confirmSchedulingChanges(rows,sourceSessions=pageSessions()){
     const reviews=reviewSchedulingChanges(rows,sourceSessions),warnings=[];
-    for(const row of reviews)for(const check of row.checks)warnings.push(`${row.session.course||'Course'} ${row.session.date}: ${check.assignment.name||'Faculty'} - ${assignmentAvailabilityDetail(check.av,row.session.date,row.session.start,row.session.end)}`);
+    for(const row of reviews)for(const check of row.checks)warnings.push(`${row.session.course||'Course'} ${row.session.date}: ${displayFaculty(check.assignment.name||'Faculty')} - ${assignmentAvailabilityDetail(check.av,row.session.date,row.session.start,row.session.end)}`);
     if(!warnings.length)return new Map();
     const conflict=reviews.some(row=>row.conflicts.length);
     const question=conflict?'TIMETABLE CONFLICT DETECTED. Override and save? This override will be recorded in the audit log.':'Availability check incomplete or unavailable. Continue as ADFA?';
@@ -1646,7 +1646,7 @@
       if(seen.has(duplicateKey))errors.push(`Row ${n}: duplicates another row in this batch.`);else seen.add(duplicateKey);
       const resolved=resolveBulkFaculty(row.faculty,n);errors.push(...resolved.errors);
       const assignments=resolved.assignments.map(assignment=>({facultyId:assignment.facultyId,teachingRole:defaultTeachingRole(type)}));
-      for(const assignment of resolved.assignments){const faculty=facultyDirectory.find(f=>String(f.facultyId||f.__id)===String(assignment.facultyId));if(!faculty)continue;const availability=facultyAssignmentAvailability(faculty,date,start,end,'');if(availability.available!==true)warnings.push(`Row ${n} · ${assignment.name}: ${assignmentAvailabilityDetail(availability,date,start,end)}`)}
+      for(const assignment of resolved.assignments){const faculty=facultyDirectory.find(f=>String(f.facultyId||f.__id)===String(assignment.facultyId));if(!faculty)continue;const availability=facultyAssignmentAvailability(faculty,date,start,end,'');if(availability.available!==true)warnings.push(`Row ${n} · ${displayFaculty(assignment.name)}: ${assignmentAvailabilityDetail(availability,date,start,end)}`)}
       if(!errors.some(message=>message.startsWith(`Row ${n}:`))){const pos=academicPositionForDate(parseYmd(date));prepared.push({date,week:pos.week,semester:pos.semester,year,course,courseName:COURSES.find(c=>String(c.code)===course)?.name||'',type,topic,instructor:resolved.assignments.map(a=>a.name).join('; '),room:String(row.room||'').trim(),start,end,assignments,labDetails:labDetailsFromAssignments(type,resolved.assignments,topic),sourceSystem:'Bulk live timetable entry'})}
     });
     return {errors,warnings,sessions:prepared};
@@ -2242,7 +2242,7 @@
           <strong>Role:</strong> ${escapeHtml(currentUser.role)} &nbsp; <strong>Active:</strong> ${currentUser.active ? 'true' : 'false'}<br>
           <strong>Timetable sessions:</strong> VetMed-Ops via the PAWS University API.
         </div>
-        <div class="form-hint">My Timetable mapping: <strong>${escapeHtml(currentUser.instructorName)}</strong>.</div>
+        <div class="form-hint">My Timetable mapping: <strong>${escapeHtml(displayFaculty(currentUser.instructorName))}</strong>.</div>
       </div>
       <div class="modal-footer"><a class="btn btn-secondary" href="password.html">Change password</a><button class="btn btn-secondary" id="account-close">Close</button><button class="btn btn-primary" id="logout-btn">Sign Out</button></div>`);
     $('account-close').onclick = closeModal;
@@ -2386,16 +2386,19 @@
   function downloadFile(content,type,name){const blob=new Blob([content],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href)}
   function exportCsv(data) {
     const header=['ID','Source','Date','Week','Semester','Year','Course','Course Name','Type','Topic','Instructor','Assignments JSON','Room','Start','End','Time Unknown','CCC'];
-    const rows=[header,...data.map(s=>[s.id,s.sourceSystem||'',s.date,s.week,s.semester,s.year,s.course,s.courseName||'',s.type,s.topic,s.instructor,JSON.stringify(s.assignments||[]),s.room,s.start,s.end,!!s.timeUnknown,!!s.isCcc])];
+    const rows=[header,...data.map(s=>[s.id,s.sourceSystem||'',s.date,s.week,s.semester,s.year,s.course,s.courseName||'',s.type,s.topic,displayFacultyList(s.instructor),JSON.stringify(s.assignments||[]),s.room,s.start,s.end,!!s.timeUnknown,!!s.isCcc])];
     const csv='\uFEFF'+rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
     downloadFile(csv,'text/csv;charset=utf-8','ucvm-filtered-timetable.csv');
   }
   function icsEscape(value){return String(value??'').replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;')}
   function icsDate(date){return String(date).replace(/-/g,'')}
+  // CN is a parameter, not a TEXT value: quote commas and encode quotes/newlines
+  // using RFC 6868. Keep DESCRIPTION and other TEXT fields on icsEscape().
+  function icsParameter(value){return '"'+String(value??'').replace(/\^/g,'^^').replace(/\r\n|\r|\n/g,'^n').replace(/"/g,"^'")+'"'}
   function exportCalendar(data){
     const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
     const events=data.map(s=>{
-      const summary=icsEscape(`${s.course} ${s.type}${s.topic?` - ${s.topic}`:''}`),description=icsEscape(`Faculty: ${s.instructor||'TBD'}${s.room?`\nRoom: ${s.room}`:''}`);
+      const summary=icsEscape(`${s.course} ${s.type}${s.topic?` - ${s.topic}`:''}`),description=icsEscape(`Faculty: ${displayFacultyList(s.instructor||'TBD')}${s.room?`\nRoom: ${s.room}`:''}`);
       if(s.isCcc||s.timeUnknown||!s.start||!s.end){const next=ymd(addDays(parseYmd(s.date),1));return ['BEGIN:VEVENT',`UID:${icsEscape(s.id)}@ucvm-schedule`,`DTSTAMP:${stamp}Z`,`DTSTART;VALUE=DATE:${icsDate(s.date)}`,`DTEND;VALUE=DATE:${icsDate(next)}`,`SUMMARY:${summary}`,`DESCRIPTION:${description}`,'END:VEVENT'].join('\r\n')}
       return ['BEGIN:VEVENT',`UID:${icsEscape(s.id)}@ucvm-schedule`,`DTSTAMP:${stamp}Z`,`DTSTART;TZID=America/Edmonton:${icsDate(s.date)}T${s.start.replace(':','')}00`,`DTEND;TZID=America/Edmonton:${icsDate(s.date)}T${s.end.replace(':','')}00`,`SUMMARY:${summary}`,`DESCRIPTION:${description}`,s.room?`LOCATION:${icsEscape(s.room)}`:'','END:VEVENT'].filter(Boolean).join('\r\n');
     }).join('\r\n');
@@ -2408,15 +2411,15 @@
       const faculty=facultyDirectory.find(f=>String(f.__id)===String(assignment?.ucid||assignment?.facultyId||''))||facultyForAssignment(assignment);
       const email=String(faculty?.email||'').trim().toLowerCase();if(email)emails.set(email,swapFacultyName(faculty)||assignment.name||email);
     }
-    return [...emails].map(([email,name])=>({email,name}));
+    return [...emails].map(([email,name])=>({email,name:displayFaculty(name)}));
   }
   function exportOutlookInvites(data,organizer){
     const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
-    const organizerEmail=String(organizer?.email||'').trim(),organizerName=String(organizer?.name||organizerEmail||'UCVM Scheduling');
+    const organizerEmail=String(organizer?.email||'').trim(),organizerName=displayFaculty(organizer?.name||organizerEmail||'UCVM Scheduling');
     const events=data.map(session=>{
-      const summary=icsEscape(`${session.course} ${session.type}${session.topic?` - ${session.topic}`:''}`),description=icsEscape(`Faculty: ${session.instructor||'TBD'}${session.room?`\nRoom: ${session.room}`:''}`),attendees=outlookAttendeesForSession(session).map(a=>`ATTENDEE;CN=${icsEscape(a.name)};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${icsEscape(a.email)}`);
+      const summary=icsEscape(`${session.course} ${session.type}${session.topic?` - ${session.topic}`:''}`),description=icsEscape(`Faculty: ${displayFacultyList(session.instructor||'TBD')}${session.room?`\nRoom: ${session.room}`:''}`),attendees=outlookAttendeesForSession(session).map(a=>`ATTENDEE;CN=${icsParameter(a.name)};ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:${icsEscape(a.email)}`);
       const times=session.isCcc||session.timeUnknown||!session.start||!session.end?[`DTSTART;VALUE=DATE:${icsDate(session.date)}`,`DTEND;VALUE=DATE:${icsDate(ymd(addDays(parseYmd(session.date),1)))}`]:[`DTSTART;TZID=America/Edmonton:${icsDate(session.date)}T${session.start.replace(':','')}00`,`DTEND;TZID=America/Edmonton:${icsDate(session.date)}T${session.end.replace(':','')}00`];
-      return ['BEGIN:VEVENT',`UID:${icsEscape(session.id)}@ucvm-outlook`,`DTSTAMP:${stamp}Z`,...times,`SUMMARY:${summary}`,`DESCRIPTION:${description}`,session.room?`LOCATION:${icsEscape(session.room)}`:'',organizerEmail?`ORGANIZER;CN=${icsEscape(organizerName)}:mailto:${icsEscape(organizerEmail)}`:'',...attendees,'STATUS:CONFIRMED','SEQUENCE:0','END:VEVENT'].filter(Boolean).join('\r\n');
+      return ['BEGIN:VEVENT',`UID:${icsEscape(session.id)}@ucvm-outlook`,`DTSTAMP:${stamp}Z`,...times,`SUMMARY:${summary}`,`DESCRIPTION:${description}`,session.room?`LOCATION:${icsEscape(session.room)}`:'',organizerEmail?`ORGANIZER;CN=${icsParameter(organizerName)}:mailto:${icsEscape(organizerEmail)}`:'',...attendees,'STATUS:CONFIRMED','SEQUENCE:0','END:VEVENT'].filter(Boolean).join('\r\n');
     }).join('\r\n');
     downloadFile(`BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//UCVM//Outlook Teaching Invitations//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\n${events}\r\nEND:VCALENDAR\r\n`,'text/calendar;charset=utf-8','ucvm-outlook-invite-package.ics');
   }

@@ -131,9 +131,9 @@ test('SQL-authoritative fields map to the reviewed form without inferred identit
   assert.equal(values.fields['Primary Department'], '30060 - Faculty of Veterinary Medicine');
   assert.equal(values.fields['Appt Type'], ' ');
   assert.equal(values.fields['Expiry Date'], '');
-  assert.equal(values.fields['Staff Member Name'], 'Jane Doe');
-  assert.equal(values.fields.Name, 'Report To Example');
-  assert.equal(values.fields.Name_2, 'Admin Example');
+  assert.equal(values.fields['Staff Member Name'], 'Doe, Jane');
+  assert.equal(values.fields.Name, 'Example, Report To');
+  assert.equal(values.fields.Name_2, 'Example, Admin');
   assert.equal(values.fields['Please provide details of arrangements to cover absenceRow1'], 'No teaching assignments during this period.');
   assert.equal(values.signatures.applicant.displayName, 'Jane Doe');
   assert.equal(values.signatures.reportTo.imageDataUrl.startsWith('data:image/png;base64,'), true);
@@ -171,10 +171,10 @@ test('renderer returns exact PDF bytes, hash, length, flattened form, and embedd
   assert.equal(first.rendererVersion, RENDERER_VERSION);
   assert.equal(first.templateSha256.toString('hex').toUpperCase(), TEMPLATE_SHA256_HEX);
   assert.equal(first.byteLength, first.pdfBytes.length);
-  assert.equal(first.byteLength, 1_088_132);
+  assert.equal(first.byteLength, 1_088_141);
   assert.equal(first.byteLength <= MAX_PDF_BYTES, true);
   assert.deepEqual(first.pdfSha256, sha256(first.pdfBytes));
-  assert.equal(first.pdfSha256.toString('hex').toUpperCase(), '1BC5F33C44883AECC7D1EFE25B5C8C710582C97A0D7BA756FB248BDD84083448');
+  assert.equal(first.pdfSha256.toString('hex').toUpperCase(), '0B762577584911DE65486E2FA19757CEFF4FC7946AA3D57BA3DC199F1494A165');
   assert.deepEqual(first.pdfBytes, second.pdfBytes);
   assert.equal(first.pdfBytes.subarray(0, 5).toString('ascii'), '%PDF-');
   assert.equal(imageObjectCount(first.pdfBytes) >= expectedImages, true);

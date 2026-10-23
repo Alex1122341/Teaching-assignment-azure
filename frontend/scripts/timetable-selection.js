@@ -44,7 +44,7 @@ window.UCVM_TIMETABLE_SELECTION=(()=>{
   const seen=new Set();
   const rows=new Map((source||[]).filter(row=>row&&!row.isCcc&&text(row.id)).map(row=>{const id=text(row.id);if(seen.has(id))throw Error('Duplicate session identity in export scope.');seen.add(id);return[id,{
    courseCode:scalar(row.course),courseName:scalar(row.courseName),date:scalar(row.date),startTime:row.timeUnknown?'':scalar(row.start),endTime:row.timeUnknown?'':scalar(row.end),
-   topic:scalar(row.topic),type:scalar(row.type),faculty:scalar(row.instructor),room:scalar(row.room),visc:'Not provided'
+   topic:scalar(row.topic),type:scalar(row.type),faculty:window.PAWS_FACULTY_NAME.formatList(scalar(row.instructor)),room:scalar(row.room),visc:'Not provided'
   }];}));
   const selection=create(max);
   return{

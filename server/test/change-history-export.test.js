@@ -27,7 +27,7 @@ test('Dashboard CSV uses one operation row and includes every authorized field i
  const out=await renderHistoryExport([operation],'csv',{grouped:true});
  const csv=out.bytes.toString('utf8');
  assert.equal((csv.match(/\r\n/g)||[]).length,2);
- for(const value of ['Operations','Faculty A','Faculty B','University Travel','Vacation','Purpose','Start date','End date'])if(value!=='Operations')assert.ok(csv.includes(value),value);
+ for(const value of ['Operations','A, Faculty','B, Faculty','University Travel','Vacation','Purpose','Start date','End date'])if(value!=='Operations')assert.ok(csv.includes(value),value);
  assert.doesNotMatch(csv,/batchRequestId|actorFirebaseUid/);
 });
 test('Dashboard Excel separates one operation row from its complete Change Details',async()=>{

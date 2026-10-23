@@ -6,7 +6,7 @@
   if(result.contentType!=='application/pdf'||!result.bytes?.byteLength||result.bytes.byteLength>2097152)throw Error('Invalid document response.');
   const url=root.URL.createObjectURL(new Blob([result.bytes],{type:'application/pdf'})),a=root.document.createElement('a');a.href=url;a.download='afc-form-'+id+'.pdf';a.click();root.setTimeout(()=>root.URL.revokeObjectURL(url),1000);
  }
- function createController({api,host,getUser=()=>root?.firebase?.auth?.().currentUser,getFaculty=()=>[],facultyName=r=>r.displayName||'Name unavailable',randomUUID=()=>root.crypto.randomUUID(),download=savePdf}){
+ function createController({api,host,getUser=()=>root?.firebase?.auth?.().currentUser,getFaculty=()=>[],facultyName=r=>(root?.PAWS_FACULTY_NAME||(typeof module==='object'&&module.exports?require('./faculty-name'):null)).format(r,'Name unavailable'),randomUUID=()=>root.crypto.randomUUID(),download=savePdf}){
   let generation=0,read=false,enabled=false,busy=false,facultyId='',selected=null,key='',documents=[],cursor=null,message='',success=null,openedUid='';
   const uid=()=>String(getUser()?.uid||''),current=(g,u)=>g===generation&&u===uid();
   function render(){

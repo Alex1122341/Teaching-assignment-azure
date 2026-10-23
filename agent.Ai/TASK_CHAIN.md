@@ -1,3 +1,6 @@
+## Current: Role & Appointment version-format bug candidate - 2026-10-23
+
+Branch fix/role-appointment-period-version-20261023 from main 9734d2d, product 4c23f7f. The exact UI error is Dashboard API HTTP 400 INVALID_ROLE_VERSION, not SQL concurrent-write HTTP 409. The browser and server now canonicalize only supported eight-byte SQL version forms (0x hex, bare hex and Buffer JSON); invalid tokens fail closed, 409 stale protection stays intact. Focused tests 11/11 and adjacent tests 113/113 passed. Freeze governance / exact PR CI require verification. No live DB/API/Firebase write or release. See docs/role-period-version-fix-20261023.md and agent.Ai/updates/2026-10-23-role-period-version-compat.md.
 ## Current: PAWS name constitution candidate — 2026-10-23
 
 Branch feat/paws-person-name-constitution-20261023 starts from accepted main2664fee. Implements shared Last name, First name labels, structured/partial names, new output names and PAWS_CONSTITUTION.md; source identities, audits, immutable PDFs and DOE remain untouched. Product review corrections are in progress; no merge/deploy for this candidate. No local suites/install. Follow-on requested UI work targets Teaching Schedule and leadership lists after names acceptance.

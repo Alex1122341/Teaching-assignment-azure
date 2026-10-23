@@ -14,6 +14,7 @@ function changeHarness(changedRange=false){
  vm.createContext(context);vm.runInContext(`let selectedCourses=new Set(['200','202']),courseFilterActive=true,contentFilterBatch=false;
  const selectedWeek=12,selectedSemester='fall',selectedYear='3',myTimetableOnly=true;
  const activityTypeFilter={selectedKeys:()=>['teaching:LEC','work:ccc'],setSelected(keys){if(!contentFilterBatch)render();},reset(){if(!contentFilterBatch)render();}};
+ ${sourceFunction('timetable.js','refreshContentFilterScope')}
  ${sourceFunction('timetable.js','changeContentFilter')}
  function snapshot(){return {courses:[...selectedCourses],active:courseFilterActive,selectedWeek,selectedSemester,selectedYear,myTimetableOnly};}
  `,context);
@@ -42,6 +43,7 @@ test('clearing a subscribed unchanged range still repaints Calendar and activity
  const activityTypeFilter={reset(){}};
  ${sourceFunction('timetable.js','subscribeSessions')}
  ${sourceFunction('timetable.js','refreshSessionScope')}
+ ${sourceFunction('timetable.js','refreshContentFilterScope')}
  ${sourceFunction('timetable.js','changeContentFilter')}
  changeContentFilter('clear');`,context);
  assert.equal(context.rendered,1,'same-range subscription must not leave old filtered sessions visible');
@@ -55,6 +57,11 @@ test('expanding period controls repositions the selected week after a hidden/nar
  const context={$:()=>node,syncWeekUI(){synced++;}};vm.createContext(context);
  vm.runInContext(sourceFunction('timetable.js','setScheduleFiltersExpanded')+';setScheduleFiltersExpanded(true,false);',context);
  assert.equal(synced,1);
+});
+test('month picker applies its predicate immediately through the shared range-aware refresh',()=>{
+ const source=sourceFunction('timetable.js','bindControls');
+ const handler=source.slice(source.indexOf("$('filter-month').addEventListener"),source.indexOf("$('reset-filters').addEventListener"));
+ assert.match(handler,/refreshContentFilterScope\(\)/);
 });
 
 test('dated week labels use the supplied academic dates including month/year boundaries',()=>{

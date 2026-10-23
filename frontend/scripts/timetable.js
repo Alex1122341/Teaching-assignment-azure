@@ -989,7 +989,7 @@
         document.querySelectorAll('[data-semester]').forEach(x => x.classList.toggle('active', x.dataset.semester === selectedSemester));
         renderWeekControls();
       }
-      refreshSessionScope();
+      refreshContentFilterScope();
     });
     $('reset-filters').addEventListener('click', resetFilters);
     $('cal-prev').addEventListener('click', () => moveCalendar(-1));
@@ -1074,13 +1074,15 @@
       else return;
     }finally{contentFilterBatch=false;}
     if(coursesChanged)populateCourseFilter();
-    if(scopeChanged){
-      const range=visibleSessionRange(),sameScope=currentUser&&sessionUnsubscribe&&sessionRangeKey===`${viewMode}:${range.start}:${range.end}`;
-      // Same-range subscriptions return early. Changed ranges repaint on load;
-      // an extra immediate render would request the activity lane twice.
-      if(sameScope)render();else renderActiveContentFilters();
-      refreshSessionScope();
-    }else render();
+    if(scopeChanged)refreshContentFilterScope();else render();
+  }
+
+  function refreshContentFilterScope() {
+    const range=visibleSessionRange(),sameScope=currentUser&&sessionUnsubscribe&&sessionRangeKey===`${viewMode}:${range.start}:${range.end}`;
+    // Month selection and chip removal share this path. Same-range subscriptions
+    // return early; changed ranges render on load without a duplicate activity call.
+    if(sameScope)render();else renderActiveContentFilters();
+    return refreshSessionScope();
   }
 
   function resetFilters() {

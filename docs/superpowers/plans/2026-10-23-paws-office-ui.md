@@ -42,9 +42,9 @@
 
 ## Task 3 — browser iteration and delivery
 
-- [ ] Build `.deploy-static` and run the actual local preview. Check keyword search/order/clear/status/refresh, focus/Escape, loading/error/retry, long names/roles/text, empty/large results, narrow view and 200% zoom. Capture after at the exact baseline conditions.
-- [ ] Record the three problems fixed and one concrete detail pass. Run `npm test` as requested for this UI phase; record unavailable coverage honestly. Build/freeze promotion remains a separate reviewed commit if publishing.
-- [ ] Update acceptance notes and continuity records; independent whole-branch review before any authorized merge/publication. Deliver local preview, paired screenshots, component/rule reuse and remaining issues.
+- [x] Build actual bundle/preview. Exercise search/sort/clear/status/refresh, focus/Escape/loading/error/Retry, long names/roles/text, empty/large/narrow/dark; capture exact matched baselines. 720×450reflow checked; native200%text zoom remains explicitly unverified.
+- [x] Fix top three problems and detail-pass control alignment/stable shell. Final local `npm test`:1030pass/0fail/53skip; targeted15/15, governance4/4. Separate reviewed product/governance commits and build/freezes retained.
+- [x] Document scoped reviews, audit/reuse inventory, synthetic screenshots, current limits and continuity. PR136 remains unmerged/unpublished; final current-head CI must be checked after the documentation receipt push.
 
 ## Execution ruling
 

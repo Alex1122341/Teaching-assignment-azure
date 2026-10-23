@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "67957734400d877b6b2e93b851c8e9ed8f0d8e9d",
+  "sourceCommit": "64477000a17ae885776f664a93480af0aaaf110f",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -90,6 +90,6 @@
     "user-management.js": "36ebae9ff0bfddbac604d4a40b05783aa9ee6960cf18ac1e9127ed481a33bc2f",
     "workspace-navigation.js": "806b42b3c22ecf2150753353c4f1dbbc999ee61f65aed0e55e613fd61d5e9eea",
     "workspace-tasks.js": "4520839dd547c21d6d9e6e49ddc2f8a5645f3d06b8954c3f53840edf9200a6c6",
-    "workspace.css": "ce0c1c332ef27f25cf908102bec72b00c829c8f892f3358ffb5291ae3e0ec6ed"
+    "workspace.css": "1fb51227afa4f9a4304312ff44847fd10c1f861b90af0e4443ebedbb57a8b623"
   }
 }

@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
-const BASE='2664feef74e340d0b3df4a6f422663c571bc7731',PRODUCT='3c8f10205ef43e25aa7577b5047c21b1490b93f3';
+const BASE='2664feef74e340d0b3df4a6f422663c571bc7731',PRODUCT='5a3117d4aec48b685e734651f4caa24d9050ba4f';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'});
 test('name constitution promotion protects all existing static and API assets, adds only the shared server formatter',()=>{
  const before=JSON.parse(git('show',BASE+':tools/static-assets.json')),after=JSON.parse(git('show',PRODUCT+':tools/static-assets.json'));

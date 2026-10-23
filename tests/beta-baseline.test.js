@@ -12,7 +12,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='ec4a191b8798f6cada285079989144142822fb50';
+const BASELINE_COMMIT='67957734400d877b6b2e93b851c8e9ed8f0d8e9d';
 const CCC_SCHEDULE_PRODUCT_COMMIT='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
@@ -54,7 +54,7 @@ const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:c
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
 
 test('Calendar workspace promotion adds only two views and preserves Phase1 and all API protection',()=>{
- const previous='16027769c774367c65d5dd68fc1a8002a052589e',product='ec4a191b8798f6cada285079989144142822fb50';
+ const previous='16027769c774367c65d5dd68fc1a8002a052589e',product='67957734400d877b6b2e93b851c8e9ed8f0d8e9d';
  const history=execFileSync('git',['show','30f763dcbca8c669a87f0ced281327db5bd35a95:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});
  assert.ok(history.includes(`const BASELINE_COMMIT='${previous}'`));
  const before=historicalStaticPaths(previous),after=historicalStaticPaths(product);

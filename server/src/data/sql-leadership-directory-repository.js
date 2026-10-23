@@ -40,7 +40,7 @@ function createSqlLeadershipDirectoryRepository(db) {
                         WHERE c.CourseCode = LTRIM(RTRIM(r.CourseOrSubjectOrRotation))) course
           WHERE r.AcademicYear = @academicYear
             AND f.Active = 1
-            AND LTRIM(RTRIM(r.RoleType)) IN (@roleType0, @roleType1, @roleType2)
+            AND UPPER(LTRIM(RTRIM(r.RoleType))) COLLATE Latin1_General_100_BIN2 IN (UPPER(@roleType0), UPPER(@roleType1), UPPER(@roleType2))
           ORDER BY r.RoleAssignmentId`,
         { academicYear, limitPlusOne: MAX_ROWS + 1, roleType0: ROLE_TYPES[0], roleType1: ROLE_TYPES[1], roleType2: ROLE_TYPES[2] }
       );

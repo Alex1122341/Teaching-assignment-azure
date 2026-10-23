@@ -13,6 +13,7 @@ const { calgaryDate, classify } = require('./role-effective-status');
 // the server: no DOE, identifiers, emails, notes or source fields.
 
 const GROUP = Object.freeze({ HICC: 'hiccCc', 'Course Coordinator': 'hiccCc', VISC: 'visc' });
+const ROLE_LABELS = Object.freeze({ hicc: 'HICC', 'course coordinator': 'Course Coordinator', visc: 'VISC' });
 const ROLE_RANK = Object.freeze({ HICC: 0, 'Course Coordinator': 1, VISC: 2 });
 const STATUS = new Set(['active', 'inactive', 'upcoming', 'dates-needed']);
 const NAME_MAX = 260;
@@ -32,16 +33,18 @@ function buildDirectory(rows, { academicYear, asOfDate }) {
   const groups = { hiccCc: [], visc: [] };
   const seen = new Set();
   for (const row of rows) {
-    const roleType = typeof row?.roleType === 'string' ? row.roleType.trim() : '';
+    const roleKey = typeof row?.roleType === 'string' ? row.roleType.trim().toLowerCase() : '';
+    const roleType = Object.hasOwn(ROLE_LABELS, roleKey) ? ROLE_LABELS[roleKey] : '';
     const group = GROUP[roleType];
     if (!group) continue;
     const facultyName = trimmed(row.facultyName, NAME_MAX);
     if (!facultyName) continue;
-    const scope = trimmed(row.courseCode, SCOPE_MAX) || trimmed(row.recordedScope, SCOPE_MAX);
+    const completeScope = trimmed(row.courseCode, Infinity) || trimmed(row.recordedScope, Infinity);
+    const scope = trimmed(completeScope, SCOPE_MAX);
     const decided = classify({ hasSchedule: row.hasSchedule === 1 || row.hasSchedule === true, periodsJson: row.periodsJson,
       effectiveDate: row.effectiveDate, expirationDate: row.expirationDate }, asOfDate);
     // Genuine duplicates only: same person, role, scope and the same recorded dates.
-    const identity = JSON.stringify([roleType, String(scope || '').toLowerCase(), String(row.facultyKey || facultyName).toLowerCase(),
+    const identity = JSON.stringify([roleType, String(completeScope || '').toLowerCase(), String(row.facultyKey || facultyName).toLowerCase(),
       row.hasSchedule ? String(row.periodsJson || '') : [row.effectiveDate || null, row.expirationDate || null]]);
     if (seen.has(identity)) continue;
     seen.add(identity);

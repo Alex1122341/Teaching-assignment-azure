@@ -99,9 +99,36 @@ test('HICC and Course Coordinator enter HICC–CC, VISC enters VISC only; everyt
     row('Manual DOE adjustment', 'x', 'I Person')
   ];
   const directory = buildDirectory(rows, { academicYear: '2026-27', asOfDate: '2026-10-22' });
-  assert.deepEqual(directory.hiccCc.map(e => [e.roleType, e.facultyName]), [['HICC', 'B Person'], ['Course Coordinator', 'A Person']]);
+  assert.deepEqual(directory.hiccCc.map(e => [e.roleType, e.facultyName]), [['HICC', 'B Person'], ['Course Coordinator', 'A Person'], ['HICC', 'H Person']]);
   assert.deepEqual(directory.visc.map(e => [e.roleType, e.facultyName]), [['VISC', 'C Person']]);
   assert.deepEqual(ROLE_TYPES, ['HICC', 'Course Coordinator', 'VISC']);
+});
+
+test('role mapping trims and canonicalizes casing without accepting similar or inherited names', () => {
+  const directory = buildDirectory([
+    row(' hicc ', '100', 'A'), row(' course coordinator ', '100', 'B'), row(' vIsC ', 'Anatomy', 'C'),
+    row('HICC extra', '100', 'D'), row('toString', '100', 'E'), row('__proto__', '100', 'F')
+  ], { academicYear: '2026-27', asOfDate: '2026-10-23' });
+  assert.deepEqual(directory.hiccCc.map(entry => entry.roleType), ['HICC', 'Course Coordinator']);
+  assert.deepEqual(directory.visc.map(entry => entry.roleType), ['VISC']);
+});
+
+test('distinct full scopes survive even when their display labels truncate identically', () => {
+  const prefix = 'A'.repeat(220);
+  const directory = buildDirectory([
+    row('VISC', prefix + ' first', 'Same Person'), row('VISC', prefix + ' second', 'Same Person'),
+    row('VISC', prefix + ' first', 'Same Person')
+  ], { academicYear: '2026-27', asOfDate: '2026-10-23' });
+  assert.equal(directory.visc.length, 2);
+  assert.equal(directory.visc[0].scope, directory.visc[1].scope);
+  assert.equal(directory.visc[0].scope.length, 200);
+});
+
+test('SQL role filtering is case-insensitive even in a case-sensitive database', async () => {
+  let query;
+  const repository = createSqlLeadershipDirectoryRepository({ query: async sql => { query = sql; return []; } });
+  await repository.list({ academicYear: '2026-27' });
+  assert.match(query, /UPPER\(LTRIM\(RTRIM\(r\.RoleType\)\)\) COLLATE Latin1_General_100_BIN2 IN \(UPPER\(@roleType0\), UPPER\(@roleType1\), UPPER\(@roleType2\)\)/);
 });
 
 test('HICC–CC sorts naturally by course, then HICC before CC, then Faculty; VISC by subject then Faculty', () => {
@@ -244,7 +271,7 @@ test('repository: one read-only parameterised SELECT over granted, non-DOE colum
   const sql = queries[0].text;
   assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|MERGE|EXEC|EXECUTE|CREATE|ALTER|DROP|GRANT|TRUNCATE)\b/i);
   assert.doesNotMatch(sql, /Doe|SpecialNotes|Details|Email|Ucid|FirebaseUid|SourceFacultyName|SourceRow|SourceImportBatchId|CourseId\b|COUNT\(\*\)|staging\./i);
-  assert.match(sql, /LTRIM\(RTRIM\(r\.RoleType\)\) IN \(@roleType0, @roleType1, @roleType2\)/);
+  assert.match(sql, /UPPER\(LTRIM\(RTRIM\(r\.RoleType\)\)\) COLLATE Latin1_General_100_BIN2 IN \(UPPER\(@roleType0\), UPPER\(@roleType1\), UPPER\(@roleType2\)\)/);
   assert.match(sql, /r\.AcademicYear = @academicYear/);
   assert.match(sql, /f\.Active = 1/);
   assert.match(sql, /TOP \(@limitPlusOne\)/);

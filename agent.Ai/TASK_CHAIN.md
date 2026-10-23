@@ -1,4 +1,8 @@
-## Current: HICC–CC / VISC directory candidate (not merged/released) — 2026-10-22
+## Current: PR132/133 complete — 2026-10-23
+
+Both reviewed/merged/published/liveaccepted. Currentmain/API2664fee,anchor8570198,Hosting0bf901b15bb72eef;87served files match,27gates unchanged, real Faculty91/35read+403admin denial, real Chrome dialogs/refresh/keyboard passed. Recovery siteReadytrue;candidate-only18789 stopped. Actual latest PR CI success, no local tests/installations. See updates/2026-10-23-pr132-pr133-release-acceptance.md. Do not redo migrations/replacements or publish obsolete85file133artifact. Resume separate125 only against its own current ledger/School DB authority blocker and integrate current frontend layout deliberately.
+
+## Historical: HICC–CC / VISC directory candidate (not merged/released) — 2026-10-22
 
 Read updates/2026-10-22-hicc-visc-directory.md and docs/hicc-visc-directory-20261022.md. Branch feature/hicc-visc-directory-20261022 on main 924cc676: Course List replaced by HICC–CC List / VISC List, read-only /api/v1/dashboard/leadership-directory (no DOE, no migration). Governance anchor 5b135df -> de4d3ca (static 87 / API 114 / protected 117) pending review. Production release blocked on Owner access; no live operations.
 

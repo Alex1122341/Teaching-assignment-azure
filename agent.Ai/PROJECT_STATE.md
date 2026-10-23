@@ -1,4 +1,8 @@
-## Current: HICC–CC / VISC directory candidate (not merged/released) — 2026-10-22
+## Current: PR132 and PR133 published and live accepted — 2026-10-23
+
+Main/API2664feef74e340d0b3df4a6f422663c571bc7731,shared product8570198,Hosting0bf901b15bb72eef/release1792770014392000.87/87served rawhashes match; runtime/SQL200;27gates unchanged; actual Faculty directory91HICC/CC+35VISC/adminRoles403; Chrome dialogs/showall/refresh/focus accepted. Recovery siteReadytrue, candidate18789 stopped. Independent product/spec/governance review and latest exact-PR-head automatic Build39978930807 succeeded; no local suites/install. PR133's earlier85file receipt is superseded. No SQL data/schema/grant/Auth change. Read updates/2026-10-23-pr132-pr133-release-acceptance.md. PR125 remains separate/incomplete; its prior Azure-only-blocker statements below are historical and superseded by its approved School Testing design.
+
+## Historical: HICC–CC / VISC directory candidate (not merged/released) — 2026-10-22
 
 Read updates/2026-10-22-hicc-visc-directory.md and docs/hicc-visc-directory-20261022.md. Branch feature/hicc-visc-directory-20261022 on main 924cc676: Course List replaced by HICC–CC List / VISC List, read-only /api/v1/dashboard/leadership-directory (no DOE, no migration). Governance anchor 5b135df -> de4d3ca (static 87 / API 114 / protected 117) pending review. Production release blocked on Owner access; no live operations.
 

@@ -57,13 +57,15 @@ test('the schedule takes precedence over legacy dates; an explicitly empty sched
   assert.equal(classify({ hasSchedule: true, periodsJson: JSON.stringify([{ startDate: '2026-13-01', endDate: null }]) }, '2026-10-22').status, 'dates-needed');
 });
 
-test('Calgary date: midnight and daylight-saving boundaries use America/Edmonton, not UTC', () => {
+test('Calgary date: midnight and historical daylight-saving boundaries use America/Edmonton, not UTC', () => {
   assert.equal(calgaryDate(new Date('2026-10-22T05:59:59Z')), '2026-10-21', '23:59:59 MDT');
   assert.equal(calgaryDate(new Date('2026-10-22T06:00:00Z')), '2026-10-22', '00:00 MDT');
-  assert.equal(calgaryDate(new Date('2026-11-01T06:30:00Z')), '2026-11-01', 'DST ends 2026-11-01 02:00 MDT');
-  assert.equal(calgaryDate(new Date('2026-11-02T06:30:00Z')), '2026-11-01', '23:30 MST after the change');
-  assert.equal(calgaryDate(new Date('2027-03-14T08:30:00Z')), '2027-03-14', 'DST starts 2027-03-14');
-  assert.equal(calgaryDate(new Date('2027-03-14T06:59:00Z')), '2027-03-13');
+  // Historical transitions remain stable across tzdata versions. Alberta's
+  // November2026 permanent-time policy invalidates assumptions of future fallbacks.
+  assert.equal(calgaryDate(new Date('2025-11-02T06:30:00Z')), '2025-11-02', 'before the historical 2025 fallback');
+  assert.equal(calgaryDate(new Date('2025-11-03T06:30:00Z')), '2025-11-02', '23:30 MST after the historical fallback');
+  assert.equal(calgaryDate(new Date('2025-03-09T08:30:00Z')), '2025-03-09', 'historical spring transition date');
+  assert.equal(calgaryDate(new Date('2025-03-09T06:59:00Z')), '2025-03-08');
   // The status changes exactly at Calgary midnight.
   const p = schedule([{ startDate: '2026-07-01', endDate: '2026-10-21' }]);
   assert.equal(classify(p, calgaryDate(new Date('2026-10-22T05:59:59Z'))).status, 'active');

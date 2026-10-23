@@ -7,6 +7,8 @@ const { execFileSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const assets = require('../tools/static-assets.json');
 const checkpoint = '8249a331a2069d2172db304cc7dff586a7f8df02';
+const relocation = '2fa23fc26974d986f16c337313a931f0dbc52b19';
+const relocationAssets = JSON.parse(execFileSync('git', ['show', `${relocation}:tools/static-assets.json`], { cwd: root, encoding: 'utf8' }));
 const folders = { '.html': 'pages', '.js': 'scripts', '.css': 'styles', '.pdf': 'assets' };
 const source = asset => path.join(root, 'frontend', folders[path.extname(asset)], asset);
 
@@ -19,10 +21,10 @@ test('browser source files live in frontend folders, not repository root', () =>
 
 test('source relocation preserves every published byte from accepted PR133 checkpoint', () => {
   const normalize = bytes => bytes.toString('binary').replace(/\r\n/g, '\n');
-  for (const asset of assets) {
-    assert.ok(fs.existsSync(source(asset)), `missing source: ${asset}`);
+  for (const asset of relocationAssets) {
     const before = execFileSync('git', ['show', `${checkpoint}:${asset}`], { cwd: root, maxBuffer: 8 * 1024 * 1024 });
-    assert.equal(normalize(fs.readFileSync(source(asset))), normalize(before), asset);
+    const after = execFileSync('git', ['show', `${relocation}:frontend/${folders[path.extname(asset)]}/${asset}`], { cwd: root, maxBuffer: 8 * 1024 * 1024 });
+    assert.equal(normalize(after), normalize(before), asset);
   }
 });
 

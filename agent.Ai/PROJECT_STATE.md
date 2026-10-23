@@ -1502,3 +1502,7 @@ Read-only comparison complete; manual versus automatic DOE interaction clarifica
 ## 2026-10-08 — Reference parity design review
 Owner approved retaining manual signed DOE over the automatic policy baseline. Written specification: docs/superpowers/specs/2026-10-08-faculty-ui-doe-rulebook-parity-design.md. Current gate: written-spec review; implementation plan follows its approval. No product or live changes.
 
+# Maintenance recovery in progress — 2026-10-23
+
+Owner requests live Beta website restoration after School restart. Existing pinned Recovery restored API924cc67/SQL200/anonymous401 and matching27gates. New actual origin cultures-please-skirt-tba.trycloudflare.com requires Hosting pointer repair. Separate main-based branch contains one shipped origin change, reviewed product00ed3f0/separate governance87d5051, independent product+governance READY,85served baseline files matched oldmain, candidate repository/artifact freezes pass. No local tests/installs or CI pass claimed. Rollback version captured; next merge repair PR, rebuild exactmain, publish Hosting-only, verify served85/gates/CORS/browser, update Recovery PublishedOrigin with backup. See newest2026-10-23-maintenance-origin-recovery-ready.md. PR125 remains separate/incomplete; do not deploy its runtime.
+

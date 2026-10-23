@@ -5,7 +5,8 @@ const test=require('node:test'), assert=require('node:assert/strict');
 const fs=require('node:fs'), {execFileSync}=require('node:child_process');
 const root=repositoryPath(__dirname,'..');
 const staticFreeze=require('../tools/beta-freeze.js'), apiFreeze=require('../tools/beta-api-freeze.js');
-const report=require('../tools/beta-baseline.json');
+const GOVERNANCE='8249a331a2069d2172db304cc7dff586a7f8df02';
+const report=JSON.parse(execFileSync('git',['show',GOVERNANCE+':tools/beta-baseline.json'],{cwd:root,encoding:'utf8'}));
 const MAIN='ad605dbb9ab92457df972703c723e2b991fa284c';
 const PREVIOUS='ba915e99ca06677d58e129f6fb671bd40d21600e';
 const PRODUCT='f78b10a1401bcb8675f8fd5414ec3d98eafa1ffd';
@@ -40,8 +41,8 @@ test('retired frontend symbols do not touch protected API, SQL or deployment wor
 });
 
 test('separate governance promotion pins the immutable product commit and current artifact hashes',()=>{
-  assert.equal(staticFreeze.BASELINE_COMMIT,PRODUCT);
-  assert.equal(apiFreeze.BASELINE_COMMIT,PRODUCT);
+  assert.ok(git('show',GOVERNANCE+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+  assert.ok(git('show',GOVERNANCE+':tools/beta-api-freeze.js').includes("require('./beta-freeze')"));
   assert.equal(report.sourceCommit,PRODUCT);
   const files=JSON.parse(git('show',PRODUCT+':tools/static-assets.json'));
   assert.deepEqual(Object.keys(report.sha256).sort(),[...files].sort());

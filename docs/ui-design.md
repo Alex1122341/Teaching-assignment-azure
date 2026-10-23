@@ -84,6 +84,10 @@ No P0/P1 visual defect is asserted without corresponding evidence. Source-only c
 
 ## Evidence and limits
 
+### Freeze promotion for this candidate (not a deployment)
+
+Product `16027769c774367c65d5dd68fc1a8002a052589e` changes exactly `index.html`, `leadership-directory.js`, `leadership-directory.css`, `workspace.css`. A separate governance commit pins that immutable product, retains all87 static paths and all115 API runtime paths (118 with repository/build inputs), and recomputes reporting hashes. The API tree, dependencies, SQL, Firestore rules and runtime origin are unchanged. Prior name governance is checked against its fixed accepted main9734d2d; historical receipts are not rewritten. `tests/office-ui-governance.test.js` guards the exact new delta and active full freeze. These are candidate build checks, not permission to merge or publish.
+
 Local read-only preview at `http://127.0.0.1:19038/after/` uses the actual generated page/modules/styles with synthetic fixtures; `/before/` preserves accepted main9734d2d. It removes production initialization and all fixture writes/network access. The fixture harness and generated comparison artifacts live outside the repository and are not shipped.
 
 Comparable baseline/after screenshots are saved privately under `PAWS-DOE-Preview/name-acceptance-20261023/ui-evidence/` at 1920×1080, 1440×900, 1366×768 and 1024×768. Additional 768/640px screenshots cover long names/scopes and dark mode; a 720×450 viewport checks the available area equivalent to 200% reflow from 1440×900. This is not proof of native browser text zoom, which remains unverified. Actual saved screenshots were opened and reviewed; only accepted stable captures are used. A transient first capture during concurrent static build tests was rejected, and preview serving was isolated to a stable generated candidate artifact.

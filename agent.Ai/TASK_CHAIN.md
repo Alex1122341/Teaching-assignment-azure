@@ -1,3 +1,7 @@
+## Current: person-name constitution published; UI inspection started — 2026-10-23
+
+PR135 merged main9734d2d9ba6cd927dbec3585838689f235ed0e9f, product5a3117d4aec48b685e734651f4caa24d9050ba4f. Exact-main automatic Build39988089596 passed; Hostingd491d9394e8eb9d7/release1792773691703000 at16:41:31.703Z;87/87servedrawhashesmatch. School API live9734d2d/trust5a3117d,113sourcefilesverified,115APIinventory,27gatesunchanged. PublicHTTPS normalFacultylogin directory91HICC/CC+35VISC/publicfieldsonly/adminRoles403. RecoveryCheckOnlysiteReady/apiReadytrue;candidate18789stopped. Originaldata/audits/PDFs/signatures/DOE/Authunchanged;newPDFrenderer1.1.0. Names are complete. Next: requested Teaching Schedule/leadership UI density/search/consistency, local preview and desktop/narrow screenshots using existing code. See updates/2026-10-23-person-name-release-and-ui-start.md.
+
 ## Current: PAWS name constitution candidate — 2026-10-23
 
 Branch feat/paws-person-name-constitution-20261023 starts from accepted main2664fee. Implements shared Last name, First name labels, structured/partial names, new output names and PAWS_CONSTITUTION.md; source identities, audits, immutable PDFs and DOE remain untouched. Product review corrections are in progress; no merge/deploy for this candidate. No local suites/install. Follow-on requested UI work targets Teaching Schedule and leadership lists after names acceptance.

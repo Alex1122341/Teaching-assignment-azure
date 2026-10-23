@@ -82,6 +82,15 @@ Change only the schedule filter layout and leadership controls/table presentatio
 
 No P0/P1 visual defect is asserted without corresponding evidence. Source-only concerns above remain pending, not verified findings.
 
+### Representative screenshot pairs (synthetic records only)
+
+1440×900 viewport, same fixed Fall Week12, same fixture/status population and scroll position. These screenshots are documentation assets only; they are not in the shipped static allowlist.
+
+| Surface | Before | After |
+|---|---|---|
+| Teaching Schedule | [Baseline](ui-evidence/schedule-before-1440.jpg) | [Compact filters](ui-evidence/schedule-after-1440.jpg) |
+| HICC–CC directory | [Baseline](ui-evidence/leadership-before-1440.jpg) | [Searchable compact list](ui-evidence/leadership-after-1440.jpg) |
+
 ## Evidence and limits
 
 ### Freeze promotion for this candidate (not a deployment)

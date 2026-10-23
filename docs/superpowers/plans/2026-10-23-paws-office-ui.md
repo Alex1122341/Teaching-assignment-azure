@@ -34,11 +34,11 @@
 
 ## Task 2 — compact filters and usable directory
 
-- [ ] `frontend/pages/index.html`: add labelled search and sort, Clear search, preserving existing status checkbox/Refresh and IDs.
-- [ ] `frontend/scripts/leadership-directory.js`: implement `viewRows`, wire current query/sort/clear, visible count, distinct empty-search state, loading/Retry, select keyboard focus and reset per open. Keep authorized loading and privacy behavior unchanged.
-- [ ] `frontend/styles/leadership-directory.css`: responsive shell/compact rows/shared controls/focus/long names/dark theme. Preserve two business columns and sticky headers.
-- [ ] `frontend/styles/workspace.css`: targeted schedule filter grid/wrapping, consistent sizes, compact brand actions, responsive fallback; avoid unrelated surfaces.
-- [ ] Run new and existing directory/name assertions; repair only affected fixture expectations and preserve prior contracts.
+- [x] `frontend/pages/index.html`: labelled search/sort/Clear, preserving status checkbox/Refresh and IDs; schedule search/month receive associated labels.
+- [x] `frontend/scripts/leadership-directory.js`: copied query/sort view, count, clearable empty state, busy/Retry, select focus and reset; fresh authorized loading unchanged.
+- [x] `frontend/styles/leadership-directory.css`: responsive stable shell, compact rows/shared controls/focus/long names/dark theme; two business columns preserved.
+- [x] `frontend/styles/workspace.css`: shared tokens plus scoped filter grid/controls/responsive fallback.
+- [x] New and existing directory assertions15/15; independent critique focus regression reproduced red, fixed green and retested in browser.
 
 ## Task 3 — browser iteration and delivery
 

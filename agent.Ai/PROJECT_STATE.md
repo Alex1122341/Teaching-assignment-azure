@@ -1,4 +1,8 @@
-## Current: PR125 online deployment preparation; no desktop installs/tests — 2026-10-22
+## Current: PR125 School P: host approved; preparation in progress — 2026-10-22
+
+Owner selected the exact School-host option: ITAPPVETOPSDB01/P:, independent18788/tunnel/VetMed-Ops-Testing. Runtime root `P:\PAWS\Testing\Host`; administrative Backups/Evidence `P:\PAWS\Testing`. Host policy/template/stop proof changed to School only, full TLS FQDN; private ACL/Git/link checks preserved. Preparation script creates only a new private filesystem tree, all27 gates false, allocated-not-SQL-verified UUID/draft and a filled DBA script; starts no API/tunnel and makes no SQL/Auth change. Next execute this preparation remotely with signed/hash-pinned installed Node22; local tests/installations remain waived. SQL creation still requires DBA (current account has zero rights). Read updates/2026-10-22-pr125-school-host-approved.md. Older pending-selection statements below are historical.
+
+## Historical: PR125 online deployment preparation; no desktop installs/tests — 2026-10-22
 
 Later checkpoint: preparation4093f0d pushed normally and PR125 body updated, Draft=true/open/unmerged. Testing Firebase Authentication now initialized through Get started; all providers remain disabled, no accounts/keys/passwords created. Read newest updates/2026-10-22-pr125-online-preparation-published.md; earlier no-Auth-mutation statement below predates this action. No feature release or acceptance was completed.
 

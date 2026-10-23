@@ -1,10 +1,10 @@
 {
-  "computerName": "VET-C31293",
+  "computerName": "ITAPPVETOPSDB01",
   "windowsIdentity": "REPLACE_WITH_CURRENT_WINDOWS_IDENTITY",
   "apiPort": 18788,
   "target": {
     "profile": "university-testing",
-    "host": "itappvetopsdb01",
+    "host": "itappvetopsdb01.uc.ucalgary.ca",
     "physicalServer": "ITAPPVETOPSDB01",
     "database": "VetMed-Ops-Testing",
     "environmentId": "REPLACE_WITH_STABLE_TESTING_UUID"
@@ -40,7 +40,7 @@
     "doePolicyPublish": false,
     "doeRecalculate": false
   },
-  "privateRoot": "REPLACE_WITH_LOCALAPPDATA_PAWS_TESTING",
+  "privateRoot": "P:\\PAWS\\Testing\\Host",
   "releaseManifestPath": "REPLACE_WITH_PRIVATE_RELEASE_MANIFEST",
   "releaseManifestSha256": null,
   "nodeExe": "REPLACE_WITH_SIGNED_NODE22_EXECUTABLE",

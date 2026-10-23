@@ -4,7 +4,7 @@
 
 Do not install anything on VET-C31293 and do not run local tests. Continue deployment preparation and online acceptance. This supersedes the plan's LocalDB installation and disposable local SQL acceptance prerequisite; those checks are omitted, not passed. Historical test receipts still apply only to their recorded source. No SQL-target, TLS, privacy, immutable-freeze or source-provenance check is waived by this direction.
 
-The approved API host was VET-C31293. Moving its independent API to the School server is proposed because the desktop lacks ODBC18 while the server already has it. Owner selection is pending. No host allowlist, private root, API process or tunnel has been changed to assume that selection.
+The original API host was VET-C31293. Owner subsequently approved moving its independent API to ITAPPVETOPSDB01 P: because that server already has Node22/ODBC18. Current root is `P:\PAWS\Testing\Host`, separate loopback18788/tunnel and the same independent Testing database. Host/root/stop-proof defaults are being updated to the approved exact machine; no API startup or publication is implied.
 
 ## Current remote observations
 
@@ -49,7 +49,7 @@ Firebase's existing authenticated CLI successfully read the Testing Web SDK conf
 
 ## Release state and next steps
 
-1. Obtain the pending API-host selection; amend the host policy and operational specification if the School server is selected. Use the existing P: volume, independent18788/Testing tunnel and private release paths; preserve the Production process.
+1. Host selection is now approved. Amend exact host/root/stop-proof defaults and prepare private School P: directories/draft using existing Node22/ODBC18. Use independent18788/Testing tunnel and private release paths; preserve the Production process.
 2. Have a School SQL administrator execute the reviewed Testing-only initialization with the private UUID. Do not request a password or promote the current account to a server role.
 3. Continue guarded synthetic migrations, Testing Firebase/provider/accounts, independent API/tunnel deployment and real authenticated online acceptance. Failures remain visible; no omitted local check is relabeled a pass.
 4. Complete independent product review and separate immutable governance promotion, then request source-specific cloud verification as directed by Owner. Official Actions metadata/artifacts must not be invented if quota prevents them.

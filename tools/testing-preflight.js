@@ -19,7 +19,7 @@ const GUIDE = 'docs/dual-environment/03-setup-and-deployment.md';
 const STEPS = Object.freeze({
   firebase: `Create the Testing Firebase project and web app, then copy its web config into config/environments/testing.json (${GUIDE} §2.1).`,
   siteUrl: `Create the Testing Firebase Hosting site and set siteUrl to its https://<site>.web.app origin (${GUIDE} §2.1).`,
-  apiOrigin: `Prepare the independent desktop Testing HTTPS tunnel and record its actual origin (${GUIDE}; current University procedure: docs/dual-environment/12-university-testing-operations.md).`,
+  apiOrigin: `Prepare the independent School Testing HTTPS tunnel and record its actual origin (${GUIDE}; current University procedure: docs/dual-environment/12-university-testing-operations.md).`,
   peer: `In the same reviewed change, set production.json peerSiteUrl to the Testing siteUrl, regenerate paws-api-origin.js and promote the freeze (${GUIDE} §5).`,
   apiEnv: `Validate the private Windows profile with --profile university-testing and supply non-secret settings (${GUIDE}; current University operations §Task5).`,
   live: `Deploy Testing (PAWS Testing Deploy workflow) and re-run with --live (${GUIDE} §6).`
@@ -78,7 +78,7 @@ async function liveChecks({ production, testing, fetchImpl = fetch, expectedSha,
     if(trustAnchor&&body.runtimeTrustAnchor!==trustAnchor)throw Error('Testing API runtime trust anchor mismatch');
     if(expectedGates&&require('./testing-runtime-attestation').canonicalDigest(body.writeGates)!==require('./testing-runtime-attestation').canonicalDigest(expectedGates))throw Error('Testing API runtime gate fingerprint mismatch');
     return `Testing API ${body.releaseSha || '(no release)'}; ${Object.values(body.writeGates).filter(Boolean).length} gates open`;
-  }, 'Check the private desktop supervisor receipt, University SQL connectivity and target identity');
+  }, 'Check the private School Testing supervisor receipt, University SQL connectivity and target identity');
   await probe('live.api.sql', async () => {
     const response = await fetchWithTimeout(fetchImpl, `${api}/api/health/sql`);
     if (response.status !== 200) throw new Error(`GET /api/health/sql returned ${response.status}`);

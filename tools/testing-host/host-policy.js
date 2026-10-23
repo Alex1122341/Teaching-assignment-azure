@@ -5,13 +5,12 @@ const {GATE_ENV}=require('../../server/src/data/write-gates');
 const PROJECT='paws-testing-ucvm-20261022';
 const samePath=(a,b)=>typeof a==='string'&&typeof b==='string'&&path.win32.resolve(a).toLowerCase()===path.win32.resolve(b).toLowerCase();
 function validateHostProfile(profile,observed){
- if(!profile||!observed||profile.computerName!=='VET-C31293'||observed.computerName!==profile.computerName||
+ if(!profile||!observed||profile.computerName!=='ITAPPVETOPSDB01'||observed.computerName!==profile.computerName||
   typeof profile.windowsIdentity!=='string'||!profile.windowsIdentity.trim()||profile.windowsIdentity.toLowerCase()!==String(observed.windowsIdentity).toLowerCase())throw Error('Testing host machine/user identity mismatch');
  assertTarget(profile.target);
  if(profile.apiPort!==18788||profile.firebaseProjectId!==PROJECT)throw Error('Testing host profile port/project mismatch');
  if(!['https://'+PROJECT+'.web.app','https://'+PROJECT+'.firebaseapp.com'].includes(profile.allowedOrigin))throw Error('Testing host allowed origin mismatch');
- if(typeof observed.localAppData!=='string'||!path.win32.isAbsolute(observed.localAppData)||
-  !samePath(profile.privateRoot,path.win32.join(observed.localAppData,'PAWS','Testing'))||observed.unsafePaths!==false)throw Error('Testing host private paths are unsafe');
+ if(!samePath(profile.privateRoot,'P:\\PAWS\\Testing\\Host')||observed.unsafePaths!==false)throw Error('Testing host private paths are unsafe');
  const relative=path.win32.relative(profile.privateRoot,profile.releaseManifestPath||'');
  if(!relative||relative.startsWith('..')||path.win32.isAbsolute(relative)||!relative.toLowerCase().startsWith('releases\\'))throw Error('Testing host manifest must remain in private releases');
  const keys=Object.keys(GATE_ENV).sort();

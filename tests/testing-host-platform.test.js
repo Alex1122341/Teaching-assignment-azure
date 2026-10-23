@@ -25,3 +25,11 @@ test('supervisor wrapper exposes only approved actions and uses Node22 without e
  const text=fs.readFileSync(script,'utf8');assert.match(text,/ValidateSet\('Stage','Start','Check','Stop'\)/);assert.match(text,/HOST_CONFIGURATION_INVALID/);
  assert.doesNotMatch(text,/Write-(?:Output|Host|Error)\s+\$_|Write-(?:Output|Host|Error)\s+\$config\b/);
 });
+
+test('School preparation is fixed to private P drive and refuses existing directories without installing or starting services',()=>{
+ const text=fs.readFileSync(path.resolve(__dirname,'../tools/testing-host/Prepare-UniversityTestingHost.ps1'),'utf8');
+ assert.match(text,/ITAPPVETOPSDB01/);assert.match(text,/P:\\PAWS\\Testing/);
+ assert.match(text,/PREPARED_NOT_READY/);assert.match(text,/FileMode\]::CreateNew/);
+ assert.match(text,/SetAccessRuleProtection\(\$true,\$false\)/);
+ assert.doesNotMatch(text,/Start-Process|Start-Service|Restart-Service|Stop-Process|msiexec|SqlLocalDB|TrustServerCertificate=true/i);
+});

@@ -1,10 +1,10 @@
 # University Testing operations — implementation in progress
 
-**Latest Owner direction (2026-10-22): no desktop installation or local testing; continue deployment preparation and online acceptance.** The historical LocalDB/install gates below are superseded, not completed. Read [current online checkpoint](13-online-deployment-checkpoint-20261022.md) for verified School inventory, missing database-creation authority and the prepared DBA script. API-host relocation is pending Owner selection; no deployment is claimed.
+**Latest Owner direction (2026-10-22): no desktop installation/local tests; use School P: for the independent Testing API.** The historical desktop/LocalDB/install steps below are superseded, not completed. Runtime root is exactly `P:\PAWS\Testing\Host`, port18788; admin backups/evidence use `P:\PAWS\Testing`. Read [online checkpoint](13-online-deployment-checkpoint-20261022.md) for verified inventory, missing database-creation authority and DBA handoff. Host selection is approved; no accepted API release is claimed.
 
 ## Approved topology
 
-Temporary API: VET-C31293, 127.0.0.1:18788. Online SQL: ITAPPVETOPSDB01 / VetMed-Ops-Testing. Separate Firebase project: paws-testing-ucvm-20261022. LocalDB is disposable acceptance infrastructure only. Production remains VetMed-Ops; no Production migration/reset/grant or gate change accompanies this work.
+Temporary API: ITAPPVETOPSDB01, private P: runtime, 127.0.0.1:18788. Online SQL: ITAPPVETOPSDB01 / VetMed-Ops-Testing using strict-TLS full hostname itappvetopsdb01.uc.ucalgary.ca. Separate Firebase project: paws-testing-ucvm-20261022. LocalDB acceptance omitted by Owner. Production remains VetMed-Ops; no Production migration/reset/grant or gate change accompanies this work.
 
 ## Tool boundaries
 

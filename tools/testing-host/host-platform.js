@@ -79,7 +79,17 @@ async function health(origin){
 async function observe(profile){
  const identity=ps("[pscustomobject]@{computerName=$env:COMPUTERNAME;windowsIdentity=[Security.Principal.WindowsIdentity]::GetCurrent().Name;localAppData=$env:LOCALAPPDATA}|ConvertTo-Json -Compress");
  let unsafePaths=false;
- try{assertNoLinks(profile.privateRoot);assertNoLinks(path.dirname(profile.releaseManifestPath));}catch{unsafePaths=true;}
+ try{
+  assertNoLinks(profile.privateRoot);assertNoLinks(path.dirname(profile.releaseManifestPath));
+  for(let directory=path.resolve(profile.privateRoot);;directory=path.dirname(directory)){
+   if(fs.existsSync(path.join(directory,'.git')))throw Error('Testing host storage has a Git ancestor');
+   if(path.dirname(directory)===directory)break;
+  }
+  for(const relative of ['secrets','secrets/credentials.json']){const file=privatePath(profile,relative);if(fs.existsSync(file))assertNoLinks(file);}
+  const quoted=profile.privateRoot.replace(/'/g,"''");
+  const safeAcl=ps(`$me=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;$allowed=@($me,'S-1-5-18','S-1-5-32-544');$safe=$true;foreach($p in @('${quoted}','${quoted}\\secrets','${quoted}\\secrets\\credentials.json')){if(Test-Path -LiteralPath $p){$a=Get-Acl -LiteralPath $p -ErrorAction Stop;foreach($r in $a.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){if($r.AccessControlType -eq 'Allow' -and $allowed -notcontains $r.IdentityReference.Value){$safe=$false}}}};$safe|ConvertTo-Json -Compress`);
+  if(safeAcl!==true)unsafePaths=true;
+ }catch{unsafePaths=true;}
  const stats=fs.statfsSync(path.parse(path.resolve(profile.privateRoot)).root),manifest=verifyStaged(profile);
  let recordedProcess=null,actualProcess=null;
  try{recordedProcess=readJson(privatePath(profile,'api-process.json'));const native=processInfo(recordedProcess.pid);

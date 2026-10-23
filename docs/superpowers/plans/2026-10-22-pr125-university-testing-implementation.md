@@ -1,10 +1,10 @@
 # PR125 University Testing Implementation Plan
 
-**Owner override, 2026-10-22:** do not install on VET-C31293 or run local tests. Continue deployment preparation and online acceptance; local/disposable prerequisites below are omitted by direction and must not be marked passed. See `docs/dual-environment/13-online-deployment-checkpoint-20261022.md`. API relocation is proposed, not yet selected; exact-target/TLS/privacy/freeze/provenance checks remain.
+**Owner override, 2026-10-22:** do not install on VET-C31293 or run local tests. Owner subsequently selected the concrete School API proposal: `ITAPPVETOPSDB01`, `P:\PAWS\Testing\Host`, independent127.0.0.1:18788/tunnel, independent VetMed-Ops-Testing. Update Task5 host/root/stop-proof defaults to that exact placement; prepare private directories and a not-ready draft using installed dependencies. Administrative backup/evidence root is `P:\PAWS\Testing`. Local/disposable steps below are omitted, not passed. Exact-target/TLS/privacy/freeze/provenance and actual online acceptance remain. See operations13 and the current School-host update.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Execution method already selected: implement sequentially in this session, then obtain independent whole-branch product and freeze-governance review.
 
-**Goal:** Release existing PR125 with its Testing API on VET-C31293 and an independent synthetic VetMed-Ops-Testing database on ITAPPVETOPSDB01, preserving the real Production database.
+**Goal:** Release existing PR125 with an independent Testing API on School P:/18788 and synthetic VetMed-Ops-Testing database on ITAPPVETOPSDB01, preserving the real Production database.
 
 **Architecture:** Extend the existing environment, SQL/reset, Firebase and artifact/release tooling. Bind online Testing to an exact approved server/database/UUID and verify that target on the same SQL connection used for each business/admin batch. Stage the desktop API locally; a main-defined workflow verifies it and publishes the matching Testing frontend before coordinated University API/Production Hosting release.
 
@@ -15,7 +15,7 @@
 ## Global Constraints
 
 - Existing worktree: `C:\Users\xinyu.zhu1\PAWS-DOE-Preview\.worktrees\startup-recovery-20261017`, branch `feat/paws-testing-environment`, existing PR125. Planning base7a6a9c3f82c7adaaec4beb6d6ed7c4010c9793bd; revalidate remote/main before execution.
-- Online API host `VET-C31293`, `127.0.0.1:18788`; SQL physical server `ITAPPVETOPSDB01`, exact new DB `VetMed-Ops-Testing`; Production DB remains `VetMed-Ops`. Actual certificate/FQDN must be inventoried, never guessed.
+- Online API host `ITAPPVETOPSDB01`, private root `P:\PAWS\Testing\Host`, `127.0.0.1:18788`; SQL physical server `ITAPPVETOPSDB01`, strict-TLS endpoint `itappvetopsdb01.uc.ucalgary.ca`, exact new DB `VetMed-Ops-Testing`; Production DB remains `VetMed-Ops`. The full endpoint was verified against actual School certificates/connectivity; the short alias fails name validation.
 - Firebase Testing `paws-testing-ucvm-20261022`; Production `tester-teaching`. Synthetic Testing data only; LocalDB is disposable acceptance only.
 - Windows integrated SQL authentication, msnodesqlv8/ODBC18, encryption and remote certificate validation on. Reuse a suitable existing Windows identity; no default requirement for a new University service account.
 - No Azure provisioning/mutation, self-hosted runner, public SQL exposure, Production data/schema/role changes, source imports, reset, DOE publication/recalculation, or changes to its27write gates.

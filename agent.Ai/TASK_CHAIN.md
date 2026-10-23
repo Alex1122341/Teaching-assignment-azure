@@ -1,4 +1,8 @@
-## Current: PR125 deploy online; local installation/testing waived — 2026-10-22
+## Current: PR125 School P: preparation; no local tests/install — 2026-10-22
+
+Owner host selection approved: exact ITAPPVETOPSDB01/P:\PAWS\Testing\Host/18788 plus separate tunnel/DB. Source policies and fixtures adjusted, unrun under no-local-tests direction. Execute guarded private-directory/draft preparation on the remote machine; no API staging/start before accepted source artifacts and target are ready. Native Check may report expected ARTIFACT_NOT_VERIFIED; that is not deployment acceptance. DB still absent/current account cannot create it. Continue other setup where independent; keep actual runtime/permission/artifact/UAT gaps explicit. Newest update2026-10-22-pr125-school-host-approved.md.
+
+## Historical: PR125 deploy online; local installation/testing waived — 2026-10-22
 
 Preparation4093f0d pushed to existing PR125, refreshed body/Draft. Testing Auth service initialized; providers/accounts/keys still pending. Newest update2026-10-22-pr125-online-preparation-published.md records the exact next breakpoint. SQL/host/source acceptance blockers below remain.
 

@@ -1,8 +1,12 @@
-# PR125: local Testing API with an independent University Testing database
+# PR125: independent School Testing API and database
 
 Date: 2026-10-22 (America/Edmonton)
 
-Status: **Written design approved by Owner on2026-10-22. Concrete implementation plan awaits review. No implementation or live release claimed.**
+Status: **Design and implementation plan approved. Owner subsequently selected School P: API hosting and waived desktop installs/local tests. Implementation/deployment acceptance remains in progress.**
+
+## Current approved placement amendment — 2026-10-22
+
+Owner selected the concrete proposed School placement: ITAPPVETOPSDB01, independent loopback18788, independent HTTPS tunnel and VetMed-Ops-Testing. Runtime private root is exactly `P:\PAWS\Testing\Host`; administrative backups/evidence live in `P:\PAWS\Testing\Backups` and `Evidence`. Host secrets exclude the SQL service account; backup storage alone grants it the filesystem access needed for native backup. No desktop installation/local suite or LocalDB harness is to run. This replaces the earlier VET-C31293 placement and local acceptance requirement; physical SQL server/UUID, TLS, role/privacy, source/freeze and online acceptance remain.
 
 ## 1. Intent and latest Owner decisions
 
@@ -23,15 +27,15 @@ Production browser: tester-teaching.web.app
 
 Testing browser: paws-testing-ucvm-20261022.web.app
   → Testing Firebase Auth → independent Testing HTTPS tunnel
-  → VET-C31293 127.0.0.1:18788
+  → ITAPPVETOPSDB01 127.0.0.1:18788 (private P: Testing API)
   → approved private University SQL connection
   → ITAPPVETOPSDB01 / VetMed-Ops-Testing
 
-Disposable automated SQL acceptance only:
-  → private LocalDB instances/databases on VET-C31293
+Local automated SQL acceptance:
+  → omitted by Owner instruction; use actual online acceptance instead
 ```
 
-This selects the Owner's same-server/separate-database arrangement. It provides separate business schemas/data, not separate SQL engine or machine failure domains. Do not claim physical isolation. The prior all-local online database option is superseded; a separate always-on test host remains a future option. Do not silently move the approved API off the current computer.
+This selects the Owner's same-server/separate-database arrangement. It provides separate business schemas/data and separate API process/port, not separate machine or SQL engine failure domains. Do not claim physical isolation. Both the earlier all-local database and desktop API placements are superseded by the explicit School-host selection.
 
 No new Azure resource, paid recurring service, public SQL listener, port forwarding, self-hosted GitHub runner or second frontend implementation is introduced. Keep active `swa-*` API dependencies and historical evidence. Retire Azure mutation paths from active deployment while preserving historical build/artifact names where useful for provenance.
 
@@ -81,7 +85,7 @@ On partial failure remain not-ready, retain backups/receipts and restore only th
 
 ## 7. Desktop runtime, tunnel and Firebase
 
-Private root: `%LOCALAPPDATA%\PAWS\Testing`, outside Git/OneDrive/Hosting, with versioned API folders, configuration, secrets, bounded logs and sanitized evidence. Reject unsafe/reparse-point targets and unknown listeners. Keep Node22/locked dependencies, current ODBC18, exact configured Windows identity, loopback `127.0.0.1:18788`, explicit Testing Firebase project/gates and exact CORS origin. Recheck port ownership/version rather than terminating a foreign process.
+Private runtime root: `P:\PAWS\Testing\Host`, outside Git/OneDrive/Hosting, with versioned API folders, configuration, secrets, bounded logs and sanitized evidence. Reject unsafe/reparse-point targets, broad private ACLs and unknown listeners. Reuse installed Node22/ODBC18, locked dependencies, exact configured Windows identity, loopback `127.0.0.1:18788`, explicit Testing Firebase project/gates and exact CORS origin. Recheck port ownership/version rather than terminating a foreign process.
 
 Stage the exact verified API artifact, pin its manifest/launcher hash, and start the real shipped entrypoint without synthetic token verification or SQL adapters. Optional current-user logon startup may use that same supervisor; no new service identity or password-in-script. Start/retry never resets SQL. Verify marker, permissions, SQL health and expected environment before readiness. Temporary network loss is a not-ready failure, not fallback behavior.
 

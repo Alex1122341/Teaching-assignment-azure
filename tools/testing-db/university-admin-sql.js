@@ -7,7 +7,7 @@ const {buildSqlConnectionConfig}=require('../../server/src/data/sql-connection')
 const {assertTarget}=require('./university-admin');
 const {assertNoLinks}=require('../testing-host/artifact-attestation');
 const fixed=Object.freeze({server:'ITAPPVETOPSDB01',database:'VetMed-Ops-Testing'});
-const validRoot=value=>typeof value==='string'&&path.win32.isAbsolute(value)&&!/^\\\\/.test(value)&&!/[\x00-\x1f<>"|?*]/.test(value)&&!value.split(/[\\/]/).includes('..')&&/\\PAWS\\Testing$/i.test(path.win32.normalize(value));
+const validRoot=value=>typeof value==='string'&&path.win32.isAbsolute(value)&&!/^\\\\/.test(value)&&!/[\x00-\x1f<>"|?*]/.test(value)&&!value.split(/[\\/]/).includes('..')&&samePath(value,'P:\\PAWS\\Testing');
 const hashFile=async file=>{const hash=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(assertNoLinks(file)))hash.update(chunk);return hash.digest('hex');};
 
 function createPrivateStore(root){
@@ -151,7 +151,7 @@ REVOKE CONNECT FROM guest;`,{pawsRuntimePrincipal:runtimePrincipal});
  async function assertTestingStopped(value){
   sameTarget(value);requireLock();let proof;try{proof=await store.readStopProof();}catch{return false;}
   const age=clock()-Date.parse(proof?.utc);
-  return Boolean(proof?.status==='STOPPED'&&proof.action==='Stop'&&proof.computerName==='VET-C31293'&&proof.listenerFree===true&&proof.resetInhibited===true&&proof.target?.database===target.database&&proof.target?.environmentId===target.environmentId&&proof.target?.physicalServer===target.physicalServer&&age>=-30000&&age<=300000);
+  return Boolean(proof?.status==='STOPPED'&&proof.action==='Stop'&&proof.computerName==='ITAPPVETOPSDB01'&&proof.listenerFree===true&&proof.resetInhibited===true&&proof.target?.database===target.database&&proof.target?.environmentId===target.environmentId&&proof.target?.physicalServer===target.physicalServer&&age>=-30000&&age<=300000);
  }
  async function verifyBackup(backup,value){
   sameTarget(value);requireLock();const known=knownBackups.get(backup?.id);

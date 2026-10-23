@@ -37,10 +37,10 @@ function harness(extra={}){
    if(/RESTORE HEADERONLY/.test(text))return {recordset:[{DatabaseName:target.database,ServerName:target.physicalServer,BackupSetGUID:'7e570000-0000-4000-8000-00000000beef',BackupType:1}]};
    return {recordset:[]};}
  };
- const stopProof={status:'STOPPED',action:'Stop',computerName:'VET-C31293',listenerFree:true,resetInhibited:true,target,utc:new Date(now-1000).toISOString(),...extra.stopProof};
- const store={async reserveBackup(){return {id:'synthetic-backup',path:'C:\\PAWS\\Testing\\Backups\\synthetic.bak'};},async hashBackup(){return extra.changedHash?'b'.repeat(64):'a'.repeat(64);},
+ const stopProof={status:'STOPPED',action:'Stop',computerName:'ITAPPVETOPSDB01',listenerFree:true,resetInhibited:true,target,utc:new Date(now-1000).toISOString(),...extra.stopProof};
+ const store={async reserveBackup(){return {id:'synthetic-backup',path:'P:\\PAWS\\Testing\\Backups\\synthetic.bak'};},async hashBackup(){return extra.changedHash?'b'.repeat(64):'a'.repeat(64);},
   async writeBackupReceipt(receipt){receipts.push(receipt);},async readBackupReceipt(id){return {...receipts.find(row=>row.id===id&&row.sha256)};},async writeReceipt(receipt){receipts.push(receipt);},async readStopProof(){return stopProof;}};
- const options={env,privateRoot:'C:\\PAWS\\Testing',authorizedOperators:[operator],operator};
+ const options={env,privateRoot:'P:\\PAWS\\Testing',authorizedOperators:[operator],operator};
  const deps={sql,fileStore:store,computerName:'ITAPPVETOPSDB01',now:()=>now,async connectTestingProfile(){return connection;},
   async resetMain(argv,actualEnv,log,dependencies){resets.push({argv,actualEnv,dependencies});assert.equal(masterLock,true);assert.equal(targetLock,true);assert.equal(dependencies.connection,connection);assert.equal(await dependencies.beforeDestructive({target,action:'reset'}),true);return {ok:true,counts:{marker:1}};}};
  return {options,deps,calls,writes,resets,receipts,state,connection};
@@ -75,7 +75,7 @@ test('native backup binds SHA header target and same-session reset connection',a
   await admin.authorizeOperator(operator);
   await admin.withExclusiveReset(target,async()=>{
    assert.equal(await admin.assertTestingStopped(target),true);
-   const backup=await admin.backupTesting({target,backupPath:'C:\\PAWS\\Testing\\Backups'});
+   const backup=await admin.backupTesting({target,backupPath:'P:\\PAWS\\Testing\\Backups'});
    assert.equal(backup.database,target.database);assert.equal(backup.environmentId,target.environmentId);assert.equal(await admin.verifyBackup(backup,target),true);
    assert.equal((await admin.resetTesting({target,backup})).verified,true);
   });
@@ -86,7 +86,7 @@ test('failed native backup and stale stopped-host proof never reach reset',async
  for(const extra of [{backupFails:true},{stopProof:{utc:new Date(now-600000).toISOString()}},{stopProof:{listenerFree:false}},{stopProof:{resetInhibited:false}}]){
   const h=harness(extra),admin=await method()(h.options,h.deps);
   try{await admin.authorizeOperator(operator);await admin.withExclusiveReset(target,async()=>{
-   if(await admin.assertTestingStopped(target)){await assert.rejects(admin.backupTesting({target,backupPath:'C:\\PAWS\\Testing\\Backups'}),/backup/i);}
+   if(await admin.assertTestingStopped(target)){await assert.rejects(admin.backupTesting({target,backupPath:'P:\\PAWS\\Testing\\Backups'}),/backup/i);}
   });assert.equal(h.resets.length,0);}finally{await admin.close();}
  }
 });
@@ -111,7 +111,7 @@ test('initialization is limited to the newly created owned empty Testing databas
 test('mutating a returned backup cannot change the privately held backup identity',async()=>{
  const h=harness(),admin=await method()(h.options,h.deps);
  try{await admin.withExclusiveReset(target,async()=>{
-  const backup=await admin.backupTesting({target,backupPath:'C:\\PAWS\\Testing\\Backups'});
+  const backup=await admin.backupTesting({target,backupPath:'P:\\PAWS\\Testing\\Backups'});
   backup.path='C:\\unapproved\\different.bak';
   assert.equal(await admin.verifyBackup(backup,target),false);
   await assert.rejects(admin.resetTesting({target,backup}),/backup/i);assert.equal(h.resets.length,0);
@@ -121,7 +121,7 @@ test('mutating a returned backup cannot change the privately held backup identit
 test('restore requires the exact backup confirmation and restores only the marked Testing DB without killing sessions',async()=>{
  const h=harness(),admin=await method()(h.options,h.deps);let backup;
  try{
-  await admin.withExclusiveReset(target,async()=>{backup=await admin.backupTesting({target,backupPath:'C:\\PAWS\\Testing\\Backups'});});
+  await admin.withExclusiveReset(target,async()=>{backup=await admin.backupTesting({target,backupPath:'P:\\PAWS\\Testing\\Backups'});});
   assert.equal(typeof admin.restoreTesting,'function');
   await assert.rejects(admin.restoreTesting({target,backup,confirmation:'RESTORE'}),/confirmation/i);
   assert.equal(h.writes.filter(sql=>sql.includes('PAWS_ADMIN_RESTORE_DATABASE')).length,0);
@@ -138,7 +138,7 @@ test('guest metadata audit includes public and inherited database roles',async()
 
 test('verified private backup receipts can be reloaded after the administrative process closes',async()=>{
  const h=harness();let backup,admin=await method()(h.options,h.deps);
- try{await admin.withExclusiveReset(target,async()=>{backup=await admin.backupTesting({target,backupPath:'C:\\PAWS\\Testing\\Backups'});});}finally{await admin.close();}
+ try{await admin.withExclusiveReset(target,async()=>{backup=await admin.backupTesting({target,backupPath:'P:\\PAWS\\Testing\\Backups'});});}finally{await admin.close();}
  admin=await method()(h.options,h.deps);
  try{assert.equal(typeof admin.loadOwnedBackup,'function');
   await admin.withExclusiveReset(target,async()=>{const loaded=await admin.loadOwnedBackup(backup.id);assert.equal(loaded.sha256,backup.sha256);await assert.rejects(admin.resetTesting({target,backup:loaded}),/backup/i);await assert.rejects(admin.loadOwnedBackup('../outside'),/backup|identity/i);});

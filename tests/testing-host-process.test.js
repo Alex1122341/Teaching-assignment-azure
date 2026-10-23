@@ -2,11 +2,11 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const file=path.resolve(__dirname,'../tools/testing-host/host-policy.js'),api=fs.existsSync(file)?require(file):{};
 const {GATE_ENV}=require('../server/src/data/write-gates');
-const profile={computerName:'VET-C31293',windowsIdentity:'UC\\synthetic',apiPort:18788,
+const profile={computerName:'ITAPPVETOPSDB01',windowsIdentity:'UC\\synthetic',apiPort:18788,
  target:{profile:'university-testing',host:'itappvetopsdb01',physicalServer:'ITAPPVETOPSDB01',database:'VetMed-Ops-Testing',environmentId:'7e570000-0000-4000-8000-00000000c0de'},
  firebaseProjectId:'paws-testing-ucvm-20261022',allowedOrigin:'https://paws-testing-ucvm-20261022.web.app',
- gateMap:Object.fromEntries(Object.keys(GATE_ENV).map(key=>[key,false])),privateRoot:'C:\\Users\\synthetic\\AppData\\Local\\PAWS\\Testing',
- releaseManifestPath:'C:\\Users\\synthetic\\AppData\\Local\\PAWS\\Testing\\releases\\candidate.json'};
+ gateMap:Object.fromEntries(Object.keys(GATE_ENV).map(key=>[key,false])),privateRoot:'P:\\PAWS\\Testing\\Host',
+ releaseManifestPath:'P:\\PAWS\\Testing\\Host\\releases\\candidate.json'};
 const proc={pid:1234,startTime:'2026-10-22T20:00:00.000Z',executable:'C:\\Tools\\node22\\node.exe',executableSha256:'a'.repeat(64),entrypoint:'version/server/src/runtime/university-api.js'};
 function harness(extra={}){
  const mutationCalls=[],killedPids=[];
@@ -29,7 +29,7 @@ test('Stop never kills an unowned PID',async()=>{
   assert.equal(receipt.status,'NOT_READY');assert.deepEqual(h.killedPids,[]);
  }
  const h=harness(),stopped=await fn('runHostAction')('Stop',profile,h.deps);assert.equal(stopped.status,'STOPPED');assert.deepEqual(h.killedPids,[1234]);
- assert.equal(stopped.computerName,'VET-C31293');assert.equal(stopped.target.environmentId,profile.target.environmentId);assert.equal(stopped.listenerFree,true);assert.equal(stopped.resetInhibited,true);
+ assert.equal(stopped.computerName,'ITAPPVETOPSDB01');assert.equal(stopped.target.environmentId,profile.target.environmentId);assert.equal(stopped.listenerFree,true);assert.equal(stopped.resetInhibited,true);
  const waiting=harness({port:null,actualProcess:proc});assert.equal((await fn('runHostAction')('Stop',profile,waiting.deps)).status,'STOPPED');assert.deepEqual(waiting.killedPids,[1234]);
 });
 test('tunnel origin drift invalidates readiness',async()=>{
@@ -47,8 +47,8 @@ test('Start rejects concurrent reset foreign listeners invalid artifacts and wro
 });
 test('host profile requires exact machine user University DB private paths and explicit gate map',()=>{
  const validate=fn('validateHostProfile'),h=harness();assert.equal(validate(profile,h.observed).apiPort,18788);
- for(const changed of [{computerName:'OTHER'},{windowsIdentity:'UC\\OTHER'},{apiPort:18787},{firebaseProjectId:'tester-teaching'},
-  {target:{...profile.target,database:'VetMed-Ops'}},{privateRoot:'C:\\repo'},
+ for(const changed of [{computerName:'OTHER'},{computerName:'VET-C31293'},{windowsIdentity:'UC\\OTHER'},{apiPort:18787},{firebaseProjectId:'tester-teaching'},
+  {target:{...profile.target,database:'VetMed-Ops'}},{privateRoot:'C:\\repo'},{privateRoot:'P:\\PAWS\\Testing'},
   {releaseManifestPath:'C:\\elsewhere\\manifest.json'},{gateMap:{}},{allowedOrigin:'https://tester-teaching.web.app'}]){
   assert.throws(()=>validate({...profile,...changed},h.observed),/host|profile|target|Testing|identity|private|gate|origin/i);
  }

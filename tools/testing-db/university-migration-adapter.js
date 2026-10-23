@@ -57,8 +57,10 @@ function assertScopedSql(text, depth = 0) {
     const nested = literal.replace(/^(?:\s|;|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/, '');
     // USE followed by a complete identifier/statement is SQL; "Use the
     // selected course" is help text. Strip comments before classifying it.
-    if (/^\s*USE\s+(?:\[[^\]]+\]|"[^"]+"|[A-Za-z_][A-Za-z0-9_]*)\s*(?:;|$|\b(?:SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC|CREATE|ALTER|DROP|DECLARE|SET)\b)/i.test(nested)) {
-      throw Error('Testing SQL context switches are forbidden');
+    if (/^\s*USE\s+/i.test(nested)) {
+      const prose=/^Use (?:the|this|a|an) [^;\r\n]+$/i.test(nested)&&
+        !/--|\/\*|['"\[\]]|\b(?:SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC(?:UTE)?|CREATE|ALTER|DROP|DECLARE|SET|WITH|TRUNCATE|DBCC|WAITFOR|PRINT|RAISERROR|BACKUP|RESTORE|GRANT|REVOKE|DENY|RECONFIGURE|IF|BEGIN|RETURN|CHECKPOINT)\b/i.test(nested.slice(4));
+      if(!prose)throw Error('Testing SQL context switches are forbidden');
     }
     if (/^\s*(?:SELECT|INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|EXEC|GRANT|REVOKE|DENY|DECLARE|SET|BEGIN|WITH)\b/i.test(nested)) assertScopedSql(literal, depth + 1);
   }

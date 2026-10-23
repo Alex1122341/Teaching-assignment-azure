@@ -67,7 +67,7 @@ test('runtime SQL audit inspects effective permissions, group tokens, public, ow
  const connection={target,async guardedBatch(text){queries.push(text);return {recordset:[{auditJson:JSON.stringify(h.audit)}]};}};
  assert.deepEqual(await run(connection,target),h.audit);
  const sql=queries[0];
- for(const pattern of [/sys\.login_token/i,/sys\.user_token/i,/sys\.database_permissions/i,/sys\.schemas/i,/sys\.objects/i,/fn_my_permissions/i,/class\s*=\s*0/i,/public/i,/HAS_DBACCESS\(N'VetMed-Ops'\)/i])assert.match(sql,pattern);
+ for(const pattern of [/sys\.login_token/i,/sys\.user_token/i,/sys\.database_permissions/i,/sys\.schemas/i,/sys\.objects/i,/fn_my_permissions/i,/class\s*=\s*0/i,/public/i,/HAS_DBACCESS\(N'VetMed-Ops'\)/i,/sys\.database_principals[\s\S]*owning_principal_id/i,/sys\.server_principals[\s\S]*owning_principal_id/i])assert.match(sql,pattern);
  assert.doesNotMatch(sql,/FROM\s+\[?VetMed-Ops\]?\./i);
  await assert.rejects(run({...connection,target:{...target,database:'VetMed-Ops'}},target),/target/i);
 });

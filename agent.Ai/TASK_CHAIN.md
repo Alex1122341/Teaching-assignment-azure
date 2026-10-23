@@ -1,4 +1,8 @@
-## Current: PR125 Task6 code complete; resume Task3 transport/harness — 2026-10-22
+## Current: PR125 deploy online; local installation/testing waived — 2026-10-22
+
+Stop local install/test execution by latest Owner direction. Tasks1/2 and6 have historical code evidence; Task3 native transport prepared with current corrections untested locally. Read operations13 for actual School inventory and DBA handoff. Pending API host selection: propose School P: because Node22/ODBC18 already exist. Testing DB absent; current operator cannot create it. Do not try alternate credentials or broaden server roles. Continue guarded synthetic initialization, Firebase configuration and online UAT once the administrator step is available; current Source/Testing config/freeze/official artifact evidence remains unfinished. Preserve Production release924cc67 and27 gates. No merge/release claim yet.
+
+## Historical: PR125 Task6 code complete; resume Task3 transport/harness — 2026-10-22
 
 Tasks1/2 complete; Task6 non-Azure publication code prepared/verified (final task-done117 tests). ACR/ACA/cloud-reset retired; manual main-only Testing Hosting requires exact Build/artifacts, operator attestation, live probes and served-byte verification. Tasks3/4/5 real acceptance remains pending; Task3 concrete SQL/backup/restore/lock transport and shared-instance harness still unfinished. No LocalDB/ODBC installation (elevation canceled), live SQL/Firebase/API/tunnel change, push/merge or release. Return to Task3 code before Task7 review/freeze; do not treat partial tasks or old099CI as acceptance. Read updates/2026-10-22-pr125-task6-non-azure-deployment.md, operations12 and current plan ledger.
 ## Current: PR125 Tasks1–2 complete; Task3/4 acceptance pending — 2026-10-22

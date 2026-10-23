@@ -65,7 +65,7 @@ test('scope scanner rejects context switches, cross-database statements and link
   const check=api(adapter,'assertScopedSql');
   for(const text of ['USE [VetMed-Ops]; DROP TABLE paws.Session;', 'SELECT * FROM [VetMed-Ops].paws.Session;',
     "EXEC(N'USE [VetMed-Ops]; DROP TABLE paws.Session;');", "EXEC(N'USE master\nSELECT 1;');",
-    "EXEC(N'-- deferred SQL\nUSE master;');", "EXEC(N'DECLARE @n int; USE master;');", "EXEC(N'; USE master;');", 'SELECT * FROM otherdb.dbo.Faculty;',
+    "EXEC(N'-- deferred SQL\nUSE master;');", "EXEC(N'USE master -- context switch\nSELECT 1;');", "EXEC(N'USE '+@db);", "EXEC(N'DECLARE @n int; USE master;');", "EXEC(N'; USE master;');", 'SELECT * FROM otherdb.dbo.Faculty;',
     "SELECT * FROM OPENQUERY(other_server,'SELECT 1');", 'CREATE SYNONYM paws.Private FOR otherdb.dbo.Secret;']) {
     assert.throws(()=>check(text),/scope|database|context|linked|synonym/i);
   }
@@ -88,6 +88,9 @@ function fakeDriver(extra={}) {
         const effectiveText=text+'\n'+(params.pawsTestingSql||'');
         extra.beforeBatch?.(effectiveText,state);
         if(params.pawsTargetDatabase!==state.databaseName || params.pawsTargetServer!==state.physicalServer) throw Object.assign(Error('SQL target rejected'),{number:55880});
+        if(text.includes('PAWS_TESTING_LOCK_ACQUIRE')){state.resetLockHeld=!extra.lockDenied;return {recordset:[{acquired:extra.lockDenied?-1:1}]};}
+        if(text.includes('PAWS_TESTING_LOCK_RELEASE')){state.resetLockHeld=false;return {recordset:[]};}
+        if(text.includes('PAWS_TESTING_LOCK_REQUIRED')&&state.resetLockHeld!==true)throw Object.assign(Error('Reset lock lost'),{number:55880});
         if(text.includes('PAWS_TESTING_INSPECT_STATE'))return {recordset:[{...state}]};
         if(text.includes('PAWS_TESTING_INSPECT_MARKER'))return {recordset:state.marker};
         if(text.includes('PAWS_TESTING_INITIALISE')){
@@ -178,7 +181,31 @@ test('reset rechecks a marker changed after inspection before it can drop any ob
   const h=fakeDriver({beforeBatch(text,state){
     if (/DROP TABLE/.test(text)) state.marker=[{environment:'production',environmentId:UUID}];
   }});
-  await assert.rejects(reset.main(['--confirm-reset'],env,()=>{},{sql:h.sql}),/target|marker|environment/i);
+  await assert.rejects(reset.main(['--confirm-reset'],env,()=>{},{sql:h.sql,beforeDestructive:async()=>true}),/target|marker|environment/i);
   assert.ok(h.calls.some(call=>/DROP TABLE/.test(call.params.pawsTestingSql||'')),'must exercise the actual reset drop attempt');
   assert.equal(h.destructiveBatchCalls.length,0);
+});
+
+test('direct University CLI reset cannot bypass the verified backup and stopped-host orchestration',async()=>{
+ const h=fakeDriver();
+ await assert.rejects(reset.main(['--confirm-reset'],env,()=>{},{sql:h.sql}),/orchestration|backup|administration/i);
+ assert.equal(h.destructiveBatchCalls.length,0);
+});
+
+test('administrative reset lock is serialized and rechecked after a lost SQL session',async()=>{
+ const h=fakeDriver(),c=await api(connector,'connectTestingProfile')(env,{sql:h.sql});
+ try{
+  const lock=api(c,'withResetLock');
+  await lock(async scoped=>{
+   await assert.rejects(c.withResetLock(async()=>{}),/lock|reset/i);
+   await scoped.guardedBatch('SELECT 1');assert.match(h.calls.at(-1).text,/APPLOCK_MODE[\s\S]*PAWS_TESTING_LOCK_REQUIRED|PAWS_TESTING_LOCK_REQUIRED[\s\S]*APPLOCK_MODE/i);
+   h.state.resetLockHeld=false;
+   await assert.rejects(scoped.guardedBatch('DROP TABLE paws.TestOnly;'),/target|lock|environment/i);
+   assert.equal(h.destructiveBatchCalls.length,0);
+  });
+  assert.equal(h.state.resetLockHeld,false);
+  assert.equal(h.calls.at(-1).text.includes('PAWS_TESTING_LOCK_RELEASE'),true);
+ }finally{await c.pool.close();}
+ const denied=fakeDriver({lockDenied:true}),d=await connector.connectTestingProfile(env,{sql:denied.sql});let callbacks=0;
+ try{await assert.rejects(api(d,'withResetLock')(async()=>{callbacks++;}),/lock|reset|environment/i);assert.equal(callbacks,0);}finally{await d.pool.close();}
 });

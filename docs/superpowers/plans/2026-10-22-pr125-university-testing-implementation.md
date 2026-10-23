@@ -1,5 +1,7 @@
 # PR125 University Testing Implementation Plan
 
+**Owner override, 2026-10-22:** do not install on VET-C31293 or run local tests. Continue deployment preparation and online acceptance; local/disposable prerequisites below are omitted by direction and must not be marked passed. See `docs/dual-environment/13-online-deployment-checkpoint-20261022.md`. API relocation is proposed, not yet selected; exact-target/TLS/privacy/freeze/provenance checks remain.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Execution method already selected: implement sequentially in this session, then obtain independent whole-branch product and freeze-governance review.
 
 **Goal:** Release existing PR125 with its Testing API on VET-C31293 and an independent synthetic VetMed-Ops-Testing database on ITAPPVETOPSDB01, preserving the real Production database.

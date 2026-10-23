@@ -40,10 +40,25 @@ test('local acceptance refuses every pre-existing database before destructive SQ
     return require(name);
   };
   const context = { require: fakeRequire, module: { exports: {} }, process: { env: {} }, __dirname: path.join(root, 'tools/testing-db'), console };
-  vm.runInNewContext(source + '\nthis.runAcceptance = main;', context);
-  await assert.rejects(context.runAcceptance(), /already has a VetMed-Ops database.*refusing/i);
+  vm.runInNewContext(source + '\nthis.createAcceptanceDatabase = createEmptyAcceptanceDatabase;', context);
+  await assert.rejects(context.createAcceptanceDatabase('MSSQLLocalDB'), /already has a VetMed-Ops database.*refusing/i);
   assert.equal(queries.length, 1, 'only the master database-existence probe may run');
   assert.ok(queries.every(sql => !/\b(DROP|ALTER|CREATE)\b/i.test(sql)));
+});
+
+test('two-instance acceptance rejects pre-existing instance names before SQL or instance startup',async()=>{
+ const vm=require('node:vm'),source=fs.readFileSync(path.join(root,'tools/testing-db/local-acceptance.js'),'utf8'),commands=[];let sqlCalls=0;
+ class Pool {constructor(){sqlCalls++;}async connect(){return this;}}
+ const fakeRequire=name=>{
+  if(name.includes('mssql'))return {ConnectionPool:Pool};
+  if(name==='node:child_process')return {execSync(command){commands.push(command);if(command==='SqlLocalDB.exe info')return 'MSSQLLocalDB\nPAWSProdSim';throw Error('Unexpected startup or mutation');}};
+  if(name.includes('swa-sql-runtime')||name.includes('university-http-server'))return {};
+  if(name==='./reset-testing-db')return {};
+  return require(name);
+ };
+ const context={require:fakeRequire,module:{exports:{}},process:{env:{}},__dirname:path.join(root,'tools/testing-db'),console};
+ vm.runInNewContext(source+'\nthis.runAcceptance=main;',context);
+ await assert.rejects(context.runAcceptance(),/instance.*already exists|existing.*instance/i);assert.equal(sqlCalls,0);assert.deepEqual(commands,['SqlLocalDB.exe info']);
 });
 
 test('reset refuses anything but an explicitly configured Testing environment, before connecting', async () => {

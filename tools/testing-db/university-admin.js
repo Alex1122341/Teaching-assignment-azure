@@ -46,14 +46,16 @@ const RUNTIME_AUDIT_SQL=`
 SELECT (SELECT CAST(1 AS bit) AS complete,
  CAST(CASE WHEN COALESCE(HAS_DBACCESS(N'VetMed-Ops'),1)=0 THEN 0 ELSE 1 END AS bit) AS productionAccess,
  JSON_QUERY((SELECT name,type FROM sys.login_token FOR JSON PATH)) AS tokens,
- JSON_QUERY((SELECT permission_name AS permission FROM sys.fn_my_permissions(NULL,N'SERVER')
-  WHERE permission_name NOT IN(N'CONNECT SQL',N'VIEW ANY DATABASE') FOR JSON PATH)) AS serverAuthority,
+ JSON_QUERY((SELECT permission FROM (SELECT permission_name AS permission FROM sys.fn_my_permissions(NULL,N'SERVER')
+  WHERE permission_name NOT IN(N'CONNECT SQL',N'VIEW ANY DATABASE')
+  UNION ALL SELECT N'SERVER_ROLE_OWNER:'+name FROM sys.server_principals WHERE owning_principal_id IN(SELECT principal_id FROM sys.login_token)) serverAuthorityRows FOR JSON PATH)) AS serverAuthority,
  JSON_QUERY((SELECT permission FROM (SELECT permission_name AS permission FROM sys.fn_my_permissions(NULL,N'DATABASE')
   WHERE permission_name IN(N'CONTROL',N'ALTER ANY USER',N'ALTER ANY ROLE',N'IMPERSONATE ANY USER',N'ALTER ANY SCHEMA',N'TAKE OWNERSHIP',N'CREATE ASSEMBLY')
   UNION ALL SELECT N'db_owner' WHERE IS_MEMBER(N'db_owner')=1) effectivePermissions FOR JSON PATH)) AS databaseAuthority,
  JSON_QUERY((SELECT kind,name FROM (SELECT N'schema' AS kind,s.name FROM sys.schemas s WHERE s.principal_id IN(SELECT principal_id FROM sys.user_token)
   UNION ALL SELECT N'object',o.name FROM sys.objects o WHERE o.principal_id IN(SELECT principal_id FROM sys.user_token)
-  UNION ALL SELECT N'database',DB_NAME() WHERE USER_NAME()=N'dbo') ownedScopes FOR JSON PATH)) AS ownership,
+  UNION ALL SELECT N'database',DB_NAME() WHERE USER_NAME()=N'dbo'
+  UNION ALL SELECT N'principal',name FROM sys.database_principals WHERE owning_principal_id IN(SELECT principal_id FROM sys.user_token)) ownedScopes FOR JSON PATH)) AS ownership,
  JSON_QUERY((SELECT p.class,p.permission_name AS permission,p.state_desc AS state FROM sys.database_permissions p
   WHERE p.grantee_principal_id=USER_ID() FOR JSON PATH)) AS direct,
  JSON_QUERY((SELECT p.class,p.permission_name AS permission,p.state_desc AS state FROM sys.database_permissions p

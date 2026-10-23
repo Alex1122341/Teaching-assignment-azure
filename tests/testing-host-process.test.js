@@ -15,7 +15,7 @@ function harness(extra={}){
   recordedProcess:proc,actualTunnelOrigin:'https://synthetic-test.trycloudflare.com',manifest:{commitSha:'1'.repeat(40),apiOrigin:'https://synthetic-test.trycloudflare.com',provenance:'candidate-only'},
   health:{environment:'testing',releaseSha:'1'.repeat(40),sqlHealthy:true,gates:profile.gateMap},...extra};
  return {observed,mutationCalls,killedPids,deps:{async observe(){return observed;},
-  async start(){mutationCalls.push('start');return proc;},async stop(pid){mutationCalls.push('stop');killedPids.push(pid);}}};
+  async start(){mutationCalls.push('start');return proc;},async stop(pid){mutationCalls.push('stop');killedPids.push(pid);return {listenerFree:true,resetInhibited:true};}}};
 }
 function fn(name){assert.equal(typeof api[name],'function',name+' must implement desktop host policy');return api[name];}
 test('Check has no mutation calls',async()=>{
@@ -28,7 +28,8 @@ test('Stop never kills an unowned PID',async()=>{
   const h=harness(extra),receipt=await fn('runHostAction')('Stop',profile,h.deps);
   assert.equal(receipt.status,'NOT_READY');assert.deepEqual(h.killedPids,[]);
  }
- const h=harness();assert.equal((await fn('runHostAction')('Stop',profile,h.deps)).status,'STOPPED');assert.deepEqual(h.killedPids,[1234]);
+ const h=harness(),stopped=await fn('runHostAction')('Stop',profile,h.deps);assert.equal(stopped.status,'STOPPED');assert.deepEqual(h.killedPids,[1234]);
+ assert.equal(stopped.computerName,'VET-C31293');assert.equal(stopped.target.environmentId,profile.target.environmentId);assert.equal(stopped.listenerFree,true);assert.equal(stopped.resetInhibited,true);
  const waiting=harness({port:null,actualProcess:proc});assert.equal((await fn('runHostAction')('Stop',profile,waiting.deps)).status,'STOPPED');assert.deepEqual(waiting.killedPids,[1234]);
 });
 test('tunnel origin drift invalidates readiness',async()=>{

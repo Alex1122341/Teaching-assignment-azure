@@ -1,5 +1,7 @@
 # University Testing operations — implementation in progress
 
+**Latest Owner direction (2026-10-22): no desktop installation or local testing; continue deployment preparation and online acceptance.** The historical LocalDB/install gates below are superseded, not completed. Read [current online checkpoint](13-online-deployment-checkpoint-20261022.md) for verified School inventory, missing database-creation authority and the prepared DBA script. API-host relocation is pending Owner selection; no deployment is claimed.
+
 ## Approved topology
 
 Temporary API: VET-C31293, 127.0.0.1:18788. Online SQL: ITAPPVETOPSDB01 / VetMed-Ops-Testing. Separate Firebase project: paws-testing-ucvm-20261022. LocalDB is disposable acceptance infrastructure only. Production remains VetMed-Ops; no Production migration/reset/grant or gate change accompanies this work.

@@ -108,6 +108,10 @@ async function expectReject(scenario, name, fn) {
 const fingerprint = () => require('node:crypto').randomBytes(32).toString('hex');
 
 async function main() {
+  // Never start or reuse an instance that this run did not create, even if it
+  // currently has no VetMed-Ops database. Check before any SQL connection.
+  const existing=localdb('info').split(/\r?\n/).map(value=>value.trim().toLowerCase());
+  for(const instance of [TESTING_INSTANCE,PROD_INSTANCE])if(existing.includes(instance.toLowerCase()))throw Error(`Acceptance instance ${instance} already exists; choose fresh owned instance names`);
   // 1. Two independent databases.
   await createEmptyAcceptanceDatabase(TESTING_INSTANCE);
   await resetTool.main(['--confirm-reset', '--initialise-empty'], { ...testingEnv(), PAWS_TESTING_LOCAL_ODBC: odbc(TESTING_INSTANCE, 'VetMed-Ops') }, () => {});

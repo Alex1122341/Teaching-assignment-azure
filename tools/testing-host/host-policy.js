@@ -40,14 +40,15 @@ function readiness(profile,observed){
 async function runHostAction(action,profile,dependencies){
  if(!['Check','Start','Stop'].includes(action))throw Error('Unsupported Testing host action');
  const observed=await dependencies.observe(profile);validateHostProfile(profile,observed);
- const receipt=(status,reason)=>({status,action,...(reason?{reason}:{}),utc:new Date().toISOString(),
+ const receipt=(status,reason)=>({status,action,...(reason?{reason}:{}),utc:new Date().toISOString(),computerName:profile.computerName,
+  target:Object.fromEntries(['profile','host','physicalServer','database','environmentId'].map(key=>[key,profile.target[key]])),
   provenance:['candidate-only','main'].includes(observed.manifest?.provenance)?observed.manifest.provenance:'unverified'});
  if(action==='Stop'){
   if(!ownsRecordedProcess(observed))return receipt('NOT_READY','PROCESS_NOT_OWNED');
   // Pass the entire observation so the platform adapter can recheck PID,
   // creation time and binary identity immediately before termination.
-  await dependencies.stop(observed.recordedProcess.pid,observed.recordedProcess);
-  return receipt('STOPPED');
+  const result=await dependencies.stop(observed.recordedProcess.pid,observed.recordedProcess,profile);
+  return {...receipt('STOPPED'),listenerFree:result?.listenerFree===true,resetInhibited:result?.resetInhibited===true};
  }
  if(action==='Check'){
   const reason=readiness(profile,observed);return receipt(reason?'NOT_READY':'READY',reason);

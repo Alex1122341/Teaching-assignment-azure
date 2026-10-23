@@ -160,9 +160,19 @@ async function start(profile,manifest){
   atomicJson(privatePath(profile,'api-process.json'),{pid:child.pid,startTime:native.startTime,executable:native.executable,executableSha256:native.executableSha256,entrypoint,commitSha:manifest.commitSha});
  }finally{fs.closeSync(fd);fs.unlinkSync(lock);}
 }
-async function stop(pid,recorded){
+async function stop(pid,recorded,profile){
  const native=processInfo(pid);
  if(!native||native.startTime!==recorded.startTime||native.executableSha256!==recorded.executableSha256||!samePath(native.executable,recorded.executable)||!matchesCommandLine(native.commandLine,recorded.executable,recorded.entrypoint))throw Error('Testing process identity changed; termination refused');
  process.kill(pid,'SIGTERM');
+ let exited=false;
+ for(let attempt=0;attempt<8;attempt++){
+  const current=processInfo(pid);if(!current||current.startTime!==recorded.startTime){exited=true;break;}
+  await new Promise(resolve=>setTimeout(resolve,150));
+ }
+ if(!exited)throw Error('Testing API stop did not verify');
+ const count=ps("@(Get-NetTCPConnection -LocalPort 18788 -State Listen -ErrorAction SilentlyContinue).Count | ConvertTo-Json -Compress");
+ let resetInhibited=false;
+ try{const lock=readJson(privatePath(profile,'reset.lock'));resetInhibited=lock.target?.database===profile.target.database&&lock.target?.environmentId===profile.target.environmentId;}catch{}
+ return {listenerFree:count===0,resetInhibited};
 }
 module.exports={buildRuntimeEnvironment,matchesCommandLine,observe,stage,start,stop,readJson,privatePath,cleanOsEnvironment};

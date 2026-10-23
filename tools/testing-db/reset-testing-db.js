@@ -257,13 +257,15 @@ async function main(argv, env = process.env, log = message => console.log(messag
     if (university) receipts.push({file,normalization:'utf8-lf',sourceSha256:converted.sourceSha256,
       transformedSha256:converted.transformedSha256,effectiveSha256:sourceHash(text),guardCount:converted.guardCount});
   }
-  const connection = university ? await connectTestingProfile(env, dependencies) : await connect(env);
+  const connection = university ? dependencies.connection || await connectTestingProfile(env, dependencies) : await connect(env);
   const { pool } = connection;
   try {
     const state = university ? await connection.inspectState() : await readState(pool);
+    if(university&&(!connection.target||Object.keys(target).some(key=>connection.target[key]!==target[key])))throw new Error('Testing administration connection target mismatch');
     const expectedDatabase = university ? connection.target.database : 'VetMed-Ops';
     if (state.databaseName !== expectedDatabase) throw new Error('The Testing database does not match the resolved target');
     const action = decideAction(state, environment.testingEnvironmentId, { initialiseEmpty: argv.includes('--initialise-empty') });
+    if(university&&(typeof dependencies.beforeDestructive!=='function'||await dependencies.beforeDestructive({target,action,state})!==true))throw new Error('University Testing requires verified backup/stopped-host administration orchestration');
     if (university && action==='reset') await assertWindowsPrincipal(pool,runtimePrincipal);
     if (action === 'reset') {
       log('marker verified: resetting existing Testing database');
@@ -312,7 +314,7 @@ async function main(argv, env = process.env, log = message => console.log(messag
     log(JSON.stringify(summary));
     return summary;
   } finally {
-    await pool.close();
+    if(!university||!dependencies.connection)await pool.close();
   }
 }
 

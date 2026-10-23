@@ -1,3 +1,7 @@
+## Owner waives desktop installation and local testing for PR125 — 2026-10-22
+
+Owner explicitly says not to install on the current computer, deploy/go live and do not run local tests. Supersedes the implementation plan's LocalDB/install/local-native prerequisite. Continue preparation and real online acceptance, preserve exact target/TLS/auth/freeze/provenance and do not fabricate omitted checks. Read-only School inventory reveals available Node22/ODBC18, no independent Testing DB, and no creation permission for current operator; DBA handoff is required by actual authority, not a new dedicated-service-account prerequisite. API relocation from approved VET-C31293 to School P: is proposed and awaiting selection; do not assume approval. See docs/dual-environment/13-online-deployment-checkpoint-20261022.md.
+
 ## Owner approves University Testing written design — 2026-10-22
 
 Owner explicitly approved docs/superpowers/specs/2026-10-22-pr125-university-testing-design.md and requested implementation planning. Eight-task plan docs/superpowers/plans/2026-10-22-pr125-university-testing-implementation.md now captures host/database guards, Testing-only migration adaptation, shared-instance acceptance/administration, Firebase account integration, desktop staging, non-Azure deploy/evidence, reviewed freeze/config and coherent release. Concrete plan review remains pending under writing-plans; preserve already-selected sequential execution/final independent review. No implementation or live action is implied by this planning approval.

@@ -23,6 +23,12 @@ test('business modal layers stay above Tasks and navigation',()=>{
  assert.match(css,/\.paws-calendar-shell \.modal-container\{z-index:4000\}/);
  assert.match(css,/\.paws-calendar-shell \.afc-timetable-panel\{z-index:4100\}/);
 });
+test('Calendar heading and day headers use theme-aware foreground and surfaces',()=>{
+ const css=fs.readFileSync(repositoryPath(__dirname,'../workspace.css'),'utf8');
+ assert.match(css,/\.paws-calendar-shell \.ucalgary-wordmark\{[^}]*color:var\(--workspace-ink\)/);
+ assert.match(css,/\.paws-calendar-shell \.tg-day-head[^}]*background:var\(--workspace-soft\)/);
+ assert.match(css,/html\.dark \.paws-navigation-section \[aria-current=page\]\{background:#432435;color:#ffc3ce\}/);
+});
 
 function domHarness(width=1024){
  const created=[],events={},doc={activeElement:null,modal:null};

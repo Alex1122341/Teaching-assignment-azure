@@ -10,6 +10,7 @@ const report = require('../tools/beta-baseline.json');
 const root = path.resolve(__dirname, '..');
 const PREVIOUS = '5a3117d4aec48b685e734651f4caa24d9050ba4f';
 const PRODUCT = '4c23f7f1d096437c4fcc020556cb1f0253701ecb';
+const ACTIVE = '58daab3a2401af69c2298cc1f078d78aad069ea9';
 const changedStatic = ['faculty-role-periods.js'];
 const changedApi = ['server/src/data/dashboard-api.js'];
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -46,16 +47,16 @@ test('role period fix changes only one frozen static and one frozen API runtime 
 });
 
 test('separate governance commit pins the reviewed product without hiding runtime drift', () => {
-  assert.equal(freeze.BASELINE_COMMIT, PRODUCT);
-  assert.equal(apiFreeze.BASELINE_COMMIT, PRODUCT);
-  assert.equal(report.sourceCommit, PRODUCT);
-  const files = manifest(PRODUCT);
+  assert.equal(freeze.BASELINE_COMMIT, ACTIVE);
+  assert.equal(apiFreeze.BASELINE_COMMIT, ACTIVE);
+  assert.equal(report.sourceCommit, ACTIVE);
+  const files = manifest(ACTIVE);
   assert.deepEqual(Object.keys(report.sha256).sort(), [...files].sort());
   for (const file of files) assert.equal(report.sha256[file], freeze.sha256Canonical(
-    freeze.readBaselineFile({ root, baselineCommit: PRODUCT, file })
+    freeze.readBaselineFile({ root, baselineCommit: ACTIVE, file })
   ), file);
-  const protectedApi = apiFreeze.baselineRuntimeFiles({ root, baselineCommit: PRODUCT });
-  const changes = git('diff', '--name-only', PRODUCT, 'HEAD').split(/\r?\n/).filter(Boolean);
+  const protectedApi = apiFreeze.baselineRuntimeFiles({ root, baselineCommit: ACTIVE });
+  const changes = git('diff', '--name-only', ACTIVE, 'HEAD').split(/\r?\n/).filter(Boolean);
   assert.deepEqual(changes.filter(file => files.includes(file) || protectedApi.includes(file)), []);
   assert.equal(freeze.verifyFreeze({ root }).ok, true);
   assert.equal(apiFreeze.verifyFreeze({ root }).ok, true);

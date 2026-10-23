@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
 const BASE='2664feef74e340d0b3df4a6f422663c571bc7731',PRODUCT='5a3117d4aec48b685e734651f4caa24d9050ba4f';
 const NAME_ACCEPTED_MAIN='9734d2d9ba6cd927dbec3585838689f235ed0e9f';
-const CURRENT_FREEZE_PRODUCT='4c23f7f1d096437c4fcc020556cb1f0253701ecb';
+const CURRENT_FREEZE_PRODUCT='58daab3a2401af69c2298cc1f078d78aad069ea9';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'});
 test('name constitution promotion protects all existing static and API assets, adds only the shared server formatter',()=>{
  const before=JSON.parse(git('show',BASE+':tools/static-assets.json')),after=JSON.parse(git('show',PRODUCT+':tools/static-assets.json'));

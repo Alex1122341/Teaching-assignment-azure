@@ -13,7 +13,7 @@ const freeze=require('../tools/beta-freeze.js');
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
 // Active immutable freeze follows the Role Period product; prior release SHAs remain in historical tests.
-const BASELINE_COMMIT='4c23f7f1d096437c4fcc020556cb1f0253701ecb';
+const BASELINE_COMMIT='58daab3a2401af69c2298cc1f078d78aad069ea9';
 const CCC_SCHEDULE_PRODUCT_COMMIT='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';

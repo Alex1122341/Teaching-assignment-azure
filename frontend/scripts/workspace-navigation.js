@@ -27,7 +27,7 @@
     const name=create('span','paws-navigation-label',text);node.replaceChildren(symbol,name);
     // Existing dialog handlers capture the focused element as their return target.
     // Focus the surviving trigger before a narrow drawer hides its launcher.
-    node.addEventListener('click',()=>{if(body.classList.contains('paws-navigation-drawer'))setExpanded(false);},true);
+    node.addEventListener('click',()=>{if(body.classList.contains('paws-navigation-drawer'))setExpanded(false);menu.focus();},true);
     section.append(node);
    }
    destinations.append(section);sections.push({section,entries});

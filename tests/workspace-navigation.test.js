@@ -66,3 +66,8 @@ test('destination handler captures surviving menu focus and resize preserves bus
  h.doc.modal=h.overlay;h.win.innerWidth=1024;h.events.resize();
  assert.equal(h.doc.body.classList.contains('paws-navigation-drawer'),false);assert.equal(h.overlay.inert,false);assert.equal(h.main.inert,false);
 });
+test('wide navigation dialogs retain a return target that survives a later narrow resize',()=>{
+ const h=domHarness(1920);h.api.sync(true);let returnFocus;
+ h.destination.onclick=()=>{returnFocus=h.doc.activeElement;h.doc.modal=h.overlay;};h.destination.focus();h.destination.click();
+ h.win.innerWidth=390;h.events.resize();assert.equal(returnFocus,h.menu);
+});

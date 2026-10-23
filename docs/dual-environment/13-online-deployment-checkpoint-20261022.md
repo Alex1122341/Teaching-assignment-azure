@@ -55,4 +55,6 @@ Firebase's existing authenticated CLI successfully read the Testing Web SDK conf
 4. Complete independent product review and separate immutable governance promotion, then request source-specific cloud verification as directed by Owner. Official Actions metadata/artifacts must not be invented if quota prevents them.
 5. Merge/release only the resulting accepted source and update the progress workbook after actual publication.
 
-At this checkpoint: no local installation/testing after Owner's instruction; no SQL DDL/data/grant, Auth mutation, API restart, new tunnel, Hosting release, merge or freeze promotion. Production remains at its existing release.
+Subsequent Firebase console step: clicked Get started for this exact Testing project and reached its Sign-in method page. Authentication is initialized; all providers remain disabled. No account, password or server key was created, and Production Firebase was not changed. Saved private screenshot: plan workspace/testing-auth-initialized.png.
+
+At this checkpoint: no local installation/testing after Owner's instruction; no SQL DDL/data/grant, provider/account/key creation, API restart, new tunnel, Hosting release, merge or freeze promotion. Production remains at its existing release.

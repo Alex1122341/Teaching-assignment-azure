@@ -1,5 +1,7 @@
 ## Current: PR125 deploy online; local installation/testing waived — 2026-10-22
 
+Preparation4093f0d pushed to existing PR125, refreshed body/Draft. Testing Auth service initialized; providers/accounts/keys still pending. Newest update2026-10-22-pr125-online-preparation-published.md records the exact next breakpoint. SQL/host/source acceptance blockers below remain.
+
 Stop local install/test execution by latest Owner direction. Tasks1/2 and6 have historical code evidence; Task3 native transport prepared with current corrections untested locally. Read operations13 for actual School inventory and DBA handoff. Pending API host selection: propose School P: because Node22/ODBC18 already exist. Testing DB absent; current operator cannot create it. Do not try alternate credentials or broaden server roles. Continue guarded synthetic initialization, Firebase configuration and online UAT once the administrator step is available; current Source/Testing config/freeze/official artifact evidence remains unfinished. Preserve Production release924cc67 and27 gates. No merge/release claim yet.
 
 ## Historical: PR125 Task6 code complete; resume Task3 transport/harness — 2026-10-22

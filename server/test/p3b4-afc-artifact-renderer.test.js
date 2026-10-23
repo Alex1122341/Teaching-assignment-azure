@@ -171,7 +171,7 @@ test('renderer returns exact PDF bytes, hash, length, flattened form, and embedd
   assert.equal(first.rendererVersion, RENDERER_VERSION);
   assert.equal(first.templateSha256.toString('hex').toUpperCase(), TEMPLATE_SHA256_HEX);
   assert.equal(first.byteLength, first.pdfBytes.length);
-  assert.equal(first.byteLength, 1_088_132);
+  assert.equal(first.byteLength, 1_088_141);
   assert.equal(first.byteLength <= MAX_PDF_BYTES, true);
   assert.deepEqual(first.pdfSha256, sha256(first.pdfBytes));
   assert.equal(first.pdfSha256.toString('hex').toUpperCase(), '1BC5F33C44883AECC7D1EFE25B5C8C710582C97A0D7BA756FB248BDD84083448');

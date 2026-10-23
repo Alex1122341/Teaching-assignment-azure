@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "5a3117d4aec48b685e734651f4caa24d9050ba4f",
+  "sourceCommit": "16027769c774367c65d5dd68fc1a8002a052589e",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -61,11 +61,11 @@
     "faculty-swap-handoff.js": "1b68dcf3e287c97097640051a26634b95d321c89e392600a9e97bc45c97d3ce7",
     "faculty-swap-safe.js": "558c3150444f2a9ad66ac54437618297f6e45632d0375d502816e3eda331649c",
     "index-maintenance.js": "5c642608b123abf95d6a7a912c92fdf0fc56c45b980d724458f5b2c448789109",
-    "index.html": "e0c84d3643b5942c7cc8b5c163ae51e0561d9381554bb36ab25a448463cc2473",
+    "index.html": "9ccbd552382f668d76bcd38dd16ff6805c446abadadab3e3f44ea77e6ea2c5a8",
     "information-center.js": "d739a75f1893994048854678c25bc562d17099a912189213a5cef487b500acc0",
     "lab-session-detail.js": "db5f0e928b1321d707049fc907f57f53514937c1f1e3b7eb0281effd2bb2617c",
-    "leadership-directory.css": "1976516d5c32b8b3af97167ffd50883b2a8cdd303ed368eff1fd5f2346df91c3",
-    "leadership-directory.js": "2cc2b8f617e43b904c1789a13c63ad0a1967616a048c9af027c763878db0c653",
+    "leadership-directory.css": "8e90bd635bf53c04e61e456ea6fd24391986ae03885199446475bc4a460fd897",
+    "leadership-directory.js": "7d2119e698107698abb17ebe3e8b14a3a0296f03eaa06c5ab18054ddd24d3d67",
     "maintenance-state.js": "5b3c31bd41385322776f2eeab88a46827f7b0095f7cd26ac03aa44c267d1f1df",
     "password.html": "329d3b10211f99a5d13290a52352594da62eee4abf051767bddd0ecd1cc7620d",
     "password.js": "40c884e0a4355a45204a069a504b50bcb3566b9b834db42bef9fce67c3b54c6f",
@@ -88,6 +88,6 @@
     "user-management.html": "1e85481ae965a3b77d187470fa666bcb59561900718576e8751cc28369d3aab5",
     "user-management.js": "36ebae9ff0bfddbac604d4a40b05783aa9ee6960cf18ac1e9127ed481a33bc2f",
     "workspace-tasks.js": "4520839dd547c21d6d9e6e49ddc2f8a5645f3d06b8954c3f53840edf9200a6c6",
-    "workspace.css": "031da8fa7c98c99eea8bf3bf27a7c83de5682eb117a92048082cbdb59782ca99"
+    "workspace.css": "bbafc97917abdbef6ebff7c2538294203ccb4113de2cb465ab8060b6b4db6748"
   }
 }

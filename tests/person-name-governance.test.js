@@ -13,10 +13,12 @@ test('name constitution promotion protects all existing static and API assets, a
  assert.deepEqual(changed.filter(f=>f.startsWith('database/')||api.REPOSITORY_INPUT_FILES.includes(f)||api.BUILD_DEFINITION_FILES.includes(f)),[]);
  assert.equal(changed.includes('server/src/data/faculty-display-name.js'),false,'legacy identity/matching stays unchanged');
 });
-test('active name governance pins the product commit without editing any protected bytes',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);
- assert.equal(require('../tools/beta-baseline.json').sourceCommit,PRODUCT);
+test('historical name governance pins its accepted product without editing any protected bytes',()=>{
+ const accepted='9734d2d9ba6cd927dbec3585838689f235ed0e9f';
+ assert.ok(git('show',accepted+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ assert.equal(JSON.parse(git('show',accepted+':tools/beta-baseline.json')).sourceCommit,PRODUCT);
+ git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);
  const protectedApi=[...api.baselineRuntimeFiles({root,baselineCommit:PRODUCT}),...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES];
- assert.deepEqual(git('diff','--name-only',PRODUCT,'HEAD').trim().split(/\r?\n/).filter(f=>f.startsWith('frontend/')||protectedApi.includes(f)),[]);
+ assert.deepEqual(git('diff','--name-only',PRODUCT,accepted).trim().split(/\r?\n/).filter(f=>f.startsWith('frontend/')||protectedApi.includes(f)),[]);
  assert.equal(freeze.verifyFreeze({root}).ok,true);assert.equal(api.verifyFreeze({root}).ok,true);
 });

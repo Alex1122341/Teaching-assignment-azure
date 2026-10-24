@@ -52,7 +52,7 @@
 **Interfaces:** validated profile invokes office.sync(profile); every gate/lock invokes office.sync(null). Current handlers own views, self-mode, permissions and API calls.
 
 - [ ] Add failing wiring/auth-state tests: modules load first, lock hides rail, Faculty self-mode/admin tabs unchanged, Assignments capabilities and route defaults unchanged, no doubled listeners.
-- [ ] Implement controller hooks and scoped office layout/table/control rules; add only office-workspace.js to allowlist89→90.
+- [ ] Implement controller hooks and scoped office layout/table/control rules; add office-workspace.js and faculty-route-access.js to allowlist89→91.
 - [ ] Run office/page/auth/assignment/role-period/asset tests. Expected0 failures; commit product.
 
 ### Task4: Browser and real read-only acceptance
@@ -67,7 +67,7 @@
 ### Task5: Integrated governance and full verification
 
 **Files:** separate tools/beta-freeze.js, tools/beta-baseline.json and scoped governance tests/receipt after final product commit.
-**Interfaces:** final product includes main plus UI;90 static assets,115 API runtime files plus3 inputs protected by full current/frozen manifest union.
+**Interfaces:** final product includes main plus UI;91 static assets,115 API runtime files plus3 inputs protected by full current/frozen manifest union.
 
 - [ ] Commit final product, then separately promote its immutable Git object. Preserve historical anchors and enforcement algorithm.
 - [ ] Run targeted tests, `npm test`, server suite and emulator coverage as required/available; `node tools/build-beta-release.js`; all four static/API source/artifact freezes. Expected0 failures with exact source and artifact evidence; no invented CI result.
@@ -86,3 +86,6 @@
 ## Self-review
 
 Tasks1→5 share immutable product ancestry; Tasks2→3 share only presentation sync and native nodes; Task4 can reveal product fixes before Task5. All review focus items have test/browser ownership above. User-directed autonomy replaces routine approval pauses, not production authorization or evidence requirements.
+
+
+Implementation ruling: Dashboard explicitly prohibits loading legacy faculty-access.js. Reuse its capability contract through a pure faculty-route-access.js projection with matrix parity; legacy helper delegates when that projection is present. Office pages load only the pure module, navigation and adapter. Preserve the existing legacy/Firestore bans. Three explicit local presentation modules increase Dashboard script elements27→30; controller sync hooks require a bounded60300-byte limit (prior60000, actual60172). No dependency, data fan-out or business authority is added.

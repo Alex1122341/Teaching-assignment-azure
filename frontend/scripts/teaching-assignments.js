@@ -3,13 +3,14 @@
 
   const FIREBASE_CONFIG = { apiKey: 'AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_Lk', authDomain: 'tester-teaching.firebaseapp.com', projectId: 'tester-teaching', storageBucket: 'tester-teaching.firebasestorage.app', messagingSenderId: '566638053186', appId: '1:566638053186:web:90e04b52251c4b859baadb' };
   const $ = id => document.getElementById(id);
+  const officeWorkspace = window.PAWS_OFFICE_WORKSPACE?.mount({document,window,page:'assignments'});
   const displayFaculty = value => window.PAWS_FACULTY_NAME.format(value);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const adminRoles = new Set(['owner','administrator','adfa_general','adfa_regular','admin']);
   const queueRoles = new Set(['hicc','visc',...adminRoles]);
   let profile = null, packages = [], selectedId = '', selectedPackage = null, capabilities = {}, facultyOptions = [], facultyEvidence = new Map();
-  let auth = null, activeView = 'queue', busy = false, focusedAssignmentEditor = null;
+  let auth = null, activeView = 'queue', busy = false, focusedAssignmentEditor = null, controlsBound = false;
 
   function academicYearNow() {
     const now = new Date(); const start = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
@@ -21,8 +22,8 @@
     const node = $('toast'); node.textContent = text; node.classList.toggle('error', error); node.classList.add('show');
     window.clearTimeout(setStatus.timer); setStatus.timer = window.setTimeout(() => node.classList.remove('show'), 4200);
   }
-  function showGate(text) { $('gate-copy').textContent = text; document.body.classList.add('auth-locked'); $('auth-gate').classList.remove('hidden'); $('app').classList.add('hidden'); }
-  function unlock() { document.body.classList.remove('auth-locked'); $('auth-gate').classList.add('hidden'); $('app').classList.remove('hidden'); }
+  function showGate(text) { officeWorkspace?.sync(null);$('gate-copy').textContent = text; document.body.classList.add('auth-locked'); $('auth-gate').classList.remove('hidden'); $('app').classList.add('hidden'); }
+  function unlock() { officeWorkspace?.sync(profile);document.body.classList.remove('auth-locked'); $('auth-gate').classList.add('hidden'); $('app').classList.remove('hidden'); }
   function dateText(value) { if (!value) return 'Not set'; const date = new Date(value); return Number.isNaN(date.valueOf()) ? esc(value) : date.toLocaleString(); }
   function statusLabel(value) {
     return ({ draft:'HICC draft', changes_requested:'Changes requested', visc_review:'Waiting for VISC', visc_approved:'Ready for HICC final submit', submitted_to_adfad:'ADFAD review', adfad_finalized:'Finalized' })[value] || value || 'Unknown';
@@ -232,6 +233,7 @@
     finally { setBusy(false); }
   }
   function bind() {
+    if(controlsBound)return;controlsBound=true;
     document.querySelectorAll('.view-tab').forEach(button => button.addEventListener('click',() => selectView(button.dataset.view)));
     $('reload-button').addEventListener('click',() => selectView(activeView)); $('queue-filter').addEventListener('change',renderQueue); $('publish-button').addEventListener('click',publish);
     $('queue-list').addEventListener('click',event => { const button = event.target.closest('[data-open-package]'); if (button) openPackage(button.dataset.openPackage); });

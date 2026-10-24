@@ -10,6 +10,7 @@
   const effectiveRoleDoe = VIEW.effectiveRoleDoe || (() => ({ mapped: null, override: null, effective: null, status: 'needs-review' }));
   const formatDoe = VIEW.formatDoe || (() => 'DOE unavailable');
   const $ = id => document.getElementById(id);
+  const officeWorkspace = window.PAWS_OFFICE_WORKSPACE?.mount({document,window,page:'faculty'});
   const on = (element, event, handler) => {
     if (!element) return;
     if (typeof element.addEventListener === 'function') element.addEventListener(event, handler);
@@ -143,7 +144,7 @@
     const heading = document.querySelector('.headline h1'), copy = document.querySelector('.headline p');
     if (heading) heading.textContent = 'My Faculty Profile';
     if (copy) copy.textContent = 'Your teaching, roles, appointments, availability, and stored DOE evidence.';
-    unlock(); await loadSelfFaculty(profile.facultyId);
+    unlock(profile); await loadSelfFaculty(profile.facultyId);
   }
 
   function enterAdminMode(user, profile) {
@@ -151,7 +152,7 @@
     currentUser = { uid: user.uid, email: user.email || '', name: facultyName(profile, user.displayName || user.email || 'Administrator'), role: profile.role };
     $('faculty-status-filter')?.classList.remove('hidden');
     $('admin-chip').textContent = `${currentUser.name} · ${dashboardRoleLabel(profile.role)}`; $('user-management-link')?.classList.toggle('hidden', !dashboardGeneral(profile)); $('afc-records-tab')?.classList.toggle('hidden', !dashboardAdmin(profile)); $('doe-rules-tab')?.classList.toggle('hidden', !dashboardAdmin(profile));
-    unlock(); loadAdminDashboard();
+    unlock(profile); loadAdminDashboard();
   }
 
   function init() {
@@ -610,8 +611,8 @@
   });
   doePolicyView?.mount($('doe-rules-content'));
   function installSelfModeStyles() { if ($('faculty-self-mode-style')) return; const style = document.createElement('style'); style.id = 'faculty-self-mode-style'; style.textContent = 'body.faculty-self-mode .tabs .tab:not([data-tab="lookup"]):not([data-tab="trainees"]):not([data-tab="availability"]),body.faculty-self-mode .tabs a,body.faculty-self-mode .kpis,body.faculty-self-mode .summary-source-banner,body.faculty-self-mode #lookup-view > .toolbar,body.faculty-self-mode .result-pane,body.faculty-self-mode #sync-status{display:none!important}body.faculty-self-mode .lookup-grid{display:block;min-height:0}body.faculty-self-mode .profile-pane{width:100%;min-width:0;padding:18px}'; document.head.appendChild(style); }
-  function lock(message) { traineesEntry?.clear(); afcForms?.clear();facultyArchive?.clear();cccReplace?.clear();closeHistory();if($('faculty-history-btn'))$('faculty-history-btn').disabled=true;$('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
-  function unlock() { if($('faculty-history-btn'))$('faculty-history-btn').disabled=false;$('auth-gate').classList.add('hidden'); }
+  function lock(message) { officeWorkspace?.sync(null);traineesEntry?.clear(); afcForms?.clear();facultyArchive?.clear();cccReplace?.clear();closeHistory();if($('faculty-history-btn'))$('faculty-history-btn').disabled=true;$('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
+  function unlock(profile) { officeWorkspace?.sync(profile);if($('faculty-history-btn'))$('faculty-history-btn').disabled=false;$('auth-gate').classList.add('hidden'); }
   function debounce(fn, wait = 160) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; }
 
   $('gate-back').onclick = $('back-btn').onclick = returnToTimetable;

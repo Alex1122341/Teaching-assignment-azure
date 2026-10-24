@@ -87,5 +87,7 @@
   "leadership-directory.css",
   "leadership-directory.js",
   "schedule-filter-view.js",
-  "workspace-navigation.js"
+  "workspace-navigation.js",
+  "office-workspace.js",
+  "faculty-route-access.js"
 ]

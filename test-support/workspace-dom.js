@@ -18,7 +18,7 @@ function domHarness(width=1024,{autoMount=true,config={}}={}){
   getClientRects(){return this.hidden||this.classList.contains('hidden')?[]:[{}];}
   querySelectorAll(){return this.children.flatMap(n=>[n,...n.querySelectorAll()]).filter(n=>n.tagName==='BUTTON'||n.tagName==='A');}
  }
- doc.createElement=t=>new Node(t);doc.body=new Node('body');const masthead=new Node('header'),header=new Node('div'),main=new Node('main'),overlay=new Node('section');masthead.append(header);doc.body.append(masthead,main,overlay);
+ doc.createElement=t=>new Node(t);doc.documentElement=new Node('html');doc.body=new Node('body');const masthead=new Node('header'),header=new Node('div'),main=new Node('main'),overlay=new Node('section');masthead.append(header);doc.body.append(masthead,main,overlay);
  doc.querySelector=()=>doc.modal;doc.querySelectorAll=()=>[masthead,main];
  const win={innerWidth:width,MutationObserver:class{observe(){}},ResizeObserver:class{observe(){}},addEventListener:(name,fn)=>events[name]=fn};
  const destination=new Node('button');destination.textContent='HICC–CC List';destination.id='existing-directory';header.append(destination);

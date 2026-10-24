@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'..'),adapterPath=path.join(root,'frontend/scr
 function access(){const window={};vm.runInNewContext(fs.readFileSync(path.join(root,'frontend/scripts/faculty-access.js'),'utf8'),{window});return window.UCVM;}
 function adapter(){return require(adapterPath);}
 function office(page='faculty',width=1024){
- const h=domHarness(width,{autoMount:false});h.win.UCVM=access();h.win.PAWS_WORKSPACE_NAVIGATION=require('../frontend/scripts/workspace-navigation');
+ const h=domHarness(width,{autoMount:false});h.win.PAWS_FACULTY_ROUTE_ACCESS=require('../frontend/scripts/faculty-route-access');h.win.PAWS_WORKSPACE_NAVIGATION=require('../frontend/scripts/workspace-navigation');
  const nodes={header:h.options.header,calendar:h.destination,admin:h.privateNode,globalNodes:[]};h.destination.textContent='Teaching Schedule';
  const api=adapter().mount({document:h.doc,window:h.win,page,nodes});
  return {...h,api,officeNodes:nodes,nav:h.created.find(n=>n.className==='paws-navigation'),menu:h.created.find(n=>n.className==='paws-navigation-toggle')};
@@ -24,6 +24,14 @@ test('shared access import installs no Calendar observer on office routes and re
  vm.runInNewContext(source,{window:{},document,requestAnimationFrame:fn=>fn(),MutationObserver:class{observe(){observers++;}}});
  assert.equal(styles,1);assert.equal(observers,1);
  vm.runInNewContext(source,{window:{},document:{getElementById:()=>null}});
+});
+
+test('pure route capability projection exactly matches shared compatibility helpers and performs no I/O',()=>{
+ const pure=require('../frontend/scripts/faculty-route-access'),legacy=access();
+ for(const role of ['owner','administrator','admin','adfa_general','adfa_regular','faculty','hicc','visc','developer','editor','viewer','other_office','unknown','']){
+  for(const name of ['canOpenFacultyDashboard','canOpenTeachingAssignments'])assert.equal(pure[name]({role}),legacy[name]({role}),name+' '+role);
+ }
+ assert.doesNotMatch(fs.readFileSync(path.join(root,'frontend/scripts/faculty-route-access.js'),'utf8'),/fetch\(|firestore|document|localStorage|sessionStorage|firebase/);
 });
 
 test('office shell moves original actions once, labels current route and never widens guarded management',()=>{
@@ -50,6 +58,11 @@ test('Assignments shell keeps a truthful title and intentionally authorized curr
  assert.equal(h.created.find(n=>n.className==='paws-page-title').textContent,'Teaching Assignments');
  assert.equal(h.created.find(n=>n.attrs['aria-current']==='page').href,'teaching-assignments.html');
  assert.throws(()=>office('mock-overview'),/Unsupported/);
+});
+
+test('office theme control uses current shared theme and remains local presentation state',()=>{
+ const h=office();h.api.sync({active:true,role:'faculty'});const theme=h.created.find(n=>n.id==='office-theme-toggle');
+ assert.equal(theme.attrs['aria-pressed'],'false');theme.onclick();assert.equal(h.doc.documentElement.classList.contains('dark'),true);assert.equal(theme.attrs['aria-pressed'],'true');theme.onclick();assert.equal(h.doc.documentElement.classList.contains('dark'),false);
 });
 
 test('office adapter is presentation only and uses shared role capabilities',()=>{

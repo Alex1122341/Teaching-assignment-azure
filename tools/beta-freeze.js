@@ -11,13 +11,13 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed Calendar workspace product is the immutable trust anchor.
-// Three existing static assets change and two view modules are added. API,
-// identity, DOE, permission and write behavior remain unchanged from Phase1.
+// Reviewed faculty presentation-only names are the immutable trust anchor:
+// display "Last, First" without changing the SQL identity, ownership, or write
+// behavior of the accepted CCC, Availability and Dashboard History release.
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='64477000a17ae885776f664a93480af0aaaf110f';
+const BASELINE_COMMIT='58daab3a2401af69c2298cc1f078d78aad069ea9';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

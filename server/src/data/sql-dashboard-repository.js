@@ -613,7 +613,7 @@ function createSqlDashboardRepository(db) {
         db.query(
           `SELECT
                r.RoleAssignmentId AS roleAssignmentId,
-               rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),rs.ScheduleVersion,1) AS scheduleVersion,
+               rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),CONVERT(varbinary(8),rs.ScheduleVersion),1) AS scheduleVersion,
                r.FacultyResolutionStatus AS facultyResolutionStatus,
                r.AcademicYear AS academicYear,
                r.RoleCategory AS roleCategory,
@@ -1104,7 +1104,7 @@ function createSqlDashboardRepository(db) {
         `SELECT f.FacultyId AS facultyId,
                 ${facultyDisplayNameSql()} AS displayName,
                 r.RoleAssignmentId AS roleAssignmentId,
-                rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),rs.ScheduleVersion,1) AS scheduleVersion,
+                rs.PeriodsJson AS validityPeriodsJson, CONVERT(varchar(18),CONVERT(varbinary(8),rs.ScheduleVersion),1) AS scheduleVersion,
                 r.FacultyResolutionStatus AS facultyResolutionStatus,
                 r.AcademicYear AS academicYear,
                 r.RoleCategory AS roleCategory,

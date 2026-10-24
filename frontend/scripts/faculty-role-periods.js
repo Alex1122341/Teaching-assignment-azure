@@ -3,6 +3,19 @@
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
  const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const periods=r=>Array.isArray(r.validityPeriods)?r.validityPeriods:[{startDate:r.effectiveDate||'',endDate:r.expirationDate||''}];
+ // Preserve the eight-byte SQL concurrency token across old/new API transports.
+ // A malformed token must never become null: that would discard stale protection.
+ function versionForSave(value){
+  if(value==null)return null;
+  if(typeof value==='string'){
+   const match=/^(?:0x)?([0-9a-f]{16})$/i.exec(value.trim());
+   if(match)return '0x'+match[1].toUpperCase();
+  }else if(value.type==='Buffer'&&Array.isArray(value.data)&&value.data.length===8&&
+   value.data.every(byte=>Number.isInteger(byte)&&byte>=0&&byte<=255)){
+   return '0x'+value.data.map(byte=>byte.toString(16).padStart(2,'0')).join('').toUpperCase();
+  }
+  throw Error('Appointment version is unavailable. Close and reload this appointment before editing.');
+ }
  function status(r,asOf=today()){
   if(r.facultyResolutionStatus==='manual_adjustment')return {key:'not-applicable',label:'Not applicable'};
   const p=periods(r);
@@ -33,7 +46,7 @@
    e.preventDefault();if(saving)return;read();saving=true;
    dialog.querySelectorAll('button').forEach(b=>b.disabled=true);
    const message=dialog.querySelector('[data-status]');
-   try{message.textContent='Saving…';await UCVM_PAWS_DATA.updateRolePeriods(current.roleAssignmentId,{expectedVersion:current.scheduleVersion||null,periods:windows});dialog.close();notify('Role effective periods saved. DOE unchanged.');await onChanged(current.facultyId);}
+   try{message.textContent='Saving…';const expectedVersion=versionForSave(current.scheduleVersion);await UCVM_PAWS_DATA.updateRolePeriods(current.roleAssignmentId,{expectedVersion,periods:windows});dialog.close();notify('Role effective periods saved. DOE unchanged.');await onChanged(current.facultyId);}
    catch(error){message.textContent=error?.message||'Could not save effective periods.';}
    finally{saving=false;dialog.querySelectorAll('button').forEach(b=>b.disabled=false);}
   });

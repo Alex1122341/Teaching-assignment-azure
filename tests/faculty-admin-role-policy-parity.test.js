@@ -69,7 +69,7 @@ function createHarness(currentUser) {
   const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, addEventListener(event, handler) { this[`on${event}`] = handler; }, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
   const nodes = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
-  const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = cb; }, async signOut() { signOuts += 1; } };
+  const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = user => { auth.currentUser=user; return cb(user); }; }, async signOut() { signOuts += 1; } };
   const firebaseAuth = Object.assign(function () { return auth; }, { Auth: { Persistence: { LOCAL: 'local' } } });
   const pawsData = {
     currentUser: async () => { calls.push('currentUser'); return currentUser; },

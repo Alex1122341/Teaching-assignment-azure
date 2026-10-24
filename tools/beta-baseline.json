@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "fcc36231cd0b0c02a2b9b0871ffdf64fcc0e8788",
+  "sourceCommit": "486ea030c5eaef4ddb7508a4d50799687487057f",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -54,7 +54,7 @@
     "password.html": "329d3b10211f99a5d13290a52352594da62eee4abf051767bddd0ecd1cc7620d",
     "password.js": "40c884e0a4355a45204a069a504b50bcb3566b9b834db42bef9fce67c3b54c6f",
     "session-guard.js": "fd8e2415ed80d1eac771246be1e4c78910ce5c1101ac2bd147e56b84e56af78e",
-    "paws-api-origin.js": "84bdf73016a198cce85302357890df9d878c691d5217d6f3a4a706ed6dc25391",
+    "paws-api-origin.js": "b7f7e2dc36a5c82858e4d0336bd5a8459b92393d91df5bd7a5c5fe0d218fbe6c",
     "signature-capture.js": "3e3c2334c3c173a1eace4dcba189c216aa4a67bc107198dc9c9548f1888524bf",
     "paws-data-client.js": "9bf3a14475620c99fb76ce5763054d3fdba7c297e4deb28a4aa4a8775682ef01",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",

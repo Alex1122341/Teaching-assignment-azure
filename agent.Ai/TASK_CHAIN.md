@@ -1,4 +1,8 @@
-## Current: office workspace live — 2026-10-24
+## Current: ledger baseline complete; History correction acceptance — 2026-10-24
+
+Original39task/43checkworkbook is updated at its existing Desktop location;16passed,26open,oneN/A. Task26GOV-01 technical baseline is complete. H01real year/keyword/paging/full-filtered CSV+XLSX readbacks progressed; preserve business signoff and zero-row own-history limitation. Next complete full root/build/freezes and exact-head release checks for product8fb1bc80's narrowly scoped export-context fix. Separate immutable promotion retains91static/115API+3inputs and historical486/bb424ddreceipt; product and governance review clean. Production remains87a7f943; do not label the correction live. Role-source consolidation27 and other unimplemented tasks remain open, not inferred from directory or UI delivery.
+
+## Historical: office workspace live — 2026-10-24
 
 PR140 mergedmain87a7f94; exact-main CI40113620342 green, verified artifact12567194271, Hostingrelease1792861391972000/version2c7005ce99b6dbab.91/91raw served files and normal actual-origin Faculty/admin Calendar/Dashboard/Assignments checks pass. Backend27gates/SQL/source unchanged; recovery CheckOnly siteReadytrue. Accounts signed out. No further release action for this phase. Next work is a separate reviewed design slice or legacy account-role/source consolidation; preserve existing HICC behavior and privacy, do not guess identity. See updates/2026-10-24-office-workspace-live.md. Local final docs remain for next cohesive PR, not another receipt-only publish loop.
 

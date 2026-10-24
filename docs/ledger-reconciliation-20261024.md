@@ -52,3 +52,16 @@ The legacy role-source inconsistency was observed during PR 140 acceptance. Its 
 5. PR 125 Testing still needs the independently provisioned school Testing database; do not use production as a substitute.
 
 No runtime source, SQL, gate, permission or deployment was changed by this reconciliation.
+
+## Real History acceptance and bounded correction
+
+Subsequent read-only acceptance used existing normal Faculty/admin accounts on the published origin. No synthetic record was inserted into SQL.
+
+- Faculty own History: zero recorded rows in the selected year; CSV and Excel both downloaded and read back with the expected 13 headers. This does not establish an affected/removed-faculty positive sample.
+- Faculty Calendar Changes: two existing rows; course keyword `315`, empty search, Reset and keyboard Enter expansion verified. CSV contains both rows with 13 headers.
+- Admin Dashboard History: 1,758 grouped operations; the 101–200 page loads. The 2024–25 filter produces 111 operations, with a verified 101–111 final page. CSV has all 111 operations; Excel has 111 operation rows plus 444 change-detail rows.
+- Cross-year `Role Periods` keyword: 149 operations; CSV has exactly 149 operation rows and every operation title matches. Downloads cover the filtered result, not only the first 100 visible records.
+- Complete 1,758-operation export: explicit `HISTORY_LIMIT` response, no file. The old controller then clears its loaded list. The bounded candidate preserves state for `HISTORY_LIMIT`/413 or `HISTORY_EXPORT_BUSY`/429 only; authority/expiry/unknown errors remain fail closed. See the separate design, plan and governance receipt. Do not claim unlimited export.
+- Actual synthetic component comparison (205 operations) reproduces old zero-row clearing and verifies the corrected second page retains 100 rows and `101–200 of 205`. Screenshots and downloaded private files stay outside Git. Both accounts were signed out and the actual login gate re-verified.
+
+The original progress workbook was atomically updated and read back: 107 targeted cells, 39 tasks, 43 checks, 16 passed / 26 open / one not applicable. Styles, formulas, native tables, validations, conditional rules and panes are preserved; export introduces only insignificant floating precision in several unchanged row heights (less than 0.00001 point). Original bytes are privately backed up. User signoff remains unfilled. The workbook records the History fix as an unreleased candidate.

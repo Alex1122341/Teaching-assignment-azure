@@ -8,7 +8,7 @@ test('integrated PR133 retains restored origin and changes only two public asset
   assert.deepEqual(JSON.parse(git('show',PRODUCT+':tools/static-assets.json')),manifest);
   const delta=manifest.filter(file=>!freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:BASE,file}),freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})));
   assert.deepEqual(delta,['paws-data-client.js','timetable.js']);
-  assert.equal(require('../frontend/scripts/paws-api-origin').apiOrigin,'https://cultures-please-skirt-tba.trycloudflare.com');
+  assert.ok(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file:'paws-api-origin.js'}).toString().includes("apiOrigin: 'https://cultures-please-skirt-tba.trycloudflare.com'"));
   const protectedApi=[...api.baselineRuntimeFiles({root,baselineCommit:BASE}),...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES];
   for(const file of protectedApi)assert.ok(freeze.bytesMatch(git('show',BASE+':'+file),git('show',PRODUCT+':'+file)),file);
   assert.equal(git('diff','--name-only',BASE,PRODUCT,'--','database').toString().trim(),'');

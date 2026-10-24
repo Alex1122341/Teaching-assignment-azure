@@ -9,7 +9,7 @@ test('maintenance product changes only the origin and preserves all protected st
  const manifest=JSON.parse(git('show',BASE+':tools/static-assets.json'));
  assert.deepEqual(JSON.parse(git('show',PRODUCT+':tools/static-assets.json')),manifest);
  assert.equal(manifest.length,85);assert.deepEqual(changed(BASE,PRODUCT).filter(file=>manifest.includes(file)),['paws-api-origin.js']);
- assert.equal(require('../frontend/scripts/paws-api-origin').apiOrigin,'https://cultures-please-skirt-tba.trycloudflare.com');
+ assert.ok(freeze.readBaselineFile({root,baselineCommit:PRODUCT,file:'paws-api-origin.js'}).toString().includes("apiOrigin: 'https://cultures-please-skirt-tba.trycloudflare.com'"));
  assert.deepEqual(api.baselineRuntimeFiles({root,baselineCommit:PRODUCT}),api.baselineRuntimeFiles({root,baselineCommit:BASE}));
  const protectedApi=[...api.baselineRuntimeFiles({root,baselineCommit:BASE}),...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES];
  assert.equal(protectedApi.length,113);assert.deepEqual(changed(BASE,PRODUCT).filter(file=>protectedApi.includes(file)||file.startsWith('database/')),[]);

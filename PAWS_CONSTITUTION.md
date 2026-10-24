@@ -2,6 +2,12 @@
 
 These product rules apply to current PAWS features and future changes. A change to a rule requires an explicit Owner decision recorded in the same reviewed PR.
 
+## Calendar is the home of PAWS
+
+For every supported authenticated role, the normal application entry and successful login lead to **Teaching Schedule / Calendar**. Refreshing the normal entry does not restore Overview, Dashboard or a previously visited page. Do not reintroduce automatic administrator-to-Dashboard redirects or persist a last-page default.
+
+Preserve intentional navigation and authorized direct URLs to existing pages. Required authentication, inactive-account denial and mandatory credential-change policies still apply; this rule does not grant access or bypass them. Overview / My Work may be an optional destination and must never replace Calendar as home. Include positive and negative role/landing regression checks when changing authentication or navigation.
+
 ## Person names: Last name, First name
 
 Every person-name label in PAWS uses **Last name, First name**. This includes faculty and staff names in tables, calendars, HICC/CC/VISC lists, dashboards, pickers, availability, SWAP, account labels, approval/history attribution, and names printed in newly generated CSV, Excel, calendar invitations and PDF documents.

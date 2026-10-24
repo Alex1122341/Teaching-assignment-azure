@@ -11,13 +11,13 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed Schedule / leadership UI product is the immutable trust anchor.
-// Exactly four static files change; API, identity, DOE, permission and write
-// behavior remain byte-identical to the accepted name-constitution release.
+// Reviewed Calendar workspace product is the immutable trust anchor.
+// Three existing static assets change and two view modules are added. API,
+// identity, DOE, permission and write behavior remain unchanged from Phase1.
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='16027769c774367c65d5dd68fc1a8002a052589e';
+const BASELINE_COMMIT='64477000a17ae885776f664a93480af0aaaf110f';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

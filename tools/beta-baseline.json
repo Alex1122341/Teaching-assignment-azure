@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "5d324df870344345ddb7ab59ff7ae1b54e219e6f",
+  "sourceCommit": "a6c5092020cfda4c87873591b3c8d5edbeba5e72",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -33,7 +33,7 @@
     "faculty-admin.html": "9fa17a98ca05e298017a4a09bf905e9fab9ffe216427f898f00683b64ba22d64",
     "faculty-admin-trainees.js": "42e8cf8bf668a769575d3ffcca52fcfa8f6dead297a9c7154634eea305a66d4a",
     "faculty-admin-trainees.css": "521709a8efcc501a6b73aead35d50dd6d112e0486440abf5fc6b151826e788fb",
-    "faculty-admin.js": "a865c1295780f92634240ef59c3e0357679641b450fbce03ec352cca69edf1a0",
+    "faculty-admin.js": "3a0bee425d5976abeb3421b948195caf49df552609f435fda772c18416b86109",
     "faculty-admin-management.js": "09f2bd9fac442345b551152114891a87f77f44ef1bab96a0f889d71301f4aa0e",
     "faculty-admin-doe-renderer.js": "65a65a863f08ddc9fb01f2f629f7108bcaf8548d98ddee07dc353f3b1854deb3",
     "faculty-admin-doe-edit.js": "eba0c0129290f701c672724e69c24ca8879f61cf2396c78d1e54630347eec204",
@@ -44,7 +44,7 @@
     "faculty-admin-doe-rulebook.css": "075002b903a9ffa0afc19a4d0571e0f0c6570d23d7fada797ef689f794cb1916",
     "teaching-assignments.css": "54b0774aa7dd55add0b8c6876c148eb94b20a747a7e50506ebc2587d56d51f66",
     "teaching-assignments.html": "c448c8840278c768763e12d8d66263fa19c09a2b5f8aa2b029dc9b360b73ee5f",
-    "teaching-assignments.js": "988964e1df8a4cdb4d5d269cdc377faa35d63602f878224f97ff84925182cbcc",
+    "teaching-assignments.js": "f51ef3d62eb0b2c12b21802daead83a4758ba296a03136205f6eea4631115b5e",
     "dashboard-view-model.js": "a5053b05b2af89f7653a486af268a03c4daa0f91418dbad80b43ce75747c7163",
     "faculty-swap-handoff.js": "1b68dcf3e287c97097640051a26634b95d321c89e392600a9e97bc45c97d3ce7",
     "faculty-swap-safe.js": "558c3150444f2a9ad66ac54437618297f6e45632d0375d502816e3eda331649c",
@@ -72,7 +72,7 @@
     "swap-workflow-sql.css": "cf3e55658199335b85a420d4f1c8f81814dee3aa7e3e8709374f3e93956b0318",
     "developer-support.js": "165565f5c7f8e30512cb1bd3f9ff11187d25af9ead4b0708ee6e0f725dc0e132",
     "workspace-tasks.js": "4520839dd547c21d6d9e6e49ddc2f8a5645f3d06b8954c3f53840edf9200a6c6",
-    "workspace.css": "1c192483f8345f911cc49e6f99f0ebd01e9003c01e36c6aed2a9d1ac30b887e8",
+    "workspace.css": "00ede35273c902b193ddfd34de176c04dc7e3f9c30363f0505fcf3a95f2fc174",
     "faculty-role-periods.js": "ec3bfdff22bcf4101514504d6666556c55fcb18cb39425b73f21b7f75033fbac",
     "faculty-admin-afc-records.js": "5489a6dc069d8c98f3c8e9a98e887e6530a4ea4a8662e0954bd4d7b366017229",
     "faculty-admin-afc-forms.js": "5b84183aedc359e8acfb201f7b637a11524ef790d3ca178d6d172025e56c5735",

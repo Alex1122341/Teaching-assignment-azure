@@ -1,14 +1,14 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
 const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
-const root=path.resolve(__dirname,'..'),MAIN='486ea030c5eaef4ddb7508a4d50799687487057f',PRODUCT='b7d98616888cb7b2b648a627ae287b9a08bb5b99';
+const root=path.resolve(__dirname,'..'),MAIN='b7d98616888cb7b2b648a627ae287b9a08bb5b99',PRODUCT='02388d60519eb7429633a1e748c1fb6e192a1b54';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('integrated office governance pins the exact accepted product and protects all 92 assets',()=>{
  assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);
  git('merge-base','--is-ancestor',MAIN,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  const before=freeze.readBaselineManifest({root,baselineCommit:MAIN}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});
  assert.equal(after.length,92);assert.deepEqual(before.filter(f=>!after.includes(f)),[]);
- assert.deepEqual(after.filter(f=>!before.includes(f)),['calendar-search.js']);
+ assert.deepEqual(after.filter(f=>!before.includes(f)),[],'this promotion changes bytes only, it adds no asset');
  assert.equal(freeze.protectedPaths({root}).length,92);assert.equal(freeze.verifyFreeze({root}).ok,true);
  assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,92);
 });

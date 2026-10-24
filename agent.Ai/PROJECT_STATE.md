@@ -1,4 +1,8 @@
-## Current: PR140 supplemental name-search correction — 2026-10-24
+## Current: Saturday API recovery complete; new ingress candidate — 2026-10-24
+
+School RDC is online. API/SQL/public HTTPS health pass at main8bb/trust58 with27 unchanged gates. Preserved old admin-owned PID/log evidence and ACLs; approved launcher copy changes only output directory, recovery config only launcher path/hash/log directory, backed up atomically. New temporary ingress gibson-strand-telecharger-governor.trycloudflare.com; product486ea03 changes only paws-api-origin.js, separate governancebb424dd. Focused58/governance5 and combined build/four freezes pass; independent supplemental repo review has no findings. Faculty/admin normal login enter Calendar; own/admin/other403 checks and Dashboard/Assignments verified through private GET-only bridge. Current Hosting still old origin, so not yet recovered frontend/publication. Fresh exact-head CI/artifact required; earlier884 CI40109471683 is historical. See updates/2026-10-24-saturday-runtime-recovery.md. No SQL/API/gate/CORS/ACL mutation or merge/deploy.
+
+## Historical: PR140 supplemental name-search correction — 2026-10-24
 
 Productfcc3623/governance8133ecd corrects aggregate searching by the displayed shared name label. Focused57/57, governance4/4 and actual1280/390 browser searches pass; independent supplemental review has no findings. Previous d441daf CI40103482274 was successful but is historical for this new product; fresh exact-candidate verification is required. API/SQL/permissions remain identical to main8bb. School RDC still offline, API DNS NXDOMAIN; no merge/deploy. Resume from updates/2026-10-24-office-search-acceptance.md. Do not redo initial UI or weaken the frozen runtime.
 

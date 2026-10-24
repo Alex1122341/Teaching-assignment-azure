@@ -1,4 +1,8 @@
-## Current: PR140 supplemental name-search correction — 2026-10-24
+## Current: recovered backend; publishable ingress preparation — 2026-10-24
+
+Resume product486ea03/governancebb424dd on PR140. Backend/API/SQL/TLS and27 gates accepted; old server output files preserved, owned PID/log paths persisted. Actual Faculty/admin read-only candidate acceptance passes, including Faculty other403. New origin needs reviewed frontend publication; earlier884 artifact is historical. Complete final exact-head CI/artifact/Hosting metadata and follow current publication authorization contract, then actual-origin smoke and recovery CheckOnly. No SQL work or healthy API restart. See updates/2026-10-24-saturday-runtime-recovery.md.
+
+## Historical: PR140 supplemental name-search correction — 2026-10-24
 
 Productfcc3623/governance8133ecd corrects aggregate searching by the displayed shared name label. Focused57/57, governance4/4 and actual1280/390 browser searches pass; independent supplemental review has no findings. Prior d441daf CI is historical after this correction. Finish fresh exact-candidate verification and PR evidence, then resume existing server recovery only when RDC returns. No API/SQL/permission change and no merge/deploy. See updates/2026-10-24-office-search-acceptance.md.
 

@@ -21,6 +21,8 @@ Native browser 200% zoom is **not verified**: the connected browser exposes view
 
 ## Real identity, read-only University API
 
+After the Saturday restart, normal Faculty/admin acceptance was repeated against verified new ingress gibson-strand-telecharger-governor.trycloudflare.com and product486ea03. Both entered Calendar; all own/administrative/actual-other-Faculty checks in the table below passed again (Faculty other detail403ROLE_DENIED). Admin Dashboard and one-package queue loaded; Faculty Published view showed the existing immutable release and management tabs were absent. Accounts signed out afterward. Public HTTPS CORS preflight independently returned204/exact Hosting ACAO, while an untrusted Origin returned403/no ACAO. These current checks supersede the outage boundary for the API, but remain private candidate acceptance rather than a Hosting deployment or actual published-origin UI smoke test. No runtime/database/gate/CORS/ACL change or business mutation.
+
 Normal authorized Faculty and administrator Firebase sign-in was exercised against the generated candidate through a loopback-only GET/HEAD bridge to the current University API. The bridge preserves the bearer identity, rejects writes, pins the upstream origin, and leaves production CORS/permissions unchanged. It is private acceptance tooling, never a shipped asset. This verifies controller rendering and API authorization, not production Hosting publication or unchanged-origin CORS delivery.
 
 | Check | Faculty | Administrator |

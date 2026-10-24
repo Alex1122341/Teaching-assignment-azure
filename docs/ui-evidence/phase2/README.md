@@ -2,6 +2,8 @@
 
 Captured 2026-10-23 from the actual generated static assets. Product: `64477000a17ae885776f664a93480af0aaaf110f`; governance: `6381fc87c1f08ff81c9f885ee5ae2a3449dcf3cb`. Candidate only, not a live release. This is an isolated stack on PR136, not integrated current main `8bb40c60370bcce3d0135efd4327d42fba657903`. PR137/138's role-period fixes and main's newer governance must be preserved during a separately verified integration. API-unchanged evidence below is relative to PR136.
 
+Review: draft [PR139](https://github.com/Alex1122341/Teaching-assignment-azure/pull/139), based on PR136's branch. Not merged/deployed.
+
 ## Comparable views
 
 Each `before-WIDTH.jpg` / `candidate-WIDTH.jpg` pair uses a 900px-high CSS viewport, light theme, synthetic administrator, All Years, Fall Week 12 (November 9–13, 2026), all courses/types/months, Week view, ten synthetic sessions, filters expanded and page scroll at the top. Tasks is closed. Navigation adapts to width by design. Before is the PR136 Phase 1 generated bundle; candidate is this phase's generated bundle. The yellow preview banner and fixture selector belong to the private read-only harness, not the shipped application.

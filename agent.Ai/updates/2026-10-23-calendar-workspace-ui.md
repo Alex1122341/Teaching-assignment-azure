@@ -62,6 +62,7 @@ Read GitHub PR/main metadata only. No SQL/Firebase/business write, reset, import
 ## 9. Current state after task
 
 - Branch: `feat/paws-calendar-workspace-20261023`.
+- Draft stacked PR139: https://github.com/Alex1122341/Teaching-assignment-azure/pull/139 . Base is PR136's branch, not main. Attached to this task; not merged or deployed.
 - Product6447700 / governance6381fc8; documentation follows without runtime changes.
 - PR136 remains open/non-draft at0baedfef; PR125 remains unrelated Testing infrastructure.
 - Fresh GitHub main is `8bb40c60370bcce3d0135efd4327d42fba657903`, advanced through merged PR137/138 role-period rowversion repairs. The isolated stack does not yet contain those changes.
@@ -76,7 +77,7 @@ Read GitHub PR/main metadata only. No SQL/Firebase/business write, reset, import
 
 ## 11. Exact current breakpoint
 
-Schedule P0 is implemented and independently reviewed. Finish recording final full-suite evidence, publish a focused draft stacked PR against `feat/paws-office-ui-20261023`, attach it, then continue guarded cross-page design work in a later slice. No live release readiness is claimed.
+Schedule P0 is implemented and independently reviewed; full-root1048/0/53skip and95 focused checks pass. Draft PR139 is published against `feat/paws-office-ui-20261023` and attached to this task. Continue guarded cross-page design work in a later slice; reconcile current main/PR136 and fresh governance before integration. No live release readiness is claimed.
 
 ## 12. Next safe action
 

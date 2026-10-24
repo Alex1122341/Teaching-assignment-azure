@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "a6c5092020cfda4c87873591b3c8d5edbeba5e72",
+  "sourceCommit": "fcc36231cd0b0c02a2b9b0871ffdf64fcc0e8788",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -33,7 +33,7 @@
     "faculty-admin.html": "9fa17a98ca05e298017a4a09bf905e9fab9ffe216427f898f00683b64ba22d64",
     "faculty-admin-trainees.js": "42e8cf8bf668a769575d3ffcca52fcfa8f6dead297a9c7154634eea305a66d4a",
     "faculty-admin-trainees.css": "521709a8efcc501a6b73aead35d50dd6d112e0486440abf5fc6b151826e788fb",
-    "faculty-admin.js": "3a0bee425d5976abeb3421b948195caf49df552609f435fda772c18416b86109",
+    "faculty-admin.js": "cd1341cf8c4abb45ccb93f062b35f8bd9fcc1b5f82d5643382df8b0b6d5c623c",
     "faculty-admin-management.js": "09f2bd9fac442345b551152114891a87f77f44ef1bab96a0f889d71301f4aa0e",
     "faculty-admin-doe-renderer.js": "65a65a863f08ddc9fb01f2f629f7108bcaf8548d98ddee07dc353f3b1854deb3",
     "faculty-admin-doe-edit.js": "eba0c0129290f701c672724e69c24ca8879f61cf2396c78d1e54630347eec204",

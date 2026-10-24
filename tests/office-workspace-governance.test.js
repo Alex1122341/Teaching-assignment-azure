@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
 const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
-const root=path.resolve(__dirname,'..'),MAIN='8bb40c60370bcce3d0135efd4327d42fba657903',PRODUCT='a6c5092020cfda4c87873591b3c8d5edbeba5e72';
+const root=path.resolve(__dirname,'..'),MAIN='8bb40c60370bcce3d0135efd4327d42fba657903',PRODUCT='fcc36231cd0b0c02a2b9b0871ffdf64fcc0e8788';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('integrated office governance pins the exact accepted product and protects all 91 assets',()=>{
  assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);
@@ -24,4 +24,12 @@ test('initial office product promotion remains an immutable historical receipt',
  assert.ok(git('show',accepted+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+initial+"'"));
  assert.equal(JSON.parse(git('show',accepted+':tools/beta-baseline.json')).sourceCommit,initial);
  assert.equal(git('diff','--name-only',initial,accepted,'--','frontend','server','swa-api','database','tools/static-assets.json'),'');
+});
+
+test('aggregate name-search correction preserves the reviewed office anchor and changes only its controller',()=>{
+ const previous='a6c5092020cfda4c87873591b3c8d5edbeba5e72',governance='4de4a3ef55bfe2ddad03d8b985e8c618238c09c0';
+ assert.ok(git('show',governance+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+previous+"'"));
+ assert.equal(JSON.parse(git('show',governance+':tools/beta-baseline.json')).sourceCommit,previous);
+ assert.equal(git('diff','--name-only',previous,PRODUCT,'--','frontend'),'frontend/scripts/faculty-admin.js');
+ for(const file of freeze.protectedPaths({root}).filter(file=>file!=='faculty-admin.js'))assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
 });

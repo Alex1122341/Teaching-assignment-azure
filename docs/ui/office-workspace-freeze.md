@@ -14,3 +14,7 @@ Full root/server, build/artifact verification and the final fresh independent re
 ## Final review corrections — 2026-10-24
 
 The initial promotion above remains historical at governance `2998f1a`. The independent review found two Important defects; they were reproduced and fixed with real-source regressions. Final corrected product is `a6c5092020cfda4c87873591b3c8d5edbeba5e72`, committed before this second separate promotion. Protection remains 91 static / 115 API + 3 build/input files. API/SQL/rules/dependencies still match main exactly. The original initial-office acceptance is retained as an immutable historical test; Git-object verification and both anti-tamper checks are unchanged. Final combined focused tests:216 passed,0 failed.
+
+## Supplemental search acceptance correction
+
+Product `fcc36231cd0b0c02a2b9b0871ffdf64fcc0e8788` changes only two aggregate search predicates in faculty-admin.js to include the existing shared formatter's displayed label. Source aliases, identity, type/status filters, API and SQL are preserved. Eleven real-source search regressions first showed five failures, then all passed; the matching page/auth/name checks total57 passed. This separate promotion retains the prior a6c5092/4de4a3e review receipt as history, protects all91 static/115 API files, and changes no enforcement algorithm. Previous d441daf CI/artifact evidence does not certify the new candidate; complete fresh verification before release.

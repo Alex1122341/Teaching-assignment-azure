@@ -1,4 +1,8 @@
-## Current: recovered backend; publishable ingress preparation — 2026-10-24
+## Current: office workspace live — 2026-10-24
+
+PR140 mergedmain87a7f94; exact-main CI40113620342 green, verified artifact12567194271, Hostingrelease1792861391972000/version2c7005ce99b6dbab.91/91raw served files and normal actual-origin Faculty/admin Calendar/Dashboard/Assignments checks pass. Backend27gates/SQL/source unchanged; recovery CheckOnly siteReadytrue. Accounts signed out. No further release action for this phase. Next work is a separate reviewed design slice or legacy account-role/source consolidation; preserve existing HICC behavior and privacy, do not guess identity. See updates/2026-10-24-office-workspace-live.md. Local final docs remain for next cohesive PR, not another receipt-only publish loop.
+
+## Historical: recovered backend; publishable ingress preparation — 2026-10-24
 
 Resume product486ea03/governancebb424dd on PR140. Backend/API/SQL/TLS and27 gates accepted; old server output files preserved, owned PID/log paths persisted. Actual Faculty/admin read-only candidate acceptance passes, including Faculty other403. New origin needs reviewed frontend publication; earlier884 artifact is historical. Complete final exact-head CI/artifact/Hosting metadata and follow current publication authorization contract, then actual-origin smoke and recovery CheckOnly. No SQL work or healthy API restart. See updates/2026-10-24-saturday-runtime-recovery.md.
 

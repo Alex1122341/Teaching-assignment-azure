@@ -40,4 +40,10 @@ Existing Calendar legacy optional enrichment logged a Firestore permission denia
 
 ## Verification boundary
 
+### Supplemental aggregate search acceptance
+
+At d441daf, the actual generated Teaching Summary and Roles tables displayed structured names but searched only raw displayName, so searching `müller` returned no rows despite six visible matching people. Product fcc3623 includes the same shared formatter label in each predicate, retaining old aliases and existing filters. Eleven real-source tests reproduced five failures before correction and passed afterward; matching page/auth/name checks total57 passed. A focused independent review of d441daf..8133ecd found no actionable Critical/Important/Minor issues.
+
+The corrected generated page at localhost19042 was exercised with synthetic records at1280×720 and390×900. Both aggregate searches return six matching `Müller, Élodie` rows; HICC yields none and VISC returns the six correct role rows. No warning/error console entries appeared. The mobile page stays within its viewport and the dense table scrolls locally. Private matched desktop screenshots: summary-name-search-before/after.jpg and roles-name-search-before/after.jpg; the390px screenshot is supplemental reflow evidence. The correction adds70 bytes to the generated static bundle (91files,2338302bytes), no extra request or dependency. This does not expand the earlier real-role or native-zoom acceptance claims.
+
 Targeted office/page/auth/assets/main integration suite: 188 passed before dark fix; new dark regression RED→GREEN and nine wiring tests passed. Full final suite, immutable promotion and independent review are recorded in the subsequent release receipt. This document does not claim merge or deployment.

@@ -3,38 +3,41 @@
   "repository": "Alex1122341/Teaching-assignment-azure",
   "pullRequest": 140,
   "main": "8bb40c60370bcce3d0135efd4327d42fba657903",
-  "product": "a6c5092020cfda4c87873591b3c8d5edbeba5e72",
-  "governance": "4de4a3ef55bfe2ddad03d8b985e8c618238c09c0",
-  "verifiedHeadBeforeFinalDocumentation": "f42e01ded833b2b810a74bfd986a15d17097baa1",
+  "product": "fcc36231cd0b0c02a2b9b0871ffdf64fcc0e8788",
+  "governance": "8133ecdffe3ec9f8c16d06ecc211ea8fa8925b4b",
+  "verifiedHeadBeforeFinalDocumentation": null,
   "ci": {
-    "runId": 40102576801,
-    "jobId": 120897627112,
-    "result": "success",
-    "checkoutMerge": "cbaf700c00bf354e97f95febaa28f31f1d7aed2f",
-    "mergeAndHeadTree": "2e01d5674db647c5671ce60ea7db39d953822ce8",
-    "root": {"tests": 1155, "passed": 1103, "failed": 0, "skipped": 52},
-    "server": {"tests": 859, "passed": 854, "failed": 0, "skipped": 5},
-    "emulator": {"tests": 1155, "passed": 1136, "failed": 0, "skipped": 19},
-    "supplemental": {"tests": 62, "passed": 62, "failed": 0, "skipped": 0},
-    "buildContainerAndFourFreezes": "passed",
-    "artifactId": 12562494826,
-    "artifactName": "azure-beta-cbaf700c00bf354e97f95febaa28f31f1d7aed2f",
-    "artifactSha256": "82965026649ce8b0645a9182fafc7e44cf68975d07694342fa6d6578be8a573a",
-    "downloadDigestVerified": true,
-    "downloadedArtifactStaticAndApiFreezes": "passed"
+    "result": "pending for supplemental candidate; do not reuse historical artifact"
   },
   "local": {
     "node": "22.20.0",
-    "focused": {"passed": 216, "failed": 0},
-    "correctedLegacyFixtures": {"passed": 54, "failed": 0},
-    "isolatedServer": {"tests": 859, "passed": 855, "failed": 0, "skipped": 4, "exitCode": 0},
-    "sequentialBuildAndFourFreezes": "passed",
-    "broadParallelRuns": "rejected: shared-artifact collision and worker oversubscription; not passing evidence"
+    "focused": {
+      "passed": 57,
+      "failed": 0
+    },
+    "governance": {
+      "passed": 4,
+      "failed": 0
+    },
+    "root": "pending"
   },
-  "protection": {"static": 91, "apiRuntime": 115, "buildAndDependencyInputs": 3, "apiSqlRulesDependencyDeltaFromMain": 0},
+  "protection": {
+    "static": 91,
+    "apiRuntime": 115,
+    "buildAndDependencyInputs": 3,
+    "apiSqlRulesDependencyDeltaFromMain": 0
+  },
   "browser": {
-    "routes": ["faculty-admin.html", "teaching-assignments.html"],
-    "widths": [1440, 1280, 768, 390],
+    "routes": [
+      "faculty-admin.html",
+      "teaching-assignments.html"
+    ],
+    "widths": [
+      1440,
+      1280,
+      768,
+      390
+    ],
     "height": 900,
     "syntheticBeforeAfter": true,
     "realFacultyAndAdminReadOnlyChecks": "passed before later API outage",
@@ -42,12 +45,114 @@
     "allPopulatedLazyBusinessTabs": "not certified"
   },
   "live": {
-    "hostingMatchesMain": {"matched": 87, "total": 87},
+    "hostingMatchesMain": {
+      "matched": 87,
+      "total": 87
+    },
     "rawRollbackBundleVerified": true,
     "temporaryApiDns": "NXDOMAIN",
     "schoolRdc": "offline",
     "merged": false,
     "deployed": false,
     "releaseStatus": "blocked on restoring and freshly accepting existing backend ingress"
+  },
+  "historicalVerifiedCandidate": {
+    "product": "a6c5092020cfda4c87873591b3c8d5edbeba5e72",
+    "governance": "4de4a3ef55bfe2ddad03d8b985e8c618238c09c0",
+    "head": "f42e01ded833b2b810a74bfd986a15d17097baa1",
+    "ci": {
+      "runId": 40102576801,
+      "jobId": 120897627112,
+      "result": "success",
+      "checkoutMerge": "cbaf700c00bf354e97f95febaa28f31f1d7aed2f",
+      "mergeAndHeadTree": "2e01d5674db647c5671ce60ea7db39d953822ce8",
+      "root": {
+        "tests": 1155,
+        "passed": 1103,
+        "failed": 0,
+        "skipped": 52
+      },
+      "server": {
+        "tests": 859,
+        "passed": 854,
+        "failed": 0,
+        "skipped": 5
+      },
+      "emulator": {
+        "tests": 1155,
+        "passed": 1136,
+        "failed": 0,
+        "skipped": 19
+      },
+      "supplemental": {
+        "tests": 62,
+        "passed": 62,
+        "failed": 0,
+        "skipped": 0
+      },
+      "buildContainerAndFourFreezes": "passed",
+      "artifactId": 12562494826,
+      "artifactName": "azure-beta-cbaf700c00bf354e97f95febaa28f31f1d7aed2f",
+      "artifactSha256": "82965026649ce8b0645a9182fafc7e44cf68975d07694342fa6d6578be8a573a",
+      "downloadDigestVerified": true,
+      "downloadedArtifactStaticAndApiFreezes": "passed"
+    },
+    "local": {
+      "node": "22.20.0",
+      "focused": {
+        "passed": 216,
+        "failed": 0
+      },
+      "correctedLegacyFixtures": {
+        "passed": 54,
+        "failed": 0
+      },
+      "isolatedServer": {
+        "tests": 859,
+        "passed": 855,
+        "failed": 0,
+        "skipped": 4,
+        "exitCode": 0
+      },
+      "sequentialBuildAndFourFreezes": "passed",
+      "broadParallelRuns": "rejected: shared-artifact collision and worker oversubscription; not passing evidence"
+    }
+  },
+  "supplemental": {
+    "focused": {
+      "passed": 57,
+      "failed": 0
+    },
+    "governance": {
+      "passed": 4,
+      "failed": 0
+    },
+    "independentReview": {
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+    },
+    "browser": {
+      "widths": [
+        1280,
+        390
+      ],
+      "heights": [
+        720,
+        900
+      ],
+      "searchRows": 6,
+      "roleHiccRows": 0,
+      "roleViscRows": 6,
+      "consoleWarningsOrErrors": 0,
+      "drillDown": "passed"
+    },
+    "static": {
+      "files": 91,
+      "bytes": 2338302,
+      "byteIncrease": 70,
+      "additionalRequests": 0
+    },
+    "localRoot": "pending"
   }
 }

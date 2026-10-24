@@ -1,5 +1,9 @@
 # PR140 release preparation — 2026-10-24
 
+## Current supplemental candidate
+
+Continued browser acceptance found and corrected the displayed-name aggregate search mismatch in Teaching Summary/Roles. Current product is fcc36231cd0b0c02a2b9b0871ffdf64fcc0e8788; separate governance8133ecdffe3ec9f8c16d06ecc211ea8fa8925b4b. The older product/CI/artifact receipts below are historical. Fresh candidate verification is recorded in the supplemental agent update and the PR; do not publish an older artifact. The correction changes only two predicates, keeps every API/SQL/rule/dependency byte identical to main8bb, and retains91static/115API protection. Focused57/57 and governance4/4 pass; real browser search/filter acceptance at1280/390 passes; independent supplemental review has no actionable findings. Current server RDC remains offline and API DNS returns NXDOMAIN, so actual live recovery/role acceptance and release remain blocked.
+
 ## Identity and scope
 
 | Item | Verified value |

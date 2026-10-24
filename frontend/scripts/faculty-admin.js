@@ -37,7 +37,7 @@
     historyView=window.PAWS_CHANGE_HISTORY.mount($('faculty-history-content'),{api:UCVM_PAWS_DATA,scope:'dashboard',academicYear:currentAcademicYear()});
     $('faculty-history-dialog').showModal();
   }
-  let currentUser = null;
+  let currentUser = null, authGeneration = 0;
   let faculty = [];
   let activeFaculty = [];
   const afcForms=window.PAWS_AFC_FORMS?.createRecordAttachment({api:UCVM_PAWS_DATA,host:$('afc-form-documents'),getUser:()=>currentUser,getFacultyId:()=>String($('afc-faculty')?.value||'')});
@@ -90,6 +90,7 @@
   }
 
   async function loadAdminDashboard() {
+    const g=authGeneration;
     const started = typeof performance?.now === 'function' ? performance.now() : 0;
     setDashboardLoading(true);
     try {
@@ -101,6 +102,7 @@
         UCVM_PAWS_DATA.refreshDoeWriteCapabilities?.() ?? {},
         UCVM_PAWS_DATA.refreshAfcRecordWriteCapabilities?.() ?? {}
       ]);
+      if(g!==authGeneration)return;
       dashboardSummary = summary && typeof summary === 'object' && !Array.isArray(summary) ? summary : {};
       facultyAdminWriteEnabled = canWrite === true;
       window.__pawsDoeWriteCapabilities = doeGates || {};
@@ -113,7 +115,7 @@
       updateFilters(); populateAfcFacultyOptions(); updateKpis(); updateStatus(); renderActiveTab();
       void loadLookupMetrics();
       pawsTimingLog('summary+faculty', started);
-    } catch (error) { console.error(error); markDashboardUnavailable(dashboardAuthFailureMessage(error)); }
+    } catch (error) { if(g!==authGeneration)return; console.error(error); markDashboardUnavailable(dashboardAuthFailureMessage(error)); }
   }
 
   function dashboardRawRole(value) { return String((value && typeof value === 'object' ? value.role : value) || '').toLowerCase(); }
@@ -124,14 +126,17 @@
   function isSelfServiceProfile(p){return ['faculty','hicc','visc'].includes(String(p?.role||'').toLowerCase())}
 
   async function loadSelfFaculty(facultyId) {
+    const g=authGeneration;
     if (!facultyId) throw new Error('Your account is not linked to a faculty profile. Please contact ADFA.');
     const rows = await UCVM_PAWS_DATA.dashboardFaculty();
+    if(g!==authGeneration)return;
     const own = (Array.isArray(rows) ? rows : []).map(r => rosterRecord(r)).find(r => String(r.facultyId).toLowerCase()===String(facultyId).toLowerCase());
     if (!own) throw new Error('Your linked faculty profile could not be found. Please contact ADFA.');
     faculty = [own]; selectedId = own.__id;
     const cached = detailCache.get(String(facultyId));
     if (cached) { selectedDetail = cached; renderApiDetail(cached); return; }
     const detail = await UCVM_PAWS_DATA.dashboardFacultyById(facultyId);
+    if(g!==authGeneration)return;
     detailCache.set(String(facultyId), detail); selectedDetail = detail; renderApiDetail(detail);
   }
 
@@ -162,18 +167,28 @@
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {}); bindUI();
       if(cameFromTimetable())lock('Opening Dashboard…');
       auth.onAuthStateChanged(async user => {
+        const generation=++authGeneration;
+        currentUser=null; resetAuthData();
         if (!user) { currentUser = null; workView?.clear();workImport?.clear();lock('You are not signed in. Return to the timetable and sign in.'); return; }
         try {
           lock('Checking Dashboard access…'); const meStarted = typeof performance?.now === 'function' ? performance.now() : 0; const profile = await UCVM_PAWS_DATA.currentUser(); pawsTimingLog('me', meStarted);
+          if(generation!==authGeneration || auth.currentUser?.uid!==user.uid)return;
           if (!profile || profile.active !== true) { lock('This Dashboard requires an active UCVM account.'); return; }
           if (profile.mustChangePassword === true) { location.replace('password.html'); return; }
           if (isSelfServiceProfile(profile) && !profile.facultyId) { lock('Your account requires a linked faculty profile. Please contact ADFA.'); return; }
           if (isSelfServiceProfile(profile)) { window.UCVMSessionGuard?.clearNotice?.(); await enterSelfMode(user, profile); return; }
           if (dashboardAdmin(profile)) { window.UCVMSessionGuard?.clearNotice?.(); enterAdminMode(user, profile); return; }
           lock('This account does not have Faculty Dashboard access.');
-        } catch (error) { console.error(error); if (error?.code === 'PASSWORD_CHANGE_REQUIRED') location.replace('password.html'); else lock(dashboardAuthFailureMessage(error)); }
+        } catch (error) { if(generation!==authGeneration)return; console.error(error); if (error?.code === 'PASSWORD_CHANGE_REQUIRED') location.replace('password.html'); else lock(dashboardAuthFailureMessage(error)); }
       });
     } catch (error) { console.error(error); lock('Firebase could not initialize.'); }
+  }
+
+  function resetAuthData() {
+    faculty=[]; activeFaculty=[]; afcRecords=[]; afcLoaded=false; selectedId=null; dashboardSummary=null; facultyAdminWriteEnabled=false;
+    lookupMetrics=null; ++lookupMetricsGeneration; invalidateFacultyDetails();
+    for(const key of Object.keys(aggregateCache))aggregateCache[key]=null;
+    for(const id of ['result-list','profile-pane','summary-body','roles-body','doe-overview-body','afc-records-body'])if($(id))$(id).textContent='';
   }
 
   function bindUI() {
@@ -237,24 +252,27 @@
   }
 
   async function loadTeachingSummary() {
+    const g=authGeneration;
     if (aggregateCache.teachingSummary) { renderTeachingSummary(); return; }
     const body = $('summary-body'); if (body) body.innerHTML = '<tr><td colspan="12" class="empty">Loading teaching summary…</td></tr>';
-    try { aggregateCache.teachingSummary = await UCVM_PAWS_DATA.dashboardTeachingSummary(); renderTeachingSummary(); }
-    catch (error) { if (body) body.innerHTML = `<tr><td colspan="12" class="empty">${esc(detailFailureMessage(error))}</td></tr>`; }
+    try { const rows=await UCVM_PAWS_DATA.dashboardTeachingSummary(); if(g!==authGeneration)return; aggregateCache.teachingSummary=rows; renderTeachingSummary(); }
+    catch (error) { if(g!==authGeneration)return; if (body) body.innerHTML = `<tr><td colspan="12" class="empty">${esc(detailFailureMessage(error))}</td></tr>`; }
   }
 
   async function loadRoles() {
+    const g=authGeneration;
     if (aggregateCache.roles) { renderRoles(); return; }
     const body = $('roles-body'); if (body) body.innerHTML = '<tr><td colspan="14" class="empty">Loading roles…</td></tr>';
-    try { aggregateCache.roles = await UCVM_PAWS_DATA.dashboardRoles(); fillRoleFilter(); renderRoles(); }
-    catch (error) { if (body) body.innerHTML = `<tr><td colspan="14" class="empty">${esc(detailFailureMessage(error))}</td></tr>`; }
+    try { const rows=await UCVM_PAWS_DATA.dashboardRoles(); if(g!==authGeneration)return; aggregateCache.roles=rows; fillRoleFilter(); renderRoles(); }
+    catch (error) { if(g!==authGeneration)return; if (body) body.innerHTML = `<tr><td colspan="14" class="empty">${esc(detailFailureMessage(error))}</td></tr>`; }
   }
 
   async function loadDoeOverview() {
+    const g=authGeneration;
     if (aggregateCache.doeOverview) { renderDoeOverview(); return; }
     const body = $('doe-overview-body'); if (body) body.innerHTML = '<div class="empty">Loading DOE overview…</div>';
-    try { aggregateCache.doeOverview = await UCVM_PAWS_DATA.dashboardDoeOverview(); renderDoeOverview(); }
-    catch (error) { if (body) body.innerHTML = `<div class="empty">${esc(detailFailureMessage(error))}</div>`; }
+    try { const rows=await UCVM_PAWS_DATA.dashboardDoeOverview(); if(g!==authGeneration)return; aggregateCache.doeOverview=rows; renderDoeOverview(); }
+    catch (error) { if(g!==authGeneration)return; if (body) body.innerHTML = `<div class="empty">${esc(detailFailureMessage(error))}</div>`; }
   }
 
   const AFC_REASON_LABELS = Object.freeze({ university_travel: 'University Travel', vacation: 'Vacation', rsl: 'RSL', medical: 'Medical', mat: 'MAT', special: 'Special', other: 'Other' });
@@ -265,17 +283,21 @@
   });
 
   async function loadAfcRecords(force = false) {
+    const g=authGeneration;
     const body = $('afc-records-body');
     if (!force && afcLoaded) { renderAfcRecords(); return; }
     if (body) body.innerHTML = '<tr><td colspan="9" class="empty">Loading AFC records…</td></tr>';
     try {
-      afcRecords = await UCVM_PAWS_DATA.dashboardAfcRecords({ limit: 2000 });
+      const rows = await UCVM_PAWS_DATA.dashboardAfcRecords({ limit: 2000 });
+      if(g!==authGeneration)return;
+      afcRecords=rows;
       afcRecords = Array.isArray(afcRecords) ? afcRecords : [];
       afcLoaded = true;
       renderAfcRecords();
       const note = $('afc-load-note'); if (note) note.textContent = `Unified AFC view · ${afcRecords.length} record${afcRecords.length === 1 ? '' : 's'} loaded · maximum 2,000.`;
       return afcRecords;
     } catch (error) {
+      if(g!==authGeneration)return;
       afcLoaded = false;
       afcRecords = [];
       if (body) body.innerHTML = `<tr><td colspan="9" class="empty">${esc(detailFailureMessage(error))}</td></tr>`;

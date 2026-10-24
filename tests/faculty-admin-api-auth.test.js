@@ -29,7 +29,7 @@ function dashboardHarness(currentUser){
   const byId=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)};
   const auth={
     setPersistence:async()=>{},
-    onAuthStateChanged(callback){authCallback=callback},
+    onAuthStateChanged(callback){authCallback=user=>{auth.currentUser=user;return callback(user)}},
     async signOut(){signOuts++}
   };
   const db={collection(name){reads.push(name);return{doc(){return this},where(){return this},onSnapshot(){return()=>{}},async get(){return{exists:false,docs:[]}}}}};

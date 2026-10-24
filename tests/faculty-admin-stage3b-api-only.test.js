@@ -80,7 +80,7 @@ function createHarness(overrides = {}) {
   const nodes = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
   const rowStubs = new Map();
-  const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = cb; }, async signOut() { signOuts += 1; } };
+  const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = user => { auth.currentUser=user; return cb(user); }; }, async signOut() { signOuts += 1; } };
   const firebaseAuth = Object.assign(function () { return auth; }, { Auth: { Persistence: { LOCAL: 'local' } } });
   const pawsData = {
     currentUser: async () => { calls.push('currentUser'); return overrides.currentUser ? overrides.currentUser() : ADMIN_PROFILE; },

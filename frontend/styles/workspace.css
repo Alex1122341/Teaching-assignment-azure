@@ -235,3 +235,5 @@ html.dark .paws-office-shell .headline h1,html.dark .paws-office-shell .intro h1
 html.dark .paws-office-shell .toolbar,html.dark .paws-office-shell .queue-card.selected,html.dark .paws-office-shell .queue-card:hover,html.dark .paws-office-shell .session-heading,html.dark .paws-office-shell .notice{background:var(--workspace-soft);color:var(--workspace-ink)}
 html.dark .paws-office-shell .tab.active,html.dark .paws-office-shell .view-tab.active{color:var(--workspace-ink);border-color:var(--workspace-gold)}
 html.dark .paws-office-shell .queue-card>span:not(.queue-card-top),html.dark .paws-office-shell .session-topic,html.dark .paws-office-shell .activity-row pre{color:var(--workspace-muted)}
+html.dark .paws-office-shell .panel-heading h2,html.dark .paws-office-shell .detail-header h2{color:var(--workspace-ink)}
+html.dark .paws-office-shell .next-action{color:var(--workspace-ink)!important}

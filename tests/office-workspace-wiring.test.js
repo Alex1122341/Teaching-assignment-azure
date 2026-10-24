@@ -64,3 +64,9 @@ test('office dark theme overrides legacy light headings branding and toolbars wi
  }
  assert.match(css,/html\.dark \.paws-office-shell \.tab\.active[^\n]+color:var\(--workspace-ink\)/);
 });
+
+test('populated dark assignment headings and priority actions retain legible contrast',()=>{
+ const css=read('workspace.css');
+ for(const selector of ['.panel-heading h2','.detail-header h2'])assert.ok(css.split('\n').some(rule=>rule.startsWith('html.dark .paws-office-shell ')&&rule.includes(selector)&&rule.includes('color:var(--workspace-ink)')),selector);
+ assert.match(css,/html\.dark \.paws-office-shell \.next-action\{color:var\(--workspace-ink\)!important\}/);
+});

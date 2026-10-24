@@ -1,6 +1,6 @@
 ## Current: Calendar search responsiveness on an open PR — 2026-10-24
 
-Branch perf/calendar-search-responsiveness, PR open against main8bb40c6. Productb7d9861 (91->92 static: adds calendar-search.js, changes index.html and timetable.js) and separate governance6341e21 on top of product486ea03. Search is debounced250ms, Working Activity rows are reused per uid/support-context/range/faculty scope for60s, and session clicks use one delegated listener plus an id index. Root suite1204/1152/0/52; governance72/72; beta-freeze92, beta-api-freeze115+3, verify-candidate and both artifact freezes ok. No SQL/auth/DOE/AFC/write-gate/config change. Not merged, not deployed; independent acceptance pending.
+Branch perf/calendar-search-responsiveness, PR open against main8bb40c6. Correction round for two review defects: product02388d6 (cancelled activity loads now report an explicit cancellation and are never cached; module-absent session-click fallback keeps the delegated binding) and separate governance26edea6 on top of productb7d9861. Static protection stays92 with three content changes (calendar-activities.js, calendar-search.js, timetable.js) and no addition or removal; API115+3 byte-identical. Root suite1222/1170/0/52; cancellation suite 9/13 failed on b7d9861 and passes13/13 now; A->B->A benchmark pass/fail/pass across baseline/previous/current. No SQL/auth/DOE/AFC/write-gate/config change. Not merged, not deployed; independent re-review pending.
 
 ## Historical: Saturday API recovery complete; new ingress candidate — 2026-10-24
 

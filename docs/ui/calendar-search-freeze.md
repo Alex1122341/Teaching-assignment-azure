@@ -33,3 +33,37 @@ The 250 ms trailing edge is a deliberate latency trade: the final result of a ty
 - `node tools/build-static.js`: 92 files, 2,350,673 bytes. `node tools/beta-freeze.js --artifact .azure-production/app` and `node tools/beta-api-freeze.js --artifact .azure-production/api` both ok.
 
 Full exact-head CI, the release artifact and the independent review are subsequent gates. A promoted local candidate is not a merge or deployment.
+
+## Review corrections — cancellation and click fallback
+
+Independent review of PR #141 found two defects in product `b7d9861`. Both were reproduced with failing tests before the fix. Corrected product is `02388d60519eb7429633a1e748c1fb6e192a1b54`, committed before this second separate promotion; governance is `26edea6`.
+
+1. **Cancelled requests were cached as authoritative empty rows.** `createCalendarActivityView()` reported a superseded request as `[]`, which is indistinguishable from a legitimately empty range, so an abandoned Week A response could be served as "Week A has no activities" for the whole TTL. `loadRange()`/`loadFacultyRange()` now take `onCancel:'empty'|'throw'`; the timetable cache passes `'throw'` and receives an `AbortError`-shaped cancellation that the cache never stores. Every other caller keeps the historical `[]` contract.
+2. **Session clicks went dead if the module failed to load.** `scheduledSessionBlockController()` returned null and nothing was bound. The page now falls back to `createInlineSessionBlockController()`, which keeps the delegated single-listener contract instead of restoring per-row listeners.
+
+Protection stays at 92 static assets — no addition, no removal — with three content changes (`calendar-activities.js`, `calendar-search.js`, `timetable.js`) and 89 byte-identical assets. API runtime (115) plus 3 inputs are unchanged.
+
+### Evidence
+
+`node tools/bench-calendar-search.js` now executes three revisions (baseline `486ea03`, previous PR head `b7d9861`, working tree) against the same stubs:
+
+| Metric | Baseline | Previous PR head | Corrected |
+|---|---:|---:|---:|
+| Initial activity load (requests) | 1 | 1 | 1 |
+| Extra activity requests for 10 keystrokes after warm-up | 10 | 0 | 0 |
+| Search renders for 10 rapid keystrokes | 10 | 1 | 1 |
+| Cache reads (direct) / hits (derived) | 11 / 0 | 11 / 10 | 11 / 10 |
+| Bind 1 000 rows: elapsed ms (direct) | ~173–183 | ~2–5 | ~0.7–1.2 |
+| Bind 1 000 rows: linear scans / listeners (direct) | 1 000 / 1 000 | 0 / 1 | 0 / 1 |
+| **A → B → A correctness** | pass | **fail** | **pass** |
+
+All timings are Node/V8 runs of production functions against stub collaborators, not browser timings.
+
+### Verification at the promoted head
+
+- Cancellation suite (`tests/calendar-search-cancellation.test.js`, 13 tests, real view + real cache): 9 failed against `b7d9861`, 13/13 pass now.
+- Degraded-mode tests (module absent): 5 added, all pass; the full Calendar search set is 18 + 23 + 13 = 54 tests.
+- Root suite: 1 222 tests, 1 170 passed, 0 failed, 52 skipped.
+- `beta-freeze` 92 ok, `beta-api-freeze` 115 + 3 ok, `verify-beta-candidate` ok, `.deploy-static` 92 files / 2 354 996 bytes, both artifact freezes ok.
+
+A promoted candidate is not a merge or deployment; exact-head CI and the external review follow.

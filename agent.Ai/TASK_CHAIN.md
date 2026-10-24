@@ -1,6 +1,6 @@
 ## Current: Calendar search performance PR — 2026-10-24
 
-Implement -> test -> PR -> stop. Productb7d9861 adds frontend/scripts/calendar-search.js and rewires timetable search, Working Activity loading and session clicks; governance6341e21 promotes the anchor to b7d9861 with91->92 static and unchanged115+3 API. Evidence: bench 10->1 renders, 11->1 activity loads, 1000->0 linear scans; root suite1204 tests/1152 pass/0 fail/52 skip; both freezes and the artifact freezes pass. Awaiting independent acceptance; no merge or deployment.
+Correction round after CHANGES REQUIRED on PR141. Product02388d6 fixes cached-cancelled-empty rows (onCancel:throw + AbortError-shaped result, never cached) and adds createInlineSessionBlockController for the module-absent case; governance26edea6 promotes the anchor with92 static (no add/remove) and unchanged115+3 API. Evidence: 13 cancellation tests (9 failed before), 5 degraded-mode tests, root1222/1170/0/52, both freezes and artifact freezes pass. Awaiting independent re-review; no merge or deployment.
 
 ## Historical: recovered backend; publishable ingress preparation — 2026-10-24
 

@@ -1,3 +1,11 @@
+## Owner autonomy and current UI release boundary — 2026-10-24
+
+Choose recommended routine options and continue to merge/release readiness with minimal human participation; do not trigger grilling or repeated design/plan approval. Preserve existing Beta scope and independent final review. External/human-only blockers are recorded and independent preparation continues. Current PR140 code and checks are verified, but temporary API DNS/RDC are unavailable: do not silently claim current live readiness, weaken CORS/rules/gates, guess source identity or publish an expired-origin candidate. Latest UI brief still requires separate actual merge/publication direction. Review limits, test execution rulings and rollback are explicit in the final office release receipt.
+
+## Owner direction: incremental Demo-guided UI and permanent Calendar home — 2026-10-23
+
+The latest supplied continuous-evolution directive supersedes the earlier design-only pause: implement safe focused UI slices with actual existing features, retain PAWS/UCalgary light/dark branding and Last name, First name, and keep Calendar the universal normal landing page for all supported roles. Preserve explicit authorized routes and password handling. Demo layout/interaction patterns are references; mock data, localStorage business state, approvals, DOE formulas and Overview default are not production contracts. No new permission, backend rewrite, SQL migration or confidential preload for visual work. Latest directive requires separate later authorization to merge/deploy. Current Schedule slice remains an isolated draft stack on PR136; main's independent PR137/138 repairs must be preserved with fresh integrated governance before release.
+
 ## Owner extends PR #133 to organize source and simplify code - 2026-10-22
 
 Keep the same PR. Organize browser files into clear folders, consolidate duplicated build logic and preserve public application behavior. This is not authorization to remove security/compatibility guards, rewrite SQL or merge/deploy. The runtime byte baseline remains unchanged; preserve historical provenance and prove source relocation separately.

@@ -12,8 +12,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-// Active immutable freeze follows the Role Period product; prior release SHAs remain in historical tests.
-const BASELINE_COMMIT='58daab3a2401af69c2298cc1f078d78aad069ea9';
+const BASELINE_COMMIT='486ea030c5eaef4ddb7508a4d50799687487057f';
 const CCC_SCHEDULE_PRODUCT_COMMIT='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
@@ -53,6 +52,22 @@ function baselineJson(ref){
 }
 const historicalStaticPaths=commit=>freeze.protectedPaths({root,baselineCommit:commit,readManifest:()=>baselineJson(commit)});
 const historicalApiPaths=commit=>require('../tools/beta-api-freeze.js').baselineRuntimeFiles({root,baselineCommit:commit});
+
+test('Calendar workspace promotion adds only two views and preserves Phase1 and all API protection',()=>{
+ const previous='16027769c774367c65d5dd68fc1a8002a052589e',product='64477000a17ae885776f664a93480af0aaaf110f';
+ const history=execFileSync('git',['show','30f763dcbca8c669a87f0ced281327db5bd35a95:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});
+ assert.ok(history.includes(`const BASELINE_COMMIT='${previous}'`));
+ const before=historicalStaticPaths(previous),after=historicalStaticPaths(product);
+ assert.equal(before.length,87);assert.equal(after.length,89);
+ assert.deepEqual(before.filter(file=>!after.includes(file)),[]);
+ assert.deepEqual(after.filter(file=>!before.includes(file)),['schedule-filter-view.js','workspace-navigation.js']);
+ const changed=before.filter(file=>!freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:product,file}))).sort();
+ assert.deepEqual(changed,['index.html','timetable.js','workspace.css']);
+ const apiFreeze=require('../tools/beta-api-freeze.js'),oldApi=historicalApiPaths(previous),newApi=historicalApiPaths(product);
+ assert.deepEqual(newApi,oldApi);assert.equal(newApi.length,115);
+ const paths=[...new Set([...newApi,...apiFreeze.BUILD_DEFINITION_FILES,...apiFreeze.REPOSITORY_INPUT_FILES])];assert.equal(paths.length,118);
+ for(const file of paths)assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:product,file})),file);
+});
 
 test('historical Away classification freeze protects only its reviewed two static and two API files',()=>{
  const previous='0be7e75c483b497cc566c24a3d9366ad32827f8c',product='3d983cf317147a20415e8e5cfd0d3f17532af27f';
@@ -420,17 +435,17 @@ test('W1H protected static and API paths retain W1F coverage and historical byte
 });
 
 // B. Zero drift --------------------------------------------------------------
-test('the HICC–CC / VISC directory product frozen runtime reports zero protected drift',()=>{
+test('the Calendar workspace product frozen runtime reports zero protected drift',()=>{
   const result=freeze.verifyFreeze({root});
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,87);
+  assert.equal(result.protected,91);
 });
 
-test('the current static manifest has exactly 87 protected files',()=>{
-  assert.equal(manifest().length,87);
-  assert.equal(freeze.protectedPaths({root}).length,87);
+test('the current static manifest has exactly 91 protected files',()=>{
+  assert.equal(manifest().length,91);
+  assert.equal(freeze.protectedPaths({root}).length,91);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -443,9 +458,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 87 current protected files are byte-identical to the immutable accepted product blobs',()=>{
+test('all 91 current protected files are byte-identical to the immutable accepted product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,87);
+  assert.equal(protectedFiles.length,91);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -743,7 +758,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,87);
+  assert.equal(protectedFiles.length,91);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -769,7 +784,7 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
 
 test('beta-baseline.json remains non-authoritative and records the stabilized Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,87);
+  assert.equal(Object.keys(baseline.sha256).length,91);
   assert.ok(baseline.sha256['faculty-admin-management.js']);
   assert.ok(baseline.sha256['afc-workflow.js']);
   assert.ok(baseline.sha256['afc-workflow-sql.js']);

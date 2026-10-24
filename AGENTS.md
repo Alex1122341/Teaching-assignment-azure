@@ -6,6 +6,8 @@ Before changing any person-name display or generated output, read and follow [PA
 
 ## Agent continuity memory
 
+For UI work, follow [docs/ui-design.md](docs/ui-design.md): reuse existing components and tokens, preserve business/security contracts, and verify comparable synthetic screenshots before claiming visual completion.
+
 If you do not already have reliable recent PAWS project context, you MUST read `agent.Ai/AGENT.md`, `agent.Ai/PROJECT_STATE.md`, `agent.Ai/TASK_CHAIN.md`, `agent.Ai/DECISIONS.md`, and the newest file under `agent.Ai/updates/` before starting substantive work.
 
 The `agent.Ai/` directory is documentation-only continuity memory. It has no application/runtime role.

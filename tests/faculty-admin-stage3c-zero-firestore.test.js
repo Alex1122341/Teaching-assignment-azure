@@ -77,7 +77,7 @@ function createHarness(overrides = {}) {
   const element = id => ({ id, classList: classList(), dataset: {}, style: {}, value: '', textContent: '', innerHTML: '', disabled: false, options: [], children: [], onclick: null, oninput: null, onchange: null, onsubmit: null, setAttribute() {}, addEventListener(event, handler) { this[`on${event}`] = handler; }, appendChild() {}, remove() {}, click() {}, querySelectorAll() { return []; }, querySelector() { return null; } });
   const nodes = new Map(), rowStubs = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
-  const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = cb; }, async signOut() { signOuts += 1; } };
+  const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = user => { auth.currentUser=user; return cb(user); }; }, async signOut() { signOuts += 1; } };
   const firebaseAuth = Object.assign(function () { return auth; }, { Auth: { Persistence: { LOCAL: 'local' } } });
   const pawsData = {
     currentUser: async () => { calls.push('currentUser'); return overrides.currentUser ? overrides.currentUser() : ADMIN_PROFILE; },
@@ -163,8 +163,8 @@ test('A / D. the page loads only the Firebase app+auth CDN and bounded local scr
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
   ]);
-  assert.deepEqual(local, ['faculty-name.js', 'change-history.js', 'session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-admin.js', 'faculty-availability.js']);
-  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 27, '27 script elements total; Trainees is deferred');
+  assert.deepEqual(local, ['faculty-name.js', 'change-history.js', 'session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-route-access.js', 'workspace-navigation.js', 'office-workspace.js', 'faculty-admin.js', 'faculty-availability.js']);
+  assert.equal([...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length, 30, '30 script elements total; Trainees is deferred');
   assert.equal([...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].length, 0, 'no inline script remains');
 });
 
@@ -476,7 +476,7 @@ test('98–101. no local Dashboard runtime script carries a Firestore dependency
   assert.equal(/\bfirestore\b/i.test(doeWorksheetSource), false, 'faculty-admin-doe-worksheet.js: no Firestore dependency');
   assert.equal(/\bfirestore\b/i.test(AFC_BATCH_SOURCE), false, 'faculty-admin-afc-batch.js: no Firestore dependency');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local, ['faculty-name.js', 'change-history.js', 'session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-admin.js', 'faculty-availability.js']);
+  assert.deepEqual(local, ['faculty-name.js', 'change-history.js', 'session-guard.js', 'paws-api-origin.js', 'paws-data-client.js', 'developer-support.js', 'paws-auth-continuity.js', 'dashboard-view-model.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-route-access.js', 'workspace-navigation.js', 'office-workspace.js', 'faculty-admin.js', 'faculty-availability.js']);
 });
 
 test('92 / 94 / 96. the controller stays bounded with contract DOE detail and overview', () => {
@@ -484,8 +484,8 @@ test('92 / 94 / 96. the controller stays bounded with contract DOE detail and ov
   const bytes = Buffer.byteLength(ADMIN_SOURCE.replace(/\r\n/g, '\n'), 'utf8');
   const named = [...ADMIN_SOURCE.matchAll(/function ([A-Za-z0-9_$]+)\(/g)].length;
   // Accepted DOE Calculator/P4 wiring plus sectioned reference profile, AFC
-  // archive and detail-generation guards keep the controller under 60 KB.
-  assert.ok(bytes < 60000, `controller must remain bounded after Faculty reference parity integration (actual ${bytes})`);
+  // archive and detail-generation guards keep the controller under 63 KB, including guarded workspace identity-generation checks.
+  assert.ok(bytes < 63000, `controller must remain bounded after Faculty reference parity integration (actual ${bytes})`);
   assert.match(ADMIN_SOURCE, /function renderTeachingSummary\(/);
   assert.match(ADMIN_SOURCE, /function renderRoles\(/);
   assert.match(ADMIN_SOURCE, /function renderDoeOverview\(/);

@@ -5,7 +5,7 @@ const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const freeze = require('../tools/beta-freeze.js');
 const apiFreeze = require('../tools/beta-api-freeze.js');
-const report = require('../tools/beta-baseline.json');
+
 
 const root = path.resolve(__dirname, '..');
 const PREVIOUS = '5a3117d4aec48b685e734651f4caa24d9050ba4f';
@@ -14,6 +14,9 @@ const ACTIVE = '58daab3a2401af69c2298cc1f078d78aad069ea9';
 const changedStatic = ['faculty-role-periods.js'];
 const changedApi = ['server/src/data/dashboard-api.js'];
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+const ACCEPTED = '8bb40c60370bcce3d0135efd4327d42fba657903';
+const report = JSON.parse(git('show', ACCEPTED + ':tools/beta-baseline.json'));
+const historicalFreeze = git('show', ACCEPTED + ':tools/beta-freeze.js');
 const manifest = ref => JSON.parse(git('show', ref + ':tools/static-assets.json'));
 
 test('role period fix changes only one frozen static and one frozen API runtime file', () => {
@@ -47,8 +50,9 @@ test('role period fix changes only one frozen static and one frozen API runtime 
 });
 
 test('separate governance commit pins the reviewed product without hiding runtime drift', () => {
-  assert.equal(freeze.BASELINE_COMMIT, ACTIVE);
-  assert.equal(apiFreeze.BASELINE_COMMIT, ACTIVE);
+  assert.ok(historicalFreeze.includes("const BASELINE_COMMIT='" + ACTIVE + "'"));
+  git('merge-base', '--is-ancestor', ACTIVE, freeze.BASELINE_COMMIT);
+  assert.equal(apiFreeze.BASELINE_COMMIT, freeze.BASELINE_COMMIT);
   assert.equal(report.sourceCommit, ACTIVE);
   const files = manifest(ACTIVE);
   assert.deepEqual(Object.keys(report.sha256).sort(), [...files].sort());
@@ -56,7 +60,7 @@ test('separate governance commit pins the reviewed product without hiding runtim
     freeze.readBaselineFile({ root, baselineCommit: ACTIVE, file })
   ), file);
   const protectedApi = apiFreeze.baselineRuntimeFiles({ root, baselineCommit: ACTIVE });
-  const changes = git('diff', '--name-only', ACTIVE, 'HEAD').split(/\r?\n/).filter(Boolean);
+  const changes = git('diff', '--name-only', ACTIVE, ACCEPTED).split(/\r?\n/).filter(Boolean);
   assert.deepEqual(changes.filter(file => files.includes(file) || protectedApi.includes(file)), []);
   assert.equal(freeze.verifyFreeze({ root }).ok, true);
   assert.equal(apiFreeze.verifyFreeze({ root }).ok, true);

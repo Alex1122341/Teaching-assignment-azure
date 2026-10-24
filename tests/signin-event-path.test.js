@@ -80,9 +80,10 @@ function createHarness(source, html) {
       querySelectorAll: () => [],
       documentElement: new TestEventTarget('html')
     },
-    window: { location: {} },
+    window: Object.assign(new TestEventTarget('window'), { location: {} }),
     location: { protocol: 'https:' },
     initializeScheduleFilters() {},
+    initializeWorkspaceNavigation() {},
     render: noOp,
     resetFilters: noOp,
     moveCalendar: noOp,

@@ -1,0 +1,51 @@
+[
+  {
+    "calendar": 1660,
+    "client": 1905,
+    "scroll": 1905,
+    "viewport": 1920,
+    "weekRow": 56
+  },
+  {
+    "calendar": 1321,
+    "client": 1425,
+    "scroll": 1425,
+    "viewport": 1440,
+    "weekRow": 56
+  },
+  {
+    "calendar": 1247,
+    "client": 1351,
+    "scroll": 1351,
+    "viewport": 1366,
+    "weekRow": 56
+  },
+  {
+    "calendar": 1161,
+    "client": 1265,
+    "scroll": 1265,
+    "viewport": 1280,
+    "weekRow": 56
+  },
+  {
+    "calendar": 969,
+    "client": 1009,
+    "scroll": 1009,
+    "viewport": 1024,
+    "weekRow": 56
+  },
+  {
+    "calendar": 725,
+    "client": 753,
+    "scroll": 753,
+    "viewport": 768,
+    "weekRow": 56
+  },
+  {
+    "calendar": 347,
+    "client": 375,
+    "scroll": 375,
+    "viewport": 390,
+    "weekRow": 56
+  }
+]

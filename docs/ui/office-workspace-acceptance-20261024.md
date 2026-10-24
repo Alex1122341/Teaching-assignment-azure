@@ -1,0 +1,43 @@
+# Office workspace acceptance — 2026-10-24
+
+## Candidate and reuse
+
+Integrated main `8bb40c60370bcce3d0135efd4327d42fba657903` with PR139, then extended the existing Calendar navigation to Dashboard and Teaching Assignments. Original page controllers, native History dialog, profile selection, academic year, queue filters and real route handlers are retained. The pure capability projection matches existing page admission; it is presentation only. Dashboard keeps its explicit ban on the legacy Firestore helper. No API, SQL, permission, dependency or write-gate changes.
+
+Rules: Calendar stays home; original UCalgary red/gold/navy and shared tokens; names use the shared Last name, First name formatter; 36px office controls; locally scrolling dense numeric tables; optional technical detail and metrics use native disclosures.
+
+## Rendered checks
+
+Generated artifacts, synthetic records, real controllers: before is immutable `47f8764`; after is this product. Both routes captured under the same data, filters and scroll at 1440×900, 1280×900, 768×900 and 390×900. Private evidence is under `PAWS-DOE-Preview/office-release-evidence-20261023` outside the repository; no real faculty screenshots are committed.
+
+- Dashboard whole-page width before: 1203px at 768/390; after: exactly viewport width at all four sizes. Assignments has no whole-page overflow at these sizes.
+- Dashboard search `müller` produces six results from 24; selection opens the existing profile. Queue filter Waiting for VISC produces two of six packages; selection loads the existing detail view.
+- Long compound names; 600 faculty; 120 packages; empty, loading and error states rendered. Synthetic error console messages are expected only in deliberately failed fixtures.
+- Dark theme exposed hard-coded light headings/branding/toolbars. A failing regression was added before token overrides, then passed; actual dark screenshots show readable branding, titles, filters and selected tabs.
+- History native dialog fits 390px (346px width). It stays open and usable while resizing 1440→390; Escape closes it and returns focus to History. Drawer Escape returns focus to its opener. No fake routes or new global data requests.
+- Rendered synthetic role matrix: Faculty/HICC/VISC self-mode; regular/general administrator management; Developer Dashboard without Assignments; Other Office/anonymous/inactive denial. Unit role matrix additionally checks formal/legacy aliases and required password-change lock.
+
+Native browser 200% zoom is **not verified**: the connected browser exposes viewport sizing only. Narrow reflow is verified separately and is not represented as native zoom. Automated WCAG certification is not claimed.
+
+## Real identity, read-only University API
+
+Normal authorized Faculty and administrator Firebase sign-in was exercised against the generated candidate through a loopback-only GET/HEAD bridge to the current University API. The bridge preserves the bearer identity, rejects writes, pins the upstream origin, and leaves production CORS/permissions unchanged. It is private acceptance tooling, never a shipped asset. This verifies controller rendering and API authorization, not production Hosting publication or unchanged-origin CORS delivery.
+
+| Check | Faculty | Administrator |
+|---|---|---|
+| Normal login destination | Calendar | Calendar |
+| Anonymous `/me` | 401 | 401 |
+| Roster | 1 own record | 119 authorized records |
+| Own detail | Allowed | Not applicable to unlinked office identity |
+| Other faculty detail | 403 ROLE_DENIED | Authorized management roster |
+| Administrative roles | 403 ROLE_DENIED | 198 authorized records |
+| Assignment work queue | 403 WORK_QUEUE_DENIED | 1 scoped package |
+| Published Faculty view | Read-only published release | Existing queue and navigation work |
+
+Faculty Dashboard displays only self-mode controls; the Assignments controller selects Published for faculty and hides management tabs. Accounts were signed out after acceptance. No credentials, tokens, IDs, private data exports, SQL mutations, approvals or publication actions are saved in this receipt.
+
+Existing Calendar legacy optional enrichment logged a Firestore permission denial while authoritative SQL Calendar/Dashboard reads succeeded. The unchanged account-profile source label also differs from the linked Faculty canonical name. These baseline issues are recorded for separate diagnosis; no access was broadened or identity data guessed to suppress them. Office pages load neither that legacy helper nor Firestore SDK.
+
+## Verification boundary
+
+Targeted office/page/auth/assets/main integration suite: 188 passed before dark fix; new dark regression RED→GREEN and nine wiring tests passed. Full final suite, immutable promotion and independent review are recorded in the subsequent release receipt. This document does not claim merge or deployment.

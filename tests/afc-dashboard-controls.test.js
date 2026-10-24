@@ -29,7 +29,7 @@ async function dashboard({ enabled = true, confirm = true, apiOverrides = {} } =
     cancelDashboardAfcRecord: async (id, payload) => { cancellations.push({id,...payload}); records[0].active=false; return records[0]; },
     ...apiOverrides
   };
-  const auth = { setPersistence: async()=>{}, onAuthStateChanged: fn => { auth.changed=fn; } };
+  const auth = { setPersistence: async()=>{}, onAuthStateChanged: fn => { auth.changed=user=>{auth.currentUser=user;return fn(user);}; } };
   const authFn = () => auth; authFn.Auth = { Persistence: { LOCAL: 'local' } };
   const context = {
     document: { getElementById: element, querySelectorAll:selector=>selector==='.tab'?[element('afc-records-tab')]:[], querySelector:()=>null, activeElement:null, body:{classList:{add(){},remove(){}}} },

@@ -85,5 +85,9 @@
   "ccc-schedule.js",
   "ccc-schedule.css",
   "leadership-directory.css",
-  "leadership-directory.js"
+  "leadership-directory.js",
+  "schedule-filter-view.js",
+  "workspace-navigation.js",
+  "office-workspace.js",
+  "faculty-route-access.js"
 ]

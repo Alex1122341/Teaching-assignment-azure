@@ -178,7 +178,7 @@ function createHarness(overrides = {}) {
 
   const auth = {
     setPersistence: async () => {},
-    onAuthStateChanged(callback) { authCallback = callback; },
+    onAuthStateChanged(callback) { authCallback = user => { auth.currentUser=user; return callback(user); }; },
     async signOut() { signOuts += 1; }
   };
 

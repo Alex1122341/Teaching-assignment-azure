@@ -31,56 +31,56 @@
 **Files:** tests/workspace-release-integration.test.js; merge-conflicted governance/history/continuity files only.
 **Interfaces:** consumes main8bb40c6 and PR139/138fdc1; produces a merge ancestry preserving both histories, with main governance retained until Task5.
 
-- [ ] Add failing tests for main ancestry, no API/SQL diff against main, and byte-identical faculty-role-periods.js plus058 SQL.
-- [ ] Run `node --test tests/workspace-release-integration.test.js`. Expected RED on pre-merge branch.
-- [ ] Merge origin/main without auto-commit; preserve main active freeze and both historical UI/role receipt tests. Resolve continuity by retaining both histories and a new current header. Commit integrated product.
-- [ ] Run integration and role-period focused tests. Expected0 failures; active freeze drift is intentional until final product promotion, never bypass it.
+- [x] Add failing tests for main ancestry, no API/SQL diff against main, and byte-identical faculty-role-periods.js plus058 SQL.
+- [x] Run `node --test tests/workspace-release-integration.test.js`. Expected RED on pre-merge branch.
+- [x] Merge origin/main without auto-commit; preserve main active freeze and both historical UI/role receipt tests. Resolve continuity by retaining both histories and a new current header. Commit integrated product.
+- [x] Run integration and role-period focused tests. Expected0 failures; active freeze drift is intentional until final product promotion, never bypass it.
 
 ### Task2: Shared shell options and office adapter
 
 **Files:** frontend/scripts/workspace-navigation.js; new frontend/scripts/office-workspace.js; frontend/scripts/faculty-access.js; tests/workspace-navigation.test.js; new tests/office-workspace.test.js.
 **Interfaces:** navigation.mount gains optional pageTitle/shellClass/backgroundSelector/measureHeader; existing defaults stay identical. office.mount({document,window,page}) returns sync(profile), preserving original nodes. Shared canOpenTeachingAssignments(profile) matches current route admission.
 
-- [ ] Add failing tests for custom title/shell/background, original Schedule defaults, real-node identity/idempotence, route-role matrix, lock/identity switch, no I/O or fake routes.
-- [ ] Run targeted suites and observe missing adapter/options RED.
-- [ ] Implement optional presentation parameters and office adapter with existing route nodes/handlers and shared helpers. No page business controls move into global navigation.
-- [ ] Run new plus landing/auth/helper tests. Expected0 failures; commit product slice.
+- [x] Add failing tests for custom title/shell/background, original Schedule defaults, real-node identity/idempotence, route-role matrix, lock/identity switch, no I/O or fake routes.
+- [x] Run targeted suites and observe missing adapter/options RED.
+- [x] Implement optional presentation parameters and office adapter with existing route nodes/handlers and shared helpers. No page business controls move into global navigation.
+- [x] Run new plus landing/auth/helper tests. Expected0 failures; commit product slice.
 
 ### Task3: Wire Dashboard and Assignments
 
 **Files:** frontend/pages/faculty-admin.html, teaching-assignments.html; frontend/scripts/faculty-admin.js, teaching-assignments.js; frontend/styles/workspace.css; tools/static-assets.json; corresponding existing page tests.
 **Interfaces:** validated profile invokes office.sync(profile); every gate/lock invokes office.sync(null). Current handlers own views, self-mode, permissions and API calls.
 
-- [ ] Add failing wiring/auth-state tests: modules load first, lock hides rail, Faculty self-mode/admin tabs unchanged, Assignments capabilities and route defaults unchanged, no doubled listeners.
-- [ ] Implement controller hooks and scoped office layout/table/control rules; add office-workspace.js and faculty-route-access.js to allowlist89→91.
-- [ ] Run office/page/auth/assignment/role-period/asset tests. Expected0 failures; commit product.
+- [x] Add failing wiring/auth-state tests: modules load first, lock hides rail, Faculty self-mode/admin tabs unchanged, Assignments capabilities and route defaults unchanged, no doubled listeners.
+- [x] Implement controller hooks and scoped office layout/table/control rules; add office-workspace.js and faculty-route-access.js to allowlist89→91.
+- [x] Run office/page/auth/assignment/role-period/asset tests. Expected0 failures; commit product.
 
 ### Task4: Browser and real read-only acceptance
 
 **Files:** private generated-route fixture preview and screenshots; docs/ui living assessment/evidence.
 **Interfaces:** actual generated assets; private fixture startup replaces only data/auth and blocks real mutations. Authenticated acceptance uses existing University API with server authority.
 
-- [ ] Capture matched before/after at1440/1280/768/390, inspect dark/long/large/empty/loading/error and native200% text if supported; exercise search, tabs, focus, Escape and resize.
-- [ ] Fix material findings with RED→GREEN regressions, retaining route guards and data semantics.
-- [ ] Use RDC to verify current live API/source/gates read-only; check Faculty self/admin reads and401/403 without writing or disclosing credentials. Record precise execution and limits.
+- [x] Capture matched before/after at1440/1280/768/390, inspect dark/long/large/empty/loading/error and native200% text if supported; exercise search, tabs, focus, Escape and resize.
+- [x] Fix material findings with RED→GREEN regressions, retaining route guards and data semantics.
+- [x] Use RDC to verify current live API/source/gates read-only; check Faculty self/admin reads and401/403 without writing or disclosing credentials. Record precise execution and limits.
 
 ### Task5: Integrated governance and full verification
 
 **Files:** separate tools/beta-freeze.js, tools/beta-baseline.json and scoped governance tests/receipt after final product commit.
 **Interfaces:** final product includes main plus UI;91 static assets,115 API runtime files plus3 inputs protected by full current/frozen manifest union.
 
-- [ ] Commit final product, then separately promote its immutable Git object. Preserve historical anchors and enforcement algorithm.
-- [ ] Run targeted tests, `npm test`, server suite and emulator coverage as required/available; `node tools/build-beta-release.js`; all four static/API source/artifact freezes. Expected0 failures with exact source and artifact evidence; no invented CI result.
-- [ ] Request fresh independent whole-branch product/governance review. Fix Important/Critical findings with failing regressions and complete verification.
+- [x] Commit final product, then separately promote its immutable Git object. Preserve historical anchors and enforcement algorithm.
+- [x] Run targeted tests, `npm test`, server suite and emulator coverage as required/available; `node tools/build-beta-release.js`; all four static/API source/artifact freezes. Expected0 failures with exact source and artifact evidence; no invented CI result.
+- [x] Request fresh independent whole-branch product/governance review. Fix Important/Critical findings with failing regressions and complete verification.
 
 ### Task6: PR and release readiness
 
 **Files:** release acceptance/rollback manifest, living assessment, agent.Ai update/state/chain; focused integrated PR.
 **Interfaces:** exact reviewed HEAD and artifact hashes, current main, mandatory CI or owner-authorized equivalent evidence.
 
-- [ ] Recheck main, preserve concurrent work, publish integrated draft PR targeting main and attach it. Existing136/139 remain traceable until supersession is established.
-- [ ] Verify required checks or prepare an exact-head cloud verification prompt if usage/environment blocks them. Do not claim missing gates pass.
-- [ ] Prepare static-only Hosting/API-compatibility rollout and rollback from verified current live state. Record no business-data mutations.
+- [x] Recheck main, preserve concurrent work, publish integrated draft PR targeting main and attach it. Existing136/139 remain traceable until supersession is established.
+- [x] Verify required checks or prepare an exact-head cloud verification prompt if usage/environment blocks them. Do not claim missing gates pass.
+- [x] Prepare static-only Hosting/API-compatibility rollout and rollback from verified current live state. Record no business-data mutations.
 - [ ] Update all continuity and evidence; mark ready only when required technical/role/browser/integration checks are complete. Merge/publication status is explicit and never inferred from a candidate build.
 
 ## Self-review
@@ -89,3 +89,7 @@ Tasks1→5 share immutable product ancestry; Tasks2→3 share only presentation 
 
 
 Implementation ruling: Dashboard explicitly prohibits loading legacy faculty-access.js. Reuse its capability contract through a pure faculty-route-access.js projection with matrix parity; legacy helper delegates when that projection is present. Office pages load only the pure module, navigation and adapter. Preserve the existing legacy/Firestore bans. Three explicit local presentation modules increase Dashboard script elements27→30; controller sync hooks require a bounded60300-byte limit (prior60000, actual60172). No dependency, data fan-out or business authority is added.
+
+## Execution status — 2026-10-24
+
+Tasks1–5 complete with final producta6c5092/governance4de4a3e and full run40102576801. Task6 PR/evidence/rollback preparation complete; final readiness remains blocked by current API NXDOMAIN/RDC offline. Native zoom is explicitly unverified because the connected capability does not expose it; four-width reflow is separate proof. No merge/deploy. See release-verification.json and office-workspace-release-20261024.md. Final documentation-only HEAD must receive fresh automatic checks.

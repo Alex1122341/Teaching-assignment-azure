@@ -92,4 +92,8 @@ Implementation ruling: Dashboard explicitly prohibits loading legacy faculty-acc
 
 ## Execution status — 2026-10-24
 
+### Supplemental acceptance correction
+
+Browser acceptance reproduced a name-search mismatch in Teaching Summary: structured preferred names render through the shared formatter, but aggregate filtering searched only raw displayName. Roles uses the same inconsistent predicate. Fix only these two predicates by including their existing formatted display label while preserving raw-name/ID searches and role filters. No identity, authorization, API, DOE, or network change. Add real-source RED→GREEN regressions, repeat generated-page search acceptance, commit the product separately from immutable governance, and run exact-candidate verification. Existing successful d441daf CI remains historical after this correction; do not reuse it for the new HEAD.
+
 Tasks1–5 complete with final producta6c5092/governance4de4a3e and full run40102576801. Task6 PR/evidence/rollback preparation complete; final readiness remains blocked by current API NXDOMAIN/RDC offline. Native zoom is explicitly unverified because the connected capability does not expose it; four-width reflow is separate proof. No merge/deploy. See release-verification.json and office-workspace-release-20261024.md. Final documentation-only HEAD must receive fresh automatic checks.

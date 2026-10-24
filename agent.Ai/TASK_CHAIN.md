@@ -1,4 +1,8 @@
-## Current: recovered backend; publishable ingress preparation — 2026-10-24
+## Current: Calendar search performance PR — 2026-10-24
+
+Implement -> test -> PR -> stop. Productb7d9861 adds frontend/scripts/calendar-search.js and rewires timetable search, Working Activity loading and session clicks; governance6341e21 promotes the anchor to b7d9861 with91->92 static and unchanged115+3 API. Evidence: bench 10->1 renders, 11->1 activity loads, 1000->0 linear scans; root suite1204 tests/1152 pass/0 fail/52 skip; both freezes and the artifact freezes pass. Awaiting independent acceptance; no merge or deployment.
+
+## Historical: recovered backend; publishable ingress preparation — 2026-10-24
 
 Resume product486ea03/governancebb424dd on PR140. Backend/API/SQL/TLS and27 gates accepted; old server output files preserved, owned PID/log paths persisted. Actual Faculty/admin read-only candidate acceptance passes, including Faculty other403. New origin needs reviewed frontend publication; earlier884 artifact is historical. Complete final exact-head CI/artifact/Hosting metadata and follow current publication authorization contract, then actual-origin smoke and recovery CheckOnly. No SQL work or healthy API restart. See updates/2026-10-24-saturday-runtime-recovery.md.
 

@@ -1,4 +1,8 @@
-## Current: Saturday API recovery complete; new ingress candidate — 2026-10-24
+## Current: Calendar search responsiveness on an open PR — 2026-10-24
+
+Branch perf/calendar-search-responsiveness, PR open against main8bb40c6. Productb7d9861 (91->92 static: adds calendar-search.js, changes index.html and timetable.js) and separate governance6341e21 on top of product486ea03. Search is debounced250ms, Working Activity rows are reused per uid/support-context/range/faculty scope for60s, and session clicks use one delegated listener plus an id index. Root suite1204/1152/0/52; governance72/72; beta-freeze92, beta-api-freeze115+3, verify-candidate and both artifact freezes ok. No SQL/auth/DOE/AFC/write-gate/config change. Not merged, not deployed; independent acceptance pending.
+
+## Historical: Saturday API recovery complete; new ingress candidate — 2026-10-24
 
 School RDC is online. API/SQL/public HTTPS health pass at main8bb/trust58 with27 unchanged gates. Preserved old admin-owned PID/log evidence and ACLs; approved launcher copy changes only output directory, recovery config only launcher path/hash/log directory, backed up atomically. New temporary ingress gibson-strand-telecharger-governor.trycloudflare.com; product486ea03 changes only paws-api-origin.js, separate governancebb424dd. Focused58/governance5 and combined build/four freezes pass; independent supplemental repo review has no findings. Faculty/admin normal login enter Calendar; own/admin/other403 checks and Dashboard/Assignments verified through private GET-only bridge. Current Hosting still old origin, so not yet recovered frontend/publication. Fresh exact-head CI/artifact required; earlier884 CI40109471683 is historical. See updates/2026-10-24-saturday-runtime-recovery.md. No SQL/API/gate/CORS/ACL mutation or merge/deploy.
 

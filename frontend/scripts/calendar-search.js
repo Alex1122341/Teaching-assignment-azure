@@ -19,6 +19,11 @@
  const SEARCH_DEBOUNCE_MS=250;
  const ACTIVITY_CACHE_TTL_MS=60000;
  const SESSION_BLOCK_SELECTOR='[data-session-id]';
+ // Shared cancellation vocabulary with calendar-activities.js. A superseded
+ // request is an error, never an empty result: caching [] for it would freeze a
+ // legitimate-looking empty range for the whole TTL.
+ const CANCELLATION_CODE='CALENDAR_ACTIVITY_CANCELLED';
+ function isCancellation(error){return error?.code===CANCELLATION_CODE||error?.name==='AbortError';}
 
  // ---------------------------------------------------------------------------
  // 1. Debouncer
@@ -98,6 +103,13 @@
      // response; the older result is dropped instead of overwriting newer data.
      if(startedEpoch===epoch&&sequence.get(key)===ticket)entries.set(key,{rows,at:now()});
      return rows;
+    })
+    .catch(error=>{
+     // Cancelled requests are released immediately so a later caller starts a
+     // fresh request instead of joining a doomed one. Nothing is cached: an
+     // error is never turned into valid empty rows.
+     if(inflight.get(key)===promise)inflight.delete(key);
+     throw error;
     })
     .finally(()=>{if(inflight.get(key)===promise)inflight.delete(key);});
    inflight.set(key,promise);
@@ -179,5 +191,5 @@
   });
  }
 
- return Object.freeze({SEARCH_DEBOUNCE_MS,ACTIVITY_CACHE_TTL_MS,SESSION_BLOCK_SELECTOR,createDebouncer,createActivityCache,activityScopeKey,createSessionBlockController});
+ return Object.freeze({SEARCH_DEBOUNCE_MS,ACTIVITY_CACHE_TTL_MS,SESSION_BLOCK_SELECTOR,CANCELLATION_CODE,isCancellation,createDebouncer,createActivityCache,activityScopeKey,createSessionBlockController});
 });

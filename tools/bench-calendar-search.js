@@ -1,17 +1,18 @@
 'use strict';
-// Calendar search performance evidence.
+// Calendar search performance and correctness evidence.
 //
-// Measures the same three behaviours against two implementations:
-//   * "before" - the frozen Beta baseline blob of frontend/scripts/timetable.js
-//                read from Git (the accepted product the page shipped with);
-//   * "after"  - the working tree.
+// Three revisions are executed side by side:
+//   baseline - the frozen product the page shipped with (486ea03, no cache);
+//   previous - the first version of this PR (b7d9861, cache but no cancellation
+//              distinction, which is the defect under review);
+//   current  - the working tree.
 //
-// Every number is produced by executing the extracted production function in a
-// VM with instrumented collaborators; nothing is estimated. The one exception is
-// documented inline: the baseline wired `input` straight to `render`, so the
-// "before" render count replays exactly that listener contract.
+// Every number below comes from executing production functions extracted from
+// Git blobs or from the working tree against stubbed collaborators. Two values
+// are derived and are labelled as such; the rest are direct measurements.
 //
-// Usage: node tools/bench-calendar-search.js [--ref <commit>] [--json <file>] [--rows 1000]
+// Usage: node tools/bench-calendar-search.js [--baseline <sha>] [--previous <sha>]
+//                                            [--json <file>] [--rows 1000]
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
@@ -21,10 +22,12 @@ const search=require('../frontend/scripts/calendar-search.js');
 
 const args=process.argv.slice(2);
 const option=(name,fallback)=>{const index=args.indexOf(`--${name}`);return index>=0&&args[index+1]?args[index+1]:fallback;};
-const baselineRef=option('ref',require('./beta-freeze').BASELINE_COMMIT);
+// The accepted product before this PR. The current freeze anchor already points at
+// the first PR head, so it cannot serve as the baseline here.
+const baselineRef=option('baseline','486ea030c5eaef4ddb7508a4d50799687487057f');
+const previousRef=option('previous','b7d98616888cb7b2b648a627ae287b9a08bb5b99');
 const jsonPath=option('json',null);
 const ROWS=Number(option('rows',1000));
-
 const nowMs=()=>Number(process.hrtime.bigint()/1000n)/1000;
 
 function readSource(ref,file){
@@ -32,7 +35,6 @@ function readSource(ref,file){
  return execFileSync('git',['show',`${ref}:${file}`],{cwd:ROOT,encoding:'utf8',maxBuffer:32*1024*1024});
 }
 
-// Same extraction rule as test-support/source-function.js, but for in-memory text.
 function extractFunction(text,name){
  const match=new RegExp(`^( +)(?:async )?function ${name}\\(`,'m').exec(text);
  if(!match)throw Error(`Cannot find function ${name}`);
@@ -43,7 +45,16 @@ function extractFunction(text,name){
  return text.slice(start,end+match[1].length+2);
 }
 
-function sandbox(context,code){vm.createContext(context);vm.runInContext(code,context);return context;}
+// calendar-activities.js and calendar-search.js are UMD modules; evaluate the
+// requested revision in an isolated context so both revisions can coexist.
+function loadUmd(ref,file){
+ const source=readSource(ref,file);
+ const module={exports:{}};
+ const sandbox={module,exports:module.exports,console,Date,Promise,Map,Set,JSON,Math,String,Number,Boolean,Array,Object,Error};
+ vm.createContext(sandbox);
+ vm.runInContext(source,sandbox);
+ return module.exports;
+}
 
 function fakeTimers(){
  let now=0,next=1;const timers=new Map();
@@ -64,105 +75,147 @@ function fakeTimers(){
  };
 }
 
+const deferred=()=>{let resolve,reject;const promise=new Promise((res,rej)=>{resolve=res;reject=rej;});return {promise,resolve,reject};};
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+const row=(label,date)=>({label,category:'ccc',startDate:date,endDate:date,facultyDisplayName:`Faculty, ${label}`,staffingKind:'assigned'});
+const A={start:'2026-09-01',end:'2026-09-08'};
+const B={start:'2026-10-01',end:'2026-10-08'};
+
+function activityApi(){
+ const calls=[];
+ return {calls,api:{listCalendarActivities(options){
+  let resolve,reject;const promise=new Promise((res,rej)=>{resolve=res;reject=rej;});
+  calls.push({options,resolve,reject});
+  return promise;
+ }}};
+}
+
 // ---------------------------------------------------------------------------
-// 1. Renders for ten rapid keystrokes
+// 1. Search renders for ten rapid keystrokes (page wiring)
 // ---------------------------------------------------------------------------
 function measureSearchRenders(ref){
  const renders=[];
- if(!ref){
-  // After: the shipped wiring plus the shipped debouncer.
+ if(!ref||ref===previousRef){
+  // Both the frozen page and the first PR revision wired input through the
+  // shipped debounce; the previous revision already had the 250 ms module.
   const listeners={};
   const input={addEventListener(type,handler){(listeners[type]??=[]).push(handler);}};
-  const context=sandbox({input},extractFunction(readSource(null,'frontend/scripts/timetable.js'),'wireCalendarSearchInput'));
+  const module=ref?loadUmd(ref,'frontend/scripts/calendar-search.js'):search;
+  const context={input};
+  vm.createContext(context);
+  vm.runInContext(extractFunction(readSource(ref,'frontend/scripts/timetable.js'),'wireCalendarSearchInput'),context);
   const clock=fakeTimers();
-  const debouncer=search.createDebouncer({delay:250,invoke:()=>renders.push(1),setTimer:clock.setTimeout,clearTimer:clock.clearTimeout});
+  const debouncer=module.createDebouncer({delay:250,invoke:()=>renders.push(1),setTimer:clock.setTimeout,clearTimer:clock.clearTimeout});
   context.wireCalendarSearchInput(input,{schedule:()=>debouncer.schedule(),flush:()=>debouncer.flush()});
   for(let index=0;index<10;index+=1){for(const handler of listeners.input||[])handler({});clock.advance(20);}
   clock.advance(250);
-  return {renders:renders.length,method:'shipped wireCalendarSearchInput + shipped debouncer (250 ms), fake clock'};
+  return {renders:renders.length,method:'shipped wireCalendarSearchInput + shipped debouncer, fake clock'};
  }
- // Before: `input` was wired directly to render -> one render per keystroke.
- // Replaying that contract is the only way to measure the removed line, which
- // lived inside the page's monolithic listener initialiser.
- for(let index=0;index<10;index+=1){renders.push(1);}
- return {renders:renders.length,method:'baseline listener contract replayed (input -> render, one per keystroke)',contract:'timetable.js had addEventListener(\'input\', render)'};
+ for(let index=0;index<10;index+=1)renders.push(1);
+ return {renders:renders.length,method:"baseline listener contract replayed (input -> render, one per keystroke)"};
 }
 
 // ---------------------------------------------------------------------------
-// 2. Activity requests while searching
+// 2. Activity traffic, cache behaviour and A -> B -> A correctness
 // ---------------------------------------------------------------------------
-function activityHarness(ref){
- const host={html:'',retry:null,get innerHTML(){return this.html;},set innerHTML(value){this.html=String(value);this.retry=this.html.includes('data-activity-retry')?{}:null;}};
- host.querySelector=selector=>selector==='[data-activity-retry]'?host.retry:null;
- const view={
-  loads:0,
-  loadRange(){this.loads+=1;return Promise.resolve([{id:'a'}]);},
-  loadFacultyRange(){this.loads+=1;return Promise.resolve([{id:'a'}]);},
-  clear(){},
-  renderRangeLane:rows=>`LANE:${rows.length}`
+function pageHarness(ref,module){
+ const {calls,api}=activityApi();
+ const activities=loadUmd(ref,'frontend/scripts/calendar-activities.js');
+ const state={user:{uid:'user-1',profile:{}},range:{...A}};
+ const view=activities.createCalendarActivityView({api,getUser:()=>state.user});
+ const host={
+  html:'',retry:null,
+  get innerHTML(){return this.html;},
+  set innerHTML(value){this.html=String(value);this.retry=this.html.includes('data-activity-retry')?{}:null;},
+  querySelector(selector){return selector==='[data-activity-retry]'?this.retry:null;}
  };
  const fields={'search-input':{value:''}};
+ const cache=module&&module.createActivityCache?module.createActivityCache({ttlMs:60000,now:()=>0}):null;
  const context={
   host,view,fields,
-  currentUser:{uid:'user-1',profile:{}},
+  currentUser:state.user,
   reviewingSelection:false,
   myTimetableOnly:false,
   activityTypeFilter:{selectedKeys:()=>['work:ccc']},
-  workingActivityRange:()=>({start:'2026-09-01',end:'2026-09-08'}),
+  workingActivityRange:()=>state.range,
   workingActivityRenderToken:0,
   roleIsFaculty:()=>false,
-  workingActivityCache:ref?null:search.createActivityCache({ttlMs:60000,now:()=>0}),
+  workingActivityCache:cache,
   $:id=>id==='working-activities-lane'?host:(fields[id]??(fields[id]={value:''})),
   window:{PAWS_CALENDAR_ACTIVITIES:view}
  };
- sandbox(context,extractFunction(readSource(ref,'frontend/scripts/timetable.js'),'renderWorkingActivities'));
- return {context,view,fields};
+ vm.createContext(context);
+ vm.runInContext(extractFunction(readSource(ref,'frontend/scripts/timetable.js'),'renderWorkingActivities'),context);
+ return {context,state,calls,host,cache,fields};
 }
 
-async function measureActivityLoads(ref){
- const {context,view,fields}=activityHarness(ref);
- await context.renderWorkingActivities();
- for(const text of ['c','cl','cli','clin','clini','clinic','clinica','clinical','clinical ','clinical x']){
-  fields['search-input'].value=text;
-  await context.renderWorkingActivities();
+async function measureActivityTraffic(ref,module){
+ const h=pageHarness(ref,module);
+ const first=h.context.renderWorkingActivities();
+ await tick();
+ h.calls[0].resolve({activities:[row('Week A','2026-09-02')],nextCursor:null});
+ await first;
+ const initialLoads=h.calls.length;
+ const before={loads:h.calls.length};
+ for(let index=0;index<10;index+=1){
+  h.fields['search-input'].value=`c${index}`;
+  const render=h.context.renderWorkingActivities();
+  await tick();
+  // Any request started during the keystroke is answered immediately.
+  for(const call of h.calls.slice(before.loads))call.resolve({activities:[row('Week A','2026-09-02')],nextCursor:null});
+  await render;
+  before.loads=h.calls.length;
  }
+ const renders=11;
+ const loads=h.calls.length;
  return {
-  loads:view.loads,
-  method:ref?'baseline renderWorkingActivities executed with 11 renders (1 open + 10 keystrokes)'
-             :'shipped renderWorkingActivities + shipped scoped cache, 11 renders (1 open + 10 keystrokes)'
+  initialLoads,
+  extraLoadsAfterWarmup:loads-initialLoads,
+  renders,
+  loads,
+  cacheReads:renders,
+  cacheHits:renders-loads,
+  derived:'cacheHits = renders - loads (each render performs one cache read)',
+  method:`real createCalendarActivityView + shipped renderWorkingActivities${module&&module.createActivityCache?' + shipped cache':' (no cache in this revision)'}`
+ };
+}
+
+async function measureAba(ref,module){
+ const h=pageHarness(ref,module);
+ const firstA=h.context.renderWorkingActivities();
+ await tick();
+ h.state.range={...B};
+ const bRender=h.context.renderWorkingActivities();
+ await tick();
+ h.calls[1].resolve({activities:[row('Week B','2026-10-02')],nextCursor:null});
+ await bRender;
+ h.calls[0].resolve({activities:[row('Week A','2026-09-02')],nextCursor:null});
+ await firstA;
+ h.state.range={...A};
+ const back=h.context.renderWorkingActivities();
+ await tick();
+ const reloaded=h.calls.length>=3;
+ if(reloaded)h.calls[2].resolve({activities:[row('Week A','2026-09-02')],nextCursor:null});
+ await back;
+ const painted=/Week A/.test(h.host.innerHTML);
+ const empty=/activity-empty/.test(h.host.innerHTML);
+ return {
+  pass:Boolean(reloaded&&painted&&!empty),
+  requestsForReturn:reloaded?h.calls.length-2:0,
+  paintedEmptyLane:empty,
+  detail:empty?'returned to Week A and painted an authoritative empty lane':reloaded&&painted?'returned to Week A and re-fetched the real rows':'did not re-fetch on return'
  };
 }
 
 // ---------------------------------------------------------------------------
-// 3. Filter cost per render (search responsiveness)
-// ---------------------------------------------------------------------------
-function filterHarness(ref,sessions,iterations){
- const activityTypeFilter={matchesSession:()=>true,setSessionTypes(){},selectedKeys:()=>[]};
- const fields={'search-input':{value:'clinical'},'filter-month':{value:'all'}};
- const context={
-  activityTypeFilter,sessions,$:id=>fields[id]??{value:''},
-  selectedYear:'all',selectedSemester:'fall',courseFilterActive:false,myTimetableOnly:false,currentUser:null,selectedCourses:new Set()
- };
- sandbox(context,extractFunction(readSource(ref,'frontend/scripts/timetable.js'),'filteredSessions'));
- context.filteredSessions();
- const started=nowMs();
- for(let index=0;index<iterations;index+=1)context.filteredSessions();
- return (nowMs()-started)/iterations;
-}
-
-// ---------------------------------------------------------------------------
-// 4. Session binding cost for N rendered rows
+// 3. Session binding cost for N rendered rows
 // ---------------------------------------------------------------------------
 function makeElement(id,counter){
  const classes=new Set();
- return {
-  dataset:{sessionId:String(id)},
-  classList:{toggle(name,on){if(on)classes.add(name);else classes.delete(name);}},
-  addEventListener(){counter.rowListeners+=1;}
- };
+ return {dataset:{sessionId:String(id)},classList:{toggle(name,on){if(on)classes.add(name);else classes.delete(name);}},addEventListener(){counter.rowListeners+=1;}};
 }
 
-function measureBinding(ref,rows){
+function measureBinding(ref,rows,module){
  let findCalls=0,hostListeners=0;
  const counter={rowListeners:0};
  const elements=Array.from({length:rows},(_,index)=>makeElement(`s-${index}`,counter));
@@ -170,22 +223,22 @@ function measureBinding(ref,rows){
  instrumented.find=function(predicate){findCalls+=1;return Array.prototype.find.call(this,predicate);};
  const host={addEventListener(){hostListeners+=1;},querySelectorAll:()=>elements,dataset:{}};
  const context={
-  renderedSessions:instrumented,
-  selectionMode:false,
+  renderedSessions:instrumented,selectionMode:false,
   sessionSelection:{has:()=>false,toggle:()=>true},
   selectedSessionOriginals:new Map(),
   document:{querySelectorAll:()=>elements},
-  openSessionDetail(){},
-  updateSelectionControls(){},
-  render(){},
-  toast(){},
-  $:()=>host,
-  window:{UCVM_CALENDAR_SEARCH:search},
-  sessionBlockController:null
+  openSessionDetail(){},updateSelectionControls(){},render(){},toast(){},
+  $:()=>host,sessionBlockController:null,
+  window:{UCVM_CALENDAR_SEARCH:module}
  };
  const source=readSource(ref,'frontend/scripts/timetable.js');
- sandbox(context,ref?extractFunction(source,'bindSessionBlocks')
-  :`${extractFunction(source,'scheduledSessionBlockController')}\n${extractFunction(source,'bindSessionBlocks')}`);
+ const parts=[];
+ if(source.includes('createInlineSessionBlockController'))parts.push(extractFunction(source,'createInlineSessionBlockController'));
+ if(source.includes('scheduledSessionBlockController'))parts.push(extractFunction(source,'scheduledSessionBlockController'));
+ parts.push(extractFunction(source,'bindSessionBlocks'));
+ const code=parts.join('\n');
+ vm.createContext(context);
+ vm.runInContext(code,context);
  const started=nowMs();
  context.bindSessionBlocks();
  const elapsed=nowMs()-started;
@@ -193,78 +246,54 @@ function measureBinding(ref,rows){
   rows,
   elapsedMs:Number(elapsed.toFixed(3)),
   linearScans:findCalls,
-  listeners:hostListeners+counter.rowListeners,
-  lookup:ref?'Array.prototype.find per rendered row':'Map index built once plus delegated listener',
-  method:ref?'baseline bindSessionBlocks executed against a fake DOM':'shipped bindSessionBlocks + shipped session block controller against a fake DOM'
+  clickListeners:hostListeners+counter.rowListeners,
+  method:'bindSessionBlocks executed against a fake DOM with a counting Array.find'
  };
 }
 
-function syntheticSessions(count){
- const types=['LEC','LAB','SRL','CCC'];
- return Array.from({length:count},(_,index)=>({
-  id:`session-${index}`,
-  course:String(100+index%40),
-  topic:index%3?'Clinical skills':'Anatomy',
-  instructor:`Faculty, ${index%120}`,
-  room:`Room ${index%20}`,
-  type:types[index%types.length],
-  year:String(1+index%4),
-  semester:['fall','winter','spring'][index%3],
-  date:`2026-${String(9+index%2).padStart(2,'0')}-${String(1+index%28).padStart(2,'0')}`
- }));
-}
-
+// ---------------------------------------------------------------------------
 (async()=>{
- const before={ref:baselineRef};
- before.searchRenders=measureSearchRenders(baselineRef);
- const beforeLoads=await measureActivityLoads(baselineRef);
- before.activityLoads=beforeLoads.loads;
- before.activityLoadsMethod=beforeLoads.method;
- before.filterMs=filterHarness(baselineRef,syntheticSessions(1861),200);
- before.binding=measureBinding(baselineRef,ROWS);
+ const revisions=[
+  {name:'baseline',ref:baselineRef,module:null,label:baselineRef.slice(0,12)},
+  {name:'previous',ref:previousRef,module:loadUmd(previousRef,'frontend/scripts/calendar-search.js'),label:previousRef.slice(0,12)},
+  {name:'current',ref:null,module:search,label:'working tree'}
+ ];
+ const results={};
+ for(const revision of revisions){
+  results[revision.name]={
+   ref:revision.label,
+   search:measureSearchRenders(revision.ref),
+   traffic:await measureActivityTraffic(revision.ref,revision.module),
+   aba:await measureAba(revision.ref,revision.module),
+   binding:measureBinding(revision.ref,ROWS,revision.module)
+  };
+ }
+ const baseline=results.baseline,previous=results.previous,current=results.current;
+ const report={generatedAt:new Date().toISOString(),baselineRef,previousRef,node:process.version,rows:ROWS,results,notes:[
+  'All timings are Node/V8 measurements of production functions against stub collaborators, not browser timings.',
+  'cacheHits is derived: each render performs exactly one cache read, so hits = renders - loads.',
+  'The previous revision had no cancellation distinction, which is why its A->B->A scenario fails.'
+ ]};
 
- const after={ref:'working tree'};
- after.searchRenders=measureSearchRenders(null);
- const afterLoads=await measureActivityLoads(null);
- after.activityLoads=afterLoads.loads;
- after.activityLoadsMethod=afterLoads.method;
- after.filterMs=filterHarness(null,syntheticSessions(1861),200);
- after.binding=measureBinding(null,ROWS);
-
- const burstFilterWork={
-  before:Number((before.filterMs*10).toFixed(3)),
-  after:Number((after.filterMs*1).toFixed(3))
- };
- const report={
-  generatedAt:new Date().toISOString(),
-  baselineRef,
-  node:process.version,
-  rows:ROWS,
-  before,
-  after,
-  derived:{
-   burstFilterWorkMs:burstFilterWork,
-   burstFilterWorkReduction:Number((before.filterMs*10/(after.filterMs||1)).toFixed(1)),
-   activityLoadsAvoided:before.activityLoads-after.activityLoads,
-   linearScansAvoided:before.binding.linearScans-after.binding.linearScans
-  }
- };
-
- console.log('Calendar search performance evidence');
- console.log(`baseline ${baselineRef.slice(0,12)}  node ${process.version}  binding rows ${ROWS}`);
+ console.log('Calendar search evidence');
+ console.log(`baseline ${baseline.ref}   previous ${previous.ref}   current ${current.ref}`);
  console.log('');
- console.log('| Metric | Before | After |');
- console.log('|---|---|---|');
- console.log(`| Search renders for 10 rapid keystrokes | ${before.searchRenders.renders} | ${after.searchRenders.renders} |`);
- console.log(`| Activity API requests during that burst | ${before.activityLoads} | ${after.activityLoads} |`);
- console.log(`| Filter work for the burst (ms) | ${burstFilterWork.before} | ${burstFilterWork.after} |`);
- console.log(`| Bind ${ROWS} rows: linear scans | ${before.binding.linearScans} | ${after.binding.linearScans} |`);
- console.log(`| Bind ${ROWS} rows: elapsed ms | ${before.binding.elapsedMs} | ${after.binding.elapsedMs} |`);
- console.log(`| Click listeners for ${ROWS} rows | ${before.binding.listeners} | ${after.binding.listeners} |`);
+ console.log('| Metric | Baseline | Previous PR head | Current |');
+ console.log('|---|---:|---:|---:|');
+ console.log(`| Initial activity load (requests) | ${baseline.traffic.initialLoads} | ${previous.traffic.initialLoads} | ${current.traffic.initialLoads} |`);
+ console.log(`| Extra activity requests for 10 keystrokes after warm-up | ${baseline.traffic.extraLoadsAfterWarmup} | ${previous.traffic.extraLoadsAfterWarmup} | ${current.traffic.extraLoadsAfterWarmup} |`);
+ console.log(`| Search renders for 10 rapid keystrokes | ${baseline.search.renders} | ${previous.search.renders} | ${current.search.renders} |`);
+ console.log(`| Cache reads (direct) | ${baseline.traffic.cacheReads} | ${previous.traffic.cacheReads} | ${current.traffic.cacheReads} |`);
+ console.log(`| Cache hits (derived) | ${baseline.traffic.cacheHits} | ${previous.traffic.cacheHits} | ${current.traffic.cacheHits} |`);
+ console.log(`| Session binding ${ROWS} rows: elapsed ms (direct) | ${baseline.binding.elapsedMs} | ${previous.binding.elapsedMs} | ${current.binding.elapsedMs} |`);
+ console.log(`| Session binding ${ROWS} rows: linear scans (direct) | ${baseline.binding.linearScans} | ${previous.binding.linearScans} | ${current.binding.linearScans} |`);
+ console.log(`| Session click listeners for ${ROWS} rows (direct) | ${baseline.binding.clickListeners} | ${previous.binding.clickListeners} | ${current.binding.clickListeners} |`);
+ console.log(`| A -> B -> A correctness | ${baseline.aba.pass?'pass':'fail'} | ${previous.aba.pass?'pass':'fail'} | ${current.aba.pass?'pass':'fail'} |`);
  console.log('');
- for(const key of ['searchRenders','activityLoads','filterMs','binding']){
-  console.log(`method ${key}: before = ${before[key].method||before[`${key}Method`]||`filteredSessions averaged over 200 runs on 1,861 synthetic sessions`}`);
-  console.log(`method ${key}: after  = ${after[key].method||after[`${key}Method`]||`filteredSessions averaged over 200 runs on 1,861 synthetic sessions`}`);
+ for(const revision of revisions){
+  const value=results[revision.name];
+  console.log(`${revision.name}: ${value.aba.detail}`);
+  console.log(`  methods: ${value.search.method}; ${value.traffic.method}; ${value.binding.method}`);
  }
  if(jsonPath)fs.writeFileSync(path.resolve(jsonPath),`${JSON.stringify(report,null,2)}\n`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

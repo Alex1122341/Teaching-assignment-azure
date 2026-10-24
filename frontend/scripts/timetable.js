@@ -1223,15 +1223,18 @@
     }
     host.innerHTML='<p class="activity-notice" role="status">Loading working activities…</p>';
     const load=loadScope=>loadScope.facultyId
-      ? view.loadFacultyRange(loadScope.facultyId,{start:loadScope.start,end:loadScope.end},{self:loadScope.selfOnly})
-      : view.loadRange({start:loadScope.start,end:loadScope.end});
+      ? view.loadFacultyRange(loadScope.facultyId,{start:loadScope.start,end:loadScope.end},{self:loadScope.selfOnly,onCancel:'throw'})
+      : view.loadRange({start:loadScope.start,end:loadScope.end},{onCancel:'throw'});
     try{
       const rows=workingActivityCache
         ? await workingActivityCache.get(scope,{refresh:refresh===true,load})
         : await load(scope);
       paint(rows);
     }catch(error){
-      if(!current())return;
+      // A superseded request is not a failure: a newer render owns the lane. The
+      // code matches CANCELLATION_CODE in calendar-search.js and is inlined so
+      // this function stays self-contained for the extraction harness.
+      if(!current()||error?.code==='CALENDAR_ACTIVITY_CANCELLED'||error?.name==='AbortError')return;
       host.innerHTML='<p class="activity-notice activity-error" role="alert">Working activities could not be loaded. Teaching sessions remain available. <button type="button" data-activity-retry>Retry</button></p>';
       const retry=host.querySelector('[data-activity-retry]');
       if(retry)retry.onclick=()=>renderWorkingActivities(true);
@@ -1432,14 +1435,51 @@
   }
 
   let sessionBlockController = null;
+  // Fallback used only when calendar-search.js did not load. It keeps the same
+  // delegated, O(N) contract (one container listener, one id index) instead of
+  // restoring a listener and a linear scan per rendered row, so session detail
+  // clicks, selection mode and CCC read-only behaviour survive a failed asset.
+  function createInlineSessionBlockController(options) {
+    const host=options&&options.host,query='[data-session-id]';
+    if(!host||typeof host.addEventListener!=='function'||typeof host.querySelectorAll!=='function')return null;
+    let index=new Map(),bound=false;
+    function activate(id){
+      const row=index.get(String(id));
+      if(!options.getSelectionMode()){options.onOpen(String(id));return;}
+      if(row&&row.isCcc){options.onRejected('CCC records are read-only and cannot be selected.');return;}
+      try{options.onToggle(String(id),row);}
+      catch(error){options.onRejected(error&&error.message?error.message:String(error));}
+    }
+    function handleClick(event){
+      const target=event&&event.target;
+      if(!target||typeof target.closest!=='function')return;
+      const element=target.closest(query);
+      if(!element||!element.dataset||element.dataset.sessionId===undefined||element.dataset.sessionId===null)return;
+      activate(element.dataset.sessionId);
+    }
+    return {refresh(){
+      index=new Map();
+      for(const row of options.getRows()||[]){if(row&&row.id!==undefined&&row.id!==null)index.set(String(row.id),row);}
+      const selectionMode=Boolean(options.getSelectionMode());
+      for(const element of host.querySelectorAll(query)){
+        const id=element&&element.dataset?element.dataset.sessionId:null;
+        if(id===undefined||id===null||id==='')continue;
+        const row=index.get(String(id));
+        element.classList.toggle('selection-candidate',selectionMode&&!row?.isCcc);
+        element.classList.toggle('selection-selected',Boolean(options.isSelected(String(id))));
+      }
+      if(!bound){bound=true;host.addEventListener('click',handleClick);}
+    }};
+  }
+
   // #calendar-body is stable across view changes (only its innerHTML is
   // replaced), so one delegated listener and one id index survive every render.
   // This replaces a per-row listener plus a linear session scan per row.
   function scheduledSessionBlockController() {
     if(sessionBlockController)return sessionBlockController;
     const host=$('calendar-body'),factory=window.UCVM_CALENDAR_SEARCH;
-    if(!host||!factory?.createSessionBlockController)return null;
-    sessionBlockController=factory.createSessionBlockController({
+    if(!host)return null;
+    const options={
       host,
       getRows:()=>renderedSessions,
       getSelectionMode:()=>selectionMode,
@@ -1452,7 +1492,8 @@
         updateSelectionControls();render();
       },
       onRejected:message=>toast(message,true)
-    });
+    };
+    sessionBlockController=factory?.createSessionBlockController?factory.createSessionBlockController(options):createInlineSessionBlockController(options);
     return sessionBlockController;
   }
 

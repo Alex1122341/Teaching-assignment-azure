@@ -228,7 +228,10 @@ test('R4D-9G: check-needed buttons keep session click behavior',()=>{
   // calendar search controller; the page no longer attaches one listener per row.
   const { SESSION_BLOCK_SELECTOR }=require('../frontend/scripts/calendar-search.js');
   assert.equal(SESSION_BLOCK_SELECTOR,'[data-session-id]');
-  assert.match(src,/createSessionBlockController\(\{/);
+  // Both binding paths are delegated over the same selector: the shipped module
+  // and the in-page fallback used when that module did not load.
+  assert.match(src,/factory\.createSessionBlockController\(options\)/);
+  assert.match(src,/createInlineSessionBlockController\(options\)/);
   assert.doesNotMatch(src,/document\.querySelectorAll\('\[data-session-id\]'\)/,'the quadratic per-row binding must not return');
 });
 

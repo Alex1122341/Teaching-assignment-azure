@@ -233,7 +233,8 @@ test('the faculty scope is part of the cache key and passes the self flag throug
  assert.equal(view.loads.length,1,'repeated renders reuse the faculty-scoped entry');
  assert.equal(view.loads[0].kind,'faculty');
  assert.equal(view.loads[0].facultyId,'faculty-1');
- assert.deepEqual({...view.loads[0].options},{self:true});
+ assert.equal(view.loads[0].options.self,true);
+ assert.equal(view.loads[0].options.onCancel,'throw','the page asks the view to report cancellation explicitly');
  context.currentUser={uid:'user-1',profile:{facultyId:'faculty-2',role:'faculty'}};
  await context.renderWorkingActivities();
  assert.equal(view.loads.length,2,'a different faculty scope is a different read');
@@ -284,7 +285,7 @@ function element(id){
  };
 }
 
-function sessionHarness(rows){
+function sessionHarness(rows,{factory}={}){
  const elements=rows.map(row=>element(row.id));
  const host={
   elements,
@@ -309,9 +310,10 @@ function sessionHarness(rows){
   render(){renders.push(1);},
   toast(message){toasts.push(message);},
   $:id=>id==='calendar-body'?host:null,
-  window:{UCVM_CALENDAR_SEARCH:search}
+  window:{UCVM_CALENDAR_SEARCH:factory===undefined?search:factory}
  };
  vm.createContext(context);
+ vm.runInContext(sourceFunction('timetable.js','createInlineSessionBlockController'),context);
  vm.runInContext(sourceFunction('timetable.js','scheduledSessionBlockController'),context);
  vm.runInContext(sourceFunction('timetable.js','bindSessionBlocks'),context);
  return {context,host};
@@ -361,4 +363,79 @@ test('a click on a row that is not in the current result still opens its detail'
  context.bindSessionBlocks();
  host.listeners[0]({target:{closest:()=>host.elements[0]}});
  assert.deepEqual(context.opened,['s-a'],'unknown rows keep the previous open behaviour');
+});
+
+// ---------------------------------------------------------------------------
+// D. Degraded mode: calendar-search.js did not load.
+// ---------------------------------------------------------------------------
+test('the shipped module is preferred when it is available',()=>{
+ let created=0;
+ const factory={createSessionBlockController(options){created+=1;return search.createSessionBlockController(options);}};
+ const {context,host}=sessionHarness([{id:'s-a'}],{factory});
+ context.bindSessionBlocks();
+ assert.equal(created,1,'the module controller is constructed once');
+ assert.equal(host.listeners.length,1);
+ host.listeners[0]({target:{closest:()=>host.elements[0]}});
+ assert.deepEqual(context.opened,['s-a']);
+});
+
+test('without the module the fallback still opens a session, once per click',()=>{
+ const {context,host}=sessionHarness([{id:'s-a'},{id:'s-b'}],{factory:null});
+ context.bindSessionBlocks();
+ context.bindSessionBlocks();
+ context.bindSessionBlocks();
+ assert.equal(host.listeners.length,1,'one delegated listener, not one per row or per bind');
+ host.listeners[0]({target:{closest:()=>host.elements[1]}});
+ assert.deepEqual(context.opened,['s-b'],'the click was handled exactly once');
+});
+
+test('the fallback preserves selection mode, CCC read-only and the limit error',()=>{
+ const rows=[{id:'s-a'},{id:'s-ccc',isCcc:true}];
+ const {context,host}=sessionHarness(rows,{factory:null});
+ context.bindSessionBlocks();
+ context.selectionMode=true;
+ context.bindSessionBlocks();
+ assert.equal(host.elements[0].classes.has('selection-candidate'),true);
+ assert.equal(host.elements[1].classes.has('selection-candidate'),false,'CCC rows are never selectable');
+ host.listeners[0]({target:{closest:()=>host.elements[0]}});
+ assert.deepEqual([...context.sessionSelection.selected],['s-a']);
+ assert.equal(context.selectedSessionOriginals.has('s-a'),true);
+ assert.equal(context.renders.length,1);
+ assert.equal(context.controls.length,1);
+ host.listeners[0]({target:{closest:()=>host.elements[1]}});
+ assert.deepEqual(context.toasts,['CCC records are read-only and cannot be selected.']);
+ context.sessionSelection.toggle=()=>{throw Error('Select at most 200 sessions.');};
+ host.listeners[0]({target:{closest:()=>host.elements[0]}});
+ assert.deepEqual(context.toasts.at(-1),'Select at most 200 sessions.');
+});
+
+test('the fallback ignores clicks that are not on a session block',()=>{
+ const {context,host}=sessionHarness([{id:'s-a'}],{factory:null});
+ context.bindSessionBlocks();
+ assert.equal(host.listeners.length,1);
+ host.listeners[0]({target:{closest:()=>null}});
+ host.listeners[0]({});
+ assert.deepEqual(context.opened,[]);
+});
+
+// ---------------------------------------------------------------------------
+// E. Degraded mode: the search module did not load.
+// ---------------------------------------------------------------------------
+test('without the search module the field keeps an immediate render listener',()=>{
+ const listeners={};
+ const input={value:'',addEventListener(type,handler){(listeners[type]??=[]).push(handler);}};
+ const rendered=[];
+ const context={
+  'search-input':input,
+  $:id=>id==='search-input'?input:null,
+  searchDebouncer:null,
+  wireCalendarSearchInput(){throw Error('the debounce cannot be used without its module');},
+  render(){rendered.push(1);}
+ };
+ vm.createContext(context);
+ vm.runInContext(sourceFunction('timetable.js','bindCalendarSearchInput'),context);
+ assert.equal(context.bindCalendarSearchInput(),input);
+ assert.equal((listeners.input||[]).length,1);
+ for(let index=0;index<3;index+=1){input.value+=String(index);for(const handler of listeners.input)handler({});}
+ assert.equal(rendered.length,3,'each keystroke renders immediately when the module is absent');
 });

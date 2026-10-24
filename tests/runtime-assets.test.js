@@ -30,6 +30,13 @@ test('production manifest contains the complete static dependency graph and no s
   const html=read(page),references=[...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)].map(match=>match[1].split(/[?#]/)[0]).filter(value=>value&&!/^(?:https?:|#|mailto:|tel:)/.test(value));
   for(const reference of references)assert.ok(manifest.includes(reference),`${page} -> ${reference}`);
  }
+ // The search module must be published and loaded before the page that wires it,
+ // and the page must actually call the binding. A silently unloaded module would
+ // fall back to one render per keystroke without failing anything else.
+ const calendarPage=read('index.html'),calendarModule=calendarPage.indexOf('calendar-search.js');
+ assert.ok(manifest.includes('calendar-search.js'));
+ assert.ok(calendarModule>=0&&calendarModule<calendarPage.indexOf('src="timetable.js"'),'calendar-search.js loads before timetable.js');
+ assert.match(read('timetable.js'),/^\s*bindCalendarSearchInput\(\);$/m);
 });
 
 test('scheduling core loads before approval bootstrap and timetable consumers',()=>{

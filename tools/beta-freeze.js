@@ -11,13 +11,14 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed integrated Calendar/office presentation is the immutable trust anchor.
-// Preserve main's Role/Appointment fixes and every API/SQL byte. The independent
-// governance receipt pins the product; the Git-object enforcement is unchanged.
-// Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
-// AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
-// evidence in governance tests.
-const BASELINE_COMMIT='486ea030c5eaef4ddb7508a4d50799687487057f';
+// Reviewed Calendar search responsiveness is the immutable trust anchor.
+// Preserve the accepted office workspace, main's Role/Appointment fixes and
+// every API/SQL byte. The independent governance receipt pins the product; the
+// Git-object enforcement is unchanged.
+// Prior integrated office/Calendar, AFC, DOE Rule Book / Lookup UI, Selected
+// Schedule Export, DOE Calculator, AUTH-1, P3, P2, P1, W1M and earlier anchors
+// remain immutable historical evidence in governance tests.
+const BASELINE_COMMIT='b7d98616888cb7b2b648a627ae287b9a08bb5b99';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

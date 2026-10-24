@@ -224,8 +224,12 @@ test('R4D-9G: reasons distinguish unknown / invalid / outside-window',()=>{
 test('R4D-9G: check-needed buttons keep session click behavior',()=>{
   const body=src.slice(src.indexOf('function unpositionedSessionsHtml'),src.indexOf('function renderDay'));
   assert.match(body,/data-session-id="\$\{escapeHtml\(session\.id\)\}"/);
-  // Click binding is delegated over every [data-session-id] node.
-  assert.match(src,/document\.querySelectorAll\('\[data-session-id\]'\)/);
+  // Click binding is delegated over every [data-session-id] node by the shared
+  // calendar search controller; the page no longer attaches one listener per row.
+  const { SESSION_BLOCK_SELECTOR }=require('../frontend/scripts/calendar-search.js');
+  assert.equal(SESSION_BLOCK_SELECTOR,'[data-session-id]');
+  assert.match(src,/createSessionBlockController\(\{/);
+  assert.doesNotMatch(src,/document\.querySelectorAll\('\[data-session-id\]'\)/,'the quadratic per-row binding must not return');
 });
 
 test('R4D-9G: no fabricated corrected times are emitted',()=>{

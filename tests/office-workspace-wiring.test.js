@@ -12,7 +12,7 @@ test('office pages load pure navigation capabilities and shared shell before rea
   }
   assert.doesNotMatch(html,/src="faculty-access\.js"|firebase-firestore-compat/);
  }
- const manifest=JSON.parse(read('tools/static-assets.json'));assert.equal(manifest.length,91);assert.ok(manifest.includes('office-workspace.js'));assert.ok(manifest.includes('faculty-route-access.js'));
+ const manifest=JSON.parse(read('tools/static-assets.json'));assert.equal(manifest.length,92);assert.ok(manifest.includes('office-workspace.js'));assert.ok(manifest.includes('faculty-route-access.js'));
 });
 
 test('Calendar Dashboard and Assignments use the same Firebase identity configuration',()=>{

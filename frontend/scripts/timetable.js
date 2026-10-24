@@ -14,6 +14,23 @@
   const DAY_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const SQL_SESSION_EDIT_ROLES = new Set(['developer','owner','administrator','adfa_general','adfa_regular','admin']);
 
+  // Calendar search responsiveness. calendar-search.js is published before this
+  // file and provides three primitives: a trailing-edge debounce for the search
+  // field, a user/range/faculty-scoped cache for Working Activity rows, and one
+  // delegated session click listener. When the module is absent the page keeps
+  // the previous immediate-render behaviour, so a stale cached script cannot
+  // turn the filter box into a dead input.
+  const calendarSearch = window.UCVM_CALENDAR_SEARCH || null;
+  const workingActivityCache = calendarSearch
+    ? calendarSearch.createActivityCache({ ttlMs: calendarSearch.ACTIVITY_CACHE_TTL_MS })
+    : null;
+  const searchDebouncer = calendarSearch
+    ? calendarSearch.createDebouncer({ delay: calendarSearch.SEARCH_DEBOUNCE_MS, invoke: () => render() })
+    : null;
+  // Calendar activity writers (imports, replacements) can announce themselves;
+  // rows already in memory must never survive a confirmed change.
+  window.addEventListener('ucvm:calendar-activities-updated', () => workingActivityCache?.invalidate());
+
 
   // Firebase Web configuration is public by design. This local harness uses the
   // separate Tester Teaching project for REAL Authentication and REAL role lookup.
@@ -898,6 +915,7 @@
     populateCourseFilter();
     renderWeekControls();
     bindControls();
+    bindCalendarSearchInput();
     updateAuthUI();
     setAppLocked(true, 'Checking login status...');
     initFirebaseAuth();
@@ -982,7 +1000,6 @@
       refreshSessionScope();
     });
     $('week-mobile-select').addEventListener('change', e => { selectedWeek = Number(e.target.value); syncWeekUI(); refreshSessionScope(); });
-    $('search-input').addEventListener('input', render);
     $('filter-month').addEventListener('change', e => {
       if (e.target.value !== 'all') {
         { const m=Number(e.target.value); selectedSemester = m>=7 ? 'fall' : (m<=3 ? 'winter' : 'spring'); }
@@ -1133,7 +1150,34 @@
     });
   }
 
+  // Search is a filter over data the view already holds, so one trailing render
+  // per burst is enough. Enter applies immediately (a keyboard action cannot be
+  // lost to the re-render the way a queued mouse click can), and every other
+  // render supersedes a pending search render.
+  function wireCalendarSearchInput(input,{schedule,flush}={}) {
+    if (!input || typeof schedule !== 'function') return null;
+    input.addEventListener('input', () => schedule());
+    input.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' || event.isComposing || typeof flush !== 'function') return;
+      flush();
+    });
+    return input;
+  }
+
+  // Search is bound after the generic controls so the debounce owns the input
+  // event outright. Without the module the field keeps its immediate listener.
+  function bindCalendarSearchInput() {
+    const input = $('search-input');
+    if (!input) return null;
+    if (searchDebouncer) {
+      return wireCalendarSearchInput(input, { schedule: () => searchDebouncer.schedule(), flush: () => searchDebouncer.flush() });
+    }
+    input.addEventListener('input', render);
+    return input;
+  }
+
   function render() {
+    if(searchDebouncer)searchDebouncer.cancel();
     if(viewMode==='day')renderDay();
     else if(viewMode==='week')renderWeek();
     else if(viewMode==='month')renderMonth();
@@ -1155,24 +1199,42 @@
     return {start:ymd(week),end:ymd(addDays(week,7))};
   }
 
-  async function renderWorkingActivities() {
+  async function renderWorkingActivities(refresh = false) {
     const host=$('working-activities-lane'),view=window.PAWS_CALENDAR_ACTIVITIES,token=++workingActivityRenderToken,uid=currentUser?.uid;
     if(!host)return;
     if(!currentUser||!view||reviewingSelection){view?.clear();host.innerHTML='';return;}
     const range=workingActivityRange();if(!range){host.textContent='Select an academic year to view working activities.';return;}
     const filters={typeKeys:activityTypeFilter.selectedKeys(),search:$('search-input').value.trim()};
     if(!filters.typeKeys.some(key=>key.startsWith('work:'))){view.clear();host.innerHTML='';return;}
+    const facultyId=myTimetableOnly?String(currentUser.profile?.facultyId||''):'';
+    // Calendar activity rows are scoped by identity, support context, requested
+    // range and faculty scope. Search text and activity-type filters are applied
+    // by renderRangeLane to rows already in memory, so they deliberately do not
+    // take part in the cache key: typing or toggling a type must not refetch.
+    const scope={uid,supportContextId:String(window.PAWS_SUPPORT?.contextId?.()||''),start:range.start,end:range.end,facultyId,selfOnly:Boolean(myTimetableOnly&&roleIsFaculty(currentUser.profile))};
+    const current=()=>token===workingActivityRenderToken&&uid===currentUser?.uid;
+    const paint=rows=>{if(current())host.innerHTML=view.renderRangeLane(rows,{...range,filters});};
+    // A faculty-scoped view without a linked faculty id legitimately has no rows;
+    // it is not an empty cache entry and must not be requested.
+    if(myTimetableOnly&&!facultyId){paint([]);return;}
+    if(workingActivityCache&&!refresh){
+      const cached=workingActivityCache.peek(scope);
+      if(cached){paint(cached);return;}
+    }
     host.innerHTML='<p class="activity-notice" role="status">Loading working activities…</p>';
+    const load=loadScope=>loadScope.facultyId
+      ? view.loadFacultyRange(loadScope.facultyId,{start:loadScope.start,end:loadScope.end},{self:loadScope.selfOnly})
+      : view.loadRange({start:loadScope.start,end:loadScope.end});
     try{
-      const rows=myTimetableOnly
-        ? currentUser.profile?.facultyId ? await view.loadFacultyRange(currentUser.profile.facultyId,range,{self:roleIsFaculty(currentUser.profile)}) : []
-        : await view.loadRange(range);
-      if(token!==workingActivityRenderToken||uid!==currentUser?.uid)return;
-      host.innerHTML=view.renderRangeLane(rows,{...range,filters});
+      const rows=workingActivityCache
+        ? await workingActivityCache.get(scope,{refresh:refresh===true,load})
+        : await load(scope);
+      paint(rows);
     }catch(error){
-      if(token!==workingActivityRenderToken||uid!==currentUser?.uid)return;
+      if(!current())return;
       host.innerHTML='<p class="activity-notice activity-error" role="alert">Working activities could not be loaded. Teaching sessions remain available. <button type="button" data-activity-retry>Retry</button></p>';
-      host.querySelector('[data-activity-retry]').onclick=renderWorkingActivities;
+      const retry=host.querySelector('[data-activity-retry]');
+      if(retry)retry.onclick=()=>renderWorkingActivities(true);
     }
   }
 
@@ -1369,22 +1431,33 @@
     bindSessionBlocks();
   }
 
-  function bindSessionBlocks() {
-    document.querySelectorAll('[data-session-id]').forEach(el => {
-      const s=renderedSessions.find(row=>String(row.id)===String(el.dataset.sessionId));
-      el.classList.toggle('selection-candidate',selectionMode&&!s?.isCcc);
-      el.classList.toggle('selection-selected',sessionSelection.has(el.dataset.sessionId));
-      el.addEventListener('click',()=>{
-        if(!selectionMode){openSessionDetail(el.dataset.sessionId);return}
-        if(s?.isCcc){toast('CCC records are read-only and cannot be selected.',true);return}
-        try{
-          const selected=sessionSelection.toggle(el.dataset.sessionId);
-          if(selected&&s)selectedSessionOriginals.set(String(s.id),JSON.parse(JSON.stringify(s)));
-          if(!selected)selectedSessionOriginals.delete(String(el.dataset.sessionId));
-          updateSelectionControls();render();
-        }catch(error){toast(error.message,true)}
-      });
+  let sessionBlockController = null;
+  // #calendar-body is stable across view changes (only its innerHTML is
+  // replaced), so one delegated listener and one id index survive every render.
+  // This replaces a per-row listener plus a linear session scan per row.
+  function scheduledSessionBlockController() {
+    if(sessionBlockController)return sessionBlockController;
+    const host=$('calendar-body'),factory=window.UCVM_CALENDAR_SEARCH;
+    if(!host||!factory?.createSessionBlockController)return null;
+    sessionBlockController=factory.createSessionBlockController({
+      host,
+      getRows:()=>renderedSessions,
+      getSelectionMode:()=>selectionMode,
+      isSelected:id=>sessionSelection.has(id),
+      onOpen:id=>openSessionDetail(id),
+      onToggle:(id,row)=>{
+        const selected=sessionSelection.toggle(id);
+        if(selected&&row)selectedSessionOriginals.set(String(row.id),JSON.parse(JSON.stringify(row)));
+        if(!selected)selectedSessionOriginals.delete(String(id));
+        updateSelectionControls();render();
+      },
+      onRejected:message=>toast(message,true)
     });
+    return sessionBlockController;
+  }
+
+  function bindSessionBlocks() {
+    scheduledSessionBlockController()?.refresh();
   }
 
   function switchCalendarView(next){

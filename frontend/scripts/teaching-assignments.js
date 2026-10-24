@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const FIREBASE_CONFIG = { apiKey: 'AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_Lk', authDomain: 'tester-teaching.firebaseapp.com', projectId: 'tester-teaching', storageBucket: 'tester-teaching.firebasestorage.app', messagingSenderId: '566638053186', appId: '1:566638053186:web:90e04b52251c4b859baadb' };
+  const FIREBASE_CONFIG = { apiKey: "AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY", authDomain: 'tester-teaching.firebaseapp.com', projectId: 'tester-teaching', storageBucket: 'tester-teaching.firebasestorage.app', messagingSenderId: '566638053186', appId: '1:566638053186:web:90e04b52251c4b859baadb' };
   const $ = id => document.getElementById(id);
   const officeWorkspace = window.PAWS_OFFICE_WORKSPACE?.mount({document,window,page:'assignments'});
   const displayFaculty = value => window.PAWS_FACULTY_NAME.format(value);

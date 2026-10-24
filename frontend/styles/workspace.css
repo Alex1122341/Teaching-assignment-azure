@@ -213,3 +213,25 @@ body.paws-office-shell{--paws-nav-width:64px;padding-left:var(--paws-nav-width);
 @media(max-width:1099px){body.paws-office-shell{--paws-nav-width:0px}}
 @media(max-width:800px){.paws-office-shell .topbar{padding:10px 12px;gap:10px}.paws-office-shell .shell,.paws-office-shell .page-shell{padding:14px}.paws-office-shell .lookup-grid{grid-template-columns:minmax(0,1fr)}.paws-office-shell .paws-global-actions{flex-basis:100%}.paws-office-shell .content-grid{grid-template-columns:minmax(0,1fr)}.paws-office-shell .year-control{flex-wrap:wrap;max-width:100%}}
 @media(max-width:420px){.paws-office-shell .admin-chip,.paws-office-shell .identity-chip{max-width:210px}.paws-office-shell .headline h1,.paws-office-shell .intro h1{font-size:18px}.paws-office-shell .toolbar .search{flex-basis:100%;max-width:none}}
+.paws-office-shell .dashboard-metrics,.paws-office-shell details.summary-source-banner{margin:0 0 12px;padding:8px 12px;border:1px solid var(--workspace-line);border-radius:5px;background:var(--workspace-soft);font-size:12px;color:var(--workspace-muted)}
+.paws-office-shell .dashboard-metrics>summary,.paws-office-shell details.summary-source-banner>summary{cursor:pointer;min-height:24px;line-height:24px;color:var(--workspace-ink);font-weight:600}
+.paws-office-shell .dashboard-metrics .kpis{margin:12px 0 0;gap:8px}
+.paws-office-shell .dashboard-metrics .kpi{padding:10px;border:1px solid var(--workspace-line)}
+.paws-office-shell .kpi-label{font-size:12px;letter-spacing:0;text-transform:none;line-height:1.35}
+.paws-office-shell .kpi-value{font-size:20px}
+.paws-office-shell details.summary-source-banner p{margin:8px 0;line-height:1.5}
+.faculty-self-mode .dashboard-metrics{display:none}
+.paws-office-shell .queue-card{padding:12px;gap:6px}
+.paws-office-shell .queue-card strong{font-size:14px;line-height:1.4}
+.paws-office-shell .queue-card small{font-size:12px;line-height:1.4;color:var(--workspace-muted)}
+.paws-office-shell .queue-card>span,.paws-office-shell .queue-card .status-pill{font-size:12px;line-height:1.4}
+.paws-office-shell .year-control label{font-size:12px;letter-spacing:0;text-transform:none}
+.paws-office-shell .masthead-inner{padding:16px 20px;min-height:74px}
+.paws-office-shell .masthead-inner strong{font-size:16px;letter-spacing:0}
+.paws-office-shell .masthead-inner>div>span{font-size:12px;letter-spacing:0}
+.paws-office-shell .masthead .product-name{display:none}
+html.dark .paws-office-shell .ucalgary-wordmark,html.dark .paws-office-shell .ucalgary-faculty,html.dark .paws-office-shell .ucalgary-product,html.dark .paws-office-shell .masthead-inner strong{color:var(--workspace-ink)}
+html.dark .paws-office-shell .headline h1,html.dark .paws-office-shell .intro h1,html.dark .paws-office-shell .section-heading h3,html.dark .paws-office-shell .contribution-package h3{color:var(--workspace-ink)}
+html.dark .paws-office-shell .toolbar,html.dark .paws-office-shell .queue-card.selected,html.dark .paws-office-shell .queue-card:hover,html.dark .paws-office-shell .session-heading,html.dark .paws-office-shell .notice{background:var(--workspace-soft);color:var(--workspace-ink)}
+html.dark .paws-office-shell .tab.active,html.dark .paws-office-shell .view-tab.active{color:var(--workspace-ink);border-color:var(--workspace-gold)}
+html.dark .paws-office-shell .queue-card>span:not(.queue-card-top),html.dark .paws-office-shell .session-topic,html.dark .paws-office-shell .activity-row pre{color:var(--workspace-muted)}

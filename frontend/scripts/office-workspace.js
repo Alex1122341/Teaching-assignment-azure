@@ -13,7 +13,7 @@
   if(!header||!calendar)throw new Error('Office workspace requires existing header and Calendar action');
   calendar.textContent='Teaching Schedule';
   const link=(href,label)=>{const node=doc.createElement('a');node.href=href;node.textContent=label;return node;};
-  const assignments=nodes.assignments||link('teaching-assignments.html','Teaching Assignments');
+  const assignments=nodes.assignments||doc.querySelector('.tabs a[href="teaching-assignments.html"]')||link('teaching-assignments.html','Teaching Assignments');
   const dashboard=nodes.dashboard||doc.querySelector('.top-actions a[href="faculty-admin.html"]')||link('faculty-admin.html','Faculty Dashboard');
   const admin=nodes.admin||doc.getElementById('user-management-link');
   const current=page==='faculty'?dashboard:assignments;current.setAttribute('aria-current','page');

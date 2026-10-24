@@ -15,6 +15,12 @@ test('office pages load pure navigation capabilities and shared shell before rea
  const manifest=JSON.parse(read('tools/static-assets.json'));assert.equal(manifest.length,91);assert.ok(manifest.includes('office-workspace.js'));assert.ok(manifest.includes('faculty-route-access.js'));
 });
 
+test('Calendar Dashboard and Assignments use the same Firebase identity configuration',()=>{
+ const calendar=read('timetable.js');for(const file of ['faculty-admin.js','teaching-assignments.js'])for(const key of ['apiKey','authDomain','projectId','appId']){
+  const pattern=new RegExp(key+':\\s*[\'\"]([^\'\"]+)');assert.equal(read(file).match(pattern)?.[1],calendar.match(pattern)?.[1],file+' '+key);
+ }
+});
+
 test('Dashboard lock closes workspace and unlock syncs only supplied validated profile',()=>{
  const h=context(),profile={active:true,role:'faculty'};
  vm.runInNewContext(sourceFunction('faculty-admin.js','lock')+'\n'+sourceFunction('faculty-admin.js','unlock')+'\nlock("Denied");unlock(profile);',{...h,profile});
@@ -38,4 +44,23 @@ test('office visibility and content surfaces remain scoped and hidden controls c
  const css=read('workspace.css');assert.match(css,/\.paws-navigation-section \[hidden\]\{display:none!important\}/);
  assert.match(css,/body\.paws-office-shell/);assert.match(css,/\.paws-office-shell\.paws-office-locked/);
  assert.match(css,/\.paws-office-shell \.data-table/);assert.match(css,/font-variant-numeric:tabular-nums/);
+});
+
+test('Dashboard overview and technical source detail are optional while existing KPI identities remain',()=>{
+ const html=read('faculty-admin.html');assert.match(html,/<details class="dashboard-metrics"><summary>Overview metrics<\/summary>/);assert.match(html,/<details class="summary-source-banner"><summary>Data and access<\/summary>/);
+ assert.doesNotMatch(html,/<details class="(?:dashboard-metrics|summary-source-banner)" open/);
+ for(const id of ['kpi-total','kpi-sessions','kpi-check'])assert.ok(html.includes('id="'+id+'"'));
+ assert.match(read('workspace.css'),/\.faculty-self-mode \.dashboard-metrics\{display:none\}/);
+});
+
+test('office package metadata has a readable shared minimum rather than inherited nine pixel text',()=>{
+ const css=read('workspace.css');assert.match(css,/\.paws-office-shell \.queue-card small\{font-size:12px/);assert.match(css,/\.paws-office-shell \.queue-card strong\{font-size:14px/);
+});
+
+test('office dark theme overrides legacy light headings branding and toolbars with shared tokens',()=>{
+ const css=read('workspace.css');
+ for(const selector of ['.ucalgary-wordmark','.ucalgary-faculty','.headline h1','.intro h1','.toolbar','.queue-card.selected','.section-heading h3']){
+  assert.ok(css.split('\n').some(rule=>rule.startsWith('html.dark .paws-office-shell ')&&rule.includes(selector)&&rule.includes('var(--workspace-')),selector);
+ }
+ assert.match(css,/html\.dark \.paws-office-shell \.tab\.active[^\n]+color:var\(--workspace-ink\)/);
 });

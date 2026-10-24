@@ -4,11 +4,12 @@ const {domHarness}=require('../test-support/workspace-dom');
 const root=path.resolve(__dirname,'..'),adapterPath=path.join(root,'frontend/scripts/office-workspace.js');
 function access(){const window={};vm.runInNewContext(fs.readFileSync(path.join(root,'frontend/scripts/faculty-access.js'),'utf8'),{window});return window.UCVM;}
 function adapter(){return require(adapterPath);}
-function office(page='faculty',width=1024){
+function office(page='faculty',width=1024,{reuseAssignment=false}={}){
  const h=domHarness(width,{autoMount:false});h.win.PAWS_FACULTY_ROUTE_ACCESS=require('../frontend/scripts/faculty-route-access');h.win.PAWS_WORKSPACE_NAVIGATION=require('../frontend/scripts/workspace-navigation');
  const nodes={header:h.options.header,calendar:h.destination,admin:h.privateNode,globalNodes:[]};h.destination.textContent='Teaching Schedule';
+ let originalAssignment;if(reuseAssignment){originalAssignment=h.doc.createElement('a');originalAssignment.href='teaching-assignments.html';originalAssignment.textContent='Teaching Assignments';h.main.append(originalAssignment);h.doc.querySelector=selector=>selector.startsWith('.tabs a')?originalAssignment:h.doc.modal;}
  const api=adapter().mount({document:h.doc,window:h.win,page,nodes});
- return {...h,api,officeNodes:nodes,nav:h.created.find(n=>n.className==='paws-navigation'),menu:h.created.find(n=>n.className==='paws-navigation-toggle')};
+ return {...h,api,officeNodes:nodes,originalAssignment,nav:h.created.find(n=>n.className==='paws-navigation'),menu:h.created.find(n=>n.className==='paws-navigation-toggle')};
 }
 
 test('shared Assignments navigation admission exactly matches existing route roles',()=>{
@@ -63,6 +64,11 @@ test('Assignments shell keeps a truthful title and intentionally authorized curr
 test('office theme control uses current shared theme and remains local presentation state',()=>{
  const h=office();h.api.sync({active:true,role:'faculty'});const theme=h.created.find(n=>n.id==='office-theme-toggle');
  assert.equal(theme.attrs['aria-pressed'],'false');theme.onclick();assert.equal(h.doc.documentElement.classList.contains('dark'),true);assert.equal(theme.attrs['aria-pressed'],'true');theme.onclick();assert.equal(h.doc.documentElement.classList.contains('dark'),false);
+});
+
+test('Dashboard reuses its existing Assignments link instead of duplicating it in local tabs',()=>{
+ const h=office('faculty',1440,{reuseAssignment:true});h.api.sync({active:true,role:'adfa_general'});
+ assert.equal(h.originalAssignment.parentElement.className,'paws-navigation-section');assert.equal(h.created.filter(n=>n.href==='teaching-assignments.html').length,1);
 });
 
 test('office adapter is presentation only and uses shared role capabilities',()=>{

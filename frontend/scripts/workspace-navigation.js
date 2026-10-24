@@ -10,7 +10,7 @@
   return {rail,drawer,tasksOverlay:width<1600||(tasksOpen&&width-rail-320<1000)};
  }
  // Presentation only: the caller owns permitted entry nodes and their handlers.
- function mount({document:doc,window:win,groups,header,globalNodes}){
+ function mount({document:doc,window:win,groups,header,globalNodes,pageTitle='Teaching Schedule',shellClass='paws-calendar-shell',backgroundSelector='.ucalgary-masthead,.test-banner,.filter-bar-wrap,.main-content,.bottom-bar,.workspace-tasks',measureHeader=false}){
   if(mounted.has(doc))return mounted.get(doc);
   const body=doc.body,create=(tag,className,text)=>{const n=doc.createElement(tag);n.className=className;if(text)n.textContent=text;return n;};
   let expanded=win.innerWidth>=1600,signedIn=false,lastTasks=false,inertNodes=[];
@@ -33,9 +33,9 @@
    destinations.append(section);sections.push({section,entries});
   }
   const global=create('div','paws-global-actions');for(const node of globalNodes)if(node)global.append(node);header.append(global);
-  const title=create('h1','paws-page-title','Teaching Schedule');header.insertBefore(title,global);
+  const title=create('h1','paws-page-title',pageTitle);header.insertBefore(title,global);
   const scrim=create('button','paws-navigation-scrim');scrim.type='button';scrim.hidden=true;scrim.setAttribute('aria-label','Close navigation');body.append(nav,scrim);
-  body.classList.add('paws-calendar-shell');
+  body.classList.add(shellClass);
   function restoreBackground(){for(const [node,wasInert] of inertNodes)node.inert=wasInert;inertNodes=[];}
   function layout(){
    // Business dialogs keep their existing modal controller and focus ownership.
@@ -49,10 +49,10 @@
    close.hidden=!(signedIn&&expanded);menu.setAttribute('aria-expanded',String(expanded&&signedIn));menu.setAttribute('aria-label',expanded?'Collapse navigation':'Open navigation');
    if(signedIn&&state.drawer){
     nav.setAttribute('role','dialog');nav.setAttribute('aria-modal','true');
-    for(const node of doc.querySelectorAll('.ucalgary-masthead,.test-banner,.filter-bar-wrap,.main-content,.bottom-bar,.workspace-tasks')){inertNodes.push([node,node.inert]);node.inert=true;}
+    for(const node of doc.querySelectorAll(backgroundSelector)){inertNodes.push([node,node.inert]);node.inert=true;}
     if(!nav.contains(doc.activeElement))close.focus();
    }else{nav.removeAttribute('role');nav.removeAttribute('aria-modal');}
-   body.style.setProperty('--paws-header-height',header.parentElement.getBoundingClientRect().height+'px');
+   body.style.setProperty('--paws-header-height',(measureHeader?header:header.parentElement).getBoundingClientRect().height+'px');
   }
   function setExpanded(value,restore=true){expanded=value;layout();if(value&&body.classList.contains('paws-navigation-drawer'))close.focus();else if(restore)menu.focus();}
   menu.onclick=()=>setExpanded(!expanded);close.onclick=()=>setExpanded(false);scrim.onclick=()=>setExpanded(false);

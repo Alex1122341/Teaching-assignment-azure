@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "02388d60519eb7429633a1e748c1fb6e192a1b54",
+  "sourceCommit": "50e7e5c4241debe078080adda7a7dcbd383a2ba1",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -48,7 +48,7 @@
     "dashboard-view-model.js": "a5053b05b2af89f7653a486af268a03c4daa0f91418dbad80b43ce75747c7163",
     "faculty-swap-handoff.js": "1b68dcf3e287c97097640051a26634b95d321c89e392600a9e97bc45c97d3ce7",
     "faculty-swap-safe.js": "558c3150444f2a9ad66ac54437618297f6e45632d0375d502816e3eda331649c",
-    "index.html": "2527a9ee60ae692f15b6cf5a75acb87922b71d5566c493b2084b42858aa6fa0a",
+    "index.html": "1950ae4e9705e7926616424b7ee79edf3752adb0273c18fd60524840b620fbe2",
     "information-center.js": "d739a75f1893994048854678c25bc562d17099a912189213a5cef487b500acc0",
     "maintenance-state.js": "5b3c31bd41385322776f2eeab88a46827f7b0095f7cd26ac03aa44c267d1f1df",
     "password.html": "329d3b10211f99a5d13290a52352594da62eee4abf051767bddd0ecd1cc7620d",
@@ -62,14 +62,14 @@
     "scheduling-core.js": "d8e1321c42aa63c617668d86787d562fc1ba347ba8f5001c9671faf6b3e8ae3a",
     "timetable.css": "19eebdeb52d0df393b24e41b92741e8859f4c625d58cb55fe17146bbea91b166",
     "timetable-selection.js": "a2f2ace6ddfcb9e5d1777c91bd01752f1365c703dc86a745c84becd3992d7afa",
-    "timetable.js": "eff788984e917e57760d75e786f3ffcb62225dd1d55eb33126cf34ca3dfa942b",
+    "timetable.js": "4c83fd8b2e4c50203d9015e9327226a931d04dbe7492b15035ecc140c2e215d7",
     "user-management.html": "1e85481ae965a3b77d187470fa666bcb59561900718576e8751cc28369d3aab5",
     "user-management.css": "de65cb308772e82be4f551ad505ae7b718736c0cdfd531dedf7b971c089cfe02",
     "user-management.js": "36ebae9ff0bfddbac604d4a40b05783aa9ee6960cf18ac1e9127ed481a33bc2f",
     "faculty-name.js": "118264ae497909027f195548bb1f291a88528a3de0090f1cbf29bd976cb0fe26",
-    "swap-workflow-sql.js": "4c2fde17097aaf44436d7424ebe2822f9330b2f99ca1b58c89daeecb9c6a3dd6",
-    "adfa-swap-panel.js": "eb72cf1cd50e24633c9ac33ff777e5570681c3aab22f85b8ebecb037a86a0a91",
-    "swap-workflow-sql.css": "cf3e55658199335b85a420d4f1c8f81814dee3aa7e3e8709374f3e93956b0318",
+    "swap-workflow-sql.js": "8d472b411e941439fa624342356c3b964dd91af8660e30cd132d40085c2d9a3a",
+    "adfa-swap-panel.js": "cb72f42df985d8f9472c329bef58468ac2025eb32e911fa5b999d7259b470731",
+    "swap-workflow-sql.css": "55dc480e301bd8e435aaaa6d808198a95dfd45868da62e7c82a9aeceafdad660",
     "developer-support.js": "165565f5c7f8e30512cb1bd3f9ff11187d25af9ead4b0708ee6e0f725dc0e132",
     "workspace-tasks.js": "4520839dd547c21d6d9e6e49ddc2f8a5645f3d06b8954c3f53840edf9200a6c6",
     "workspace.css": "00ede35273c902b193ddfd34de176c04dc7e3f9c30363f0505fcf3a95f2fc174",
@@ -78,7 +78,7 @@
     "faculty-admin-afc-forms.js": "5b84183aedc359e8acfb201f7b637a11524ef790d3ca178d6d172025e56c5735",
     "faculty-admin-ccc-replacement.js": "2cd2bb1159f7ab68dfe63c40231756d18ce454562a4316215a2150c34f6ac415",
     "lab-session-detail.js": "db5f0e928b1321d707049fc907f57f53514937c1f1e3b7eb0281effd2bb2617c",
-    "calendar-activities.js": "2299143db232ff3e264d664bac5cde048bbba017e335c5ca2f9e373ccbc52ac2",
+    "calendar-activities.js": "ae6f0f9baac5caa235c78205066f2bd2a07111cc5cf04184c4c2a24b161fe9b7",
     "change-history.css": "44af30c0e099649545d85b37c0a085ba4d754fa73d0055f956f410240e2c8619",
     "change-history.js": "77cc27c06c24144a84b7055af3e11001f5f1913df8153dca194bc57858be4ede",
     "calendar-activities.css": "49f5bed0355d578b0a8fab6db0b8c3c950ea5ce2ff5370cca9b3650af8b93eae",
@@ -92,7 +92,6 @@
     "schedule-filter-view.js": "6de99015160ba58243bca6c076550fa4c3357f46581709f03464c95229d43415",
     "workspace-navigation.js": "f43ecdd705cadbb5dd6d83d2030fee9342e63f3d56f098556da95146381eb3b0",
     "office-workspace.js": "c42ebc68d3420d62b5205f1cf7f1d2f69f4d4a5816112ab75f8e80dca88ace7f",
-    "faculty-route-access.js": "ea75bbba28be1c4dbe2d05d014e5085102970dd0916f2bfc6e3533b3bec40928",
-    "calendar-search.js": "1c3e95da7ce38b870f7efcf12b83adafb0c2b272d737a93404f4b138b38e6b96"
+    "faculty-route-access.js": "ea75bbba28be1c4dbe2d05d014e5085102970dd0916f2bfc6e3533b3bec40928"
   }
 }

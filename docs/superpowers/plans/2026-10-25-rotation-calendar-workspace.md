@@ -23,7 +23,7 @@
 - Rotation is exclusive even when teaching, CCC and other activity types exist.
 - Projection IDs never reach teaching edit, selection, SWAP or bulk-write flows.
 - Month/list windows preserve source inclusive dates and bound expansion; malformed ranges fail visibly.
-- Default time is consistent in blocks/details/exports without silently granting DOE or verified availability.
+- Default time is consistent in activity blocks/details; existing teaching exports retain their teaching-only domain without silently granting DOE or verified availability.
 
 ### Task1: Shared activity placement projection
 
@@ -39,9 +39,9 @@ Files: timetable.js, calendar-activities.js, calendar-search.js, index.html, Cal
 
 Interface: cache raw scoped rows; schedule rendering uses teaching plus current-scope derived rows, while loading/errors stay visible without duplicate range tables. Actual view selection remains existing day/week/month/list.
 
-- [ ] Write failing exclusive-year, async-scope, details and read-only tests.
-- [ ] Implement projection loading/rerender plus Rotation Year button, preserve search cancellation recovery and selection limits.
-- [ ] Verify explicit teaching-only export copy and current teaching flows; commit.
+- [x] Write failing exclusive-year, async-scope, details and read-only tests.
+- [x] Implement projection loading/rerender plus Rotation Year button, preserve search cancellation recovery and selection limits.
+- [x] Verify explicit teaching-only export copy and current teaching flows; commit.
 
 ### Task3: Independent Dashboard other-work tab
 
@@ -49,8 +49,8 @@ Files: faculty-admin.html/js, calendar-activities.js/styles; Dashboard controlle
 
 Interface: read-only module/controller using existing authorized range APIs, academicRange, shared formatter and own-scope loading. Keyword/category/count/Retry work without source changes.
 
-- [ ] Write RED tests for exclusion, self-only queries, stale-tab/user/year responses, filters and errors.
-- [ ] Implement, run GREEN, verify existing profile/trainee/lazy boundaries; commit.
+- [x] Write RED tests for exclusion, self-only queries, stale-tab/user/year responses, filters and errors.
+- [x] Implement, run GREEN, verify existing profile/trainee/lazy boundaries; commit.
 
 ### Task4: Review, freeze, release and tracker
 
@@ -66,4 +66,4 @@ Interface: read-only module/controller using existing authorized range APIs, aca
 - Ruling: render projected work by exact visible dates rather than the teaching week ordinal, preventing DST week arithmetic from hiding a correctly dated activity. Source dates/evidence remain unchanged.
 - Ruling: retain the existing API whose SQL053 enforces Faculty/HICC/VISC own-Faculty scope; the new tab does not request administrator key mappings. API/backend/SQL/rules are unchanged.
 - Bounded live inventory (read-only): CCC413; Rotation41 total/33 overlapping2026–27 (2026-01-11 through2027-04-02). Other work338 total/327 overlapping2026–27. Annual MASTER appointment windows are not scheduled activity evidence.
-- Product integration in progress. Focused regression checks pass; browser and final independent review, promotion, full CI and release remain pending.
+- Product5826454 reviewed independently; findings fixed and rechecked. Focused57/57 pass. Synthetic1440/390 browser cases and dense122-row pagination verified; see docs/ui/rotation-calendar-acceptance-20261025.md. Separate governance, full CI, real-role acceptance, Hosting and tracker remain pending.

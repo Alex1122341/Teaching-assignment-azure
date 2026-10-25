@@ -4,13 +4,13 @@ const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-free
 const root=path.resolve(__dirname,'..'),MAIN='c7ca3d978437918ee503d2b64e84f5512c195971',PRODUCT='90b8c2f263ce49ba97eaa48db5fad749f64b436f';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 
-test('current maintenance promotion pins its reviewed integrated product and retains every PR ancestry',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(require('../tools/beta-baseline.json').sourceCommit,PRODUCT);
+test('historical maintenance promotion pins its reviewed integrated product and retains every PR ancestry',()=>{
+ const historical=git('show','08fd98c:tools/beta-freeze.js');assert.ok(historical.includes("const BASELINE_COMMIT='"+PRODUCT+"'"));git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(require('../tools/beta-baseline.json').sourceCommit,freeze.BASELINE_COMMIT);
  for(const sha of [MAIN,'31aaa3debb88d652ba95421c83d89266476193f8','78a7fcf89108250471d51d5a87d9892978c3789e','3d91f48f30cf4decc37915b506f3b148cda19c53'])git('merge-base','--is-ancestor',sha,PRODUCT);
  git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  const before=freeze.readBaselineManifest({root,baselineCommit:MAIN}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});
  assert.equal(before.length,91);assert.equal(after.length,92);assert.deepEqual(before.filter(file=>!after.includes(file)),[]);assert.deepEqual(after.filter(file=>!before.includes(file)),['calendar-search.js']);
- assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,92);
+ assert.equal(freeze.protectedPaths({root,baselineCommit:PRODUCT,readManifest:()=>['index.html']}).length,92);
 });
 
 test('maintenance changes only five static sources while preserving SWAP approval and every other served asset',()=>{

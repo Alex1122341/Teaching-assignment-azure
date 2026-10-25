@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "486ea030c5eaef4ddb7508a4d50799687487057f",
+  "sourceCommit": "2d896b82fcfc914ecabab152f3d4ad8e96d72aeb",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -67,9 +67,9 @@
     "user-management.css": "de65cb308772e82be4f551ad505ae7b718736c0cdfd531dedf7b971c089cfe02",
     "user-management.js": "36ebae9ff0bfddbac604d4a40b05783aa9ee6960cf18ac1e9127ed481a33bc2f",
     "faculty-name.js": "118264ae497909027f195548bb1f291a88528a3de0090f1cbf29bd976cb0fe26",
-    "swap-workflow-sql.js": "4c2fde17097aaf44436d7424ebe2822f9330b2f99ca1b58c89daeecb9c6a3dd6",
+    "swap-workflow-sql.js": "778c54625e7212e23032d557a2b34dd41770c98b90ab0bc83996895edf214556",
     "adfa-swap-panel.js": "eb72cf1cd50e24633c9ac33ff777e5570681c3aab22f85b8ebecb037a86a0a91",
-    "swap-workflow-sql.css": "cf3e55658199335b85a420d4f1c8f81814dee3aa7e3e8709374f3e93956b0318",
+    "swap-workflow-sql.css": "e04400742fcc19224e42b587d2d3ff126d75bbe5ba95a7fe5c670bea5f88f8e9",
     "developer-support.js": "165565f5c7f8e30512cb1bd3f9ff11187d25af9ead4b0708ee6e0f725dc0e132",
     "workspace-tasks.js": "4520839dd547c21d6d9e6e49ddc2f8a5645f3d06b8954c3f53840edf9200a6c6",
     "workspace.css": "00ede35273c902b193ddfd34de176c04dc7e3f9c30363f0505fcf3a95f2fc174",

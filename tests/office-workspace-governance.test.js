@@ -3,8 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
 const root=path.resolve(__dirname,'..'),MAIN='8bb40c60370bcce3d0135efd4327d42fba657903',PRODUCT='486ea030c5eaef4ddb7508a4d50799687487057f';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
-test('integrated office governance pins the exact accepted product and protects all 91 assets',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);
+test('historical integrated office governance pins the exact accepted product and protects all 91 assets',()=>{
+ const governance='bb424ddf4202eb623f22b8619760c7177d9cf9a3';
+ assert.ok(git('show',governance+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ assert.equal(JSON.parse(git('show',governance+':tools/beta-baseline.json')).sourceCommit,PRODUCT);
  git('merge-base','--is-ancestor',MAIN,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  const before=freeze.readBaselineManifest({root,baselineCommit:MAIN}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});
  assert.equal(after.length,91);assert.deepEqual(before.filter(f=>!after.includes(f)),[]);

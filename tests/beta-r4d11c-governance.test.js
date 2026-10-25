@@ -16,7 +16,7 @@ test('current CI keeps immutable source and both built artifact checks', () => {
   assert.doesNotMatch(wf,/docker build|az (?:acr|containerapp)|npm ci --prefix swa-api/);
 });
 test('server workspace locked dependencies precede both test suites', () => {
-  const wf = read('.github/workflows/azure-beta-build.yml');
+  const wf = read('.github/workflows/azure-beta-build.yml').replace(/\r\n/g, '\n');
   const rootInstall=wf.indexOf('- run: npm ci\n'),serverInstall=wf.indexOf('npm ci --prefix server'),rootTest=wf.indexOf('- run: npm test\n'),serverTest=wf.indexOf('npm test --prefix server');
   assert.ok(rootInstall>=0 && rootInstall<serverInstall && serverInstall<rootTest && serverInstall<serverTest);
 });

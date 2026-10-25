@@ -31,6 +31,8 @@ These are source capability assessments, not a new complete live acceptance.
 
 Baseline: **4 present, 4 partial, 4 missing**. This slice aims to complete DVM03/DVM08's intake presentation; DVM01/DVM11 and the four backend workstreams remain open. Existing privacy and real-role enforcement remain prerequisites to a complete DVM process acceptance.
 
+Implemented candidate `2d896b8`: DVM03/DVM08 intake behavior is implemented and locally exercised, bringing the candidate source assessment to **6 present, 2 partial, 4 missing**. This does not change the published source assessment or close the full SWAP role/state-transition acceptance.
+
 ## Approaches considered
 
 1. Replace the whole workflow now: reaches the intended process but requires new role/scope authority, migrations, pending-request policy and an email provider. Incorrect defaults could change who approves real work.

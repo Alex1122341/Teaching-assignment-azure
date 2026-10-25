@@ -8,6 +8,7 @@ test('059 changes only the two existing read procedures and preserves authorizat
  assert.match(sql,/Request is outside your SWAP scope/);assert.match(sql,/n\.Revision=r\.Revision AND n\.TargetUid=@ActorFirebaseUid/);assert.match(sql,/u\.Active=1 AND u\.MustChangePassword=0/);
  assert.match(sql,/JSON_VALUE\(r\.SnapshotJson,'\$\.Topic'\) topic/);assert.doesNotMatch(sql,/r\.SnapshotJson\s+(?:AS\s+)?(?:snapshot|original|SnapshotJson)\b/i);
  assert.doesNotMatch(sql,/\bu\.Email\b|\bf\.UCID\b|\ba\.DoeCredit\b/);
+ assert.match(sql,/JOIN paws\.Faculty sf ON sf\.FacultyId=s\.FacultyId/);assert.doesNotMatch(sql,/s\.SourceFacultyName/);
 });
 test('059 acceptance can only be launched through the existing disposable-container boundary',()=>{
  const launcher=read('tools/test-swap-approval-sql.ps1');assert.match(launcher,/test-calendar-activity-sql\.ps1/);assert.doesNotMatch(launcher,/\[string\]\$(?:Server|ConnectionString)/);

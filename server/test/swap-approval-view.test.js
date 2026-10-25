@@ -54,3 +54,13 @@ test('approval person labels preserve structured compound and partial names at t
  const result=(await api(body).detail('token',ID)).body;assert.equal(result.request.replacementDisplayName,'de la Cruz, Mary Jane');assert.equal(result.request.requesterName,'de la Cruz');
  body.request.replacement={displayName:'Not provided'};assert.equal((await api(body).detail('token',ID)).body.request.replacementDisplayName,'Not provided');
 });
+test('a real applied override marks skipped office steps as bypassed rather than approved or inconsistent',async()=>{
+ const body=fixture();body.request.status='applied';body.request.nextStage=null;body.history.push({revision:2,stage:'lab',decision:'approve',overrideReason:'Authorized synthetic override',actor:{displayName:'Synthetic Owner'}});
+ const result=(await api(body).detail('token',ID)).body.workflow;
+ assert.equal(result.verified,true);assert.equal(result.complete,true);assert.equal(result.appliedByOverride,true);assert.equal(result.stages[2].status,'bypassed');
+});
+test('original outgoing labels use the snapshot canonical identity and mask email-like source fallbacks',async()=>{
+ const body=fixture();body.request.original.assignment={firstName:'David',lastName:'Hall'};body.request.original.assignmentDisplayName='Imported Previous Instructor';
+ assert.equal((await api(body).detail('token',ID)).body.request.original.assignmentDisplayName,'Hall, David');
+ delete body.request.original.assignment;body.request.original.assignmentDisplayName='private.faculty@example.test';assert.doesNotMatch((await api(body).detail('token',ID)).body.request.original.assignmentDisplayName,/@/);
+});

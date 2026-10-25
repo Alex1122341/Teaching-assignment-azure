@@ -40,3 +40,7 @@ Files: frontend/scripts/swap-workflow-sql.js, frontend/styles/swap-workflow-sql.
 ## Execution ledger
 
 - Start: fae18b4, referencecc7cd33, main87a7f943; inline recommended path selected under standing Owner authorization.
+- Ruling: existing SQL Owner/Developer override can immediately apply from an intermediate stage. Preserve that authority, but confirmation/apply gates must treat any approval override as a possible immediate application. Applied routes mark skipped steps as bypassed, never fake approval. Independent review exposed the original UI assumption; RED4 then GREEN37 recorded.
+- Ruling: resolve original outgoing labels via immutable snapshot FacultyId and current structured public Faculty name; never import SourceFacultyName provenance as the outgoing identity. Missing historical identity stays Not provided. Names are current display labels for that original identity, not a rewritten historical source name.
+- Ruling: canonical approval API names are escaped directly in detail, read-only DOE and revision fallback. Per-person email-shaped names become neutral placeholders. Original audit/source values remain unchanged.
+- Local server suite at initial product02faff2:870total866pass0fail4skip. Focused initial47pass. SQL execution unavailable: no Docker on local or school host; no production DDL attempted.

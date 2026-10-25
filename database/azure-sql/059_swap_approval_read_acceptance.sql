@@ -35,5 +35,14 @@ IF JSON_VALUE(@Reply,'$.request.original.topic')<>N'Original LAB topic' THROW 53
 UPDATE paws.UserProfile SET Active=0 WHERE FirebaseUid=N'approval059-self';SET @Denied=0;
 BEGIN TRY EXEC paws_api.GetSessionSwap @Request,N'approval059-self';END TRY BEGIN CATCH IF ERROR_NUMBER()=53003 SET @Denied=1;ELSE THROW;END CATCH;
 IF @Denied=0 THROW 53059,'059 allowed an inactive requester.',1;
+-- Imported SourceFacultyName is provenance. A later swap must bind From to snapshot FacultyId.
+DECLARE @NextFaculty uniqueidentifier=NEWID(),@NextRequest uniqueidentifier=NEWID();
+INSERT paws.Faculty(FacultyId,RecordType,DisplayName,PreferredFirstName,PreferredLastName,Active,SourceImportBatchId) VALUES(@NextFaculty,N'faculty',N'David Hall',N'David',N'Hall',1,@Source);
+UPDATE paws.SessionAssignment SET FacultyId=@NextFaculty WHERE SessionAssignmentId=@Assignment;
+SET @Snapshot=paws_api.SessionSwapSnapshot(@Session);SET @Hash=CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),@Snapshot)),2);
+INSERT paws.SwapRequest(RequestId,SessionId,AssignmentId,CreatorUid,CreatorRole,Revision,Status,NextStage,SnapshotJson,SnapshotToken,ChangesJson,TargetFacultyId,NotifyReplacement,Note,NeedsAdc,NeedsLab,NeedsVisc)
+VALUES(@NextRequest,@Session,@Assignment,N'approval059-admin',N'adfa_regular',1,N'pending',N'adfa',@Snapshot,@Hash,N'{"room":"Room 105"}',NULL,0,N'Synthetic repeated request',0,0,0);
+DELETE @Result;INSERT @Result EXEC paws_api.GetSessionSwap @NextRequest,N'approval059-admin';SELECT @Reply=responseJson FROM @Result;
+IF JSON_VALUE(@Reply,'$.request.original.assignment.lastName')<>N'Hall' OR JSON_VALUE(@Reply,'$.request.original.assignment.firstName')<>N'David' THROW 53059,'059 used imported predecessor name instead of the snapshot outgoing identity.',1;
 ROLLBACK;
 PRINT 'SWAP_APPROVAL_READ_059_ACCEPTANCE_OK';

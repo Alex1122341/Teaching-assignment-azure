@@ -65,3 +65,9 @@ test('ADFA approval detail loads its existing read-only DOE API only against the
  await h.node('[data-decision="approve"]').onclick();assert.equal(h.calls(),0);assert.match(h.node('[data-error]').textContent,/DOE|availability/i);
  h.detail.request.snapshotToken='old';await h.window.PAWS_SWAP.openDetail('request');assert.equal(previews,1);assert.match(h.node('[data-approval-doe]').textContent,/changed|snapshot/i);
 });
+test('a recorded override warns of immediate application at any office stage and respects the apply gate',async()=>{
+ const h=harness();h.detail.capabilities.canOverride=true;h.detail.capabilities.requiresOverride=true;await h.window.PAWS_SWAP.openDetail('request');
+ h.node('[data-override]').value='Authorized synthetic override';await h.node('[data-decision="approve"]').onclick();
+ assert.match(h.node('[data-action-review]').innerHTML,/bypass|immediately appl/i);assert.doesNotMatch(h.node('[data-action-review]').innerHTML,/Intermediate approval does not apply/);
+ h.gates.swapApply=false;await h.window.PAWS_SWAP.openDetail('request');h.node('[data-override]').value='Authorized synthetic override';await h.node('[data-decision="approve"]').onclick();assert.equal(h.calls(),0);assert.match(h.content.innerHTML,/data-decision="approve" disabled/);
+});

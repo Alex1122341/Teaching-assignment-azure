@@ -14,6 +14,11 @@ function harness(canPreviewDoe=true,initialStatus='Available',options={}){
  return{window,panel,content,node,form,payloads,writes:()=>writes,setStatus:value=>{status=value;},holdPreview:()=>{let release;previewWait=new Promise(resolve=>{release=resolve;});return()=>{previewWait=null;release();};}};
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
+test('revision fallback preserves a canonical partial replacement name without reparsing it',async()=>{
+ const h=harness(false,'Available',{candidates:[]});
+ h.window.UCVM_PAWS_DATA.swapDetail=async()=>({request:{requestId:'request',sessionId:'session',assignmentId:'assignment',revision:2,changes:{replacementCandidateKey:'incoming'},replacementDisplayName:'de la Cruz'},capabilities:{canRevise:true,editableFields:['replacementCandidateKey']}});
+ await h.window.PAWS_SWAP.openDetail('request');await h.node('[data-revise]').onclick();assert.match(h.content.innerHTML,/de la Cruz/);assert.doesNotMatch(h.content.innerHTML,/Cruz, de la/);
+});
 test('ADFA opens the real candidate DOE panel and a stale availability result blocks submission',async()=>{
  const h=harness();await h.window.PAWS_SWAP.openSession('session');await settle();
  assert.match(h.panel.innerHTML,/Projected DOE/);

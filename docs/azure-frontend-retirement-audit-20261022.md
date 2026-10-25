@@ -51,3 +51,15 @@ In scope: two shipped JS files, associated source-level tests, no-Azure-static-a
 Out of scope: SQL data/schema, Firebase/Auth projects, University Node API, SQL connection methods, Docker/ACA deployment cutover, production hosting, PR #125 source and existing release history. Do not delete `database/azure-sql/**`, DB-related Azure authentication code, `swa-sql-runtime.js` or historical audit records.
 
 The immutable static freeze is promoted with a separate governance commit anchored to the accepted product commit; all API runtime bytes and SQL files remain unchanged.
+
+## 2026-10-25 follow-up: personal Azure deployment retirement
+
+Current host mapping: **Firebase Hosting** serves the static frontend, **Firebase Auth** authenticates users, and **University Windows host ITAPPVETOPSDB01** runs the production API against **VetMed-Ops**. Old Azure Static Web Apps, Azure Container Apps and Azure Container Registry are not authorized production targets.
+
+This cleanup removes Azure ACA/ACR deployment workflows and the unused local Docker image build from active CI. It deliberately retains the old `.azure-production/app` + `.azure-production/api` artifact layout, the `swa-api` compatibility package and `deploy/aca/Dockerfile` because the current Firebase publisher and immutable API freeze still depend on the frozen build definition and artifact inventory. These are compatibility evidence, **not active deployments**.
+
+Pending separate, independently verified migration: replace the API frozen artifact format and associated historical tests, then retire the Azure Functions wrapper, Dockerfile, Azure SQL personal-account scripts and Managed Identity compatibility path only after checking the actual Windows SQL connection identity. Do not remove production SQL migrations, rollback proofs, live `server/src/runtime/swa-*` handlers or full-release acceptance evidence by file name alone.
+
+**Chinese-language inventory:** `node tools/audit-language.js --json` reports every tracked Chinese-character occurrence in text files, including line numbers. Translate documentation and code comments only when the meaning can be preserved; keep identifiers, SQL literals, historic evidence quotations and user-facing strings unchanged unless a separate change is authorized. No automated blind translation.
+
+**Open-PR integration warning:** PR #125 contains old Azure-target testing-container assumptions and related changes. Rebase and reconcile those before accepting a testing-environment deployment; this cleanup does not change university testing SQL or live servers.

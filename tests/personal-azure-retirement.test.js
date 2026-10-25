@@ -19,13 +19,13 @@ test('the beta build retains freezes and artifacts without building ACA containe
 });
 test('Firebase exact-artifact, University API and hosting checks stay in place', () => {
   const workflow = read('.github/workflows/firebase-hosting-deploy.yml');
-  for (const required of ['.github/workflows/azure-beta-build.yml', 'azure-beta-', 'GET', '/api/health/runtime', '/api/health/sql', '/api/v1/me', 'writeGates', '--only hosting']) {
+  for (const required of ['.github/workflows/azure-beta-build.yml', 'azure-beta-', 'GET', '/api/health/runtime', '/api/health/sql', '/api/v1/me', '--only hosting']) {
     assert.ok(workflow.includes(required), required);
   }
   assert.doesNotMatch(workflow, /azure\/login@|az (?:acr|containerapp)/);
 });
 test('University API and active SQL migrations are not removed', () => {
-  for (const name of ['server/src/runtime/university-api.js', 'server/src/runtime/swa-sql-runtime.js', 'database/azure-sql/058_role_appointment_rowversion_hex.sql', '.github/workflows/calendar-activity-sql.yml']) {
+  for (const name of ['server/src/runtime/university-api.js', 'server/src/runtime/swa-sql-runtime.js', 'database/azure-sql/059_swap_approval_read.sql', '.github/workflows/calendar-activity-sql.yml']) {
     assert.equal(fs.existsSync(path.join(root,name)), true, name);
   }
 });

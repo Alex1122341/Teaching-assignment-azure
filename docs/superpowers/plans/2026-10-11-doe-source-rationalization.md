@@ -4,7 +4,7 @@
 
 **Architecture:** Reuse annual rules, course/subject mappings and assignment-scoped exceptions. No generic inference from names, dates or stored DOE. Current-year source quantities come from the exact owner-supplied MASTER. Projection includes recorded sources and preserves source-specific exceptions. Missing targets/history stay unavailable.
 
-**Execution:** Native execution under the owner's standing delegation of implementation decisions, most recently confirmed by “按照你的建议来吧”. No additional approval checkpoint for routine implementation. Conditional policy application remains gated by full parity audit.
+**Execution:** Native execution under the owner's standing delegation of implementation decisions, most recently confirmed by “按照你的建议来吧” (English translation: “Proceed with your recommendation”). No additional approval checkpoint for routine implementation. Conditional policy application remains gated by full parity audit.
 
 ## Tasks
 

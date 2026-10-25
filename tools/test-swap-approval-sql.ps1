@@ -16,4 +16,4 @@ IF EXISTS(SELECT * FROM dbo.SwapApproval059PermissionBaseline EXCEPT SELECT * FR
 PRINT 'SWAP_APPROVAL_READ_059_WRITE_GRANTS_UNCHANGED';
 '@ 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_059_swap_approval_read.sql') -Raw) 'VetMed-Ops'
-Invoke-TestSql "IF OBJECT_DEFINITION(OBJECT_ID(N'paws_api.GetSessionSwap')) LIKE N'%PAWS_SWAP_APPROVAL_READ_059%' THROW 53059,'059 rollback was not restored.';PRINT 'SWAP_APPROVAL_READ_059_ROLLBACK_OK';" 'VetMed-Ops'
+Invoke-TestSql "IF OBJECT_DEFINITION(OBJECT_ID(N'paws_api.GetSessionSwap')) LIKE N'%PAWS_SWAP_APPROVAL_READ_059%' THROW 53059,'059 rollback was not restored.',1;PRINT 'SWAP_APPROVAL_READ_059_ROLLBACK_OK';" 'VetMed-Ops'

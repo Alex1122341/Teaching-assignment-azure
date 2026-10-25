@@ -8,13 +8,14 @@ test('only dated CCC and Rotation are scheduled; named other work is not missing
  assert.equal(typeof lib.isScheduledActivity,'function');
  assert.equal(lib.isScheduledActivity(activity()),true);assert.equal(lib.isScheduledActivity(activity({category:'ccc',staffingKind:'unassigned',staffingLabel:'Locum'})),true);
  for(const category of ['clinical_day','vetm581_rounds','vetm591_presentations','vetm571_clinical_pharmacology','teaching_excellence','unknown'])assert.equal(lib.isScheduledActivity(activity({category})),false);
- assert.deepEqual(lib.otherActivities([activity(),activity({category:'ccc'}),activity({category:'clinical_day'})]).map(r=>r.category),['clinical_day']);
+ assert.deepEqual(lib.otherActivities([activity(),activity({category:'ccc'}),activity({category:'clinical_day'}),activity({category:'remote_work'})]).map(r=>r.category),['clinical_day']);
 });
 test('inclusive source ranges are clipped to the exclusive window, with labelled default times',()=>{
  assert.equal(typeof lib.projectSessions,'function');const original=activity(),copy=JSON.stringify(original),rows=lib.projectSessions([original],range);
  assert.deepEqual(rows.map(row=>row.date),['2026-10-01','2026-10-02','2026-10-03']);
  for(const row of rows){assert.equal(row.start,'08:30');assert.equal(row.end,'16:30');assert.equal(row.timeDefaulted,true);assert.equal(row.readOnlyActivity,true);assert.equal(row.isWorkingActivity,true);assert.equal(row.sourceActivity.timeStatus,'unconfirmed');assert.equal(row.sourceActivity,original);assert.equal(row.year,null);assert.equal(row.id,'activity:'+original.activityId+':'+row.date);}
  assert.equal(JSON.stringify(original),copy,'no date/time evidence is rewritten');
+ assert.ok(rows.every(row=>/Default time/.test(row.topic)),'every calendar view exposes default-time provenance');
 });
 test('explicit verified evidence wins per day; partial and invalid intervals use the default',()=>{
  assert.equal(typeof lib.projectSessions,'function');const rows=lib.projectSessions([activity({timeEvidence:[{date:'2026-10-01',startTime:'09:15',endTime:'12:00'},{date:'2026-10-02',startTime:'17:00',endTime:'08:00'},{date:'2026-10-03',startTime:'09:00'}]})],range);

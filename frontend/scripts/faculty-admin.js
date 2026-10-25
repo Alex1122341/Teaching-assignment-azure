@@ -24,9 +24,9 @@
   function pawsTimingLog(label, started) { if (pawsTimingEnabled() && typeof performance?.now === 'function') console.log(`[PAWS dashboard timing] ${label}=${Math.round(performance.now() - started)}ms`); }
 
   const workImport=window.PAWS_ACTIVITY_IMPORT?.createAdminEntry({api:UCVM_PAWS_DATA,host:$('calendar-activity-import'),notify:showToast,getUser:()=>currentUser,canAdmin:()=>!selfMode && dashboardAdmin(currentUser),onCommitted:async()=>{
-    workView?.clear();invalidateFacultyDetails();await loadAdminDashboard();await loadAfcRecords(true);if(selectedId)await selectFacultyDetail(selectedId);
+    otherWorkTab?.clear();invalidateFacultyDetails();await loadAdminDashboard();await loadAfcRecords(true);if(selectedId)await selectFacultyDetail(selectedId);
   }});
-  const workView = window.PAWS_CALENDAR_ACTIVITIES?.createFacultySchedule({getHost:()=>$('faculty-working-activities'),getUser:()=>currentUser,getSelected:()=>selectedId,isSelf:()=>selfMode});
+  const otherWorkTab=window.PAWS_CALENDAR_ACTIVITIES?.createOtherWorkTab({host:$('other-work-view'),api:UCVM_PAWS_DATA,getUser:()=>currentUser,getAcademicYear:currentAcademicYear});
   let auth = null;
   let historyView = null;
   const traineesEntry=window.UCVM_ASSETS?.createTraineeEntry({host:$('trainees-view'),api:UCVM_PAWS_DATA,getUser:()=>currentUser,getAcademicYear:currentAcademicYear,isAdministrator:dashboardAdmin});
@@ -169,7 +169,7 @@
       auth.onAuthStateChanged(async user => {
         const generation=++authGeneration;
         currentUser=null; resetAuthData();
-        if (!user) { currentUser = null; workView?.clear();workImport?.clear();lock('You are not signed in. Return to the timetable and sign in.'); return; }
+        if (!user) { currentUser = null; otherWorkTab?.clear();workImport?.clear();lock('You are not signed in. Return to the timetable and sign in.'); return; }
         try {
           lock('Checking Dashboard access…'); const meStarted = typeof performance?.now === 'function' ? performance.now() : 0; const profile = await UCVM_PAWS_DATA.currentUser(); pawsTimingLog('me', meStarted);
           if(generation!==authGeneration || auth.currentUser?.uid!==user.uid)return;
@@ -185,6 +185,7 @@
   }
 
   function resetAuthData() {
+    otherWorkTab?.clear();
     faculty=[]; activeFaculty=[]; afcRecords=[]; afcLoaded=false; selectedId=null; dashboardSummary=null; facultyAdminWriteEnabled=false;
     lookupMetrics=null; ++lookupMetricsGeneration; invalidateFacultyDetails();
     for(const key of Object.keys(aggregateCache))aggregateCache[key]=null;
@@ -231,15 +232,17 @@
   function updateAfcWriteControls() { window.UCVM_AFC_RECORDS.updateWriteControls(UCVM_PAWS_DATA, $, afcSubmitInFlight, afcSingleActions.isUnconfirmed()); }
 
   function selectTab(tabName) {
-    if (selfMode&&!['lookup','trainees','availability'].includes(tabName)) return;
+    if (selfMode&&!['lookup','trainees','availability','other-work'].includes(tabName)) return;
+    if(activeTab!==tabName)otherWorkTab?.clear();
     if(activeTab!==tabName)traineesEntry?.clear();
     activeTab = tabName || 'lookup';
     document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.tab === activeTab));
-    ['lookup','availability','summary','roles','doe-overview','doe-list','doe-rules','afc-records','trainees'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
+    ['lookup','availability','summary','roles','doe-overview','doe-list','doe-rules','afc-records','trainees','other-work'].forEach(name => $(name + '-view')?.classList.toggle('hidden', name !== activeTab));
     renderActiveTab();
   }
 
   function renderActiveTab() {
+  if(activeTab==='other-work')return otherWorkTab?.open();
   if(activeTab==='availability')return;
   if(activeTab==='trainees')return traineesEntry?.open();
   if (activeTab === 'summary') return loadTeachingSummary();
@@ -435,10 +438,9 @@
     const linked = data.linkedRecords || {};
     const actions = facultyManagement.actions(facultyRecord);
     const relationshipNote = canManage && facultyRecord.active !== false ? facultyManagement.relationshipWarning(linked) : '';
-    pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyName(facultyRecord, facultyRecord.facultyId))}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div>${specialtyHtml}</div>${actions}</div>${relationshipNote}<div class="profile-sections">${renderContractDoe(data.contractDoe, facultyRecord)}${renderDoeRuleBook(data.doeRuleBook)}${afcHtml}${rolesHtml}${renderTeachingCourses(assignments)}<section id="faculty-working-activities" class="section wide" aria-live="polite"><p class="activity-notice">Loading working activities…</p></section>${section('Identity & contact', identity)}${section('Appointment', appointment)}${profile ? section('Specialty & education', professional, true) : ''}${joints}${scope}<section id="faculty-doe-worksheet" class="section wide"><div class="empty">Loading authoritative DOE Worksheet…</div></section></div>`;
+    pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyName(facultyRecord, facultyRecord.facultyId))}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div>${specialtyHtml}</div>${actions}</div>${relationshipNote}<div class="profile-sections">${renderContractDoe(data.contractDoe, facultyRecord)}${renderDoeRuleBook(data.doeRuleBook)}${afcHtml}${rolesHtml}${renderTeachingCourses(assignments)}${section('Identity & contact', identity)}${section('Appointment', appointment)}${profile ? section('Specialty & education', professional, true) : ''}${joints}${scope}<section id="faculty-doe-worksheet" class="section wide"><div class="empty">Loading authoritative DOE Worksheet…</div></section></div>`;
     loadDetailDoeWorksheet(facultyRecord.facultyId, text(data.academicYear) || currentAcademicYear());
     const archiveHost=$('faculty-afc-originals');if(archiveHost){facultyArchive=window.PAWS_AFC_FORMS?.createArchiveController({api:UCVM_PAWS_DATA,host:archiveHost,getUser:()=>currentUser,getFacultyId:()=>selectedId===facultyRecord.facultyId?facultyRecord.facultyId:''});facultyArchive?.load();}
-    workView?.load(facultyRecord.facultyId, text(data.academicYear) || currentAcademicYear());
   }
 
   function renderFacultyAfc(records) { return window.UCVM_AFC_RECORDS.profileAfc(records,{selfMode,renderPdf:window.PAWS_AFC_FORMS?.documentAction}); }
@@ -632,12 +634,12 @@
     canRecalculate: () => !selfMode && dashboardGeneral(currentUser) && UCVM_PAWS_DATA.doeRecalculateEnabled?.() === true
   });
   doePolicyView?.mount($('doe-rules-content'));
-  function installSelfModeStyles() { if ($('faculty-self-mode-style')) return; const style = document.createElement('style'); style.id = 'faculty-self-mode-style'; style.textContent = 'body.faculty-self-mode .tabs .tab:not([data-tab="lookup"]):not([data-tab="trainees"]):not([data-tab="availability"]),body.faculty-self-mode .tabs a,body.faculty-self-mode .kpis,body.faculty-self-mode .summary-source-banner,body.faculty-self-mode #lookup-view > .toolbar,body.faculty-self-mode .result-pane,body.faculty-self-mode #sync-status{display:none!important}body.faculty-self-mode .lookup-grid{display:block;min-height:0}body.faculty-self-mode .profile-pane{width:100%;min-width:0;padding:18px}'; document.head.appendChild(style); }
+  function installSelfModeStyles() { if ($('faculty-self-mode-style')) return; const style = document.createElement('style'); style.id = 'faculty-self-mode-style'; style.textContent = 'body.faculty-self-mode .tabs .tab:not([data-tab="lookup"]):not([data-tab="trainees"]):not([data-tab="availability"]):not([data-tab="other-work"]),body.faculty-self-mode .tabs a,body.faculty-self-mode .kpis,body.faculty-self-mode .summary-source-banner,body.faculty-self-mode #lookup-view > .toolbar,body.faculty-self-mode .result-pane,body.faculty-self-mode #sync-status{display:none!important}body.faculty-self-mode .lookup-grid{display:block;min-height:0}body.faculty-self-mode .profile-pane{width:100%;min-width:0;padding:18px}'; document.head.appendChild(style); }
   function lock(message) { officeWorkspace?.sync(null);traineesEntry?.clear(); afcForms?.clear();facultyArchive?.clear();cccReplace?.clear();closeHistory();if($('faculty-history-btn'))$('faculty-history-btn').disabled=true;$('auth-gate').classList.remove('hidden'); $('gate-status').textContent = message; }
   function unlock(profile) { officeWorkspace?.sync(profile);if($('faculty-history-btn'))$('faculty-history-btn').disabled=false;$('auth-gate').classList.add('hidden'); }
   function debounce(fn, wait = 160) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; }
 
   $('gate-back').onclick = $('back-btn').onclick = returnToTimetable;
-  $('signout-btn').onclick = async () => { traineesEntry?.clear(); if (auth) await auth.signOut(); location.href = 'index.html'; };
+  $('signout-btn').onclick = async () => { otherWorkTab?.clear();traineesEntry?.clear(); if (auth) await auth.signOut(); location.href = 'index.html'; };
   init();
 })();

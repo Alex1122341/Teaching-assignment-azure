@@ -31,7 +31,7 @@ Files: new `frontend/scripts/calendar-activity-placement.js`, `tests/calendar-ac
 
 Interface: `isScheduledActivity(row)`, `projectSessions(rows,{start,end,maxRows})`, `otherActivities(rows)`, `matchesYear(row,selectedYear)`;08:30/16:30 constants. Preserve source row and readonly/timeDefaulted flags.
 
-- [ ] Write failing range/time/category/year tests, run RED, implement minimal pure helper, run GREEN, commit.
+- [x] Write failing range/time/category/year tests, run RED, implement minimal pure helper, run GREEN, commit.
 
 ### Task2: Calendar integration
 
@@ -41,7 +41,7 @@ Interface: cache raw scoped rows; schedule rendering uses teaching plus current-
 
 - [ ] Write failing exclusive-year, async-scope, details and read-only tests.
 - [ ] Implement projection loading/rerender plus Rotation Year button, preserve search cancellation recovery and selection limits.
-- [ ] Verify projection/default-time export semantics and current teaching flows; commit.
+- [ ] Verify explicit teaching-only export copy and current teaching flows; commit.
 
 ### Task3: Independent Dashboard other-work tab
 
@@ -59,3 +59,11 @@ Interface: read-only module/controller using existing authorized range APIs, aca
 - [ ] Full CI/root/server/emulator/build/freeze; merge after green, exact-main official artifact, Hosting-only publish, raw hashes/API27gates/recovery and actual browser acceptance.
 - [ ] Update original progress workbook without changing human signoffs; do not mark broad tasks complete from this slice alone.
 - [ ] Inspect tasks23–25 and ask the owner the remaining report data/fields/privacy/filter/export decisions before report implementation.
+
+## Execution rulings and checkpoint
+
+- Ruling: keep the existing ordinary export domain teaching-only rather than silently reclassifying work projections as teaching assignments. Clarify its copy now; cross-domain reports/exports belong to tasks23–25 after user clarification. Costs: ordinary teaching CSV/ICS does not include the new readonly activity projections; do not claim it does.
+- Ruling: render projected work by exact visible dates rather than the teaching week ordinal, preventing DST week arithmetic from hiding a correctly dated activity. Source dates/evidence remain unchanged.
+- Ruling: retain the existing API whose SQL053 enforces Faculty/HICC/VISC own-Faculty scope; the new tab does not request administrator key mappings. API/backend/SQL/rules are unchanged.
+- Bounded live inventory (read-only): CCC413; Rotation41 total/33 overlapping2026–27 (2026-01-11 through2027-04-02). Other work338 total/327 overlapping2026–27. Annual MASTER appointment windows are not scheduled activity evidence.
+- Product integration in progress. Focused regression checks pass; browser and final independent review, promotion, full CI and release remain pending.

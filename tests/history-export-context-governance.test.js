@@ -3,13 +3,15 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const root=path.resolve(__dirname,'..'),MAIN='87a7f943f40bc5bf87b54b1b0059a2593ebc3b7d',PRODUCT='8fb1bc80c988a337f7ecb59fc56a72deeaeeed5d';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
-test('history context governance pins the reviewed product without reducing static or API protection',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(report.sourceCommit,PRODUCT);
+test('historical history context governance pins the reviewed product without reducing static or API protection',()=>{
+ const receipt='e611beea263389943972f2a329ed590de9635fc4';
+ assert.ok(git('show',receipt+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ assert.equal(JSON.parse(git('show',receipt+':tools/beta-baseline.json')).sourceCommit,PRODUCT);
  git('merge-base','--is-ancestor',MAIN,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  const before=freeze.readBaselineManifest({root,baselineCommit:MAIN}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});
  assert.deepEqual(after,before);assert.equal(after.length,91);
- assert.equal(freeze.protectedPaths({root}).length,91);
- assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,91);
+ for(const file of after)assert.ok(freeze.protectedPaths({root}).includes(file),file);
+ assert.equal(freeze.protectedPaths({root,baselineCommit:PRODUCT,readManifest:()=>['index.html']}).length,91);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
  assert.equal(git('diff','--name-only',MAIN,PRODUCT,'--','frontend'),'frontend/scripts/change-history.js');
  for(const file of after.filter(file=>file!=='change-history.js'))assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:MAIN,file}),freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);

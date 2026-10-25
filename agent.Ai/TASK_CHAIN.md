@@ -1,4 +1,8 @@
-## Current: Calendar search performance PR — 2026-10-24
+## Current: PR139–144 integrated release acceptance — 2026-10-25
+
+PR139 delivered via140;140/143 already published. PR144 reviewed head5a2e292 passes full CI40221355164 and mergesc7ca3d9. Calendar141 + History142 product90b8c2f integrates all four histories; cancellation race fixed with three RED→GREEN regressions; focused80pass; independent product reviews clear. Separate92static/119API governance and final full candidate/main CI/Hosting-only publication remain pending. Current APIc2/trust50 and27gates unchanged. Follow updates/2026-10-25-pr139-144-integrated-release.md.
+
+## Historical: Calendar search performance PR — 2026-10-24
 
 Correction round after CHANGES REQUIRED on PR141. Product02388d6 fixes cached-cancelled-empty rows (onCancel:throw + AbortError-shaped result, never cached) and adds createInlineSessionBlockController for the module-absent case; governance26edea6 promotes the anchor with92 static (no add/remove) and unchanged115+3 API. Evidence: 13 cancellation tests (9 failed before), 5 degraded-mode tests, root1222/1170/0/52, both freezes and artifact freezes pass. Awaiting independent re-review; no merge or deployment.
 

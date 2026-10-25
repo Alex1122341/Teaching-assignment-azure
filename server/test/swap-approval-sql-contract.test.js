@@ -28,6 +28,8 @@ test('forward and rollback guards pin the exact normalized UTF-16 definitions th
 
 test('Calendar SQL CI executes scoped approval059 and observes both protected-write and rollback receipts before cleanup',()=>{
  const workflow=read('.github/workflows/calendar-activity-sql.yml');
+ const triggers=workflow.slice(0,workflow.indexOf('  workflow_dispatch:'));
+ for(const source of ['tools/test-swap-approval-sql.ps1','server/test/swap-approval-sql-contract.test.js'])assert.ok(triggers.includes("'"+source+"'"),source+' changes must schedule real SQL acceptance');
  const step=workflow.match(/- name: Check scoped SWAP approval read and rollback[\s\S]*?(?=\n      - name:)/)?.[0];
  assert.ok(step,'059 must run in the existing labeled synthetic SQL job');
  assert.match(step,/shell: pwsh/);

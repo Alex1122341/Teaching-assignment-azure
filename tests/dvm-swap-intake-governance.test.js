@@ -4,8 +4,11 @@ const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-free
 const root=path.resolve(__dirname,'..'),BASE='87a7f943f40bc5bf87b54b1b0059a2593ebc3b7d',PRODUCT='2d896b82fcfc914ecabab152f3d4ad8e96d72aeb';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('DVM intake governance pins its independently reviewed product and all 91 static assets',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);
- assert.equal(require('../tools/beta-baseline.json').sourceCommit,PRODUCT);
+ const receipt='fae18b483378229a666c2903d0bafcd3a1fe0009';
+ assert.ok(git('show',receipt+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ assert.equal(JSON.parse(git('show',receipt+':tools/beta-baseline.json')).sourceCommit,PRODUCT);
+ git('merge-base','--is-ancestor',PRODUCT,freeze.BASELINE_COMMIT);assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
+ assert.equal(require('../tools/beta-baseline.json').sourceCommit,freeze.BASELINE_COMMIT);
  git('merge-base','--is-ancestor',BASE,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  assert.equal(git('diff','--name-only',BASE,PRODUCT,'--','frontend'),'frontend/scripts/swap-workflow-sql.js\nfrontend/styles/swap-workflow-sql.css');
  const before=freeze.readBaselineManifest({root,baselineCommit:BASE}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});

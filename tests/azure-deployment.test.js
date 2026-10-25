@@ -24,7 +24,7 @@ test('Beta Build still runs tests and creates frozen static and API artifacts wi
   assert.match(workflow,/pull_request:/);
   assert.match(workflow,/push:\s*\n\s*branches:\s*\[main\]/);
   assert.match(workflow,/permissions:\s*\n\s*contents:\s*read/);
-  for(const clause of [/npm ci/,/npm ci --prefix swa-api/,/npm test/,/npm run test:emulator/,/node tools\/build-beta-release\.js/,/node tools\/verify-beta-candidate\.js/,/node tools\/beta-freeze\.js --artifact \.azure-production\/app/,/node tools\/beta-api-freeze\.js --artifact \.azure-production\/api/,/name:\s*azure-beta-\$\{\{ github\.sha \}\}/])assert.match(workflow,clause);
+  for(const clause of [/npm ci/,/npm test/,/npm run test:emulator/,/node tools\/build-beta-release\.js/,/node tools\/verify-beta-candidate\.js/,/node tools\/beta-freeze\.js --artifact \.azure-production\/app/,/node tools\/beta-api-freeze\.js --artifact \.azure-production\/api/,/name:\s*azure-beta-\$\{\{ github\.sha \}\}/])assert.match(workflow,clause);
   assert.doesNotMatch(workflow,/Azure\/static-web-apps-deploy|firebase deploy|AZURE_STATIC_WEB_APPS_API_TOKEN/);
   assert.match(read('tools/build-beta-release.js'),/build-swa-api\.js/,'combined artifact must retain the current University API package');
   assert.doesNotMatch(read('tools/build-beta-release.js'),/staticwebapp\.config\.json/);
@@ -50,23 +50,18 @@ test('Firebase Hosting is the only active static site deployment workflow',()=>{
   assert.deepEqual(firebase.hosting.redirects.find(x=>x.source==='/faculty-dashboard.html'),{source:'/faculty-dashboard.html',destination:'/index.html',type:301});
 });
 
-test('Azure SQL and optional Container Apps API packaging/deployment remain separately protected',()=>{
+test('University Windows API and legacy compatibility packaging remain protected',()=>{
   for(const file of [
-    '.github/workflows/azure-beta-acr-publish.yml',
-    '.github/workflows/azure-beta-aca-deploy.yml',
     '.github/workflows/azure-sql-migration-test.yml',
     'tools/build-swa-api.js',
     'server/src/runtime/swa-sql-runtime.js',
     'server/src/runtime/university-api.js',
     'deploy/aca/Dockerfile'
-  ])assert.ok(fs.existsSync(repositoryPath(root,file)),file);
-  const acap=read('.github/workflows/azure-beta-acr-publish.yml');
-  assert.match(acap,/azure-beta-build\.yml/);
-  assert.match(acap,/beta-api-freeze\.js --artifact \.azure-production\/api/);
-  assert.doesNotMatch(acap,/staticwebapp\.config\.json|Azure\/static-web-apps-deploy/);
-  const aca=read('.github/workflows/azure-beta-aca-deploy.yml');
-  assert.match(aca,/azure-beta-acr-publish\.yml/);
-  assert.doesNotMatch(aca,/Azure\/static-web-apps-deploy/);
+  ]) assert.ok(fs.existsSync(repositoryPath(root,file)),file);
+  for(const file of [
+    '.github/workflows/azure-beta-acr-publish.yml',
+    '.github/workflows/azure-beta-aca-deploy.yml'
+  ]) assert.equal(fs.existsSync(repositoryPath(root,file)),false,file);
 });
 
 test('frozen release verification covers all manifest files, not a retired Azure SWA config sentinel',()=>{

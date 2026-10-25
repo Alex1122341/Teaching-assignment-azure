@@ -11,13 +11,13 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed integrated Calendar/office presentation is the immutable trust anchor.
-// Preserve main's Role/Appointment fixes and every API/SQL byte. The independent
+// Reviewed SQL-backed SWAP approval integration is the immutable trust anchor.
+// Preserve main's Role/Appointment fixes and accepted SQL write authority. The independent
 // governance receipt pins the product; the Git-object enforcement is unchanged.
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='486ea030c5eaef4ddb7508a4d50799687487057f';
+const BASELINE_COMMIT='50e7e5c4241debe078080adda7a7dcbd383a2ba1';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

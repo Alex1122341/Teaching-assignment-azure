@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "486ea030c5eaef4ddb7508a4d50799687487057f",
+  "sourceCommit": "50e7e5c4241debe078080adda7a7dcbd383a2ba1",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -48,7 +48,7 @@
     "dashboard-view-model.js": "a5053b05b2af89f7653a486af268a03c4daa0f91418dbad80b43ce75747c7163",
     "faculty-swap-handoff.js": "1b68dcf3e287c97097640051a26634b95d321c89e392600a9e97bc45c97d3ce7",
     "faculty-swap-safe.js": "558c3150444f2a9ad66ac54437618297f6e45632d0375d502816e3eda331649c",
-    "index.html": "4c336f4a7f8e3d14c25e63620ebd17564c1280a7281eb40776f211a0ceb3a606",
+    "index.html": "1950ae4e9705e7926616424b7ee79edf3752adb0273c18fd60524840b620fbe2",
     "information-center.js": "d739a75f1893994048854678c25bc562d17099a912189213a5cef487b500acc0",
     "maintenance-state.js": "5b3c31bd41385322776f2eeab88a46827f7b0095f7cd26ac03aa44c267d1f1df",
     "password.html": "329d3b10211f99a5d13290a52352594da62eee4abf051767bddd0ecd1cc7620d",
@@ -67,9 +67,9 @@
     "user-management.css": "de65cb308772e82be4f551ad505ae7b718736c0cdfd531dedf7b971c089cfe02",
     "user-management.js": "36ebae9ff0bfddbac604d4a40b05783aa9ee6960cf18ac1e9127ed481a33bc2f",
     "faculty-name.js": "118264ae497909027f195548bb1f291a88528a3de0090f1cbf29bd976cb0fe26",
-    "swap-workflow-sql.js": "4c2fde17097aaf44436d7424ebe2822f9330b2f99ca1b58c89daeecb9c6a3dd6",
-    "adfa-swap-panel.js": "eb72cf1cd50e24633c9ac33ff777e5570681c3aab22f85b8ebecb037a86a0a91",
-    "swap-workflow-sql.css": "cf3e55658199335b85a420d4f1c8f81814dee3aa7e3e8709374f3e93956b0318",
+    "swap-workflow-sql.js": "8d472b411e941439fa624342356c3b964dd91af8660e30cd132d40085c2d9a3a",
+    "adfa-swap-panel.js": "cb72f42df985d8f9472c329bef58468ac2025eb32e911fa5b999d7259b470731",
+    "swap-workflow-sql.css": "55dc480e301bd8e435aaaa6d808198a95dfd45868da62e7c82a9aeceafdad660",
     "developer-support.js": "165565f5c7f8e30512cb1bd3f9ff11187d25af9ead4b0708ee6e0f725dc0e132",
     "workspace-tasks.js": "4520839dd547c21d6d9e6e49ddc2f8a5645f3d06b8954c3f53840edf9200a6c6",
     "workspace.css": "00ede35273c902b193ddfd34de176c04dc7e3f9c30363f0505fcf3a95f2fc174",

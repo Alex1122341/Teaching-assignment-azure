@@ -1,4 +1,4 @@
-name: Azure Beta Build
+name: PAWS Beta Build (legacy artifact format)
 
 on:
   pull_request:
@@ -32,14 +32,13 @@ jobs:
           java-version: '21'
       - run: npm ci
       - run: npm ci --prefix server
-      - run: npm ci --prefix swa-api
+      - name: Audit tracked Chinese-language notes
+        run: node tools/audit-language.js
       - run: npm test
       - name: Run server SQL runtime authorization tests
         run: npm test --prefix server
       - run: npm run test:emulator
       - run: node tools/build-beta-release.js
-      - name: Build ACA Functions container (no push)
-        run: docker build -f deploy/aca/Dockerfile -t paws-sql-beta-api:${{ github.sha }} .
       # BETA-R4D-9C (Governance Commit D): the frozen baseline IS Runtime Commit C, so both
       # pull_request and push validate the same frozen runtime with ZERO allowed
       # protected drift. There is no candidate-drift exception any more.

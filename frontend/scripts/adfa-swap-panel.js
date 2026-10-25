@@ -71,5 +71,9 @@
     async function verifySelection(key){if(!key)return true;if(selected!==key)return false;return select(key);}
     return Object.freeze({open,select,verifySelection,filter});
   }
-  return Object.freeze({createController});
+  function renderReview(preview={},replacementDisplayName='Not provided'){
+    const info=preview.assignment||{},outgoing=preview.outgoing||{},incoming=preview.incoming||{},availability=['Available','Unavailable','Needs Review'].includes(preview.availability?.status)?preview.availability.status:'Needs Review';
+    return `<section class="adfa-swap-current"><h3>Current assignment being removed · live DOE preview</h3><div class="adfa-swap-person"><strong>${esc(showFaculty(info.displayName||'Not provided'))}</strong></div><div class="adfa-swap-metrics"><div><span>Current DOE</span><b>${doe(outgoing.current)}</b></div><div><span>Course DOE</span><b>${percent(info.persistedDoeCredit)}</b></div><div><span>Projected DOE (after SWAP)</span><b>${doe(outgoing.projected)}</b></div></div></section><div class="sql-swap-table-scroll"><table class="sql-swap-approval-table"><thead><tr><th>Replacement faculty</th><th>Availability</th><th>Contract DOE</th><th>Current DOE</th><th>Remaining DOE</th><th>Projected DOE</th></tr></thead><tbody><tr><td>${esc(replacementDisplayName)}</td><td>${esc(availability)}${availabilityInfo(preview)}</td><td>${percent(incoming.current?.contractDoe)}</td><td>${doe(incoming.current)}</td><td>${percent(incoming.current?.remainingDoe)}</td><td>${doe(incoming.projected)}</td></tr></tbody></table></div><p class="sql-swap-muted">Live read-only preview. The server rechecks the request, availability and source DOE before final application.</p>`;
+  }
+  return Object.freeze({createController,renderReview});
 });

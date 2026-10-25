@@ -74,6 +74,14 @@ jobs:
       - name: Check record-linked AFC originals and own faculty authorization
         shell: pwsh
         run: ./tools/test-afc-record-documents-sql.ps1 -ContainerName paws-calendar-sql-test
+      - name: Check scoped SWAP approval read and rollback
+        shell: pwsh
+        run: |
+          $output=./tools/test-swap-approval-sql.ps1 -ContainerName paws-calendar-sql-test
+          $output | Write-Output
+          foreach($marker in @('SWAP_APPROVAL_READ_059_WRITE_GRANTS_UNCHANGED','SWAP_APPROVAL_READ_059_ROLLBACK_OK')){
+            if(($output -join "`n") -notmatch $marker){throw "SWAP_APPROVAL_059_RECEIPT_MISSING: $marker"}
+          }
       - name: Stop synthetic container after all checks
         if: always()
         shell: pwsh

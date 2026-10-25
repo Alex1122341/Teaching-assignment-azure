@@ -25,3 +25,13 @@ test('forward and rollback guards pin the exact normalized UTF-16 definitions th
   }
  }
 });
+
+test('Calendar SQL CI executes scoped approval059 and observes both protected-write and rollback receipts before cleanup',()=>{
+ const workflow=read('.github/workflows/calendar-activity-sql.yml');
+ const step=workflow.match(/- name: Check scoped SWAP approval read and rollback[\s\S]*?(?=\n      - name:)/)?.[0];
+ assert.ok(step,'059 must run in the existing labeled synthetic SQL job');
+ assert.match(step,/shell: pwsh/);
+ assert.match(step,/test-swap-approval-sql\.ps1 -ContainerName paws-calendar-sql-test/);
+ for(const marker of ['SWAP_APPROVAL_READ_059_WRITE_GRANTS_UNCHANGED','SWAP_APPROVAL_READ_059_ROLLBACK_OK'])assert.ok(step.includes(marker),marker);
+ assert.ok(workflow.indexOf(step)<workflow.indexOf('- name: Stop synthetic container after all checks'));
+});

@@ -1,5 +1,12 @@
 (function(root,factory){const api=factory(root);if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.PAWS_CALENDAR_ACTIVITIES=api.createCalendarActivityView({api:root.UCVM_PAWS_DATA,getUser:()=>root.firebase?.auth?.().currentUser});})(typeof window==='undefined'?null:window,function(root){
  'use strict';
+ // A superseded request is not an empty result. Callers that cache rows (the
+ // timetable search cache) ask for onCancel:'throw' so cancellation can never be
+ // mistaken for an authoritative empty range. Every other caller keeps the
+ // historical [] return.
+ const CANCELLED_CODE='CALENDAR_ACTIVITY_CANCELLED';
+ function cancelledError(){const error=new Error('The calendar activity request was superseded.');error.name='AbortError';error.code=CANCELLED_CODE;return error;}
+ function isCancelled(error){return error?.code===CANCELLED_CODE||error?.name==='AbortError';}
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const validDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
  const validTime=value=>typeof value==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -43,26 +50,33 @@
  function createCalendarActivityView({api,getUser=()=>null}){
   let generation=0;
   const user=()=>String(getUser()?.uid||'');
-  async function loadRange(range){
-   const token=++generation,uid=user();if(!uid)return[];
+  async function loadRange(range,{onCancel='empty'}={}){
+   const token=++generation,uid=user();
+   // A superseded request is a cancellation, not an empty range. onCancel:'throw'
+   // lets a caching caller tell the two apart; the default keeps the previous []
+   // contract for every existing caller.
+   const cancelled=()=>{if(onCancel==='throw')throw cancelledError();return[];};
+   if(!uid)return cancelled();
    const result=[],seen=new Set();let cursor=null;
    do{
-    const page=await api.listCalendarActivities({...range,...(cursor?{cursor}:{})});if(token!==generation||uid!==user())return[];
+    const page=await api.listCalendarActivities({...range,...(cursor?{cursor}:{})});if(token!==generation||uid!==user())return cancelled();
     if(!Array.isArray(page.activities))throw Error('Working activities could not be read. Teaching sessions remain available.');
     result.push(...page.activities);if(result.length>5000)throw Error('Working activity paging limit exceeded. Choose a smaller date range.');
     cursor=page.nextCursor||null;if(cursor){if(seen.has(cursor)||seen.size>=50)throw Error('Working activity paging cursor repeated.');seen.add(cursor);}
    }while(cursor);
    return result;
   }
-  async function loadFacultyRange(facultyId,range,{self=false}={}){
-   if(self)return loadRange(range);
-   const token=++generation,uid=user();if(!uid)return[];
-   const mapping=await api.listCalendarActivities({...range,limit:1,includeFacultyKeys:true});if(token!==generation||uid!==user())return[];
+  async function loadFacultyRange(facultyId,range,{self=false,onCancel='empty'}={}){
+   if(self)return loadRange(range,{onCancel});
+   const token=++generation,uid=user();
+   const cancelled=()=>{if(onCancel==='throw')throw cancelledError();return[];};
+   if(!uid)return cancelled();
+   const mapping=await api.listCalendarActivities({...range,limit:1,includeFacultyKeys:true});if(token!==generation||uid!==user())return cancelled();
    const key=(mapping.facultyKeys||[]).find(value=>String(value.facultyId).toLowerCase()===String(facultyId).toLowerCase())?.facultyKey;
    if(!key)return[];
-   return loadRange({...range,facultyKey:key});
+   return loadRange({...range,facultyKey:key},{onCancel});
   }
-  const view={loadRange,loadFacultyRange,academicRange,createActivityTypeFilter,renderRangeLane,renderFacultyActivities:activities=>renderRangeLane((Array.isArray(activities)?activities:[]).filter(row=>row.staffingKind!=='unassigned')),clear(){generation++;}};
+  const view={loadRange,loadFacultyRange,academicRange,createActivityTypeFilter,renderRangeLane,renderFacultyActivities:activities=>renderRangeLane((Array.isArray(activities)?activities:[]).filter(row=>row.staffingKind!=='unassigned')),clear(){generation++;},isCancelled};
   return Object.freeze({...view,createFacultySchedule:options=>createFacultySchedule({...options,view})});
  }
  function createFacultySchedule({view,getHost,getUser,getSelected,isSelf}){
@@ -76,5 +90,5 @@
   }
   return Object.freeze({load,clear(){generation++;view.clear();}});
  }
- return {createCalendarActivityView,createActivityTypeFilter,renderRangeLane,academicRange};
+ return {createCalendarActivityView,createActivityTypeFilter,renderRangeLane,academicRange,CANCELLED_CODE,isCancelled};
 });

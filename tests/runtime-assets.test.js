@@ -20,7 +20,7 @@ test('retired faculty assets are absent from disk, manifest and all runtime link
 
 test('production manifest contains the complete static dependency graph and no stale visible names',()=>{
  const manifest=JSON.parse(read('tools/static-assets.json'));
-  assert.equal(manifest.length,91);
+  assert.equal(manifest.length,92);
  for(const name of ['schedule-filter-view.js','workspace-navigation.js','office-workspace.js','faculty-route-access.js'])assert.ok(manifest.includes(name),name);
  for(const name of ['faculty-availability.js','faculty-availability.css','faculty-admin-trainees.js','faculty-admin-trainees.css','ccc-schedule.js','ccc-schedule.css','leadership-directory.js','leadership-directory.css'])assert.ok(manifest.includes(name),name);
  for(const name of ['change-history.js','change-history.css','approval-scheduling.js','afc-form-values.js','afc-form-state.js','afc-timetable-panel.js','audit-details.js','derived-index-health.js','faculty-account-planner.js','faculty-doe.js','faculty-swap-handoff.js','faculty-swap-safe.js','index-maintenance.js','paws-auth-continuity.js','paws-login-performance.js','scheduling-core.js','timetable-selection.js','user-management.css'])assert.ok(manifest.includes(name),name);
@@ -30,6 +30,13 @@ test('production manifest contains the complete static dependency graph and no s
   const html=read(page),references=[...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)].map(match=>match[1].split(/[?#]/)[0]).filter(value=>value&&!/^(?:https?:|#|mailto:|tel:)/.test(value));
   for(const reference of references)assert.ok(manifest.includes(reference),`${page} -> ${reference}`);
  }
+ // The search module must be published and loaded before the page that wires it,
+ // and the page must actually call the binding. A silently unloaded module would
+ // fall back to one render per keystroke without failing anything else.
+ const calendarPage=read('index.html'),calendarModule=calendarPage.indexOf('calendar-search.js');
+ assert.ok(manifest.includes('calendar-search.js'));
+ assert.ok(calendarModule>=0&&calendarModule<calendarPage.indexOf('src="timetable.js"'),'calendar-search.js loads before timetable.js');
+ assert.match(read('timetable.js'),/^\s*bindCalendarSearchInput\(\);$/m);
 });
 
 test('scheduling core loads before approval bootstrap and timetable consumers',()=>{

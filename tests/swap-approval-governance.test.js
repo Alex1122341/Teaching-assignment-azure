@@ -3,10 +3,13 @@ const test=require('node:test'),assert=require('node:assert/strict'),path=requir
 const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
 const root=path.resolve(__dirname,'..'),PREVIOUS='2d896b82fcfc914ecabab152f3d4ad8e96d72aeb',PRODUCT='50e7e5c4241debe078080adda7a7dcbd383a2ba1';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
-test('integrated SWAP approval governance pins its reviewed product with all91 static assets',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(require('../tools/beta-baseline.json').sourceCommit,PRODUCT);
+test('historical integrated SWAP approval governance pins its reviewed product with all91 static assets',()=>{
+ const receipt='3d91f48f30cf4decc37915b506f3b148cda19c53';
+ assert.ok(git('show',receipt+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));
+ assert.equal(JSON.parse(git('show',receipt+':tools/beta-baseline.json')).sourceCommit,PRODUCT);
  git('merge-base','--is-ancestor',PREVIOUS,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
- const before=freeze.readBaselineManifest({root,baselineCommit:PREVIOUS}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});assert.deepEqual(after,before);assert.equal(after.length,91);assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,91);
+ const before=freeze.readBaselineManifest({root,baselineCommit:PREVIOUS}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});assert.deepEqual(after,before);assert.equal(after.length,91);assert.equal(freeze.protectedPaths({root,baselineCommit:PRODUCT,readManifest:()=>['index.html']}).length,91);
+ for(const file of after)assert.ok(freeze.protectedPaths({root}).includes(file),file);
  assert.deepEqual(git('diff','--name-only',PREVIOUS,PRODUCT,'--','frontend').split('\n'),['frontend/pages/index.html','frontend/scripts/adfa-swap-panel.js','frontend/scripts/swap-workflow-sql.js','frontend/styles/swap-workflow-sql.css']);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
 });

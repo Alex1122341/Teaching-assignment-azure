@@ -12,7 +12,8 @@ test('DVM intake governance pins its independently reviewed product and all 91 s
  git('merge-base','--is-ancestor',BASE,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  assert.equal(git('diff','--name-only',BASE,PRODUCT,'--','frontend'),'frontend/scripts/swap-workflow-sql.js\nfrontend/styles/swap-workflow-sql.css');
  const before=freeze.readBaselineManifest({root,baselineCommit:BASE}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});
- assert.deepEqual(after,before);assert.equal(after.length,91);assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,91);
+ assert.deepEqual(after,before);assert.equal(after.length,91);assert.equal(freeze.protectedPaths({root,baselineCommit:PRODUCT,readManifest:()=>['index.html']}).length,91);
+ for(const file of after)assert.ok(freeze.protectedPaths({root}).includes(file),file);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
 });
 test('DVM intake does not alter any API SQL role rule dependency or build input',()=>{

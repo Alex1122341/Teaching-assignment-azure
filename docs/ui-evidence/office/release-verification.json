@@ -2,12 +2,45 @@
   "date": "2026-10-24",
   "repository": "Alex1122341/Teaching-assignment-azure",
   "pullRequest": 140,
-  "main": "8bb40c60370bcce3d0135efd4327d42fba657903",
+  "main": "87a7f943f40bc5bf87b54b1b0059a2593ebc3b7d",
   "product": "486ea030c5eaef4ddb7508a4d50799687487057f",
   "governance": "bb424ddf4202eb623f22b8619760c7177d9cf9a3",
   "verifiedHeadBeforeFinalDocumentation": null,
   "ci": {
-    "result": "pending for restart-origin candidate"
+    "runId": 40113620342,
+    "jobId": 120930262576,
+    "result": "success",
+    "head": "87a7f943f40bc5bf87b54b1b0059a2593ebc3b7d",
+    "checkout": "87a7f943f40bc5bf87b54b1b0059a2593ebc3b7d",
+    "root": {
+      "tests": 1168,
+      "passed": 1116,
+      "failed": 0,
+      "skipped": 52
+    },
+    "server": {
+      "tests": 859,
+      "passed": 854,
+      "failed": 0,
+      "skipped": 5
+    },
+    "emulator": {
+      "tests": 1168,
+      "passed": 1149,
+      "failed": 0,
+      "skipped": 19
+    },
+    "supplemental": {
+      "tests": 62,
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0
+    },
+    "buildContainerAndFourFreezes": "passed",
+    "artifactId": 12567194271,
+    "artifactSha256": "9b716c23eb2012cf242f47983aa53900cd8104208ea9c0e10f1e9cd1a181f061",
+    "downloadDigestVerified": true,
+    "downloadedArtifactStaticAndApiFreezes": "passed"
   },
   "local": {
     "node": "22.20.0",
@@ -43,19 +76,39 @@
     "syntheticBeforeAfter": true,
     "realFacultyAndAdminReadOnlyChecks": "passed again after restart through private GET-only bridge",
     "native200PercentZoom": "unverified",
-    "allPopulatedLazyBusinessTabs": "not certified"
+    "allPopulatedLazyBusinessTabs": "not certified",
+    "actualOriginSmoke": {
+      "facultyCalendar": true,
+      "facultyOwnDashboard": true,
+      "administrativeRolesVisibleForFaculty": false,
+      "adminCalendar": true,
+      "adminDashboardFacultyCount": 119,
+      "adminNameSearchRows": 1,
+      "adminAssignmentsQueueCount": 1,
+      "accountsVerifiedSignedOut": true
+    },
+    "legacyUserManagement": "not denied as a whole: unchanged limited Firestore HICC group role differs from SQL Faculty role; separate follow-up, no writes",
+    "console": "existing optional Firestore current-faculty permission denial and persistence deprecation warnings, no permission weakening"
   },
   "live": {
     "hostingMatchesMain": {
-      "matched": 87,
-      "total": 87
+      "matched": 91,
+      "total": 91
     },
+    "hostingReleaseId": "1792861391972000",
+    "hostingVersion": "2c7005ce99b6dbab",
+    "releaseTime": "2026-10-24T17:03:11.972Z",
     "rawRollbackBundleVerified": true,
-    "temporaryApiDns": "new ingress resolves; old served origin remains NXDOMAIN",
+    "rollbackOriginLimitation": "prior UI contains already-dead ingress; no functional login rollback claimed",
+    "temporaryApiDns": "new ingress resolves",
     "schoolRdc": "online",
-    "merged": false,
-    "deployed": false,
-    "releaseStatus": "backend restored; frontend origin publication pending"
+    "merged": true,
+    "deployed": true,
+    "releaseStatus": "three changed routes live accepted",
+    "runtimeAnd27GatesUnchanged": true,
+    "sqlHealth": "ok",
+    "recoveryCheck": "RUNTIME_AND_ORIGIN_MATCH",
+    "siteReady": true
   },
   "historicalVerifiedCandidate": {
     "product": "a6c5092020cfda4c87873591b3c8d5edbeba5e72",
@@ -238,6 +291,11 @@
     "facultyOtherDetailStatus": 403,
     "allowedHostingCorsStatus": 204,
     "untrustedOriginCorsStatus": 403,
-    "accountsSignedOut": true
-  }
+    "accountsSignedOut": true,
+    "publishedOrigin": "https://gibson-strand-telecharger-governor.trycloudflare.com",
+    "finalPublishedOriginOnlyUpdate": true,
+    "siteReady": true,
+    "actualOriginAccountsSignedOut": true
+  },
+  "previousMain": "8bb40c60370bcce3d0135efd4327d42fba657903"
 }

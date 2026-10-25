@@ -10,8 +10,8 @@ test('historical integrated office governance pins the exact accepted product an
  git('merge-base','--is-ancestor',MAIN,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  const before=freeze.readBaselineManifest({root,baselineCommit:MAIN}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});
  assert.equal(after.length,91);assert.deepEqual(before.filter(f=>!after.includes(f)),[]);
- assert.equal(freeze.protectedPaths({root}).length,91);assert.equal(freeze.verifyFreeze({root}).ok,true);
- assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,91);
+ for(const file of after)assert.ok(freeze.protectedPaths({root}).includes(file),file);assert.equal(freeze.verifyFreeze({root}).ok,true);
+ assert.equal(freeze.protectedPaths({root,baselineCommit:PRODUCT,readManifest:()=>['index.html']}).length,91);
 });
 test('integrated office static promotion leaves every API dependency SQL and permission byte unchanged',()=>{
  const before=api.baselineRuntimeFiles({root,baselineCommit:MAIN}),after=api.baselineRuntimeFiles({root,baselineCommit:PRODUCT});
@@ -33,7 +33,7 @@ test('aggregate name-search correction preserves the reviewed office anchor and 
  assert.ok(git('show',governance+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+previous+"'"));
  assert.equal(JSON.parse(git('show',governance+':tools/beta-baseline.json')).sourceCommit,previous);
  assert.equal(git('diff','--name-only',previous,searchProduct,'--','frontend'),'frontend/scripts/faculty-admin.js');
- for(const file of freeze.protectedPaths({root}).filter(file=>file!=='faculty-admin.js'))assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:searchProduct,file})),file);
+ for(const file of freeze.readBaselineManifest({root,baselineCommit:searchProduct}).filter(file=>file!=='faculty-admin.js'))assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:searchProduct,file})),file);
 });
 
 test('restart ingress promotion changes only the verified origin and preserves the search receipt',()=>{
@@ -42,5 +42,5 @@ test('restart ingress promotion changes only the verified origin and preserves t
  assert.equal(JSON.parse(git('show',governance+':tools/beta-baseline.json')).sourceCommit,previous);
  assert.equal(git('diff','--name-only',previous,PRODUCT,'--','frontend'),'frontend/scripts/paws-api-origin.js');
  assert.equal(require('../frontend/scripts/paws-api-origin').apiOrigin,'https://gibson-strand-telecharger-governor.trycloudflare.com');
- for(const file of freeze.protectedPaths({root}).filter(file=>file!=='paws-api-origin.js'))assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
+ for(const file of freeze.readBaselineManifest({root,baselineCommit:PRODUCT}).filter(file=>file!=='paws-api-origin.js'))assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
 });

@@ -1,3 +1,7 @@
+## Current: Rotation Calendar / Other work Dashboard — 2026-10-25
+
+Published main62dfa3c is the base. Branch feat/rotation-calendar-workspace-20261025, independently reviewed product5826454: exclusive Rotation Year, scheduled CCC/Rotation projections, independent paginated Other working activities, display defaults08:30–16:30. Source evidence, DOE, API/SQL and27gates unchanged. Review fixes for Month overflow, canonical multiword search and overlapping time positioning verified. Separate93static/119API governance c0e404b awaits review; full CI/merge/Hosting/ledger and real-role smoke remain pending. Custom reports23–25 require owner clarification after this slice. Resume from updates/2026-10-25-rotation-calendar-workspace.md.
+
 ## Current: PR139–144 integrated release acceptance — 2026-10-25
 
 PR139 delivered via140;140/143 already published. PR144 reviewed head5a2e292 passes full CI40221355164 and mergesc7ca3d9. Calendar141 + History142 product90b8c2f integrates all four histories; cancellation race fixed with three RED→GREEN regressions; focused80pass; independent product reviews clear. Separate92static/119API governance and final full candidate/main CI/Hosting-only publication remain pending. Current APIc2/trust50 and27gates unchanged. Follow updates/2026-10-25-pr139-144-integrated-release.md.

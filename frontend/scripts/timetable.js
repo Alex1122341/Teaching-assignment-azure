@@ -1140,6 +1140,7 @@
   function filteredSessions(source=sessions, options={}) {
     activityTypeFilter.setSessionTypes(source.filter(row=>!row.isWorkingActivity).map(row=>row.type));
     const q = $('search-input').value.trim().toLowerCase();
+    const searchWords=q.split(/[\s,]+/).filter(Boolean);
     const month = $('filter-month').value;
     return source.filter(s => {
       if(s.isWorkingActivity?!activityTypeFilter.matchesActivity(s.sourceActivity):!activityTypeFilter.matchesSession(s))return false;
@@ -1148,7 +1149,7 @@
       if (!options.ignorePeriod && month !== 'all' && String(parseYmd(s.date).getMonth()) !== month) return false;
       if (courseFilterActive && !selectedCourses.has(String(s.course))) return false;
       if (myTimetableOnly && currentUser && !sessionBelongsToCurrentFaculty(s)) return false;
-      if (q && !`${s.course} ${s.topic} ${s.instructor} ${s.room} ${s.type}`.toLowerCase().includes(q)) return false;
+      if (searchWords.length && !searchWords.every(word=>`${s.course} ${s.topic} ${displayFacultyList(s.instructor||'')} ${s.room} ${s.type}`.toLowerCase().includes(word))) return false;
       return true;
     });
   }
@@ -1432,9 +1433,11 @@
     while (cursor <= last || cursor.getDay() !== 1) {
       for (let i = 0; i < 5; i++) {
         const cell = addDays(cursor, i); const dateStr = ymd(cell);
-        const events = data.filter(s => s.date === dateStr).slice(0, 4);
+        const events = data.filter(s => s.date === dateStr);
         html += `<div class="cal-cell"><div class="cal-date-num">${cell.getDate()}</div><div class="cal-events">`;
-        events.forEach(s => html += `<div class="cal-event ${colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}"><div class="cal-event-l1">${escapeHtml(s.course)} ${escapeHtml(s.type)}</div><div class="cal-event-l2">${s.timeUnknown?'Time not specified':escapeHtml(s.start)} ${escapeHtml(s.topic)}</div></div>`);
+        const eventHtml=s=>`<div class="cal-event ${colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}"><div class="cal-event-l1">${escapeHtml(s.course)} ${escapeHtml(s.type)}</div><div class="cal-event-l2">${s.timeUnknown?'Time not specified':escapeHtml(s.start)} ${escapeHtml(s.topic)}</div></div>`;
+        html+=events.slice(0,4).map(eventHtml).join('');
+        if(events.length>4)html+=`<details class="cal-more"><summary>${events.length-4} more activities</summary>${events.slice(4).map(eventHtml).join('')}</details>`;
         html += '</div></div>';
       }
       cursor = addDays(cursor, 7);

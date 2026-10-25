@@ -37,11 +37,12 @@
  }
  function times(row){const unique=new Map();for(const entry of Array.isArray(row.timeEvidence)?row.timeEvidence:[]){if(validDate(entry.date)&&entry.date>=row.startDate&&entry.date<=row.endDate&&validTime(entry.startTime)&&validTime(entry.endTime)&&entry.startTime<entry.endTime)unique.set(entry.date,{date:entry.date,startTime:entry.startTime,endTime:entry.endTime});}return [...unique.values()].sort((a,b)=>a.date.localeCompare(b.date));}
  function renderRangeLane(activities,{start,end,filters={},heading='Work recorded beyond teaching sessions',pageSize=0,page=0}={}){
+  const searchWords=String(filters.search||'').toLowerCase().split(/[\s,]+/).filter(Boolean);
   const matching=(Array.isArray(activities)?activities:[]).filter(row=>validDate(row.startDate)&&validDate(row.endDate)&&(!start||row.endDate>=start)&&(!end||row.startDate<end)
    &&(!Array.isArray(filters.typeKeys)||filters.typeKeys.includes('work:'+row.category))
    &&(!filters.category||filters.category==='all'||row.category===filters.category)&&(!filters.facultyKey||row.facultyKey===filters.facultyKey)
    &&(row.category==='ccc'?filters.showCcc!==false:filters.showWorking!==false)
-   &&(!filters.search||[row.label,row.facultyDisplayName,activityFacultyName(row),row.staffingLabel,row.blockLabel,row.courseCode].join(' ').toLowerCase().includes(String(filters.search).toLowerCase())))
+   &&searchWords.every(word=>[row.label,row.facultyDisplayName,activityFacultyName(row),row.staffingLabel,row.blockLabel,row.courseCode].join(' ').toLowerCase().includes(word)))
    .sort((a,b)=>a.startDate.localeCompare(b.startDate)||String(a.facultyDisplayName).localeCompare(String(b.facultyDisplayName)));
   const size=Number.isInteger(pageSize)&&pageSize>0?Math.min(pageSize,100):matching.length||1;
   const currentPage=Math.max(0,Math.min(Number.isInteger(page)?page:0,Math.ceil(matching.length/size)-1));

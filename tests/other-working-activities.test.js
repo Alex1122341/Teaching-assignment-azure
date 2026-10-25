@@ -19,6 +19,10 @@ test('independent work tab excludes scheduled CCC/Rotation, labels default time,
  const result=h.node('[data-other-results]');assert.match(result.innerHTML,/Community clinic|Student rounds/);assert.doesNotMatch(result.innerHTML,/>Rotation<|>Clinic<|>CCC</);assert.match(result.innerHTML,/08:30.*16:30/);assert.match(result.innerHTML,/default/i);
  h.node('[data-other-search]').value='Community';h.node('[data-other-search]').oninput();assert.match(result.innerHTML,/Community clinic/);assert.doesNotMatch(result.innerHTML,/Student rounds/);assert.equal(h.calls.length,1);
  h.node('[data-other-search]').value='Example, Alex';h.node('[data-other-search]').oninput();assert.match(result.innerHTML,/Community clinic/);assert.match(result.innerHTML,/Student rounds/);
+ for(const query of ['Example Alex','Alex Community','Community Example']){
+  h.node('[data-other-search]').value=query;h.node('[data-other-search]').oninput();assert.match(result.innerHTML,/Community clinic/);
+ }
+ h.node('[data-other-search]').value='Community nonexistent';h.node('[data-other-search]').oninput();assert.doesNotMatch(result.innerHTML,/Community clinic/);
 });
 test('late rows cannot reappear after identity change or leaving the tab',async()=>{
  const h=harness(),open=h.view.open();await tick();h.state.user={uid:'faculty-b',role:'faculty'};h.view.clear();h.calls[0].resolve({activities:[row('clinical_day','Previous identity')],nextCursor:null});await open;assert.equal(h.host.innerHTML,'');

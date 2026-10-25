@@ -17,6 +17,19 @@ test('scheduled projections follow work-category filters rather than adding teac
  ctx.activityTypeFilter.setSessionTypes=rows=>{types=rows;};ctx.activityTypeFilter.matchesActivity=()=>false;
  assert.equal(ctx.filteredSessions([rotation]).length,0);assert.deepEqual(Array.from(types),[]);
 });
+test('Calendar finds a projected activity by displayed surname and independent keyword words',()=>{
+ const ctx=filterHarness('rotation');ctx.displayFacultyList=require('../frontend/scripts/faculty-name').formatList;
+ ctx.$('search-input').value='Example Alex Rotation';
+ assert.equal(ctx.filteredSessions([{...rotation,instructor:'Alex Example'}]).length,1);
+ ctx.$('search-input').value='Example nonexistent';assert.equal(ctx.filteredSessions([rotation]).length,0);
+});
+test('Month keeps every matching activity accessible through a native overflow disclosure',()=>{
+ const body={innerHTML:''},label={textContent:''},rows=Array.from({length:5},(_,i)=>({...rotation,id:'rotation-'+i,date:'2026-10-19'}));
+ const ctx={selectedWeek:9,selectedSemester:'fall',weekStart:()=>new Date(2026,9,19),$:id=>id==='filter-month'?{value:'all'}:id==='calendar-body'?body:label,addDays:(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n),ymd:d=>d.toISOString().slice(0,10),calendarSourceSessions:()=>rows,filteredSessions:r=>r,DAYS:['Mon','Tue','Wed','Thu','Fri'],colorsOn:false,escapeHtml:String,sessionTypeClass:()=>'',bindSessionBlocks(){}};
+ vm.createContext(ctx);vm.runInContext(sourceFunction('timetable.js','renderMonth'),ctx);ctx.renderMonth();
+ for(const row of rows)assert.match(body.innerHTML,new RegExp('data-session-id="'+row.id+'"'));
+ assert.match(body.innerHTML,/<details[^>]*class="cal-more"/);assert.match(body.innerHTML,/<summary[^>]*>1 more/);
+});
 test('Calendar type picker can restrict working categories to only its two scheduled domains',()=>{
  const filter=require('../frontend/scripts/calendar-activities').createActivityTypeFilter({activityCategories:['ccc','rotation_participant']});
  assert.equal(filter.matchesActivity({category:'clinical_day'}),false);assert.equal(filter.matchesActivity({category:'ccc'}),true);assert.equal(filter.matchesActivity({category:'rotation_participant'}),true);

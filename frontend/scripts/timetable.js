@@ -1199,7 +1199,7 @@
     return {start:ymd(week),end:ymd(addDays(week,7))};
   }
 
-  async function renderWorkingActivities(refresh = false) {
+  async function renderWorkingActivities(refresh = false, retryCancelled = true) {
     const host=$('working-activities-lane'),view=window.PAWS_CALENDAR_ACTIVITIES,token=++workingActivityRenderToken,uid=currentUser?.uid;
     if(!host)return;
     if(!currentUser||!view||reviewingSelection){view?.clear();host.innerHTML='';return;}
@@ -1231,10 +1231,11 @@
         : await load(scope);
       paint(rows);
     }catch(error){
-      // A superseded request is not a failure: a newer render owns the lane. The
-      // code matches CANCELLATION_CODE in calendar-search.js and is inlined so
-      // this function stays self-contained for the extraction harness.
-      if(!current()||error?.code==='CALENDAR_ACTIVITY_CANCELLED'||error?.name==='AbortError')return;
+      if(!current())return;
+      // A -> B -> A can rejoin an A promise already superseded by B. Only the
+      // visible render retries, bypassing that promise once. A second cancellation
+      // exposes Retry instead of leaving Loading forever or starting a loop.
+      if(retryCancelled&&(error?.code==='CALENDAR_ACTIVITY_CANCELLED'||error?.name==='AbortError'))return renderWorkingActivities(true,false);
       host.innerHTML='<p class="activity-notice activity-error" role="alert">Working activities could not be loaded. Teaching sessions remain available. <button type="button" data-activity-retry>Retry</button></p>';
       const retry=host.querySelector('[data-activity-retry]');
       if(retry)retry.onclick=()=>renderWorkingActivities(true);

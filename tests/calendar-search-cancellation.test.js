@@ -274,3 +274,45 @@ test('a cancelled page render shows no error and no retry control',async()=>{
  h.calls[1].resolve({activities:[row('B activity','2026-10-02')],nextCursor:null});
  await bRender;
 });
+
+test('returning to A before its abandoned request settles reloads the visible range',async()=>{
+ const h=pageHarness();
+ const first=h.context.renderWorkingActivities();await tick();
+ h.state.range={...B};const second=h.context.renderWorkingActivities();await tick();
+ h.state.range={...A};const back=h.context.renderWorkingActivities();await tick();
+ assert.equal(h.calls.length,2,'same-scope inflight requests are initially joined');
+ h.calls[0].resolve({activities:[row('abandoned','2026-09-02')],nextCursor:null});
+ h.calls[1].resolve({activities:[row('B activity','2026-10-02')],nextCursor:null});
+ await tick();
+ assert.equal(h.calls.length,3,'only the visible cancelled render starts a fresh A request');
+ h.calls[2].resolve({activities:[row('Fresh A','2026-09-03')],nextCursor:null});
+ await Promise.all([first,second,back]);
+ assert.match(h.host.innerHTML,/Fresh A/);
+ assert.doesNotMatch(h.host.innerHTML,/Loading|abandoned|B activity/);
+});
+
+test('working types off then on recovers a still-pending cancelled load',async()=>{
+ const h=pageHarness();let enabled=true;
+ h.context.activityTypeFilter.selectedKeys=()=>enabled?['work:ccc']:[];
+ const first=h.context.renderWorkingActivities();await tick();
+ enabled=false;await h.context.renderWorkingActivities();
+ enabled=true;const back=h.context.renderWorkingActivities();await tick();
+ h.calls[0].resolve({activities:[],nextCursor:null});await tick();
+ assert.equal(h.calls.length,2);
+ h.calls[1].resolve({activities:[row('Restored','2026-09-02')],nextCursor:null});
+ await Promise.all([first,back]);
+ assert.match(h.host.innerHTML,/Restored/);
+});
+
+test('repeated current cancellation stops automatic retry and offers manual recovery',async()=>{
+ const h=pageHarness();
+ const first=h.context.renderWorkingActivities();await tick();
+ h.context.view.clear();h.calls[0].resolve({activities:[],nextCursor:null});await tick();
+ assert.equal(h.calls.length,2,'one automatic retry is allowed');
+ h.context.view.clear();h.calls[1].resolve({activities:[],nextCursor:null});await first;
+ assert.equal(h.calls.length,2,'cancellation cannot create an automatic request loop');
+ assert.match(h.host.innerHTML,/activity-error/);assert.equal(typeof h.host.retry.onclick,'function');
+ const manual=h.host.retry.onclick();await tick();
+ h.calls[2].resolve({activities:[row('Recovered','2026-09-02')],nextCursor:null});await manual;
+ assert.match(h.host.innerHTML,/Recovered/);
+});

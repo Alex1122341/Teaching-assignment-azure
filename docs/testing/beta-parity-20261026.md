@@ -59,3 +59,10 @@ These are **source-code integration claims**, not proof that the features are li
 ## Release governance
 
 Source parity is different from operational availability. A green build or a successful merge does not authorize a Testing deployment, and no Testing workflow should deploy to `tester-teaching` or `VetMed-Ops` Production.
+
+## CI investigation (commit e39f900; 2026-10-26)
+
+- GitHub Actions [PAWS Beta Build](https://github.com/Alex1122341/Teaching-assignment-azure/actions/runs/40418700851): the root `npm test` reported **1438 tests: 1333 passed, 53 failed, 52 skipped**. Failures are primarily legacy Production immutable-freeze/precise-delta assertions running in a Testing overlay checkout (for example, 95 vs 96 static assets, and exact legacy commit ancestry); these are real CI failures, not passed checks.
+- [Calendar Activity SQL Acceptance](https://github.com/Alex1122341/Teaching-assignment-azure/actions/runs/40418700838) passed on the same commit.
+- Release strategy: run Production freeze against its true accepted source without editing/weakening its protected hashes; separately attest the Testing overlay's authorized file differences and independent SQL/Firebase targets; run the full applicable Testing feature and security suite. **Do not relabel legacy tests as passed or deploy until the gate is implemented.**
+- The configured Testing API and Firebase hosting remain unprovisioned; no connected Firebase account or independent SQL database was verified through the current GitHub-only workflow.

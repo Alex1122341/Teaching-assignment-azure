@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
 const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
-const root=path.resolve(__dirname,'..'),BASE='62dfa3c120467c1c7e23440c4f8500f444322382',PRODUCT='582645499bc56849c8b0d10d0b33227389757709';
+const root=path.resolve(__dirname,'..'),BASE='62dfa3c120467c1c7e23440c4f8500f444322382',PRODUCT='a28f02dc7f0fcd965b963f6c31a5d0890ec71210';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('Rotation promotion pins the independently reviewed product and preserves the complete static union',()=>{
  assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(require('../tools/beta-baseline.json').sourceCommit,PRODUCT);
@@ -22,6 +22,7 @@ test('Rotation promotion preserves every API input and all SQL permissions rules
  const before=api.baselineRuntimeFiles({root,baselineCommit:BASE}),after=api.baselineRuntimeFiles({root,baselineCommit:PRODUCT});assert.deepEqual(after,before);assert.equal(after.length,116);
  const files=[...after,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES];assert.equal(files.length,119);
  for(const file of files)assert.ok(api.bytesMatch(api.readBaselineFile({root,baselineCommit:BASE,file}),api.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
- assert.equal(git('diff','--name-only',BASE,PRODUCT,'--','server','swa-api','database','firestore.rules','firestore.indexes.json','package.json','package-lock.json'),'');
+ assert.equal(git('diff','--name-only',BASE,PRODUCT,'--','server','swa-api','database','firestore.rules','firestore.indexes.json','package.json','package-lock.json',':(exclude)server/test'),'');
+ assert.equal(git('diff','--name-only',BASE,PRODUCT,'--','server/test'),'server/test/ccc-master-slots.test.js');
  assert.equal(api.verifyFreeze({root}).ok,true);
 });

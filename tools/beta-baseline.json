@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "582645499bc56849c8b0d10d0b33227389757709",
+  "sourceCommit": "a28f02dc7f0fcd965b963f6c31a5d0890ec71210",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -22,7 +22,7 @@
     "bulk-import-firestore.js": "8914edf6d4e077acb551ea0fe0420b5538167a32a4a847221d260262ec505057",
     "bulk-import-ui.js": "fe04c00488bb87eecb3578aff84972110e3c82203fb77aba9d4a913b81ad91a3",
     "calendar-activities.css": "6d94af7bffd6cf781f465a56140338674a8780fcd39287cd1eb2c56ee3b58365",
-    "calendar-activities.js": "8159fbe1950f533b7dad0b79f266149d18f04686dc7bfb69d6580ec78948a127",
+    "calendar-activities.js": "b29353acfb5ee844c0841fa1e6cb7ae399fa1871e7e248f84b39977a752f5842",
     "calendar-activity-placement.js": "c44c3453bac3def22ba41800c6b7415c2d4087738ca34c9f87653f68dfa98bc8",
     "calendar-search.js": "41d1e412ca1a1679a3a56349cbd078f41857e349badf1e7ad1e06d1a8a36ade7",
     "ccc-schedule.css": "364bde1bb8efb0ec641b08b1ad2fd15d29b7be674bb632ee86c4f992182db84c",
@@ -54,7 +54,7 @@
     "faculty-admin-trainees.js": "42e8cf8bf668a769575d3ffcca52fcfa8f6dead297a9c7154634eea305a66d4a",
     "faculty-admin.css": "1cb9cbb5bc9ff3014122f2efeb9e4f34f266790578ac932dcad346294eed224d",
     "faculty-admin.html": "d7be02747c49d7b0818037e2a7a8079d9208a05be8d0a4ff7ca6b84347362a69",
-    "faculty-admin.js": "d6aebdaa0c351a2b1d5006db988c31e8816ef867dfb2e22fbef5550fa4a2b110",
+    "faculty-admin.js": "3f9bbf76856234e2be6b98908d5ca0fece37f788e6f677e2b24739bbc78ead0f",
     "faculty-availability.css": "e75900906205561f6bbb15905fb704fa6b915f3f85320c8c1a490bd2a6c96219",
     "faculty-availability.js": "3e44cb71afe4ea4c89d27ab01fa30df792105746561baeb5f2c0c81fe4f5bf39",
     "faculty-doe.js": "9eed9943a21bf57bedbaf1020230e1e69ec25ca05117f8d0201c50f68afcf4c1",

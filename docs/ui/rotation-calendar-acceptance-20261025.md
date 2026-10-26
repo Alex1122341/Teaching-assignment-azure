@@ -30,3 +30,7 @@ Narrow Week retains its existing five-column grid; Day/List are more readable fo
 ## Separate frozen-runtime promotion
 
 Promote the shared static/API anchor to reviewed product5826454 in a separate governance commit. Static manifest increases92→93 only for `calendar-activity-placement.js`, retaining the complete prior union. The119 API/build/dependency inputs remain byte-identical; all prior approval/history/runtime receipts remain pinned historical evidence. Only the static baseline constant/comment and reporting hashes change; Git-object enforcement algorithms and artifact checks are preserved. Hosting-only release is pending; no merge or deployment is claimed by this receipt.
+
+## Final real-role correction / promotion
+
+Real Faculty browser acceptance found the new tab initially lacked an academic year because this role has no administrator summary. Productf4690b1 reads the authorized own-detail year only for this tab; producta28f02d also recovers when the tab was opened before detail arrived. Both were RED→GREEN and independently rechecked with no further findings. Faculty real own-scope read returns0 other ranges for2026–27; this is an honest empty sample, not a populated-domain claim. Final shared anchor is a28f02dc7f0fcd965b963f6c31a5d0890ec71210;93static/119API unchanged in scope. One server-side test assertion now expects the requested display default and verifies original source evidence is unchanged; no server runtime changed. Full CI and release remain pending.

@@ -27,3 +27,7 @@ Prepare separately reviewed frozen-runtime promotion5826454, static93 with only 
 ## Live operations / do not redo
 
 No production business-data mutations, reimports, SQL migration, API restart, permission change, approval requests/emails or DOE writes. No merge/deploy yet for this branch. Do not repeat prior540-row migration/413-slot CCC replacement or roll back live API. Private browser fixtures and evidence remain outside Hosting; committed screenshots contain synthetic data only.
+
+## Final real-role correction / promotion
+
+Real Faculty browser acceptance found the new tab initially lacked an academic year because this role has no administrator summary. Productf4690b1 reads the authorized own-detail year only for this tab; producta28f02d also recovers when the tab was opened before detail arrived. Both were RED→GREEN and independently rechecked with no further findings. Faculty real own-scope read returns0 other ranges for2026–27; this is an honest empty sample, not a populated-domain claim. Final shared anchor is a28f02dc7f0fcd965b963f6c31a5d0890ec71210;93static/119API unchanged in scope. One server-side test assertion now expects the requested display default and verifies original source evidence is unchanged; no server runtime changed. Full CI and release remain pending.

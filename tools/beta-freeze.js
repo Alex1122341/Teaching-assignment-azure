@@ -11,13 +11,13 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed Rotation / other-work placement preserving SWAP is the immutable trust anchor.
+// Reviewed read-only custom reports with protected source/identity evidence are the immutable trust anchor.
 // Preserve main's Role/Appointment fixes and accepted SQL write authority. The independent
 // governance receipt pins the product; the Git-object enforcement is unchanged.
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='a28f02dc7f0fcd965b963f6c31a5d0890ec71210';
+const BASELINE_COMMIT='a0c1adebf858fe54b632b71930622572ebddc90e';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

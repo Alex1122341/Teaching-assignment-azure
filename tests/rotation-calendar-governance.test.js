@@ -4,12 +4,14 @@ const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-free
 const root=path.resolve(__dirname,'..'),BASE='62dfa3c120467c1c7e23440c4f8500f444322382',PRODUCT='a28f02dc7f0fcd965b963f6c31a5d0890ec71210';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('Rotation promotion pins the independently reviewed product and preserves the complete static union',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(require('../tools/beta-baseline.json').sourceCommit,PRODUCT);
+ const receipt='a280edd39c2b5351a512e927a52ed6d105e6b805';
+ assert.ok(git('show',receipt+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));assert.equal(JSON.parse(git('show',receipt+':tools/beta-baseline.json')).sourceCommit,PRODUCT);
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(require('../tools/beta-baseline.json').sourceCommit,freeze.BASELINE_COMMIT);
  git('merge-base','--is-ancestor',BASE,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
  const before=freeze.readBaselineManifest({root,baselineCommit:BASE}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});
  assert.equal(before.length,92);assert.equal(after.length,93);assert.deepEqual(before.filter(file=>!after.includes(file)),[]);
  assert.deepEqual(after.filter(file=>!before.includes(file)),['calendar-activity-placement.js']);
- assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,93);
+ assert.equal(freeze.protectedPaths({root,baselineCommit:PRODUCT,readManifest:()=>['index.html']}).length,93);
 });
 test('Rotation product changes only its nine frontend sources and retains existing approval and history bytes',()=>{
  assert.deepEqual(git('diff','--name-only',BASE,PRODUCT,'--','frontend').split('\n'),[

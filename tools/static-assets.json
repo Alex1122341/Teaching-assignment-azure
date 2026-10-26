@@ -1,4 +1,6 @@
 [
+  "faculty-reports.js",
+  "faculty-reports.css",
   "absence-from-campus-app.pdf",
   "afc-actions.js",
   "afc-form-state.js",

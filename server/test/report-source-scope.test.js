@@ -1,4 +1,10 @@
 'use strict';
+const {createSqlDashboardRepository}=require('../src/data/sql-dashboard-repository');
+require('node:test')('report roster reads beyond the ordinary two-hundred-row page without identity/contact fields',async()=>{
+ const assert=require('node:assert/strict');let observed;
+ const repository=createSqlDashboardRepository({query:async(sql,params)=>{observed={sql,params};return Array.from({length:201},(_,i)=>({facultyId:'id'+i,preferredFirstName:'Alex',preferredLastName:'Example',active:true,fte:0}));}});
+ const rows=await repository.reportFaculty();assert.equal(rows.length,201);assert.equal(observed.params.limit,10001);assert.doesNotMatch(observed.sql,/Email|Ucid|ReportsTo|Afc|JointAppointment/);assert.equal(rows[0].fte,0);
+});
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createSqlSessionRepository}=require('../src/data/sql-session-repository');
 test('report session reads bind academic year and retain undated records without changing existing range callers',async()=>{

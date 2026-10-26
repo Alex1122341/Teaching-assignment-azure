@@ -74,9 +74,9 @@ Files: create `frontend/scripts/faculty-reports.js`, `frontend/styles/faculty-re
 
 Interfaces: `PAWS_REPORTS.mount(host,{api,getUser,getAcademicYear}) -> {refresh?,destroy}`; loader `createReportEntry(options)->{open,clear}`. Catalog drives controls, types, default columns and dataset choices; implementation owns no SQL/DOE rules. New admin-only reports tab and panel; not added to self-mode allowed list. Auth/tab reset clears private state and any late module/query/download completion.
 
-- [ ] RED source/columns/order/filter AND-OR/sort query construction, no empty-column execution, definition edits disable previous export, source tabs/page counts and explicit CSV/Excel scope. GREEN; native accessible controls, escaped data, numeric alignment.
-- [ ] RED identity/role/year/tab changes during catalog/query/export, stale responses, empty/error/Retry,50-row paging, copy current page and safe artifact download. GREEN; preserve AFC/PDF/Trainees/approval lazy boundaries.
-- [ ] Run related Dashboard/auth/asset tests; adjust exact allowlists/counts only for reviewed additions, retain Firestore/privacy/deferred guards; commit product.
+- [x] RED source/columns/order/filter AND-OR/sort query construction, no empty-column execution, definition edits disable previous export, source tabs/page counts and explicit CSV/Excel scope. GREEN; native accessible controls, escaped data, numeric alignment.
+- [x] RED identity/role/year/tab changes during catalog/query/export, stale responses, empty/error/Retry,50-row paging, copy current page and safe artifact download. GREEN; preserve AFC/PDF/Trainees/approval lazy boundaries.
+- [x] Run related Dashboard/auth/asset tests; adjust exact allowlists/counts only for reviewed additions, retain Firestore/privacy/deferred guards; commit product.
 
 ## Task6 — Browser, independent review and governance
 
@@ -105,3 +105,6 @@ Task1 checkpoint: pure registry/query kernel completed with observed RED→GREEN
 Task2 checkpoint:14 foundation tests pass; existing repository/session-write26 regression tests pass. Observed RED→GREEN for source absence, empty periods, wrong-year Worksheet, History loading and unsupported category. Parameterized academicYear session reader preserves undated records; ordinary range behavior remains verified. Empty appointment periods are represented as an explicit No effective periods metadata row (period=null), not a fabricated interval. Current adapters remain unmounted; no production reads/writes or publication.
 
 Task3 checkpoint:29 targeted tests pass, including private snapshot concurrency/expiry, all-selected XLSX scope, projection memory limits and actual Excel numeric alignment RED→GREEN. Target clarification resolved by owner on2026-10-26:continue Teaching-assignment-azure/Beta/SQL. The downloaded AGENTS repository/architecture note was corrected at owner request. No report runtime wiring or deployment yet.
+
+Task5 checkpoint:160 Dashboard/auth/name/static/report tests pass. Browser shipped component at127.0.0.1:19050 with synthetic API:all4 source tabs; numerical >=0 excludes20 nulls (137→117);50-row pages; empty result; Faculty identity clear; actual CSV117 and XLSX117/94/15 rows verified. Expanded condition panel regression RED→GREEN and keyboard focus retained.95 static assets built; no production operations.
+Ruling: use slim bounded reportFaculty reader (10001 sentinel) instead of ordinary roster page (default200/max500), preventing silent truncation and omitting UCID/email/HR joins. Existing dashboard readers remain unchanged. One-pass count indexes preserve source cardinality while avoiding repeated assignment parsing.

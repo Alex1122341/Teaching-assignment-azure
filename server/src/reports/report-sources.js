@@ -35,7 +35,7 @@ function createReportSources({dashboard,sessions,activities,worksheetService,his
  async function load({definition,uid,token}){
   const {academicYear,start,end}=definition,cache=new Map(),tables={},coverage=[];let expiresAt;
   const once=(name,read)=>{if(!cache.has(name))cache.set(name,Promise.resolve().then(read));return cache.get(name);};
-  const roster=()=>once('roster',async()=>bounded(await dashboard.faculty({academicYear,status:'all'})));
+  const roster=()=>once('roster',async()=>bounded(await dashboard.reportFaculty()));
   const sessionRows=()=>once('sessions',async()=>bounded(await sessions.list({academicYear,includeAssignmentTargets:true})).filter(row=>row.academicYear===academicYear));
   const roleRows=()=>once('roles',async()=>bounded(await dashboard.roles({academicYear})).filter(row=>row.academicYear===academicYear));
   const work=()=>once('work',async()=>{
@@ -63,11 +63,13 @@ function createReportSources({dashboard,sessions,activities,worksheetService,his
     const [people,teaching,worksheets,scheduled,roles,working]=await Promise.all([roster(),once('teachingSummary',async()=>bounded(await dashboard.teachingSummary({academicYear}))),once('worksheets',async()=>bounded(await worksheetService.listFacultyDoe({academicYear}))),sessionRows(),roleRows(),work()]);
     const byId=rows=>new Map(rows.map(row=>[key(row.facultyId),row])),summaryById=byId(teaching),worksheetById=byId(worksheets.filter(row=>row.academicYear===academicYear));
     const unmapped=working.rows.filter(row=>row.staffingKind!=='unassigned'&&!working.mapping.has(key(row.facultyKey))).length;
+    const teachingByPerson=new Map(),appointmentsByPerson=new Map(),workByPerson=new Map();
+    for(const session of scheduled)for(const assignment of sourceAssignments(session)){const id=key(assignment.facultyId);if(!id)continue;if(!teachingByPerson.has(id))teachingByPerson.set(id,new Set());teachingByPerson.get(id).add(key(session.id));}
+    for(const role of roles){const id=key(role.facultyId);if(!appointmentsByPerson.has(id))appointmentsByPerson.set(id,new Set());appointmentsByPerson.get(id).add(key(role.roleAssignmentId));}
+    for(const activity of working.rows){const id=working.mapping.get(key(activity.facultyKey));if(!id)continue;if(!workByPerson.has(id))workByPerson.set(id,{cccCount:0,rotationCount:0,otherWorkCount:0});workByPerson.get(id)[activity.category==='ccc'?'cccCount':activity.category==='rotation_participant'?'rotationCount':'otherWorkCount']++;}
     const rows=people.filter(row=>row.active===true).map(person=>{
      const id=key(person.facultyId),summary=summaryById.get(id)||{},worksheet=worksheetById.get(id)||{},counts={cccCount:0,rotationCount:0,otherWorkCount:0};
-     for(const activity of working.rows)if(working.mapping.get(key(activity.facultyKey))===id)counts[activity.category==='ccc'?'cccCount':activity.category==='rotation_participant'?'rotationCount':'otherWorkCount']++;
-     const teachingIds=new Set();for(const session of scheduled)if(sourceAssignments(session).some(assignment=>key(assignment.facultyId)===id))teachingIds.add(key(session.id));
-     const appointmentIds=new Set(roles.filter(role=>key(role.facultyId)===id).map(role=>key(role.roleAssignmentId)));
+     Object.assign(counts,workByPerson.get(id));const teachingIds=teachingByPerson.get(id)||new Set(),appointmentIds=appointmentsByPerson.get(id)||new Set();
      const values={facultyName:names.format(person),rank:text(person.rank)||null,stream:text(person.stream)||null,fte:number(person.fte),academicYear,...counts,teachingCount:teachingIds.size,appointmentCount:appointmentIds.size,
       contractTeachingDoe:number(worksheet.target?.contractTeachingDoe),status:text(worksheet.status)||'needs_review',calculationBasis:text(worksheet.calculationBasis)||null,policyReference:text(worksheet.targetPolicyVersionLabel)||null,sourceReference:text(worksheet.workloadSourceReference)||null,
       recordedTeachingDoe:number(summary.recordedTeachingDoe),recordedRoleDoe:number(summary.recordedRoleDoe),recordedDoeTotal:number(summary.recordedDoeTotal),effectiveRecordedDoeTotal:number(summary.effectiveDoeTotal)};

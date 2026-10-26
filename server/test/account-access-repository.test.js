@@ -18,3 +18,9 @@ test('SQL access mutation delegates one exact command and returns its persisted 
  assert.deepEqual(await repo.commit(args),receipt);assert.match(called.sql,/EXEC paws_api\.SetAccountAccess/);assert.deepEqual(called.params,{actorUid:'owner',actorVersion:'0000000000000001',targetUid:'account',expectedVersion:'0000000000000002',role:'faculty',active:false,facultyId:null,reason:'Approved removal',intentHash:'a'.repeat(64),operationId:args.operationId,previewId:args.previewId});
  assert.doesNotMatch(called.sql,/INSERT|UPDATE paws\./i);
 });
+
+test('collaboration directory reads canonical people without login contacts or HR data',async()=>{
+ let statement;const rows=[{firebaseUid:'member',facultyId:'10000000-0000-4000-8000-000000000001',displayName:'Taylor Example',baseRole:'faculty',active:true,facultyActive:true}];
+ const repo=createSqlAccountAccessRepository({query:async sql=>{statement=sql;return rows;}});
+ assert.deepEqual(await repo.collaborators(),rows);assert.match(statement,/TOP\s*\(1001\)/i);assert.match(statement,/JOIN paws\.Faculty/i);assert.match(statement,/PreferredLastName/);assert.doesNotMatch(statement,/SELECT\s+\*|\bEmail\b|\bUcid\b|\bFte\b|\bRank\b|\bDoe\b/i);
+});

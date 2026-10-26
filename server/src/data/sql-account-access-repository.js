@@ -8,6 +8,11 @@ function createSqlAccountAccessRepository(db){
   async read(uid){return (await db.query(`SELECT ${PROFILE} FROM paws.UserProfile u WHERE u.FirebaseUid=@uid`,{uid}))[0]||null;},
   list:()=>db.query(`SELECT TOP(1001) ${PROFILE} FROM paws.UserProfile u ORDER BY u.DisplayName,u.FirebaseUid`),
   eligibleFaculty:()=>db.query(`SELECT TOP(5001) FacultyId AS facultyId,DisplayName AS displayName,PreferredFirstName AS preferredFirstName,PreferredLastName AS preferredLastName,Active AS active FROM paws.Faculty WHERE Active=1 ORDER BY DisplayName,FacultyId`),
+  collaborators:()=>db.query(`SELECT TOP(1001) u.FirebaseUid AS firebaseUid,u.FacultyId AS facultyId,
+   f.DisplayName AS displayName,f.PreferredFirstName AS preferredFirstName,f.PreferredLastName AS preferredLastName,
+   u.BaseRole AS baseRole,u.Active AS active,u.MustChangePassword AS mustChangePassword,f.Active AS facultyActive
+   FROM paws.UserProfile u JOIN paws.Faculty f ON f.FacultyId=u.FacultyId
+   WHERE LOWER(LTRIM(RTRIM(u.BaseRole))) IN(N'faculty',N'hicc',N'visc') ORDER BY f.DisplayName,u.FirebaseUid`),
   async operation(operationId){return receipt((await db.query('SELECT ReceiptJson AS receiptJson FROM paws.AccountAccessChange WHERE OperationId=@operationId',{operationId}))[0]);},
   async commit(change){
    const rows=await db.query(`EXEC paws_api.SetAccountAccess @ActorUid=@actorUid,@ActorVersion=@actorVersion,@TargetUid=@targetUid,

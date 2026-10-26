@@ -29,8 +29,8 @@
 
 ## Task1 — Fresh baseline and authority inventory
 
-- [ ] Pin both main refs, release/API/SQL aggregate receipts, legacy consumers, existing supported roles. Write docs/audits/2026-10-26-effective-access/{BASELINE,DIFFERENCE_LEDGER,ACCESS_MATRIX}.md. Classify historical task26 and remaining27 accurately.
-- [ ] Record approved decisions and sequential plan; no business writes. Preserve prior release docs as history.
+- [x] Pin both main refs, release/API/SQL aggregate receipts, legacy consumers, existing supported roles. Write docs/audits/2026-10-26-effective-access/{BASELINE,DIFFERENCE_LEDGER,ACCESS_MATRIX}.md. Classify historical task26 and remaining27 accurately.
+- [x] Record approved decisions and sequential plan; no business writes. Preserve prior release docs as history.
 
 ## Task2 — SQL access command and Owner API
 
@@ -38,10 +38,10 @@ Files: server/src/access/account-access-policy.js, account-access-api.js; server
 
 Interfaces: normalizeAccessPatch(input) -> {role,active,facultyId}; createAccountAccessApi({verifyToken,findUser,repository,writeEnabled,clock?,randomId?}) -> self(token),list(token,{search,offset}),preview(token,{targetUid,expectedVersion,changes,reason}),commit(token,{previewId,operationId}),history(token,{targetUid,offset}). repository.list/read/commit/history/eligibleFaculty; commit receives actorUid,actorVersion,targetUid,expectedVersion,after,reason,operationId,intentHash. Returns persisted profile and immutable operationId/audit/time, replay flag.
 
-- [ ] RED Owner/Faculty/admin/Developer allow-deny via public API; unknown fields, scope/link validation; implement minimal policy and readback.
-- [ ] RED preview/commit, changed actor/target, expiry/cross-owner/ABA, reason/gate and protected/self/last-owner behavior; GREEN one slice at a time.
-- [ ] Add SQL060 rowversion + operation receipt table + atomic stored procedure, version/reason/Owner rechecks and idempotent intent. No profile grants rewritten.
-- [ ] Disposable SQL acceptance must prove persisted readback + audit, conflicting retries, stale/ABA, two-Owner concurrency and rollback; add guarded workflow test integration. Do not use production for fixtures.
+- [x] RED Owner/Faculty/admin/Developer allow-deny via public API; unknown fields, scope/link validation; implement minimal policy and readback.
+- [x] RED preview/commit, changed actor/target, expiry/cross-owner/ABA, reason/gate and protected/self/last-owner behavior; GREEN one slice at a time.
+- [x] Add SQL060 rowversion + operation receipt table + atomic stored procedure, version/reason/Owner rechecks and idempotent intent. No profile grants rewritten.
+- [x] Disposable SQL acceptance must prove persisted readback + audit, conflicting retries, stale/ABA, two-Owner concurrency and rollback; add guarded workflow test integration. Do not use production for fixtures.
 
 ## Task3 — Scoped legacy server adapters and closed client boundary
 
@@ -49,7 +49,7 @@ Files: server/src/access/collaboration-api.js, legacy-access-store.js; server/te
 
 Interfaces: createCollaborationApi({verifyToken,findUser,repository,store}) -> groups/list/updateMembers, Owner group save, announcement read/publish, legacyAudit read. Store uses existing Firebase Admin app, lazily; group revision is Firestore document updateTime, actor authorization checked inside transaction before write. Group DTO canonical member FacultyIds, explicit unresolved membership count/version; no contact directory for HICC.
 
-- [ ] RED SQL role mismatch/inactive/password/Owner/HICC own/cross-group; sanitized directory and no course privilege; GREEN server adapters using synthetic stores.
+- [x] RED SQL role mismatch/inactive/password/Owner/HICC own/cross-group; sanitized directory and no course privilege; GREEN server adapters using synthetic stores.
 - [ ] RED Firestore emulator direct privilege probes for every former account/group/info path; all denied. Required self compatibility reads/password path remain narrow. Preserve all historical records/audits.
 - [ ] Replace Information Center browser calls with SQL-authenticated server methods; test load/error/publish and role/session change. No live announcement.
 

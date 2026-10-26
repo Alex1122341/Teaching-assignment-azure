@@ -118,3 +118,9 @@ test('source limits and asynchronous Owner revocation do not expose partial dire
  h.repository.list=async()=>{h.state.profiles.get('owner').active=false;return [...h.state.profiles.values()];};
  const denied=await h.api.list('owner',{});assert.equal(denied.status,403);assert.equal(denied.body.accounts,undefined);
 });
+
+test('Owner catalog exposes only supported grant roles and canonical faculty choices with truthful gate state',async()=>{
+ const h=fixture(),result=await h.api.catalog('owner');assert.equal(result.status,200);assert.equal(result.body.writeEnabled,true);assert.ok(result.body.roles.includes('adfa_general'));assert.ok(result.body.roles.includes('adfa_regular'));assert.equal(result.body.roles.includes('developer'),false);assert.equal(result.body.roles.includes('other_office'),false);assert.deepEqual(result.body.faculty,[{facultyId:FID,displayName:'Example, Taylor'}]);
+ assert.equal((await h.api.catalog('faculty')).status,403);const disabled=fixture({writeEnabled:false});assert.equal((await disabled.api.catalog('owner')).body.writeEnabled,false);
+ h.repository.eligibleFaculty=async()=>Array(5001).fill({facultyId:FID,active:true});assert.equal((await h.api.catalog('owner')).status,413);
+});

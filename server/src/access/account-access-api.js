@@ -1,5 +1,5 @@
 'use strict';
-const {normalizeBaseRole}=require('../auth/role-policy');
+const {normalizeBaseRole,SUPPORTED_ROLES}=require('../auth/role-policy');
 const {validateAuthorizedProfile}=require('../data/data-api');
 const names=require('../domain/person-name');
 const {randomUUID,createHash}=require('node:crypto');
@@ -15,6 +15,7 @@ const binding=profile=>JSON.stringify([profile?.baseRole,profile?.active,profile
 function account(profile){return {uid:profile.firebaseUid,displayName:names.format(profile),email:profile.email||null,role:normalizeBaseRole(profile.baseRole)||profile.baseRole,facultyId:profile.facultyId||null,active:profile.active===true,mustChangePassword:profile.mustChangePassword===true,version:profile.version||null,editable:normalizeBaseRole(profile.baseRole)!=='developer'&&Boolean(normalizeBaseRole(profile.baseRole))&&/^[0-9a-f]{16}$/i.test(profile.version||'')};}
 
 function createAccountAccessApi({verifyToken,findUser,repository,writeEnabled=false,clock=Date.now,randomId=randomUUID}){
+ writeEnabled=writeEnabled===true;
  const previews=new Map();
  async function identity(token){
   for(const [id,preview] of previews)if(preview.expiresAt<=clock())previews.delete(id);
@@ -39,6 +40,15 @@ function createAccountAccessApi({verifyToken,findUser,repository,writeEnabled=fa
    const validated=validateAuthorizedProfile(profile),allowed=!validated.status;
    const status=profile.active!==true?'inactive':profile.mustChangePassword?'password_required':validated.status?'needs_review':'ready';
    return ok({access:{authority:'University SQL',allowed,status,displayName:names.format(profile),role:normalizeBaseRole(profile.baseRole),facultyId:profile.facultyId||null,canManageAccounts:allowed&&owner(profile),canManageGroups:allowed&&(owner(profile)||validated.role==='hicc')}});
+  },
+  async catalog(token){
+   const auth=await authorize(token);if(auth.response)return auth.response;
+   try{
+    const rows=await repository.eligibleFaculty();if(!Array.isArray(rows))throw Error('Invalid faculty source');if(rows.length>5000)return fail(413,'ACCESS_LIMIT','The faculty identity list exceeds its bounded limit.');
+    const faculty=rows.filter(row=>row.active===true).map(row=>({facultyId:row.facultyId,displayName:names.format(row)}));
+    const changed=await recheck(token,auth);if(changed)return changed;
+    return ok({roles:[...new Set([...SUPPORTED_ROLES].map(normalizeBaseRole))].filter(role=>role&&role!=='developer'),faculty,writeEnabled});
+   }catch(_){return fail(503,'ACCESS_UNAVAILABLE','Access choices could not be loaded.');}
   },
   async list(token,input={}){
    const auth=await authorize(token);if(auth.response)return auth.response;

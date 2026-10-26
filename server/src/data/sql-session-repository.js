@@ -1,12 +1,18 @@
 'use strict';
 
 const { facultyDisplayNameSql } = require('./faculty-display-name');
+const { canonicalAcademicYear } = require('./academic-year');
 
 function createSqlSessionRepository(db) {
   return {
-    async list({ start = null, end = null, facultyId = null, includeAssignmentTargets = false } = {}) {
+    async list({ start = null, end = null, facultyId = null, academicYear = null, includeAssignmentTargets = false } = {}) {
       const predicates = [];
       const params = {};
+
+      if (academicYear !== null) {
+        params.academicYear = canonicalAcademicYear(academicYear);
+        predicates.push('c.AcademicYear = @academicYear');
+      }
 
       if (start && end) {
         predicates.push('c.SessionDate >= @start', 'c.SessionDate < @end');

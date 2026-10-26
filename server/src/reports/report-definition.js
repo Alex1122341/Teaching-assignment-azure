@@ -17,7 +17,7 @@ const SOURCES={
   person(),field('sourceKind','Source'),field('curriculumYear','Curriculum year'),field('courseCode','Course'),field('courseName','Course name'),field('type','Type'),field('topic','Topic / activity'),field('startDate','Start date','date'),field('endDate','End date','date'),field('timeDisplay','Time'),field('timeEvidence','Recorded time evidence'),field('timeStatus','Time status'),field('room','Room'),year()
  ]},
  roles:{label:'Appointments / roles',grain:'One row per recorded validity period; whole-appointment DOE is not additive across periods',defaults:['facultyName','roleType','area','startDate','endDate','effectiveDoe','status'],defaultSort:{field:'facultyName',direction:'asc'},fields:[
-  person(),field('roleType','Role'),field('roleCategory','Category'),field('area','Course / area / rotation'),field('courseName','Course name'),field('details','Details'),field('startDate','Period start','date'),field('endDate','Period end','date'),field('appointment','Appointment reference'),field('period','Period number','number'),
+  person(),field('roleType','Role'),field('roleCategory','Category'),field('area','Course / area / rotation'),field('courseName','Course name'),field('details','Details'),field('startDate','Period start','date'),field('endDate','Period end','date'),field('periodStatus','Period status'),field('appointment','Appointment reference'),field('period','Period number','number'),
   ...[['recordedDoe','Recorded DOE (whole appointment)'],['overrideDoe','Override DOE (whole appointment)'],['effectiveDoe','Effective DOE (whole appointment)']].map(([id,label])=>percent(id,label,{additive:false})),
   field('basis','DOE basis'),field('status','DOE status'),year()
  ]},

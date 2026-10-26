@@ -40,13 +40,13 @@ Interfaces: `catalog()` returns sources/fields/defaults/operators/limits; `valid
 
 ## Task2 — Trusted source adapters / cardinality
 
-Files: create `server/src/reports/report-sources.js`, test `server/test/report-sources.test.js`.
+Files: create `server/src/reports/report-sources.js`, test `server/test/report-sources.test.js`; extend only the read signature in `server/src/data/sql-session-repository.js`, test `server/test/report-source-scope.test.js`.
 
 Interface: `createReportSources({dashboard,sessions,activities,worksheetService,historyApi})` returns `load({definition,uid,token}) -> {tables:{[source]:{rows,coverage}},expiresAt?}`. Readers use existing parameterized repository methods and actor-scoped activity list with admin mapping. Per-query promise cache shares reads across selected families; no cross-user raw-data cache. Historical reads call existing authorized History query/page, not raw audit rows. Catch source failure as a complete-query failure.
 
-- [ ] RED real-shape DTO fixture: two assignments for same teacher/session count once,2 role periods keep gaps and same non-additive whole-role value, one Locum and opaque mapped work identity, null Worksheet values, differing recorded/engine totals. Exact expected summary/details/period rows.
-- [ ] Implement only selected sources using stable IDs; normalize approved fields, actor-scoped bounded activity cursors, selected academic year overlap, canonical names and missing values. Preserve work evidence/default-time labels; no credit/hours from defaults. No source mutation.
-- [ ] RED unmapped identity, malformed source/cursor,>10000 source rows, outside-year/unknown date coverage and History field expansion/raw From-To preservation. GREEN; commit adapter.
+- [x] RED real-shape DTO fixture: two assignments for same teacher/session count once,2 role periods keep gaps and same non-additive whole-role value, one Locum and opaque mapped work identity, null Worksheet values, differing recorded/engine totals. Exact expected summary/details/period rows.
+- [x] Implement only selected sources using stable IDs; normalize approved fields, actor-scoped bounded activity cursors, selected academic year overlap, canonical names and missing values. Preserve work evidence/default-time labels; no credit/hours from defaults. No source mutation.
+- [x] RED unmapped identity, malformed source/cursor,>10000 source rows, outside-year/unknown date coverage and History field expansion/raw From-To preservation. GREEN; commit adapter.
 
 ## Task3 — Authenticated snapshot / export API
 
@@ -93,9 +93,13 @@ Interfaces: `PAWS_REPORTS.mount(host,{api,getUser,getAcademicYear}) -> {refresh?
 
 ## Execution rulings / checkpoint
 
+- Ruling: add optional canonical `academicYear` predicate to existing SessionRepository.list, preserving ordinary range callers — otherwise a date-only reader silently loses undated sessions, while reading all years delivers unnecessary rows. Validate canonical year and bind it as @academicYear; no new SQL schema/write path. Work range dates continue to use overlap, not annual appointment metadata.
+
 - Reuse existing linked worktree, create new branch at verified published main; no second worktree or dependency reinstall. Prior post-release notes are preserved and included as continuity, not runtime changes.
 - Existing support-service allowlist denies `/reports`; do not broaden it just to make impersonation work. Normal supported Owner/admin sessions can query; return to real identity for reports.
 - Preview freezes selected authorized results for download, not a serializable cross-domain database snapshot. No past-state reconstruction is promised.
 - Plan self-check: requirements23/24/25 map to kernel+sources/API+UI and release; each review-focus case has an explicit test task; names/interfaces above are fixed. Technical defaults follow standing recommended-option authority; continue sequentially without routine confirmation loops.
 
 Task1 checkpoint: pure registry/query kernel completed with observed RED→GREEN cycles (module absent; missing catalogs; strict schema; predicates/sort).6 tests pass. No runtime wiring, API/SQL/production changes yet. Remaining tasks2–7 continue sequentially.
+
+Task2 checkpoint:14 foundation tests pass; existing repository/session-write26 regression tests pass. Observed RED→GREEN for source absence, empty periods, wrong-year Worksheet, History loading and unsupported category. Parameterized academicYear session reader preserves undated records; ordinary range behavior remains verified. Empty appointment periods are represented as an explicit No effective periods metadata row (period=null), not a fabricated interval. Current adapters remain unmounted; no production reads/writes or publication.

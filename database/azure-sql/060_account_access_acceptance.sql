@@ -16,14 +16,14 @@ INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,
 DECLARE @ActorVersion varchar(16),@TargetVersion varchar(16),@Operation uniqueidentifier=NEWID(),@Preview uniqueidentifier=NEWID(),@Reply nvarchar(max),@Rejected bit=0,@Hash char(64)=REPLICATE('A',64);
 SELECT @ActorVersion=CONVERT(varchar(16),AccessVersion,2) FROM paws.UserProfile WHERE FirebaseUid=N'access060-owner-a';
 SELECT @TargetVersion=CONVERT(varchar(16),AccessVersion,2) FROM paws.UserProfile WHERE FirebaseUid=N'access060-target';
-DECLARE @Result TABLE(receiptJson nvarchar(max));
-INSERT @Result EXEC paws_api.SetAccountAccess N'access060-owner-a',@ActorVersion,N'access060-target',@TargetVersion,N'hicc',1,@Faculty,N'Approved role change',@Hash,@Operation,@Preview;
-SELECT @Reply=receiptJson FROM @Result;
+-- INSERT...EXEC adds an implicit surrounding transaction. Exercise the same
+-- standalone EXEC used by the runtime, then independently verify its persisted receipt.
+EXEC paws_api.SetAccountAccess N'access060-owner-a',@ActorVersion,N'access060-target',@TargetVersion,N'hicc',1,@Faculty,N'Approved role change',@Hash,@Operation,@Preview;
+SELECT @Reply=ReceiptJson FROM paws.AccountAccessChange WHERE OperationId=@Operation;
 IF JSON_VALUE(@Reply,'$.after.role')<>N'hicc' OR JSON_VALUE(@Reply,'$.reason')<>N'Approved role change' OR JSON_VALUE(@Reply,'$.before.role')<>N'faculty' THROW 54060,'Persisted receipt is inconsistent.',1;
 IF NOT EXISTS(SELECT 1 FROM paws.UserProfile WHERE FirebaseUid=N'access060-target' AND BaseRole=N'hicc' AND CONVERT(varchar(16),AccessVersion,2)<>@TargetVersion) THROW 54060,'Effective grant/version not persisted.',1;
 IF (SELECT COUNT(*) FROM paws.AuditEvent WHERE RequestId=@Operation AND EventType=N'account_access_change')<>1 OR (SELECT COUNT(*) FROM paws.AccountAccessChange WHERE OperationId=@Operation)<>1 THROW 54060,'Atomic audit/operation not persisted.',1;
-DELETE @Result;
-INSERT @Result EXEC paws_api.SetAccountAccess N'access060-owner-a',@ActorVersion,N'access060-target',@TargetVersion,N'hicc',1,@Faculty,N'Approved role change',@Hash,@Operation,@Preview;
+EXEC paws_api.SetAccountAccess N'access060-owner-a',@ActorVersion,N'access060-target',@TargetVersion,N'hicc',1,@Faculty,N'Approved role change',@Hash,@Operation,@Preview;
 IF (SELECT COUNT(*) FROM paws.AuditEvent WHERE RequestId=@Operation)<>1 THROW 54060,'Idempotent retry duplicated audit.',1;
 SET @Hash=REPLICATE('B',64);
 BEGIN TRY

@@ -1,7 +1,7 @@
 'use strict';
 const PROFILE=`u.FirebaseUid AS firebaseUid,u.Email AS email,u.DisplayName AS displayName,u.BaseRole AS baseRole,
  u.FacultyId AS facultyId,u.Active AS active,u.MustChangePassword AS mustChangePassword,
- LOWER(CONVERT(varchar(16),u.AccessVersion,2)) AS version`;
+ LOWER(CONVERT(varchar(16),CONVERT(binary(8),u.AccessVersion),2)) AS version`;
 function receipt(row){return row?JSON.parse(row.receiptJson):null;}
 function createSqlAccountAccessRepository(db){
  return Object.freeze({

@@ -18,8 +18,8 @@ Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sq
 
 $raceTemplate=@'
 SET NOCOUNT ON;
-DECLARE @ActorVersion varchar(16)=(SELECT CONVERT(varchar(16),AccessVersion,2) FROM paws.UserProfile WHERE FirebaseUid=N'{ACTOR}');
-DECLARE @TargetVersion varchar(16)=(SELECT CONVERT(varchar(16),AccessVersion,2) FROM paws.UserProfile WHERE FirebaseUid=N'{TARGET}');
+DECLARE @ActorVersion varchar(16)=(SELECT CONVERT(varchar(16),CONVERT(binary(8),AccessVersion),2) FROM paws.UserProfile WHERE FirebaseUid=N'{ACTOR}');
+DECLARE @TargetVersion varchar(16)=(SELECT CONVERT(varchar(16),CONVERT(binary(8),AccessVersion),2) FROM paws.UserProfile WHERE FirebaseUid=N'{TARGET}');
 DECLARE @Operation uniqueidentifier=NEWID(),@Preview uniqueidentifier=NEWID(),@Hash char(64)=REPLICATE('F',64);
 WAITFOR DELAY '00:00:01';
 EXEC paws_api.SetAccountAccess N'{ACTOR}',@ActorVersion,N'{TARGET}',@TargetVersion,N'adfa_regular',1,NULL,N'Synthetic concurrent demotion',@Hash,@Operation,@Preview;

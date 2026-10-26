@@ -124,7 +124,7 @@
   }
   function open(){
    if(!host)return Promise.resolve();active=true;
-   const next=scope();if(identity!==next){year=getAcademicYear();identity=next;}
+   const next=scope();if(identity!==next||!year){year=getAcademicYear();identity=next;}
    host.innerHTML=`<h2>Other working activities</h2><p class="activity-note">Work not placed in CCC, Rotation or the teaching timetable. Faculty may already be assigned. Dates and original time evidence remain unchanged.</p><div class="activity-toolbar"><label>Academic year<input data-other-year aria-label="Other work academic year" placeholder="2026-27" maxlength="7"></label><label>Search<input type="search" data-other-search aria-label="Search other working activities" placeholder="Faculty, activity, course or block"></label><label>Activity type<select data-other-category aria-label="Other working activity type"><option value="all">All other activity types</option>${Object.entries(labels).filter(([key])=>!['ccc','rotation_participant'].includes(key)).map(([key,label])=>`<option value="${key}">${esc(label)}</option>`).join('')}</select></label><button class="btn" type="button" data-other-refresh>Refresh</button><button class="btn" type="button" data-other-reset>Reset</button></div><div data-other-results aria-live="polite"></div>`;
    node('year').value=year;node('search').value='';node('category').value='all';
    node('year').onchange=load;node('search').oninput=()=>{page=0;paint();};node('category').onchange=()=>{page=0;paint();};node('refresh').onclick=load;

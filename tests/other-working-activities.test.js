@@ -4,14 +4,19 @@ const lib=require('../frontend/scripts/calendar-activities');
 const vm=require('node:vm'),sourceFunction=require('../test-support/source-function');
 function harness(){
  const nodes=new Map(),host={innerHTML:'',querySelector:key=>{if(!nodes.has(key))nodes.set(key,{value:'',innerHTML:'',textContent:''});return nodes.get(key);}};
- const state={user:{uid:'faculty-a',role:'faculty'}},calls=[];
+ const state={user:{uid:'faculty-a',role:'faculty'},academicYear:'2026-27'},calls=[];
  const api={listCalendarActivities:options=>new Promise((resolve,reject)=>calls.push({options,resolve,reject}))};
  assert.equal(typeof lib.createOtherWorkTab,'function');
- const view=lib.createOtherWorkTab({host,api,getUser:()=>state.user,getAcademicYear:()=> '2026-27'});
+ const view=lib.createOtherWorkTab({host,api,getUser:()=>state.user,getAcademicYear:()=>state.academicYear});
  return {host,state,calls,view,node:key=>host.querySelector(key)};
 }
 const row=(category,label)=>({activityId:category,label,category,startDate:'2026-10-01',endDate:'2026-10-02',facultyDisplayName:'Example, Alex',facultyKey:'opaque',timeEvidence:[]});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('a tab opened before own detail arrives picks up its authorized year when reopened',async()=>{
+ const h=harness();h.state.academicYear='';await h.view.open();assert.equal(h.calls.length,0);
+ h.state.academicYear='2026-27';h.view.clear();const reopened=h.view.open();await tick();assert.equal(h.node('[data-other-year]').value,'2026-27');assert.equal(h.calls.length,1);
+ h.calls[0].resolve({activities:[],nextCursor:null});await reopened;
+});
 test('Dashboard other work uses the authorized own-detail year when no admin summary is loaded',()=>{
  const ctx={currentAcademicYear:()=>'',selectedDetail:{academicYear:'2026-27'},text:value=>String(value||'').trim()};
  let body='';try{body=sourceFunction('faculty-admin.js','otherWorkAcademicYear');}catch{}assert.ok(body,'missing own-detail year adapter');vm.createContext(ctx);vm.runInContext(body,ctx);

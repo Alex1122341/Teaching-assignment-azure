@@ -16,6 +16,10 @@ INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,
 DECLARE @ActorVersion varchar(16),@TargetVersion varchar(16),@Operation uniqueidentifier=NEWID(),@Preview uniqueidentifier=NEWID(),@Reply nvarchar(max),@Rejected bit=0,@Hash char(64)=REPLICATE('A',64);
 SELECT @ActorVersion=CONVERT(varchar(16),AccessVersion,2) FROM paws.UserProfile WHERE FirebaseUid=N'access060-owner-a';
 SELECT @TargetVersion=CONVERT(varchar(16),AccessVersion,2) FROM paws.UserProfile WHERE FirebaseUid=N'access060-target';
+SELECT @ActorVersion AS syntheticActorVersion,@TargetVersion AS syntheticTargetVersion,LEN(@Hash) AS intentLength,
+ IIF(@Hash COLLATE Latin1_General_100_BIN2 LIKE '%[^a-fA-F0-9]%',1,0) AS intentContainsNonHex,
+ IIF(TRY_CONVERT(binary(8),@ActorVersion,2) IS NULL,1,0) AS invalidActorVersion,
+ IIF(TRY_CONVERT(binary(8),@TargetVersion,2) IS NULL,1,0) AS invalidTargetVersion;
 -- INSERT...EXEC adds an implicit surrounding transaction. Exercise the same
 -- standalone EXEC used by the runtime, then independently verify its persisted receipt.
 EXEC paws_api.SetAccountAccess N'access060-owner-a',@ActorVersion,N'access060-target',@TargetVersion,N'hicc',1,@Faculty,N'Approved role change',@Hash,@Operation,@Preview;

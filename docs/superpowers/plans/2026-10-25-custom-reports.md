@@ -34,9 +34,9 @@ Files: create `server/src/reports/report-definition.js`, test `server/test/repor
 
 Interfaces: `catalog()` returns sources/fields/defaults/operators/limits; `validateDefinition(input)` returns canonical `{academicYear,start,end,datasets:[{source,columns,search,match,filters,sort}]}` or typed400 error; `runTable(source,rows,definition)` returns `{source,label,columns:[{id,label,type,unit}],rows:[][],total,coverage}` with only selected fields. Fields live in this registry only; output is not raw source objects. Use canonical academic-year helper and strict literal values.
 
-- [ ] RED a worked example selecting facultyName/remainingDoe, numeric>=0 with unknown null excluded, tokens across canonical names, AND/OR, column order and stable sort. Assert literal expected rows; test empty vs0.
-- [ ] Implement minimum catalog/validation/predicate/projection. Add RED malformed year, unknown/duplicate fields/keys/operators, zero columns,21 filters, oversized columns, invalid dates/numbers and output limits; GREEN each slice.
-- [ ] `node --test server/test/report-definition.test.js` passes; commit kernel.
+- [x] RED a worked example selecting facultyName/remainingDoe, numeric>=0 with unknown null excluded, tokens across canonical names, AND/OR, column order and stable sort. Assert literal expected rows; test empty vs0.
+- [x] Implement minimum catalog/validation/predicate/projection. Add RED malformed year, unknown/duplicate fields/keys/operators, zero columns,21 filters, oversized columns, invalid dates/numbers and output limits; GREEN each slice.
+- [x] `node --test server/test/report-definition.test.js` passes; commit kernel.
 
 ## Task2 — Trusted source adapters / cardinality
 
@@ -97,3 +97,5 @@ Interfaces: `PAWS_REPORTS.mount(host,{api,getUser,getAcademicYear}) -> {refresh?
 - Existing support-service allowlist denies `/reports`; do not broaden it just to make impersonation work. Normal supported Owner/admin sessions can query; return to real identity for reports.
 - Preview freezes selected authorized results for download, not a serializable cross-domain database snapshot. No past-state reconstruction is promised.
 - Plan self-check: requirements23/24/25 map to kernel+sources/API+UI and release; each review-focus case has an explicit test task; names/interfaces above are fixed. Technical defaults follow standing recommended-option authority; continue sequentially without routine confirmation loops.
+
+Task1 checkpoint: pure registry/query kernel completed with observed RED→GREEN cycles (module absent; missing catalogs; strict schema; predicates/sort).6 tests pass. No runtime wiring, API/SQL/production changes yet. Remaining tasks2–7 continue sequentially.

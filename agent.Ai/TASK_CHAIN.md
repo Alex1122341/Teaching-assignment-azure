@@ -1,4 +1,8 @@
-## Current: Custom Reports23–25 published and original workbook updated — 2026-10-26
+## Current: Ledger26 refreshed;27 in progress on explicitly selected Beta — 2026-10-26
+
+Follow2026-10-26-effective-access plan sequentially. Task1 fresh baseline complete; Task2 accountAPI core12newtests pass, SQL060/disposable workflow prepared but not executed. Tasks3–7 group/info server boundaries, rules, runtime/client/UI, review/freeze/CI/release and original Excel remain. Owner-only real effective access, collaboration-only groups, last Owner, next-request revocation and reason/preview/readback/audit approved; user ended grilling. No production role/group writes or publication. Publishede7d3ffec/95assets/27gates unchanged. Read updates/2026-10-26-effective-access-started.md. User explicitly reconfirmed Beta/SQL; do not switch to Pages from the old Desktop note.
+
+## Historical: Custom Reports23–25 published and original workbook updated — 2026-10-26
 
 Implementation/review/CI/merge/University API/Hosting/real-role browser acceptance and workbook writeback complete. PR146/147; deployed maine7d3ffec, anchor ef2d053; Build40364636235; artifact12670375863; Hosting1793035279588000/version5e4d032f63f916d8;95/95 public files,119API inputs,27gates and recovery verified. Original Excel has39tasks/46checks/16passed/29open/1N/A; R01–R03 are pending human business acceptance, not technical blockers. Both accounts signed out. Latest user Desktop AGENTS selects Teaching-assignment/Pages/vista-teaching-lab for new development; local note matches. Historical Beta selection below is superseded for future work, not grounds for another deployment or architecture transfer. Read updates/2026-10-26-custom-reports-published.md.
 

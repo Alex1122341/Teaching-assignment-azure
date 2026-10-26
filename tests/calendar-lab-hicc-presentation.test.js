@@ -105,6 +105,16 @@ test('future or inactive HICC cannot hide an active Course Coordinator',()=>{
  assert.equal(directory.projectedRows(raw,{showAll:true}).length,4);
 });
 
+
+test('confirmed active HICC suppresses an undated CC for the same title, not the reverse',()=>{
+ const activeHicc=directoryRow('HICC','VTMD 306','Confirmed HICC');
+ const unknownCc=directoryRow('Course Coordinator','VTMD 306','Undated CC','dates-needed',{startDate:null,endDate:null});
+ const unknownHicc=directoryRow('HICC','VTMD 307','Undated HICC','dates-needed',{startDate:null,endDate:null});
+ const activeCc=directoryRow('Course Coordinator','VTMD 307','Confirmed CC');
+ const visible=directory.projectedRows([activeHicc,unknownCc,unknownHicc,activeCc]);
+ assert.deepEqual(visible.map(row=>row.facultyName),['Confirmed HICC','Undated HICC','Confirmed CC']);
+});
+
 test('overlapping future HICC and CC suppress duplicate future CC only in Show All',()=>{
  const raw=[directoryRow('HICC','306','HICC','upcoming',{startDate:'2027-01-01',endDate:'2027-06-30'}),
   directoryRow('Course Coordinator','306','CC','upcoming',{startDate:'2027-02-01',endDate:'2027-05-01'})];

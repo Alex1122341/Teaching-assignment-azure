@@ -105,6 +105,9 @@ if(root&&root.document){
  // Show HICC rather than CC for the same scoped appointment, without hiding
  // a currently serving CC behind an expired/future HICC.
  function sameDisplayPeriod(hicc,cc){
+  // An active confirmed HICC supersedes an undated CC for the same title.
+  // Do not hide a confirmed active CC behind an undated or expired HICC.
+  if(hicc.status==='active'&&cc.status==='dates-needed')return true;
   if(hicc.status!==cc.status)return false;
   if(hicc.status==='active')return true;
   if(hicc.status==='dates-needed')

@@ -54,10 +54,10 @@ Files: create `server/src/reports/report-api.js`, `report-export.js`, `server/sr
 
 Interfaces: `createReportApi({verifyToken,findUser,loadSources,clock?,randomId?,renderExport?})` exposes `catalog(token)`, `query(token,definition)`, `page(token,{snapshot,source,offset})`, `export(token,{snapshot,format,source?})`. Responses follow existing `{status,body}`; exports use History-style bounded base64 artifact transport. API page size50, UUID handles, current UID/role binding, TTL/min History expiry, cache/query/export caps. `createReportFunctions({api})` mounts `/api/v1/reports/catalog` GET, `/query` POST, `/page` GET, `/export` GET; closed query keys/duplicate rejection, no-store, bounded JSON,405 for wrong verbs.
 
-- [ ] RED anonymous/Faculty/office/inactive denied before reader; authorized Owner/admin succeeds. Mutation/unknown request values rejected; source exception creates no snapshot. GREEN smallest API.
-- [ ] RED UID/role replacement during await, cross-owner handles, expiry, bad offsets/table, concurrency, eviction/memory caps and after-render authorization changes. GREEN; preserve safe limited/busy errors without weakening auth failure clears.
-- [ ] RED CSV quoting/formula-prefix/negative typed numbers, nullN/A and correct column order; actual ExcelJS readback sheets/types/rows, no excluded fields,6MiB/cell limits. GREEN; export service requires existing ExcelJS lazily.
-- [ ] Run three tests and definition/source regressions; commit.
+- [x] RED anonymous/Faculty/office/inactive denied before reader; authorized Owner/admin succeeds. Mutation/unknown request values rejected; source exception creates no snapshot. GREEN smallest API.
+- [x] RED UID/role replacement during await, cross-owner handles, expiry, bad offsets/table, concurrency, eviction/memory caps and after-render authorization changes. GREEN; preserve safe limited/busy errors without weakening auth failure clears.
+- [x] RED CSV quoting/formula-prefix/negative typed numbers, nullN/A and correct column order; actual ExcelJS readback sheets/types/rows, no excluded fields,6MiB/cell limits. GREEN; export service requires existing ExcelJS lazily.
+- [x] Run three tests and definition/source regressions; commit.
 
 ## Task4 — Runtime and client transport integration
 
@@ -103,3 +103,5 @@ Interfaces: `PAWS_REPORTS.mount(host,{api,getUser,getAcademicYear}) -> {refresh?
 Task1 checkpoint: pure registry/query kernel completed with observed RED→GREEN cycles (module absent; missing catalogs; strict schema; predicates/sort).6 tests pass. No runtime wiring, API/SQL/production changes yet. Remaining tasks2–7 continue sequentially.
 
 Task2 checkpoint:14 foundation tests pass; existing repository/session-write26 regression tests pass. Observed RED→GREEN for source absence, empty periods, wrong-year Worksheet, History loading and unsupported category. Parameterized academicYear session reader preserves undated records; ordinary range behavior remains verified. Empty appointment periods are represented as an explicit No effective periods metadata row (period=null), not a fabricated interval. Current adapters remain unmounted; no production reads/writes or publication.
+
+Task3 checkpoint:29 targeted tests pass, including private snapshot concurrency/expiry, all-selected XLSX scope, projection memory limits and actual Excel numeric alignment RED→GREEN. Target clarification resolved by owner on2026-10-26:continue Teaching-assignment-azure/Beta/SQL. The downloaded AGENTS repository/architecture note was corrected at owner request. No report runtime wiring or deployment yet.

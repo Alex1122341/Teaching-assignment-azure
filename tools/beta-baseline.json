@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "bfcfaeaf74d9b650740c56547a11f398bb41a753",
+  "sourceCommit": "19d5042473917bc96434b141ab1f9a41f8e8eb1e",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -70,7 +70,7 @@
     "information-center.js": "d739a75f1893994048854678c25bc562d17099a912189213a5cef487b500acc0",
     "lab-session-detail.js": "2028b93e94f214b79886b5ac4d508455aa1c9b915898827226dd7475b738a0c6",
     "leadership-directory.css": "8e90bd635bf53c04e61e456ea6fd24391986ae03885199446475bc4a460fd897",
-    "leadership-directory.js": "addccd753c4d5db2a48493134f0feddb6f9611b8bb4ca11fe83942efb911a606",
+    "leadership-directory.js": "a96d69b3f939d53768d7d11b95046409378b243b5c90ec8bc9d1c574811dde3b",
     "maintenance-state.js": "5b3c31bd41385322776f2eeab88a46827f7b0095f7cd26ac03aa44c267d1f1df",
     "office-workspace.js": "c42ebc68d3420d62b5205f1cf7f1d2f69f4d4a5816112ab75f8e80dca88ace7f",
     "password.html": "329d3b10211f99a5d13290a52352594da62eee4abf051767bddd0ecd1cc7620d",

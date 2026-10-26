@@ -12,6 +12,11 @@ function harness(){
 }
 const row=(category,label)=>({activityId:category,label,category,startDate:'2026-10-01',endDate:'2026-10-02',facultyDisplayName:'Example, Alex',facultyKey:'opaque',timeEvidence:[]});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('Dashboard other work uses the authorized own-detail year when no admin summary is loaded',()=>{
+ const ctx={currentAcademicYear:()=>'',selectedDetail:{academicYear:'2026-27'},text:value=>String(value||'').trim()};
+ let body='';try{body=sourceFunction('faculty-admin.js','otherWorkAcademicYear');}catch{}assert.ok(body,'missing own-detail year adapter');vm.createContext(ctx);vm.runInContext(body,ctx);
+ assert.equal(ctx.otherWorkAcademicYear(),'2026-27');ctx.currentAcademicYear=()=> '2027-28';assert.equal(ctx.otherWorkAcademicYear(),'2027-28');ctx.currentAcademicYear=()=>'';ctx.selectedDetail=null;assert.equal(ctx.otherWorkAcademicYear(),'');
+});
 test('independent work tab excludes scheduled CCC/Rotation, labels default time, and filters locally',async()=>{
  const h=harness(),open=h.view.open();await tick();assert.equal(h.calls.length,1);
  assert.equal(h.calls[0].options.includeFacultyKeys,undefined,'a Faculty view never requests administrator mappings');

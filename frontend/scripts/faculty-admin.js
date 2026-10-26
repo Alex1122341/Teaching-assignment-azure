@@ -26,7 +26,7 @@
   const workImport=window.PAWS_ACTIVITY_IMPORT?.createAdminEntry({api:UCVM_PAWS_DATA,host:$('calendar-activity-import'),notify:showToast,getUser:()=>currentUser,canAdmin:()=>!selfMode && dashboardAdmin(currentUser),onCommitted:async()=>{
     otherWorkTab?.clear();invalidateFacultyDetails();await loadAdminDashboard();await loadAfcRecords(true);if(selectedId)await selectFacultyDetail(selectedId);
   }});
-  const otherWorkTab=window.PAWS_CALENDAR_ACTIVITIES?.createOtherWorkTab({host:$('other-work-view'),api:UCVM_PAWS_DATA,getUser:()=>currentUser,getAcademicYear:currentAcademicYear});
+  const otherWorkTab=window.PAWS_CALENDAR_ACTIVITIES?.createOtherWorkTab({host:$('other-work-view'),api:UCVM_PAWS_DATA,getUser:()=>currentUser,getAcademicYear:otherWorkAcademicYear});
   let auth = null;
   let historyView = null;
   const traineesEntry=window.UCVM_ASSETS?.createTraineeEntry({host:$('trainees-view'),api:UCVM_PAWS_DATA,getUser:()=>currentUser,getAcademicYear:currentAcademicYear,isAdministrator:dashboardAdmin});
@@ -446,6 +446,7 @@
   function renderFacultyAfc(records) { return window.UCVM_AFC_RECORDS.profileAfc(records,{selfMode,renderPdf:window.PAWS_AFC_FORMS?.documentAction}); }
 
   function currentAcademicYear() { return text(dashboardSummary?.academicYear || ''); }
+  function otherWorkAcademicYear() { return currentAcademicYear() || text(selectedDetail?.academicYear); }
   function doeValue(value) { return number(value) === null ? 'Needs Review' : `${Number(value).toFixed(2)}%`; }
   function loadDetailDoeWorksheet(facultyId, academicYear) {
     return doeWorksheetView?.loadDetail(facultyId, academicYear, $('faculty-doe-worksheet'), () => String(selectedId || '').toLowerCase() === String(facultyId || '').toLowerCase());

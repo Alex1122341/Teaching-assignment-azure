@@ -54,11 +54,11 @@ Interface: read-only module/controller using existing authorized range APIs, aca
 
 ### Task4: Review, freeze, release and tracker
 
-- [ ] Browser verify common desktop/narrow, long names, defaults and explicit times, empty/error, exclusive Rotation, actual session actions, two-role readonly smoke.
-- [ ] Independently review product; commit product then separately review shared static/API promotion, retaining historical receipts and union coverage.
-- [ ] Full CI/root/server/emulator/build/freeze; merge after green, exact-main official artifact, Hosting-only publish, raw hashes/API27gates/recovery and actual browser acceptance.
-- [ ] Update original progress workbook without changing human signoffs; do not mark broad tasks complete from this slice alone.
-- [ ] Inspect tasks23–25 and ask the owner the remaining report data/fields/privacy/filter/export decisions before report implementation.
+- [x] Browser verify common desktop/narrow, long names, defaults and explicit times, empty/error, exclusive Rotation, actual session actions, two-role readonly smoke.
+- [x] Independently review product; commit product then separately review shared static/API promotion, retaining historical receipts and union coverage.
+- [x] Full CI/root/server/emulator/build/freeze; merge after green, exact-main official artifact, Hosting-only publish, raw hashes/API27gates/recovery and actual browser acceptance.
+- [x] Update original progress workbook without changing human signoffs; do not mark broad tasks complete from this slice alone.
+- [x] Inspect tasks23–25 and ask the owner the remaining report data/fields/privacy/filter/export decisions before report implementation.
 
 ## Execution rulings and checkpoint
 
@@ -69,3 +69,5 @@ Interface: read-only module/controller using existing authorized range APIs, aca
 - Ruling: retain the existing API whose SQL053 enforces Faculty/HICC/VISC own-Faculty scope; the new tab does not request administrator key mappings. API/backend/SQL/rules are unchanged.
 - Bounded live inventory (read-only): CCC413; Rotation41 total/33 overlapping2026–27 (2026-01-11 through2027-04-02). Other work338 total/327 overlapping2026–27. Annual MASTER appointment windows are not scheduled activity evidence.
 - Product5826454 reviewed independently; findings fixed and rechecked. Focused57/57 pass. Synthetic1440/390 browser cases and dense122-row pagination verified; see docs/ui/rotation-calendar-acceptance-20261025.md. Separate governance, full CI, real-role acceptance, Hosting and tracker remain pending.
+
+Final: PR145/mainc0970caf published from exact-main officialartifact12623975651, Hosting1792981645109000;93/93 public verification and actual Faculty/ADFA smoke pass. Original Excel27cell update preserves formulas/styles/signoffs. Three report requirements questions sent; reports23–25 have not started. See chronological published update for exact evidence.

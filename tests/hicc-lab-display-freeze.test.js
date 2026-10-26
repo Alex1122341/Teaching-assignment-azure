@@ -7,7 +7,7 @@ const freeze=require('../tools/beta-freeze');
 const api=require('../tools/beta-api-freeze');
 const root=path.resolve(__dirname,'..');
 const previous='ef2d053ff9963aad972c22ec6c3fa8fc53bcb149';
-const product='1c3fc7dc17838b967ba7ba13e1e0fd103e8e0e74';
+const product='bfcfaeaf74d9b650740c56547a11f398bb41a753';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('HICC/LAB display promotion retains all 95 shipped files and changes only three protected assets',()=>{
  assert.equal(freeze.BASELINE_COMMIT,product);

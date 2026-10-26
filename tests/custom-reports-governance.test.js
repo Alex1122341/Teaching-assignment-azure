@@ -4,9 +4,9 @@ const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-free
 const root=path.resolve(__dirname,'..'),MAIN='c0970cafddb53187906ba3257cfa81c9d31293eb',PRODUCT='a0c1adebf858fe54b632b71930622572ebddc90e';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('custom reports promotion pins the reviewed product and protects every previous static asset',()=>{
- assert.equal(freeze.BASELINE_COMMIT,PRODUCT);assert.equal(api.BASELINE_COMMIT,PRODUCT);assert.equal(require('../tools/beta-baseline.json').sourceCommit,PRODUCT);
+ const receipt='ba7d26bad8f13e94ac42c9ddb9a93804b54beeb3';assert.ok(git('show',receipt+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+PRODUCT+"'"));assert.equal(JSON.parse(git('show',receipt+':tools/beta-baseline.json')).sourceCommit,PRODUCT);assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(require('../tools/beta-baseline.json').sourceCommit,freeze.BASELINE_COMMIT);
  git('merge-base','--is-ancestor',MAIN,PRODUCT);git('merge-base','--is-ancestor',PRODUCT,'HEAD');
- const before=freeze.readBaselineManifest({root,baselineCommit:MAIN}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});assert.equal(before.length,93);assert.equal(after.length,95);assert.deepEqual(before.filter(file=>!after.includes(file)),[]);assert.deepEqual(after.filter(file=>!before.includes(file)).sort(),['faculty-reports.css','faculty-reports.js']);assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,95);
+ const before=freeze.readBaselineManifest({root,baselineCommit:MAIN}),after=freeze.readBaselineManifest({root,baselineCommit:PRODUCT});assert.equal(before.length,93);assert.equal(after.length,95);assert.deepEqual(before.filter(file=>!after.includes(file)),[]);assert.deepEqual(after.filter(file=>!before.includes(file)).sort(),['faculty-reports.css','faculty-reports.js']);assert.equal(freeze.protectedPaths({root,baselineCommit:PRODUCT,readManifest:()=>['index.html']}).length,95);
  for(const file of before.filter(file=>!['faculty-admin.html','asset-loader.js','faculty-admin.js','paws-data-client.js'].includes(file)))assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:MAIN,file}),freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
 });

@@ -1,0 +1,9 @@
+# Custom reports — pre-publication office-theme correction
+
+PR146 is merged at `25720f98be54b81bab9dd6680b87e64b21e21d0b`, not yet published. Its independent product/governance acceptance and source/archive evidence remain historical facts.
+
+Final shared-office dark-mode browser acceptance exposed an undefined `--surface-soft` light fallback behind light text. Product `ef2d053ff9963aad972c22ec6c3fa8fc53bcb149` changes only `faculty-reports.css` plus regression tests. The component now uses existing workspace ink, muted, line, white, soft and red tokens. The dark selected-result indicator uses existing gold after independent review identified red-on-dark contrast below3:1. Shared keyboard focus remains unchanged. Both issues have observed RED→GREEN regressions;10 related tests pass. Comparable1440×900 synthetic screenshots confirm readable dark surfaces and a gold selected indicator.
+
+This separate governance promotes that exact product. The95-file static union is identical; only report CSS bytes differ. Every121 API runtime file plus3 package/build inputs is identical to PR146/main. Comparison algorithms, dependency closure and CI checks are unchanged. The original reports receipt stays pinned to governanceba7d26b/producta0c1ade, including its original counts and immutable hashes; earlier Rotation evidence is preserved.
+
+The school-server loopback candidate from PR146 already passed normal administrator/Firebase and Faculty denial checks:119 faculty,2710 teaching/work ranges,201 appointment periods; CSV/Excel/page counts agree. Wide History413 is a truthful capacity guard; explicit changed-on filtering produced1 record. Source equivalence must be verified against the final official main artifact before reuse of this API acceptance. All27 gates and the existing live API remain unchanged pending the controlled coordinated API/Hosting release. This file is candidate governance, not live acceptance.

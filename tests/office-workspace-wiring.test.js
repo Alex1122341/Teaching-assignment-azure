@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const sourceFunction=require('../test-support/source-function');
 const {repositoryPath}=require('../tools/build/frontend-paths');
 const root=path.resolve(__dirname,'..'),read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
-function context(){const sync=[],nodes=new Map();const $=id=>{if(!nodes.has(id))nodes.set(id,{classList:{add(){},remove(){}},textContent:'',disabled:false});return nodes.get(id);};return {sync,nodes,$,officeWorkspace:{sync:p=>sync.push(p)},traineesEntry:null,afcForms:null,facultyArchive:null,cccReplace:null,closeHistory(){},document:{body:{classList:{add(){},remove(){}}}}};}
+function context(){const sync=[],nodes=new Map();const $=id=>{if(!nodes.has(id))nodes.set(id,{classList:{add(){},remove(){}},textContent:'',disabled:false});return nodes.get(id);};return {sync,nodes,$,officeWorkspace:{sync:p=>sync.push(p)},traineesEntry:null,reportsEntry:null,afcForms:null,facultyArchive:null,cccReplace:null,closeHistory(){},document:{body:{classList:{add(){},remove(){}}}}};}
 
 test('office pages load pure navigation capabilities and shared shell before real page controllers',()=>{
  for(const page of ['faculty-admin','teaching-assignments']){
@@ -12,7 +12,7 @@ test('office pages load pure navigation capabilities and shared shell before rea
   }
   assert.doesNotMatch(html,/src="faculty-access\.js"|firebase-firestore-compat/);
  }
- const manifest=JSON.parse(read('tools/static-assets.json'));assert.equal(manifest.length,93);assert.ok(manifest.includes('office-workspace.js'));assert.ok(manifest.includes('faculty-route-access.js'));
+ const manifest=JSON.parse(read('tools/static-assets.json'));assert.equal(manifest.length,95);assert.ok(manifest.includes('office-workspace.js'));assert.ok(manifest.includes('faculty-route-access.js'));
 });
 
 test('Calendar Dashboard and Assignments use the same Firebase identity configuration',()=>{

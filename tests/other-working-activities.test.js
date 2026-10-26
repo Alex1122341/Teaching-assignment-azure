@@ -54,7 +54,7 @@ test('errors show Retry, invalid years never issue reads, and empty results are 
  h.node('[data-other-year]').value='bad';await h.node('[data-other-year]').onchange();assert.equal(h.calls.length,1);assert.match(h.node('[data-other-results]').innerHTML,/academic year/i);
 });
 test('Faculty self mode can open the independent other-work tab and cancels it on auth reset',()=>{
- let opened=0,cleared=0;const ctx={selfMode:true,activeTab:'lookup',document:{querySelectorAll:()=>[]},$:()=>({classList:{toggle(){}},textContent:''}),otherWorkTab:{open:()=>{opened++;},clear:()=>{cleared++;}},traineesEntry:{clear(){}},renderLookup(){},authGeneration:0,lookupMetricsGeneration:0,aggregateCache:{},invalidateFacultyDetails(){}};
+ let opened=0,cleared=0;const ctx={selfMode:true,activeTab:'lookup',document:{querySelectorAll:()=>[]},$:()=>({classList:{toggle(){},add(){}},textContent:''}),otherWorkTab:{open:()=>{opened++;},clear:()=>{cleared++;}},traineesEntry:{clear(){}},reportsEntry:{clear(){}},renderLookup(){},authGeneration:0,lookupMetricsGeneration:0,aggregateCache:{},invalidateFacultyDetails(){}};
  vm.createContext(ctx);for(const name of ['selectTab','renderActiveTab','resetAuthData'])vm.runInContext(sourceFunction('faculty-admin.js',name),ctx);
  ctx.selectTab('other-work');assert.equal(opened,1);assert.equal(ctx.activeTab,'other-work');ctx.resetAuthData();assert.ok(cleared>0);
 });

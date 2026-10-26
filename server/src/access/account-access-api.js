@@ -107,6 +107,7 @@ function createAccountAccessApi({verifyToken,findUser,repository,writeEnabled=fa
     }
     const changed=await recheck(token,auth,operation);if(changed)return changed;
     const current=await repository.read(operation.targetUid);if(!current)throw Error('Saved account unavailable');
+    const finalAccess=await recheck(token,auth,operation);if(finalAccess)return finalAccess;
     return ok({profile:account(current),replayed,superseded:current.version!==operation.profile.version,operation:{operationId:operation.operationId,actorUid:operation.actorUid,targetUid:operation.targetUid,reason:operation.reason,before:{...operation.before},after:{...operation.after},savedVersion:operation.profile.version,createdAtUtc:operation.createdAtUtc}});
    }catch(error){
     const number=error.number||error.originalError?.info?.number;

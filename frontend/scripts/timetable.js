@@ -327,7 +327,6 @@
     if(!start||!end)return rows.slice();
     return rows.filter(row=>row.date>=start&&row.date<=end);
   }
-  const profileSnapshots=new Map();
   function pageProfile(){return currentUser?{...currentUser.profile,name:currentUser.name,email:currentUser.email,role:currentUser.role,facultyId:currentUser.profile?.facultyId||''}:null}
   function pageSessions(){return[...sessionCache.values()]}
   function fullSessionCacheForUser(user){
@@ -418,9 +417,11 @@
     subscribe:callback=>{pageDataSubscribers.add(callback);return()=>pageDataSubscribers.delete(callback)},
     facultyDirectory:()=>facultyDirectory.slice(),
     allSessions:()=>ensureAllSessions(),
-    profileSnapshot:uid=>{
-      if(!profileSnapshots.has(uid))profileSnapshots.set(uid,db.collection('users').doc(uid).get());
-      return profileSnapshots.get(uid);
+    profileSnapshot:async uid=>{
+      if(auth?.currentUser?.uid!==uid)throw Error('The signed-in identity changed.');
+      const profile=await getRoleProfile();
+      if(auth?.currentUser?.uid!==uid)throw Error('The signed-in identity changed.');
+      return {exists:true,data:()=>({...profile})};
     }
   };
   let scheduleSource = 'vetmed-ops-pending';
@@ -754,13 +755,13 @@
     const requestedUid=String(requestedUser?.uid||'');
     const id=String(requestedUser?.profile?.facultyId||'').trim();
     const key=`${requestedUid}:${id}`;
-    if(!db||!requestedUser||!id){clearCurrentFaculty();return Promise.resolve(null)}
+    if(!window.UCVM_PAWS_DATA||!requestedUser||!id){clearCurrentFaculty();return Promise.resolve(null)}
     if(currentFacultyRecord&&String(currentFacultyRecord.id)===id)return Promise.resolve(currentFacultyRecord);
     if(currentFacultyLoading&&currentFacultyLoadingKey===key)return currentFacultyLoading;
     let load=null;
-    load=db.collection('faculty').doc(id).get().then(doc=>{
+    load=window.UCVM_PAWS_DATA.dashboardFacultyById(id).then(detail=>{
       if(!currentUser||String(currentUser.uid||'')!==requestedUid||String(currentUser.profile?.facultyId||'').trim()!==id)return null;
-      currentFacultyRecord=doc.exists?{id:doc.id,...doc.data()}:null;
+      currentFacultyRecord=detail?.faculty?{...detail.faculty,id:detail.faculty.facultyId,preferredFullName:detail.faculty.displayName}:null;
       publishPageData();return currentFacultyRecord;
     }).catch(error=>{
       console.error('[current faculty load]',error);
@@ -790,15 +791,16 @@
     }).catch(error => console.warn('[optional faculty enrichment]', error));
   }
   function ensureFacultyDirectory(){
-    if(!db||!UCVM.admin(currentUser))return Promise.resolve([]);
+    if(!window.UCVM_PAWS_DATA||!UCVM.admin(currentUser))return Promise.resolve([]);
     if(facultyDirectory.length)return Promise.resolve(facultyDirectory.slice());
     if(facultyLoading)return facultyLoading;
-    facultyLoading=Promise.all([db.collection('faculty').get(),db.collection('settings').doc('faculty_index').get()]).then(([snapshot,indexDoc])=>{
-      const indexById=new Map((indexDoc.data()?.entries||[]).map(entry=>[String(entry.id),entry]));
-      facultyDirectory=snapshot.docs.map(d=>({__indexAssignedTeachingDOE:indexById.get(d.id)?.assignedTeachingDOE,__id:d.id,...d.data()})).filter(f=>f.active!==false).sort((a,b)=>swapFacultyName(a).localeCompare(swapFacultyName(b)));
+    const requestedUser=currentUser;
+    facultyLoading=window.UCVM_PAWS_DATA.dashboardFaculty({limit:500,status:'active'}).then(rows=>{
+      if(currentUser!==requestedUser)return [];
+      facultyDirectory=rows.map(row=>({...row,__id:String(row.facultyId),preferredFullName:row.displayName})).filter(f=>f.active!==false).sort((a,b)=>swapFacultyName(a).localeCompare(swapFacultyName(b)));
       window.dispatchEvent(new Event('ucvm:faculty-updated'));
       return facultyDirectory.slice();
-    }).catch(err=>{console.error('[faculty load for admin tools]',err);facultyDirectory=[];toast('Faculty list could not be loaded. Check admin faculty read rules.',true);return[]}).finally(()=>{facultyLoading=null});
+    }).catch(err=>{console.error('[faculty load for admin tools]',err);facultyDirectory=[];toast('The authorized faculty directory could not be loaded. Retry the University API.',true);return[]}).finally(()=>{facultyLoading=null});
     return facultyLoading;
   }
 

@@ -381,11 +381,12 @@ test('28. SQL FacultyId is authoritative and Firestore lookup cannot redefine it
   const start=s.indexOf('async function enrichFacultyIdentity');
   const body=s.slice(start,start+1500);
   assert.match(body,/const facultyId=String\(p\?\.facultyId/);
-  assert.match(body,/\.doc\(facultyId\)\.get\(\)/);
+  assert.match(body,/dashboardFacultyById\(facultyId\)/);
+  assert.doesNotMatch(body,/\.collection\('faculty'\)/);
   assert.doesNotMatch(body,/where\(['"]email['"]/);
   assert.doesNotMatch(body,/p\.facultyId\s*=/);
 });
-test('29. optional Firestore enrichment failure cannot block or revoke login',()=>{
+test('29. optional SQL enrichment failure cannot block or revoke login',()=>{
   const s=timetable();
   const start=s.indexOf('function scheduleOptionalFacultyEnrichment');
   const body=s.slice(start,start+1500);
@@ -494,7 +495,7 @@ test('REVIEW-4 stale ensureCurrentFaculty result cannot write User A faculty con
   const metrics={publish:0};
   const sandbox={
     userA:{uid:'A',profile:{facultyId:'F-A'}},
-    db:{collection(){return{doc(){return{get(){return new Promise(resolve=>{resolveDoc=resolve})}}}}}},
+    db:{},window:{UCVM_PAWS_DATA:{dashboardFacultyById:()=>new Promise(resolve=>{resolveDoc=resolve;})}},
     metrics,
     console:{error(){}}
   };
@@ -503,7 +504,7 @@ test('REVIEW-4 stale ensureCurrentFaculty result cannot write User A faculty con
   const h=vm.runInContext(code,vm.createContext(sandbox));
   const pending=h.load();
   h.setUser({uid:'B',profile:{facultyId:'F-B'}});
-  resolveDoc({exists:true,id:'F-A',data(){return{name:'Faculty A'}}});
+  resolveDoc({faculty:{facultyId:'F-A',displayName:'Faculty A'}});
   await pending;
   assert.equal(h.record(),null);
   assert.equal(metrics.publish,0);

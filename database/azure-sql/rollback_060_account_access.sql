@@ -8,6 +8,7 @@ IF EXISTS(SELECT 1 FROM sys.database_role_members WHERE role_principal_id=DATABA
 BEGIN TRANSACTION;
 DROP PROCEDURE paws_api.SetAccountAccess;
 DROP TABLE paws.AccountAccessChange;
+REVOKE SELECT ON OBJECT::paws.UserProfile (AccessVersion) FROM paws_runtime_account_access;
 ALTER TABLE paws.UserProfile DROP COLUMN AccessVersion;
 IF DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access') IS NOT NULL DROP ROLE paws_runtime_account_access;
 COMMIT;

@@ -36,6 +36,8 @@ test('SQL HICC sees own collaboration group and sanitized people, never another 
  assert.deepEqual(result.body.groups[0].members.map(row=>row.facultyId),[H,F]);assert.equal(result.body.candidates.find(row=>row.facultyId===F).displayName,'Example, Taylor');
  assert.equal(result.body.collaborationOnly,true);assert.doesNotMatch(JSON.stringify(result),/PRIVATE|ownerUid|memberUids|email|ucid|"doe"|old-orphan/);
  const owner=await api.groups('owner');assert.equal(owner.body.groups.length,2);assert.equal(owner.body.groups[0].canManageDetails,true);
+ assert.equal(owner.body.writeEnabled,true);
+ assert.equal((await fixture({writeEnabled:false}).api.groups('hicc')).body.writeEnabled,false);
 });
 
 test('stale announcements and legacy cursors return an actionable conflict without retrying a write',async()=>{
@@ -91,6 +93,21 @@ test('collaboration names never fall back to another persons email and ambiguous
  h.state.profiles.set('duplicate',{...h.state.profiles.get('faculty'),firebaseUid:'duplicate'});
  const ambiguous=await h.api.groups('hicc');assert.equal(ambiguous.body.candidates.some(row=>row.facultyId===F),false);assert.equal(ambiguous.body.groups[0].unresolvedMemberships,2);
  const saved=await h.api.updateMembers('hicc','g1',{expectedVersion:'123.000000001',memberFacultyIds:[H]});assert.equal(saved.status,200);assert.ok(h.state.groups[0].memberUids.includes('faculty'));assert.ok(h.state.groups[0].memberUids.includes('old-orphan'));
+});
+
+test('saving available group choices retains existing inactive members instead of silently deleting them',async()=>{
+ const h=fixture();h.state.profiles.get('faculty').active=false;
+ const saved=await h.api.updateMembers('hicc','g1',{expectedVersion:'123.000000001',memberFacultyIds:[H]});
+ assert.equal(saved.status,200);assert.ok(h.state.groups[0].memberUids.includes('faculty'));assert.equal(saved.body.group.members.find(row=>row.facultyId===F).available,false);
+});
+
+test('SQL revocation during the directory await prevents the group transaction from writing',async()=>{
+ for(const details of [false,true]){
+  const h=fixture(),load=h.repository.collaborators,uid=details?'owner':'hicc';
+  h.repository.collaborators=async()=>{const rows=await load();h.state.profiles.get(uid).active=false;return rows;};
+  const response=details?await h.api.saveGroup('owner','g1',{expectedVersion:'123.000000001',name:'Reviewed group',ownerFacultyId:H,courseIds:['301'],memberFacultyIds:[H]}):await h.api.updateMembers('hicc','g1',{expectedVersion:'123.000000001',memberFacultyIds:[H]});
+  assert.equal(response.status,403);assert.equal(h.state.writes,0);assert.deepEqual(h.state.groups[0].memberUids,['hicc','faculty','old-orphan']);
+ }
 });
 
 test('Owner can read preserved legacy activity without falsely labelling it as effective SQL grants',async()=>{

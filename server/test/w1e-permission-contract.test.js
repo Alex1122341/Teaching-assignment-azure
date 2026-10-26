@@ -44,6 +44,7 @@ test('account access has one dedicated unbound role and one atomic command with 
  const sql=fs.readFileSync(path.join(root,'database/azure-sql/060_account_access.sql'),'utf8');
  assert.deepEqual([...sql.matchAll(/GRANT EXECUTE ON OBJECT::([\w.]+) TO paws_runtime_account_access/g)].map(m=>m[1]),contract.accessWriteProcedures);
  assert.deepEqual([...sql.matchAll(/GRANT SELECT ON OBJECT::([\w.]+) TO paws_runtime_account_access/g)].map(m=>m[1]),contract.accessReadObjects);
+ assert.match(sql,/GRANT SELECT ON OBJECT::paws\.UserProfile\s*\(AccessVersion\) TO paws_runtime_account_access/,'the new version column needs its own column-scoped read grant');
  assert.doesNotMatch(sql,/ALTER\s+ROLE[^;]+ADD\s+MEMBER|GRANT\s+(?:UPDATE|INSERT|DELETE)\s+ON|GRANT\s+EXECUTE\s+ON\s+SCHEMA/i);
 });
 

@@ -83,5 +83,6 @@ GO
 IF DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access') IS NULL CREATE ROLE paws_runtime_account_access AUTHORIZATION dbo;
 GRANT EXECUTE ON OBJECT::paws_api.SetAccountAccess TO paws_runtime_account_access;
 GRANT SELECT ON OBJECT::paws.AccountAccessChange TO paws_runtime_account_access;
+GRANT SELECT ON OBJECT::paws.UserProfile (AccessVersion) TO paws_runtime_account_access;
 -- No principal is bound and no existing role, grant, password or profile is changed.
 COMMIT;

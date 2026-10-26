@@ -28,13 +28,14 @@
  'use strict';
  const revoked=new Set(['PROFILE_REQUIRED','PASSWORD_CHANGE_REQUIRED','ROLE_DENIED','FACULTY_LINK_REQUIRED','ACCESS_CHANGED','SESSION_REAUTH_REQUIRED']);
  function createEffectiveAccessGuard({load,onChange}){
-  let signature=null,generation=0,blocked=false,pending=null;
+  let signature=null,profileSignature=null,generation=0,blocked=false,pending=null;
   function invalidate(reason){if(blocked)return;blocked=true;generation++;onChange(reason);}
   function observe(access){
    if(blocked)return;
    if(!access||access.allowed!==true||access.status!=='ready'){invalidate(access?.status==='password_required'?'password_required':'changed');return;}
    if(typeof access.version!=='string'||! /^[a-f0-9]{16}$/i.test(access.version)){invalidate('unverified');return;}
    const next=JSON.stringify([access.role,access.facultyId||null,access.version]);
+   if(profileSignature!==null&&profileSignature!==JSON.stringify([access.role,access.facultyId||null])){invalidate('changed');return;}
    if(signature!==null&&signature!==next){invalidate('changed');return;}
    signature=next;
   }
@@ -42,7 +43,14 @@
    if(blocked)return Promise.resolve();if(pending)return pending;
    pending=Promise.resolve().then(load).then(observe,()=>invalidate('unverified')).finally(()=>{pending=null;});return pending;
   }
-  return Object.freeze({observe,check,invalidate,capture:()=>generation,current:token=>!blocked&&token===generation,
+  function observeProfile(profile){
+   if(blocked)return;
+   if(profile?.active!==true||profile?.mustChangePassword===true){invalidate(profile?.mustChangePassword?'password_required':'changed');return;}
+   const next=JSON.stringify([profile.role||profile.baseRole,profile.facultyId||null]);
+   if(signature!==null){const binding=JSON.parse(signature);if(next!==JSON.stringify(binding.slice(0,2))){invalidate('changed');return;}}
+   if(profileSignature!==null&&next!==profileSignature){invalidate('changed');return;}profileSignature=next;
+  }
+  return Object.freeze({observe,observeProfile,check,invalidate,capture:()=>generation,current:token=>!blocked&&token===generation,
    reject(error){if(revoked.has(error?.code))invalidate('changed');},
    start(surface,enabled=()=>true){const run=()=>{if(enabled())void check();};surface.addEventListener('focus',run);const timer=surface.setInterval(run,60000);return ()=>{surface.removeEventListener('focus',run);surface.clearInterval(timer);};}
   });

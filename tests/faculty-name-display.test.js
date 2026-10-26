@@ -47,14 +47,14 @@ test('UI-specific name sinks format without changing request/storage contracts',
   'adfa-swap-panel.js':['showFaculty(candidate)','value.canonicalDisplayName'],
   'faculty-admin-ccc-replacement.js':['PAWS_FACULTY_NAME?.format?.(r.displayName'],
   'teaching-assignments.js':['displayFaculty(a.facultyName'],
-  'user-management.js':['displayFaculty(user.name)'],
+  'user-management.js':['person(row.displayName)','root.PAWS_FACULTY_NAME.format(value)'],
   'workspace-tasks.js':['showFaculty(task.displayName'],
   'approval-workflow.js':['displayFacultyList(assignedArray(s)'],
   'afc-workflow-sql.js':['showFaculty(request.facultyName)']
  };
  for(const [file,patterns] of Object.entries(expected))for(const text of patterns)assert.ok(read(file).includes(text),file+' missing '+text);
  const user=read('user-management.js');
- assert.ok(user.includes('name:facultyName(faculty)'),'canonical account provisioning name stays raw');
+ assert.ok(!/name:\s*person\(/.test(user),'formatted names never become a permission edit field');
  const timetable=read('timetable.js');
  assert.ok(timetable.includes('function swapFacultyName(f)'),'original assignment-name aliases retained');
 });

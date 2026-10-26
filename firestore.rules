@@ -3,7 +3,10 @@ service cloud.firestore {
  match /databases/{database}/documents {
   function signedIn(){return request.auth != null;}
   function profile(){return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;}
-  function ready(){return signedIn() && profile().active == true && profile().role in ['owner','administrator','other_office','admin','editor','viewer','adfa_general','adfa_regular','hicc','visc','faculty'] && profile().get('mustChangePassword',false) == false;}
+  // Beta effective roles live in SQL. Retained compatibility profiles cannot
+  // independently authorize any browser business read, write or audit access.
+  // Scoped collaboration/information operations use the SQL-authorized API.
+  function ready(){return false;}
   function admin(){return ready() && profile().role in ['owner','administrator','other_office','admin','adfa_general','adfa_regular'];}
   function approver(){return ready() && profile().role in ['owner','administrator','other_office','adfa_general','adfa_regular'];}
   function general(){return ready() && profile().role in ['owner','adfa_general'];}
@@ -78,7 +81,7 @@ service cloud.firestore {
    allow create,update,delete: if false;
   }
   match /change_requests/{id} {
-   allow read: if approver() || (signedIn() && resource.data.requesterUid == request.auth.uid);
+   allow read: if false;
    allow create: if teachingWritesOpen() && validRequestCreate();
    allow update: if teachingWritesOpen() && validRequestDecision();
    allow delete: if false;

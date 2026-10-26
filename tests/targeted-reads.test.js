@@ -43,13 +43,11 @@ test('replacement accounts and change-history pages load only when requested',()
  assert.match(access,/\.limit\(PAGE_SIZE\)/);
 });
 
-test('User Management uses the lightweight faculty index until an Owner requests bulk provisioning',()=>{
+test('User Management uses bounded SQL account pages and canonical choices without a legacy faculty index read',()=>{
  const source=read('user-management.js');
- assert.match(source,/doc\('faculty_index'\)\.get\(\)/);
- const initialLoad=source.match(/async function load\(\)\{[\s\S]*?\n \}/)?.[0]||'';
- assert.doesNotMatch(initialLoad,/db\.collection\('faculty'\)\.get\(\)/);
- assert.match(source,/async function fullFaculty\(\)\{const snapshot=await db\.collection\('faculty'\)\.get\(\)/);
- assert.match(source,/async function previewProvision\(\)[\s\S]*await fullFaculty\(\)/);
+ assert.match(source,/api\.accessAccounts\(\{search,offset\}\)/);
+ assert.match(source,/api\.accessCatalog\(\)/);
+ assert.doesNotMatch(source,/faculty_index|db\.collection|fullFaculty|previewProvision/);
 });
 
 test('Timetable faculty self-service delegates exact assignment scoping to the authenticated SQL API',()=>{

@@ -50,8 +50,8 @@ Files: server/src/access/collaboration-api.js, legacy-access-store.js; server/te
 Interfaces: createCollaborationApi({verifyToken,findUser,repository,store}) -> groups/list/updateMembers, Owner group save, announcement read/publish, legacyAudit read. Store uses existing Firebase Admin app, lazily; group revision is Firestore document updateTime, actor authorization checked inside transaction before write. Group DTO canonical member FacultyIds, explicit unresolved membership count/version; no contact directory for HICC.
 
 - [x] RED SQL role mismatch/inactive/password/Owner/HICC own/cross-group; sanitized directory and no course privilege; GREEN server adapters using synthetic stores.
-- [ ] RED Firestore emulator direct privilege probes for every former account/group/info path; all denied. Required self compatibility reads/password path remain narrow. Preserve all historical records/audits.
-- [ ] Replace Information Center browser calls with SQL-authenticated server methods; test load/error/publish and role/session change. No live announcement.
+- [x] RED Firestore emulator direct privilege probes for every former account/group/info path; all denied. Required self compatibility reads/password path remain narrow. Preserve all historical records/audits.
+- [x] Replace Information Center browser calls with SQL-authenticated server methods; test load/error/publish and role/session change. No live announcement.
 
 ## Task4 — HTTP/runtime/client and revocation
 
@@ -59,16 +59,24 @@ Files: server/src/runtime/swa-account-access-functions.js, swa-sql-runtime.js, s
 
 Routes /api/v1/access/self GET, /accounts GET, /preview POST, /commit POST, /history GET, /groups GET/POST, /groups/{id}/members PATCH and /announcements GET/POST. Support routes remain denied. JSON no-store, bounded closed schemas and explicit405.
 
-- [ ] RED anonymous/wrong verb/duplicate JSON/query/oversized input and support context; GREEN route wrapper/runtime/client, dedicated gate false by default.
-- [ ] RED next-request SQL revocation with unchanged Firebase token and client old role/faculty state; GREEN shared guard and async generation invalidation; no Firestore fallback/token role authority.
+- [x] RED anonymous/wrong verb/duplicate JSON/query/oversized input and support context; GREEN route wrapper/runtime/client, dedicated gate false by default.
+- [x] RED next-request SQL revocation with unchanged Firebase token and client old role/faculty state; GREEN shared guard and async generation invalidation; no Firestore fallback/token role authority.
 
 ## Task5 — Effective User Management UI
 
 Files: frontend/pages/user-management.html, frontend/scripts/user-management.js, frontend/styles/user-management.css; tests/user-management-access.test.js.
 
-- [ ] RED Owner can list/search/edit role-active-faculty link, provide reason, see before/after, confirm and persisted readback/history. Unsupported role and Developer are explicit protected/review states.
-- [ ] RED Faculty own-summary only, HICC own-groups with sanitized candidates; stale identity, error/retry, long names and keyboard workflows. GREEN reuse existing form/style/name/role helpers, remove misleading legacy create/bulk/forced-password grant controls.
-- [ ] Actual synthetic browser desktop/narrow/dark/empty/large/error and readback; no real permission mutation. Persist comparable screenshots privately.
+- [x] RED Owner can list/search/edit role-active-faculty link, provide reason, see before/after, confirm and persisted readback/history. Unsupported role and Developer are explicit protected/review states.
+- [x] RED Faculty own-summary only, HICC own-groups with sanitized candidates; stale identity, error/retry, long names and keyboard workflows. GREEN reuse existing form/style/name/role helpers, remove misleading legacy create/bulk/forced-password grant controls.
+- [x] Actual synthetic browser desktop/narrow/dark/empty/large/error and readback; no real permission mutation. Persist comparable screenshots privately. 200% CSS zoom checked as an approximation, not a claim of native browser zoom coverage.
+
+### Implementation rulings / release dependencies
+
+- Catalog GET supplies canonical faculty choices, supported roles and actual gate state. Dedicated accountAccess and collaboration gates default false; the preceding27 domains are unchanged (candidate total29).
+- Group creation uses a caller-stable creationId; unknown, ambiguous and inactive historical members are retained. They never confer course/DOE rights. Final SQL rechecks occur after awaited directory/readback operations.
+- Retiring direct Firestore access exposed active Calendar helper reads. Replace their internals with existing scoped SQL faculty APIs; the Availability entry reuses the existing lazy Faculty Availability panel, including incomplete-coverage warnings. It does not invent a second bulk availability algorithm or claim guaranteed free time. Password completion remains separate.
+- The new AccessVersion column has an explicit column-scoped SELECT grant on the unbound feature role. Re-run exact-head disposable SQL after this addition.
+- Server read-only credential probe on2026-10-26 returned ADC_UNAVAILABLE; process/user/machine ADC path and default ADC file absent, launcher removes FIREBASE_SERVICE_ACCOUNT_JSON from child environment. The approved server Firestore adapters therefore need trusted credential configuration and bounded live read acceptance before security cutover. This is distinct from the waived dedicated Windows SQL runtime-account requirement. Do not expose credentials in chat, invent a browser fallback, or deploy rules while HICC/info replacement access is unavailable.
 
 ## Task6 — Independent review and security acceptance
 

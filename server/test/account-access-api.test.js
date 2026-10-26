@@ -52,6 +52,13 @@ test('Owner previews an exact versioned change with reason without changing acce
  assert.equal((await api.preview('admin',{targetUid:'faculty',expectedVersion:'0000000000000001',changes,reason:'Not permitted'})).status,403);
 });
 
+test('Owner revoked during saved-profile readback receives no account data after a committed operation',async()=>{
+ const h=fixture(),p=await h.api.preview('owner',{targetUid:'faculty',expectedVersion:'0000000000000001',changes:{active:false},reason:'Reviewed'}),read=h.repository.read;
+ h.repository.read=async uid=>{const profile=await read(uid);if(uid==='faculty')h.state.profiles.get('owner').active=false;return profile;};
+ const result=await h.api.commit('owner',{previewId:p.body.previewId,operationId:'00000000-0000-4000-8000-000000000098'});
+ assert.equal(result.status,403);assert.equal(result.body.profile,undefined);assert.equal(h.state.operations.size,1);
+});
+
 test('preview rejects ambiguous input, unsupported grants, protected targets and self lockout',async()=>{
  const {api,state}=fixture(),valid={targetUid:'faculty',expectedVersion:'0000000000000001',changes:{active:false},reason:'Requested review'};
  for(const patch of [{reason:''},{reason:'  '},{reason:'x'.repeat(1001)},{reason:1},{changes:{}},{changes:{active:'false'}},{changes:{role:'other_office'}},{changes:{role:'developer'}},{changes:{facultyId:null}},{changes:{facultyId:'UCID-123'}},{changes:{active:false,sql:'UPDATE profiles'}},{changes:{mustChangePassword:false}},{expectedVersion:'bad'},{extra:true},{targetUid:'x/y'}]){

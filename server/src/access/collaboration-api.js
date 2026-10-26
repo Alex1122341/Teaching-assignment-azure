@@ -72,7 +72,7 @@ function createCollaborationApi({verifyToken,findUser,repository,store,writeEnab
     if(!Array.isArray(rows)||rows.length>1000)throw Error('Invalid group source');
     const people=directory(profiles),groups=rows.filter(row=>owner(auth)||row.ownerUid===auth.uid).map(row=>groupDto(row,auth,people));
     const changed=await recheck(token,auth);if(changed)return changed;
-    return ok({groups,candidates:people.candidates,collaborationOnly:true});
+    return ok({groups,candidates:people.candidates,collaborationOnly:true,writeEnabled});
    }catch(_){return fail(503,'COLLABORATION_UNAVAILABLE','Collaboration groups could not be loaded.');}
   },
   async updateMembers(token,id,input){
@@ -92,8 +92,9 @@ function createCollaborationApi({verifyToken,findUser,repository,store,writeEnab
       if(!person||!people.available(person))reject(fail(400,'INVALID_GROUP_CHANGE','A selected member is unavailable or ambiguous. Reload the choices.'));
       return person.firebaseUid;
      });
-     for(const uid of current.memberUids||[])if(!people.resolve(uid)&&!memberUids.includes(uid))memberUids.push(uid);
+     for(const uid of current.memberUids||[])if((!people.resolve(uid)||!people.available(people.resolve(uid)))&&!memberUids.includes(uid))memberUids.push(uid);
      if(memberUids.length>1000)reject(fail(413,'GROUP_LIMIT','The group exceeds the membership limit.'));
+     const changed=await recheck(token,auth);if(changed)reject(changed);
      return {memberUids};
     }});
     const people=directory(await repository.collaborators());
@@ -114,8 +115,9 @@ function createCollaborationApi({verifyToken,findUser,repository,store,writeEnab
      if(!leader||leader.baseRole!=='hicc'||!people.available(leader))reject(fail(400,'INVALID_GROUP_CHANGE','Choose an active unambiguous SQL HICC as group owner.'));
      if(!input.memberFacultyIds.includes(leader.facultyId))reject(fail(400,'INVALID_GROUP_CHANGE','The group owner must remain a member.'));
      const memberUids=input.memberFacultyIds.map(facultyId=>{const person=people.byFaculty.get(facultyId);if(!person||!people.available(person))reject(fail(400,'INVALID_GROUP_CHANGE','A selected member is unavailable or ambiguous.'));return person.firebaseUid;});
-     for(const uid of current?.memberUids||[])if(!people.resolve(uid)&&!memberUids.includes(uid))memberUids.push(uid);
+     for(const uid of current?.memberUids||[])if((!people.resolve(uid)||!people.available(people.resolve(uid)))&&!memberUids.includes(uid))memberUids.push(uid);
      if(memberUids.length>1000)reject(fail(413,'GROUP_LIMIT','The group exceeds the membership limit.'));
+     const changed=await recheck(token,auth);if(changed)reject(changed);
      return {name:input.name.trim(),ownerUid:leader.firebaseUid,courseIds:[...new Set(input.courseIds.map(value=>value.trim()))],memberUids};
     }};
     const group=await (id?store.updateGroup(command):store.createGroup(command));

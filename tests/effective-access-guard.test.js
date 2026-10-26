@@ -20,6 +20,11 @@ test('revoked or unverifiable access clears private state, while ordinary busine
  const missing=fixture();missing.guard.observe(access({version:null}));assert.equal(missing.guard.current(missing.guard.capture()),false);
  const failed=fixture(async()=>{throw Error('Service unavailable');});failed.guard.observe(access());await failed.guard.check();assert.equal(failed.changes[0],'unverified');
 });
+
+test('an ordinary current-profile response detects changed scope before the next polling interval',()=>{
+ const h=fixture();h.guard.observe(access());assert.equal(typeof h.guard.observeProfile,'function');h.guard.observeProfile({active:true,role:'hicc',facultyId:'faculty-a'});assert.equal(h.changes.length,1);
+ const race=fixture();race.guard.observeProfile({active:true,role:'faculty',facultyId:'faculty-a'});race.guard.observe(access({facultyId:'faculty-b'}));assert.equal(race.changes.length,1);
+});
 test('focus and polling checks share one pending authoritative read and teardown stops listeners',async()=>{
  let done,reads=0;const h=fixture(()=>{reads++;return new Promise(resolve=>done=resolve);});h.guard.observe(access());
  const events=new Map(),timers=new Map();let serial=0;

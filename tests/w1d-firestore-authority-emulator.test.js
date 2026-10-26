@@ -102,17 +102,17 @@ check('anonymous access and unmatched fallback paths remain denied',async()=>{
  await assertFails(setDoc(doc(owner,'unclassified_business/new'),{value:'must stay private'}));
 });
 
-check('retained User, Group, account audit, and public information features retain their intended Firestore scope',async()=>{
+check('compatibility User, Group, audit and information paths cannot bypass effective SQL authority',async()=>{
  const {assertFails,assertSucceeds}=require('@firebase/rules-unit-testing');
  const {doc,setDoc,updateDoc,deleteDoc,serverTimestamp}=require('firebase/firestore');
  const owner=env.authenticatedContext('owner').firestore(),hicc=env.authenticatedContext('hicc').firestore();
- await assertSucceeds(setDoc(doc(owner,'users/new-user'),{name:'New User',email:'new@example.test',role:'faculty',facultyId:'f3',active:true,mustChangePassword:true,updatedBy:'owner',updatedByName:'Owner',updatedAt:serverTimestamp(),createdAt:serverTimestamp()}));
- await assertSucceeds(setDoc(doc(owner,'faculty_groups/new-group'),{name:'Group',ownerUid:'hicc',courseIds:['301'],memberUids:['hicc'],createdAt:serverTimestamp(),updatedBy:'owner',updatedAt:serverTimestamp()}));
- await assertSucceeds(updateDoc(doc(hicc,'faculty_groups/new-group'),{memberUids:['hicc','faculty'],updatedBy:'hicc',updatedAt:serverTimestamp()}));
- await assertSucceeds(setDoc(doc(owner,'account_audit/new'),{action:'group_members_updated',changedBy:'owner',changedAt:serverTimestamp()}));
+ await assertFails(setDoc(doc(owner,'users/new-user'),{name:'New User',email:'new@example.test',role:'faculty',facultyId:'f3',active:true,mustChangePassword:true,updatedBy:'owner',updatedByName:'Owner',updatedAt:serverTimestamp(),createdAt:serverTimestamp()}));
+ await assertFails(setDoc(doc(owner,'faculty_groups/new-group'),{name:'Group',ownerUid:'hicc',courseIds:['301'],memberUids:['hicc'],createdAt:serverTimestamp(),updatedBy:'owner',updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(doc(hicc,'faculty_groups/new-group'),{memberUids:['hicc','faculty'],updatedBy:'hicc',updatedAt:serverTimestamp()}));
+ await assertFails(setDoc(doc(owner,'account_audit/new'),{action:'group_members_updated',changedBy:'owner',changedAt:serverTimestamp()}));
  await assertFails(updateDoc(doc(owner,'account_audit/new'),{action:'rewritten'}));
  await assertFails(deleteDoc(doc(owner,'account_audit/new')));
- await assertSucceeds(setDoc(doc(owner,'public_info/information_center'),{messages:[{id:'m1',title:'Notice',body:'Message'}],updatedBy:'owner',updatedAt:serverTimestamp()}));
+ await assertFails(setDoc(doc(owner,'public_info/information_center'),{messages:[{id:'m1',title:'Notice',body:'Message'}],updatedBy:'owner',updatedAt:serverTimestamp()}));
  await assertFails(setDoc(doc(owner,'public_schedule/ccc_events'),{events:[],updatedBy:'owner',updatedAt:serverTimestamp()}));
 });
 

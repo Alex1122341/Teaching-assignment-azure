@@ -46,7 +46,7 @@
     const apiOrigin=validateApiOrigin(API_ORIGIN);
     let writeCapabilities=Object.freeze({});
     let facultyAdminWriteCapability=false;
-    const guard=()=>accessGuard||root?.UCVM_EFFECTIVE_ACCESS?.guard;
+    const guard=()=>accessGuard||(!root?.PAWS_SUPPORT?.contextId?.()?root?.UCVM_EFFECTIVE_ACCESS?.guard:null);
     function checkGeneration(generation){if(generation!==undefined&&!guard()?.current(generation)){const error=Error('Your effective access changed. Reload before continuing.');error.code='ACCESS_CHANGED';error.status=403;throw error;}}
 
     // Translates a response into the existing error contract: {status, code, message}.
@@ -126,11 +126,13 @@
       const generation=path==='/api/v1/access/self'?undefined:guard()?.capture();
       const body=await settle(await authenticatedResponse(path,options));
       if(path==='/api/v1/access/self')guard()?.observe(body.access);else checkGeneration(generation);
+      if(path==='/api/v1/me'){guard()?.observeProfile?.(body.profile);checkGeneration(generation);}
       if(path==='/api/v1/me'&&typeof root?.dispatchEvent==='function'&&typeof root?.CustomEvent==='function')root.dispatchEvent(new root.CustomEvent('paws-profile',{detail:body}));
       return body;
     }
 
     async function requestBinary(path,options={}){
+      const generation=guard()?.capture();
       const response=await authenticatedResponse(path,{...options,accept:'application/pdf'});
       if(!response.ok)return settle(response);
       const contentType=String(response.headers?.get?.('content-type')||'').split(';',1)[0].trim().toLowerCase();
@@ -142,18 +144,21 @@
         const error=Error('The PAWS data service returned an invalid artifact response.');
         error.code='INVALID_ARTIFACT_RESPONSE';error.status=response.status;throw error;
       }
+      const bytes=new Uint8Array(await response.arrayBuffer());checkGeneration(generation);
       return{
-        bytes:new Uint8Array(await response.arrayBuffer()),
+        bytes,
         contentType:'application/pdf',
         contentDisposition:String(response.headers?.get?.('content-disposition')||'')
       };
     }
 
     async function requestTraineeCsv(path){
+      const generation=guard()?.capture();
       const response=await authenticatedResponse(path,{accept:'text/csv'});
       if(!response.ok)return settle(response);
       if(String(response.headers?.get?.('content-type')||'').split(';',1)[0].trim().toLowerCase()!=='text/csv'||typeof response.arrayBuffer!=='function')throw Object.assign(Error('Invalid trainee CSV response.'),{code:'INVALID_ARTIFACT_RESPONSE'});
       const bytes=new Uint8Array(await response.arrayBuffer());
+      checkGeneration(generation);
       if(bytes.length>8388608)throw Object.assign(Error('Narrow the trainee filters before exporting.'),{code:'INVALID_ARTIFACT_RESPONSE'});
       return {bytes,contentType:'text/csv; charset=utf-8'};
     }

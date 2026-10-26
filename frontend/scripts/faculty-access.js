@@ -69,9 +69,10 @@ window.UCVM=(()=>{
   const facultyId=String(p?.facultyId||'').trim();
   if(!facultyId)return null;
   try{
-   const d=await firebase.firestore().collection('faculty').doc(facultyId).get();
-   if(!d.exists)return null;
-   const f=d.data()||{},raw=String(f.preferredFullName||f.hrFullName||f.name||'').trim(),comma=raw.match(/^([^,]+),\s*(.+)$/),firstLast=String(f.hrFirstLast||f.teachingAssignmentName||((f.firstName&&f.lastName)?`${f.firstName} ${f.lastName}`:'')||(comma?`${comma[2]} ${comma[1]}`:'')||raw||p.instructor||p.name||'').trim(),name=firstLast;
+   if(!window.UCVM_PAWS_DATA)return null;
+   const detail=await window.UCVM_PAWS_DATA.dashboardFacultyById(facultyId),f=detail?.faculty;
+   if(!f)return null;
+   const name=String(f.displayName||p.instructor||p.name||'').trim();
    if(name)p.instructor=name;
    p.facultyDirectoryMatch={id:facultyId,email:String(f.email||'').trim(),name};
    return p.facultyDirectoryMatch;

@@ -234,6 +234,14 @@
       "sourceSha256": "17d929dac66419560bd49898d037c0144f575edd6a5b2f6239ea69c9866a7d22",
       "guardCount": 1
     },
+    "058_role_appointment_rowversion_hex.sql": {
+      "sourceSha256": "6c2b176417c44bd27ffea1fa240068ffa941a9233f65b7a9f494efca14755b32",
+      "guardCount": 1
+    },
+    "059_swap_approval_read.sql": {
+      "sourceSha256": "6e5a9d5b49ae68a3928b15ad7d713b1e43530e8dc0f7288f271f39ee47acc9f8",
+      "guardCount": 1
+    },
     "seed-base.sql": {
       "sourceSha256": "24cf7e2b22da75c46509b21d7b8769934e3f09f304b070c8c1fd2902471adbe1",
       "guardCount": 0

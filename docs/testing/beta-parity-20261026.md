@@ -43,6 +43,8 @@ These are **source-code integration claims**, not proof that the features are li
 - **110/110 focused functional tests pass** (12 files: Calendar Search, HICC/Lab grouping, Rotation Calendar, HICC/VISC directory, Faculty Reports, Reports client, Swap approval, and History compact view).
 - A separate 54-file selection was intentionally stopped after ~215 tests due repeated long-running **immutable Beta production freeze** mismatches. At least 10 history/report/availability governance assertions failed from intentional Testing overlays. This selection is **not a passing complete test run**, and the Production freeze was not weakened.
 - Do not interpret source parity or focused unit tests as authenticated browser UAT.
+- Reviewed two additional accepted Beta SQL migrations omitted from the previous University Testing allow-list: `058_role_appointment_rowversion_hex.sql` (role period rowversion serialization) and `059_swap_approval_read.sql` (scoped Swap approval-read projections). Both passed static scoped SQL validation and have one explicit VetMed-Ops guard each; their SHA-256 hashes and guard counts are now pinned in `tools/testing-db/university-guard-manifest.json`.
+- University Testing migration/DB administration tests: **46/46 passed** after allow-list correction. Added explicit UAT scenarios for the new Beta Calendar, directory, Reports, Role Period and Swap Approval features in `fixture-coverage.json`. No SQL migrations were executed on a database.
 
 ## Blocks to actual Testing use
 

@@ -1,0 +1,82 @@
+# Effective Access Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans. Implement sequentially, TDD per vertical slice, then independent whole-branch review. Standing owner instruction selects recommended implementation choices and no further grilling.
+
+**Goal:** Complete ledger26 baseline and27 actual Owner-managed SQL access with enforceable revocation and preserved scoped collaboration.
+
+**Architecture:** SQL UserProfile owns effective access; an atomic versioned command records every permission change. SQL-authorized adapters retain surviving legacy collaboration/announcements, replacing direct Firestore privileges.
+
+**Tech Stack:** Existing vanilla JS, Node22/CommonJS, SQL Server, Firebase Auth/Admin, existing tests and emulator; no new dependency.
+
+**Spec:** docs/superpowers/specs/2026-10-26-effective-access-design.md
+
+## Global constraints
+
+- Beta/SQL explicitly selected; preserve protected downloaded folder and existing worktree; feature branch only.
+- Owner-only existing-profile grants; Developer protected; no new Auth/password/course permissions, no production account/group mutations during acceptance.
+- Reason, preview, rowversion, last-ready-Owner, idempotency, persisted readback and atomic audit required.
+- Groups grant collaboration only. Preserve actual HICC own-membership functionality through server; sanitized names, no other Faculty contact/UCID/DOE.
+- No broadening current roles, support impersonation, DOE logic, approval or Firestore rules. New access-control gate defaults false; existing27 gates unchanged.
+- Bounded list1000profiles with sentinel, search and50row pages; previews10minutes,2own/8global; reason1–1000chars, JSON32KiB. Reject unsupported/duplicate input keys.
+
+## Review focus
+
+- Actor demoted or disabled during await: SQL recheck rejects; no write/audit partial result.
+- Target goes A→B→A: rowversion rejects old preview, even matching values.
+- Two Owners edited concurrently: serializable last-owner check prevents lockout/deadlock retry from double-committing.
+- SQL-revoked but Firestore-privileged identity: direct rule requests denied, group/info routes deny from fresh SQL, client clears private state.
+- Successful commit with response/readback failure: idempotent retry identifies same intent; never falsely reports changed access or reapplies another patch.
+
+## Task1 — Fresh baseline and authority inventory
+
+- [ ] Pin both main refs, release/API/SQL aggregate receipts, legacy consumers, existing supported roles. Write docs/audits/2026-10-26-effective-access/{BASELINE,DIFFERENCE_LEDGER,ACCESS_MATRIX}.md. Classify historical task26 and remaining27 accurately.
+- [ ] Record approved decisions and sequential plan; no business writes. Preserve prior release docs as history.
+
+## Task2 — SQL access command and Owner API
+
+Files: server/src/access/account-access-policy.js, account-access-api.js; server/src/data/sql-account-access-repository.js; database/azure-sql/060_account_access.sql and060_account_access_acceptance.sql; server/test/account-access-{policy,api,sql}.test.js.
+
+Interfaces: normalizeAccessPatch(input) -> {role,active,facultyId}; createAccountAccessApi({verifyToken,findUser,repository,writeEnabled,clock?,randomId?}) -> self(token),list(token,{search,offset}),preview(token,{targetUid,expectedVersion,changes,reason}),commit(token,{previewId,operationId}),history(token,{targetUid,offset}). repository.list/read/commit/history/eligibleFaculty; commit receives actorUid,actorVersion,targetUid,expectedVersion,after,reason,operationId,intentHash. Returns persisted profile and immutable operationId/audit/time, replay flag.
+
+- [ ] RED Owner/Faculty/admin/Developer allow-deny via public API; unknown fields, scope/link validation; implement minimal policy and readback.
+- [ ] RED preview/commit, changed actor/target, expiry/cross-owner/ABA, reason/gate and protected/self/last-owner behavior; GREEN one slice at a time.
+- [ ] Add SQL060 rowversion + operation receipt table + atomic stored procedure, version/reason/Owner rechecks and idempotent intent. No profile grants rewritten.
+- [ ] Disposable SQL acceptance must prove persisted readback + audit, conflicting retries, stale/ABA, two-Owner concurrency and rollback; add guarded workflow test integration. Do not use production for fixtures.
+
+## Task3 — Scoped legacy server adapters and closed client boundary
+
+Files: server/src/access/collaboration-api.js, legacy-access-store.js; server/test/collaboration-api.test.js; tests/effective-access-rules.test.js; firestore.rules; frontend/scripts/information-center.js.
+
+Interfaces: createCollaborationApi({verifyToken,findUser,repository,store}) -> groups/list/updateMembers, Owner group save, announcement read/publish, legacyAudit read. Store uses existing Firebase Admin app, lazily; group revision is Firestore document updateTime, actor authorization checked inside transaction before write. Group DTO canonical member FacultyIds, explicit unresolved membership count/version; no contact directory for HICC.
+
+- [ ] RED SQL role mismatch/inactive/password/Owner/HICC own/cross-group; sanitized directory and no course privilege; GREEN server adapters using synthetic stores.
+- [ ] RED Firestore emulator direct privilege probes for every former account/group/info path; all denied. Required self compatibility reads/password path remain narrow. Preserve all historical records/audits.
+- [ ] Replace Information Center browser calls with SQL-authenticated server methods; test load/error/publish and role/session change. No live announcement.
+
+## Task4 — HTTP/runtime/client and revocation
+
+Files: server/src/runtime/swa-account-access-functions.js, swa-sql-runtime.js, swa-api/index.js; frontend/scripts/paws-data-client.js and new effective-access-guard.js; tests and server/test equivalents.
+
+Routes /api/v1/access/self GET, /accounts GET, /preview POST, /commit POST, /history GET, /groups GET/POST, /groups/{id}/members PATCH and /announcements GET/POST. Support routes remain denied. JSON no-store, bounded closed schemas and explicit405.
+
+- [ ] RED anonymous/wrong verb/duplicate JSON/query/oversized input and support context; GREEN route wrapper/runtime/client, dedicated gate false by default.
+- [ ] RED next-request SQL revocation with unchanged Firebase token and client old role/faculty state; GREEN shared guard and async generation invalidation; no Firestore fallback/token role authority.
+
+## Task5 — Effective User Management UI
+
+Files: frontend/pages/user-management.html, frontend/scripts/user-management.js, frontend/styles/user-management.css; tests/user-management-access.test.js.
+
+- [ ] RED Owner can list/search/edit role-active-faculty link, provide reason, see before/after, confirm and persisted readback/history. Unsupported role and Developer are explicit protected/review states.
+- [ ] RED Faculty own-summary only, HICC own-groups with sanitized candidates; stale identity, error/retry, long names and keyboard workflows. GREEN reuse existing form/style/name/role helpers, remove misleading legacy create/bulk/forced-password grant controls.
+- [ ] Actual synthetic browser desktop/narrow/dark/empty/large/error and readback; no real permission mutation. Persist comparable screenshots privately.
+
+## Task6 — Independent review and security acceptance
+
+- [ ] Full-branch standards/spec review; reproduce/fix actionable findings RED→GREEN. Separate independently reviewed freeze promotion preserves union and algorithms.
+- [ ] Exact-head root/server/emulator/disposable SQL and build/four freezes pass. Prepare rules/app/API rollback and staged identity coverage. No production acceptance writes.
+
+## Task7 — Controlled publication and original tracker
+
+- [ ] Merge only accepted PR; exact-main CI official ZIP + freezes. Stage API/read-only role checks and compare all previous gates; retain old runtime/config/artifact.
+- [ ] Coordinate API, Hosting and separately reviewed restrictive Firestore rules using accepted files; verify fresh source/rules identity/public hashes/SQL/CORS/recovery/normal login. Do not activate unaccepted grants or mutate real accounts.
+- [ ] Write original Excel26/27 with precise scope and pending human signoff, preserve native features; fresh continuity update. SEC-01 completion requires actual full acceptance above, not this plan or an explanatory UI.

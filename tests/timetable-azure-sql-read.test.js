@@ -24,10 +24,12 @@ test('working activity ranges use SQL outside the timed session grid and clear o
   assert.ok(html.indexOf('calendar-activities.js')<html.indexOf('src="timetable.js"'));
 });
 
-test('faculty schedule uses self scope or the authorized administrator mapping and import is admin only',()=>{
+test('independent other-work tab uses authenticated range scope and import remains admin only',()=>{
   const dashboard=fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.js'),'utf8');
-  assert.match(dashboard,/createFacultySchedule/);
-  assert.match(fs.readFileSync(repositoryPath(process.cwd(), 'calendar-activities.js'),'utf8'),/loadFacultyRange\(facultyId,range,\{self:isSelf\(\)\}\)/);
+  assert.match(dashboard,/createOtherWorkTab/);
+  const activities=fs.readFileSync(repositoryPath(process.cwd(), 'calendar-activities.js'),'utf8');
+  assert.match(activities,/view\.loadRange\(range,\{onCancel:'throw'\}\)/);
+  assert.doesNotMatch(activities.slice(activities.indexOf('function createOtherWorkTab')),/includeFacultyKeys/);
   assert.match(dashboard,/PAWS_ACTIVITY_IMPORT\?\.createAdminEntry/);
   assert.match(dashboard,/workImport\?\.clear/);
   assert.match(dashboard,/!selfMode && dashboardAdmin\(currentUser\)/);

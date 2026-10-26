@@ -62,6 +62,8 @@ Interface: read-only module/controller using existing authorized range APIs, aca
 
 ## Execution rulings and checkpoint
 
+- Owner confirmed the pending classification question: use activity ownership (other work outside CCC/Rotation/teaching), regardless of faculty assignment. This matches the implemented recommended interpretation.
+
 - Ruling: keep the existing ordinary export domain teaching-only rather than silently reclassifying work projections as teaching assignments. Clarify its copy now; cross-domain reports/exports belong to tasks23–25 after user clarification. Costs: ordinary teaching CSV/ICS does not include the new readonly activity projections; do not claim it does.
 - Ruling: render projected work by exact visible dates rather than the teaching week ordinal, preventing DST week arithmetic from hiding a correctly dated activity. Source dates/evidence remain unchanged.
 - Ruling: retain the existing API whose SQL053 enforces Faculty/HICC/VISC own-Faculty scope; the new tab does not request administrator key mappings. API/backend/SQL/rules are unchanged.

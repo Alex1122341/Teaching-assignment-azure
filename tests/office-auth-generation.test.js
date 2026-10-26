@@ -9,7 +9,7 @@ function harness(page){
  const firebase={apps:[{}],auth:()=>auth};firebase.auth.Auth={Persistence:{LOCAL:'local'}};
  const ctx={console:{error(){}},performance:{now:()=>0},firebase,FIREBASE_CONFIG:{},auth,authGeneration:0,currentUser:null,profile:null,
   $,document:{body:{classList:{add(){},remove(){}}},querySelector:()=>node('query'),querySelectorAll:()=>[]},window:{},location:{replace:()=>events.push('redirect')},
-  officeWorkspace:{sync:p=>events.push(p?.role||'LOCK')},traineesEntry:null,afcForms:null,facultyArchive:null,cccReplace:null,workView:null,workImport:null,
+  officeWorkspace:{sync:p=>events.push(p?.role||'LOCK')},traineesEntry:null,otherWorkTab:null,afcForms:null,facultyArchive:null,cccReplace:null,workView:null,workImport:null,
   UCVM_PAWS_DATA:{currentUser:()=>{const r=deferred();requests.push(r);return r.promise;}},
   bindUI(){},cameFromTimetable:()=>false,lock:()=>events.push('LOCK'),unlock:()=>events.push(ctx.profile?.role||'LOCK'),
   pawsTimingLog(){},dashboardAuthFailureMessage:()=>'',dashboardAdmin:p=>['adfa_general','administrator'].includes(p?.role),isSelfServiceProfile:p=>p?.role==='faculty',

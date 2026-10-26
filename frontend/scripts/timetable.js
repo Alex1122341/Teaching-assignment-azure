@@ -1374,7 +1374,7 @@
     layoutDaySessions(calendarDisplaySessions(data,{gridOnly:true})).forEach(item=>{
       const s=item.session,startM=Math.max(DAY_START,item.startM),endM=Math.min(DAY_END,item.endM);if(endM<=startM)return;
       const top=((startM-DAY_START)/SPAN)*100,height=Math.max(3.5,((endM-startM)/SPAN)*100),laneWidth=100/item.laneCount,left=item.lane*laneWidth;
-      html+=`<div class="tg-block ${colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${s.labDisplayCount>1?'':window.PAWS_SWAP?.isPending(s.id)?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':(s.room?` | ${escapeHtml(s.room)}`:'')+'<br>'+escapeHtml(displayFacultyList(s.instructor||'TBD'))}</div></div>`;
+      html+=`<div class="tg-block ${colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${(Array.isArray(s.labDisplayIds)?s.labDisplayIds:[s.id]).some(id=>window.PAWS_SWAP?.isPending(id))?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':(s.room?` | ${escapeHtml(s.room)}`:'')+'<br>'+escapeHtml(displayFacultyList(s.instructor||'TBD'))}</div></div>`;
     });
     html+='</div></div>'+(window.PAWS_TASKS?'':unpositionedSessionsHtml(data));$('calendar-body').innerHTML=html;bindSessionBlocks();
   }
@@ -1410,7 +1410,7 @@
         const height = Math.max(3.5, ((endM - startM) / SPAN) * 100);
         const laneWidth=100/item.laneCount, left=item.lane*laneWidth;
         html += `<div class="tg-block ${colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)">
-          <div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${s.labDisplayCount>1?'':window.PAWS_SWAP?.isPending(s.id)?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div>
+          <div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${(Array.isArray(s.labDisplayIds)?s.labDisplayIds:[s.id]).some(id=>window.PAWS_SWAP?.isPending(id))?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div>
           <div class="tg-block-l2">${escapeHtml(s.topic)}</div>
           <div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':(s.room ? ` | ${escapeHtml(s.room)}` : '')+'<br>'+escapeHtml(displayFacultyList(s.instructor || 'TBD'))}</div>
         </div>`;

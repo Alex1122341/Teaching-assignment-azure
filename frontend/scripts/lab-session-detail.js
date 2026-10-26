@@ -61,7 +61,7 @@
         if(!run.length)return;
         const first=run[0];
         const result=run.length===1?first.row:{...first.row,start:clock(first.start),
-          end:clock(lastEnd),labDisplayCount:run.length};
+          end:clock(lastEnd),labDisplayCount:run.length,labDisplayIds:run.map(item=>String(item.row.id))};
         output.push({order:Math.min(...run.map(item=>item.order)),row:result});
         run=[];lastEnd=-1;
       }

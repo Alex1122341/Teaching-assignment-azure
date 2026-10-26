@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
- const sourceFunction=require('../test-support/source-function'),placement=require('../frontend/scripts/calendar-activity-placement'),search=require('../frontend/scripts/calendar-search');
+ const sourceFunction=require('../test-support/source-function'),placement=require('../frontend/scripts/calendar-activity-placement'),search=require('../frontend/scripts/calendar-search'),lab=require('../frontend/scripts/lab-session-detail');
 const rotation={id:'activity:a:2026-10-01',date:'2026-10-01',week:6,semester:'fall',year:null,course:'Rotation',type:'Rotation',activityCategory:'rotation_participant',isWorkingActivity:true,readOnlyActivity:true,sourceActivity:{category:'rotation_participant',startDate:'2026-10-01',endDate:'2026-10-02'},start:'08:30',end:'16:30',timeDefaulted:true,topic:'Rotation',instructor:'Example, Alex'};
 function filterHarness(year){
  const fields={'search-input':{value:''},'filter-month':{value:'all'}},ctx={window:{PAWS_ACTIVITY_PLACEMENT:placement},selectedYear:year,selectedSemester:'fall',courseFilterActive:false,selectedCourses:new Set(),myTimetableOnly:false,currentUser:{uid:'u'},parseYmd:s=>new Date(s),$ :id=>fields[id],sessions:[],activityTypeFilter:{setSessionTypes(){},matchesSession:()=>true,matchesActivity:()=>true}};
@@ -26,7 +26,7 @@ test('Calendar finds a projected activity by displayed surname and independent k
 test('Month keeps every matching activity accessible through a native overflow disclosure',()=>{
  const body={innerHTML:''},label={textContent:''},rows=Array.from({length:5},(_,i)=>({...rotation,id:'rotation-'+i,date:'2026-10-19'}));
  const ctx={selectedWeek:9,selectedSemester:'fall',weekStart:()=>new Date(2026,9,19),$:id=>id==='filter-month'?{value:'all'}:id==='calendar-body'?body:label,addDays:(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n),ymd:d=>d.toISOString().slice(0,10),calendarSourceSessions:()=>rows,filteredSessions:r=>r,DAYS:['Mon','Tue','Wed','Thu','Fri'],colorsOn:false,escapeHtml:String,sessionTypeClass:()=>'',bindSessionBlocks(){}};
- vm.createContext(ctx);vm.runInContext(sourceFunction('timetable.js','renderMonth'),ctx);ctx.renderMonth();
+ ctx.selectionMode=false;ctx.window={UCVM_LAB_DETAIL:lab};vm.createContext(ctx);vm.runInContext(sourceFunction('timetable.js','calendarDisplaySessions'),ctx);vm.runInContext(sourceFunction('timetable.js','renderMonth'),ctx);ctx.renderMonth();
  for(const row of rows)assert.match(body.innerHTML,new RegExp('data-session-id="'+row.id+'"'));
  assert.match(body.innerHTML,/<details[^>]*class="cal-more"/);assert.match(body.innerHTML,/<summary[^>]*>1 more/);
 });
@@ -35,7 +35,7 @@ test('Calendar type picker can restrict working categories to only its two sched
  assert.equal(filter.matchesActivity({category:'clinical_day'}),false);assert.equal(filter.matchesActivity({category:'ccc'}),true);assert.equal(filter.matchesActivity({category:'rotation_participant'}),true);
 });
 test('visible projected dates do not disappear at a daylight-saving week boundary',()=>{
- const node={innerHTML:'',textContent:''},ctx={selectedWeek:11,selectedSemester:'winter',weekStart:()=>new Date(2027,2,15),addDays:(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n),formatDate:()=>'',filteredSessions:r=>r,calendarSourceSessions:()=>[{...rotation,date:'2027-03-15',week:10}],CALENDAR_DAY_START:450,CALENDAR_DAY_END:1020,DAYS:['Mon','Tue','Wed','Thu','Fri'],ymd:d=>d.toISOString().slice(0,10),layoutDaySessions:()=>[],escapeHtml:String,window:{PAWS_TASKS:{}},bindSessionBlocks(){},$:()=>node};vm.createContext(ctx);vm.runInContext(sourceFunction('timetable.js','renderWeek'),ctx);ctx.renderWeek();assert.equal(ctx.renderedSessions.length,1);
+ const node={innerHTML:'',textContent:''},ctx={selectedWeek:11,selectedSemester:'winter',weekStart:()=>new Date(2027,2,15),addDays:(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n),formatDate:()=>'',filteredSessions:r=>r,calendarSourceSessions:()=>[{...rotation,date:'2027-03-15',week:10}],CALENDAR_DAY_START:450,CALENDAR_DAY_END:1020,DAYS:['Mon','Tue','Wed','Thu','Fri'],ymd:d=>d.toISOString().slice(0,10),layoutDaySessions:()=>[],escapeHtml:String,window:{PAWS_TASKS:{},UCVM_LAB_DETAIL:lab},selectionMode:false,bindSessionBlocks(){},$:()=>node};vm.createContext(ctx);vm.runInContext(sourceFunction('timetable.js','calendarDisplaySessions'),ctx);vm.runInContext(sourceFunction('timetable.js','renderWeek'),ctx);ctx.renderWeek();assert.equal(ctx.renderedSessions.length,1);
 });
 test('My Timetable accepts only the activity scope already loaded for this exact identity and faculty',()=>{
  const ctx={currentUser:{uid:'u',profile:{facultyId:'f'}},swapNameKey:()=>'',splitInstructorNames:()=>[]};vm.createContext(ctx);vm.runInContext(sourceFunction('timetable.js','sessionBelongsToCurrentFaculty'),ctx);

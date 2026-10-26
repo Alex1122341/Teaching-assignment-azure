@@ -9,7 +9,7 @@ const directory=require('../frontend/scripts/leadership-directory');
 const sourceFunction=require('../test-support/source-function');
 
 const labRow=(id,start,end,extra={})=>({
- id,date:'2026-10-26',academicYear:'2026-27',year:2,course:'306',
+ id,date:'2026-10-26',academicYear:'2026-27',year:2,week:1,semester:'fall',course:'306',
  type:'LAB',topic:'Clinical Skills',start,end,room:'Room '+id,instructor:'Faculty '+id,...extra
 });
 const directoryRow=(roleType,scope,facultyName,status='active',extra={})=>({

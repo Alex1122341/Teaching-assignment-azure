@@ -1,4 +1,9 @@
 'use strict';
+require('node:test')('duplicate JSON properties, including escaped nested keys, are rejected before API dispatch',async()=>{
+ const h=harness(),assert=require('node:assert/strict');
+ for(const body of ['{"academicYear":"2026-27","academicYear":"2027-28","datasets":[]}','{"datasets":[{"filters":[{"field":"remainingDoe","op":"gte","value":0}],"filt\\u0065rs":[]}]}','{"datasets":[{"sort":{"field":"facultyName","field":"remainingDoe"}}]}'])assert.equal((await h.handle(request('query',{method:'POST',headers:{'content-type':'application/json'},body}))).status,400);
+ const onlyParsed={url:'http://local/api/v1/reports/query',method:'POST',headers:new Headers({'content-type':'application/json'}),json:async()=>({})};assert.equal((await h.handle(onlyParsed)).status,400);assert.equal(h.calls.length,0);
+});
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createReportFunctions}=require('../src/runtime/swa-report-functions');
 function harness(){const calls=[],api=Object.fromEntries(['catalog','query','page','export'].map(method=>[method,async(...args)=>{calls.push({method,args});return {status:200,body:{method}};}]));return {calls,handle:createReportFunctions({api})};}

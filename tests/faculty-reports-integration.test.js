@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const {repositoryPath}=require('../tools/build/frontend-paths');
+test('reports preserve the shared contrast-aware keyboard focus token',()=>{assert.match(fs.readFileSync(repositoryPath(process.cwd(),'faculty-reports.css'),'utf8'),/focus-visible\{outline:2px solid var\(--workspace-focus/);});
 test('reports are deferred, administrator-only and included once in the static manifest',()=>{
  const read=p=>fs.readFileSync(repositoryPath(process.cwd(),p),'utf8'),html=read('faculty-admin.html'),admin=read('faculty-admin.js'),assets=JSON.parse(fs.readFileSync('tools/static-assets.json'));
  assert.match(html,/id="reports-tab"/);assert.match(html,/id="reports-view"/);assert.doesNotMatch(html,/<script[^>]+src="faculty-reports.js"/);assert.match(admin,/createReportEntry/);assert.match(admin,/tabName==='reports'&&!dashboardAdmin/);assert.equal(assets.filter(p=>p==='faculty-reports.js').length,1);assert.equal(assets.filter(p=>p==='faculty-reports.css').length,1);

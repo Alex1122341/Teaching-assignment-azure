@@ -1,5 +1,14 @@
 'use strict';
 const PREFIX='/api/v1/reports/';
+function uniqueJson(raw){
+ const result=JSON.parse(raw),stack=[];
+ for(const [token] of raw.matchAll(/"(?:[^"\\]|\\.)*"|[{}\[\],]/g)){
+  if(token==='{')stack.push({keys:new Set(),key:true});else if(token==='[')stack.push(null);
+  else if(token==='}'||token===']')stack.pop();else if(token===','){if(stack.at(-1))stack.at(-1).key=true;}
+  else if(stack.at(-1)?.key){const frame=stack.at(-1),key=JSON.parse(token);if(frame.keys.has(key))throw Error('Duplicate JSON key');frame.keys.add(key);frame.key=false;}
+ }
+ return result;
+}
 function createReportFunctions({api}){
  return async request=>{
   const headers={'Cache-Control':'private, no-store'},error=(status,code,message)=>({status,headers,jsonBody:{error:{code,message}}});
@@ -14,8 +23,8 @@ function createReportFunctions({api}){
    if(name==='query'){
     if(String(request.headers?.get?.('content-type')||'').split(';')[0].trim().toLowerCase()!=='application/json')return error(415,'JSON_REQUIRED','JSON is required.');
     try{
-     if(typeof request.text==='function'){const text=await request.text();if(Buffer.byteLength(text)>65536)return error(413,'REPORT_LIMIT','The report definition is too large.');input=JSON.parse(text);}
-     else{input=await request.json();if(Buffer.byteLength(JSON.stringify(input))>65536)return error(413,'REPORT_LIMIT','The report definition is too large.');}
+     if(typeof request.text!=='function')return error(400,'INVALID_REPORT_QUERY','Raw report JSON is required.');
+     const text=await request.text();if(Buffer.byteLength(text)>65536)return error(413,'REPORT_LIMIT','The report definition is too large.');input=uniqueJson(text);
     }catch(_){return error(400,'INVALID_REPORT_QUERY','Invalid report JSON.');}
    }
    const response=name==='catalog'?await api.catalog(token):await api[name](token,input);

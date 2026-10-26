@@ -36,7 +36,7 @@ function createReportSources({dashboard,sessions,activities,worksheetService,his
   const {academicYear,start,end}=definition,cache=new Map(),tables={},coverage=[];let expiresAt;
   const once=(name,read)=>{if(!cache.has(name))cache.set(name,Promise.resolve().then(read));return cache.get(name);};
   const roster=()=>once('roster',async()=>bounded(await dashboard.reportFaculty()));
-  const sessionRows=()=>once('sessions',async()=>bounded(await sessions.list({academicYear,includeAssignmentTargets:true})).filter(row=>row.academicYear===academicYear));
+  const sessionRows=()=>once('sessions',async()=>bounded(await sessions.list({academicYear,includeAssignmentTargets:true,includeUnresolvedAssignmentLabels:true})).filter(row=>row.academicYear===academicYear));
   const roleRows=()=>once('roles',async()=>bounded(await dashboard.roles({academicYear})).filter(row=>row.academicYear===academicYear));
   const work=()=>once('work',async()=>{
    const rows=[],mapping=new Map(),seen=new Set(),cursors=new Set();let cursor=null;
@@ -80,7 +80,7 @@ function createReportSources({dashboard,sessions,activities,worksheetService,his
    }else if(requested.source==='schedule'){
     const [scheduled,working,map]=await Promise.all([sessionRows(),work(),facultyMap()]);
     const teaching=scheduled.map(row=>{
-     const assigned=sourceAssignments(row),labels=[...new Set(assigned.map(value=>facultyLabel(value.facultyId,value.displayName,map)).filter(Boolean))];
+     const assigned=sourceAssignments(row),labels=[...new Set(assigned.map(value=>facultyLabel(value.facultyId,value.displayName||value.sourceFacultyName,map)).filter(Boolean))];
      const known=time(row.startTime)&&time(row.endTime)&&row.startTime<row.endTime;
      return {facultyName:labels.join('; ')||names.formatList(row.instructorNames)||null,sourceKind:'Teaching',curriculumYear:text(row.curriculumYear)||null,courseCode:text(row.courseCode)||null,courseName:text(row.courseName)||null,type:text(row.sessionType)||null,topic:text(row.topic)||null,startDate:date(row.date)?row.date:null,endDate:date(row.date)?row.date:null,timeDisplay:known?timeText(row.startTime)+'–'+timeText(row.endTime):null,timeEvidence:row.startTime||row.endTime?`${row.startTime||'Not provided'}–${row.endTime||'Not provided'}`:null,timeStatus:known?'Source time':'Needs Review · time not provided',room:text(row.room)||null,academicYear};
     });

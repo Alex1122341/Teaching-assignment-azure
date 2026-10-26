@@ -11,13 +11,13 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed read-only custom reports with protected source/identity evidence are the immutable trust anchor.
-// Preserve main's Role/Appointment fixes and accepted SQL write authority. The independent
-// governance receipt pins the product; the Git-object enforcement is unchanged.
+// Reviewed HICC-CC display preference and combined LAB Calendar block presentation are the
+// immutable static trust anchor. No SQL, API, DOE, permission or Session mutation is included.
+// The independently reviewed historical governance receipts remain pinned to their own commits.
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='ef2d053ff9963aad972c22ec6c3fa8fc53bcb149';
+const BASELINE_COMMIT='1c3fc7dc17838b967ba7ba13e1e0fd103e8e0e74';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

@@ -29,7 +29,7 @@ These are **source-code integration claims**, not proof that the features are li
 
 - Before integration the Testing branch was behind Beta `main` by 154 commits, with 44 unique commits.
 - All 24 Git merge conflicts were resolved. Main's newest functional pages and scripts take precedence; Testing's environment-switcher, generated Firebase configuration, persona support and independent runtime gates are retained.
-- Main's 95 shipped static asset names are retained; Testing adds `paws-environment-nav.js` as asset 96.
+- Main's 95 shipped static assets are retained; Testing adds `paws-environment-nav.js` as asset 96. Of the 95 Beta assets, **82 match main byte-for-byte** and 13 contain explicit Testing overlays for environment configuration, identity, support, or navigation (14 paths differ including the new nav module). The shared application service has eight distinct Testing runtime extension files; other inherited server/src modules match Beta main.
 - The new `frontend/pages`, `frontend/scripts`, `frontend/styles`, and `frontend/assets` source layout is supported by Testing's renderer, build, and artifact verification tools.
 - Retired personal Azure ACR/ACA deployment workflows remain removed; Testing's School Windows/SQL deployment toolchain is distinct.
 - Committed Production environment rendering was aligned with the latest Beta main source origin. This temporary trycloudflare origin must still be checked against the actual running service before any deployment.
@@ -40,13 +40,15 @@ These are **source-code integration claims**, not proof that the features are li
 - `node tools/render-environment-config.js --check`: passed.
 - `node tools/verify-environment-config.js --repository`: passed.
 - Testing environment/configuration, Testing DB tooling and deployment guard tests: 67 passed, 0 failed.
-- Broader Beta feature tests are run separately; their full results must be recorded after completion.
+- **110/110 focused functional tests pass** (12 files: Calendar Search, HICC/Lab grouping, Rotation Calendar, HICC/VISC directory, Faculty Reports, Reports client, Swap approval, and History compact view).
+- A separate 54-file selection was intentionally stopped after ~215 tests due repeated long-running **immutable Beta production freeze** mismatches. At least 10 history/report/availability governance assertions failed from intentional Testing overlays. This selection is **not a passing complete test run**, and the Production freeze was not weakened.
+- Do not interpret source parity or focused unit tests as authenticated browser UAT.
 
 ## Blocks to actual Testing use
 
 **Do not treat this as a live feature-complete Testing deployment.**
 
-1. `config/environments/testing.json` still intentionally has `apiOrigin: null`, `siteUrl: null`, and `firebase: null` (the Firebase provider may be configured in the console, but site configuration is not). The Testing release tool explicitly reports `TESTING_NOT_PROVISIONED` and skips.
+1. `config/environments/testing.json` still intentionally has `apiOrigin: null`, `siteUrl: null`, and `firebase: null` (the Firebase provider may be configured in the console, but site configuration is not). The Testing release tool explicitly reports `TESTING_NOT_PROVISIONED` and skips. No actual Testing site/API deployment was attempted.
 2. The independent SQL database `VetMed-Ops-Testing`, migration acceptance, test identities, loopback API on 18788, TLS tunnel and authenticated browser UAT require independent operational evidence. No production database credentials or live data may be reused.
 3. Beta's immutable production freeze is pinned to an accepted source commit. Testing deliberately adds an environment-navigation asset and modifies selected protected static files for isolation. **Production's freeze must never be weakened or silently regenerated to make Testing tests green.** An independently reviewed Testing overlay/freeze and scoped release acceptance are required before publishing.
 4. New inherited features must be checked against the synthetic dataset. Missing Testing data/fixtures must be added without copying real faculty names, emails, UCIDs, AFC or other personal information.

@@ -71,11 +71,11 @@ IF @Rejected=0 THROW 54060,'Owner disabled self.',1;
 PRINT 'ACCOUNT_ACCESS_060_OWNER_PROTECTION';
 
 -- Force a later audit failure: profile and operation must both roll back.
-EXEC(N'CREATE TRIGGER dbo.Access060RejectAudit ON paws.AuditEvent AFTER INSERT AS BEGIN IF EXISTS(SELECT 1 FROM inserted WHERE EventType=N''account_access_change'') THROW 54061,''Synthetic audit failure'',1; END;');
+EXEC(N'CREATE TRIGGER paws.Access060RejectAudit ON paws.AuditEvent AFTER INSERT AS BEGIN IF EXISTS(SELECT 1 FROM inserted WHERE EventType=N''account_access_change'') THROW 54061,''Synthetic audit failure'',1; END;');
 SET @Rejected=0;SET @Operation=NEWID();
 BEGIN TRY
  EXEC paws_api.SetAccountAccess N'access060-owner-a',@ActorVersion,N'access060-target',@TargetVersion,N'hicc',1,@Faculty,N'Atomic rollback',@Hash,@Operation,@Preview;
 END TRY BEGIN CATCH IF ERROR_NUMBER()=54061 SET @Rejected=1;ELSE THROW;END CATCH;
-DROP TRIGGER dbo.Access060RejectAudit;
+DROP TRIGGER paws.Access060RejectAudit;
 IF @Rejected=0 OR EXISTS(SELECT 1 FROM paws.AccountAccessChange WHERE OperationId=@Operation) OR EXISTS(SELECT 1 FROM paws.UserProfile WHERE FirebaseUid=N'access060-target' AND BaseRole<>N'faculty') THROW 54060,'Audit failure left partial access change.',1;
 PRINT 'ACCOUNT_ACCESS_060_ATOMIC_ROLLBACK';

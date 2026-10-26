@@ -1,10 +1,11 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const {createHistoryController,renderRows}=require('../change-history');
-const {createPawsAzureDataClient}=require('../paws-data-client');
+const {createHistoryController,renderRows}=require('../frontend/scripts/change-history.js');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('client closes filter/page/export fields and sends authenticated GET only',async()=>{
- const calls=[],client=createPawsAzureDataClient({tokenProvider:async()=>'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({rows:[]})};}});
+ const calls=[],client=createPawsDataClient({tokenProvider:async()=>'synthetic',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,json:async()=>({rows:[]})};}});
  await client.changeHistory({scope:'mine',course:'206',actorFirebaseUid:'spoof',facultyId:'private'});
  await client.changeHistoryPage('handle',100);await client.changeHistoryExport('handle','xlsx');
  assert.deepEqual(Object.fromEntries(new URL(calls[0].url).searchParams),{scope:'mine',course:'206'});
@@ -28,6 +29,55 @@ test('pages and all-filtered export use one snapshot and exports do not iterate 
  const page=h.controller.page(100);assert.deepEqual(h.pages[0].snapshot,'one');h.pages[0].resolve({...result(),offset:100,rows:[{field:'Room',updatedValue:'Page2'}]});await page;
  await h.controller.export('xlsx');assert.deepEqual(h.exports,[{snapshot:'one',format:'xlsx'}]);assert.equal(h.downloads[0].rowCount,202);assert.equal(h.queries.length,1);
 });
+test('a bounded export rejection preserves the loaded history page and permits continued paging',async()=>{
+ const loaded={...result('retained-page'),offset:100,rows:[{field:'Room',updatedValue:'Page two'}]};
+ const ctrl=createHistoryController({scope:'dashboard',api:{
+  changeHistory:async()=>loaded,
+  changeHistoryExport:async()=>{throw Object.assign(Error('Narrow the date range or filters; the complete result exceeds the history limit.'),{code:'HISTORY_LIMIT',status:413});},
+  changeHistoryPage:async(snapshot,offset)=>({...loaded,snapshot,offset,rows:[{field:'Room',updatedValue:'Page three'}]})
+ }});
+ await ctrl.refresh({academicYear:'all'});
+ await ctrl.export('csv');
+ assert.deepEqual(ctrl.state().rows,loaded.rows);
+ assert.equal(ctrl.state().total,202);
+ assert.equal(ctrl.state().offset,100);
+ assert.equal(ctrl.state().snapshot,'retained-page');
+ assert.equal(ctrl.state().canExport,true);
+ assert.match(ctrl.state().message,/Narrow the date range/);
+ await ctrl.page(200);
+ assert.equal(ctrl.state().offset,200);
+ assert.equal(ctrl.state().rows[0].updatedValue,'Page three');
+});
+test('history export busy is retryable but auth, scope, expiry and unknown failures clear private state',async()=>{
+ for(const [code,status,retained] of [
+  ['HISTORY_EXPORT_BUSY',429,true],['UNAUTHENTICATED',401,false],['HISTORY_SCOPE_DENIED',403,false],
+  ['HISTORY_REFRESH_REQUIRED',409,false],['HISTORY_UNAVAILABLE',503,false],['HISTORY_LIMIT',401,false]
+ ]){
+  const ctrl=createHistoryController({scope:'dashboard',api:{
+   changeHistory:async()=>result(),
+   changeHistoryExport:async()=>{throw Object.assign(Error(code),{code,status});}
+  }});
+  await ctrl.refresh({});await ctrl.export('csv');
+  assert.equal(ctrl.state().rows.length,retained?1:0,code+' rows');
+  assert.equal(ctrl.state().canExport,retained,code+' export');
+  assert.equal(ctrl.state().snapshot,retained?'one':null,code+' snapshot');
+  assert.equal(ctrl.state().busy,false);
+ }
+});
+test('a late recoverable export failure cannot restore cleared or edited history',async()=>{
+ for(const action of ['clear','dirty','destroy']){
+  let rejectExport;
+  const ctrl=createHistoryController({scope:'dashboard',api:{
+   changeHistory:async()=>result(),
+   changeHistoryExport:()=>new Promise((resolve,reject)=>{rejectExport=reject;})
+  }});
+  await ctrl.refresh({});const pending=ctrl.export('csv');ctrl[action]();
+  const before=ctrl.state();
+  rejectExport(Object.assign(Error('Narrow filters'),{code:'HISTORY_LIMIT',status:413}));await pending;
+  assert.deepEqual(ctrl.state(),before,action);
+  assert.equal(ctrl.state().canExport,false);
+ }
+});
 test('clear and destroy invalidate pending responses, remove rows and revoke downloads',async()=>{
  for(const method of ['clear','destroy']){const h=harness(),q=h.controller.refresh({});h.controller[method]();h.queries[0].resolve(result());await q;assert.equal(h.controller.state().rows.length,0);assert.equal(h.controller.state().snapshot,null);await h.controller.export('csv');assert.equal(h.exports.length,0);}
 });
@@ -40,7 +90,7 @@ test('rendered source values are escaped, UTC and Calgary time are labelled, and
  assert.doesNotMatch(html,/<img|<script>/);assert.match(html,/&lt;img/);assert.match(html,/Calgary/);assert.match(html,/UTC/);
 });
 test('all three Beta entry points use the shared SQL history and include self-mode Dashboard entry',()=>{
- const index=fs.readFileSync('index.html','utf8'),dashboard=fs.readFileSync('faculty-admin.html','utf8'),panel=fs.readFileSync('afc-timetable-panel.js','utf8');
+ const index=fs.readFileSync(repositoryPath(process.cwd(), 'index.html'),'utf8'),dashboard=fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.html'),'utf8'),panel=fs.readFileSync(repositoryPath(process.cwd(), 'afc-timetable-panel.js'),'utf8');
  for(const html of [index,dashboard]){assert.match(html,/change-history\.js/);assert.match(html,/change-history\.css/);}
  assert.match(index,/id="cal-changes-btn"/);assert.match(dashboard,/id="faculty-history-btn"/);
  assert.match(panel,/scope:.*mine/);assert.doesNotMatch(panel,/UCVM\.logs\(/);
@@ -48,7 +98,7 @@ test('all three Beta entry points use the shared SQL history and include self-mo
 });
 
 test('Dashboard renders one expandable operation with all child AFC and field changes',()=>{
- const {renderOperationRows}=require('../change-history');
+ const {renderOperationRows}=require('../frontend/scripts/change-history.js');
  const html=renderOperationRows([{
   changeDate:'2026-10-20T16:10:00Z',title:'2 AFC Records Created',domain:'AFC',actor:'ADFAD Admin',
   recordCount:2,changeCount:4,startDate:'2026-11-09',endDate:'2026-11-10',
@@ -82,7 +132,7 @@ test('Dashboard controller carries restored archive timestamp in state and clear
 });
 
 test('Dashboard UI offers all academic years, retains detailed safe operations, and does not alter other history scopes',()=>{
- const ui=fs.readFileSync('change-history.js','utf8');
+ const ui=fs.readFileSync(repositoryPath(process.cwd(), 'change-history.js'),'utf8');
  assert.match(ui,/scope==='dashboard'\?'all'/);
  assert.match(ui,/All recorded years/);
  assert.match(ui,/data-history-archive-note/);

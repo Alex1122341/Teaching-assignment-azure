@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 // BETA-R4D-9H — administrator timetable access / forced Dashboard redirect regression.
 //
 // The defect: on index.html an authorized admin (adfa_general / adfa_regular) had
@@ -158,7 +159,7 @@ test('J. a pre-set __ucvmAdminLandingScheduled flag cannot arm a redirect', asyn
 test('the timetable login path proceeds past UCVM.ready to unlock and render', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const src = fs.readFileSync(path.resolve(__dirname, '..', 'timetable.js'), 'utf8');
+  const src = fs.readFileSync(repositoryPath(__dirname, '..', 'timetable.js'), 'utf8');
   const lockAt = src.indexOf("setAppLocked(true, 'Checking your timetable access...')");
   assert.ok(lockAt > 0, 'the gate must be set to the timetable-access message while checking');
   const start = src.indexOf('const profile = await getRoleProfile(user)');
@@ -184,7 +185,7 @@ test('the timetable login path proceeds past UCVM.ready to unlock and render', (
 test('no automatic admin landing remains anywhere in the login path', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const access = fs.readFileSync(path.resolve(__dirname, '..', 'faculty-access.js'), 'utf8');
+  const access = fs.readFileSync(repositoryPath(__dirname, '..', 'faculty-access.js'), 'utf8');
   assert.doesNotMatch(access, /if\(scheduleAdminLanding\(user,p\)\)return false/);
   assert.doesNotMatch(access, /location\.replace\('faculty-admin\.html'\)/);
   assert.doesNotMatch(access, /setTimeout\(\(\)=>\{[^}]*faculty-admin\.html/s);
@@ -198,14 +199,14 @@ test('no automatic admin landing remains anywhere in the login path', () => {
 test('K. the explicit Faculty Dashboard button still navigates through the shared B2A capability', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const src = fs.readFileSync(path.resolve(__dirname, '..', 'timetable.js'), 'utf8');
+  const src = fs.readFileSync(repositoryPath(__dirname, '..', 'timetable.js'), 'utf8');
   assert.match(src, /\$\('faculty-dashboard-btn'\)\.addEventListener\('click',[\s\S]{0,180}UCVM\.canOpenFacultyDashboard\(currentUser\)[\s\S]{0,100}faculty-admin\.html/);
 });
 
 test('L. unauthorized users still cannot reach Dashboard', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const src = fs.readFileSync(path.resolve(__dirname, '..', 'faculty-access.js'), 'utf8');
+  const src = fs.readFileSync(repositoryPath(__dirname, '..', 'faculty-access.js'), 'utf8');
   // UCVM.admin() must still be the gate, and must exclude faculty/plain users.
   const adminLine = src.split('\n').find(l => l.includes('const admin='));
   assert.ok(adminLine, 'UCVM.admin must exist');
@@ -219,6 +220,6 @@ test('L. unauthorized users still cannot reach Dashboard', () => {
 test('K. the Dashboard button visibility uses the shared B2A capability', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const src = fs.readFileSync(path.resolve(__dirname, '..', 'timetable.js'), 'utf8');
+  const src = fs.readFileSync(repositoryPath(__dirname, '..', 'timetable.js'), 'utf8');
   assert.match(src, /\$\('faculty-dashboard-btn'\)\.classList\.toggle\('hidden',\s*!UCVM\.canOpenFacultyDashboard\(currentUser\)\)/);
 });

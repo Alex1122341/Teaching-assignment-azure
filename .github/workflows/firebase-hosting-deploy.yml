@@ -151,7 +151,8 @@ jobs:
           COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
           set -euo pipefail
-          git show "$COMMIT_SHA:paws-api-origin.js" > source-paws-api-origin.js
+          config_path="$(node -e "const {sourcePathAtCommit}=require('./tools/build/frontend-paths');process.stdout.write(sourcePathAtCommit(process.cwd(),process.env.COMMIT_SHA,'paws-api-origin.js'))")"
+          git show "$COMMIT_SHA:$config_path" > source-paws-api-origin.js
           api_origin="$(node - <<'NODE'
           const config = require('./source-paws-api-origin.js');
           const url = new URL(config.apiOrigin);

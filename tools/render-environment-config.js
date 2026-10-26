@@ -160,7 +160,7 @@ function main(argv) {
   const arg = name => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; };
   if (argv.includes('--check')) {
     const expected = render(loadConfig('production'));
-    const actual = fs.readFileSync(path.join(ROOT, 'paws-api-origin.js'), 'utf8').replace(/\r\n/g, '\n');
+    const actual = fs.readFileSync(path.join(ROOT, 'frontend', 'scripts', 'paws-api-origin.js'), 'utf8').replace(/\r\n/g, '\n');
     if (actual !== expected) { console.error('paws-api-origin.js is not the rendering of config/environments/production.json'); process.exit(1); }
     console.log(JSON.stringify({ ok: true, environment: 'production' }));
     return;

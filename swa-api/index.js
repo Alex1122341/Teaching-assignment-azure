@@ -11,6 +11,7 @@ app.http('paws-sessions',{methods:['GET'],authLevel:'anonymous',route:'v1/sessio
 // Binding GET only would let the host answer a POST with 404 before the handler
 // runs, which contradicts the reviewed Dashboard contract (405 + Allow: GET).
 const DASHBOARD_METHODS=['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS'];
+for(const name of ['catalog','query','page','export'])app.http('paws-report-'+name,{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/reports/'+name,handler:handle});
 app.http('paws-dashboard-summary',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/summary',handler:handle});
 app.http('paws-dashboard-faculty',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/faculty',handler:handle});
 app.http('paws-dashboard-faculty-id',{methods:DASHBOARD_METHODS,authLevel:'anonymous',route:'v1/dashboard/faculty/{facultyId}',handler:handle});

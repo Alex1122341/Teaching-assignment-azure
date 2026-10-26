@@ -1,4 +1,5 @@
 'use strict';
+const names = require('../domain/person-name');
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -11,7 +12,7 @@ const {
 
 const MAX_PDF_BYTES = 8_388_608;
 const MAX_SIGNATURE_DATA_URL_CHARS = 1_000_000;
-const RENDERER_VERSION = '1.0.0';
+const RENDERER_VERSION = '1.1.0';
 const TEMPLATE_SHA256_HEX = '481677829217736B15CB3CBB010F49CB553A8664FE53F8604782093E99896547';
 const TEMPLATE_SHA256 = Buffer.from(TEMPLATE_SHA256_HEX, 'hex');
 const TEMPLATE_PATH = path.join(__dirname, 'assets', 'absence-from-campus-app.pdf');
@@ -216,11 +217,11 @@ function mapAfcSourceToPdfFields(source) {
       PhoneRow1: contactPhone,
       AddressRow2: '',
       PhoneRow2: '',
-      'Staff Member Name': facultyName,
+      'Staff Member Name': names.format({firstName:source.preferredFirstName,lastName:source.preferredLastName,displayName:facultyName}),
       Date: applicant.date,
-      Name: reportTo ? reportTo.displayName : '',
+      Name: reportTo ? names.format(reportTo.displayName) : '',
       Date_2: reportTo ? reportTo.date : '',
-      Name_2: admin.displayName,
+      Name_2: names.format(admin.displayName),
       Date_3: admin.date,
       Date_4: '',
       'Appt Type': ' ',
@@ -311,7 +312,7 @@ async function drawSignature(document, pages, fieldName, signature, font) {
     });
   } else {
     const size = Math.max(6, Math.min(9, rectangle.height - 3));
-    page.drawText(`/s/ ${signature.displayName}`, {
+    page.drawText(`/s/ ${names.format(signature.displayName)}`, {
       x: rectangle.x + inset,
       y: rectangle.y + Math.max(1, (rectangle.height - size) / 2),
       size,

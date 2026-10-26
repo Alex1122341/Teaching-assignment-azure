@@ -1,6 +1,7 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{execFileSync}=require('node:child_process'),crypto=require('node:crypto');
-const root=path.resolve(__dirname,'..'),out=path.join(root,'.azure-production');
+const root=repositoryPath(__dirname,'..'),out=repositoryPath(root,'.azure-production');
 function files(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(path.join(dir,e.name)):path.relative(out,path.join(dir,e.name)).replaceAll('\\','/'));}
 function digest(){const h=crypto.createHash('sha256');for(const f of files(out).sort()){h.update(f+'\0');h.update(fs.readFileSync(path.join(out,f)));}return h.digest('hex');}
 test('combined release artifact is deterministic and contains app plus managed API',()=>{

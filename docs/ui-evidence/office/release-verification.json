@@ -1,0 +1,301 @@
+{
+  "date": "2026-10-24",
+  "repository": "Alex1122341/Teaching-assignment-azure",
+  "pullRequest": 140,
+  "main": "87a7f943f40bc5bf87b54b1b0059a2593ebc3b7d",
+  "product": "486ea030c5eaef4ddb7508a4d50799687487057f",
+  "governance": "bb424ddf4202eb623f22b8619760c7177d9cf9a3",
+  "verifiedHeadBeforeFinalDocumentation": null,
+  "ci": {
+    "runId": 40113620342,
+    "jobId": 120930262576,
+    "result": "success",
+    "head": "87a7f943f40bc5bf87b54b1b0059a2593ebc3b7d",
+    "checkout": "87a7f943f40bc5bf87b54b1b0059a2593ebc3b7d",
+    "root": {
+      "tests": 1168,
+      "passed": 1116,
+      "failed": 0,
+      "skipped": 52
+    },
+    "server": {
+      "tests": 859,
+      "passed": 854,
+      "failed": 0,
+      "skipped": 5
+    },
+    "emulator": {
+      "tests": 1168,
+      "passed": 1149,
+      "failed": 0,
+      "skipped": 19
+    },
+    "supplemental": {
+      "tests": 62,
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0
+    },
+    "buildContainerAndFourFreezes": "passed",
+    "artifactId": 12567194271,
+    "artifactSha256": "9b716c23eb2012cf242f47983aa53900cd8104208ea9c0e10f1e9cd1a181f061",
+    "downloadDigestVerified": true,
+    "downloadedArtifactStaticAndApiFreezes": "passed"
+  },
+  "local": {
+    "node": "22.20.0",
+    "focused": {
+      "passed": 58,
+      "failed": 0
+    },
+    "governance": {
+      "passed": 5,
+      "failed": 0
+    },
+    "sequentialBuildAndFourFreezes": "passed",
+    "fullRoot": "fresh final-head CI required; prior884 runtime differs only by verified origin"
+  },
+  "protection": {
+    "static": 91,
+    "apiRuntime": 115,
+    "buildAndDependencyInputs": 3,
+    "apiSqlRulesDependencyDeltaFromMain": 0
+  },
+  "browser": {
+    "routes": [
+      "faculty-admin.html",
+      "teaching-assignments.html"
+    ],
+    "widths": [
+      1440,
+      1280,
+      768,
+      390
+    ],
+    "height": 900,
+    "syntheticBeforeAfter": true,
+    "realFacultyAndAdminReadOnlyChecks": "passed again after restart through private GET-only bridge",
+    "native200PercentZoom": "unverified",
+    "allPopulatedLazyBusinessTabs": "not certified",
+    "actualOriginSmoke": {
+      "facultyCalendar": true,
+      "facultyOwnDashboard": true,
+      "administrativeRolesVisibleForFaculty": false,
+      "adminCalendar": true,
+      "adminDashboardFacultyCount": 119,
+      "adminNameSearchRows": 1,
+      "adminAssignmentsQueueCount": 1,
+      "accountsVerifiedSignedOut": true
+    },
+    "legacyUserManagement": "not denied as a whole: unchanged limited Firestore HICC group role differs from SQL Faculty role; separate follow-up, no writes",
+    "console": "existing optional Firestore current-faculty permission denial and persistence deprecation warnings, no permission weakening"
+  },
+  "live": {
+    "hostingMatchesMain": {
+      "matched": 91,
+      "total": 91
+    },
+    "hostingReleaseId": "1792861391972000",
+    "hostingVersion": "2c7005ce99b6dbab",
+    "releaseTime": "2026-10-24T17:03:11.972Z",
+    "rawRollbackBundleVerified": true,
+    "rollbackOriginLimitation": "prior UI contains already-dead ingress; no functional login rollback claimed",
+    "temporaryApiDns": "new ingress resolves",
+    "schoolRdc": "online",
+    "merged": true,
+    "deployed": true,
+    "releaseStatus": "three changed routes live accepted",
+    "runtimeAnd27GatesUnchanged": true,
+    "sqlHealth": "ok",
+    "recoveryCheck": "RUNTIME_AND_ORIGIN_MATCH",
+    "siteReady": true
+  },
+  "historicalVerifiedCandidate": {
+    "product": "a6c5092020cfda4c87873591b3c8d5edbeba5e72",
+    "governance": "4de4a3ef55bfe2ddad03d8b985e8c618238c09c0",
+    "head": "f42e01ded833b2b810a74bfd986a15d17097baa1",
+    "ci": {
+      "runId": 40102576801,
+      "jobId": 120897627112,
+      "result": "success",
+      "checkoutMerge": "cbaf700c00bf354e97f95febaa28f31f1d7aed2f",
+      "mergeAndHeadTree": "2e01d5674db647c5671ce60ea7db39d953822ce8",
+      "root": {
+        "tests": 1155,
+        "passed": 1103,
+        "failed": 0,
+        "skipped": 52
+      },
+      "server": {
+        "tests": 859,
+        "passed": 854,
+        "failed": 0,
+        "skipped": 5
+      },
+      "emulator": {
+        "tests": 1155,
+        "passed": 1136,
+        "failed": 0,
+        "skipped": 19
+      },
+      "supplemental": {
+        "tests": 62,
+        "passed": 62,
+        "failed": 0,
+        "skipped": 0
+      },
+      "buildContainerAndFourFreezes": "passed",
+      "artifactId": 12562494826,
+      "artifactName": "azure-beta-cbaf700c00bf354e97f95febaa28f31f1d7aed2f",
+      "artifactSha256": "82965026649ce8b0645a9182fafc7e44cf68975d07694342fa6d6578be8a573a",
+      "downloadDigestVerified": true,
+      "downloadedArtifactStaticAndApiFreezes": "passed"
+    },
+    "local": {
+      "node": "22.20.0",
+      "focused": {
+        "passed": 216,
+        "failed": 0
+      },
+      "correctedLegacyFixtures": {
+        "passed": 54,
+        "failed": 0
+      },
+      "isolatedServer": {
+        "tests": 859,
+        "passed": 855,
+        "failed": 0,
+        "skipped": 4,
+        "exitCode": 0
+      },
+      "sequentialBuildAndFourFreezes": "passed",
+      "broadParallelRuns": "rejected: shared-artifact collision and worker oversubscription; not passing evidence"
+    }
+  },
+  "supplemental": {
+    "focused": {
+      "passed": 57,
+      "failed": 0
+    },
+    "governance": {
+      "passed": 4,
+      "failed": 0
+    },
+    "independentReview": {
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+    },
+    "browser": {
+      "widths": [
+        1280,
+        390
+      ],
+      "heights": [
+        720,
+        900
+      ],
+      "searchRows": 6,
+      "roleHiccRows": 0,
+      "roleViscRows": 6,
+      "consoleWarningsOrErrors": 0,
+      "drillDown": "passed"
+    },
+    "static": {
+      "files": 91,
+      "bytes": 2338302,
+      "byteIncrease": 70,
+      "additionalRequests": 0
+    },
+    "localRoot": "pending"
+  },
+  "historicalSearchCandidate": {
+    "product": "fcc36231cd0b0c02a2b9b0871ffdf64fcc0e8788",
+    "governance": "8133ecdffe3ec9f8c16d06ecc211ea8fa8925b4b",
+    "head": "884a523f5c3108ffe1f2888d8e5698251e506f66",
+    "runId": 40109471683,
+    "result": "success",
+    "artifactId": 12565898211,
+    "artifactSha256": "1753cac1cbf0ee329db1d26b1d0a38f48b618f636fef4baf264546ab112ab5a9",
+    "downloadedArtifactFreezes": "passed",
+    "local": {
+      "node": "22.20.0",
+      "focused": {
+        "passed": 57,
+        "failed": 0
+      },
+      "governance": {
+        "passed": 4,
+        "failed": 0
+      },
+      "root": "pending"
+    },
+    "supplemental": {
+      "focused": {
+        "passed": 57,
+        "failed": 0
+      },
+      "governance": {
+        "passed": 4,
+        "failed": 0
+      },
+      "independentReview": {
+        "critical": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "browser": {
+        "widths": [
+          1280,
+          390
+        ],
+        "heights": [
+          720,
+          900
+        ],
+        "searchRows": 6,
+        "roleHiccRows": 0,
+        "roleViscRows": 6,
+        "consoleWarningsOrErrors": 0,
+        "drillDown": "passed"
+      },
+      "static": {
+        "files": 91,
+        "bytes": 2338302,
+        "byteIncrease": 70,
+        "additionalRequests": 0
+      },
+      "localRoot": "pending"
+    }
+  },
+  "restartRecovery": {
+    "runtimeSha": "8bb40c60370bcce3d0135efd4327d42fba657903",
+    "trustAnchor": "58daab3a2401af69c2298cc1f078d78aad069ea9",
+    "writeGates": 27,
+    "gatesMatch": true,
+    "sqlHealth": "ok",
+    "publicHttpsHealth": "ok",
+    "apiOrigin": "https://gibson-strand-telecharger-governor.trycloudflare.com",
+    "serverAclChanges": 0,
+    "configDelta": [
+      "ApiLauncherPath",
+      "ApiLauncherSha256",
+      "LogDirectory"
+    ],
+    "launcherDelta": "PID output directory only",
+    "static": {
+      "files": 91,
+      "bytes": 2338311
+    },
+    "readOnlyFacultyAdminAcceptance": "passed",
+    "facultyOtherDetailStatus": 403,
+    "allowedHostingCorsStatus": 204,
+    "untrustedOriginCorsStatus": 403,
+    "accountsSignedOut": true,
+    "publishedOrigin": "https://gibson-strand-telecharger-governor.trycloudflare.com",
+    "finalPublishedOriginOnlyUpdate": true,
+    "siteReady": true,
+    "actualOriginAccountsSignedOut": true
+  },
+  "previousMain": "8bb40c60370bcce3d0135efd4327d42fba657903"
+}

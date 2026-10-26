@@ -1,6 +1,12 @@
 # AGENTS.md
 
+## PAWS Constitution
+
+Before changing any person-name display or generated output, read and follow [PAWS_CONSTITUTION.md](PAWS_CONSTITUTION.md). The mandatory PAWS presentation is **Last name, First name**, through the shared formatter; preserve source identity and historical evidence. Include formatter coverage in review.
+
 ## Agent continuity memory
+
+For UI work, follow [docs/ui-design.md](docs/ui-design.md): reuse existing components and tokens, preserve business/security contracts, and verify comparable synthetic screenshots before claiming visual completion.
 
 If you do not already have reliable recent PAWS project context, you MUST read `agent.Ai/AGENT.md`, `agent.Ai/PROJECT_STATE.md`, `agent.Ai/TASK_CHAIN.md`, `agent.Ai/DECISIONS.md`, and the newest file under `agent.Ai/updates/` before starting substantive work.
 
@@ -17,20 +23,28 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 - At the 2026-10-04 stabilization start, `main` was `783777f2dd0693cbc521ebc625817872514c2ada`; do not merge or automatically synchronize the Experimental/Demo repository.
 - Current controlled Beta URL is Firebase Hosting: `https://tester-teaching.web.app`. Legacy Azure Static Web Apps deployment workflows/scripts and routing config have been deleted from the current tree; their dated evidence remains in Git history. Do not revive SWA static deployment. The historical `swa-api/` and `server/src/runtime/swa-*` names still denote live University API dependencies and must not be removed by SWA-static cleanup.
 - Do not commit feature work directly to `main`; use a feature branch / worktree and open a PR.
-- Build the static bundle with `node tools/build-static.js`. `node tools/build-beta-release.js` still creates the combined `.azure-production/app` + `.azure-production/api` CI artifact consumed by Firebase Hosting/ACA pipelines. The Azure Static Web App routing config is no longer staged.
+- Build the static bundle with `node tools/build-static.js`. `node tools/build-beta-release.js` still creates the combined `.azure-production/app` + `.azure-production/api` CI artifact consumed by Firebase Hosting and the University Windows API release tooling. Its historical Azure naming and frozen Dockerfile remain for artifact compatibility; ACA/ACR publishing workflows are retired. The Azure Static Web App routing config is no longer staged.
 - A normal push never releases Firebase Hosting; P1 release is the authorized `firebase deploy --only hosting --project tester-teaching` after exact-main CI is green. Do not deploy Firestore rules, indexes, or Functions as part of Hosting release.
 
 ## Frozen runtime contract
 
 - The immutable static/API freeze is promoted only through an explicit reviewed governance commit anchored to the accepted product commit. P1's protected static and API runtime changes require their own separately reviewed freeze promotion in the same coherent PR; never add drift exceptions or silently move the anchor.
 - The active Beta architecture is Firebase Hosting → Firebase Authentication (identity) → temporary Cloudflare HTTPS ingress → University Node API → `ITAPPVETOPSDB01` / `VetMed-Ops`. SQL is the business-data authority; do not restore Firestore business reads or writes.
-- **All** shipped static runtime assets are protected. The authoritative shipped-file list is `tools/static-assets.json` (86 entries); the API freeze protects 111 API runtime files plus its build definition and two repository inputs (114 protected API paths). This PR preserves main's Availability, History and CCC Schedule and adds the dual-environment runtime.
+- **All** shipped static runtime assets are protected. Derive the current protected counts from `tools/static-assets.json` and `tools/beta-api-freeze.js`; preserve the full union with the frozen manifests.
 - The protected set is the union of the files named by the current manifest and by the manifest stored in the frozen baseline commit, so removing a path from the mutable manifest cannot remove it from the freeze.
 - `tools/beta-freeze.js` compares each protected file against the blob stored in the frozen baseline commit (via `git cat-file`), not against any working-tree hash file. Run it with `node tools/beta-freeze.js`, or with `--artifact .azure-production/app` to validate a built or downloaded artifact.
 - `tools/beta-baseline.json` is documentation and live-site reporting only. CI never trusts it as the immutable source: a coordinated edit of a runtime file plus that JSON still fails because verification reads the baseline Git objects.
 - Normal CI fails if any shipped runtime asset drifts from the baseline. Existing CI freeze checks must validate both the repository and build artifact; Firebase Hosting release remains a static-only `--only hosting` action.
 - Changing the baseline is explicit future release work: it requires updating the frozen baseline commit reference, the manifest-derived protection, and the documentation together, in a reviewed change. It is never an implicit side effect of a feature commit.
 - The feature branch is not live until its pull request is merged, exact-main push CI passes, and the directed Firebase Hosting deployment succeeds. Never treat a candidate build as a deployment.
+
+## Repository layout
+
+- Browser sources live in `frontend/pages/`, `frontend/scripts/`, `frontend/styles/` and `frontend/assets/`. Do not create duplicate browser files at the repository root.
+- `tools/static-assets.json` continues to list **public URLs**, not source locations. `tools/build/frontend-paths.js` resolves source locations; `tools/build/static-bundle.js` is the single static packaging implementation.
+- Build with `npm run build` and preview `.deploy-static/`; serving `frontend/pages/` directly does not reproduce the published URL layout.
+- All 85 published assets retain their original bytes and URL names during this relocation. Historical immutable revisions retain their original paths; do not rewrite old acceptance receipts or remove file protection to satisfy a rename.
+- See `README.md` and `docs/architecture/repository-layout.md` for the directory map and scope. API/SQL logic and existing release artifact identity are unchanged by source organization.
 
 ## Application architecture
 

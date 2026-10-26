@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 // BETA-R4D-10B Stage 3B — API-only Dashboard: auth-only init, retired legacy
 // Firestore surface, and a fail-closed mutation boundary.
 //
@@ -10,11 +11,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 
-const root = path.resolve(__dirname, '..');
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const read = file => fs.readFileSync(repositoryPath(root, file), 'utf8');
 const ADMIN_SOURCE = read('faculty-admin.js');
 const MANAGEMENT_SOURCE = read('faculty-admin-management.js');
 const ADMIN_HTML = read('faculty-admin.html');
@@ -80,7 +80,7 @@ function createHarness(overrides = {}) {
   const nodes = new Map();
   const byId = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
   const rowStubs = new Map();
-  const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = cb; }, async signOut() { signOuts += 1; } };
+  const auth = { setPersistence: async () => {}, onAuthStateChanged(cb) { authCallback = user => { auth.currentUser=user; return cb(user); }; }, async signOut() { signOuts += 1; } };
   const firebaseAuth = Object.assign(function () { return auth; }, { Auth: { Persistence: { LOCAL: 'local' } } });
   const pawsData = {
     currentUser: async () => { calls.push('currentUser'); return overrides.currentUser ? overrides.currentUser() : ADMIN_PROFILE; },
@@ -287,7 +287,7 @@ test('M. approval workflow remains available as a dormant artifact but is not dy
 test('28 / 29. the final local script set includes the modular view model', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
   const local = srcs.filter(s => !/^https?:/.test(s));
-  assert.deepEqual(local.sort(), ['change-history.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-admin.js', 'faculty-availability.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'developer-support.js', 'paws-environment-nav.js', 'session-guard.js'].sort());
+  assert.deepEqual(local.sort(), ['change-history.js', 'faculty-name.js', 'dashboard-view-model.js', 'faculty-admin-afc-batch.js', 'faculty-admin-afc-records.js', 'faculty-admin-afc-forms.js', 'faculty-admin-ccc-replacement.js', 'faculty-admin-doe-manual.js', 'faculty-admin-doe-edit.js', 'faculty-admin-doe-renderer.js', 'faculty-admin-doe-worksheet.js', 'faculty-admin-doe-rulebook.js', 'faculty-admin-doe-policy.js', 'faculty-admin-management.js', 'faculty-role-periods.js', 'calendar-activity-placement.js', 'calendar-activities.js', 'faculty-admin-activity-import.js', 'asset-loader.js', 'faculty-route-access.js', 'workspace-navigation.js', 'office-workspace.js', 'faculty-admin.js', 'faculty-availability.js', 'paws-api-origin.js', 'paws-auth-continuity.js', 'paws-data-client.js', 'developer-support.js', 'session-guard.js'].sort());
   assert.equal(srcs.filter(s => /gstatic\.com\/firebasejs/.test(s)).length, 2, 'only the app and auth compat SDKs remain');
   const inline = [...ADMIN_HTML.matchAll(/<script>([^<]*)<\/script>/g)].map(m => m[1].trim());
   assert.deepEqual(inline, [], 'no inline script remains');
@@ -361,9 +361,9 @@ test('53. external navigation is retained', () => {
 // ===========================================================================
 test('58–63. the Dashboard page runtime surface is bounded and makes no latency claim', () => {
   const srcs = [...ADMIN_HTML.matchAll(/<script[^>]*>/g)].length;
-  assert.equal(srcs, 28, 'script elements: 2 Firebase CDN + 26 local; Trainees remains deferred');
+  assert.equal(srcs, 31, 'script elements: 2 Firebase CDN + 29 local; placement helper added, Trainees remains deferred');
   const local = [...ADMIN_HTML.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]).filter(s => !/^https?:/.test(s));
-  assert.equal(local.length, 26);
+  assert.equal(local.length, 29);
   assert.equal(RETIRED_SCRIPTS.length, 18);
   assert.doesNotMatch(ADMIN_HTML, /\d+\s?ms\b/, 'no latency figure may be claimed in the page');
 });
@@ -386,7 +386,7 @@ test('65 / 67. the Dashboard controller contains zero Firestore implementation',
 });
 
 test('66. faculty-access.js retains safe identity exports without its retired writer loader', () => {
-  assert.match(ACCESS_SOURCE, /return \{config,role,admin,general,historyAll,canOpenFacultyDashboard,label,esc,number,init,ready,enrichFacultyIdentity,watch,logs\}/);
+  assert.match(ACCESS_SOURCE, /return \{config,role,admin,general,historyAll,canOpenFacultyDashboard,canOpenTeachingAssignments,label,esc,number,init,ready,enrichFacultyIdentity,watch,logs\}/);
   assert.match(ACCESS_SOURCE, /enablePersistence\(\{synchronizeTabs:true\}\)/);
   assert.doesNotMatch(ACCESS_SOURCE, /faculty-admin-enhancements\.js|approval-workflow\.js/);
 });

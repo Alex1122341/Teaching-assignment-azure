@@ -71,6 +71,22 @@ function validUuid(value) {
   return typeof value === 'string' && UUID.test(value.trim());
 }
 
+// SQL rowversion is exactly eight bytes. Older API clients can supply either
+// SQL's 0x-prefixed text, bare hexadecimal, or a JSON-serialized SQL Buffer.
+// Keep the complete version: never replace an invalid token with null.
+function canonicalRoleVersion(value) {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const match = /^(?:0x)?([0-9a-f]{16})$/i.exec(value.trim());
+    return match ? '0x' + match[1].toUpperCase() : undefined;
+  }
+  if (value && value.type === 'Buffer' && Array.isArray(value.data) &&
+      value.data.length === 8 && value.data.every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 255)) {
+    return '0x' + value.data.map(byte => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  return undefined;
+}
+
 function strictUtcVersion(value) {
   const raw = typeof value === 'string' ? value.trim() : '';
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$/.test(raw) || !Number.isFinite(Date.parse(raw))) return null;
@@ -425,11 +441,12 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
         if (!scope.administrator) return error(403,'ROLE_DENIED','This role cannot edit appointment effective periods.');
         if (writeGates.facultyAdmin !== true) return writeDisabled();
         if (!validUuid(roleAssignmentId) || !payload || !Array.isArray(payload.periods) || payload.periods.length > 12) return error(400,'INVALID_ROLE_PERIODS','Provide up to 12 effective periods.');
-        if (payload.expectedVersion != null && !/^0x[0-9a-f]{16}$/i.test(payload.expectedVersion)) return error(400,'INVALID_ROLE_VERSION','Reload this appointment before editing.');
+        const expectedVersion = canonicalRoleVersion(payload.expectedVersion);
+        if (expectedVersion === undefined) return error(400,'INVALID_ROLE_VERSION','Reload this appointment before editing.');
         const validDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0,10) === v;
         const periods = payload.periods.map(p=>({startDate:p?.startDate,endDate:p?.endDate||null})).sort((a,b)=>String(a.startDate).localeCompare(String(b.startDate)));
         if (periods.some((p,i)=>!validDate(p.startDate) || (p.endDate!==null && (!validDate(p.endDate)||p.endDate<p.startDate)) || (i>0 && (!periods[i-1].endDate || periods[i-1].endDate>=p.startDate)))) return error(400,'INVALID_ROLE_PERIODS','Enter real start dates and non-overlapping periods; end dates are inclusive.');
-        try { const schedule = await writeRepository.updateRolePeriods({roleAssignmentId,expectedVersion:payload.expectedVersion||null,periods,actorFirebaseUid:decoded.uid}); return result(200,{schedule}); }
+        try { const schedule = await writeRepository.updateRolePeriods({roleAssignmentId,expectedVersion,periods,actorFirebaseUid:decoded.uid}); return result(200,{schedule}); }
         catch(caught) { const n=caught.number||caught.originalError?.info?.number; return n===53504?error(404,'ROLE_NOT_FOUND','Appointment not found.'):n===53509?error(409,'STALE_ROLE_PERIODS','Appointment changed. Reload before editing.'):n===53503?error(403,'ROLE_DENIED','Role edit denied.'):error(503,'ROLE_PERIOD_SAVE_FAILED','Effective periods could not be saved.'); }
       });
     },

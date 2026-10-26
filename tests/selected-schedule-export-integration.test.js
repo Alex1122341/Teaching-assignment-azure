@@ -1,7 +1,8 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const sourceFunction=require('../test-support/source-function');
-const {createPawsAzureDataClient}=require('../paws-data-client');
+const {createPawsDataClient}=require('../frontend/scripts/paws-data-client.js');
 const {createDataApi}=require('../server/src/data/data-api');
 const {createSqlSessionRepository}=require('../server/src/data/sql-session-repository');
 const own='11111111-1111-4111-8111-111111111111';
@@ -10,15 +11,15 @@ function pipeline(profile){
  const dto=id=>({id,academicYear:'2026-27',curriculumYear:2,courseCode:'206',courseName:'Synthetic course',date:'2026-11-05',startTime:'09:00:00',endTime:'10:00:00',topic:`Topic ${id}`,sessionType:'LAB',room:'A',instructorNames:'Synthetic Faculty',assignmentsJson:JSON.stringify([{facultyId:own,displayName:'Synthetic Faculty',teachingRole:'LAB',active:1}])});
  const repository=createSqlSessionRepository({query:async(sql,params)=>{calls.queries.push({sql,params});return params.facultyId?[dto('own')]:[dto('own'),dto('other')];}});
  const api=createDataApi({verifyToken:async token=>{assert.equal(token,'synthetic-token');return{uid:'synthetic-uid'};},findUser:async uid=>{assert.equal(uid,'synthetic-uid');return profile;},listSessions:repository.list});
- const client=createPawsAzureDataClient({tokenProvider:async()=>{calls.tokens++;return'synthetic-token';},fetchImpl:async(url,init)=>{
+ const client=createPawsDataClient({tokenProvider:async()=>{calls.tokens++;return'synthetic-token';},fetchImpl:async(url,init)=>{
   calls.requests.push({url,init});assert.equal(init.method,'GET');const parsed=new URL(url);assert.equal(parsed.pathname,'/api/v1/sessions');
   const reply=await api.sessions(init.headers.Authorization.slice(7),Object.fromEntries(parsed.searchParams));return{ok:reply.status===200,status:reply.status,json:async()=>reply.body};
  }});
  const context={Date,Map,Set,Promise,console,currentUser:{uid:'synthetic-uid'},UCVM_PAWS_DATA:client,allSessionsCache:null,allSessionsOwnerUid:'',allSessionsLoading:null,allSessionsLoadingUid:'',allSessionsLoadGeneration:0,sessionCache:new Map(),pageDataSubscribers:new Set()};context.window=context;vm.createContext(context);
- const text=fs.readFileSync('timetable.js','utf8');
+ const text=fs.readFileSync(repositoryPath(process.cwd(), 'timetable.js'),'utf8');
  for(const name of ['SPRING_BASE_MONDAY','FALL_BASE_MONDAY','WINTER_BASE_MONDAY','WEEK_COUNT']){const line=text.split('\n').find(line=>line.includes(`const ${name} =`));assert.ok(line);vm.runInContext(line,context);}
- for(const file of ['scheduling-core.js','timetable-selection.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
- for(const name of ['addDays','parseYmd','academicPositionForDate','splitInstructorNames','azureSessionRow','fetchAzureSessions','fullSessionCacheForUser','publishPageData','ensureAllSessions'])vm.runInContext(sourceFunction('timetable.js',name),context);
+ for(const file of ['faculty-name.js','scheduling-core.js','timetable-selection.js'])vm.runInContext(fs.readFileSync(repositoryPath(process.cwd(),file),'utf8'),context);
+ for(const name of ['addDays','parseYmd','academicPositionForDate','splitInstructorNames','mapPawsSessionRow','fetchPawsSessions','fullSessionCacheForUser','publishPageData','ensureAllSessions'])vm.runInContext(sourceFunction('timetable.js',name),context);
  return{context,calls};
 }
 

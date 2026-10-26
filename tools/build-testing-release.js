@@ -5,6 +5,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadConfig, validatePair, render } = require('./render-environment-config');
+const { readAssetManifest, assetSourcePath } = require('./build/frontend-paths');
+const { validateSources } = require('./build/static-bundle');
 
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, '.azure-testing');
@@ -21,13 +23,14 @@ if (errors.length) {
 }
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(app, { recursive: true });
-const assets = JSON.parse(fs.readFileSync(path.join(root, 'tools', 'static-assets.json'), 'utf8'));
+const assets = readAssetManifest(root);
+validateSources(root);
 if (new Set(assets).size !== assets.length) throw Error('Static asset manifest contains duplicates.');
 for (const relative of assets) {
   if (typeof relative !== 'string' || path.isAbsolute(relative) || relative.includes('..')) throw Error(`Unsafe static asset path: ${relative}`);
   const destination = path.join(app, relative);
   fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.copyFileSync(path.join(root, relative), destination);
+  fs.copyFileSync(assetSourcePath(root, relative), destination);
 }
 fs.writeFileSync(path.join(app, 'paws-api-origin.js'), render(loadConfig('testing')));
 console.log(JSON.stringify({ ok: true, environment: 'testing', output: app, files: assets.length }));

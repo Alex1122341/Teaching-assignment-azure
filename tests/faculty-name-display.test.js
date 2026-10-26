@@ -1,7 +1,8 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const root=path.resolve(__dirname,'..');
-const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const root=repositoryPath(__dirname,'..');
+const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 const ctx={window:{}};
 vm.runInNewContext(read('faculty-name.js'),ctx);
 const names=ctx.window.PAWS_FACULTY_NAME;
@@ -43,7 +44,7 @@ test('UI-specific name sinks format without changing request/storage contracts',
   'faculty-admin-doe-worksheet.js':['showFaculty(row.displayName'],
   'faculty-admin-trainees.js':['showFaculty(r.displayName)'],
   'faculty-availability.js':['showFaculty(r)'],
-  'adfa-swap-panel.js':['showFaculty(candidate.displayName)'],
+  'adfa-swap-panel.js':['showFaculty(candidate)','value.canonicalDisplayName'],
   'faculty-admin-ccc-replacement.js':['PAWS_FACULTY_NAME?.format?.(r.displayName'],
   'teaching-assignments.js':['displayFaculty(a.facultyName'],
   'user-management.js':['displayFaculty(user.name)'],

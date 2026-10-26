@@ -1,5 +1,6 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -7,9 +8,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { execFileSync } = require('node:child_process');
 
-const root = path.resolve(__dirname, '..');
+const root = repositoryPath(__dirname, '..');
 const frozen = '6cd77eb53d532b1f2279777452d45e55182b49ee';
-const readWorking = name => fs.readFileSync(path.join(root, name), 'utf8');
+const readWorking = name => fs.readFileSync(repositoryPath(root, name), 'utf8');
 const readFrozen = name => execFileSync('git', ['show', `${frozen}:${name}`], {
   cwd: root,
   encoding: 'utf8'
@@ -79,9 +80,10 @@ function createHarness(source, html) {
       querySelectorAll: () => [],
       documentElement: new TestEventTarget('html')
     },
-    window: { location: {} },
+    window: Object.assign(new TestEventTarget('window'), { location: {} }),
     location: { protocol: 'https:' },
     initializeScheduleFilters() {},
+    initializeWorkspaceNavigation() {},
     render: noOp,
     resetFilters: noOp,
     moveCalendar: noOp,

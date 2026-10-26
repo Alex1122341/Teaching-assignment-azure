@@ -1,6 +1,7 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
+const root=repositoryPath(__dirname,'..'),freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json');
 const PRODUCT='b5d33762f3544faa94e47d4b7feaf380f0e8a864',PREVIOUS='894090c5204f8df97671b0dc4588f661534bad32';
 test('MASTER refresh pins its reviewed product with additive static/API protection and exact runtime delta',()=>{
  const published=execFileSync('git',['show','6bc6a640986e2aebf4b3084cde43addedd8a9593:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});

@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const core=require('../bulk-import-core.js');
+const core=require('../frontend/scripts/bulk-import-core.js');
 
 const validSource=()=>({
   schemaVersion:'ucvm-all-faculty-summaries-v8-synced-2026-27',

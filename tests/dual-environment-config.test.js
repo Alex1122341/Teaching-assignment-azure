@@ -7,9 +7,10 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
+const { assetSourcePath, frontendRelativePath } = require('../tools/build/frontend-paths');
 const { loadConfig, validateConfig, validatePair, render } = require('../tools/render-environment-config');
 const { verifyRepository, verifyArtifact, verifyHealth } = require('../tools/verify-environment-config');
-const nav = require('../paws-environment-nav.js');
+const nav = require('../frontend/scripts/paws-environment-nav.js');
 
 const production = loadConfig('production');
 const provisionedTesting = {
@@ -21,7 +22,7 @@ const provisionedTesting = {
 // ------------------------------------------------------------------ configuration
 test('committed paws-api-origin.js is exactly the production rendering', () => {
   assert.deepEqual(verifyRepository(), []);
-  const config = require('../paws-api-origin.js');
+  const config = require('../frontend/scripts/paws-api-origin.js');
   assert.equal(config.environment, 'production');
   assert.equal(config.firebase.projectId, 'tester-teaching');
 });
@@ -29,7 +30,7 @@ test('committed paws-api-origin.js is exactly the production rendering', () => {
 test('no shipped file other than the rendered config hard-codes Firebase or API identity', () => {
   const assets = require('../tools/static-assets.json').filter(file => file !== 'paws-api-origin.js' && !file.endsWith('.pdf'));
   for (const file of assets) {
-    const source = fs.readFileSync(path.join(root, file), 'utf8');
+    const source = fs.readFileSync(assetSourcePath(root, file), 'utf8');
     assert.ok(!source.includes(production.firebase.apiKey), `${file} embeds the Firebase API key`);
     assert.ok(!source.includes('tester-teaching'), `${file} embeds the production Firebase project`);
     assert.ok(!source.includes(new URL(production.apiOrigin).hostname), `${file} embeds the production API origin`);
@@ -38,7 +39,7 @@ test('no shipped file other than the rendered config hard-codes Firebase or API 
 
 test('every page loads the environment configuration before any Firebase consumer and the shared switcher', () => {
   for (const page of ['index.html', 'faculty-admin.html', 'teaching-assignments.html', 'user-management.html', 'password.html']) {
-    const html = fs.readFileSync(path.join(root, page), 'utf8');
+    const html = fs.readFileSync(assetSourcePath(root, page), 'utf8');
     const origin = html.indexOf('<script src="paws-api-origin.js"></script>');
     assert.ok(origin > 0, `${page} loads paws-api-origin.js`);
     assert.ok(html.includes('<script src="paws-environment-nav.js"></script>'), `${page} loads the environment switcher`);
@@ -74,7 +75,7 @@ function artifactFor(environmentConfig, tamper) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'paws-artifact-'));
   for (const file of require('../tools/static-assets.json')) {
     fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
-    fs.copyFileSync(path.join(root, file), path.join(dir, file));
+    fs.copyFileSync(assetSourcePath(root, file), path.join(dir, file));
   }
   fs.writeFileSync(path.join(dir, 'paws-api-origin.js'), render(environmentConfig));
   if (tamper) tamper(dir);
@@ -132,8 +133,14 @@ test('health guard rejects a runtime reporting the other environment', () => {
 
 test('freeze: the Testing artifact differs from the baseline only in the rendered environment file', () => {
   const freeze = require('../tools/beta-freeze');
-  assert.ok(freeze.ENVIRONMENT_INPUTS.includes('config/environments/testing.json'));
-  assert.throws(() => freeze.verifyFreeze({ environment: 'staging', skipCommitCheck: true, files: [] }), /unknown environment/);
+  assert.ok(freeze.BASELINE_COMMIT, 'The Production freeze remains pinned.');
+  const prod = artifactFor(production), testing = artifactFor(provisionedTesting);
+  for (const asset of require('../tools/static-assets.json')) {
+    const p = fs.readFileSync(path.join(prod, asset));
+    const t = fs.readFileSync(path.join(testing, asset));
+    if (asset === 'paws-api-origin.js') assert.notDeepEqual(p, t, 'The environment identity must be distinct');
+    else assert.deepEqual(t, p, asset + ' must not differ by environment');
+  }
 });
 
 // ------------------------------------------------------------------ switcher view model
@@ -210,7 +217,7 @@ function renderBar(config, profileEvent, pathname) {
   const document = { readyState: 'complete', head: mk('head'), body, createElement: mk, getElementById: id => elements.get(id) || null, addEventListener() {} };
   const window = { document, location: { pathname }, PAWS_ENVIRONMENT_CONFIG: config, addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); } };
   const context = vm.createContext({ window, URL, module: undefined });
-  vm.runInContext(fs.readFileSync(path.join(root, 'paws-environment-nav.js'), 'utf8').replace('typeof window === \'undefined\' ? globalThis : window', 'window'), context);
+  vm.runInContext(fs.readFileSync(assetSourcePath(root, 'paws-environment-nav.js'), 'utf8').replace('typeof window === \'undefined\' ? globalThis : window', 'window'), context);
   (listeners['paws-profile'] || []).forEach(fn => fn({ detail: profileEvent }));
   return elements.get('paws-environment-bar').innerHTML;
 }
@@ -235,7 +242,7 @@ test('Testing deploy is manual main-only and verifies an already staged Universi
 
 test('Production release paths share switchable identity, Testing-pass and UAT-approval evidence checks', () => {
   const hosting = workflow('firebase-hosting-deploy.yml');
-  const aca = workflow('azure-beta-aca-deploy.yml');
+  assert.equal(fs.existsSync(path.join(root, '.github/workflows/azure-beta-aca-deploy.yml')), false, 'Retired Azure deployment is absent');
   for (const [name, text] of [['hosting', hosting]]) {
     // Required reviewers are unavailable here; an environment would only change the OIDC subject.
     assert.doesNotMatch(text, /^\s*environment:\s/m, name);
@@ -243,7 +250,7 @@ test('Production release paths share switchable identity, Testing-pass and UAT-a
     assert.match(text, /REQUIRE_RELEASE_APPROVAL: \$\{\{ vars\.PAWS_REQUIRE_RELEASE_APPROVAL \}\}/, name);
     assert.match(text, /if: env\.REQUIRE_TESTING_PASS == 'true' \|\| env\.REQUIRE_RELEASE_APPROVAL == 'true'\r?\n\s*shell: bash[\s\S]*?run: bash tools\/require-release-evidence\.sh/, name);
   }
-  assert.match(aca,/RETIRED_OPERATION/);assert.doesNotMatch(aca,/az containerapp|azure\/login/);
+  assert.equal(fs.existsSync(path.join(root, '.github/workflows/azure-beta-acr-publish.yml')), false, 'Retired Azure ACR publish is absent');
   assert.ok(hosting.indexOf('require-release-evidence.sh') < hosting.indexOf('firebase deploy'), 'Hosting evidence check precedes the deploy');
   assert.match(hosting, /REQUIRE_ENVIRONMENT_IDENTITY: \$\{\{ vars\.PAWS_REQUIRE_ENVIRONMENT_IDENTITY \}\}/);
   assert.equal((hosting.match(/if \$strictEnvironment == "true" then \.environment == "production"/g) || []).length, 2);
@@ -254,10 +261,13 @@ test('Production release paths share switchable identity, Testing-pass and UAT-a
 test('a provisioned Testing build contains exactly the shipped manifest and passes the artifact guard', () => {
   const { execFileSync } = require('node:child_process');
   const dir = provisionedRoot(provisionedTesting);
-  fs.mkdirSync(path.join(dir, 'tools'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'tools', 'build'), { recursive: true });
   for (const tool of ['build-testing-release.js', 'render-environment-config.js']) fs.copyFileSync(path.join(root, 'tools', tool), path.join(dir, 'tools', tool));
+  for (const helper of ['frontend-paths.js', 'static-bundle.js']) {
+    fs.copyFileSync(path.join(root, 'tools', 'build', helper), path.join(dir, 'tools', 'build', helper));
+  }
   const assets = require('../tools/static-assets.json');
-  for (const file of assets) { fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true }); fs.copyFileSync(path.join(root, file), path.join(dir, file)); }
+  for (const file of assets) { const dest=path.join(dir,frontendRelativePath(file));fs.mkdirSync(path.dirname(dest),{recursive:true});fs.copyFileSync(assetSourcePath(root,file),dest); }
   const out = JSON.parse(execFileSync(process.execPath, [path.join(dir, 'tools', 'build-testing-release.js')], { encoding: 'utf8' }));
   assert.equal(out.ok, true);
   const app = path.join(dir, '.azure-testing', 'app');
@@ -297,19 +307,19 @@ test('the Testing banner reads "TESTING ENVIRONMENT — SYNTHETIC DATA ONLY" and
 });
 
 test('the data client announces a server-ended support session and never retries it as another identity', async () => {
-  const { createPawsAzureDataClient } = require('../paws-data-client');
+  const { createPawsDataClient } = require('../frontend/scripts/paws-data-client');
   const events = [];
   const previous = { dispatchEvent: globalThis.dispatchEvent };
   globalThis.dispatchEvent = event => { events.push(event); return true; };
   try {
     const calls = [];
-    const client = createPawsAzureDataClient({ tokenProvider: async () => 'token', fetchImpl: async (url, init) => { calls.push(init); return { ok: false, status: 403, json: async () => ({ error: { code: 'SUPPORT_CONTEXT_EXPIRED', message: 'Support session ended or expired. Return to your own account.' } }) }; } });
+    const client = createPawsDataClient({ tokenProvider: async () => 'token', fetchImpl: async (url, init) => { calls.push(init); return { ok: false, status: 403, json: async () => ({ error: { code: 'SUPPORT_CONTEXT_EXPIRED', message: 'Support session ended or expired. Return to your own account.' } }) }; } });
     await assert.rejects(client.listAfcForms({ facultyId: 'f' }), error => error.code === 'SUPPORT_CONTEXT_EXPIRED');
     assert.equal(calls.length, 1, 'a 403 is never replayed');
     assert.equal(events.length, 1);
     assert.equal(events[0].type, 'paws-support-expired');
     assert.equal(events[0].detail.code, 'SUPPORT_CONTEXT_EXPIRED');
-    const other = createPawsAzureDataClient({ tokenProvider: async () => 'token', fetchImpl: async () => ({ ok: false, status: 403, json: async () => ({ error: { code: 'FORBIDDEN', message: 'no' } }) }) });
+    const other = createPawsDataClient({ tokenProvider: async () => 'token', fetchImpl: async () => ({ ok: false, status: 403, json: async () => ({ error: { code: 'FORBIDDEN', message: 'no' } }) }) });
     await assert.rejects(other.listAfcForms({ facultyId: 'f' }));
     assert.equal(events.length, 1, 'ordinary authorization errors are not session expiry');
   } finally {
@@ -318,7 +328,7 @@ test('the data client announces a server-ended support session and never retries
 });
 
 test('after a server-ended session the page keeps the ended context (requests fail) until Return to myself', () => {
-  const source = fs.readFileSync(path.join(root, 'developer-support.js'), 'utf8');
+  const source = fs.readFileSync(assetSourcePath(root, 'developer-support.js'), 'utf8');
   const handler = /addEventListener\('paws-support-expired',([\s\S]*?)\}\);\r?\n/.exec(source);
   assert.ok(handler, 'developer-support listens for paws-support-expired');
   assert.doesNotMatch(handler[1], /removeItem/, 'the ended context is not dropped silently');

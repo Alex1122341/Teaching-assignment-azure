@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const test = require('node:test');
+const { RENDERER_VERSION } = require('../src/afc/afc-approved-artifact-renderer');
 const { createAfcApprovedArtifactApi } = require('../src/afc/afc-approved-artifact-api');
 
 const REQUEST_ID = '22222222-2222-4222-8222-222222222222';
@@ -26,7 +27,7 @@ function makeRendered(overrides = {}) {
     pdfBytes,
     pdfSha256: digest(pdfBytes),
     byteLength: pdfBytes.length,
-    rendererVersion: '1.0.0',
+    rendererVersion: RENDERER_VERSION,
     templateSha256: Buffer.from(TEMPLATE_SHA256),
     ...overrides,
   };
@@ -235,7 +236,7 @@ test('POST renders authorized SQL snapshot and returns SQL persisted bytes, not 
     pdfSha256: makeRendered().pdfSha256,
     byteLength: makeRendered().byteLength,
     templateSha256: TEMPLATE_SHA256,
-    rendererVersion: '1.0.0',
+    rendererVersion: RENDERER_VERSION,
   });
 });
 

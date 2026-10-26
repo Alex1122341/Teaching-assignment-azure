@@ -8,7 +8,7 @@ const {
   effectiveRoleDoe,
   summarizeDoe,
   formatDoe
-} = require('../dashboard-view-model');
+} = require('../frontend/scripts/dashboard-view-model.js');
 
 test('groups assignments by curriculum year then course and sorts sessions deterministically', () => {
   const groups = groupTeachingAssignments([
@@ -112,13 +112,13 @@ test('DOE formatting makes missing values explicit and keeps zero visible', () =
 
 
 test('Lookup uses the Calgary date (including the UTC day boundary)', () => {
-  const { campusToday } = require('../dashboard-view-model');
+  const { campusToday } = require('../frontend/scripts/dashboard-view-model.js');
   assert.equal(campusToday(new Date('2026-10-19T05:30:00Z')), '2026-10-18');
   assert.equal(campusToday(new Date('2026-10-19T07:30:00Z')), '2026-10-19');
 });
 
 test('Lookup counts only active future AFC and shows end of an ongoing leave', () => {
-  const { lookupUpcomingAfc } = require('../dashboard-view-model');
+  const { lookupUpcomingAfc } = require('../frontend/scripts/dashboard-view-model.js');
   const result = lookupUpcomingAfc([
     { startDate: '2026-10-16', endDate: '2026-10-18', purpose: 'Vacation', active: true },
     { startDate: '2026-10-20', endDate: '2026-10-21', purpose: 'Vacation', active: true },
@@ -136,7 +136,7 @@ test('Lookup counts only active future AFC and shows end of an ongoing leave', (
 });
 
 test('Lookup shows the next leave start only when not currently on leave', () => {
-  const { lookupUpcomingAfc } = require('../dashboard-view-model');
+  const { lookupUpcomingAfc } = require('../frontend/scripts/dashboard-view-model.js');
   const rows = [
     { startDate: '2026-10-10', endDate: '2026-10-18', reasonCode: 'rsl', active: true },
     { startDate: '2026-11-10', endDate: '2026-11-20', legacyPurpose: 'Maternity Leave', active: true },
@@ -152,7 +152,7 @@ test('Lookup shows the next leave start only when not currently on leave', () =>
 });
 
 test('Lookup DOE uses only authoritative calculated Worksheet remaining, including zero and overage', () => {
-  const { lookupRemainingDoe } = require('../dashboard-view-model');
+  const { lookupRemainingDoe } = require('../frontend/scripts/dashboard-view-model.js');
   assert.equal(lookupRemainingDoe({ status: 'calculated', remainingDoe: 0 }), '0.00%');
   assert.equal(lookupRemainingDoe({ status: 'calculated', remainingDoe: 4.5 }), '4.50%');
   assert.equal(lookupRemainingDoe({ status: 'calculated', remainingDoe: -3 }), '-3.00% (over)');
@@ -163,7 +163,7 @@ test('Lookup DOE uses only authoritative calculated Worksheet remaining, includi
 
 
 test('Lookup ignores generic Special AFC as Leave without explicit leave source', () => {
-  const { lookupUpcomingAfc } = require('../dashboard-view-model');
+  const { lookupUpcomingAfc } = require('../frontend/scripts/dashboard-view-model.js');
   assert.deepEqual(lookupUpcomingAfc([
     { startDate:'2026-10-01',endDate:'2026-11-02',reasonCode:'special',reason:'Special',active:true },
     { startDate:'2026-10-05',endDate:'2026-11-07',reasonCode:'other',reason:'Sabbatical Leave',active:true }
@@ -171,7 +171,7 @@ test('Lookup ignores generic Special AFC as Leave without explicit leave source'
 });
 
 test('Lookup scoped metrics consume existing AFC and DOE reads without exposing leave reasons', async () => {
-  const { fetchLookupMetrics, lookupMetricsText } = require('../dashboard-view-model');
+  const { fetchLookupMetrics, lookupMetricsText } = require('../frontend/scripts/dashboard-view-model.js');
   const api={
     async dashboardAfcRecords(options){
       assert.deepEqual(options,{active:true,limit:2000});
@@ -200,7 +200,7 @@ test('Lookup scoped metrics consume existing AFC and DOE reads without exposing 
 });
 
 test('Lookup leaves failed AFC or DOE reads unavailable rather than claiming zero', async () => {
-  const { fetchLookupMetrics, lookupMetricsText } = require('../dashboard-view-model');
+  const { fetchLookupMetrics, lookupMetricsText } = require('../frontend/scripts/dashboard-view-model.js');
   const result=await fetchLookupMetrics({
     async dashboardAfcRecords(){throw new Error('AFC read failed');},
     async doeWorksheets(){throw new Error('DOE read failed');}

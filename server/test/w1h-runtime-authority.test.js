@@ -1,5 +1,6 @@
 'use strict';
 
+const { repositoryPath } = require('../../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createWriteGates } = require('../src/data/write-gates');
@@ -145,7 +146,7 @@ test('approved artifact GET remains available while POST create gate blocks befo
 test('W1H migration grants only exact domain procedure execution and deterministic empty-role rollback', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const migration = fs.readFileSync(path.join(__dirname, '..', '..', 'database', 'azure-sql', '018_w1h_afc_runtime_write_roles.sql'), 'utf8');
+  const migration = fs.readFileSync(repositoryPath(__dirname, '..', '..', 'database', 'azure-sql', '018_w1h_afc_runtime_write_roles.sql'), 'utf8');
   for (const role of ['paws_runtime_afc_request_write', 'paws_runtime_afc_decision_write', 'paws_runtime_afc_artifact_write']) assert.match(migration, new RegExp('CREATE ROLE \\[' + role + '\\]', 'i'));
   for (const proc of ['SubmitAfcRequest', 'WithdrawAfcRequest', 'RecommendAfcRequest', 'RejectAfcRequest', 'ApproveAfcRequest', 'CreateOrGetApprovedAfcArtifact']) assert.match(migration, new RegExp('GRANT EXECUTE ON OBJECT::paws_api\\.' + proc, 'i'));
   assert.doesNotMatch(migration, /GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|ALTER|CONTROL)\b/i);

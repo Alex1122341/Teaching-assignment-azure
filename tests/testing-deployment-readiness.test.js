@@ -356,8 +356,11 @@ test('University Testing deployment workflow has no Azure mutation or automatic 
  assert.doesNotMatch(text,/workflow_run:|az containerapp|az acr|id-token: write/);
  assert.match(text,/runtime_attestation_json:/);assert.match(text,/runtime_attestation_sha256:/);
  assert.match(text,/refs\/heads\/main/);assert.match(text,/publish-testing-hosting\.js/);
- for(const file of ['paws-testing-db-reset.yml','azure-beta-aca-deploy.yml','azure-beta-acr-publish.yml']){
-  const retired=workflow(file);assert.doesNotMatch(retired,/azure\/login|az (?:containerapp|acr|sql)|reset-testing-db\.js|docker (?:build|push)/i);assert.match(retired,/retired/i);
+ const retired=workflow('paws-testing-db-reset.yml');
+ assert.doesNotMatch(retired,/azure\/login|az (?:containerapp|acr|sql)|reset-testing-db\.js|docker (?:build|push)/i);
+ assert.match(retired,/retired/i);
+ for (const obsolete of ['azure-beta-aca-deploy.yml', 'azure-beta-acr-publish.yml']) {
+   assert.equal(fs.existsSync(path.join(root,'.github','workflows',obsolete)),false, obsolete+' must remain removed');
  }
 });
 

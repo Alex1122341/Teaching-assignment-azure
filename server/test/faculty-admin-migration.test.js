@@ -1,15 +1,16 @@
 'use strict';
 
+const { repositoryPath } = require('../../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const root = path.resolve(__dirname, '../..');
-const migration = fs.readFileSync(path.join(root, 'database/azure-sql/023_faculty_admin_write.sql'), 'utf8');
-const rollback = fs.readFileSync(path.join(root, 'database/azure-sql/rollback_023_faculty_admin_write.sql'), 'utf8');
-const profileVersionFix = fs.readFileSync(path.join(root, 'database/azure-sql/024_faculty_admin_profile_version_fix.sql'), 'utf8');
-const dashboardRepository = fs.readFileSync(path.join(root, 'server/src/data/sql-dashboard-repository.js'), 'utf8');
+const root = repositoryPath(__dirname, '../..');
+const migration = fs.readFileSync(repositoryPath(root, 'database/azure-sql/023_faculty_admin_write.sql'), 'utf8');
+const rollback = fs.readFileSync(repositoryPath(root, 'database/azure-sql/rollback_023_faculty_admin_write.sql'), 'utf8');
+const profileVersionFix = fs.readFileSync(repositoryPath(root, 'database/azure-sql/024_faculty_admin_profile_version_fix.sql'), 'utf8');
+const dashboardRepository = fs.readFileSync(repositoryPath(root, 'server/src/data/sql-dashboard-repository.js'), 'utf8');
 
 test('Faculty write migration is narrowly gated, audited, concurrency checked, and reversible without business-data deletion', () => {
   assert.match(migration, /:ON ERROR EXIT/);
@@ -38,7 +39,7 @@ test('Faculty write migration is narrowly gated, audited, concurrency checked, a
 });
 
 test('legacy Faculty dashboard enhancement contains no browser Firestore write path', () => {
-  const legacy = fs.readFileSync(path.join(root, 'faculty-admin-enhancements.js'), 'utf8');
+  const legacy = fs.readFileSync(repositoryPath(root, 'faculty-admin-enhancements.js'), 'utf8');
   assert.doesNotMatch(legacy, /db\.collection\(['"](?:faculty|faculty_change_log)['"]\)/);
   assert.doesNotMatch(legacy, /firebase\.firestore\(\)\.FieldValue/);
   assert.match(legacy, /All Faculty edits must use the guarded SQL API/);

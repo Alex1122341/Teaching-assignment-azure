@@ -1,5 +1,6 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -8,7 +9,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const test = require('node:test');
 
-const buildScriptPath = path.join(__dirname, '..', 'tools', 'build-swa-api.js');
+const buildScriptPath = repositoryPath(__dirname, '..', 'tools', 'build-swa-api.js');
 
 test('SWA API builder copies locked package inputs, server source, and reviewed PDF into only its root bundle path', (t) => {
   const buildScript = fs.readFileSync(buildScriptPath, 'utf8');
@@ -19,8 +20,8 @@ test('SWA API builder copies locked package inputs, server source, and reviewed 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p3b4-swa-api-bundle-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
-  const sourceDir = path.join(root, 'swa-api');
-  const serverSourceDir = path.join(root, 'server', 'src');
+  const sourceDir = repositoryPath(root, 'swa-api');
+  const serverSourceDir = repositoryPath(root, 'server', 'src');
   const templateRelativePath = path.join('afc', 'assets', 'absence-from-campus-app.pdf');
   fs.mkdirSync(path.join(serverSourceDir, 'afc', 'assets'), { recursive: true });
   fs.mkdirSync(path.join(serverSourceDir, 'runtime'), { recursive: true });
@@ -34,7 +35,7 @@ test('SWA API builder copies locked package inputs, server source, and reviewed 
   const templateBytes = Buffer.from('%PDF-1.7 fixture template bytes');
   fs.writeFileSync(path.join(serverSourceDir, templateRelativePath), templateBytes);
 
-  const expectedOutput = path.join(root, '.azure-production', 'api');
+  const expectedOutput = repositoryPath(root, '.azure-production', 'api');
   const result = buildSwaApi({ root });
   assert.equal(path.resolve(result.output), path.resolve(expectedOutput));
   assert.equal(fs.readFileSync(path.join(expectedOutput, 'package.json'), 'utf8'), '{"name":"fixture-api"}\n');
@@ -47,13 +48,13 @@ test('SWA API builder copies locked package inputs, server source, and reviewed 
     crypto.createHash('sha256').update(copiedTemplate).digest('hex'),
     crypto.createHash('sha256').update(templateBytes).digest('hex'),
   );
-  assert.equal(fs.existsSync(path.join(root, '.azure-production', 'unexpected-output')), false);
+  assert.equal(fs.existsSync(repositoryPath(root, '.azure-production', 'unexpected-output')), false);
 
-  const cliOverride = spawnSync(process.execPath, [buildScriptPath, '--output', path.join(root, 'unexpected-output')], {
+  const cliOverride = spawnSync(process.execPath, [buildScriptPath, '--output', repositoryPath(root, 'unexpected-output')], {
     cwd: path.dirname(buildScriptPath),
     encoding: 'utf8',
   });
   assert.notEqual(cliOverride.status, 0);
   assert.match(cliOverride.stderr, /SWA API output must be \.azure-production\/api/);
-  assert.equal(fs.existsSync(path.join(root, 'unexpected-output')), false);
+  assert.equal(fs.existsSync(repositoryPath(root, 'unexpected-output')), false);
 });

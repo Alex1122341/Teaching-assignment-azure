@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const sourceFunction=require('../test-support/source-function');
 const modulePath=process.env.PAWS_UI_PLAYWRIGHT_MODULE;
@@ -6,8 +7,8 @@ async function harness(t){
  const {chromium}=require(modulePath),browser=await chromium.launch({channel:'chrome',headless:true});t.after(()=>browser.close());
  const page=await browser.newPage({viewport:{width:1280,height:900},acceptDownloads:true});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.setContent('<!doctype html><title>Selected schedule synthetic acceptance</title><div id="modal" class="modal-container"></div><div id="toast"></div>');
- await page.addStyleTag({path:path.resolve(__dirname,'../timetable.css')});
- for(const file of ['scheduling-core.js','timetable-selection.js'])await page.addScriptTag({path:path.resolve(__dirname,'..',file)});
+ await page.addStyleTag({path:repositoryPath(__dirname,'../timetable.css')});
+ for(const file of ['faculty-name.js','scheduling-core.js','timetable-selection.js'])await page.addScriptTag({path:repositoryPath(__dirname,'..',file)});
  await page.evaluate(()=>{
   window.fixture={rows:[{id:'late',course:'206',courseName:'Course Six',date:'2026-11-06',start:'10:00',end:'11:00',topic:'Later',type:'LAB',instructor:'Faculty Beta',room:'B',email:'PRIVATE EMAIL',assignments:[{ucid:'PRIVATE UID'}]},
    {id:'early',course:'206',courseName:'Course Six',date:'2026-11-05',start:'09:00',end:'10:00',topic:'Earlier',type:'LEC',instructor:'Faculty Alpha',room:'A'},

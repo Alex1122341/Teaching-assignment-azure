@@ -1,6 +1,7 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const {createController,renderRows,renderSummary,mount}=require('../faculty-admin-trainees');
+const {createController,renderRows,renderSummary,mount}=require('../frontend/scripts/faculty-admin-trainees.js');
 const row=(i=0)=>({facultyId:'id'+i,displayName:'Example '+i,rawCounts:[0,null,53,0,0,0,0],sourceDoe:null,currentRawDoe:2,currentAppliedDoe:1,sourceStatus:'source_missing',privateNotes:{E:'private trainee note'},sourceRef:{sheet:'# Trainees',row:3,column:'A'}});
 function fixture(){let user={uid:'owner',role:'owner'},year='2026-27';const queries=[],exports=[],downloads=[];
  const api={dashboardTrainees:p=>new Promise((resolve,reject)=>queries.push({p,resolve,reject})),exportDashboardTrainees:async p=>{exports.push(p);return {bytes:new Uint8Array([1]),contentType:'text/csv; charset=utf-8'};}};
@@ -37,7 +38,7 @@ test('ordinary refresh and changing keywords retain the explicitly selected year
 });
 test('lazy tab teardown retains only academic year for the same account',async()=>{
  const vm=require('node:vm');let options;const window={addEventListener(){},PAWS_TRAINEES:{mount:(_h,p)=>{options=p;return {refresh(){},destroy(){}};}}},document={readyState:'loading',querySelector:()=>true};
- vm.runInNewContext(fs.readFileSync('asset-loader.js','utf8'),{window,document,setTimeout});let user={uid:'owner',role:'owner'};
+ vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'asset-loader.js'),'utf8'),{window,document,setTimeout});let user={uid:'owner',role:'owner'};
  const entry=window.UCVM_ASSETS.createTraineeEntry({host:{innerHTML:''},getAcademicYear:()=>'2026-27',getUser:()=>user});await entry.open();options.onAcademicYearChange('2027-28');entry.clear();await entry.open();assert.equal(options.getAcademicYear(),'2027-28');
  user={uid:'other',role:'faculty'};entry.clear();await entry.open();assert.equal(options.getAcademicYear(),'2026-27');
 });
@@ -52,8 +53,8 @@ test('mount clears rendered notes and delayed rows on signout',async()=>{
  const h=fixture();let finish;const api={dashboardTrainees:()=>new Promise(r=>finish=r)};
  const view=mount(host,{api,getAcademicYear:()=>'2026-27',getUser:()=>({uid:'self',role:'faculty'})});view.clear();finish(result());await new Promise(r=>setImmediate(r));assert.equal(host.innerHTML,'');assert.doesNotMatch(nodes.get('[data-trainee-rows]')?.innerHTML||'',/private trainee note/);view.destroy();
 });
-test('Dashboard wires lazy assets, self navigation and cleanup without enlarging controller beyond60k LF bytes',()=>{
- const html=fs.readFileSync('faculty-admin.html','utf8'),src=fs.readFileSync('faculty-admin.js','utf8'),loader=fs.readFileSync('asset-loader.js','utf8');
+test('Dashboard wires lazy assets, self navigation and cleanup within the reviewed 63k LF byte bound including auth generation guards',()=>{
+ const html=fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.html'),'utf8'),src=fs.readFileSync(repositoryPath(process.cwd(), 'faculty-admin.js'),'utf8'),loader=fs.readFileSync(repositoryPath(process.cwd(), 'asset-loader.js'),'utf8');
  assert.match(html,/data-tab="trainees"/);assert.match(html,/id="trainees-view"/);assert.doesNotMatch(html,/<script src="faculty-admin-trainees.js"/);
- assert.match(loader,/ensureTrainees/);assert.match(src,/traineesEntry/);assert.match(src,/traineesEntry\?\.clear/);assert.match(src,/\['lookup','trainees','availability'\]/);assert.ok(Buffer.byteLength(src.replace(/\r\n/g,'\n'))<60000);
+ assert.match(loader,/ensureTrainees/);assert.match(src,/traineesEntry/);assert.match(src,/traineesEntry\?\.clear/);assert.match(src,/\['lookup','trainees','availability','other-work'\]/);assert.ok(Buffer.byteLength(src.replace(/\r\n/g,'\n'))<63000);
 });

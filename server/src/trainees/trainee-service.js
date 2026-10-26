@@ -1,4 +1,5 @@
 'use strict';
+const names=require('../domain/person-name');
 const {randomBytes,createHash,createHmac,timingSafeEqual}=require('node:crypto');
 const {isAdministratorRole}=require('../auth/role-policy');
 const CATEGORIES=Object.freeze(['undergrad','vetm506','preceptor','im','grad_primary','grad_cosupervised','postdoc']);
@@ -25,7 +26,7 @@ function traineeCsv(rows,{academicYear}){
   return /[",\r\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;
  };
  const headers=['Academic year','Faculty',...LABELS,'Supervision assignments','Source DOE','Current raw DOE','Current applied DOE','Source status','Source cell','Notes'];
- const lines=rows.map(publicRow).map(r=>[academicYear,r.displayName,...r.rawCounts,r.supervisionAssignments,r.sourceDoe,r.currentRawDoe,r.currentAppliedDoe,r.sourceStatus,r.sourceRef?`${r.sourceRef.sheet}!${r.sourceRef.column}${r.sourceRef.row}`:null,r.privateNotes?JSON.stringify(r.privateNotes):null].map(cell).join(','));
+ const lines=rows.map(publicRow).map(r=>[academicYear,names.format(r.displayName),...r.rawCounts,r.supervisionAssignments,r.sourceDoe,r.currentRawDoe,r.currentAppliedDoe,r.sourceStatus,r.sourceRef?`${r.sourceRef.sheet}!${r.sourceRef.column}${r.sourceRef.row}`:null,r.privateNotes?JSON.stringify(r.privateNotes):null].map(cell).join(','));
  return Buffer.from('\uFEFF'+[headers.map(cell).join(','),...lines].join('\r\n')+'\r\n','utf8');
 }
 function createTraineeService({secret=randomBytes(32)}={}){

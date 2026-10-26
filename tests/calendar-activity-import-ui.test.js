@@ -1,5 +1,5 @@
 'use strict';
-const test=require('node:test');const assert=require('node:assert/strict');const {createController}=require('../faculty-admin-activity-import');
+const test=require('node:test');const assert=require('node:assert/strict');const {createController}=require('../frontend/scripts/faculty-admin-activity-import.js');
 const SHA='4FDB517FE0B6CDF26678643E6B606D9F8388701AAF7EA540206BEF8A5733E2DF';
 const preview={batchId:'private-batch',sourceSha256:SHA,policyVersion:'afc-working-activities-v2',previewVersion:'version1',manifestSha256:'manifest',expiresAtUtc:'2099-01-01',startDate:'2026-04-29',endDate:'2026-05-03',counts:{accepted:1,retained:1,quarantined:1,excluded:1},items:[{sourceRow:2,status:'accepted',displayName:'<script>Synthetic</script>',startDate:'2026-04-29',endDate:'2026-05-03',targetCount:1},{sourceRow:3,status:'retained'},{sourceRow:4,status:'quarantined',issues:['BAD_DATE']},{sourceRow:5,status:'excluded'}]};
 function harness({failure=null,stage=true,commit=true,policyVersion=preview.policyVersion}={}){

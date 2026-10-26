@@ -1,6 +1,7 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{execFileSync}=require('node:child_process');
-const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json'),root=path.resolve(__dirname,'..');
+const { repositoryPath } = require('../tools/build/frontend-paths');
+const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
+const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze'),report=require('../tools/beta-baseline.json'),root=repositoryPath(__dirname,'..');
 const PRODUCT='0798408fa819f6040953ccf325d5cfb5e06ca7fc',PREVIOUS='3d983cf317147a20415e8e5cfd0d3f17532af27f';
 test('history promotion pins the accepted product with exact additive runtime coverage and no exceptions',()=>{
  const historical=execFileSync('git',['show','95ad477dc871eda056d24677dd6758d134a56f83:tools/beta-freeze.js'],{cwd:root,encoding:'utf8'});

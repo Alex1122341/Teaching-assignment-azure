@@ -1,12 +1,12 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
-const root = path.resolve(__dirname, '..');
-const rendererSource = fs.readFileSync(path.join(root, 'faculty-admin-doe-renderer.js'), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const rendererSource = fs.readFileSync(repositoryPath(root, 'faculty-admin-doe-renderer.js'), 'utf8');
 
 function createRenderer({ esc, number, formatDoe } = {}) {
   const context = {
@@ -36,7 +36,7 @@ function renderRuleBook(ruleBook) {
 }
 
 test('Faculty page distinguishes contract target allocations from assigned and role DOE, preserving zeros and omitting blank categories', () => {
-  const source = fs.readFileSync(path.join(root, 'faculty-admin.js'), 'utf8');
+  const source = fs.readFileSync(repositoryPath(root, 'faculty-admin.js'), 'utf8');
   assert.match(source, /renderContractDoe\(data\.contractDoe/);
   const html = render({
     academicYear: '2026-27', teachingDoe: 0, source: 'DOE snapshot', policyVersionLabel: 'Faculty Master List DOE snapshot 2026-10-04',

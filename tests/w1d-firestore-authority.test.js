@@ -1,12 +1,13 @@
 'use strict';
 
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 
-const root=path.join(__dirname,'..');
-const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const root=repositoryPath(__dirname,'..');
+const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 
 const SQL_CANONICAL_PATHS=[
  'sessions',
@@ -25,7 +26,7 @@ const SQL_CANONICAL_PATHS=[
 ];
 
 test('W1D publishes an explicit and reviewable SQL-canonical Firestore path set',()=>{
- const source=fs.readFileSync(path.join(__dirname,'w1d-firestore-authority-emulator.test.js'),'utf8');
+ const source=fs.readFileSync(repositoryPath(__dirname,'w1d-firestore-authority-emulator.test.js'),'utf8');
  for(const collection of SQL_CANONICAL_PATHS)assert.ok(source.includes(`'${collection}'`),`missing protected path ${collection}`);
 });
 

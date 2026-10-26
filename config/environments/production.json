@@ -2,7 +2,7 @@
   "environment": "production",
   "environmentLabel": "Production",
   "releaseLabel": "TEMPORARY BETA INGRESS",
-  "apiOrigin": "https://cultures-please-skirt-tba.trycloudflare.com",
+  "apiOrigin": "https://gibson-strand-telecharger-governor.trycloudflare.com",
   "siteUrl": "https://tester-teaching.web.app",
   "peerSiteUrl": null,
   "firebase": {

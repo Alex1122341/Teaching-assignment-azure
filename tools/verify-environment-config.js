@@ -27,7 +27,7 @@ function verifyRepository(root = ROOT) {
   const production = loadConfig('production', root);
   const testing = loadConfig('testing', root);
   const errors = validatePair(production, testing, { complete: false });
-  const committed = fs.readFileSync(path.join(root, 'paws-api-origin.js'), 'utf8').replace(/\r\n/g, '\n');
+  const committed = fs.readFileSync(path.join(root, 'frontend', 'scripts', 'paws-api-origin.js'), 'utf8').replace(/\r\n/g, '\n');
   if (committed !== render(production)) errors.push('paws-api-origin.js is not the production rendering');
   return errors;
 }

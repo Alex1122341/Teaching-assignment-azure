@@ -1,9 +1,10 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const {test,before,after,beforeEach}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const api=require('../index-maintenance.js');
+const api=require('../frontend/scripts/index-maintenance.js');
 
 const PROJECT_ID='demo-ucvm-derived-index';
 const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
@@ -35,7 +36,7 @@ const sessions=[{id:'s1',course:'301',date:'2026-09-08',assignments:[{ucid:'f1',
 before(async()=>{
  if(!enabled)return;
  const {initializeTestEnvironment}=require('@firebase/rules-unit-testing');
- env=await initializeTestEnvironment({projectId:PROJECT_ID,firestore:{rules:fs.readFileSync(path.join(__dirname,'../firestore.rules'),'utf8')}});
+ env=await initializeTestEnvironment({projectId:PROJECT_ID,firestore:{rules:fs.readFileSync(repositoryPath(__dirname,'../firestore.rules'),'utf8')}});
 });
 after(async()=>{if(env)await env.cleanup()});
 

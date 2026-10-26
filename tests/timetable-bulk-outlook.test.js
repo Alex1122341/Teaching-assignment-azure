@@ -1,10 +1,10 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
-const root=path.join(__dirname,'..');
-const timetable=['index.html','timetable.js','afc-timetable-panel.js'].map(name=>fs.readFileSync(path.join(root,name),'utf8')).join('\n');
+const root=repositoryPath(__dirname,'..');
+const timetable=['index.html','timetable.js','afc-timetable-panel.js'].map(name=>fs.readFileSync(repositoryPath(root,name),'utf8')).join('\n');
 
 test('faculty accounts land on their own teaching in day view',()=>{
  assert.match(timetable,/viewMode\s*=\s*roleIsFaculty\(currentUser\)\s*\?\s*'day'\s*:\s*'week'/);

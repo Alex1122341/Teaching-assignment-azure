@@ -1,9 +1,9 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const path=require('node:path');
-const root=path.resolve(__dirname,'..');
-const html=['index.html','timetable.js'].map(name=>fs.readFileSync(path.join(root,name),'utf8')).join('\n');
+const root=repositoryPath(__dirname,'..');
+const html=['index.html','timetable.js'].map(name=>fs.readFileSync(repositoryPath(root,name),'utf8')).join('\n');
 
 test('course filter supports selecting several courses',()=>{
  assert.match(html,/id="filter-course-options"/);
@@ -22,7 +22,7 @@ test('timetable has day, week, month and future list views',()=>{
 
 test('CCC and work activities share the complete type picker and never become generated teaching sessions',()=>{
  assert.match(html,/id="activity-type-filter"/);assert.match(html,/renderRangeLane/);assert.doesNotMatch(html,/ccc_events|expandCccEvents|loadCccEvents/);
- assert.match(fs.readFileSync(path.join(root,'calendar-activities.js'),'utf8'),/listCalendarActivities/);
+ assert.match(fs.readFileSync(repositoryPath(root,'calendar-activities.js'),'utf8'),/listCalendarActivities/);
 });
 
 test('CSV and calendar exports use filters and support date, academic, and all scopes',()=>{

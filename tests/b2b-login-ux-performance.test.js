@@ -1,4 +1,5 @@
 'use strict';
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -6,13 +7,13 @@ const path=require('node:path');
 const vm=require('node:vm');
 const sourceFunction=require('../test-support/source-function.js');
 
-const root=path.resolve(__dirname,'..');
-const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const root=repositoryPath(__dirname,'..');
+const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 const timetable=()=>read('timetable.js');
 const access=()=>read('faculty-access.js');
 
 function perfModule(){
-  const file=path.join(root,'paws-login-performance.js');
+  const file=repositoryPath(root,'paws-login-performance.js');
   delete require.cache[require.resolve(file)];
   return require(file);
 }
@@ -23,7 +24,7 @@ function fakeClock(values){
 
 // Performance tracker: locked T0-T7 semantics.
 test('14. login performance runtime exists and exports createTracker',()=>{
-  assert.equal(fs.existsSync(path.join(root,'paws-login-performance.js')),true);
+  assert.equal(fs.existsSync(repositoryPath(root,'paws-login-performance.js')),true);
   assert.equal(typeof perfModule().createTracker,'function');
 });
 test('15. interactive begin records T0 with injected monotonic clock',()=>{

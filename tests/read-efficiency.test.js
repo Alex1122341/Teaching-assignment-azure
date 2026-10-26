@@ -1,10 +1,11 @@
+const { repositoryPath } = require('../tools/build/frontend-paths');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const root = path.resolve(__dirname, '..');
-const read = name => fs.readFileSync(path.join(root, name), 'utf8');
+const root = repositoryPath(__dirname, '..');
+const read = name => fs.readFileSync(repositoryPath(root, name), 'utf8');
 
 test('Firestore persistence is enabled through the shared initializer', () => {
   const source = read('faculty-access.js');
@@ -40,13 +41,13 @@ test('the Dashboard no longer loads the legacy auxiliary settings document', () 
 
 test('the timetable requests only the visible date range from the Azure API', () => {
   const source = read('timetable.js');
-  assert.match(source, /function fetchAzureSessions\(range=\{\}\)/);
+  assert.match(source, /function fetchPawsSessions\(range=\{\}\)/);
   assert.match(source, /UCVM_PAWS_DATA\.listSessions\(range\)/);
   assert.match(source, /start:range\.start,end:ymd\(addDays\(parseYmd\(range\.end\),1\)\)/);
   const start=source.indexOf('async function subscribeSessions');
   const end=source.indexOf('function refreshSessionScope',start);
   const body=source.slice(start,end);
-  assert.match(body,/fetchAzureSessions/);
+  assert.match(body,/fetchPawsSessions/);
   assert.doesNotMatch(body,/onSnapshot|db\.collection\(SESSION_COLLECTION\)/);
 });
 

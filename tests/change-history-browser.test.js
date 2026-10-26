@@ -5,6 +5,7 @@ test('real history component handles initial auth, filters, pages, export, respo
  const {chromium}=require(modulePath),browser=await chromium.launch({channel:'chrome',headless:true});t.after(()=>browser.close());
  const page=await browser.newPage({viewport:{width:1366,height:900}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.setContent('<!doctype html><title>PAWS History · Synthetic UI Acceptance</title><main style="max-width:1280px;margin:24px auto;padding:0 12px"><div id="history"></div></main>');
+ await page.addStyleTag({path:path.resolve('change-history.css')});await page.addScriptTag({path:path.resolve('faculty-name.js')});
  await page.addStyleTag({path:path.resolve('change-history.css')});await page.addScriptTag({path:path.resolve('change-history.js')});
  await page.evaluate(()=>{
   const rows=Array.from({length:202},(_,i)=>({rowId:'synthetic-'+i,changeDate:'2026-10-16T12:00:00Z',changeType:'session_updated',domain:'Teaching',course:i%2?'206':'207',session:'Synthetic lab '+i,field:'Room',previousValue:'Room A',updatedValue:i===0?'<img src=x onerror=bad()>':'Room B',status:'Recorded',academicYear:'2026-27',affectedFaculty:'Synthetic Teacher'}));

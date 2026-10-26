@@ -75,6 +75,7 @@
   "faculty-admin-afc-forms.js",
   "faculty-admin-ccc-replacement.js",
   "lab-session-detail.js",
+  "calendar-activity-placement.js",
   "calendar-activities.js",
   "calendar-search.js",
   "change-history.css",

@@ -62,6 +62,7 @@
   return [
    'paws-calendar-activities-v1',
    uid,
+   String(scope.role||''),
    String(scope.supportContextId||''),
    String(scope.start||''),
    String(scope.end||''),
@@ -151,7 +152,7 @@
   function activate(id){
    const row=index.get(String(id));
    if(!getSelectionMode?.()){onOpen?.(String(id));return 'open';}
-   if(row?.isCcc){onRejected?.('CCC records are read-only and cannot be selected.');return 'rejected';}
+   if(row?.isCcc||row?.readOnlyActivity){onRejected?.((row.isCcc?'CCC':'Working activity')+' records are read-only and cannot be selected.');return 'rejected';}
    try{onToggle?.(String(id),row);return 'toggled';}
    catch(error){onRejected?.(error?.message||String(error));return 'rejected';}
   }
@@ -175,7 +176,7 @@
     if(id===undefined||id===null||id==='')continue;
     activeCount+=1;
     const row=index.get(String(id));
-    element.classList?.toggle('selection-candidate',selectionMode&&!row?.isCcc);
+    element.classList?.toggle('selection-candidate',selectionMode&&!row?.isCcc&&!row?.readOnlyActivity);
     element.classList?.toggle('selection-selected',Boolean(isSelected?.(String(id))));
    }
    if(!bound){bound=true;bindCount+=1;host.addEventListener('click',handleClick);}

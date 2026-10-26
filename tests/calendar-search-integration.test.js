@@ -129,6 +129,8 @@ function activityHarness({cache=true,rows=[{id:'a'}]}={}){
   window:{PAWS_CALENDAR_ACTIVITIES:view}
  };
  vm.createContext(context);
+ vm.runInContext(sourceFunction('timetable.js','workingActivityScope'),context);
+ context.setCalendarActivityRows=(rows,options)=>{host.innerHTML=view.renderRangeLane(rows,{...options.range,filters:options.filters});};
  vm.runInContext(sourceFunction('timetable.js','renderWorkingActivities'),context);
  return {context,host,view,fields};
 }

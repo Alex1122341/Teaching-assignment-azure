@@ -28,7 +28,7 @@ test('the shipped timetable and ordinary export filter use the same mixed type s
  const activityTypeFilter=createActivityTypeFilter();activityTypeFilter.setSelected(['teaching:LAB','work:ccc']);
  const rows=['LAB','LEC','CCC'].map(type=>({id:type,type,semester:'fall',year:'2026',course:'206'}));
  const fields={'search-input':{value:''},'filter-month':{value:'all'},'filter-type':{value:'all'}};
- const context={activityTypeFilter,sessions:rows,$:id=>fields[id],selectedYear:'all',selectedSemester:'fall',courseFilterActive:false,myTimetableOnly:false,showCcc:false};
+ const context={window:{PAWS_ACTIVITY_PLACEMENT:require("../frontend/scripts/calendar-activity-placement")},activityTypeFilter,sessions:rows,$:id=>fields[id],selectedYear:'all',selectedSemester:'fall',courseFilterActive:false,myTimetableOnly:false,showCcc:false};
  vm.createContext(context);vm.runInContext(sourceFunction('timetable.js','filteredSessions'),context);
  assert.deepEqual(Array.from(context.filteredSessions(),x=>x.id),['LAB','CCC']);
  activityTypeFilter.clear();assert.equal(context.filteredSessions().length,0);
@@ -46,7 +46,7 @@ test('mixed selection applies to teaching, legacy CCC and source activity ranges
  const base={facultyDisplayName:'Synthetic',startDate:'2026-10-14',endDate:'2026-10-19'};
  const html=renderRangeLane([{...base,category:'rotation_participant',label:'Rotation range'},{...base,category:'ccc',label:'CCC range'}],{start:'2026-10-16',end:'2026-10-17',filters:{typeKeys:filter.selectedKeys()}});
  assert.match(html,/Rotation range/);assert.doesNotMatch(html,/CCC range/);
- assert.match(html,/2026-10-14/);assert.match(html,/Time: Not provided/);
+ assert.match(html,/2026-10-14/);assert.match(html,/Default time: 08:30–16:30/);
  filter.setSelected(['work:ccc']);assert.equal(filter.matchesSession({type:'CCC'}),true);
 });
 
@@ -68,7 +68,7 @@ test('clear is an empty selection, Reset restores all and newly observed teachin
 test('All dates filtering discovers later and missing teaching types without silently losing export rows',()=>{
  const activityTypeFilter=createActivityTypeFilter();
  const fields={'search-input':{value:''},'filter-month':{value:'all'}};
- const context={activityTypeFilter,$:id=>fields[id],selectedYear:'all',selectedSemester:'fall',courseFilterActive:false,myTimetableOnly:false};
+ const context={window:{PAWS_ACTIVITY_PLACEMENT:require("../frontend/scripts/calendar-activity-placement")},activityTypeFilter,$:id=>fields[id],selectedYear:'all',selectedSemester:'fall',courseFilterActive:false,myTimetableOnly:false};
  vm.createContext(context);vm.runInContext(sourceFunction('timetable.js','filteredSessions'),context);
  const rows=['LAB','Workshop',''].map((type,i)=>({id:i,type,semester:'fall'}));
  assert.deepEqual(Array.from(context.filteredSessions(rows),x=>x.id),[0,1,2]);

@@ -7,6 +7,8 @@ const WRITE_DISABLED = Object.freeze({
 
 function createWriteGates(env = {}) {
   return Object.freeze({
+    accountAccess: env.PAWS_ACCOUNT_ACCESS_WRITE_ENABLED === 'true',
+    collaboration: env.PAWS_COLLABORATION_WRITE_ENABLED === 'true',
     schedulingTaskReview: env.PAWS_SCHEDULING_TASK_REVIEW_ENABLED === 'true',
     calendarActivityStage: env.PAWS_CALENDAR_ACTIVITY_STAGE_ENABLED === 'true',
     calendarActivityCommit: env.PAWS_CALENDAR_ACTIVITY_COMMIT_ENABLED === 'true',

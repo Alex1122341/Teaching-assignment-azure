@@ -10,7 +10,7 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     afcRequest: false, afcDecision: false, afcArtifact: false, afcFormUpload: false, cccReplaceStage: false, cccReplaceCommit: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
     doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
-    schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
+    accountAccess:false,collaboration:false,schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   assert.deepEqual(createWriteGates({
     PAWS_AFC_SINGLE_WRITE_ENABLED: 'true',
@@ -27,7 +27,7 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     afcRequest: false, afcDecision: false, afcArtifact: false, afcFormUpload: false, cccReplaceStage: false, cccReplaceCommit: false,
     taDraft: true, taReview: true, taFinal: false, taPublish: false, facultyAdmin: true,
     doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
-    schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
+    accountAccess:false,collaboration:false,schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   assert.deepEqual(createWriteGates({
     PAWS_DOE_ADMIN_WRITE_ENABLED: 'true',
@@ -38,7 +38,7 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     afcRequest: false, afcDecision: false, afcArtifact: false, afcFormUpload: false, cccReplaceStage: false, cccReplaceCommit: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
     doeAdmin: true, doeManualAssignment: false, doePolicyPublish: true, doeRecalculate: true,
-    schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
+    accountAccess:false,collaboration:false,schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
 });
 test('calendar activity gates independently require exact lowercase environment true',()=>{

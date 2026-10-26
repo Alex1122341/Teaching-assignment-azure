@@ -35,11 +35,11 @@ function createAccountAccessApi({verifyToken,findUser,repository,writeEnabled=fa
  }
  return Object.freeze({
   async self(token){
-   const auth=await identity(token);if(auth.response)return auth;const profile=auth.profile;
+   const auth=await identity(token);if(auth.response)return auth.response;const profile=auth.profile;
    if(!profile)return ok({access:{authority:'University SQL',allowed:false,status:'not_provisioned',role:null,canManageAccounts:false,canManageGroups:false}});
    const validated=validateAuthorizedProfile(profile),allowed=!validated.status;
    const status=profile.active!==true?'inactive':profile.mustChangePassword?'password_required':validated.status?'needs_review':'ready';
-   return ok({access:{authority:'University SQL',allowed,status,displayName:names.format(profile),role:normalizeBaseRole(profile.baseRole),facultyId:profile.facultyId||null,canManageAccounts:allowed&&owner(profile),canManageGroups:allowed&&(owner(profile)||validated.role==='hicc')}});
+   return ok({access:{authority:'University SQL',allowed,status,displayName:names.format(profile),role:normalizeBaseRole(profile.baseRole),facultyId:profile.facultyId||null,version:VERSION.test(profile.version||'')?profile.version:null,canManageAccounts:allowed&&owner(profile),canManageGroups:allowed&&(owner(profile)||validated.role==='hicc')}});
   },
   async catalog(token){
    const auth=await authorize(token);if(auth.response)return auth.response;

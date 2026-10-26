@@ -74,6 +74,11 @@ const {createAfcFormFunctions}=require('./swa-afc-form-functions');
 const {createCccReplacementApi}=require('../calendar/ccc-replacement-api');
 const {createSqlCccReplacementRepository}=require('../data/sql-ccc-replacement-repository');
 const {createCccReplacementFunctions}=require('./swa-ccc-replacement-functions');
+const {createAccountAccessApi}=require('../access/account-access-api');
+const {createCollaborationApi}=require('../access/collaboration-api');
+const {createLegacyAccessStore}=require('../access/legacy-access-store');
+const {createSqlAccountAccessRepository}=require('../data/sql-account-access-repository');
+const {createAccountAccessFunctions}=require('./swa-account-access-functions');
 
 function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
@@ -102,6 +107,15 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   });
   const support=createSupportService({db,verifyToken:realVerify,findUser:users.findByUid});
   const verify=support.verify;
+  const accessRepository=createSqlAccountAccessRepository(db);
+  const accessIdentity={verifyToken:verify,findUser:accessRepository.read,repository:accessRepository};
+  const accessRoutes=createAccountAccessFunctions({
+    api:createAccountAccessApi({...accessIdentity,writeEnabled:writeGates.accountAccess}),
+    collaboration:createCollaborationApi({...accessIdentity,writeEnabled:writeGates.collaboration,store:createLegacyAccessStore({
+      getFirestore:()=>admin.firestore(admin.app('paws-beta-sql')),
+      serverTimestamp:()=>admin.firestore.FieldValue.serverTimestamp()
+    })})
+  });
   const doeRepository = createSqlDoeEngineRepository(db);
   const doeAssignmentRepository = createSqlDoeAssignmentRepository(db);
   const doeCalculationService = createDoeCalculationService({ repository: doeRepository });
@@ -186,6 +200,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const cccReplacementRoutes=createCccReplacementFunctions({api:createCccReplacementApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCccReplacementRepository(db,{importDb:calendarImportDb}),writeGates})});
   const route = async request => {
     const pathname = new URL(request.url).pathname;
+    if(pathname==='/api/v1/access'||pathname.startsWith('/api/v1/access/'))return accessRoutes(request);
     if(pathname==='/api/v1/reports'||pathname.startsWith('/api/v1/reports/'))return reportRoutes(request);
     if(pathname==='/api/v1/ccc-schedule')return cccScheduleRoutes(request);
     if(pathname===LEADERSHIP_DIRECTORY_PATH)return leadershipDirectoryRoutes(request);

@@ -1,4 +1,6 @@
 {
+  "accessReadObjects": ["paws.AccountAccessChange"],
+  "accessWriteProcedures": ["paws_api.SetAccountAccess"],
   "readObjects": [
     "paws.AfcRequest",
     "paws.DoeFacultyAllocation",

@@ -28,7 +28,7 @@ test('W1E permission contract covers every SQL repository object and stored proc
   procedures.push(...[...sources.matchAll(/\brun\(\s*'(SetRoleAppointmentPeriods)'/g)]
     .map(match => `paws_api.${match[1]}`));
   const expectedObjects = [
-    ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
+    ...contract.accessWriteProcedures, ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
     ...contract.readProcedures, ...contract.p2ReadProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
@@ -36,8 +36,15 @@ test('W1E permission contract covers every SQL repository object and stored proc
     ...contract.schedulingReadProcedures,...Object.values(contract.schedulingWriteSets).flat(),
     ...contract.afcFormProcedures,...contract.afcRecordDocumentProcedures,...contract.cccReplacementProcedures,...contract.historyReadProcedures,...contract.historyPolicyAuditFunctions,...contract.masterRefreshTrustedProcedures,...contract.traineeReadProcedures,...contract.availabilityReadProcedures
   ];
-  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects,...contract.afcRecordDocumentReadObjects,...contract.masterRefreshReadObjects])].sort());
+  assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.accessReadObjects,...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects,...contract.afcRecordDocumentReadObjects,...contract.masterRefreshReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
+});
+
+test('account access has one dedicated unbound role and one atomic command with no raw profile grants',()=>{
+ const sql=fs.readFileSync(path.join(root,'database/azure-sql/060_account_access.sql'),'utf8');
+ assert.deepEqual([...sql.matchAll(/GRANT EXECUTE ON OBJECT::([\w.]+) TO paws_runtime_account_access/g)].map(m=>m[1]),contract.accessWriteProcedures);
+ assert.deepEqual([...sql.matchAll(/GRANT SELECT ON OBJECT::([\w.]+) TO paws_runtime_account_access/g)].map(m=>m[1]),contract.accessReadObjects);
+ assert.doesNotMatch(sql,/ALTER\s+ROLE[^;]+ADD\s+MEMBER|GRANT\s+(?:UPDATE|INSERT|DELETE)\s+ON|GRANT\s+EXECUTE\s+ON\s+SCHEMA/i);
 });
 
 test('record originals grant metadata view reads and one atomic command without raw PDF table access or runtime memberships',()=>{

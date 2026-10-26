@@ -38,13 +38,16 @@
 
   function createPawsDataClient({
     fetchImpl=(typeof fetch==='function'?fetch.bind(globalThis):null),
-    tokenProvider=defaultTokenProvider
+    tokenProvider=defaultTokenProvider,
+    accessGuard
   }={}){
     if(!fetchImpl)throw new Error('fetch is required');
 
     const apiOrigin=validateApiOrigin(API_ORIGIN);
     let writeCapabilities=Object.freeze({});
     let facultyAdminWriteCapability=false;
+    const guard=()=>accessGuard||root?.UCVM_EFFECTIVE_ACCESS?.guard;
+    function checkGeneration(generation){if(generation!==undefined&&!guard()?.current(generation)){const error=Error('Your effective access changed. Reload before continuing.');error.code='ACCESS_CHANGED';error.status=403;throw error;}}
 
     // Translates a response into the existing error contract: {status, code, message}.
     async function settle(response){
@@ -57,12 +60,16 @@
         if(Array.isArray(body?.error?.errors))error.errors=body.error.errors;
         if(body?.error?.currentRevision!==undefined)error.currentRevision=body.error.currentRevision;
         if(Array.isArray(body?.rows))error.rows=body.rows;
+        if(typeof body?.operationId==='string')error.operationId=body.operationId;
+        guard()?.reject(error);
         throw error;
       }
       return body;
     }
 
     async function authenticatedResponse(path,{method='GET',body:requestBody,accept='application/json'}={}){
+      const generation=path==='/api/v1/access/self'?undefined:guard()?.capture();
+      checkGeneration(generation);
       const url=apiOrigin+path;
       const buildInit=token=>{
         const headers={Authorization:'Bearer '+token,Accept:accept};
@@ -85,7 +92,7 @@
       // token refresh and exactly one replay of the same request. 403/404/5xx and
       // transport failures are never replayed, so a non-idempotent write can never be
       // duplicated after an ambiguous partial success. There is no loop and no timer.
-      if(response.status!==401)return response;
+      if(response.status!==401){checkGeneration(generation);return response;}
 
       let refreshed;
       try{
@@ -109,13 +116,16 @@
         const error=new Error(body?.error?.message||'The PAWS session could not be re-verified.');
         error.code='SESSION_REAUTH_REQUIRED';
         error.status=401;
-        throw error;
+        guard()?.reject(error);throw error;
       }
+      checkGeneration(generation);
       return retryResponse;
     }
 
     async function request(path,options={}){
+      const generation=path==='/api/v1/access/self'?undefined:guard()?.capture();
       const body=await settle(await authenticatedResponse(path,options));
+      if(path==='/api/v1/access/self')guard()?.observe(body.access);else checkGeneration(generation);
       if(path==='/api/v1/me'&&typeof root?.dispatchEvent==='function'&&typeof root?.CustomEvent==='function')root.dispatchEvent(new root.CustomEvent('paws-profile',{detail:body}));
       return body;
     }
@@ -177,6 +187,18 @@
     }
 
     return Object.freeze({
+      async effectiveAccess(){const body=await request('/api/v1/access/self');return body.access;},
+      accessCatalog:()=>request('/api/v1/access/catalog'),
+      accessAccounts(input={}){return request('/api/v1/access/accounts?'+new URLSearchParams(input));},
+      previewAccountAccess:input=>request('/api/v1/access/preview',{method:'POST',body:input}),
+      commitAccountAccess:input=>request('/api/v1/access/commit',{method:'POST',body:input}),
+      accountAccessHistory(input={}){return request('/api/v1/access/history?'+new URLSearchParams(input));},
+      collaborationGroups:()=>request('/api/v1/access/groups'),
+      saveCollaborationGroup(id,input){return request('/api/v1/access/groups'+(id?'/'+encodeURIComponent(String(id)):''),{method:id?'PATCH':'POST',body:input});},
+      saveCollaborationMembers(id,input){return request('/api/v1/access/groups/'+encodeURIComponent(String(id))+'/members',{method:'PATCH',body:input});},
+      announcements:()=>request('/api/v1/access/announcements'),
+      publishAnnouncement:input=>request('/api/v1/access/announcements',{method:'POST',body:input}),
+      legacyAccessHistory(input={}){return request('/api/v1/access/legacy-audit?'+new URLSearchParams(input));},
       reportCatalog:()=>request('/api/v1/reports/catalog'),
       reportQuery:definition=>request('/api/v1/reports/query',{method:'POST',body:definition}),
       reportPage(snapshot,source,offset){return request('/api/v1/reports/page?'+new URLSearchParams({snapshot:String(snapshot),source:String(source),offset:String(offset)}));},

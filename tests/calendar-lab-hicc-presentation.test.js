@@ -22,6 +22,7 @@ test('three overlapping/adjacent VTMD 306 LAB source sessions create one 08:00â€
  assert.equal(visible.length,1);
  assert.deepEqual({id:visible[0].id,start:visible[0].start,end:visible[0].end,count:visible[0].labDisplayCount},
   {id:'s1',start:'08:00',end:'10:00',count:3});
+ assert.deepEqual(visible[0].labDisplayIds,['s1','s3','s2'],'the combined block preserves real member IDs');
  assert.equal(JSON.stringify(raw),before,'grouping must not mutate underlying SQL sessions');
  const detail=lab.buildModel(raw.find(row=>row.id===visible[0].id),raw);
  assert.deepEqual(detail.stations.map(row=>row.id),['s1','s3','s2'],'existing detail retains actual source records');
@@ -171,17 +172,20 @@ function calendarHarness(rows){
 test('real Day and Week renderers paint one full-height 306 LAB block but retain three source sessions',()=>{
  const rows=[labRow('s1','08:00','09:00'),labRow('s2','09:00','10:00'),labRow('s3','08:30','09:30')];
  const {context,elements}=calendarHarness(rows);
+ context.window.PAWS_SWAP.isPending=id=>id==='s3';
  context.renderDay();
  let html=elements.get('calendar-body').innerHTML;
  assert.equal((html.match(/data-session-id="/g)||[]).length,1);
  assert.match(html,/08:00-10:00/);
  assert.match(html,/3 LAB sessions/);
+ assert.match(html,/SWAP PENDING/,'pending SWAP on any member remains visible on the grouped block');
  assert.equal(context.renderedSessions.length,3);
  context.renderWeek();
  html=elements.get('calendar-body').innerHTML;
  assert.equal((html.match(/data-session-id="/g)||[]).length,1);
  assert.match(html,/08:00-10:00/);
  assert.match(html,/3 LAB sessions/);
+ assert.match(html,/SWAP PENDING/);
  assert.equal(context.renderedSessions.length,3);
 });
 

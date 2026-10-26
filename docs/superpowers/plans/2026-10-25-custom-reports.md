@@ -65,8 +65,8 @@ Files: modify `server/src/runtime/swa-sql-runtime.js`, `swa-api/index.js`, `fron
 
 Interfaces: trusted runtime wires source loader to existing dashboard/session/activity repositories, DOE Worksheet service and shared History API. Do not expose data API writes or alter their gates. Client methods `reportCatalog`, `reportQuery`, `reportPage`, `reportExport` use current authenticated request wrapper and existing artifact validation. Query POST is read-only; no SQL mutation.
 
-- [ ] RED exact reports path dispatch and source wiring with denied-role/no-write assertions. Add source to existing Functions packaging route declarations; preserve runtime health/gate count and support denial.
-- [ ] Implement minimal wiring and bounded client transport. RED malformed artifact/base64/oversize/unsupported query fields and Unicode columns; GREEN. Run runtime/dependency graph tests and commit.
+- [x] RED exact reports path dispatch and source wiring with denied-role/no-write assertions. Add source to existing Functions packaging route declarations; preserve runtime health/gate count and support denial.
+- [x] Implement minimal wiring and bounded client transport. RED malformed artifact/base64/oversize/unsupported query fields and Unicode columns; GREEN. Run runtime/dependency graph tests and commit.
 
 ## Task5 — Lazy admin Reports builder
 

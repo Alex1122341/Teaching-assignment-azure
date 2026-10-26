@@ -308,3 +308,7 @@ Owner approved reference Faculty Lookup/Edit and full annual Rule Book lifecycle
 ## Owner approves range-activity written design — 2026-10-14
 
 The owner approved the written CalendarActivity design in PR97 and directed implementation planning. The first module uses SQL date ranges integrated into Calendar and faculty schedules with unknown time marked Needs Review before exact AFC cleanup. This approves design and plan preparation; implementation-plan review/execution selection and later live release/migration authorizations remain separate.
+
+## 2026-10-26 — latest user-supplied Desktop target and completed Beta release
+
+Custom Reports23–25 completed under the earlier explicit Beta/SQL choice and published via PR146/147. The newly supplied Desktop/Teaching-assignment-main AGENTS now names Alex1122341/Teaching-assignment/main, GitHub Pages and vista-teaching-lab for active development/test. The requested local note was aligned exactly. This changes the target instruction for future work, not the already released Beta architecture: inspect the intended checkout before starting another feature, preserve both lines, and never synchronize business backends or release targets implicitly. No additional deployment or data migration follows from this documentation update.

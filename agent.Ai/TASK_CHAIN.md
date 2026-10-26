@@ -1,4 +1,8 @@
-## Current: Custom Reports23–25 product implemented; review/release pending — 2026-10-26
+## Current: Custom Reports23–25 published and original workbook updated — 2026-10-26
+
+Implementation/review/CI/merge/University API/Hosting/real-role browser acceptance and workbook writeback complete. PR146/147; deployed maine7d3ffec, anchor ef2d053; Build40364636235; artifact12670375863; Hosting1793035279588000/version5e4d032f63f916d8;95/95 public files,119API inputs,27gates and recovery verified. Original Excel has39tasks/46checks/16passed/29open/1N/A; R01–R03 are pending human business acceptance, not technical blockers. Both accounts signed out. Latest user Desktop AGENTS selects Teaching-assignment/Pages/vista-teaching-lab for new development; local note matches. Historical Beta selection below is superseded for future work, not grounds for another deployment or architecture transfer. Read updates/2026-10-26-custom-reports-published.md.
+
+## Historical: Custom Reports23–25 product implemented; review/release pending — 2026-10-26
 
 Owner explicitly reaffirmed Teaching-assignment-azure/Beta/SQL; downloaded AGENTS note corrected at owner request. Branch feat/custom-reports-20261025, basec0970caf. Registry/adapters/API/runtime/client/lazy Reports tab implemented;160 Dashboard-related tests pass. Four selectable sources, per-source columns/conditions/sort, private snapshots, CSVcurrent/XLSXall. Slim10001-sentinel roster avoids ordinary200-row truncation. Synthetic browser downloads117/94/15 verified. Product independent review, separate freeze governance, full checks, coordinated API+Hosting release and original Excel23–25 remain pending. No report PR/merge/live operations yet. Follow plan docs/superpowers/plans/2026-10-25-custom-reports.md.
 

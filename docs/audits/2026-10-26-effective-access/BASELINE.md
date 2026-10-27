@@ -1,6 +1,6 @@
 # GOV-01 baseline — 2026-10-26
 
-Task26 refreshed read-only; task27 security remediation is a separate unfinished feature. Owner explicitly reconfirmed Teaching-assignment-azure/Beta/SQL after the supplied Desktop instructions named the separate Pages line. Preserve both, no automatic sync. Isolated feature branch feat/effective-access-20261026; no feature commits on main.
+Task26 refreshed read-only; task27 security remediation is a separate unfinished feature. Owner explicitly reconfirmed Teaching-assignment-azure/Beta/SQL after the supplied Desktop instructions named the separate Pages line. Preserve both, no automatic sync. Isolated feature branch feat/effective-access-20261026; no feature commits on main. The table below records the original same-day18:18Z checkpoint; latest-main and live runtime are separately refreshed below.
 
 | Boundary | Verified evidence |
 |---|---|
@@ -16,3 +16,7 @@ Task26 refreshed read-only; task27 security remediation is a separate unfinished
 | Recovery | Prior same-day native CheckOnly exit0 and stopped candidate; not relabelled as a new reboot drill |
 
 Current public verification retained privately at P:\PAWS\Runtime\Staging\CustomReports-20261026-713093e\gov01-public-verification-20261026.json. Earlier reports public receipt remains unchanged. This baseline is a point-in-time read, not a deployment or a completed SEC-01 matrix. No production roles, groups, schema, gates, audit, approvals, DOE, PDFs or business records changed.
+
+## Later main / live distinction
+
+At03:33Z on2026-10-27 (October26 locally), `git ls-remote` main is `42622acf42558e4478a3ce3018f5357b6effdedc`, incorporating PR149 HICC/LAB display. That main was integrated into PR148 before product review. It does not establish a PR149 deployment. Fresh public `/api/health/runtime` remains `e7d3ffec1609fef4b5b503ff92a21df6a8a4fafe`, trust anchor `ef2d053ff9963aad972c22ec6c3fa8fc53bcb149`, with the same27 gate values. Public SQL health and Hosting root both return200. The95/95 byte receipt above remains its original18:18Z check, not a newly performed full public-byte comparison. PR148's candidate29 gates and96 static files have not been activated.

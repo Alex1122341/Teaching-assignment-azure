@@ -80,11 +80,11 @@ Files: frontend/pages/user-management.html, frontend/scripts/user-management.js,
 
 ## Task6 — Independent review and security acceptance
 
-- [ ] Full-branch standards/spec review; reproduce/fix actionable findings RED→GREEN. Separate independently reviewed freeze promotion preserves union and algorithms.
-- [ ] Exact-head root/server/emulator/disposable SQL and build/four freezes pass. Prepare rules/app/API rollback and staged identity coverage. No production acceptance writes.
+- [x] Full-branch standards/spec review; reproduce/fix actionable findings RED→GREEN. Separate independently reviewed freeze promotion preserves union and algorithms. Product179fa70, governancec17f351; three substantive fixes, no outstanding review findings. Historical emulator expectations corrected with unchanged runtime/rules;20 actual local probes pass.
+- [x] Exact-head root/server/emulator/disposable SQL and build/four freezes pass at7a7ebde (Build40445289953 and six SQL workflows). Rules/app/API rollback and staged identity coverage prepared in RELEASE_CHECKLIST.md. No production acceptance writes. Production role/adapter acceptance remains Task7, gated by actual trusted credentials.
 
 ## Task7 — Controlled publication and original tracker
 
 - [ ] Merge only accepted PR; exact-main CI official ZIP + freezes. Stage API/read-only role checks and compare all previous gates; retain old runtime/config/artifact.
 - [ ] Coordinate API, Hosting and separately reviewed restrictive Firestore rules using accepted files; verify fresh source/rules identity/public hashes/SQL/CORS/recovery/normal login. Do not activate unaccepted grants or mutate real accounts.
-- [ ] Write original Excel26/27 with precise scope and pending human signoff, preserve native features; fresh continuity update. SEC-01 completion requires actual full acceptance above, not this plan or an explanatory UI.
+- [x] Write original Excel26/27 with precise scope and pending human signoff, preserve native features; fresh continuity update.27 changed cells,0stylechanges;39tasks/46checks/16passed/29open/1N/A. SEC-01 completion still requires actual full acceptance above, not this plan or an explanatory UI.

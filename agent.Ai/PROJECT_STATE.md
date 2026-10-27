@@ -1,6 +1,6 @@
 ## Current: PR125 Firestore Testing work — 2026-10-27
 
-Owner selected existing `vista-teaching-lab` Firestore for Testing; Production Beta SQL is unchanged. Lab SDK identity and independent PAWS Testing Hosting target are separated. An unpublished read-only identity/calendar runtime passed a local Auth/Firestore emulator test; no live Testing API, deployment or acceptance exists. Existing lab collections contain documents and must be preserved. Resume from `updates/2026-10-27-pr125-lab-firestore-direction.md`.
+Owner selected existing `vista-teaching-lab` Firestore for Testing; Production Beta SQL is unchanged. Lab SDK identity and independent PAWS Testing Hosting target are separated. An unpublished read-only identity/calendar runtime passed a local Auth/Firestore emulator test; no live Testing API, deployment or acceptance exists. Live lab rules allow Faculty to read other faculty's raw sessions, including UCID and DOE fields; reproduced locally with synthetic data. Fix rules and dependent lab workflows before deployment. Existing lab collections contain documents and must be preserved. Resume from `updates/2026-10-27-pr125-lab-firestore-direction.md`.
 
 ## Current: Custom Reports23–25 product implemented; review/release pending — 2026-10-26
 

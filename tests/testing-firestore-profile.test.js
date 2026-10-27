@@ -9,7 +9,7 @@ function database(projectId, users = {}) {
   return {
     projectId, reads,
     collection(name) {
-      assert.equal(name, 'users');
+      assert.equal(name, 'paws_testing_users');
       return { doc(id) { return { async get() {
         reads.push(id);
         return { exists: Object.hasOwn(users, id), data: () => users[id] };

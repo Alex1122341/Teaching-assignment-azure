@@ -10,7 +10,7 @@ function createLabReadRuntime({ db, verifyIdToken } = {}) {
   if (typeof verifyIdToken !== 'function') throw new Error('Firebase token verification is required');
   const findUser = createLabProfileReader({ db });
   const listSessions = createLabCalendarReader({ db });
-  const verifyToken = createFirebaseSqlAuth({ verifyIdToken, expectedProjectId: 'vista-teaching-lab' });
+  const verifyToken = createFirebaseSqlAuth({ verifyIdToken, expectedProjectId: 'paws-testing-ucvm-20261022' });
   const route = createSwaFunctions({ api: createDataApi({ verifyToken, findUser, listSessions, writeGates: {} }) });
   return async request => {
     const path = new URL(request.url).pathname;

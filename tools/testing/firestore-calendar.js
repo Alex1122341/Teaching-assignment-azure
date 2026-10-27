@@ -12,7 +12,7 @@ function createLabCalendarReader({ db } = {}) {
     if ((start === null) !== (end === null) || (start !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start >= end))) throw new Error('Invalid calendar range');
     if (facultyId !== null && (typeof facultyId !== 'string' || !facultyId.trim())) throw new Error('Invalid Faculty scope');
     if (facultyId !== null && includeAssignmentTargets) throw new Error('Faculty cannot request assignment targets');
-    let query = db.collection('sessions');
+    let query = db.collection('paws_testing_sessions');
     if (facultyId !== null) query = query.where('facultyIds', 'array-contains', facultyId);
     if (start !== null) query = query.where('date', '>=', start).where('date', '<', end);
     query = query.select(...PUBLIC_FIELDS, ...(includeAssignmentTargets ? ['assignments'] : [])).limit(MAX_ROWS + 1);

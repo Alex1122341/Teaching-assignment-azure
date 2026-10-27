@@ -15,7 +15,7 @@ function fakeDb(rows, projectId = 'vista-teaching-lab') {
       return { docs: filtered.slice(0, trace.limit).map(row => ({ id: row.id, data: () => Object.fromEntries(trace.selected.filter(k => Object.hasOwn(row.data, k)).map(k => [k, row.data[k]])) })) };
     }
   };
-  return { projectId, trace, collection(name) { assert.equal(name, 'sessions'); return q; } };
+  return { projectId, trace, collection(name) { assert.equal(name, 'paws_testing_sessions'); return q; } };
 }
 
 const rows = [
@@ -62,11 +62,11 @@ test('calendar reader rejects ambiguous scope and incomplete date ranges', async
   assert.equal(db.trace.limit, 0);
 });
 
-test('read runtime verifies the lab token and scopes faculty requests before querying', async () => {
+test('read runtime verifies the Testing token and scopes faculty requests before querying', async () => {
   const db = fakeDb(rows);
   const sessionsCollection = db.collection;
-  db.collection = name => name === 'users' ? { doc: id => ({ get: async () => ({ exists: id === 'user', data: () => ({ name: 'Test Person', role: 'faculty', facultyId: 'f1', active: true, mustChangePassword: false }) }) }) } : sessionsCollection(name);
-  const verifyIdToken = async token => ({ uid: 'user', aud: token === 'lab' ? 'vista-teaching-lab' : 'tester-teaching', iss: `https://securetoken.google.com/${token === 'lab' ? 'vista-teaching-lab' : 'tester-teaching'}` });
+  db.collection = name => name === 'paws_testing_users' ? { doc: id => ({ get: async () => ({ exists: id === 'user', data: () => ({ name: 'Test Person', role: 'faculty', facultyId: 'f1', active: true, mustChangePassword: false }) }) }) } : sessionsCollection(name);
+  const verifyIdToken = async token => ({ uid: 'user', aud: token === 'lab' ? 'paws-testing-ucvm-20261022' : 'tester-teaching', iss: `https://securetoken.google.com/${token === 'lab' ? 'paws-testing-ucvm-20261022' : 'tester-teaching'}` });
   const runtime = createLabReadRuntime({ db, verifyIdToken });
   const request = (path, token = 'lab', method = 'GET') => new Request('https://testing.invalid' + path, { method, headers: { authorization: 'Bearer ' + token } });
   const unauthorized = await runtime(request('/api/v1/sessions', 'production'));

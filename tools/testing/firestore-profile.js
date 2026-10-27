@@ -12,7 +12,7 @@ function createLabProfileReader({ db } = {}) {
     if (typeof uid !== 'string' || !uid || uid === '.' || uid === '..' || uid.length > 128 || /[\/\x00-\x1f]/.test(uid) || /^__.*__$/.test(uid)) {
       throw new Error('Invalid Firebase UID');
     }
-    const snapshot = await db.collection('users').doc(uid).get();
+    const snapshot = await db.collection('paws_testing_users').doc(uid).get();
     if (!snapshot.exists) return null;
     const data = snapshot.data();
     if (!data || typeof data !== 'object') return null;

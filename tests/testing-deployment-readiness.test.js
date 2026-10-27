@@ -23,15 +23,16 @@ const { loadConfig, validateConfig, validatePair, render } = require('../tools/r
 const { findEvidence, checkEvidence } = require('../tools/verify-release-evidence');
 const publishModule=fs.existsSync(path.join(root,'tools/publish-testing-hosting.js'))?require('../tools/publish-testing-hosting'):{};
 
-test('Testing Hosting remains fixed to its own site when Firestore identity uses the lab project', () => {
+test('Testing Hosting remains fixed to its own site and independent Testing identity', () => {
   const { resolveTestingHostingProject } = publishModule;
-  const labTesting = { environment: 'testing', siteUrl: 'https://paws-testing-ucvm-20261022.web.app', firebase: { projectId: 'vista-teaching-lab' } };
+  const labTesting = { environment: 'testing', siteUrl: 'https://paws-testing-ucvm-20261022.web.app', firebase: { projectId: 'paws-testing-ucvm-20261022' } };
   assert.equal(resolveTestingHostingProject(labTesting), 'paws-testing-ucvm-20261022');
   for (const siteUrl of ['https://tester-teaching.web.app', 'https://vista-teaching-lab.web.app', null]) {
     assert.throws(() => resolveTestingHostingProject({ ...labTesting, siteUrl }));
   }
   assert.throws(() => resolveTestingHostingProject({ ...labTesting, environment: 'production' }));
   assert.throws(() => resolveTestingHostingProject({ ...labTesting, firebase: { projectId: 'tester-teaching' } }));
+  assert.throws(() => resolveTestingHostingProject({ ...labTesting, firebase: { projectId: 'vista-teaching-lab' } }));
   const publisher = fs.readFileSync(path.join(root, 'tools/publish-testing-hosting.js'), 'utf8');
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/paws-testing-deploy.yml'), 'utf8');
   assert.match(publisher, /'--project',resolveTestingHostingProject\(testing\)/);
@@ -212,7 +213,7 @@ test('preflight recognizes the Testing Firebase app and site but fails closed wi
   assert.equal(result.ok, false);
   assert.equal(result.provisioned, false);
   assert.equal(result.checks.find(item => item.id === 'config.testing.firebase').status, 'pass');
-  assert.equal(loadConfig('testing').firebase.projectId, 'vista-teaching-lab');
+  assert.equal(loadConfig('testing').firebase.projectId, 'paws-testing-ucvm-20261022');
   assert.equal(result.checks.find(item => item.id === 'config.testing.siteUrl').status, 'pass');
   assert.equal(loadConfig('testing').siteUrl, 'https://paws-testing-ucvm-20261022.web.app');
   for (const id of ['config.testing.apiOrigin']) {

@@ -475,7 +475,7 @@
   const $ = (id) => document.getElementById(id);
   let scheduleWorkspace = null;
   let contentFilterBatch = false;
-  const activityTypeFilter = window.PAWS_CALENDAR_ACTIVITIES.createActivityTypeFilter({host:$('activity-type-filter'),activityCategories:['ccc','rotation_participant'],onChange:()=>{if(!contentFilterBatch)render();}});
+  const activityTypeFilter = window.PAWS_CALENDAR_ACTIVITIES.createActivityTypeFilter({host:$('activity-type-filter'),activityCategories:['ccc','rotation_participant'],defaultGroups:['teaching'],onChange:()=>{if(!contentFilterBatch)render();}});
   const activeFilterView = window.PAWS_SCHEDULE_FILTER_VIEW.mount($('schedule-active-filters'),{
     onRemove:changeContentFilter,onClear:()=>changeContentFilter('clear'),focusFallback:$('search-input')
   });
@@ -993,6 +993,11 @@
     $('year-btn-row').addEventListener('click', e => {
       const b = e.target.closest('[data-year]'); if (!b) return;
       selectedYear = b.dataset.year;
+      if(selectedYear==='rotation'){
+        contentFilterBatch=true;
+        try{activityTypeFilter.setSelected([...activityTypeFilter.selectedKeys(),'work:rotation_participant']);}
+        finally{contentFilterBatch=false;}
+      }
       document.querySelectorAll('[data-year]').forEach(x => x.classList.toggle('active', x === b));
       render();
     });
@@ -1092,7 +1097,7 @@
       else if(kind==='course'){selectedCourses.delete(value);coursesChanged=true;}
       else if(kind==='type')activityTypeFilter.setSelected(activityTypeFilter.selectedKeys().filter(key=>key!==value));
       else if(kind==='restore-courses'){courseFilterActive=false;selectedCourses.clear();coursesChanged=true;}
-      else if(kind==='restore-types')activityTypeFilter.reset();
+      else if(kind==='restore-types')activityTypeFilter.selectAll();
       else return;
     }finally{contentFilterBatch=false;}
     if(coursesChanged)populateCourseFilter();

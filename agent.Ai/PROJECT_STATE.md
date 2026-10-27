@@ -1,4 +1,8 @@
-## Current: Ledger26–27 / PR148 candidate verified — 2026-10-26
+## Current: PR148 Calendar default / service access corrected — 2026-10-27
+
+Product cb4298c implements teaching-only Calendar initial/Reset defaults with explicit work/Rotation opt-ins;38 focused checks pass and independent product/governance review has no outstanding findings. Current anchor protects96static/130API inputs. Existing DPAPI credential authenticates; earlier ADC-only absence diagnosis was wrong. After explicit action-time owner approval, five-permission pawsSqlCollaboration was bound to the existing verifier principal with default-database-only condition. School-server named-app bounded group/info/audit reads now pass; announcement document absent. Fresh final-head CI/artifact, full real-role adapters, SQL060 and coordinated API/Hosting/rules release remain pending. No business writes/restart/merge/deployment. Continue updates/2026-10-27-calendar-default-and-service-access.md and RELEASE_CHECKLIST.md; preserve legacy storage until University hosting transition.
+
+## Historical: Ledger26–27 / PR148 candidate verified — 2026-10-26
 
 Product179fa70 reviewed; governancec17f351 independently reviewed; candidate7a7ebde all seven workflows pass (root1299/server934/emulator1335,0fail; skips separate). Official PR artifact12708131502 digest and downloaded app/API freezes verified. Original Excel26/27 updated27cells with native features/formulas/signatures preserved;39/46/16passed/29open/1NA. PR remains Draft/unmerged/unpublished: server ADC_UNAVAILABLE blocks actual HICC/info adapter and role acceptance. This is separate from the waived Windows SQL account. Live APIe7d3ffec/anchoref2d053/27gates unchanged, latest main42622acf integrated. Continue updates/2026-10-26-effective-access-candidate-verified.md and RELEASE_CHECKLIST.md; do not replay imports, weaken rules, or restart production before credential readiness.
 

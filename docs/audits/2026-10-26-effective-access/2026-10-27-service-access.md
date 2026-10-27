@@ -1,0 +1,11 @@
+# Existing Firebase service access correction
+
+The owner retained Firebase Hosting/Auth and legacy collaboration storage until a later University hosting transition, and explicitly approved the concrete service-access change at action time on October27.
+
+The existing protected DPAPI credential authenticates as `paws-beta-firebase-verifier@tester-teaching.iam.gserviceaccount.com`. Parent-environment cleanup occurs after the API child receives the credential; the earlier ADC-only absence inference was incorrect. No new service identity, key or ADC file was created.
+
+Created enabled custom role `projects/tester-teaching/roles/pawsSqlCollaboration` with exactly `datastore.databases.get`, `datastore.entities.create`, `datastore.entities.get`, `datastore.entities.list`, `datastore.entities.update`. Bound it only to that existing principal with condition `resource.name == "projects/tester-teaching/databases/(default)"`, title `paws-default-database-only`. Existing authentication roles and all other principals were preserved. This grants document access in that database, not collection-level IAM isolation; the reviewed SQL-authorized API enforces business operation and faculty scope. No delete/IAM/database-administration permission was added.
+
+Cloud Console confirmed Policy updated and the saved exact condition. The first immediate read probe remained denied during propagation; the subsequent same-identity school-server probe passed all three bounded reads: faculty_groups, public_info/information_center and account_audit. Named Admin app `paws-beta-sql` and project tester-teaching were verified. Group and audit records exist; the announcement document does not, so the adapter's empty-state behavior remains relevant. Only metadata/booleans were emitted; no document contents, keys or tokens were printed.
+
+This resolves the service-authentication/Firestore-read prerequisite. It does not establish full adapter/role acceptance, transaction-write acceptance, SQL060 deployment, feature-gate activation, API/Hosting/rules release or merge. Those remain governed by RELEASE_CHECKLIST.md. No business record was created, edited or deleted during this IAM correction; the live API was not restarted.

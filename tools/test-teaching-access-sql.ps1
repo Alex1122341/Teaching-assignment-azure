@@ -16,6 +16,31 @@ PRINT 'TEACHING_ACCESS_061_PROFILE_VALUES_PRESERVED';
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access_acceptance.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands_acceptance.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql @'
+CREATE TABLE dbo.Leadership062RaceBarrier(RaceId tinyint PRIMARY KEY);
+SELECT COUNT(*) OperationCount INTO dbo.Leadership062RaceBaseline FROM paws.LeadershipAccessOperation WHERE TargetUid=N'leadership062target';
+'@ 'VetMed-Ops'
+$raceSql=Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/leadership-access-race.sql') -Raw
+$raceJobs=@()
+try {
+ foreach($racer in @(1,2)){
+  $raceJobs+=Start-Job -ArgumentList $ContainerName,$env:PAWS_SQL_TEST_PASSWORD,$raceSql.Replace('{RACER}',[string]$racer) -ScriptBlock {
+   param($TestContainer,$TestPassword,$SqlText)
+   $OutputEncoding=[Text.UTF8Encoding]::new($false)
+   $output=$SqlText | & docker exec -e "SQLCMDPASSWORD=$TestPassword" -i $TestContainer /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -I -b -d VetMed-Ops -i /dev/stdin -f 65001 2>&1
+   [pscustomobject]@{exitCode=$LASTEXITCODE;output=($output -join "`n")}
+  }
+ }
+ $null=$raceJobs | Wait-Job -Timeout 30
+ if(@($raceJobs | Where-Object State -ne 'Completed').Count){throw 'Leadership race did not complete.'}
+ $raceResults=@($raceJobs | Receive-Job)
+ if(@($raceResults | Where-Object exitCode -eq 0).Count -ne 1 -or @($raceResults | Where-Object { $_.exitCode -ne 0 -and $_.output -match '54103' }).Count -ne 1){throw 'Competing leadership intents did not serialize against their exact authority epoch.'}
+}finally{$raceJobs | Stop-Job -ErrorAction SilentlyContinue;$raceJobs | Remove-Job -Force -ErrorAction SilentlyContinue}
+Invoke-TestSql @'
+IF (SELECT COUNT(*) FROM paws.LeadershipAccessOperation WHERE TargetUid=N'leadership062target')<>(SELECT OperationCount+1 FROM dbo.Leadership062RaceBaseline) THROW 54260,'Concurrent intents persisted an incorrect operation count.',1;
+IF (SELECT COUNT(*) FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityId=N'leadership062hicc')<>1 THROW 54260,'Concurrent intents duplicated the exclusive assignee.',1;
+PRINT 'LEADERSHIP_COMMAND_062_CONCURRENT_EPOCH_SERIALIZATION';
+'@ 'VetMed-Ops'
 $commandRollback=Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_062_leadership_access_commands.sql') -Raw
 $commandEscaped=([regex]::Replace($commandRollback,'(?m)^:[^\r\n]+\r?\n','')).Replace("'","''")
 Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$commandEscaped');END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()=54262 SET @Refused=1;ELSE THROW;END CATCH;IF @Refused=0 THROW 54260,'Used command rollback was not refused.',1;PRINT 'LEADERSHIP_COMMAND_062_USED_ROLLBACK_REFUSED';" 'VetMed-Ops'

@@ -89,6 +89,17 @@ SET @Fault=JSON_MODIFY(@Revoke,'$[0].expectedVersion',N'0000000000000000');SET @
 BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic stale assignee',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54109 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 THROW 54260,'Stale managed assignee was accepted.',1;
 PRINT 'LEADERSHIP_COMMAND_062_SCOPE_SOURCE_DATES_OVERLAP_DENIED';
+DECLARE @DeveloperVersion varchar(16)=(SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),AccessVersion),2)) FROM paws.UserProfile WHERE FirebaseUid=N'leadership062developer');
+SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062developer',@DeveloperVersion,N'2026-27',@Epoch,@Changes,N'Forbidden Developer grant',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54106 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Protected Developer accepted a leadership grant.',1;
+SET @Fault=JSON_MODIFY(@Replacement,'$[0].assignmentMode',NULL);SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic missing mode',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54107 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'A missing mode bypassed canonical validation.',1;
+SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,NULL,@Epoch,@Replacement,N'Synthetic missing year',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54107 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'A missing year bypassed canonical validation.',1;
+PRINT 'LEADERSHIP_COMMAND_062_PROTECTED_AND_NULL_INPUT_DENIED';
 -- Recorded schedules must cover every requested day, not merely both endpoints.
 INSERT paws.RoleAppointmentSchedule(RoleAssignmentId,PeriodsJson,UpdatedAtUtc,UpdatedByFirebaseUid) VALUES(@Source,N'[{"startDate":"2026-05-01","endDate":"2026-08-31"},{"startDate":"2026-10-01","endDate":"2027-04-30"}]',SYSUTCDATETIME(),N'leadership062owner');
 SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());

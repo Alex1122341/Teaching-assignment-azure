@@ -26,9 +26,11 @@ if(root&&root.document){
   if(loading){status.textContent='Loading '+list.title+'…';body.innerHTML='<p class="leadership-directory-empty">Loading…</p>';return;}
   if(loadError){status.textContent=list.title+' could not be loaded.';body.innerHTML='<div class="leadership-directory-empty" role="alert"><p>The list is unavailable. Nothing is shown until it loads successfully.</p><button type="button" class="leadership-directory-retry" data-leadership-retry>Retry</button></div>';return;}
   const all=data?data[list.key]:[];
-  const rows=lib.viewRows(all,{showAll:showAll.checked,query:search.value,sort:sort.value});
-  status.textContent=lib.countText(rows.length,all.length,showAll.checked)+(search.value.trim()?' · Search: '+search.value.trim():'');
-  body.innerHTML=lib.renderTable(kind,rows,all.length-lib.visibleRows(all,showAll.checked).length,search.value.trim());
+  const population=lib.projectedRows(all,{kind,showAll:showAll.checked});
+  const total=lib.projectedRows(all,{kind,showAll:true}).length;
+  const rows=lib.viewRows(all,{kind,showAll:showAll.checked,query:search.value,sort:sort.value});
+  status.textContent=lib.countText(rows.length,total,showAll.checked)+(search.value.trim()?' · Search: '+search.value.trim():'');
+  body.innerHTML=lib.renderTable(kind,rows,total-population.length,search.value.trim());
  }
  async function load(){
   if(!open_()||!currentUid())return;
@@ -99,9 +101,36 @@ if(root&&root.document){
  // Default view: Active and Dates needed (so incomplete records never disappear).
  const visibleRows=(rows,showAll)=>rows.filter(row=>showAll||row.status==='active'||row.status==='dates-needed');
  const normalize=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’‘]/g,"'").replace(/[^\p{L}\p{N}]+/gu,' ').trim();
- function viewRows(rows,{showAll=false,query='',sort='scope'}={}){
+
+ // Show HICC rather than CC for the same scoped appointment, without hiding
+ // a currently serving CC behind an expired/future HICC.
+ function sameDisplayPeriod(hicc,cc){
+  // An active confirmed HICC supersedes an undated CC for the same title.
+  // Do not hide a confirmed active CC behind an undated or expired HICC.
+  if(hicc.status==='active'&&cc.status==='dates-needed')return true;
+  if(hicc.status!==cc.status)return false;
+  if(hicc.status==='active')return true;
+  if(hicc.status==='dates-needed')
+   return (hicc.startDate||'')===(cc.startDate||'')&&(hicc.endDate||'')===(cc.endDate||'');
+  if(hicc.status==='upcoming'){
+   if(!hicc.startDate||!cc.startDate)return false;
+   return (!hicc.endDate||hicc.endDate>=cc.startDate)&&(!cc.endDate||cc.endDate>=hicc.startDate);
+  }
+  if(hicc.status==='inactive')
+   return Boolean(hicc.endDate)&&hicc.endDate===cc.endDate&&
+    (hicc.nextStartDate||'')===(cc.nextStartDate||'');
+  return false;
+ }
+ function projectedRows(rows,{showAll=false,kind='hicc-cc'}={}){
+  const population=visibleRows(rows,showAll);
+  if(kind!=='hicc-cc')return population;
+  const hiccs=population.filter(row=>row.roleType==='HICC'&&normalize(row.scope));
+  return population.filter(row=>row.roleType!=='Course Coordinator'||!normalize(row.scope)||
+   !hiccs.some(hicc=>normalize(hicc.scope)===normalize(row.scope)&&sameDisplayPeriod(hicc,row)));
+ }
+ function viewRows(rows,{showAll=false,query='',sort='scope',kind='hicc-cc'}={}){
   const words=normalize(query).split(/\s+/).filter(Boolean);
-  const result=visibleRows(rows,showAll).filter(row=>{
+  const result=projectedRows(rows,{showAll,kind}).filter(row=>{
    const text=normalize([row.facultyName,row.scope,ROLE_LABEL[row.roleType],row.roleType,statusText(row),row.startDate,row.endDate].join(' '));
    return words.every(word=>text.includes(word));
   });
@@ -130,5 +159,5 @@ if(root&&root.document){
     '<td><span class="leadership-name">'+escape(row.facultyName)+'</span><span class="leadership-status leadership-status-'+escape(row.status)+'">'+escape(statusText(row))+'</span></td></tr>').join('')+
    '</tbody></table>';
  }
- return Object.freeze({LISTS,ROLE_LABEL,escape,validDate,validYear,calgaryAcademicYear,statusText,visibleRows,viewRows,countText,validateResponse,renderTable});
+ return Object.freeze({LISTS,ROLE_LABEL,escape,validDate,validYear,calgaryAcademicYear,statusText,visibleRows,projectedRows,viewRows,countText,validateResponse,renderTable});
 });

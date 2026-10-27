@@ -1279,6 +1279,13 @@
     }
   }
 
+
+  // The LAB grouping is a visual projection only. renderedSessions, SQL IDs,
+  // selection operations and the pre-existing LAB modal still use original rows.
+  function calendarDisplaySessions(rows,options={}){
+    return selectionMode?rows:(window.UCVM_LAB_DETAIL?.calendarBlocks?.(rows,options)||rows);
+  }
+
   function layoutDaySessions(items) {
     const sorted = items.map(session=>({session,timing:calendarTimingDisposition(session)}))
       .filter(item=>item.timing.disposition==='grid')
@@ -1366,10 +1373,10 @@
     marks.forEach(m=>{const top=((m-DAY_START)/SPAN)*100,h=Math.floor(m/60),min=m%60,h12=((h+11)%12)+1;html+=`<span class="tg-hour-label" style="top:${top}%">${h12}:${String(min).padStart(2,'0')}</span>`});
     html+='</div></div><div class="tg-day-col">';
     marks.forEach(m=>{html+=`<div class="tg-gridline" style="top:${((m-DAY_START)/SPAN)*100}%"></div>`});
-    layoutDaySessions(data).forEach(item=>{
+    layoutDaySessions(calendarDisplaySessions(data,{gridOnly:true})).forEach(item=>{
       const s=item.session,startM=Math.max(DAY_START,item.startM),endM=Math.min(DAY_END,item.endM);if(endM<=startM)return;
       const top=((startM-DAY_START)/SPAN)*100,height=Math.max(3.5,((endM-startM)/SPAN)*100),laneWidth=100/item.laneCount,left=item.lane*laneWidth;
-      html+=`<div class="tg-block ${colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${window.PAWS_SWAP?.isPending(s.id)?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.room?` | ${escapeHtml(s.room)}`:''}<br>${escapeHtml(displayFacultyList(s.instructor||'TBD'))}</div></div>`;
+      html+=`<div class="tg-block ${colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${(Array.isArray(s.labDisplayIds)?s.labDisplayIds:[s.id]).some(id=>window.PAWS_SWAP?.isPending(id))?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':(s.room?` | ${escapeHtml(s.room)}`:'')+'<br>'+escapeHtml(displayFacultyList(s.instructor||'TBD'))}</div></div>`;
     });
     html+='</div></div>'+(window.PAWS_TASKS?'':unpositionedSessionsHtml(data));$('calendar-body').innerHTML=html;bindSessionBlocks();
   }
@@ -1396,7 +1403,7 @@
       const date = ymd(addDays(start, day));
       html += '<div class="tg-day-col">';
       marks.forEach(m => { const top=((m-DAY_START)/SPAN)*100; html += `<div class="tg-gridline" style="top:${top}%"></div>`; });
-      const dayItems=layoutDaySessions(data.filter(s => s.date === date));
+      const dayItems=layoutDaySessions(calendarDisplaySessions(data.filter(s => s.date === date),{gridOnly:true}));
       dayItems.forEach(item => {
         const s=item.session;
         const startM = Math.max(DAY_START, item.startM), endM = Math.min(DAY_END, item.endM);
@@ -1405,9 +1412,9 @@
         const height = Math.max(3.5, ((endM - startM) / SPAN) * 100);
         const laneWidth=100/item.laneCount, left=item.lane*laneWidth;
         html += `<div class="tg-block ${colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)">
-          <div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${window.PAWS_SWAP?.isPending(s.id)?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div>
+          <div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${(Array.isArray(s.labDisplayIds)?s.labDisplayIds:[s.id]).some(id=>window.PAWS_SWAP?.isPending(id))?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div>
           <div class="tg-block-l2">${escapeHtml(s.topic)}</div>
-          <div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.room ? ` | ${escapeHtml(s.room)}` : ''}<br>${escapeHtml(displayFacultyList(s.instructor || 'TBD'))}</div>
+          <div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':(s.room ? ` | ${escapeHtml(s.room)}` : '')+'<br>'+escapeHtml(displayFacultyList(s.instructor || 'TBD'))}</div>
         </div>`;
       });
       html += '</div>';
@@ -1435,9 +1442,9 @@
     while (cursor <= last || cursor.getDay() !== 1) {
       for (let i = 0; i < 5; i++) {
         const cell = addDays(cursor, i); const dateStr = ymd(cell);
-        const events = data.filter(s => s.date === dateStr);
+        const events = calendarDisplaySessions(data.filter(s => s.date === dateStr));
         html += `<div class="cal-cell"><div class="cal-date-num">${cell.getDate()}</div><div class="cal-events">`;
-        const eventHtml=s=>`<div class="cal-event ${colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}"><div class="cal-event-l1">${escapeHtml(s.course)} ${escapeHtml(s.type)}</div><div class="cal-event-l2">${s.timeUnknown?'Time not specified':escapeHtml(s.start)} ${escapeHtml(s.topic)}</div></div>`;
+        const eventHtml=s=>`<div class="cal-event ${colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}"><div class="cal-event-l1">${escapeHtml(s.course)} ${escapeHtml(s.type)}</div><div class="cal-event-l2">${s.timeUnknown?'Time not specified':escapeHtml(s.start)+(s.labDisplayCount>1?'–'+escapeHtml(s.end):'')} ${escapeHtml(s.topic)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':''}</div></div>`;
         html+=events.slice(0,4).map(eventHtml).join('');
         if(events.length>4)html+=`<details class="cal-more"><summary>${events.length-4} more activities</summary>${events.slice(4).map(eventHtml).join('')}</details>`;
         html += '</div></div>';

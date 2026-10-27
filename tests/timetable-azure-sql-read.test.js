@@ -7,7 +7,10 @@ const src=fs.readFileSync(repositoryPath(process.cwd(), 'timetable.js'),'utf8');
 
 test('account bootstrap drops prior session data before resetting its type catalog or exposing the new identity',()=>{
  const start=src.indexOf('async function bootstrapForUser'),identity=src.indexOf('currentUser = {',start);
- const before=src.slice(start,identity),reset=before.indexOf('activityTypeFilter.resetForUser()');
+ const before=src.slice(start,identity),reset=before.indexOf('resetCalendarActivityFilterForUser()');
+ assert.ok(reset>0,'bootstrap must invoke the shared identity reset before exposing the new identity');
+ const sharedReset=require('../test-support/source-function')('timetable.js','resetCalendarActivityFilterForUser');
+ assert.match(sharedReset,/activityTypeFilter\.resetForUser\(\)/);
  assert.ok(before.indexOf('sessions = []')>0&&before.indexOf('sessions = []')<reset);
  assert.ok(before.indexOf('invalidateAllSessions()')>0&&before.indexOf('invalidateAllSessions()')<reset);
 });

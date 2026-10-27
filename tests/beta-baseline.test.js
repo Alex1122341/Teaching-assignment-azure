@@ -12,7 +12,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='19d5042473917bc96434b141ab1f9a41f8e8eb1e';
+const BASELINE_COMMIT='179fa70ebce42e252a29826d76057799d6af43a7';
 const CCC_SCHEDULE_PRODUCT_COMMIT='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
@@ -440,12 +440,12 @@ test('the Calendar workspace product frozen runtime reports zero protected drift
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,95);
+  assert.equal(result.protected,96);
 });
 
-test('the current static manifest has exactly 95 protected files',()=>{
-  assert.equal(manifest().length,95);
-  assert.equal(freeze.protectedPaths({root}).length,95);
+test('the current static manifest has exactly 96 protected files',()=>{
+  assert.equal(manifest().length,96);
+  assert.equal(freeze.protectedPaths({root}).length,96);
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -458,9 +458,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 95 current protected files are byte-identical to the immutable accepted product blobs',()=>{
+test('all 96 current protected files are byte-identical to the immutable accepted product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,95);
+  assert.equal(protectedFiles.length,96);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),
@@ -758,7 +758,7 @@ test('removing a shipped file from the mutable manifest cannot drop it from the 
   assert.ok(protectedFiles.includes('paws-login-performance.js'));
   // protection must stay at the full baseline manifest, not collapse to the rigged manifest
   assert.equal(protectedFiles.length,freeze.readBaselineManifest({root}).length);
-  assert.equal(protectedFiles.length,95);
+  assert.equal(protectedFiles.length,96);
 });
 
 // F. Mutable-hash attack -----------------------------------------------------
@@ -784,7 +784,7 @@ test('beta-baseline.json hashes are derived from the frozen baseline commit',()=
 
 test('beta-baseline.json remains non-authoritative and records the stabilized Beta product baseline',()=>{
   assert.equal(baseline.sourceCommit,freeze.BASELINE_COMMIT);
-  assert.equal(Object.keys(baseline.sha256).length,95);
+  assert.equal(Object.keys(baseline.sha256).length,96);
   assert.ok(baseline.sha256['faculty-admin-management.js']);
   assert.ok(baseline.sha256['afc-workflow.js']);
   assert.ok(baseline.sha256['afc-workflow-sql.js']);
@@ -803,11 +803,11 @@ test('API freeze shares the promoted static baseline and protects the complete c
   const result=apiFreeze.verifyFreeze({root});
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.runtimeFiles.length,121);
+  assert.equal(result.runtimeFiles.length,127);
   assert.ok(result.runtimeFiles.includes('server/src/swap/swap-view.js'));
   assert.equal(result.buildDefinitionFiles.length,1);
   assert.deepEqual(result.repositoryInputFiles,['server/package.json','server/package-lock.json']);
-  assert.equal(result.protected,124);
+  assert.equal(result.protected,130);
   assert.ok(result.runtimeFiles.includes('server/src/auth/role-policy.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-calculator.js'));
   assert.ok(result.runtimeFiles.includes('server/src/domain/doe-course-catalog-2026-27.js'));

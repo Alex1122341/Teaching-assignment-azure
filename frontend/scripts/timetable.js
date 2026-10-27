@@ -1092,6 +1092,7 @@
       if(kind==='clear'){
         $('search-input').value='';$('filter-month').value='all';selectedCourses.clear();courseFilterActive=false;
         activityTypeFilter.reset();scopeChanged=true;coursesChanged=true;
+        if(selectedYear==='rotation')activityTypeFilter.setSelected([...activityTypeFilter.selectedKeys(),'work:rotation_participant']);
       }else if(kind==='search')$('search-input').value='';
       else if(kind==='month'){$('filter-month').value='all';scopeChanged=true;}
       else if(kind==='course'){selectedCourses.delete(value);coursesChanged=true;}
@@ -1110,6 +1111,12 @@
     // return early; changed ranges render on load without a duplicate activity call.
     if(sameScope)render();else renderActiveContentFilters();
     return refreshSessionScope();
+  }
+
+  function resetCalendarActivityFilterForUser() {
+    selectedYear='all';
+    document.querySelectorAll('[data-year]').forEach(button=>button.classList.toggle('active',button.dataset.year==='all'));
+    activityTypeFilter.resetForUser();
   }
 
   function resetFilters() {
@@ -2108,7 +2115,7 @@
           invalidateAllSessions();
           resetWorkingCalendar();
           sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
-          activityTypeFilter.resetForUser();
+          resetCalendarActivityFilterForUser();
           currentUser = {
             id: user.uid,
             uid: user.uid,
@@ -2184,7 +2191,7 @@
           currentUser = null;
           window.PAWS_CCC_SCHEDULE?.close();
           window.PAWS_LEADERSHIP_DIRECTORY?.close();
-          activityTypeFilter.resetForUser();
+          resetCalendarActivityFilterForUser();
           resetWorkingCalendar();
           if($('working-activities-lane'))$('working-activities-lane').innerHTML='';
           viewMode = 'week'; setViewButtons();

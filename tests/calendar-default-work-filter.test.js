@@ -50,3 +50,28 @@ test('explicit Year Rotation selection makes Rotation visible and remains exclus
  assert.deepEqual(Array.from(context.filteredSessions(rows),row=>row.id),['rotation']);
  filter.reset();assert.equal(filter.matchesActivity({category:'rotation_participant'}),false);
 });
+
+function resetContext(){
+ const filter=calendarFilter();filter.selectAll();
+ const fields={'search-input':{value:''},'filter-month':{value:'all'}};
+ const context={activityTypeFilter:filter,selectedYear:'rotation',selectedSemester:'fall',courseFilterActive:false,myTimetableOnly:false,selectedCourses:new Set(),contentFilterBatch:false,render(){},populateCourseFilter(){},refreshContentFilterScope(){},document:{querySelectorAll:()=>[]},$:id=>fields[id],window:{PAWS_ACTIVITY_PLACEMENT:require('../frontend/scripts/calendar-activity-placement')}};
+ vm.createContext(context);vm.runInContext(sourceFunction('timetable.js','filteredSessions'),context);
+ context.rows=[{id:'rotation',isWorkingActivity:true,activityCategory:'rotation_participant',sourceActivity:{category:'rotation_participant'},semester:'fall'},{id:'lab',type:'LAB',year:4,semester:'fall'}];
+ return context;
+}
+test('identity reset restores All years and teaching defaults instead of an empty Rotation view',()=>{
+ const context=resetContext();
+ vm.runInContext(sourceFunction('timetable.js','resetCalendarActivityFilterForUser'),context);
+ context.resetCalendarActivityFilterForUser();
+ assert.equal(context.selectedYear,'all');
+ assert.deepEqual(Array.from(context.filteredSessions(context.rows),row=>row.id),['lab']);
+ assert.equal((source.match(/resetCalendarActivityFilterForUser\(\);/g)||[]).length,2,'both auth transitions use the reset');
+});
+test('Clear content filters preserves explicit Rotation Year and its compatible opt-in',()=>{
+ const context=resetContext();
+ vm.runInContext(sourceFunction('timetable.js','changeContentFilter'),context);
+ context.changeContentFilter('clear');
+ assert.equal(context.selectedYear,'rotation');
+ assert.deepEqual(Array.from(context.filteredSessions(context.rows),row=>row.id),['rotation']);
+ assert.equal(context.activityTypeFilter.matchesActivity({category:'ccc'}),false);
+});

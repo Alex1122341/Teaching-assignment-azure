@@ -3,7 +3,7 @@
   "environmentLabel": "TESTING ENVIRONMENT — SYNTHETIC DATA ONLY",
   "releaseLabel": "TESTING — SYNTHETIC DATA",
   "apiOrigin": null,
-  "siteUrl": null,
+  "siteUrl": "https://paws-testing-ucvm-20261022.web.app",
   "peerSiteUrl": "https://tester-teaching.web.app",
   "firebase": {
     "apiKey": "AIzaSyBFWqm-xOOsg-FOD0JWcEadblOnw08J67s",

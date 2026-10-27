@@ -149,8 +149,9 @@ test('Testing API environment: unsafe or incomplete settings are rejected with a
   assert.ok(verifyTestingApiEnv(withEnv({ FIREBASE_SERVICE_ACCOUNT_JSON: { secretRef: 'firebase' } }), { root: dir }).errors.length === 0, 'a secret reference is fine');
 });
 
-test('Testing API environment: an unprovisioned repository configuration is reported, not assumed', () => {
-  const { errors } = verifyTestingApiEnv(goodEnv(), { root });
+test('Testing API environment: an unprovisioned configuration is reported, not assumed', () => {
+  const unprovisioned = configRoot({ ...testingConfig, firebase: null, siteUrl: null }, { ...production, peerSiteUrl: null });
+  const { errors } = verifyTestingApiEnv(goodEnv(), { root: unprovisioned });
   assert.ok(errors.some(error => /testing\.json is not provisioned/.test(error)));
 });
 
@@ -191,13 +192,15 @@ test('the committed template is never deployable as-is', () => {
 });
 
 // ------------------------------------------------------------------ preflight
-test('preflight recognizes the Testing Firebase app but fails closed until the site and API exist', async () => {
+test('preflight recognizes the Testing Firebase app and site but fails closed without the API', async () => {
   const result = await preflight({ root });
   assert.equal(result.ok, false);
   assert.equal(result.provisioned, false);
   assert.equal(result.checks.find(item => item.id === 'config.testing.firebase').status, 'pass');
   assert.equal(loadConfig('testing').firebase.projectId, 'paws-testing-ucvm-20261022');
-  for (const id of ['config.testing.siteUrl', 'config.testing.apiOrigin']) {
+  assert.equal(result.checks.find(item => item.id === 'config.testing.siteUrl').status, 'pass');
+  assert.equal(loadConfig('testing').siteUrl, 'https://paws-testing-ucvm-20261022.web.app');
+  for (const id of ['config.testing.apiOrigin']) {
     const check = result.checks.find(item => item.id === id);
     assert.equal(check.status, 'fail', id);
     assert.match(check.action, /03-setup-and-deployment\.md/);

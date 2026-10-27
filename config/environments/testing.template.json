@@ -2,7 +2,7 @@
   "environment": "testing",
   "environmentLabel": "TESTING ENVIRONMENT — SYNTHETIC DATA ONLY",
   "releaseLabel": "TESTING — SYNTHETIC DATA",
-  "apiOrigin": "https://<testing container app>.<region>.azurecontainerapps.io",
+  "apiOrigin": "https://testing-api.example.org",
   "siteUrl": "https://<testing hosting site>.web.app",
   "peerSiteUrl": "https://tester-teaching.web.app",
   "firebase": {

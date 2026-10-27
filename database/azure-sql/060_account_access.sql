@@ -5,6 +5,7 @@ IF DB_NAME()<>N'VetMed-Ops' THROW 54000,'060 requires the reviewed VetMed-Ops ta
 IF OBJECT_ID(N'paws.UserProfile',N'U') IS NULL OR OBJECT_ID(N'paws.AuditEvent',N'U') IS NULL OR SCHEMA_ID(N'paws_api') IS NULL THROW 54000,'060 requires the accepted SQL authority foundation.',1;
 -- Apply once. An existing candidate or unknown object needs explicit release reconciliation.
 IF COL_LENGTH(N'paws.UserProfile',N'AccessVersion') IS NOT NULL OR OBJECT_ID(N'paws.AccountAccessChange') IS NOT NULL OR OBJECT_ID(N'paws_api.SetAccountAccess') IS NOT NULL THROW 54000,'060 refuses an existing or unknown access deployment.',1;
+IF DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access') IS NOT NULL THROW 54000,'060 refuses an existing feature principal or binding.',1;
 BEGIN TRANSACTION;
 ALTER TABLE paws.UserProfile ADD AccessVersion rowversion NOT NULL;
 CREATE TABLE paws.AccountAccessChange(
@@ -80,7 +81,7 @@ BEGIN
  END CATCH;
 END;
 GO
-IF DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access') IS NULL CREATE ROLE paws_runtime_account_access AUTHORIZATION dbo;
+CREATE ROLE paws_runtime_account_access AUTHORIZATION dbo;
 GRANT EXECUTE ON OBJECT::paws_api.SetAccountAccess TO paws_runtime_account_access;
 GRANT SELECT ON OBJECT::paws.AccountAccessChange TO paws_runtime_account_access;
 GRANT SELECT ON OBJECT::paws.UserProfile (AccessVersion) TO paws_runtime_account_access;

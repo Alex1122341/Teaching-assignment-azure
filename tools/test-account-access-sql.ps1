@@ -9,6 +9,15 @@ INSERT dbo.PawsDisposableAccess060 VALUES(1);
 INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,Active,MustChangePassword) VALUES(N'access060-baseline',N'baseline@example.test',N'Baseline Account',N'adfa_regular',1,0);
 SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc INTO dbo.Access060ProfileBaseline FROM paws.UserProfile;
 '@ 'VetMed-Ops'
+$migration=(Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/060_account_access.sql') -Raw)
+$initialBatch=([regex]::Replace($migration,'(?m)^:[^\r\n]+\r?\n','') -split '(?m)^GO[ \t]*$')[0]
+$initialEscaped=$initialBatch.Replace("'","''")
+Invoke-TestSql @'
+CREATE USER access060_collision_member WITHOUT LOGIN;
+CREATE ROLE paws_runtime_account_access AUTHORIZATION dbo;
+ALTER ROLE paws_runtime_account_access ADD MEMBER access060_collision_member;
+'@ 'VetMed-Ops'
+Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$initialEscaped');IF XACT_STATE()<>0 ROLLBACK;END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()=54000 SET @Refused=1;ELSE THROW;END CATCH;IF @Refused=0 THROW 54060,'Pre-existing feature principal was not refused.',1;IF COL_LENGTH(N'paws.UserProfile',N'AccessVersion') IS NOT NULL OR OBJECT_ID(N'paws.AccountAccessChange') IS NOT NULL THROW 54060,'Refused principal left schema changes.',1;IF NOT EXISTS(SELECT 1 FROM sys.database_role_members WHERE role_principal_id=DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access') AND member_principal_id=DATABASE_PRINCIPAL_ID(N'access060_collision_member')) THROW 54060,'Refusal changed existing role membership.',1;IF EXISTS(SELECT 1 FROM sys.database_permissions WHERE grantee_principal_id=DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access')) THROW 54060,'Refusal granted permissions to an existing principal.',1;ALTER ROLE paws_runtime_account_access DROP MEMBER access060_collision_member;DROP USER access060_collision_member;DROP ROLE paws_runtime_account_access;PRINT 'ACCOUNT_ACCESS_060_EXISTING_PRINCIPAL_REFUSED';" 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/060_account_access.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql @'
 IF EXISTS(SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc FROM paws.UserProfile EXCEPT SELECT * FROM dbo.Access060ProfileBaseline) OR EXISTS(SELECT * FROM dbo.Access060ProfileBaseline EXCEPT SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc FROM paws.UserProfile) THROW 54060,'Migration changed an existing access profile.',1;

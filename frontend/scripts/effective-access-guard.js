@@ -20,7 +20,7 @@
   let initialUid=null;
   const unsubscribe=auth.onAuthStateChanged(user=>{
    if(initialUid&&initialUid!==user?.uid){guard.invalidate('changed');return;}
-   if(user){initialUid=user.uid;if(!root.PAWS_SUPPORT?.contextId?.())void guard.check();}
+   if(user){initialUid=user.uid;if(!root.PAWS_SUPPORT?.contextId?.())void guard.check().catch(()=>{});}
   });
   controller={guard,stop(){stop();unsubscribe?.();}};return controller;
  }};
@@ -41,7 +41,7 @@
   }
   function check(){
    if(blocked)return Promise.resolve();if(pending)return pending;
-   pending=Promise.resolve().then(load).then(observe,()=>invalidate('unverified')).finally(()=>{pending=null;});return pending;
+   pending=Promise.resolve().then(load).then(observe,error=>{if(signature===null&&profileSignature===null)throw error;invalidate('unverified');}).finally(()=>{pending=null;});return pending;
   }
   function observeProfile(profile){
    if(blocked)return;
@@ -52,7 +52,7 @@
   }
   return Object.freeze({observe,observeProfile,check,invalidate,capture:()=>generation,current:token=>!blocked&&token===generation,
    reject(error){if(revoked.has(error?.code))invalidate('changed');},
-   start(surface,enabled=()=>true){const run=()=>{if(enabled())void check();};surface.addEventListener('focus',run);const timer=surface.setInterval(run,60000);return ()=>{surface.removeEventListener('focus',run);surface.clearInterval(timer);};}
+   start(surface,enabled=()=>true){const run=()=>{if(enabled())void check().catch(()=>{});};surface.addEventListener('focus',run);const timer=surface.setInterval(run,60000);return ()=>{surface.removeEventListener('focus',run);surface.clearInterval(timer);};}
   });
  }
  return {createEffectiveAccessGuard};

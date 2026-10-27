@@ -33,7 +33,7 @@ jobs:
         shell: pwsh
         run: |
           ./tools/test-account-access-sql.ps1 -ContainerName paws-calendar-access-test | Tee-Object -Variable output
-          foreach($marker in @('MIGRATION_PRESERVES_GRANTS','PERSISTED_IDEMPOTENT_AUDIT','STALE_ABA_DENIED','OWNER_PROTECTION','ATOMIC_ROLLBACK','CONCURRENT_OWNER_REVOCATION','USED_ROLLBACK_REFUSED','EMPTY_ROLLBACK_OK')){
+          foreach($marker in @('EXISTING_PRINCIPAL_REFUSED','MIGRATION_PRESERVES_GRANTS','PERSISTED_IDEMPOTENT_AUDIT','STALE_ABA_DENIED','OWNER_PROTECTION','ATOMIC_ROLLBACK','CONCURRENT_OWNER_REVOCATION','USED_ROLLBACK_REFUSED','EMPTY_ROLLBACK_OK')){
             if(($output -join "`n") -notmatch ('ACCOUNT_ACCESS_060_'+$marker)){throw "Missing access acceptance marker: $marker"}
           }
       - name: Stop owned synthetic container

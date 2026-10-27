@@ -296,6 +296,7 @@
   try {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     auth = firebase.auth(); window.UCVMSessionGuard?.start(auth); auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+    window.UCVM_EFFECTIVE_ACCESS?.start(auth);
     auth.onAuthStateChanged(start);
   } catch (error) { console.error(error); showGate('Firebase authentication could not be initialized.'); }
 })();

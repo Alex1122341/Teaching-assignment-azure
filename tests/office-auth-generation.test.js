@@ -2,13 +2,13 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
 const sourceFunction=require('../test-support/source-function');
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
-function harness(page){
+function harness(page,options={}){
  const events=[],requests=[],nodes=new Map(),node=id=>{if(!nodes.has(id))nodes.set(id,{value:'2026-27',classList:{add(){},remove(){},toggle(){}},textContent:'',innerHTML:''});return nodes.get(id);};
  let handler;
  const auth={currentUser:null,setPersistence:()=>Promise.resolve(),onAuthStateChanged:f=>{handler=f;}};
  const firebase={apps:[{}],auth:()=>auth};firebase.auth.Auth={Persistence:{LOCAL:'local'}};
  const ctx={console:{error(){}},performance:{now:()=>0},firebase,FIREBASE_CONFIG:{},auth,authGeneration:0,currentUser:null,profile:null,
-  $,document:{body:{classList:{add(){},remove(){}}},querySelector:()=>node('query'),querySelectorAll:()=>[]},window:{},location:{replace:()=>events.push('redirect')},
+  $,document:{body:{classList:{add(){},remove(){}}},querySelector:()=>node('query'),querySelectorAll:()=>[]},window:options.window||{},location:{replace:()=>events.push('redirect')},
   officeWorkspace:{sync:p=>events.push(p?.role||'LOCK')},traineesEntry:null,otherWorkTab:null,afcForms:null,facultyArchive:null,cccReplace:null,workView:null,workImport:null,
   UCVM_PAWS_DATA:{currentUser:()=>{const r=deferred();requests.push(r);return r.promise;}},
   bindUI(){},cameFromTimetable:()=>false,lock:()=>events.push('LOCK'),unlock:()=>events.push(ctx.profile?.role||'LOCK'),
@@ -22,6 +22,17 @@ function harness(page){
  else {vm.runInNewContext(sourceFunction('faculty-admin.js','init')+'\ninit();',ctx);ctx.start=handler;}
  return {ctx,events,requests,node,run(user){auth.currentUser=user;return ctx.start(user);}};
 }
+
+for(const page of ['dashboard','assignments'])test(page+' own-auth bootstrap actually starts SQL revocation monitoring',()=>{
+ const calls=[],window={UCVM_EFFECTIVE_ACCESS:{start:auth=>calls.push(auth)}};
+ const h=harness(page,{window});
+ if(page==='assignments'){
+  const fs=require('node:fs'),source=fs.readFileSync('frontend/scripts/teaching-assignments.js','utf8');
+  const bootstrap=source.slice(source.lastIndexOf('  try {'),source.lastIndexOf('})();'));
+  vm.runInNewContext(bootstrap,h.ctx);
+ }
+ assert.equal(calls.length,1);assert.equal(calls[0],h.ctx.auth);
+});
 for(const page of ['assignments','dashboard']){
  test(page+' immediately locks while a new identity profile is pending',async()=>{
   const h=harness(page),pending=h.run({uid:'a'});assert.equal(h.events.at(-1),'LOCK');h.requests[0].resolve({active:false});await pending;

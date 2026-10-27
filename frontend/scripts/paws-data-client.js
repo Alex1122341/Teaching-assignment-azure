@@ -69,6 +69,7 @@
 
     async function authenticatedResponse(path,{method='GET',body:requestBody,accept='application/json'}={}){
       const generation=path==='/api/v1/access/self'?undefined:guard()?.capture();
+      if(generation!==undefined)await guard()?.check?.();
       checkGeneration(generation);
       const url=apiOrigin+path;
       const buildInit=token=>{

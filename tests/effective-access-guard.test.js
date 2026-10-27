@@ -32,6 +32,11 @@ test('focus and polling checks share one pending authoritative read and teardown
  const stop=h.guard.start(surface,()=>true);events.get('focus')();[...timers.values()][0]();await Promise.resolve();assert.equal(reads,1);done(access({version:'0000000000000002'}));await h.guard.check();assert.equal(h.changes.length,1);stop();assert.equal(events.size,0);assert.equal(timers.size,0);
 });
 
+test('initial transport failure preserves existing sign-in recovery when no private scope was verified',async()=>{
+ const h=fixture(async()=>{throw Object.assign(Error('Temporary API outage'),{code:'SERVICE_UNAVAILABLE',status:503});});
+ await assert.rejects(h.guard.check(),error=>error.code==='SERVICE_UNAVAILABLE');assert.equal(h.changes.length,0);assert.equal(h.guard.current(h.guard.capture()),true);
+});
+
 test('all API entry pages load the SQL revocation guard and shared helper starts it without a legacy privilege listener',()=>{
  const fs=require('node:fs'),vm=require('node:vm');
  for(const name of ['index','faculty-admin','teaching-assignments']){

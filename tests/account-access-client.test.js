@@ -20,9 +20,9 @@ test('ambiguous access commit is never automatically replayed and carries the sa
 
 test('client discards a late private response after a newer SQL scope invalidates it',async()=>{
  const {createEffectiveAccessGuard}=require('../frontend/scripts/effective-access-guard');
- const guard=createEffectiveAccessGuard({load:async()=>null,onChange:()=>{}});guard.observe({allowed:true,status:'ready',role:'owner',version:'0000000000000001'});
- let resolve;const client=createPawsDataClient({accessGuard:guard,tokenProvider:async()=>'identity',fetchImpl:async()=>new Promise(done=>resolve=done)});
- const pending=client.accessAccounts();await Promise.resolve();await Promise.resolve();guard.invalidate('changed');resolve({ok:true,status:200,json:async()=>({accounts:[{email:'PRIVATE'}]})});
+ const current={allowed:true,status:'ready',role:'adfa_general',version:'0000000000000001'},guard=createEffectiveAccessGuard({load:async()=>current,onChange:()=>{}});guard.observe(current);
+ let resolve,markStarted;const started=new Promise(done=>markStarted=done),client=createPawsDataClient({accessGuard:guard,tokenProvider:async()=>'identity',fetchImpl:async()=>new Promise(done=>{resolve=done;markStarted();})});
+ const pending=client.accessAccounts();await started;guard.invalidate('changed');resolve({ok:true,status:200,json:async()=>({accounts:[{email:'PRIVATE'}]})});
  await assert.rejects(pending,e=>e.code==='ACCESS_CHANGED');
  await assert.rejects(client.accessAccounts(),e=>e.code==='ACCESS_CHANGED');
 });
@@ -34,13 +34,36 @@ test('client observes authoritative self state and sends revocation errors to th
 });
 
 test('private PDF bytes finishing after revocation cannot be returned for download',async()=>{
- const {createEffectiveAccessGuard}=require('../frontend/scripts/effective-access-guard'),guard=createEffectiveAccessGuard({load:async()=>null,onChange(){}});guard.observe({allowed:true,status:'ready',role:'faculty',facultyId:'self',version:'0000000000000001'});
- let done;const client=createPawsDataClient({accessGuard:guard,tokenProvider:async()=>'identity',fetchImpl:async()=>({ok:true,status:200,headers:new Headers({'content-type':'application/pdf'}),arrayBuffer:()=>new Promise(resolve=>done=resolve)})});
- const pending=client.getAfcFormDocument('synthetic');for(let i=0;i<6;i++)await Promise.resolve();assert.equal(typeof done,'function');guard.invalidate('changed');done(new Uint8Array([37,80,68,70]).buffer);await assert.rejects(pending,error=>error.code==='ACCESS_CHANGED');
+ const {createEffectiveAccessGuard}=require('../frontend/scripts/effective-access-guard'),current={allowed:true,status:'ready',role:'faculty',facultyId:'self',version:'0000000000000001'},guard=createEffectiveAccessGuard({load:async()=>current,onChange(){}});guard.observe(current);
+ let done,markStarted;const started=new Promise(resolve=>markStarted=resolve),client=createPawsDataClient({accessGuard:guard,tokenProvider:async()=>'identity',fetchImpl:async()=>({ok:true,status:200,headers:new Headers({'content-type':'application/pdf'}),arrayBuffer:()=>new Promise(resolve=>{done=resolve;markStarted();})})});
+ const pending=client.getAfcFormDocument('synthetic');await started;guard.invalidate('changed');done(new Uint8Array([37,80,68,70]).buffer);await assert.rejects(pending,error=>error.code==='ACCESS_CHANGED');
 });
 
 test('current-profile scope changes invalidate the response before old page listeners receive it',async()=>{
- const {createEffectiveAccessGuard}=require('../frontend/scripts/effective-access-guard'),guard=createEffectiveAccessGuard({load:async()=>null,onChange(){}});guard.observe({allowed:true,status:'ready',role:'faculty',facultyId:'self',version:'0000000000000001'});
- const client=createPawsDataClient({accessGuard:guard,tokenProvider:async()=>'identity',fetchImpl:async()=>({ok:true,status:200,json:async()=>({profile:{role:'hicc',active:true,facultyId:'self'}})})});
- await assert.rejects(client.currentUser(),error=>error.code==='ACCESS_CHANGED');
+ const {createEffectiveAccessGuard}=require('../frontend/scripts/effective-access-guard'),current={allowed:true,status:'ready',role:'faculty',facultyId:'self',version:'0000000000000001'},guard=createEffectiveAccessGuard({load:async()=>current,onChange(){}});guard.observe(current);let requests=0;
+ const client=createPawsDataClient({accessGuard:guard,tokenProvider:async()=>'identity',fetchImpl:async()=>{requests++;return {ok:true,status:200,json:async()=>({profile:{role:'hicc',active:true,facultyId:'self'}})};}});
+ await assert.rejects(client.currentUser(),error=>error.code==='ACCESS_CHANGED');assert.equal(requests,1);
+});
+
+test('a successful business route cannot retain old private scope until the next timer',async()=>{
+ const {createEffectiveAccessGuard}=require('../frontend/scripts/effective-access-guard');let checks=0,requests=0;
+ const guard=createEffectiveAccessGuard({load:async()=>{checks++;return {allowed:true,status:'ready',role:'faculty',facultyId:'self',version:'0000000000000002'};},onChange(){}});
+ guard.observe({allowed:true,status:'ready',role:'adfa_general',facultyId:null,version:'0000000000000001'});
+ const client=createPawsDataClient({accessGuard:guard,tokenProvider:async()=>'identity',fetchImpl:async()=>{requests++;return {ok:true,status:200,json:async()=>({messages:[]})};}});
+ await assert.rejects(client.announcements(),error=>error.code==='ACCESS_CHANGED');assert.equal(checks,1);assert.equal(requests,0);
+});
+
+test('concurrent business reads share a pending authoritative binding check',async()=>{
+ const {createEffectiveAccessGuard}=require('../frontend/scripts/effective-access-guard');let checks=0,done;
+ const current={allowed:true,status:'ready',role:'adfa_general',facultyId:null,version:'0000000000000001'};
+ const guard=createEffectiveAccessGuard({load:()=>{checks++;return new Promise(resolve=>done=resolve);},onChange(){}});guard.observe(current);
+ const client=createPawsDataClient({accessGuard:guard,tokenProvider:async()=>'identity',fetchImpl:async()=>({ok:true,status:200,json:async()=>({messages:[]})})});
+ const one=client.announcements(),two=client.accessAccounts();await Promise.resolve();await Promise.resolve();assert.equal(checks,1);done(current);await Promise.all([one,two]);assert.equal(checks,1);
+});
+
+test('real client self preflight does not recursively preflight itself',async()=>{
+ const {createEffectiveAccessGuard}=require('../frontend/scripts/effective-access-guard'),calls=[];let client;
+ const access={allowed:true,status:'ready',role:'adfa_general',facultyId:null,version:'0000000000000001'},guard=createEffectiveAccessGuard({load:()=>client.effectiveAccess(),onChange(){}});
+ client=createPawsDataClient({accessGuard:guard,tokenProvider:async()=>'identity',fetchImpl:async url=>{calls.push(new URL(url).pathname);return {ok:true,status:200,json:async()=>url.endsWith('/self')?{access}:{messages:[]}};}});
+ await client.announcements();assert.deepEqual(calls,['/api/v1/access/self','/api/v1/access/announcements']);
 });

@@ -1,5 +1,6 @@
 {
   "accessReadObjects": ["paws.AccountAccessChange"],
+  "teachingAccessReadFunctions": ["paws_api.EffectiveTeachingAssignments", "paws_api.TeachingAuthorityState"],
   "accessWriteProcedures": ["paws_api.SetAccountAccess"],
   "readObjects": [
     "paws.AfcRequest",

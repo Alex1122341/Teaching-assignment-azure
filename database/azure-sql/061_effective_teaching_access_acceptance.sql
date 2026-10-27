@@ -11,6 +11,17 @@ IF EXISTS(SELECT 1 FROM paws.LeadershipAccessOperation) OR EXISTS(SELECT 1 FROM 
  OR EXISTS(SELECT 1 FROM paws.LeadershipAccessState WHERE Enabled<>0)
  THROW 54160,'Foundation unexpectedly seeded or enabled additional grants.',1;
 PRINT 'TEACHING_ACCESS_061_NO_SEED_SCHEDULE_VERSION_REUSED';
+-- Keep the existing constraint intact. Diagnose its historical ID alphabet;
+-- fixtures below use its supported canonical alphanumeric identifiers.
+SELECT IIF(N'leadership061-hicc' COLLATE Latin1_General_100_BIN2 LIKE '[a-z]%',1,0) dashedIdStartsWithLetter,
+ IIF(N'leadership061-hicc' COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^a-z0-9_-]%',1,0) dashedIdMatchesExistingAlphabet;
+IF (SELECT COUNT(*) FROM sys.database_permissions WHERE grantee_principal_id=DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access')
+ AND permission_name=N'SELECT' AND state=N'G' AND class=1 AND minor_id=0
+ AND major_id IN(OBJECT_ID(N'paws_api.EffectiveTeachingAssignments'),OBJECT_ID(N'paws_api.TeachingAuthorityState')))<>2
+ THROW 54160,'Exact leadership read-function permissions are missing.',1;
+IF EXISTS(SELECT 1 FROM sys.database_permissions WHERE grantee_principal_id=DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access')
+ AND class=1 AND major_id IN(OBJECT_ID(N'paws.LeadershipAccessState'),OBJECT_ID(N'paws.TeachingLeadershipGrantSource'),OBJECT_ID(N'paws.TeachingResponsibilityAssignee')))
+ THROW 54160,'Feature role unexpectedly received raw authority-table access.',1;
 
 DECLARE @Batch uniqueidentifier=NEWID(),@Faculty uniqueidentifier=NEWID(),@Other uniqueidentifier=NEWID(),@Course uniqueidentifier=NEWID(),
  @HiccSource uniqueidentifier=NEWID(),@ViscSource uniqueidentifier=NEWID(),@HiccAssignee uniqueidentifier=NEWID(),@ViscAssignee uniqueidentifier=NEWID(),
@@ -24,16 +35,16 @@ INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,
  (N'leadership061-faculty',N'faculty@example.test',N'Taylor Example',N'faculty',@Faculty,1,0),
  (N'leadership061-legacy',N'legacy@example.test',N'Morgan Example',N'hicc',@Other,1,0);
 INSERT paws.TeachingResponsibility(ResponsibilityId,Kind,Label,Active) VALUES
- (N'leadership061-hicc',N'hicc',N'Synthetic HICC',1),(N'leadership061-visc',N'visc',N'Synthetic VISC',1);
+ (N'leadership061hicc',N'hicc',N'Synthetic HICC',1),(N'leadership061visc',N'visc',N'Synthetic VISC',1);
 INSERT paws.TeachingResponsibilityScope(ResponsibilityScopeId,HiccResponsibilityId,CourseId)
- VALUES(NEWID(),N'leadership061-hicc',@Course);
+ VALUES(NEWID(),N'leadership061hicc',@Course);
 INSERT paws.TeachingAssignmentGroup(GroupId,Name,LeaderViscResponsibilityId,Active)
- VALUES(N'leadership061-area',N'Synthetic area',N'leadership061-visc',1);
-INSERT paws.TeachingAssignmentGroupHicc(GroupId,HiccResponsibilityId) VALUES(N'leadership061-area',N'leadership061-hicc');
+ VALUES(N'leadership061area',N'Synthetic area',N'leadership061visc',1);
+INSERT paws.TeachingAssignmentGroupHicc(GroupId,HiccResponsibilityId) VALUES(N'leadership061area',N'leadership061hicc');
 INSERT paws.TeachingResponsibilityAssignee(ResponsibilityAssigneeId,ResponsibilityId,AcademicYear,FacultyId,ActiveDate,ExpirationDate,AssignmentMode) VALUES
- (@HiccAssignee,N'leadership061-hicc',N'2026-27',@Faculty,'20260501','20270501',N'concurrent'),
- (@ViscAssignee,N'leadership061-visc',N'2026-27',@Faculty,'20260501','20270501',N'exclusive'),
- (@LegacyAssignee,N'leadership061-hicc',N'2026-27',@Other,'20260501','20270501',N'concurrent');
+ (@HiccAssignee,N'leadership061hicc',N'2026-27',@Faculty,'20260501','20270501',N'concurrent'),
+ (@ViscAssignee,N'leadership061visc',N'2026-27',@Faculty,'20260501','20270501',N'exclusive'),
+ (@LegacyAssignee,N'leadership061hicc',N'2026-27',@Other,'20260501','20270501',N'concurrent');
 IF EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027'))
  THROW 54160,'Unapproved assignees added authority to a Faculty profile.',1;
 IF (SELECT COUNT(*) FROM paws_api.EffectiveTeachingAssignments(N'leadership061-legacy',N'2026-27','20261027'))<>1
@@ -62,7 +73,7 @@ IF NOT EXISTS(SELECT 1 FROM paws.UserProfile WHERE FirebaseUid=N'leadership061-f
 IF NOT EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027')
  WHERE kind=N'hicc' AND JSON_VALUE(coursesJson,'$[0].courseId')=CONVERT(varchar(36),@Course) AND groupsJson=N'[]')
  OR NOT EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027')
- WHERE kind=N'visc' AND JSON_VALUE(groupsJson,'$[0].groupId')=N'leadership061-area' AND coursesJson=N'[]')
+ WHERE kind=N'visc' AND JSON_VALUE(groupsJson,'$[0].groupId')=N'leadership061area' AND coursesJson=N'[]')
  THROW 54160,'Canonical course and area descriptors are incorrect.',1;
 IF EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20270501'))
  OR EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20260430'))
@@ -73,14 +84,14 @@ PRINT 'TEACHING_ACCESS_061_DUAL_ROLE_SCOPE_AND_DATES';
 
 DECLARE @Epoch varchar(16)=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState()),@Definition varchar(64);
 SELECT @Definition=definitionVersion FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027') WHERE kind=N'hicc';
-UPDATE paws.TeachingResponsibility SET Label=N'Changed synthetic label' WHERE ResponsibilityId=N'leadership061-hicc';
-UPDATE paws.TeachingResponsibility SET Label=N'Synthetic HICC' WHERE ResponsibilityId=N'leadership061-hicc';
+UPDATE paws.TeachingResponsibility SET Label=N'Changed synthetic label' WHERE ResponsibilityId=N'leadership061hicc';
+UPDATE paws.TeachingResponsibility SET Label=N'Synthetic HICC' WHERE ResponsibilityId=N'leadership061hicc';
 IF @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState())
  OR @Definition=(SELECT definitionVersion FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027') WHERE kind=N'hicc')
  THROW 54160,'Definition A-B-A restored an obsolete version.',1;
 SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());
-DELETE paws.TeachingAssignmentGroupHicc WHERE GroupId=N'leadership061-area';
-INSERT paws.TeachingAssignmentGroupHicc(GroupId,HiccResponsibilityId) VALUES(N'leadership061-area',N'leadership061-hicc');
+DELETE paws.TeachingAssignmentGroupHicc WHERE GroupId=N'leadership061area';
+INSERT paws.TeachingAssignmentGroupHicc(GroupId,HiccResponsibilityId) VALUES(N'leadership061area',N'leadership061hicc');
 IF @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState()) THROW 54160,'Deleted/recreated scope restored an old epoch.',1;
 SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());
 UPDATE paws.RoleAppointmentSchedule SET PeriodsJson=PeriodsJson WHERE RoleAssignmentId=@ViscSource;

@@ -128,3 +128,35 @@ EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'
 IF EXISTS(SELECT 1 FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityAssigneeId=@Assignee) OR EXISTS(SELECT 1 FROM paws.TeachingLeadershipGrantSource WHERE ResponsibilityAssigneeId=@Assignee) THROW 54260,'Approved exact revoke did not remove current grant.',1;
 IF NOT EXISTS(SELECT 1 FROM paws.LeadershipAccessOperation WHERE TargetUid=N'leadership062target' AND OperationId<>@Operation) THROW 54260,'Revocation removed historical grant receipt.',1;
 PRINT 'LEADERSHIP_COMMAND_062_OWNER_ATOMIC_REVOKE';
+
+-- Exercise the other canonical kind through the real command, with recorded
+-- inclusive schedule dates rather than an approved legacy default.
+DECLARE @ViscSource uniqueidentifier=NEWID();
+INSERT paws.TeachingResponsibility(ResponsibilityId,Kind,Label,Active) VALUES(N'leadership062visc',N'visc',N'Synthetic command VISC',1);
+INSERT paws.TeachingAssignmentGroup(GroupId,Name,LeaderViscResponsibilityId,Active) VALUES(N'leadership062area',N'Synthetic command area',N'leadership062visc',1);
+INSERT paws.RoleAssignment(RoleAssignmentId,FacultyId,FacultyResolutionStatus,AcademicYear,RoleType,CourseOrSubjectOrRotation,SourceImportBatchId,SourceRow)
+ VALUES(@ViscSource,@Faculty,N'resolved',N'2026-27',N'VISC',N'Synthetic explicit area',@Batch,2);
+INSERT paws.RoleAppointmentSchedule(RoleAssignmentId,PeriodsJson,UpdatedAtUtc,UpdatedByFirebaseUid) VALUES(@ViscSource,N'[{"startDate":"2026-05-01","endDate":"2027-04-30"}]',SYSUTCDATETIME(),N'leadership062owner');
+UPDATE paws.LeadershipAccessState SET Enabled=1 WHERE SingletonId=1;
+SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());SET @Operation=NEWID();
+DECLARE @VChanges nvarchar(max)=(SELECT N'grant' action,N'leadership062visc' responsibilityId,N'visc' kind,
+ LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062visc')),2)) definitionVersion,
+ CONVERT(varchar(36),@ViscSource) sourceRoleAssignmentId,
+ (SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),AuthorityVersion),2)) FROM paws.RoleAssignment WHERE RoleAssignmentId=@ViscSource) sourceVersion,
+ (SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),ScheduleVersion),2)) FROM paws.RoleAppointmentSchedule WHERE RoleAssignmentId=@ViscSource) sourceScheduleVersion,
+ LOWER(paws_api.TeachingAppointmentAccessSourceStamp(@ViscSource)) sourceSignature,N'Synthetic explicit area' recordedScope,
+ N'2026-05-01' startDate,N'2027-05-01' endExclusive,CAST(0 AS bit) usesApprovedDefaultDates,N'exclusive' assignmentMode,
+ JSON_QUERY(N'[]') courses,JSON_QUERY(N'[{"groupId":"leadership062area","name":"Synthetic command area"}]') groups FOR JSON PATH);
+EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@VChanges,N'Synthetic approved recorded VISC scope',@Hash,@Operation,@Preview;
+IF NOT EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership062target',N'2026-27','20261027') WHERE kind=N'visc' AND JSON_VALUE(groupsJson,'$[0].groupId')=N'leadership062area')
+ THROW 54260,'Recorded VISC grant did not produce its exact area authority.',1;
+SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());
+SET @VChanges=JSON_MODIFY(@VChanges,'$[0].definitionVersion',LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062visc')),2)));
+SET @VChanges=JSON_MODIFY(@VChanges,'append $',JSON_QUERY((SELECT N'revoke' action,CONVERT(varchar(36),ResponsibilityAssigneeId) assignmentId,LOWER(CONVERT(varchar(16),CONVERT(binary(8),AuthorityVersion),2)) expectedVersion,N'leadership062visc' responsibilityId FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityId=N'leadership062visc' FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)));
+SET @Fault=JSON_MODIFY(@VChanges,'$[0].groups[0].groupId',N'anotherarea');SET @Rejected=0;SET @Operation=NEWID();
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic forged VISC area',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54104 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Forged VISC area was accepted.',1;
+SET @Fault=JSON_MODIFY(@VChanges,'$[0].sourceScheduleVersion',NULL);SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic missing recorded schedule version',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54104 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Missing schedule version was accepted.',1;
+PRINT 'LEADERSHIP_COMMAND_062_RECORDED_VISC_AREA_BOUNDARY';

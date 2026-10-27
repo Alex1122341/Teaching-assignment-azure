@@ -5,6 +5,12 @@ const {liveChecks}=require('./testing-preflight');
 const {canonicalDigest,validateRuntimeAttestation}=require('./testing-runtime-attestation');
 const {BASELINE_COMMIT}=require('./beta-freeze');
 const ROOT=path.resolve(__dirname,'..');
+// Hosting and Auth/Firestore are separate projects. Never infer the publishing
+// target from the browser Firebase identity: that could deploy to another site.
+function resolveTestingHostingProject(testing){
+ if(testing?.environment!=='testing'||testing.siteUrl!=='https://paws-testing-ucvm-20261022.web.app'||testing.firebase?.projectId!=='vista-teaching-lab')throw Error('Testing Hosting target rejected');
+ return 'paws-testing-ucvm-20261022';
+}
 function verifyTestingStaticArtifact({root=ROOT,source,freeze=require('./beta-freeze')}){
  const {assertNoLinks}=require('./testing-host/artifact-attestation'),actual=[];assertNoLinks(source);
  function walk(directory){for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
@@ -54,11 +60,11 @@ async function main(argv){
    verifyTestingStaticArtifact({root:ROOT,source});
    fs.mkdirSync(path.dirname(target),{recursive:true});assertNoLinks(path.dirname(target));if(fs.existsSync(target))assertNoLinks(target);
    fs.rmSync(target,{recursive:true,force:true});fs.cpSync(source,target,{recursive:true,dereference:false});
-   execFileSync(process.execPath,[require.resolve('firebase-tools/lib/bin/firebase.js'),'deploy','--only','hosting','--project',testing.firebase.projectId,'--config','firebase.hosting-only.json','--non-interactive','--message','Verified University Testing '+commitSha],{cwd:ROOT,stdio:['ignore','pipe','pipe'],timeout:300000,maxBuffer:4*1024**2});
+   execFileSync(process.execPath,[require.resolve('firebase-tools/lib/bin/firebase.js'),'deploy','--only','hosting','--project',resolveTestingHostingProject(testing),'--config','firebase.hosting-only.json','--non-interactive','--message','Verified University Testing '+commitSha],{cwd:ROOT,stdio:['ignore','pipe','pipe'],timeout:300000,maxBuffer:4*1024**2});
    await verifyServedArtifacts({source:target,siteUrl:testing.siteUrl,commitSha});
   }});
  if(!argv.includes('--probe-only'))fs.writeFileSync('testing-deploy-evidence.json',JSON.stringify({...result,runId:process.env.GITHUB_RUN_ID},null,2)+'\n');
  console.log(JSON.stringify({status:result.status,commitSha:result.commitSha,targetProfile:result.targetProfile}));
 }
 if(require.main===module)main(process.argv.slice(2)).catch(()=>{console.error('TESTING_HOSTING_NOT_ACCEPTED');process.exitCode=1;});
-module.exports={publishTesting,canonicalDigest,verifyTestingStaticArtifact,verifyServedArtifacts};
+module.exports={publishTesting,canonicalDigest,verifyTestingStaticArtifact,verifyServedArtifacts,resolveTestingHostingProject};

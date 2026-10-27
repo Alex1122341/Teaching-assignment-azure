@@ -111,7 +111,8 @@ jobs:
           try {
             const key=JSON.parse(process.env.TESTING_HOSTING_CREDENTIAL);
             const testing=require('./config/environments/testing.json');
-            if(key.project_id!==testing.firebase.projectId||key.project_id==='tester-teaching')process.exit(1);
+            const {resolveTestingHostingProject}=require('./tools/publish-testing-hosting');
+            if(key.project_id!==resolveTestingHostingProject(testing))process.exit(1);
           }catch{console.error('TESTING_HOSTING_CREDENTIAL_INVALID');process.exit(1);}
           NODE
       - name: Authenticate only to Testing Firebase

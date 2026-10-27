@@ -1,3 +1,7 @@
+## Current: PR125 Firestore Testing work — 2026-10-27
+
+Continue the Testing-only Firestore backend and deployment using `vista-teaching-lab`; the guarded profile adapter is not wired and API parity remains incomplete. Preserve existing lab data, Production SQL and Firestore authorization. See `updates/2026-10-27-pr125-lab-firestore-direction.md`.
+
 ## Current: Custom Reports23–25 product implemented; review/release pending — 2026-10-26
 
 Owner explicitly reaffirmed Teaching-assignment-azure/Beta/SQL; downloaded AGENTS note corrected at owner request. Branch feat/custom-reports-20261025, basec0970caf. Registry/adapters/API/runtime/client/lazy Reports tab implemented;160 Dashboard-related tests pass. Four selectable sources, per-source columns/conditions/sort, private snapshots, CSVcurrent/XLSXall. Slim10001-sentinel roster avoids ordinary200-row truncation. Synthetic browser downloads117/94/15 verified. Product independent review, separate freeze governance, full checks, coordinated API+Hosting release and original Excel23–25 remain pending. No report PR/merge/live operations yet. Follow plan docs/superpowers/plans/2026-10-25-custom-reports.md.

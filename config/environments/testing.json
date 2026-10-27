@@ -6,11 +6,11 @@
   "siteUrl": "https://paws-testing-ucvm-20261022.web.app",
   "peerSiteUrl": "https://tester-teaching.web.app",
   "firebase": {
-    "apiKey": "AIzaSyBFWqm-xOOsg-FOD0JWcEadblOnw08J67s",
-    "authDomain": "paws-testing-ucvm-20261022.firebaseapp.com",
-    "projectId": "paws-testing-ucvm-20261022",
-    "storageBucket": "paws-testing-ucvm-20261022.firebasestorage.app",
-    "messagingSenderId": "165982140501",
-    "appId": "1:165982140501:web:9f6aab4069c83544f57cdc"
+    "apiKey": "AIzaSyB52eUdeFDBTfUWgwsHrqI4XPYl9koMKTQ",
+    "authDomain": "vista-teaching-lab.firebaseapp.com",
+    "projectId": "vista-teaching-lab",
+    "storageBucket": "vista-teaching-lab.firebasestorage.app",
+    "messagingSenderId": "718796027246",
+    "appId": "1:718796027246:web:94570662a715dde67bfd7f"
   }
 }

@@ -14,6 +14,7 @@ IF EXISTS(SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustCha
 PRINT 'TEACHING_ACCESS_061_PROFILE_VALUES_PRESERVED';
 '@ 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access_acceptance.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands_acceptance.sql') -Raw) 'VetMed-Ops'
 $rollback=Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_061_effective_teaching_access.sql') -Raw
 $initialBatch=([regex]::Replace($rollback,'(?m)^:[^\r\n]+\r?\n','') -split '(?m)^GO[ \t]*$')[0]
 $escaped=$initialBatch.Replace("'","''")

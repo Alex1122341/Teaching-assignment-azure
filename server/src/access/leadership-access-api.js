@@ -26,7 +26,7 @@ function createLeadershipAccessApi({verifyToken,findUser,repository,writeEnabled
    const auth=await authorize(token);if(auth.response)return auth.response;
    if(!closed(input,['targetUid','academicYear','expectedVersion','changes','reason'])||!UID.test(input.targetUid||'')||!yearValid(input.academicYear)||!VERSION.test(input.expectedVersion||''))return fail(400,'INVALID_LEADERSHIP_CHANGE','Provide an exact target version, academic year and scope changes.');
    try{
-    const snapshot=await repository.snapshot(input.targetUid,input.academicYear);
+    const snapshot=await repository.snapshot(input.targetUid,input.academicYear,auth.uid);
     if(!snapshot?.target||snapshot.target.firebaseUid!==input.targetUid)return fail(409,'TARGET_ACCESS_INELIGIBLE','The target account is unavailable.');
     if(snapshot.target.version?.toLowerCase()!==input.expectedVersion.toLowerCase())return fail(409,'LEADERSHIP_STALE','Target access changed. Refresh and preview again.');
     const intent=buildLeadershipGrantIntent({...snapshot,actor:auth.profile,target:snapshot.target,academicYear:input.academicYear,changes:input.changes,reason:input.reason});
@@ -47,7 +47,7 @@ function createLeadershipAccessApi({verifyToken,findUser,repository,writeEnabled
    if(!writeEnabled)return fail(503,'WRITE_DISABLED','Leadership access changes are disabled.');
    if(!closed(input,['previewId','operationId'])||!UUID.test(input.previewId||'')||!UUID.test(input.operationId||''))return fail(400,'INVALID_LEADERSHIP_CHANGE','Provide the exact preview and operation identifiers.');
    try{
-    let receipt=await repository.operation(input.operationId),replayed=Boolean(receipt);
+    let receipt=await repository.operation(input.operationId,auth.uid),replayed=Boolean(receipt);
     if(receipt&&(receipt.actorUid!==auth.uid||receipt.previewId!==input.previewId))return fail(409,'LEADERSHIP_OPERATION_CONFLICT','This operation identifier belongs to another intent.');
     if(!receipt){
      prune();const preview=previews.get(input.previewId);
@@ -58,7 +58,7 @@ function createLeadershipAccessApi({verifyToken,findUser,repository,writeEnabled
     }
     if(!receipt||receipt.actorUid!==auth.uid||receipt.previewId!==input.previewId||receipt.operationId!==input.operationId||!UID.test(receipt.targetUid||'')||!yearValid(receipt.academicYear)||!VERSION.test(receipt.savedAuthorityVersion||''))throw Error('Invalid persisted leadership receipt.');
     const changed=await recheck(token,auth);if(changed)return changed;
-    const current=await repository.snapshot(receipt.targetUid,receipt.academicYear);
+    const current=await repository.snapshot(receipt.targetUid,receipt.academicYear,auth.uid);
     if(!VERSION.test(current?.authorityVersion||''))throw Error('Readback unavailable.');
     const finalAccess=await recheck(token,auth);if(finalAccess)return finalAccess;
     return ok({operation:operationView(receipt),replayed,superseded:current.authorityVersion.toLowerCase()!==receipt.savedAuthorityVersion.toLowerCase()});

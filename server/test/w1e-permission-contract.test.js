@@ -28,7 +28,7 @@ test('W1E permission contract covers every SQL repository object and stored proc
   procedures.push(...[...sources.matchAll(/\brun\(\s*'(SetRoleAppointmentPeriods)'/g)]
     .map(match => `paws_api.${match[1]}`));
   const expectedObjects = [
-    ...contract.teachingAccessReadFunctions, ...contract.accessWriteProcedures, ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
+    ...contract.leadershipAccessProcedures, ...contract.teachingAccessReadFunctions, ...contract.accessWriteProcedures, ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
     ...contract.readProcedures, ...contract.p2ReadProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),

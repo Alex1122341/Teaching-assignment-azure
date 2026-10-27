@@ -14,7 +14,11 @@ IF EXISTS(SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustCha
 PRINT 'TEACHING_ACCESS_061_PROFILE_VALUES_PRESERVED';
 '@ 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access_acceptance.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands_acceptance.sql') -Raw) 'VetMed-Ops'
+$commandRollback=Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_062_leadership_access_commands.sql') -Raw
+$commandEscaped=([regex]::Replace($commandRollback,'(?m)^:[^\r\n]+\r?\n','')).Replace("'","''")
+Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$commandEscaped');END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()=54262 SET @Refused=1;ELSE THROW;END CATCH;IF @Refused=0 THROW 54260,'Used command rollback was not refused.',1;PRINT 'LEADERSHIP_COMMAND_062_USED_ROLLBACK_REFUSED';" 'VetMed-Ops'
 $rollback=Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_061_effective_teaching_access.sql') -Raw
 $initialBatch=([regex]::Replace($rollback,'(?m)^:[^\r\n]+\r?\n','') -split '(?m)^GO[ \t]*$')[0]
 $escaped=$initialBatch.Replace("'","''")
@@ -23,6 +27,9 @@ Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$escaped');END TRY BEGIN
 . (Join-Path $PSScriptRoot 'test-calendar-activity-sql.ps1') -ContainerName $ContainerName -Through '041' -SkipAcceptance
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/060_account_access.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql $commandRollback 'VetMed-Ops'
+Invoke-TestSql "IF OBJECT_ID(N'paws_api.SetTeachingLeadershipAccess') IS NOT NULL OR OBJECT_ID(N'paws.LeadershipAuthority062_SourceLink') IS NOT NULL THROW 54260,'Unused command rollback left command objects.',1;PRINT 'LEADERSHIP_COMMAND_062_UNUSED_ROLLBACK_PRESERVES_061';" 'VetMed-Ops'
 Invoke-TestSql $rollback 'VetMed-Ops'
 Invoke-TestSql @'
 IF OBJECT_ID(N'paws.LeadershipAccessState') IS NOT NULL OR OBJECT_ID(N'paws_api.EffectiveTeachingAssignments') IS NOT NULL OR COL_LENGTH(N'paws.RoleAssignment',N'AuthorityVersion') IS NOT NULL THROW 54160,'Unused leadership rollback left new objects.',1;

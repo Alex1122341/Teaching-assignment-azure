@@ -1,6 +1,6 @@
 ## Current: PR125 Firestore Testing work — 2026-10-27
 
-Owner selected existing `vista-teaching-lab` Firestore for Testing; Production Beta SQL is unchanged. PAWS Testing Auth/Hosting use their own project and Testing data uses isolated lab collections. An unpublished read-only runtime passed emulator functional tests, but a cross-project UID collision test against deployed lab rules returned HTTP 200; isolation is not accepted and no Testing API or deployment exists. Live lab rules allow Faculty to read other faculty's raw sessions, including UCID and DOE fields; reproduced locally with synthetic data. Existing lab collections must be preserved. Resume from `updates/2026-10-27-pr125-lab-firestore-direction.md`.
+Owner selected existing `vista-teaching-lab` Firestore for Testing; Production Beta SQL is unchanged. PAWS Testing Auth/Hosting use their own project and Testing data uses isolated lab collections. An unpublished read-only runtime passed emulator functional tests, but isolation and full backend acceptance remain incomplete. New opt-in synthetic emulator regression tests reproduce both the cross-project UID collision and Faculty raw-session privacy problems; a local audience-only prototype fixes the first test but not the second, and a raw-session denial would break the existing Faculty Dashboard. No rule change or Testing deployment has been made. Preserve shared lab data and resume from `updates/2026-10-27-pr125-lab-rules-boundary-tests.md`.
 
 ## Current: Custom Reports23–25 product implemented; review/release pending — 2026-10-26
 

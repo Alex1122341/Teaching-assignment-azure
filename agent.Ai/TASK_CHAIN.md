@@ -1,6 +1,6 @@
 ## Current: PR125 Firestore Testing work — 2026-10-27
 
-Continue the Testing-only Firestore backend and deployment using `vista-teaching-lab`; identity/calendar reads are emulator-tested but unpublished, and API parity remains incomplete. Separate Auth projects are not an accepted boundary: the emulator cross-project UID collision test returned 200. Fix the reproduced direct Faculty read of other users' raw session UCID/DOE through shared lab rules, together with dependent projections, and verify live isolation. Preserve existing lab data and Production SQL. See `updates/2026-10-27-pr125-lab-firestore-direction.md`.
+Continue the Testing-only Firestore backend and deployment using `vista-teaching-lab`; identity/calendar reads are emulator-tested but unpublished, and API parity remains incomplete. Opt-in rules emulator tests reproduce cross-project UID collision and direct Faculty reads of other users' UCID/DOE. A temporary audience guard addresses only the first; denying raw sessions also breaks the existing Faculty Dashboard. Implement and synchronize private, faculty-scoped projections before any lab rule deployment, and verify live isolation. Preserve existing lab data and Production SQL. See `updates/2026-10-27-pr125-lab-rules-boundary-tests.md`.
 
 ## Current: Custom Reports23–25 product implemented; review/release pending — 2026-10-26
 

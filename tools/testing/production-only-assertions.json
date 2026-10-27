@@ -1,0 +1,236 @@
+{
+  "purpose": "Explicit historical Production-only assertions that cannot be applied to Testing overlays; exercise these on Beta main and enforce strict overlay parity separately.",
+  "evidenceRun": "https://github.com/Alex1122341/Teaching-assignment-azure/actions/runs/40418700851",
+  "assertions": [
+    {
+      "file": "tests/afc-ccc-governance.test.js",
+      "name": "AFC originals and whole-year CCC have one exact immutable product anchor with additive protection",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/beta-api-freeze.test.js",
+      "name": "API freeze shares the static immutable baseline and protects the complete current runtime",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/beta-baseline.test.js",
+      "name": "the Calendar workspace product frozen runtime reports zero protected drift",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/beta-baseline.test.js",
+      "name": "the current static manifest has exactly 95 protected files",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/beta-baseline.test.js",
+      "name": "all 95 current protected files are byte-identical to the immutable accepted product blobs",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/beta-baseline.test.js",
+      "name": "B2B login/auth helper assets are protected runtime assets",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/beta-baseline.test.js",
+      "name": "API freeze shares the promoted static baseline and protects the complete current runtime without drift",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/change-history-governance.test.js",
+      "name": "history promotion pins the accepted product with exact additive runtime coverage and no exceptions",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/custom-reports-governance.test.js",
+      "name": "custom reports promotion pins the reviewed product and protects every previous static asset",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/custom-reports-governance.test.js",
+      "name": "reports add only five API runtime modules and preserve SQL migrations dependencies and write gates",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/dual-environment-integration-governance.test.js",
+      "name": "historical reviewed integrated environment product retains current main and protects only its bounded runtime delta",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/dual-environment-latest-main-governance.test.js",
+      "name": "reviewed latest-name environment product retains current main and protects only its bounded runtime delta",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/dvm-swap-intake-governance.test.js",
+      "name": "DVM intake governance pins its independently reviewed product and all 91 static assets",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/dvm-swap-intake-governance.test.js",
+      "name": "DVM intake does not alter any API SQL role rule dependency or build input",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/faculty-admin-role-policy-parity.test.js",
+      "name": "the Stage 3C zero-Firestore contract is untouched by this fix",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/faculty-availability-archive-governance.test.js",
+      "name": "release freeze retains latest accepted History archive restoration and exact original Availability runtime",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/faculty-availability-governance.test.js",
+      "name": "historical Availability pins the independently reviewed product with exact additive static/API coverage",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/faculty-availability-integration-governance.test.js",
+      "name": "historical integrated Availability freezes exact reconciliation with additive coverage and unchanged accepted runtime",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/faculty-availability-release-governance.test.js",
+      "name": "historical release freeze retains independently accepted History reset and original Availability runtime",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/faculty-name-display-governance.test.js",
+      "name": "historical name governance changes zero protected application bytes and pins exact product commit",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/frontend-azure-freeze-governance.test.js",
+      "name": "separate governance promotion pins the immutable product commit and current artifact hashes",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/frontend-maintenance-governance.test.js",
+      "name": "maintenance changes only five static sources while preserving SWAP approval and every other served asset",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/frontend-maintenance-governance.test.js",
+      "name": "frontend-only maintenance preserves all 119 API inputs and all SQL permissions rules dependencies",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/hicc-lab-display-freeze.test.js",
+      "name": "HICC/LAB display promotion retains all 95 shipped files and changes only three protected assets",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/hicc-lab-display-freeze.test.js",
+      "name": "HICC/LAB display promotion changes zero protected API/SQL/auth/write-gate bytes",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/history-export-context-governance.test.js",
+      "name": "historical history context governance pins the reviewed product without reducing static or API protection",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/history-export-context-governance.test.js",
+      "name": "history context product and governance preserve API SQL rules dependencies and prior release identity",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/history-record-documents-governance.test.js",
+      "name": "compact year history and record originals pin the independently reviewed product without protection removal",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/login-ingress-governance.test.js",
+      "name": "login recovery freeze changes exactly the API origin and preserves all API bytes and protected paths",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/lookup-summary-governance.test.js",
+      "name": "Lookup AFC/Leave/DOE governance pins only the reviewed two-file static delta",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/maintenance-origin-governance.test.js",
+      "name": "separate maintenance governance pins the product without changing protected application bytes",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/master-refresh-governance.test.js",
+      "name": "MASTER refresh pins its reviewed product with additive static/API protection and exact runtime delta",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/office-ui-governance.test.js",
+      "name": "historical office UI governance pins its reviewed product while active freezes remain enforced",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/office-workspace-governance.test.js",
+      "name": "historical integrated office governance pins the exact accepted product and protects all 91 assets",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/office-workspace-governance.test.js",
+      "name": "integrated office static promotion leaves every API dependency SQL and permission byte unchanged",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/person-name-governance.test.js",
+      "name": "historical name governance pins its accepted product without editing any protected bytes",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/pr132-integration-governance.test.js",
+      "name": "integrated leadership governance shares its immutable product anchor with no shipped-byte edits",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/report-theme-governance.test.js",
+      "name": "report theme promotion anchors the reviewed CSS-only runtime change and preserves the95-file static union",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/report-theme-governance.test.js",
+      "name": "theme correction leaves every124 API input and all data/security contracts byte identical",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/role-appointment-rowversion-hex-governance.test.js",
+      "name": "governance commit promotes exact immutable product without weakening the source and API freeze",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/role-period-version-freeze-governance.test.js",
+      "name": "separate governance commit pins the reviewed product without hiding runtime drift",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/rotation-calendar-governance.test.js",
+      "name": "Rotation product changes only its nine frontend sources and retains existing approval and history bytes",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/rotation-calendar-governance.test.js",
+      "name": "Rotation promotion preserves every API input and all SQL permissions rules and dependencies",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/swap-approval-governance.test.js",
+      "name": "historical integrated SWAP approval governance pins its reviewed product with all91 static assets",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/swap-approval-governance.test.js",
+      "name": "approval API adds one protected view module and leaves all SQL write authority and package inputs intact",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    },
+    {
+      "file": "tests/swap-doe-columns-governance.test.js",
+      "name": "SWAP DOE column governance pins the reviewed product and preserves all protected paths",
+      "reason": "Historical immutable Production commit/asset/delta assertion; validated on accepted Beta main, not against a Testing overlay."
+    }
+  ]
+}

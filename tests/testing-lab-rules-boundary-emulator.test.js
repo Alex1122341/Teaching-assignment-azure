@@ -31,6 +31,9 @@ check('lab rules deny other-project identities and other faculty private session
       const db = context.firestore();
       await setDoc(doc(db, `users/${uid}`), { active: true, role: 'faculty', facultyId: 'synthetic-f1', mustChangePassword: false });
       await setDoc(doc(db, 'users/synthetic-admin'), { active: true, role: 'administrator', mustChangePassword: false });
+      for (const role of ['editor', 'viewer']) {
+        await setDoc(doc(db, `users/synthetic-${role}`), { active: true, role, facultyId: 'synthetic-f1', mustChangePassword: false });
+      }
       await setDoc(doc(db, 'sessions/synthetic-other'), { facultyIds: ['synthetic-f2'], assignments: [{ ucid: 'synthetic-private', doeCredit: 1 }] });
       await setDoc(doc(db, 'sessions/synthetic-shared'), { facultyIds: ['synthetic-f1', 'synthetic-f2'], assignments: [{ ucid: 'synthetic-f1', doeCredit: 1 }, { ucid: 'synthetic-private', doeCredit: 2 }] });
       await setDoc(doc(db, 'calendar_sessions/synthetic-other'), { sessionId: 'synthetic-other', course: 'VETM 301' });
@@ -67,6 +70,14 @@ check('lab rules deny other-project identities and other faculty private session
     await t.test('a shared session does not expose another faculty assignment', async () => {
       const db = lab.authenticatedContext(uid, { aud: 'vista-teaching-lab' }).firestore();
       await assert.rejects(getDoc(doc(db, 'sessions/synthetic-shared')), error => error.code === 'permission-denied');
+    });
+    await t.test('legacy faculty-compatible roles cannot read other faculty private sessions', async t => {
+      for (const role of ['editor', 'viewer']) {
+        await t.test(role, async () => {
+          const db = lab.authenticatedContext(`synthetic-${role}`, { aud: 'vista-teaching-lab' }).firestore();
+          await assert.rejects(getDoc(doc(db, 'sessions/synthetic-other')), error => error.code === 'permission-denied');
+        });
+      }
     });
   } finally {
     await Promise.all([lab.cleanup(), authApp.delete()]);

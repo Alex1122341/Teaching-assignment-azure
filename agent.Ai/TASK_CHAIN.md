@@ -1,6 +1,6 @@
 ## Current: PR125 Firestore Testing work — 2026-10-27
 
-Continue the Testing-only Firestore backend and deployment using `vista-teaching-lab`; identity/calendar reads are emulator-tested but unpublished, and API parity remains incomplete. Opt-in rules emulator tests reproduce cross-project UID collision and direct Faculty reads of other users' UCID/DOE. A temporary audience guard addresses only the first; denying raw sessions also breaks the existing Faculty Dashboard. Implement and synchronize private, faculty-scoped projections before any lab rule deployment, and verify live isolation. Preserve existing lab data and Production SQL. See `updates/2026-10-27-pr125-lab-rules-boundary-tests.md`.
+Continue the Testing-only Firestore backend and deployment using `vista-teaching-lab` and the university Testing host; RDC is now explicitly allowed. A local, unpublished loopback HTTP transport exposes only the Testing identity/calendar read slice. API parity and live acceptance remain incomplete. Opt-in rules emulator tests reproduce cross-project UID collision and direct Faculty/legacy role reads of other users' UCID/DOE. Denying raw sessions breaks the existing Faculty Dashboard; implement synchronized private projections and verify isolation without altering Production or shared lab data. See `updates/2026-10-27-pr125-existing-host-and-http-slice.md`.
 
 ## Current: Custom Reports23–25 product implemented; review/release pending — 2026-10-26
 

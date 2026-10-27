@@ -187,7 +187,7 @@ DOE List badge: **Within DOE** if two-decimal Remaining >0, **At DOE** if =0, **
 - [Legacy calculator / stored precedence](../server/src/domain/doe-calculator.js); [annual engine](../server/src/domain/doe-policy-engine.js); [annual mappings / preview](../server/src/doe/doe-calculation-service.js).
 - [DOE policy lifecycle](../server/src/doe/doe-policy-service.js); [SQL publication/recalculation](../server/src/data/sql-doe-policy-repository.js).
 - [Session-triggered calculation](../server/src/doe/doe-session-service.js); [Session API and nonblocking DOE error behavior](../server/src/data/data-api.js).
-- [DOE Overview/Teaching Summary](../server/src/data/sql-dashboard-repository.js); [DOE List/detail UI](../faculty-admin-doe-worksheet.js); [Faculty detail](../faculty-admin-doe-renderer.js); [Policy editor](../faculty-admin-doe-policy.js).
+- [DOE Overview/Teaching Summary](../server/src/data/sql-dashboard-repository.js); [DOE List/detail UI](../frontend/scripts/faculty-admin-doe-worksheet.js); [Faculty detail](../frontend/scripts/faculty-admin-doe-renderer.js); [Policy editor](../frontend/scripts/faculty-admin-doe-policy.js).
 - [2026-27 initial policy Draft evidence](../docs/current-doe-rulebook-import-20261011.md); [58-rule Draft rationalization](../docs/doe-source-rationalization-20261011.md); [supervision source recovery](../docs/operations/doe-worksheet-source-recovery-20261008.md).
 
 **Documentation only:** no application/SQL/Firebase source changes, live SQL query, imports, Rule Book Publish, Recalculate or deployment.

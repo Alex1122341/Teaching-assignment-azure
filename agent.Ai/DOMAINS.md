@@ -45,4 +45,4 @@
 
 2026-10-14 documented release: SQL036/037 AFC cancel and rowversion encoding, 803 active imported AFC, 0 manual and cancellation audits in post-release read, approved API/Hosting build ca465bf, live AFC create/cancel controls and grouped LAB visible. Actual UI create/cancel was not performed; earlier SWAP final apply and Developer support Undo were not live-mutated. Do not extrapolate these counts as immutable future truth.
 
-Open Draft PRs #97–100 are **not** merged. PR #98 contains proposed destructive source migration but has not run against live SQL; #99/#100 depend on it. Never silently adopt their schema/behavior as main.
+Open Draft PRs #97–100 were **not** merged at the 2026-10-15 checkpoint. HEAD now contains the 038–043 source range covering the #98–#100 scope; PR #98's proposed destructive source migration still must not be assumed run against live SQL. Never silently adopt their schema/behavior as live.

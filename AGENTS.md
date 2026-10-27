@@ -43,19 +43,19 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 - Browser sources live in `frontend/pages/`, `frontend/scripts/`, `frontend/styles/` and `frontend/assets/`. Do not create duplicate browser files at the repository root.
 - `tools/static-assets.json` continues to list **public URLs**, not source locations. `tools/build/frontend-paths.js` resolves source locations; `tools/build/static-bundle.js` is the single static packaging implementation.
 - Build with `npm run build` and preview `.deploy-static/`; serving `frontend/pages/` directly does not reproduce the published URL layout.
-- All 85 published assets retain their original bytes and URL names during this relocation. Historical immutable revisions retain their original paths; do not rewrite old acceptance receipts or remove file protection to satisfy a rename.
+- All 95 published assets retain their original bytes and URL names during this relocation. (Count per `tools/static-assets.json`; 85 was the PR133 checkpoint count.) Historical immutable revisions retain their original paths; do not rewrite old acceptance receipts or remove file protection to satisfy a rename.
 - See `README.md` and `docs/architecture/repository-layout.md` for the directory map and scope. API/SQL logic and existing release artifact identity are unchanged by source organization.
 
 ## Application architecture
 
 - Frontend: vanilla HTML, CSS and JavaScript.
 - Authentication: Firebase Authentication.
-- **Current deployed Beta path:** Firebase Hosting -> Firebase Auth -> Cloudflare temporary ingress -> University PAWS API -> Azure SQL / `VetMed-Ops`.
+- **Current deployed Beta path:** Firebase Hosting -> Firebase Auth -> Cloudflare temporary ingress -> University PAWS API -> University-hosted SQL Server `ITAPPVETOPSDB01` / `VetMed-Ops`.
 - Database identity, role checks, and faculty scope are resolved server-side; no public SQL/RDP/SMB access is supported.
-- P1 enables only accepted, separately gated Beta write domains: existing-session edits, session create/batch, safe assignment replacement, AFC single/batch, and self-service AFC requests. DOE editing, Faculty/Role master edits, session deletion, AFC decision/artifact writes, unrestricted SQL, and all Firestore timetable writes stay disabled.
+- P1 enables only accepted, separately gated Beta write domains: existing-session edits, session create/batch, safe assignment replacement, AFC single/batch, and self-service AFC requests. DOE editing, Faculty/Role master edits, session deletion, AFC decision/artifact writes, unrestricted SQL, and all Firestore timetable writes are separate gated domains (for example `facultyAdmin` / `doeAdmin` in `server/src/data/write-gates.js`), disabled by default and enabled only by separate authorization; they are not part of the P1 baseline.
 - DOE Summary / Faculty Dashboard is in P1 scope, but unknown contract DOE, role DOE, identity, FTE, rank, and stream are never inferred.
 - Do not weaken Firestore rules to make a Beta UI feature work; Beta business authorization belongs in the University API and SQL.
-- Do not add Firestore fallback to a Beta read path that has been explicitly activated on Azure SQL.
+- Do not add Firestore fallback to a Beta read path that has been explicitly activated on the University-hosted SQL Server.
 - AFC original PDF uploads use their own gate and confidential storage, separately from absence and approval records. CCC replacement staging and commit use separate gates; commit requires an approved complete-year source and exact preview. Follow `docs/superpowers/specs/2026-10-17-ccc-full-replacement-design.md` before changing this workflow.
 
 ## Roles
@@ -63,12 +63,11 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 Formal roles:
 - `owner`
 - `administrator`
-- `other_office`
 - `hicc`
 - `visc`
 - `faculty`
 
-Legacy compatibility remains in place for `adfa_general`, `adfa_regular`, `admin`, `editor`, and `viewer` until migration is complete. Use the shared role helpers in `faculty-access.js` instead of inventing new role checks.
+Server-side, only the roles in `server/src/auth/role-policy.js` (`SUPPORTED_ROLES`) are authorized; anything else fails closed. `adfa_general`, `adfa_regular` and `admin` are normalized to `owner` / `administrator` server-side. `editor` and `viewer` are frontend display mappings to `faculty` only and grant no server-side permission; `other_office` is retired and fails closed server-side. Use the shared role helpers in `faculty-access.js` instead of inventing new role checks.
 
 ## Faculty privacy rules
 

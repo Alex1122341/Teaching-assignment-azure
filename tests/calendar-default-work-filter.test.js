@@ -20,6 +20,15 @@ test('Calendar default and Reset show teaching sessions while CCC and Rotation r
  filter.resetForUser();assert.equal(filter.matchesActivity({category:'ccc'}),false);assert.equal(filter.options().some(row=>row.key==='teaching:Seminar'),false);
 });
 
+test('the shared picker retains existing custom-selection behavior outside Calendar',()=>{
+ const filter=createActivityTypeFilter();
+ filter.setSelected(filter.options().filter(row=>row.group==='teaching').map(row=>row.key));
+ filter.setSessionTypes(['Seminar']);
+ assert.equal(filter.matchesSession({type:'Seminar'}),false);
+ filter.selectAll();filter.setSessionTypes(['Workshop']);
+ assert.equal(filter.matchesSession({type:'Workshop'}),true);
+});
+
 test('the shipped Calendar explicitly uses teaching-only defaults',()=>{
  const initialization=source.match(/const activityTypeFilter = [^\n]+/)[0];
  assert.match(initialization,/defaultGroups:\s*\['teaching'\]/);

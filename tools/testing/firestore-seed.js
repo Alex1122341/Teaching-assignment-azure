@@ -1,6 +1,6 @@
 'use strict';
 
-// Small synthetic bootstrap fixture for the unpublished read slice. It does
+// Small synthetic bootstrap fixture for the unpublished read slices. It does
 // not create Auth accounts, reset data, or provide full Beta parity.
 function testingFixtures() {
   const first = 'a1111111-1111-4111-8111-111111111111';
@@ -21,7 +21,9 @@ function testingFixtures() {
     user('paws-synthetic-faculty-b', 'faculty', second, 'Blair', 'Sampleton'),
     session('c1111111-1111-4111-8111-111111111111', '2027-01-12', 'VTMD 206', [first], [a]),
     session('c2222222-2222-4222-8222-222222222222', '2027-01-13', 'VTMD 213', [first, second], [a, b]),
-    session('c3333333-3333-4333-8333-333333333333', '2027-01-14', 'VTMD 304', [second], [b])
+    session('c3333333-3333-4333-8333-333333333333', '2027-01-14', 'VTMD 304', [second], [b]),
+    { collection: 'paws_testing_leadership', id: 'synthetic-hicc', data: { synthetic: true, academicYear: '2026-27', roleType: 'HICC', courseCode: 'VTMD 206', facultyFirstName: 'Avery', facultyLastName: 'Testwell', facultyKey: first, hasSchedule: false, effectiveDate: '2026-05-01', expirationDate: '2027-04-30' } },
+    { collection: 'paws_testing_leadership', id: 'synthetic-visc', data: { synthetic: true, academicYear: '2026-27', roleType: 'VISC', recordedScope: 'Synthetic clinical skills', facultyFirstName: 'Blair', facultyLastName: 'Sampleton', facultyKey: second, hasSchedule: false, effectiveDate: '2026-05-01', expirationDate: '2027-04-30' } }
   ];
 }
 

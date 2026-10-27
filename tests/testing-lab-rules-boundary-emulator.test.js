@@ -39,6 +39,7 @@ check('lab rules deny other-project identities and other faculty private session
       await setDoc(doc(db, 'calendar_sessions/synthetic-other'), { sessionId: 'synthetic-other', course: 'VETM 301' });
       await setDoc(doc(db, `paws_testing_users/${uid}`), { active: true, role: 'faculty', facultyId: 'synthetic-f1' });
       await setDoc(doc(db, 'paws_testing_sessions/synthetic-one'), { facultyIds: ['synthetic-f1'], assignments: [{ ucid: 'synthetic-private' }] });
+      await setDoc(doc(db, 'paws_testing_leadership/synthetic-one'), { roleType: 'HICC', facultyName: 'Synthetic Faculty' });
     });
     const login = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator-only', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true })
@@ -67,7 +68,7 @@ check('lab rules deny other-project identities and other faculty private session
     });
     await t.test('Testing collections cannot be read directly by a browser identity', async () => {
       const db = lab.authenticatedContext(uid, { aud: 'vista-teaching-lab' }).firestore();
-      for (const name of [`paws_testing_users/${uid}`, 'paws_testing_sessions/synthetic-one']) {
+      for (const name of [`paws_testing_users/${uid}`, 'paws_testing_sessions/synthetic-one', 'paws_testing_leadership/synthetic-one']) {
         await assert.rejects(getDoc(doc(db, name)), error => error.code === 'permission-denied');
         const response = await fetch(`http://127.0.0.1:8080/v1/projects/vista-teaching-lab/databases/(default)/documents/${name}`, {
           headers: { authorization: `Bearer ${idToken}` }

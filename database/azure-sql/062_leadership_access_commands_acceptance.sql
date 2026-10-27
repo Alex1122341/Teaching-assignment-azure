@@ -66,10 +66,50 @@ DECLARE @AdminVersion varchar(16)=(SELECT LOWER(CONVERT(varchar(16),CONVERT(bina
 SET @Rejected=0;
 BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062admin',@AdminVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Revoke,N'Forbidden admin',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54101 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 THROW 54260,'Administrator changed leadership authority.',1;
+SET @Changes=JSON_MODIFY(@Changes,'$[0].definitionVersion',LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062hicc')),2)));
+DECLARE @Replacement nvarchar(max)=JSON_MODIFY(@Changes,'append $',JSON_QUERY((SELECT N'revoke' action,CONVERT(varchar(36),@Assignee) assignmentId,
+ LOWER(CONVERT(varchar(16),CONVERT(binary(8),AuthorityVersion),2)) expectedVersion,N'leadership062hicc' responsibilityId FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityAssigneeId=@Assignee FOR JSON PATH,WITHOUT_ARRAY_WRAPPER))),@Fault nvarchar(max);
+-- The existing exclusive assignee must block another grant even to the same person.
+SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Changes,N'Synthetic duplicate overlap',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54105 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Overlapping authority was accepted.',1;
+SET @Fault=JSON_MODIFY(@Replacement,'$[0].sourceSignature',REPLICATE('0',64));SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic invalid source evidence',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54104 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Changed source proof was accepted.',1;
+SET @Fault=JSON_MODIFY(@Replacement,'$[0].courses[0].courseId',CONVERT(varchar(36),@Other));SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic forged course scope',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54104 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Forged canonical course was accepted.',1;
+SET @Fault=JSON_MODIFY(@Replacement,'$[0].startDate',N'2026-06-01');SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic partial-year default',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54104 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Partial default window was accepted.',1;
+SET @Fault=JSON_MODIFY(@Replacement,'$[0].endExclusive',N'2027-06-01');SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic outside academic year',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54107 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Cross-year dates were accepted.',1;
+SET @Fault=JSON_MODIFY(@Revoke,'$[0].expectedVersion',N'0000000000000000');SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic stale assignee',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54109 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Stale managed assignee was accepted.',1;
+PRINT 'LEADERSHIP_COMMAND_062_SCOPE_SOURCE_DATES_OVERLAP_DENIED';
+-- Recorded schedules must cover every requested day, not merely both endpoints.
+INSERT paws.RoleAppointmentSchedule(RoleAssignmentId,PeriodsJson,UpdatedAtUtc,UpdatedByFirebaseUid) VALUES(@Source,N'[{"startDate":"2026-05-01","endDate":"2026-08-31"},{"startDate":"2026-10-01","endDate":"2027-04-30"}]',SYSUTCDATETIME(),N'leadership062owner');
+SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());
+SET @Fault=JSON_MODIFY(@Replacement,'$[0].definitionVersion',LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062hicc')),2)));
+SET @Fault=JSON_MODIFY(@Fault,'$[0].usesApprovedDefaultDates',CAST(0 AS bit));
+SET @Fault=JSON_MODIFY(@Fault,'$[0].sourceScheduleVersion',(SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),ScheduleVersion),2)) FROM paws.RoleAppointmentSchedule WHERE RoleAssignmentId=@Source));
+SET @Fault=JSON_MODIFY(@Fault,'$[0].sourceSignature',LOWER(paws_api.TeachingAppointmentAccessSourceStamp(@Source)));SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic uncovered schedule gap',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54104 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Uncovered source schedule gap was accepted.',1;
+DELETE paws.RoleAppointmentSchedule WHERE RoleAssignmentId=@Source;
+SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());
+SET @Replacement=JSON_MODIFY(@Replacement,'$[0].definitionVersion',LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062hicc')),2)));
+UPDATE paws.UserProfile SET BaseRole=BaseRole WHERE FirebaseUid=N'leadership062owner';SET @Rejected=0;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Revoke,N'Synthetic Owner version changed',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54101 SET @Rejected=1;ELSE THROW;END CATCH;
+IF @Rejected=0 THROW 54260,'Changed Owner version was accepted.',1;
+SET @ActorVersion=(SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),AccessVersion),2)) FROM paws.UserProfile WHERE FirebaseUid=N'leadership062owner');
+PRINT 'LEADERSHIP_COMMAND_062_RECORDED_GAP_AND_ACTOR_CHANGED_DENIED';
 -- A later audit failure must restore assignee/source link and leave no operation.
 EXEC(N'CREATE TRIGGER paws.RejectLeadership062Audit ON paws.AuditEvent AFTER INSERT AS BEGIN IF EXISTS(SELECT 1 FROM inserted WHERE EventType=N''leadership_access_change'') THROW 54261,''Synthetic leadership audit failure.'',1; END;');
 SET @Rejected=0;SET @Operation=NEWID();
-BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Revoke,N'Synthetic rollback revoke',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54261 SET @Rejected=1;ELSE THROW;END CATCH;
+BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Replacement,N'Synthetic rollback replacement',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54261 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 OR NOT EXISTS(SELECT 1 FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityAssigneeId=@Assignee) OR NOT EXISTS(SELECT 1 FROM paws.TeachingLeadershipGrantSource WHERE ResponsibilityAssigneeId=@Assignee) OR EXISTS(SELECT 1 FROM paws.LeadershipAccessOperation WHERE OperationId=@Operation) THROW 54260,'Audit failure left a partial revoke.',1;
 DROP TRIGGER paws.RejectLeadership062Audit;
 SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());SET @Operation=NEWID();

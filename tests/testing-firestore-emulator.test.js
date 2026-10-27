@@ -1,0 +1,38 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const { createRequire } = require('node:module');
+const { createLabReadRuntime } = require('../tools/testing/firestore-read-runtime');
+
+test('lab read runtime verifies emulator identity and scopes Firestore data', { skip: process.env.PAWS_LAB_EMULATOR_TEST !== '1' }, async () => {
+  // Refuse every non-loopback target before creating the Admin SDK client.
+  assert.equal(process.env.FIRESTORE_EMULATOR_HOST, '127.0.0.1:8080');
+  assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST, '127.0.0.1:9099');
+  const serverRequire = createRequire(path.resolve(__dirname, '../server/package.json'));
+  const admin = serverRequire('firebase-admin');
+  const app = admin.initializeApp({ projectId: 'vista-teaching-lab' }, 'testing-read-emulator');
+  try {
+    const auth = app.auth();
+    const db = app.firestore();
+    const email = 'paws-emulator-faculty@example.test';
+    const password = 'Emulator-only-pass-2026';
+    const uid = 'paws-emulator-faculty';
+    await auth.createUser({ uid, email, password });
+    await db.collection('users').doc(uid).set({ name: 'Test Faculty', role: 'faculty', facultyId: 'synthetic-f1', active: true, mustChangePassword: false });
+    await db.collection('sessions').doc('paws-emulator-1').set({ date: '2027-01-12', course: 'VETM 301', year: 2, type: 'LAB', academicYear: '2026-27', facultyIds: ['synthetic-f1'], instructorNames: ['Test Faculty'], assignments: [{ facultyId: 'synthetic-f1', ucid: 'not-for-client', doeCredit: 123 }] });
+    await db.collection('sessions').doc('paws-emulator-2').set({ date: '2027-01-13', facultyIds: ['synthetic-f2'] });
+    const response = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator-only', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true })
+    });
+    assert.equal(response.status, 200);
+    const { idToken } = await response.json();
+    const runtime = createLabReadRuntime({ db, verifyIdToken: token => auth.verifyIdToken(token) });
+    const result = await runtime(new Request('https://testing.invalid/api/v1/sessions?start=2027-01-01&end=2027-02-01', { headers: { authorization: 'Bearer ' + idToken } }));
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.jsonBody.sessions.map(row => row.id), ['paws-emulator-1']);
+    assert.doesNotMatch(JSON.stringify(result.jsonBody), /not-for-client|doeCredit|ucid/);
+  } finally {
+    await app.delete();
+  }
+});

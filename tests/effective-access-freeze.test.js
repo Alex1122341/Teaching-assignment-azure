@@ -14,8 +14,10 @@ const changed=(paths)=>paths.filter(file=>{
  catch{return true;}
 }).sort();
 test('effective access promotion covers all96 static files and preserves the historical manifest union',()=>{
- assert.equal(freeze.BASELINE_COMMIT,product);
- assert.equal(api.BASELINE_COMMIT,product);
+ const receipt=git('show','c17f3515f8200abe1c39a541ea4fe98c6da671eb:tools/beta-freeze.js');
+ assert.ok(receipt.includes(`const BASELINE_COMMIT='${product}'`));
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
+ git('merge-base','--is-ancestor',product,freeze.BASELINE_COMMIT);
  git('merge-base','--is-ancestor',previous,product);
  git('merge-base','--is-ancestor',product,'HEAD');
  const before=freeze.readBaselineManifest({root,baselineCommit:previous});

@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "179fa70ebce42e252a29826d76057799d6af43a7",
+  "sourceCommit": "cb4298c734e7162c86a71b729c797ff548111db7",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "absence-from-campus-app.pdf": "4225957c43d71eb2a5c4a8667abb3ed864abb4c485a45919523ca170009a274d",
@@ -22,7 +22,7 @@
     "bulk-import-firestore.js": "8914edf6d4e077acb551ea0fe0420b5538167a32a4a847221d260262ec505057",
     "bulk-import-ui.js": "fe04c00488bb87eecb3578aff84972110e3c82203fb77aba9d4a913b81ad91a3",
     "calendar-activities.css": "6d94af7bffd6cf781f465a56140338674a8780fcd39287cd1eb2c56ee3b58365",
-    "calendar-activities.js": "b29353acfb5ee844c0841fa1e6cb7ae399fa1871e7e248f84b39977a752f5842",
+    "calendar-activities.js": "a3c1be96e72e903ca75beae531e83dcd9bfd33cbc8cb588dcdb20a0d07a25a03",
     "calendar-activity-placement.js": "c44c3453bac3def22ba41800c6b7415c2d4087738ca34c9f87653f68dfa98bc8",
     "calendar-search.js": "41d1e412ca1a1679a3a56349cbd078f41857e349badf1e7ad1e06d1a8a36ade7",
     "ccc-schedule.css": "364bde1bb8efb0ec641b08b1ad2fd15d29b7be674bb632ee86c4f992182db84c",
@@ -91,7 +91,7 @@
     "teaching-assignments.js": "072a5c646f6d980877b6a951520af4e82ec62335b98b14e02501656936a32b31",
     "timetable-selection.js": "a2f2ace6ddfcb9e5d1777c91bd01752f1365c703dc86a745c84becd3992d7afa",
     "timetable.css": "5f1a56001721a5c3c74892e6e54fff6c4462159c08fda8069915a50687005495",
-    "timetable.js": "100f6ef977bd87983c15f95c17dcf011e8d99c7fb15d940de40b9434a309ca72",
+    "timetable.js": "8f4d11efa6c4a86207741db99b580173e2fb6b19faf46bcbb274a5132a936f4c",
     "user-management.css": "9616f5dda92fdc69146a5969e5e9ba86bacaeddd83babd56a3ad3cf1e12b9135",
     "user-management.html": "27e2e21d4345a6e3d2a49cfed379310f930d7aa38f822cd202003d1468101171",
     "user-management.js": "188c1d56e379c7570809ae4432363f313861f4c0a6b7ea5a4ab9eff77b3e320e",

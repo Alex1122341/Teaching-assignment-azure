@@ -3,11 +3,11 @@
 // corresponding Faculty scope before invoking this reader.
 const names = require('../../server/src/domain/person-name');
 const MAX_ROWS = 10000;
-const PUBLIC_FIELDS = ['academicYear', 'year', 'course', 'courseName', 'topic', 'type', 'date', 'start', 'end', 'timeUnknown', 'room', 'instructor', 'instructorNames'];
+const PUBLIC_FIELDS = ['synthetic', 'academicYear', 'year', 'course', 'courseName', 'topic', 'type', 'date', 'start', 'end', 'timeUnknown', 'room', 'instructor', 'instructorNames'];
 const text = value => typeof value === 'string' ? value : '';
 
 function createLabCalendarReader({ db } = {}) {
-  if (!db || db.projectId !== 'vista-teaching-lab' || typeof db.collection !== 'function') throw new Error('Testing Firestore project rejected');
+  if (!db || db.projectId !== 'vista-teaching-lab' || db.databaseId !== '(default)' || typeof db.collection !== 'function') throw new Error('Testing Firestore project rejected');
   return async function list({ start = null, end = null, facultyId = null, includeAssignmentTargets = false } = {}) {
     if ((start === null) !== (end === null) || (start !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start >= end))) throw new Error('Invalid calendar range');
     if (facultyId !== null && (typeof facultyId !== 'string' || !facultyId.trim())) throw new Error('Invalid Faculty scope');
@@ -20,6 +20,7 @@ function createLabCalendarReader({ db } = {}) {
     if (snapshot.docs.length > MAX_ROWS) throw new Error('Testing calendar limit exceeded');
     return snapshot.docs.map(doc => {
       const data = doc.data();
+      if (data.synthetic !== true) throw new Error('Non-synthetic Testing session rejected');
       const assignments = includeAssignmentTargets && Array.isArray(data.assignments) ? data.assignments : [];
       const allowed = assignments.filter(item => item && typeof item.facultyId === 'string' && item.facultyId).map(item => ({
         facultyId: item.facultyId,

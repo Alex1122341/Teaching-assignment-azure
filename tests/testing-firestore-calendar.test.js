@@ -16,7 +16,7 @@ test('Testing calendar index specification matches the scoped date query', async
   assert.deepEqual(db.trace.filters, [['facultyIds', 'array-contains', 'synthetic-f1'], ['date', '>=', '2027-01-01'], ['date', '<', '2027-02-01']]);
 });
 
-function fakeDb(rows, projectId = 'vista-teaching-lab') {
+function fakeDb(rows, projectId = 'vista-teaching-lab', databaseId = '(default)') {
   const trace = { filters: [], selected: [], limit: 0 };
   const q = {
     where(field, op, value) { trace.filters.push([field, op, value]); return q; },
@@ -27,16 +27,22 @@ function fakeDb(rows, projectId = 'vista-teaching-lab') {
       return { docs: filtered.slice(0, trace.limit).map(row => ({ id: row.id, data: () => Object.fromEntries(trace.selected.filter(k => Object.hasOwn(row.data, k)).map(k => [k, row.data[k]])) })) };
     }
   };
-  return { projectId, trace, collection(name) { assert.equal(name, 'paws_testing_sessions'); return q; } };
+  return { projectId, databaseId, trace, collection(name) { assert.equal(name, 'paws_testing_sessions'); return q; } };
 }
 
 const rows = [
-  { id: 'one', data: { academicYear: '2026-27', year: 2, date: '2027-01-12', start: '09:00', end: '10:00', course: 'VETM 301', type: 'LAB', instructorNames: ['Mary Jane de la Cruz'], facultyIds: ['f1'], assignments: [{ facultyId: 'f1', name: 'de la Cruz, Mary Jane', role: 'Lead', ucid: 'private', doeCredit: 3 }], secret: 'private' } },
-  { id: 'two', data: { academicYear: '2026-27', year: 2, date: '2027-01-13', facultyIds: ['f2'], assignments: [] } }
+  { id: 'one', data: { synthetic: true, academicYear: '2026-27', year: 2, date: '2027-01-12', start: '09:00', end: '10:00', course: 'VETM 301', type: 'LAB', instructorNames: ['Mary Jane de la Cruz'], facultyIds: ['f1'], assignments: [{ facultyId: 'f1', name: 'de la Cruz, Mary Jane', role: 'Lead', ucid: 'private', doeCredit: 3 }], secret: 'private' } },
+  { id: 'two', data: { synthetic: true, academicYear: '2026-27', year: 2, date: '2027-01-13', facultyIds: ['f2'], assignments: [] } }
 ];
+
+test('calendar reader rejects unmarked documents instead of returning them', async () => {
+  const db = fakeDb([{ id: 'unmarked', data: { date: '2027-01-12', facultyIds: ['f1'] } }]);
+  await assert.rejects(createLabCalendarReader({ db })({ facultyId: 'f1' }), /synthetic/i);
+});
 
 test('calendar reader rejects non-lab database targets', () => {
   assert.throws(() => createLabCalendarReader({ db: fakeDb(rows, 'tester-teaching') }));
+  assert.throws(() => createLabCalendarReader({ db: fakeDb(rows, 'vista-teaching-lab', 'other') }));
 });
 
 test('faculty calendar query is faculty-scoped and excludes private assignment fields', async () => {
@@ -77,7 +83,7 @@ test('calendar reader rejects ambiguous scope and incomplete date ranges', async
 test('read runtime verifies the Testing token and scopes faculty requests before querying', async () => {
   const db = fakeDb(rows);
   const sessionsCollection = db.collection;
-  db.collection = name => name === 'paws_testing_users' ? { doc: id => ({ get: async () => ({ exists: id === 'user', data: () => ({ name: 'Test Person', role: 'faculty', facultyId: 'f1', active: true, mustChangePassword: false }) }) }) } : sessionsCollection(name);
+  db.collection = name => name === 'paws_testing_users' ? { doc: id => ({ get: async () => ({ exists: id === 'user', data: () => ({ synthetic: true, name: 'Test Person', role: 'faculty', facultyId: 'f1', active: true, mustChangePassword: false }) }) }) } : sessionsCollection(name);
   const verifyIdToken = async token => ({ uid: 'user', aud: token === 'lab' ? 'paws-testing-ucvm-20261022' : 'tester-teaching', iss: `https://securetoken.google.com/${token === 'lab' ? 'paws-testing-ucvm-20261022' : 'tester-teaching'}` });
   const runtime = createLabReadRuntime({ db, verifyIdToken });
   const request = (path, token = 'lab', method = 'GET') => new Request('https://testing.invalid' + path, { method, headers: { authorization: 'Bearer ' + token } });

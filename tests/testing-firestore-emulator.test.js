@@ -5,6 +5,8 @@ const path = require('node:path');
 const { createRequire } = require('node:module');
 const { createLabReadRuntime } = require('../tools/testing/firestore-read-runtime');
 const { startTestingHttpServer } = require('../tools/testing/firestore-http');
+const { testingFixtures, createTestingSeed } = require('../tools/testing/firestore-seed');
+const { createLabCalendarReader } = require('../tools/testing/firestore-calendar');
 
 test('lab read runtime verifies Testing emulator identity and scopes Firestore data', { skip: process.env.PAWS_LAB_EMULATOR_TEST !== '1' }, async () => {
   // Refuse every non-loopback target before creating the Admin SDK client.
@@ -21,9 +23,9 @@ test('lab read runtime verifies Testing emulator identity and scopes Firestore d
     const password = 'Emulator-only-pass-2026';
     const uid = 'paws-emulator-faculty';
     await auth.createUser({ uid, email, password });
-    await db.collection('paws_testing_users').doc(uid).set({ name: 'Test Faculty', role: 'faculty', facultyId: 'synthetic-f1', active: true, mustChangePassword: false });
-    await db.collection('paws_testing_sessions').doc('paws-emulator-1').set({ date: '2027-01-12', course: 'VETM 301', year: 2, type: 'LAB', academicYear: '2026-27', facultyIds: ['synthetic-f1'], instructorNames: ['Test Faculty'], assignments: [{ facultyId: 'synthetic-f1', ucid: 'not-for-client', doeCredit: 123 }] });
-    await db.collection('paws_testing_sessions').doc('paws-emulator-2').set({ date: '2027-01-13', facultyIds: ['synthetic-f2'] });
+    await db.collection('paws_testing_users').doc(uid).set({ synthetic: true, name: 'Test Faculty', role: 'faculty', facultyId: 'synthetic-f1', active: true, mustChangePassword: false });
+    await db.collection('paws_testing_sessions').doc('paws-emulator-1').set({ synthetic: true, date: '2027-01-12', course: 'VETM 301', year: 2, type: 'LAB', academicYear: '2026-27', facultyIds: ['synthetic-f1'], instructorNames: ['Test Faculty'], assignments: [{ facultyId: 'synthetic-f1', ucid: 'not-for-client', doeCredit: 123 }] });
+    await db.collection('paws_testing_sessions').doc('paws-emulator-2').set({ synthetic: true, date: '2027-01-13', facultyIds: ['synthetic-f2'] });
     const response = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator-only', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true })
     });
@@ -51,5 +53,24 @@ test('lab read runtime verifies Testing emulator identity and scopes Firestore d
     }
   } finally {
     await Promise.all([authApp.delete(), dbApp.delete()]);
+  }
+});
+
+test('synthetic Testing seed is atomic, refuses collisions and supports scoped reads', { skip: process.env.PAWS_LAB_EMULATOR_TEST !== '1' }, async () => {
+  assert.equal(process.env.FIRESTORE_EMULATOR_HOST, '127.0.0.1:8080');
+  const serverRequire = createRequire(path.resolve(__dirname, '../server/package.json'));
+  const admin = serverRequire('firebase-admin');
+  const app = admin.initializeApp({ projectId: 'vista-teaching-lab' }, 'testing-seed-emulator');
+  try {
+    const db = app.firestore();
+    const seed = createTestingSeed({ db });
+    assert.equal((await seed()).created, testingFixtures().length);
+    await assert.rejects(seed(), /already exists/i);
+    const first = testingFixtures().find(row => row.id === 'paws-synthetic-faculty-a').data.facultyId;
+    const sessions = await createLabCalendarReader({ db })({ facultyId: first, start: '2027-01-01', end: '2027-02-01' });
+    assert.equal(sessions.length, 2);
+    assert.doesNotMatch(JSON.stringify(sessions), /SYN10000|ucid/);
+  } finally {
+    await app.delete();
   }
 });

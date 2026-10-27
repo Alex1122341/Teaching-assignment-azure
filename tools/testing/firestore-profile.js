@@ -5,7 +5,7 @@ const names = require('../../server/src/domain/person-name');
 const LAB_PROJECT = 'vista-teaching-lab';
 
 function createLabProfileReader({ db } = {}) {
-  if (!db || db.projectId !== LAB_PROJECT || typeof db.collection !== 'function') {
+  if (!db || db.projectId !== LAB_PROJECT || db.databaseId !== '(default)' || typeof db.collection !== 'function') {
     throw new Error('Testing Firestore project rejected');
   }
   return async function findByUid(uid) {
@@ -15,7 +15,7 @@ function createLabProfileReader({ db } = {}) {
     const snapshot = await db.collection('paws_testing_users').doc(uid).get();
     if (!snapshot.exists) return null;
     const data = snapshot.data();
-    if (!data || typeof data !== 'object') return null;
+    if (!data || typeof data !== 'object' || data.synthetic !== true) return null;
     return {
       firebaseUid: uid,
       displayName: names.format({

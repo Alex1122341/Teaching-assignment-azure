@@ -4,10 +4,10 @@ const assert = require('node:assert/strict');
 const { createLabProfileReader } = require('../tools/testing/firestore-profile');
 const { createDataApi } = require('../server/src/data/data-api');
 
-function database(projectId, users = {}) {
+function database(projectId, users = {}, databaseId = '(default)') {
   const reads = [];
   return {
-    projectId, reads,
+    projectId, databaseId, reads,
     collection(name) {
       assert.equal(name, 'paws_testing_users');
       return { doc(id) { return { async get() {
@@ -22,24 +22,26 @@ test('lab profile reader refuses a production or unspecified Firestore project',
   for (const id of ['tester-teaching', 'paws-testing-ucvm-20261022', undefined]) {
     assert.throws(() => createLabProfileReader({ db: database(id) }));
   }
+  assert.throws(() => createLabProfileReader({ db: database('vista-teaching-lab', {}, 'other') }));
 });
 
 test('lab profile reader maps only the signed-in user profile and preserves security gates', async () => {
-  const db = database('vista-teaching-lab', { u1: { name: 'Example User', email: 'u@example.test', role: 'faculty', facultyId: 'fac-001', active: true, mustChangePassword: false, ucid: 'private', doe: 123 } });
+  const db = database('vista-teaching-lab', { u1: { synthetic: true, name: 'Example User', email: 'u@example.test', role: 'faculty', facultyId: 'fac-001', active: true, mustChangePassword: false, ucid: 'private', doe: 123 }, unmarked: { role: 'owner', active: true, mustChangePassword: false } });
   const read = createLabProfileReader({ db });
   const profile = await read('u1');
   assert.deepEqual(profile, { firebaseUid: 'u1', displayName: 'User, Example', email: 'u@example.test', baseRole: 'faculty', facultyId: 'fac-001', active: true, mustChangePassword: false });
   assert.deepEqual(db.reads, ['u1']);
   assert.equal(await read('missing'), null);
+  assert.equal(await read('unmarked'), null);
   await assert.rejects(read('../other'));
   await assert.rejects(read('..'));
 });
 
 test('lab profile display uses the shared name formatter and respects structured names', async () => {
   const db = database('vista-teaching-lab', {
-    structured: { firstName: 'Mary Jane', lastName: 'de la Cruz', name: 'Mary Jane de la Cruz' },
-    formatted: { name: 'de la Cruz, Mary Jane' },
-    placeholder: { name: 'TBD' }
+    structured: { synthetic: true, firstName: 'Mary Jane', lastName: 'de la Cruz', name: 'Mary Jane de la Cruz' },
+    formatted: { synthetic: true, name: 'de la Cruz, Mary Jane' },
+    placeholder: { synthetic: true, name: 'TBD' }
   });
   const read = createLabProfileReader({ db });
   assert.equal((await read('structured')).displayName, 'de la Cruz, Mary Jane');
@@ -52,10 +54,10 @@ test('lab profile display uses the shared name formatter and respects structured
 
 test('existing API rejects inactive, incomplete, and unknown-role lab profiles', async () => {
   const db = database('vista-teaching-lab', {
-    active: { name: 'Example User', role: 'faculty', facultyId: 'fac-001', active: true, mustChangePassword: false },
-    inactive: { role: 'administrator', active: false, mustChangePassword: false },
-    noFlag: { role: 'administrator', active: true },
-    unknown: { role: 'unrecognized', active: true, mustChangePassword: false }
+    active: { synthetic: true, name: 'Example User', role: 'faculty', facultyId: 'fac-001', active: true, mustChangePassword: false },
+    inactive: { synthetic: true, role: 'administrator', active: false, mustChangePassword: false },
+    noFlag: { synthetic: true, role: 'administrator', active: true },
+    unknown: { synthetic: true, role: 'unrecognized', active: true, mustChangePassword: false }
   });
   const read = createLabProfileReader({ db });
   for (const [uid, status] of [['active', 200], ['inactive', 403], ['noFlag', 403], ['unknown', 403]]) {

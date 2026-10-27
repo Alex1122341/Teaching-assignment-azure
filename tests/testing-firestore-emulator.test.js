@@ -7,6 +7,7 @@ const { createLabReadRuntime } = require('../tools/testing/firestore-read-runtim
 const { startTestingHttpServer } = require('../tools/testing/firestore-http');
 const { testingFixtures, createTestingSeed } = require('../tools/testing/firestore-seed');
 const { createLabCalendarReader } = require('../tools/testing/firestore-calendar');
+const { createInactiveFacultyIdentity } = require('../tools/testing/firestore-identities');
 
 test('lab read runtime verifies Testing emulator identity and scopes Firestore data', { skip: process.env.PAWS_LAB_EMULATOR_TEST !== '1' }, async () => {
   // Refuse every non-loopback target before creating the Admin SDK client.
@@ -58,9 +59,11 @@ test('lab read runtime verifies Testing emulator identity and scopes Firestore d
 
 test('synthetic Testing seed is atomic, refuses collisions and supports scoped reads', { skip: process.env.PAWS_LAB_EMULATOR_TEST !== '1' }, async () => {
   assert.equal(process.env.FIRESTORE_EMULATOR_HOST, '127.0.0.1:8080');
+  assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST, '127.0.0.1:9099');
   const serverRequire = createRequire(path.resolve(__dirname, '../server/package.json'));
   const admin = serverRequire('firebase-admin');
   const app = admin.initializeApp({ projectId: 'vista-teaching-lab' }, 'testing-seed-emulator');
+  const authApp = admin.initializeApp({ projectId: 'paws-testing-ucvm-20261022' }, 'testing-seed-auth-emulator');
   try {
     const db = app.firestore();
     const seed = createTestingSeed({ db });
@@ -70,7 +73,17 @@ test('synthetic Testing seed is atomic, refuses collisions and supports scoped r
     const sessions = await createLabCalendarReader({ db })({ facultyId: first, start: '2027-01-01', end: '2027-02-01' });
     assert.equal(sessions.length, 2);
     assert.doesNotMatch(JSON.stringify(sessions), /SYN10000|ucid/);
+    const uid = 'paws-synthetic-faculty-a', password = 'synthetic-password-only';
+    assert.deepEqual(await createInactiveFacultyIdentity({ db, auth: authApp.auth(), uid, password }), { uid, status: 'disabled' });
+    assert.equal((await authApp.auth().getUser(uid)).disabled, true);
+    await assert.rejects(createInactiveFacultyIdentity({ db, auth: authApp.auth(), uid, password }), /creation failed/i);
+    const profile = await db.collection('paws_testing_users').doc(uid).get();
+    assert.equal(profile.data().active, false);
+    const login = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator-only', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: profile.data().email, password, returnSecureToken: true })
+    });
+    assert.equal(login.status, 400);
   } finally {
-    await app.delete();
+    await Promise.all([app.delete(), authApp.delete()]);
   }
 });

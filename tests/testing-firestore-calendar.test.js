@@ -4,6 +4,18 @@ const assert = require('node:assert/strict');
 const { createLabCalendarReader } = require('../tools/testing/firestore-calendar');
 const { createLabReadRuntime } = require('../tools/testing/firestore-read-runtime');
 
+test('Testing calendar index specification matches the scoped date query', async () => {
+  const spec = require('../deploy/testing/firestore-calendar-index.json');
+  assert.equal(spec.project, 'vista-teaching-lab');
+  assert.equal(spec.database, '(default)');
+  assert.equal(spec.collectionGroup, 'paws_testing_sessions');
+  assert.equal(spec.queryScope, 'COLLECTION');
+  assert.deepEqual(spec.fields, [{ fieldPath: 'facultyIds', arrayConfig: 'CONTAINS' }, { fieldPath: 'date', order: 'ASCENDING' }]);
+  const db = fakeDb([]);
+  await createLabCalendarReader({ db })({ facultyId: 'synthetic-f1', start: '2027-01-01', end: '2027-02-01' });
+  assert.deepEqual(db.trace.filters, [['facultyIds', 'array-contains', 'synthetic-f1'], ['date', '>=', '2027-01-01'], ['date', '<', '2027-02-01']]);
+});
+
 function fakeDb(rows, projectId = 'vista-teaching-lab') {
   const trace = { filters: [], selected: [], limit: 0 };
   const q = {

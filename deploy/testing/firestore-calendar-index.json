@@ -1,0 +1,10 @@
+{
+  "project": "vista-teaching-lab",
+  "database": "(default)",
+  "collectionGroup": "paws_testing_sessions",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "facultyIds", "arrayConfig": "CONTAINS" },
+    { "fieldPath": "date", "order": "ASCENDING" }
+  ]
+}

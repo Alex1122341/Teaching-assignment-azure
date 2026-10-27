@@ -36,7 +36,10 @@ test('lab read runtime verifies Testing emulator identity and scopes Firestore d
     assert.doesNotMatch(JSON.stringify(result.jsonBody), /not-for-client|doeCredit|ucid/);
     const server = await startTestingHttpServer({ runtime, port: 0 });
     try {
-      const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/sessions?start=2027-01-01&end=2027-02-01`, {
+      const url = `http://127.0.0.1:${server.address().port}/api/v1/sessions?start=2027-01-01&end=2027-02-01`;
+      assert.equal((await fetch(url)).status, 401);
+      assert.equal((await fetch(url, { headers: { origin: 'https://tester-teaching.web.app', authorization: 'Bearer ' + idToken } })).status, 403);
+      const response = await fetch(url, {
         headers: { origin: 'https://paws-testing-ucvm-20261022.web.app', authorization: 'Bearer ' + idToken }
       });
       assert.equal(response.status, 200);

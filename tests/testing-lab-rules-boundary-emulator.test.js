@@ -37,6 +37,8 @@ check('lab rules deny other-project identities and other faculty private session
       await setDoc(doc(db, 'sessions/synthetic-other'), { facultyIds: ['synthetic-f2'], assignments: [{ ucid: 'synthetic-private', doeCredit: 1 }] });
       await setDoc(doc(db, 'sessions/synthetic-shared'), { facultyIds: ['synthetic-f1', 'synthetic-f2'], assignments: [{ ucid: 'synthetic-f1', doeCredit: 1 }, { ucid: 'synthetic-private', doeCredit: 2 }] });
       await setDoc(doc(db, 'calendar_sessions/synthetic-other'), { sessionId: 'synthetic-other', course: 'VETM 301' });
+      await setDoc(doc(db, `paws_testing_users/${uid}`), { active: true, role: 'faculty', facultyId: 'synthetic-f1' });
+      await setDoc(doc(db, 'paws_testing_sessions/synthetic-one'), { facultyIds: ['synthetic-f1'], assignments: [{ ucid: 'synthetic-private' }] });
     });
     const login = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator-only', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true })
@@ -61,6 +63,16 @@ check('lab rules deny other-project identities and other faculty private session
       const db = lab.unauthenticatedContext().firestore();
       for (const name of ['calendar_sessions/synthetic-other', 'sessions/synthetic-other']) {
         await assert.rejects(getDoc(doc(db, name)), error => error.code === 'permission-denied');
+      }
+    });
+    await t.test('Testing collections cannot be read directly by a browser identity', async () => {
+      const db = lab.authenticatedContext(uid, { aud: 'vista-teaching-lab' }).firestore();
+      for (const name of [`paws_testing_users/${uid}`, 'paws_testing_sessions/synthetic-one']) {
+        await assert.rejects(getDoc(doc(db, name)), error => error.code === 'permission-denied');
+        const response = await fetch(`http://127.0.0.1:8080/v1/projects/vista-teaching-lab/databases/(default)/documents/${name}`, {
+          headers: { authorization: `Bearer ${idToken}` }
+        });
+        assert.equal(response.status, 403);
       }
     });
     await t.test('a lab faculty user cannot read another faculty private session', async () => {

@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   testing_parity:
-    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'feat/paws-testing-environment' }}
+    if: ${{ github.head_ref == 'feat/paws-testing-environment' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -67,7 +67,7 @@ jobs:
             echo "::warning::Testing Hosting/API/Firebase config is NOT provisioned; this successful code gate is NOT deployment approval."
           fi
   test_and_build:
-    if: ${{ github.event_name != 'pull_request' || github.head_ref != 'feat/paws-testing-environment' }}
+    if: ${{ github.head_ref != 'feat/paws-testing-environment' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

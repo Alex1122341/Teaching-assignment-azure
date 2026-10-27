@@ -15,7 +15,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  testing_parity:
+    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'feat/paws-testing-environment' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm ci --prefix server
+      - name: Audit tracked Chinese-language notes
+        run: node tools/audit-language.js
+      - name: Guard inherited Beta business code and separate Testing overlays
+        run: |
+          git fetch origin main
+          node tools/testing/verify-overlay.js
+      - name: Run Testing root behavior suite with explicit historical Production-only assertions
+        run: node tools/testing/run-root-suite.js
+      - name: Run all server tests
+        run: npm test --prefix server
+      - name: Run real Firebase Auth and Firestore Emulator acceptance
+        run: npx --no-install firebase emulators:exec --only firestore,auth --project demo-ucvm-access 'node tools/testing/run-root-suite.js'
+      - name: Check immutable accepted Beta main in a separate checkout
+        run: |
+          git worktree add --detach ../paws-accepted-main origin/main
+          (
+            cd ../paws-accepted-main
+            node tools/beta-freeze.js
+            node tools/beta-api-freeze.js
+          )
+          git worktree remove ../paws-accepted-main
+      - name: Check Testing identity and SQL migration safeguards
+        run: |
+          node tools/render-environment-config.js --check
+          node tools/verify-environment-config.js --repository
+          node --test tests/dual-environment-config.test.js tests/testing-db-tooling.test.js tests/university-testing-migrations.test.js tests/testing-deployment-readiness.test.js
+      - name: Build and verify source-level Testing candidate
+        run: |
+          node tools/build-static.js
+          node tools/build-testing-release.js --if-provisioned | tee testing-readiness.json
+          if grep -q '"skipped":true' testing-readiness.json; then
+            echo "::warning::Testing Hosting/API/Firebase config is NOT provisioned; this successful code gate is NOT deployment approval."
+          fi
   test_and_build:
+    if: ${{ github.event_name != 'pull_request' || github.head_ref != 'feat/paws-testing-environment' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

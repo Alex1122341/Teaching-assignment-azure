@@ -1,10 +1,10 @@
 name: Account Access SQL Acceptance
 on:
   pull_request:
-    paths: ['database/azure-sql/060_*','database/azure-sql/rollback_060_*','server/src/access/**','server/src/data/sql-account-access-repository.js','server/test/account-access*','tools/test-account-access-sql.ps1','.github/workflows/account-access-sql.yml']
+    paths: ['database/azure-sql/060_*','database/azure-sql/061_*','database/azure-sql/rollback_060_*','database/azure-sql/rollback_061_*','server/src/access/**','server/src/data/sql-account-access-repository.js','server/src/data/sql-teaching-access-repository.js','server/test/account-access*','server/test/*teaching-access*','server/test/leadership-*','tools/test-account-access-sql.ps1','tools/test-teaching-access-sql.ps1','.github/workflows/account-access-sql.yml']
   push:
     branches: [main]
-    paths: ['database/azure-sql/060_*','database/azure-sql/rollback_060_*','server/src/access/**','server/src/data/sql-account-access-repository.js','server/test/account-access*','tools/test-account-access-sql.ps1','.github/workflows/account-access-sql.yml']
+    paths: ['database/azure-sql/060_*','database/azure-sql/061_*','database/azure-sql/rollback_060_*','database/azure-sql/rollback_061_*','server/src/access/**','server/src/data/sql-account-access-repository.js','server/src/data/sql-teaching-access-repository.js','server/test/account-access*','server/test/*teaching-access*','server/test/leadership-*','tools/test-account-access-sql.ps1','tools/test-teaching-access-sql.ps1','.github/workflows/account-access-sql.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,9 +32,12 @@ jobs:
       - name: Verify persisted grants, atomic audit, concurrency and guarded rollback
         shell: pwsh
         run: |
-          ./tools/test-account-access-sql.ps1 -ContainerName paws-calendar-access-test | Tee-Object -Variable output
+          ./tools/test-teaching-access-sql.ps1 -ContainerName paws-calendar-access-test | Tee-Object -Variable output
           foreach($marker in @('EXISTING_PRINCIPAL_REFUSED','MIGRATION_PRESERVES_GRANTS','PERSISTED_IDEMPOTENT_AUDIT','STALE_ABA_DENIED','OWNER_PROTECTION','ATOMIC_ROLLBACK','CONCURRENT_OWNER_REVOCATION','USED_ROLLBACK_REFUSED','EMPTY_ROLLBACK_OK')){
             if(($output -join "`n") -notmatch ('ACCOUNT_ACCESS_060_'+$marker)){throw "Missing access acceptance marker: $marker"}
+          }
+          foreach($marker in @('PROFILE_VALUES_PRESERVED','NO_SEED_SCHEDULE_VERSION_REUSED','EXPLICIT_SOURCE_AND_LEGACY_BOUNDARIES','DUAL_ROLE_SCOPE_AND_DATES','SCOPE_SCHEDULE_ABA_EPOCH','SOURCE_PROFILE_REVOCATION','USED_ROLLBACK_REFUSED','UNUSED_ROLLBACK_PRESERVES_060')){
+            if(($output -join "`n") -notmatch ('TEACHING_ACCESS_061_'+$marker)){throw "Missing leadership acceptance marker: $marker"}
           }
       - name: Stop owned synthetic container
         if: always()

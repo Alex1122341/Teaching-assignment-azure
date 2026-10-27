@@ -8,7 +8,7 @@ const course='20000000-0000-4000-8000-000000000505';
 const profile={firebaseUid:'provided-faculty',baseRole:'faculty',facultyId:faculty,facultyActive:true,active:true,mustChangePassword:false,version:'0000000000000001'};
 const hicc={assignmentId:'30000000-0000-4000-8000-000000000001',responsibilityId:'hicc-course-505',kind:'hicc',facultyId:faculty,academicYear:'2026-27',active:true,startDate:'2026-05-01',endExclusive:'2027-05-01',version:'0000000000000010',definitionVersion:'a'.repeat(64),courses:[{courseId:course,courseCode:'505'}],groups:[]};
 const visc={...hicc,assignmentId:'30000000-0000-4000-8000-000000000002',responsibilityId:'visc-bovine',kind:'visc',version:'0000000000000020',courses:[],groups:[{groupId:'bovine',name:'Bovine'}]};
-const derive=(assignments=[hicc,visc],extra={})=>deriveEffectiveTeachingAccess({profile,assignments,academicYear:'2026-27',asOfDate:'2026-10-27',...extra});
+const derive=(assignments=[hicc,visc],extra={})=>deriveEffectiveTeachingAccess({profile,assignments,academicYear:'2026-27',asOfDate:'2026-10-27',authorityVersion:'0000000000000100',...extra});
 
 test('one Faculty identity simultaneously retains explicit course HICC and area VISC authority',()=>{
  const result=derive();
@@ -62,6 +62,10 @@ test('public effective descriptors exclude private contacts, DOE and source payl
  const result=derive([{...hicc,email:'PRIVATE',ucid:'PRIVATE',doe:123,notes:'PRIVATE',source:{private:'PRIVATE'}}]);
  assert.doesNotMatch(JSON.stringify(result),/PRIVATE|email|ucid|"doe"|notes|"source"/);
  assert.deepEqual(result.responsibilities[0].courses,[{courseId:course,courseCode:'505'}]);
+});
+test('a grant followed by removal never restores an earlier empty-scope context',()=>{
+ assert.notEqual(derive([]).scopeVersion,derive([],{authorityVersion:'0000000000000102'}).scopeVersion);
+ assert.throws(()=>derive([],{authorityVersion:null}));
 });
 test('malformed input, impossible dates and excessive authority input fail closed',()=>{
  for(const override of [{academicYear:'2026-28'},{asOfDate:'2026-02-30'},{assignments:{}},{assignments:Array(1001).fill(hicc)}]){

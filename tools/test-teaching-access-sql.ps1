@@ -1,0 +1,31 @@
+param([Parameter(Mandatory=$true)][string]$ContainerName)
+$ErrorActionPreference='Stop'
+# Reuse all inspected local Docker boundaries and every accepted060 proof first.
+. (Join-Path $PSScriptRoot 'test-account-access-sql.ps1') -ContainerName $ContainerName
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/060_account_access.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql @'
+CREATE TABLE dbo.PawsDisposableLeadership061(Marker bit NOT NULL);
+INSERT dbo.PawsDisposableLeadership061 VALUES(1);
+SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc INTO dbo.Leadership061ProfileBaseline FROM paws.UserProfile;
+'@ 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql @'
+IF EXISTS(SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc FROM paws.UserProfile EXCEPT SELECT * FROM dbo.Leadership061ProfileBaseline) OR EXISTS(SELECT * FROM dbo.Leadership061ProfileBaseline EXCEPT SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc FROM paws.UserProfile) THROW 54160,'Migration changed a base account profile.',1;
+PRINT 'TEACHING_ACCESS_061_PROFILE_VALUES_PRESERVED';
+'@ 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access_acceptance.sql') -Raw) 'VetMed-Ops'
+$rollback=Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_061_effective_teaching_access.sql') -Raw
+$initialBatch=([regex]::Replace($rollback,'(?m)^:[^\r\n]+\r?\n','') -split '(?m)^GO[ \t]*$')[0]
+$escaped=$initialBatch.Replace("'","''")
+Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$escaped');END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()=54162 SET @Refused=1;ELSE THROW;END CATCH;IF @Refused=0 THROW 54160,'Used leadership rollback was not refused.',1;PRINT 'TEACHING_ACCESS_061_USED_ROLLBACK_REFUSED';" 'VetMed-Ops'
+# A fresh guarded reset proves the unused path without deleting used audit rows.
+. (Join-Path $PSScriptRoot 'test-calendar-activity-sql.ps1') -ContainerName $ContainerName -Through '041' -SkipAcceptance
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/060_account_access.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql $rollback 'VetMed-Ops'
+Invoke-TestSql @'
+IF OBJECT_ID(N'paws.LeadershipAccessState') IS NOT NULL OR OBJECT_ID(N'paws_api.EffectiveTeachingAssignments') IS NOT NULL OR COL_LENGTH(N'paws.RoleAssignment',N'AuthorityVersion') IS NOT NULL THROW 54160,'Unused leadership rollback left new objects.',1;
+IF COL_LENGTH(N'paws.RoleAppointmentSchedule',N'ScheduleVersion') IS NULL OR COL_LENGTH(N'paws.UserProfile',N'AccessVersion') IS NULL OR OBJECT_ID(N'paws_api.SetAccountAccess') IS NULL OR DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access') IS NULL THROW 54160,'Leadership rollback removed an existing authority feature.',1;
+IF EXISTS(SELECT 1 FROM sys.triggers WHERE name LIKE N'LeadershipAuthority061[_]%') THROW 54160,'Leadership rollback left an epoch trigger.',1;
+PRINT 'TEACHING_ACCESS_061_UNUSED_ROLLBACK_PRESERVES_060';
+'@ 'VetMed-Ops'

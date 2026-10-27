@@ -42,9 +42,10 @@ function groupScope(rows){
 
 // Only trusted SQL responsibility/assignee rows belong here. Business appointment
 // labels, client-selected roles and collaboration membership are not grant inputs.
-function deriveEffectiveTeachingAccess({profile,assignments,academicYear,asOfDate}={}){
+function deriveEffectiveTeachingAccess({profile,assignments,academicYear,asOfDate,authorityVersion}={}){
  const window=yearWindow(academicYear);
  if(!validDate(asOfDate))throw Error('A valid Calgary calendar date is required.');
+ if(!ROW_VERSION.test(authorityVersion||''))throw Error('A retained teaching authority epoch is required.');
  if(!Array.isArray(assignments)||assignments.length>1000)throw Error('A bounded trusted responsibility list is required.');
  const baseRole=normalizeBaseRole(profile?.baseRole);
  const ready=Boolean(baseRole&&profile?.active===true&&profile?.mustChangePassword!==true);
@@ -72,7 +73,7 @@ function deriveEffectiveTeachingAccess({profile,assignments,academicYear,asOfDat
  const effectiveRoles=ready?[...new Set([baseRole,...responsibilities.map(row=>row.kind)])]:[];
  effectiveRoles.sort((a,b)=>a===baseRole?-1:b===baseRole?1:a.localeCompare(b,'en'));
  const scopeVersion=createHash('sha256').update(JSON.stringify({
-  baseRole,ready,facultyId:profile?.facultyId?.toLowerCase()||null,profileVersion:profile?.version||null,academicYear,versions
+  baseRole,ready,facultyId:profile?.facultyId?.toLowerCase()||null,profileVersion:profile?.version||null,academicYear,authorityVersion:authorityVersion.toLowerCase(),versions
  })).digest('hex');
  return {baseRole,academicYear,effectiveRoles,responsibilities,scopeVersion};
 }

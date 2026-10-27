@@ -31,3 +31,19 @@ test('noncanonical year or impossible as-of date is rejected before SQL',async()
  for(const invalid of [{academicYear:'2026-28',asOfDate:'2026-10-27'},{academicYear:'2026-27',asOfDate:'2026-02-30'}])await assert.rejects(repo.listAssignments('account',invalid));
  assert.equal(calls,0);
 });
+test('an empty authority snapshot still carries a retained epoch and exposes no null assignee',async()=>{
+ const repo=createSqlTeachingAccessRepository({query:async(sql,params)=>{
+  assert.match(sql,/TeachingAuthorityState/);assert.match(sql,/OUTER APPLY/);assert.equal(params.uid,'account');
+  return [{authorityVersion:'0000000000000100',assignmentId:null,email:'PRIVATE'}];
+ }});
+ assert.deepEqual(await repo.snapshot('account',context),{authorityVersion:'0000000000000100',assignments:[]});
+});
+test('a nonempty snapshot validates a single epoch and strips its redundant raw copies',async()=>{
+ const repo=createSqlTeachingAccessRepository({query:async()=>[{...row,authorityVersion:'0000000000000100'}]});
+ const snapshot=await repo.snapshot('account',context);
+ assert.equal(snapshot.assignments.length,1);assert.equal(snapshot.authorityVersion,'0000000000000100');
+ assert.equal(snapshot.assignments[0].authorityVersion,undefined);
+ for(const rows of [[],[{...row,authorityVersion:null}],[{...row,authorityVersion:'0000000000000100'},{...row,authorityVersion:'0000000000000102'}],[{assignmentId:null,authorityVersion:'0000000000000100'}, {...row,authorityVersion:'0000000000000100'}]]){
+  const invalid=createSqlTeachingAccessRepository({query:async()=>rows});await assert.rejects(invalid.snapshot('account',context));
+ }
+});

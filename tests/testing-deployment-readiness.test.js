@@ -191,11 +191,13 @@ test('the committed template is never deployable as-is', () => {
 });
 
 // ------------------------------------------------------------------ preflight
-test('preflight (offline) names each missing resource with its next step and never passes an unprovisioned repo', async () => {
+test('preflight recognizes the Testing Firebase app but fails closed until the site and API exist', async () => {
   const result = await preflight({ root });
   assert.equal(result.ok, false);
   assert.equal(result.provisioned, false);
-  for (const id of ['config.testing.firebase', 'config.testing.siteUrl', 'config.testing.apiOrigin']) {
+  assert.equal(result.checks.find(item => item.id === 'config.testing.firebase').status, 'pass');
+  assert.equal(loadConfig('testing').firebase.projectId, 'paws-testing-ucvm-20261022');
+  for (const id of ['config.testing.siteUrl', 'config.testing.apiOrigin']) {
     const check = result.checks.find(item => item.id === id);
     assert.equal(check.status, 'fail', id);
     assert.match(check.action, /03-setup-and-deployment\.md/);

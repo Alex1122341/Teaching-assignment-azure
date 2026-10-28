@@ -6,7 +6,7 @@ const http = require('node:http');
 const { once } = require('node:events');
 const TESTING_ORIGIN = 'https://paws-testing-ucvm-20261022.web.app';
 const SAME_SITE_ORIGIN = 'https://tester-teaching.web.app';
-const ALLOWED_PATHS = new Set(['/api/v1/me', '/api/v1/sessions', '/api/v1/dashboard/leadership-directory', '/api/v1/ccc-schedule', '/api/v1/calendar-activities', '/api/v1/calendar-activities/capabilities']);
+const ALLOWED_PATHS = new Set(['/api/v1/me', '/api/v1/sessions', '/api/v1/dashboard/leadership-directory', '/api/v1/ccc-schedule', '/api/v1/calendar-activities', '/api/v1/calendar-activities/capabilities', '/api/v1/dashboard/summary', '/api/v1/dashboard/faculty', '/api/v1/dashboard/teaching-summary', '/api/v1/dashboard/roles', '/api/v1/dashboard/faculty-admin/write-capabilities']);
 
 async function startTestingHttpServer({ runtime, port = 18788, allowSameSite = false } = {}) {
   if (typeof runtime !== 'function') throw new TypeError('Testing runtime is required');
@@ -28,7 +28,7 @@ async function startTestingHttpServer({ runtime, port = 18788, allowSameSite = f
       url = new URL(incoming.url || '/', 'http://127.0.0.1');
       if (url.origin !== 'http://127.0.0.1') throw new Error('Invalid URL');
     } catch (_) { return send(400, { error: { code: 'INVALID_URL' } }); }
-    if (!ALLOWED_PATHS.has(url.pathname)) return send(404, { error: { code: 'NOT_FOUND' } });
+    if (!ALLOWED_PATHS.has(url.pathname) && !/^\/api\/v1\/dashboard\/faculty\/[0-9a-f-]{36}$/i.test(url.pathname)) return send(404, { error: { code: 'NOT_FOUND' } });
     if (incoming.method === 'OPTIONS') {
       const headers = String(incoming.headers['access-control-request-headers'] || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
       if (!allowedOrigins.has(origin) || incoming.headers['access-control-request-method'] !== 'GET' || headers.some(x => x !== 'authorization')) {

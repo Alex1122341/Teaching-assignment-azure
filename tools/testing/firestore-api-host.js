@@ -39,9 +39,9 @@ async function startHost({ env = process.env, adminSdk, startServer = startTesti
   let labApp, server;
   try {
     labApp = admin.initializeApp({ credential:admin.credential.cert(config.lab), projectId:TEST_DB },labName);
-    const db = labApp.firestore();
+    const db = admin.firestore(labApp);
     if (db.projectId !== TEST_DB || db.databaseId !== '(default)') throw new Error('Firestore database target rejected');
-    const auth = authApp.auth();
+    const auth = admin.auth(authApp);
     const runtime = createLabReadRuntime({db, verifyIdToken: token => auth.verifyIdToken(token,true)});
     server = await startServer({runtime,port:18788,allowSameSite:config.allowSameSite});
     return { server, releaseSha:config.releaseSha, close:async()=>{

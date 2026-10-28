@@ -83,6 +83,7 @@ function createLeadershipAccessApi({verifyToken,findUser,repository,writeEnabled
    const auth=await authorize(token);if(auth.response)return auth.response;
    if(!writeEnabled)return fail(503,'WRITE_DISABLED','Leadership access changes are disabled.');
    if(!closed(input,['previewId','operationId'])||!UUID.test(input.previewId||'')||!UUID.test(input.operationId||''))return fail(400,'INVALID_LEADERSHIP_CHANGE','Provide the exact preview and operation identifiers.');
+   input={previewId:input.previewId.toLowerCase(),operationId:input.operationId.toLowerCase()};
    try{
     let receipt=await repository.operation(input.operationId,auth.uid),replayed=Boolean(receipt);
     if(receipt&&(receipt.actorUid!==auth.uid||receipt.previewId!==input.previewId))return fail(409,'LEADERSHIP_OPERATION_CONFLICT','This operation identifier belongs to another intent.');

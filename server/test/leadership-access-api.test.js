@@ -20,7 +20,8 @@ test('real repository SQL-shaped GUID receipts confirm a commit and same-operati
  const preview=await h.api.preview('owner',h.request);assert.equal(preview.status,200);
  const input={previewId,operationId},saved=await h.api.commit('owner',input);
  assert.equal(saved.status,200);assert.equal(saved.body.replayed,false);assert.equal(saved.body.operation.operationId,operationId);
- const retry=await h.api.commit('owner',input);assert.equal(retry.status,200);assert.equal(retry.body.replayed,true);assert.equal(writes,1);
+ const retry=await h.api.commit('owner',{previewId:previewId.toUpperCase(),operationId:operationId.toUpperCase()});
+ assert.equal(retry.status,200);assert.equal(retry.body.replayed,true);assert.equal(writes,1);
 });
 test('leadership history is Owner-only, academic-year bounded and rechecks identity after awaited reads',async()=>{
  const h=fixture();let reads=0;h.repository.history=async input=>{reads++;assert.equal(input.academicYear,'2026-27');assert.equal(input.targetUid,'teacher');return {total:0,rows:[]};};

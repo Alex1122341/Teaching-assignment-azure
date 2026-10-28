@@ -4,6 +4,16 @@ const assert=require('node:assert/strict');
 const {createAccountAccessApi}=require('../src/access/account-access-api');
 const {createDataApi}=require('../src/data/data-api');
 const FID='10000000-0000-4000-8000-000000000001';
+
+test('account commit and replay accept equivalent GUID casing without a second write',async()=>{
+ const previewId='bd44056f-2571-404b-99cb-a406c9e89c1f',operationId='5d4e1c5a-b696-4cf2-8a1b-24a1548fc71e';
+ const h=fixture({randomId:()=>previewId});
+ const p=await h.api.preview('owner',{targetUid:'faculty',expectedVersion:'0000000000000001',changes:{active:false},reason:'Synthetic approved case-equivalent operation'});
+ assert.equal(p.status,200);
+ const first=await h.api.commit('owner',{previewId:previewId.toUpperCase(),operationId:operationId.toUpperCase()});assert.equal(first.status,200);
+ const retry=await h.api.commit('owner',{previewId,operationId});assert.equal(retry.status,200);assert.equal(retry.body.replayed,true);
+ assert.equal(h.state.operations.size,1);assert.equal(retry.body.operation.operationId,operationId);
+});
 test('own effective HICC summary enables existing group management without replacing Faculty',async()=>{
  const h=fixture();h.state.profiles.get('faculty').teachingAccess={effectiveRoles:['faculty','hicc','visc'],scopeVersion:'a'.repeat(64),academicYear:'2026-27',responsibilities:[]};
  const result=await h.api.self('faculty');assert.equal(result.body.access.role,'faculty');assert.equal(result.body.access.canManageGroups,true);

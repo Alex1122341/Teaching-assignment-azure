@@ -99,6 +99,7 @@ function createAccountAccessApi({verifyToken,findUser,repository,writeEnabled=fa
    const auth=await authorize(token);if(auth.response)return auth.response;
    if(!writeEnabled)return fail(503,'WRITE_DISABLED','Account access changes are disabled. No permissions were changed.');
    if(!closed(input,['previewId','operationId'])||typeof input.previewId!=='string'||!UUID.test(input.previewId)||typeof input.operationId!=='string'||!UUID.test(input.operationId))return fail(400,'INVALID_ACCESS_CHANGE','Provide the exact preview and operation identifiers.');
+   input={previewId:input.previewId.toLowerCase(),operationId:input.operationId.toLowerCase()};
    try{
     let operation=await repository.operation(input.operationId),replayed=Boolean(operation);
     if(operation&&(operation.actorUid!==auth.uid||operation.previewId!==input.previewId))return fail(409,'ACCESS_OPERATION_CONFLICT','This operation identifier belongs to a different intent.');

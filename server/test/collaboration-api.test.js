@@ -3,6 +3,22 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {createCollaborationApi}=require('../src/access/collaboration-api');
 const H='10000000-0000-4000-8000-000000000001',F='10000000-0000-4000-8000-000000000002',O='10000000-0000-4000-8000-000000000003';
+
+test('Owner retains an existing Faculty owner without transferring ownership or permitting a new Faculty owner',async()=>{
+ const h=fixture();h.state.profiles.get('faculty').teachingAccess={effectiveRoles:['faculty','hicc'],scopeVersion:'a'.repeat(64)};
+ h.state.groups.push({id:'retained',name:'Existing Bovine',ownerUid:'faculty',courseIds:['101'],memberUids:['faculty','old-orphan'],version:'123.000000004'});
+ const input={expectedVersion:'123.000000004',name:'Existing Bovine renamed',ownerFacultyId:F,courseIds:['101'],memberFacultyIds:[F]};
+ assert.equal((await h.api.saveGroup('faculty','retained',input)).status,403);
+ const result=await h.api.saveGroup('owner','retained',input);assert.equal(result.status,200);
+ assert.equal(result.body.group.ownerFacultyId,F);assert.equal(h.state.groups.at(-1).ownerUid,'faculty');
+ assert.deepEqual(h.state.groups.at(-1).memberUids,['faculty','old-orphan']);assert.equal(h.state.profiles.get('faculty').baseRole,'faculty');
+ assert.equal((await h.api.saveGroup('owner','g1',{...input,expectedVersion:'123.000000001'})).status,400);
+ const {expectedVersion,...create}=input;
+ assert.equal((await h.api.saveGroup('owner',null,{...create,creationId:'10000000-0000-4000-8000-000000000098'})).status,400);
+ h.state.profiles.get('faculty').active=false;
+ assert.equal((await h.api.saveGroup('owner','retained',{...input,expectedVersion:'123.000000003'})).status,400);
+ assert.equal(h.state.writes,1);
+});
 test('effective HICC uses only existing owned groups and revoked scope cannot return private data',async()=>{
  const h=fixture(),person=h.state.profiles.get('faculty');
  person.teachingAccess={effectiveRoles:['faculty','hicc','visc'],scopeVersion:'a'.repeat(64)};

@@ -3,6 +3,19 @@ const test=require('node:test'),assert=require('node:assert/strict');
 let createUserManagement;
 try{({createUserManagement}=require('../frontend/scripts/user-management'));}catch(error){if(!(error instanceof ReferenceError))throw error;}
 const person={uid:'faculty',displayName:'de la Cruz, Mary Jane',role:'faculty',active:true,facultyId:'canonical',version:'0000000000000001',editable:true};
+
+test('collaboration owner picker preserves an existing dual-role Faculty owner and never defaults to another person',()=>{
+ const {collaborationOwnerModel}=require('../frontend/scripts/user-management');
+ const candidates=[{facultyId:'hicc',displayName:'Gupta, Ashish',role:'hicc',available:true},{facultyId:'faculty',displayName:'Olchowy, Timothy',role:'faculty',available:true}];
+ const own=collaborationOwnerModel(candidates,{id:'existing',ownerFacultyId:'faculty',ownerName:'Olchowy, Timothy'});
+ assert.equal(own.selectedId,'faculty');assert.deepEqual(own.choices.map(row=>row.facultyId),['hicc','faculty']);
+ const fresh=collaborationOwnerModel(candidates,{id:null,ownerFacultyId:null});
+ assert.deepEqual(fresh.choices.map(row=>row.facultyId),['hicc']);assert.equal(fresh.selectedId,'');
+ const unknown=collaborationOwnerModel(candidates,{id:'legacy',ownerFacultyId:null,ownerName:'Not provided'});
+ assert.equal(unknown.selectedId,'');assert.match(unknown.placeholder,/review/i);
+ const unavailable=collaborationOwnerModel(candidates,{id:'legacy',ownerFacultyId:'unavailable',ownerName:'Existing, Owner'});
+ assert.equal(unavailable.selectedId,'unavailable');assert.equal(unavailable.choices.find(row=>row.facultyId==='unavailable').displayName,'Existing, Owner');
+});
 test('revoke preview retains its selected assignment dates and scope while grants show approved default provenance',()=>{
  const {leadershipPreviewRows}=require('../frontend/scripts/user-management');
  const catalog={definitions:[{responsibilityId:'course505',kind:'hicc',courses:[{courseCode:'505'}],groups:[]}],assignments:[{assignmentId:'assignment',responsibilityId:'course505',startDate:'2026-05-01',endExclusive:'2027-05-01',usesApprovedDefaultDates:true}]};

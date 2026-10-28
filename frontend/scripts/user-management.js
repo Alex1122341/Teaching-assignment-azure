@@ -94,7 +94,13 @@
   return Object.freeze({load,clear,selectAccount,cancelPreview,preview,commit,history,legacyHistory,loadLeadership,previewLeadership,commitLeadership,cancelLeadership,leadershipHistory,clearLeadership});
  }
  function leadershipPreviewRows(changes,catalog){return changes.map(change=>{const assignment=change.action==='revoke'?catalog.assignments.find(row=>row.assignmentId===change.assignmentId):null,definition=catalog.definitions.find(row=>row.responsibilityId===change.responsibilityId);return {...definition,...assignment,...change};});}
- return {createUserManagement,leadershipPreviewRows};
+ function collaborationOwnerModel(candidates,group){
+  const current=group?.id&&group.ownerFacultyId;
+  const choices=candidates.filter(row=>row.role==='hicc'||current&&row.facultyId===current);
+  if(current&&!choices.some(row=>row.facultyId===current))choices.push({facultyId:current,displayName:group.ownerName||'Name unavailable',available:false});
+  return {choices,selectedId:current||'',placeholder:group?.id&&!current?'Current owner needs review':'Select HICC owner'};
+ }
+ return {createUserManagement,leadershipPreviewRows,collaborationOwnerModel};
 });
 
 (function(root){
@@ -197,8 +203,9 @@
  function selectGroup(group){
   selectedGroup=group;creationId=null;$('group-form').hidden=!group;if(!group)return;
   const details=state.access.canManageAccounts===true;$('group-name').value=group.name||'';$('group-courses').value=(group.courseIds||[]).join(', ');
-  $('group-owner').innerHTML=state.candidates.filter(row=>row.role==='hicc').map(row=>'<option value="'+esc(row.facultyId)+'">'+esc(person(row.displayName))+'</option>').join('');
-  $('group-owner').value=group.ownerFacultyId||'';for(const id of ['group-name','group-owner','group-courses'])$(id).disabled=!details;
+  const ownerModel=root.PAWS_USER_MANAGEMENT.collaborationOwnerModel(state.candidates,group);
+  $('group-owner').innerHTML='<option value="">'+esc(ownerModel.placeholder)+'</option>'+ownerModel.choices.map(row=>'<option value="'+esc(row.facultyId)+'" '+(row.available===false?'disabled':'')+'>'+esc(person(row.displayName))+'</option>').join('');
+  $('group-owner').value=ownerModel.selectedId;for(const id of ['group-name','group-owner','group-courses'])$(id).disabled=!details;
   const members=new Set((group.members||[]).map(row=>row.facultyId));
   const candidates=[...state.candidates,...(group.members||[]).filter(row=>!state.candidates.some(candidate=>candidate.facultyId===row.facultyId))];
   $('group-members').innerHTML=candidates.map(row=>'<label class="check"><input type="checkbox" value="'+esc(row.facultyId)+'" '+(members.has(row.facultyId)?'checked ':'')+(!row.available?'disabled ':'')+'><span>'+esc(person(row.displayName))+' <small>'+esc(role(row.role))+(row.available?'':' · Unavailable')+'</small></span></label>').join('');

@@ -113,7 +113,8 @@ function createCollaborationApi({verifyToken,findUser,repository,store,writeEnab
      const fresh=await authorize(token);if(fresh.response)reject(fresh.response);
      if(!owner(fresh)||scope(fresh)!==auth.binding)reject(fail(403,'ACCESS_CHANGED','Your Owner access changed. Reload before continuing.'));
      const people=directory(await repository.collaborators()),leader=people.byFaculty.get(input.ownerFacultyId);
-     if(!leader||leader.baseRole!=='hicc'||!people.available(leader))reject(fail(400,'INVALID_GROUP_CHANGE','Choose an active unambiguous SQL HICC as group owner.'));
+     const retainingOwner=leader&&current?.ownerUid===leader.firebaseUid;
+     if(!leader||!people.available(leader)||(!retainingOwner&&leader.baseRole!=='hicc'))reject(fail(400,'INVALID_GROUP_CHANGE','Choose an active unambiguous SQL HICC as a new owner, or retain the existing active owner.'));
      if(!input.memberFacultyIds.includes(leader.facultyId))reject(fail(400,'INVALID_GROUP_CHANGE','The group owner must remain a member.'));
      const memberUids=input.memberFacultyIds.map(facultyId=>{const person=people.byFaculty.get(facultyId);if(!person||!people.available(person))reject(fail(400,'INVALID_GROUP_CHANGE','A selected member is unavailable or ambiguous.'));return person.firebaseUid;});
      for(const uid of current?.memberUids||[])if((!people.resolve(uid)||!people.available(people.resolve(uid)))&&!memberUids.includes(uid))memberUids.push(uid);

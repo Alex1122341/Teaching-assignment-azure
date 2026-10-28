@@ -16,6 +16,21 @@ PRINT 'TEACHING_ACCESS_061_PROFILE_VALUES_PRESERVED';
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access_acceptance.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands_acceptance.sql') -Raw) 'VetMed-Ops'
+# INSERT ... EXEC introduces an outer transaction and is intentionally rejected
+# by the standalone history procedure. Capture its real JSON across sqlcmd instead.
+function Read-LeadershipHistory([string]$AcademicYear){
+ if($AcademicYear -notin @('2026-27','2027-28')){throw 'Synthetic history year required.'}
+ $statement="SET NOCOUNT ON; EXEC paws_api.GetTeachingLeadershipAccessHistory N'leadership062owner',N'leadership062target',N'$AcademicYear',0;"
+ $output=$statement | & docker exec -e "SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD" -i $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -I -b -d 'VetMed-Ops' -i /dev/stdin -f 65001 -h -1 -y 0 -w 65535
+ if($LASTEXITCODE -ne 0){throw 'Synthetic leadership history query failed.'}
+ return (($output -join "`n").Trim() | ConvertFrom-Json)
+}
+$leadershipHistory=Read-LeadershipHistory '2026-27'
+if($leadershipHistory.total -lt 1 -or @($leadershipHistory.operations).Count -lt 1 -or @($leadershipHistory.origins).Count -lt 1){throw 'Owner history did not preserve operations and original grants.'}
+if(@($leadershipHistory.operations | Where-Object {$_.receipt.academicYear -ne '2026-27'}).Count){throw 'History returned another academic year.'}
+$otherYearHistory=Read-LeadershipHistory '2027-28'
+if($otherYearHistory.total -ne 0 -or @($otherYearHistory.operations).Count -ne 0){throw 'History crossed academic-year scope.'}
+Write-Output 'LEADERSHIP_COMMAND_062_HISTORY_YEAR_OWNER_BOUNDARY'
 Invoke-TestSql @'
 CREATE TABLE dbo.Leadership062RaceBarrier(RaceId tinyint PRIMARY KEY);
 SELECT COUNT(*) OperationCount INTO dbo.Leadership062RaceBaseline FROM paws.LeadershipAccessOperation WHERE TargetUid=N'leadership062target';

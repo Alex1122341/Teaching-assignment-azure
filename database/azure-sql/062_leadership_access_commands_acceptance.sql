@@ -161,13 +161,6 @@ SET @Fault=JSON_MODIFY(@VChanges,'$[0].sourceScheduleVersion',NULL);SET @Rejecte
 BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic missing recorded schedule version',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54104 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 THROW 54260,'Missing schedule version was accepted.',1;
 PRINT 'LEADERSHIP_COMMAND_062_RECORDED_VISC_AREA_BOUNDARY';
-DECLARE @HistoryResult TABLE(historyJson nvarchar(max));
-INSERT @HistoryResult EXEC paws_api.GetTeachingLeadershipAccessHistory N'leadership062owner',N'leadership062target',N'2026-27',0;
-IF NOT EXISTS(SELECT 1 FROM @HistoryResult WHERE TRY_CONVERT(int,JSON_VALUE(historyJson,'$.total'))>0 AND JSON_QUERY(historyJson,'$.operations') IS NOT NULL AND JSON_QUERY(historyJson,'$.origins') IS NOT NULL)
- THROW 54260,'Owner history failed to preserve saved operations and original scope.',1;
-DELETE @HistoryResult;INSERT @HistoryResult EXEC paws_api.GetTeachingLeadershipAccessHistory N'leadership062owner',N'leadership062target',N'2027-28',0;
-IF NOT EXISTS(SELECT 1 FROM @HistoryResult WHERE JSON_VALUE(historyJson,'$.total')=N'0' AND JSON_QUERY(historyJson,'$.operations')=N'[]') THROW 54260,'History crossed academic-year scope.',1;
 SET @Rejected=0;
 BEGIN TRY EXEC paws_api.GetTeachingLeadershipAccessHistory N'leadership062target',N'leadership062target',N'2026-27',0;END TRY BEGIN CATCH IF ERROR_NUMBER()=54101 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 THROW 54260,'Faculty read Owner-only leadership history.',1;
-PRINT 'LEADERSHIP_COMMAND_062_HISTORY_YEAR_OWNER_BOUNDARY';

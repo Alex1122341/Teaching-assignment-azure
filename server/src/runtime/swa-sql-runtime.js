@@ -78,9 +78,11 @@ const {createAccountAccessApi}=require('../access/account-access-api');
 const {createCollaborationApi}=require('../access/collaboration-api');
 const {createLegacyAccessStore}=require('../access/legacy-access-store');
 const {createSqlAccountAccessRepository}=require('../data/sql-account-access-repository');
+const {createSqlTeachingAccessRepository}=require('../data/sql-teaching-access-repository');
+const {createEffectiveTeachingIdentity}=require('../access/effective-teaching-identity');
 const {createAccountAccessFunctions}=require('./swa-account-access-functions');
 
-function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
+function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql, clock=Date.now } = {}) {
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
   const allowSelfSigned = parseBooleanFlag(env.PAWS_SQL_ALLOW_SELF_SIGNED, 'PAWS_SQL_ALLOW_SELF_SIGNED');
   const connectionConfig = buildSqlConnectionConfig({
@@ -108,7 +110,9 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const support=createSupportService({db,verifyToken:realVerify,findUser:users.findByUid});
   const verify=support.verify;
   const accessRepository=createSqlAccountAccessRepository(db);
-  const accessIdentity={verifyToken:verify,findUser:accessRepository.read,repository:accessRepository};
+  const teachingAccessRepository=createSqlTeachingAccessRepository(db);
+  const effectiveAccessIdentity=createEffectiveTeachingIdentity({readProfile:accessRepository.read,repository:teachingAccessRepository,clock});
+  const accessIdentity={verifyToken:verify,findUser:effectiveAccessIdentity,repository:accessRepository};
   const accessRoutes=createAccountAccessFunctions({
     api:createAccountAccessApi({...accessIdentity,writeEnabled:writeGates.accountAccess}),
     collaboration:createCollaborationApi({...accessIdentity,writeEnabled:writeGates.collaboration,store:createLegacyAccessStore({
@@ -163,7 +167,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     })
   });
   const teachingAssignmentRoutes = createTeachingAssignmentFunctions({api:createTeachingAssignmentApi({
-    verifyToken:verify,findUser:users.findByUid,repository:createSqlTeachingAssignmentWorkflowRepository(db),writeGates
+    verifyToken:verify,findUser:effectiveAccessIdentity,repository:createSqlTeachingAssignmentWorkflowRepository(db),writeGates
   })});
   const doeWorksheetRepository = createSqlDoeWorksheetRepository(db);
   const doeWorksheetService = createWorksheetService({ repository: doeWorksheetRepository });

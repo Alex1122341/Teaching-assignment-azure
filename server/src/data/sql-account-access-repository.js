@@ -1,12 +1,12 @@
 'use strict';
 const PROFILE=`u.FirebaseUid AS firebaseUid,u.Email AS email,u.DisplayName AS displayName,u.BaseRole AS baseRole,
- u.FacultyId AS facultyId,u.Active AS active,u.MustChangePassword AS mustChangePassword,
+ u.FacultyId AS facultyId,u.Active AS active,u.MustChangePassword AS mustChangePassword,CAST(COALESCE(f.Active,0) AS bit) AS facultyActive,
  LOWER(CONVERT(varchar(16),CONVERT(binary(8),u.AccessVersion),2)) AS version`;
 function receipt(row){return row?JSON.parse(row.receiptJson):null;}
 function createSqlAccountAccessRepository(db){
  return Object.freeze({
-  async read(uid){return (await db.query(`SELECT ${PROFILE} FROM paws.UserProfile u WHERE u.FirebaseUid=@uid`,{uid}))[0]||null;},
-  list:()=>db.query(`SELECT TOP(1001) ${PROFILE} FROM paws.UserProfile u ORDER BY u.DisplayName,u.FirebaseUid`),
+  async read(uid){return (await db.query(`SELECT ${PROFILE} FROM paws.UserProfile u LEFT JOIN paws.Faculty f ON f.FacultyId=u.FacultyId WHERE u.FirebaseUid=@uid`,{uid}))[0]||null;},
+  list:()=>db.query(`SELECT TOP(1001) ${PROFILE} FROM paws.UserProfile u LEFT JOIN paws.Faculty f ON f.FacultyId=u.FacultyId ORDER BY u.DisplayName,u.FirebaseUid`),
   eligibleFaculty:()=>db.query(`SELECT TOP(5001) FacultyId AS facultyId,DisplayName AS displayName,PreferredFirstName AS preferredFirstName,PreferredLastName AS preferredLastName,Active AS active FROM paws.Faculty WHERE Active=1 ORDER BY DisplayName,FacultyId`),
   collaborators:()=>db.query(`SELECT TOP(1001) u.FirebaseUid AS firebaseUid,u.FacultyId AS facultyId,
    f.DisplayName AS displayName,f.PreferredFirstName AS preferredFirstName,f.PreferredLastName AS preferredLastName,

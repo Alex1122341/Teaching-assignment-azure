@@ -41,6 +41,7 @@ IF (SELECT COUNT(*) FROM paws.LeadershipAccessOperation WHERE TargetUid=N'leader
 IF (SELECT COUNT(*) FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityId=N'leadership062hicc')<>1 THROW 54260,'Concurrent intents duplicated the exclusive assignee.',1;
 PRINT 'LEADERSHIP_COMMAND_062_CONCURRENT_EPOCH_SERIALIZATION';
 '@ 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/063_scoped_teaching_workflow_acceptance.sql') -Raw) 'VetMed-Ops'
 $commandRollback=Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_062_leadership_access_commands.sql') -Raw
 $commandEscaped=([regex]::Replace($commandRollback,'(?m)^:[^\r\n]+\r?\n','')).Replace("'","''")
 Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$commandEscaped');END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()=54262 SET @Refused=1;ELSE THROW;END CATCH;IF @Refused=0 THROW 54260,'Used command rollback was not refused.',1;PRINT 'LEADERSHIP_COMMAND_062_USED_ROLLBACK_REFUSED';" 'VetMed-Ops'

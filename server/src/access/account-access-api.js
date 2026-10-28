@@ -39,7 +39,11 @@ function createAccountAccessApi({verifyToken,findUser,repository,writeEnabled=fa
    if(!profile)return ok({access:{authority:'University SQL',allowed:false,status:'not_provisioned',role:null,canManageAccounts:false,canManageGroups:false}});
    const validated=validateAuthorizedProfile(profile),allowed=!validated.status;
    const status=profile.active!==true?'inactive':profile.mustChangePassword?'password_required':validated.status?'needs_review':'ready';
-   return ok({access:{authority:'University SQL',allowed,status,displayName:names.format(profile),role:normalizeBaseRole(profile.baseRole),facultyId:profile.facultyId||null,version:VERSION.test(profile.version||'')?profile.version:null,canManageAccounts:allowed&&owner(profile),canManageGroups:allowed&&(owner(profile)||validated.role==='hicc')}});
+   const teaching=profile.teachingAccess,ownScope=teaching&&/^[a-f0-9]{64}$/i.test(teaching.scopeVersion||'');
+   return ok({access:{authority:'University SQL',allowed,status,displayName:names.format(profile),role:normalizeBaseRole(profile.baseRole),facultyId:profile.facultyId||null,version:VERSION.test(profile.version||'')?profile.version:null,
+    effectiveRoles:allowed?(teaching?.effectiveRoles||[normalizeBaseRole(profile.baseRole)]):[],academicYear:teaching?.academicYear||null,
+    responsibilities:allowed&&ownScope?structuredClone(teaching.responsibilities):[],scopeVersion:ownScope?teaching.scopeVersion:null,
+    canManageAccounts:allowed&&owner(profile),canManageGroups:allowed&&(owner(profile)||validated.role==='hicc')}});
   },
   async catalog(token){
    const auth=await authorize(token);if(auth.response)return auth.response;

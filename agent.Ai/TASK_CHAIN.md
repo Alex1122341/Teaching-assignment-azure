@@ -1,6 +1,6 @@
 ## Current: PR125 Firestore Testing work — 2026-10-27
 
-Continue the Testing-only Firestore backend and deployment using `vista-teaching-lab` and the university Testing host; RDC is explicitly allowed. Consolidate Testing configuration, deployment and runtime scripts under a dedicated folder while keeping automated tests in `tests` and preserving active entry points. A Testing index is READY. An unpublished HTTP transport exposes identity, calendar, sanitized leadership-directory and CCC schedule reads. The synthetic seed and disabled-Faculty-identity helper have not run live. API parity, trusted activation, shared lab privacy and live acceptance remain incomplete. Preserve Production and shared lab data. See `updates/2026-10-27-pr125-testing-ccc.md`.
+Continue the Testing-only Firestore backend and deployment using `vista-teaching-lab` and the university Testing host; RDC is explicitly allowed. Testing configuration and environment tools now reside under `tools/testing/`, with compatibility entry points and automated tests kept under `tests/`; obtain exact-head CI. A Testing index is READY. An unpublished HTTP transport exposes identity, calendar, sanitized leadership-directory and CCC schedule reads. The synthetic seed and disabled-Faculty-identity helper have not run live. API parity, trusted activation, shared lab privacy and live acceptance remain incomplete. Preserve Production and shared lab data. See `updates/2026-10-28-pr125-testing-folder.md`.
 
 ## Current: Custom Reports23–25 product implemented; review/release pending — 2026-10-26
 

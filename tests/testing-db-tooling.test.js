@@ -6,7 +6,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-const { main, splitBatches, adapt, assertLocalOdbc, decideAction, markerGrantSql, SKIP, TOLERATED_FAILURES } = require('../tools/testing-db/reset-testing-db');
+const { main, splitBatches, adapt, assertLocalOdbc, decideAction, markerGrantSql, SKIP, TOLERATED_FAILURES } = require('../tools/testing/db/reset-testing-db');
 
 const TESTING = {
   PAWS_ENVIRONMENT: 'testing', PAWS_TESTING_ENVIRONMENT_ID: '3f0c9a52-7d1e-4b6a-9c2f-0a1b2c3d4e5f', FIREBASE_PROJECT_ID: 'paws-testing',
@@ -16,7 +16,7 @@ const TESTING = {
 
 test('local acceptance refuses every pre-existing database before destructive SQL, even a marked one', async () => {
   const vm = require('node:vm');
-  const source = fs.readFileSync(path.join(root, 'tools/testing-db/local-acceptance.js'), 'utf8');
+  const source = fs.readFileSync(path.join(root, 'tools/testing/db/local-acceptance.js'), 'utf8');
   const queries = [];
   class Pool {
     async connect() { return this; }
@@ -39,7 +39,7 @@ test('local acceptance refuses every pre-existing database before destructive SQ
     if (name === './reset-testing-db') return { main() { throw Error('Reset must not run'); } };
     return require(name);
   };
-  const context = { require: fakeRequire, module: { exports: {} }, process: { env: {} }, __dirname: path.join(root, 'tools/testing-db'), console };
+  const context = { require: fakeRequire, module: { exports: {} }, process: { env: {} }, __dirname: path.join(root, 'tools/testing/db'), console };
   vm.runInNewContext(source + '\nthis.createAcceptanceDatabase = createEmptyAcceptanceDatabase;', context);
   await assert.rejects(context.createAcceptanceDatabase('MSSQLLocalDB'), /already has a VetMed-Ops database.*refusing/i);
   assert.equal(queries.length, 1, 'only the master database-existence probe may run');
@@ -47,7 +47,7 @@ test('local acceptance refuses every pre-existing database before destructive SQ
 });
 
 test('two-instance acceptance rejects pre-existing instance names before SQL or instance startup',async()=>{
- const vm=require('node:vm'),source=fs.readFileSync(path.join(root,'tools/testing-db/local-acceptance.js'),'utf8'),commands=[];let sqlCalls=0;
+ const vm=require('node:vm'),source=fs.readFileSync(path.join(root,'tools/testing/db/local-acceptance.js'),'utf8'),commands=[];let sqlCalls=0;
  class Pool {constructor(){sqlCalls++;}async connect(){return this;}}
  const fakeRequire=name=>{
   if(name.includes('mssql'))return {ConnectionPool:Pool};
@@ -56,7 +56,7 @@ test('two-instance acceptance rejects pre-existing instance names before SQL or 
   if(name==='./reset-testing-db')return {};
   return require(name);
  };
- const context={require:fakeRequire,module:{exports:{}},process:{env:{}},__dirname:path.join(root,'tools/testing-db'),console};
+ const context={require:fakeRequire,module:{exports:{}},process:{env:{}},__dirname:path.join(root,'tools/testing/db'),console};
  vm.runInNewContext(source+'\nthis.runAcceptance=main;',context);
  await assert.rejects(context.runAcceptance(),/instance.*already exists|existing.*instance/i);assert.equal(sqlCalls,0);assert.deepEqual(commands,['SqlLocalDB.exe info']);
 });
@@ -90,8 +90,8 @@ test('test-only migration adaptations are explicit and leave production migratio
 });
 
 test('synthetic seed is deterministic, matches its manifest, and contains no real identities', () => {
-  const seed = fs.readFileSync(path.join(root, 'tools/testing-db/seed-base.sql'), 'utf8');
-  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'tools/testing-db/seed-manifest.json'), 'utf8'));
+  const seed = fs.readFileSync(path.join(root, 'tools/testing/db/seed-base.sql'), 'utf8');
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'tools/testing/db/seed-manifest.json'), 'utf8'));
   assert.equal((seed.match(/INSERT INTO paws\.Session \(/g) || []).length, manifest.sessions);
   assert.equal((seed.match(/INSERT INTO paws\.AfcRecord \(/g) || []).length, manifest.afc);
   const emails = [...seed.matchAll(/N'([^' ]+@[^' ]+)'/g)].map(m => m[1]);
@@ -103,7 +103,7 @@ test('synthetic seed is deterministic, matches its manifest, and contains no rea
   try {
     const regenerated = path.join(require('node:os').tmpdir(), `paws-seed-${process.pid}`);
     fs.mkdirSync(regenerated, { recursive: true });
-    fs.copyFileSync(path.join(root, 'tools/testing-db/generate_synthetic_seed.py'), path.join(regenerated, 'generate_synthetic_seed.py'));
+    fs.copyFileSync(path.join(root, 'tools/testing/db/generate_synthetic_seed.py'), path.join(regenerated, 'generate_synthetic_seed.py'));
     execFileSync(python, [path.join(regenerated, 'generate_synthetic_seed.py')], { stdio: 'pipe' });
     assert.equal(fs.readFileSync(path.join(regenerated, 'seed-base.sql'), 'utf8'), seed, 'committed seed equals regenerated seed');
   } catch (error) {
@@ -148,7 +148,7 @@ test('local ODBC override must itself name a LocalDB instance', () => {
 test('the runtime principal is granted read access to the Testing marker, and nothing else on it', () => {
   assert.equal(markerGrantSql('paws_testing_runtime'), 'GRANT SELECT ON OBJECT::paws_env.EnvironmentIdentity TO [paws_testing_runtime];');
   assert.equal(markerGrantSql('odd]name'), 'GRANT SELECT ON OBJECT::paws_env.EnvironmentIdentity TO [odd]]name];');
-  const source = fs.readFileSync(path.join(root, 'tools/testing-db/reset-testing-db.js'), 'utf8');
+  const source = fs.readFileSync(path.join(root, 'tools/testing/db/reset-testing-db.js'), 'utf8');
   assert.match(source, /await run\(pool, markerGrantSql\(runtimePrincipal\)\)/);
   assert.doesNotMatch(source, /GRANT (INSERT|UPDATE|DELETE|CONTROL|ALTER)[^;]*EnvironmentIdentity/);
 });
@@ -159,14 +159,14 @@ test('cloud reset is retired and cannot initialize a database', () => {
 });
 
 test('local acceptance creates fresh databases and contains no database-drop path', () => {
-  const source = fs.readFileSync(path.join(root, 'tools/testing-db/local-acceptance.js'), 'utf8');
+  const source = fs.readFileSync(path.join(root, 'tools/testing/db/local-acceptance.js'), 'utf8');
   assert.match(source, /already has a VetMed-Ops database; refusing to reuse it/);
   assert.doesNotMatch(source, /DROP DATABASE|ALTER DATABASE/i);
   assert.match(source, /paws_acceptance\.StandIn/);
 });
 
 test('operator-class test personas never get a shared-password sign-in', () => {
-  const { accountPlan, SEED_PERSONAS, OPERATOR_PERSONAS } = require('../tools/testing-db/provision-test-accounts');
+  const { accountPlan, SEED_PERSONAS, OPERATOR_PERSONAS } = require('../tools/testing/db/provision-test-accounts');
   const plan = accountPlan([...SEED_PERSONAS, 'syn-unknown']);
   assert.deepEqual(plan.disabled.sort(), ['syn-adfa-general', 'syn-admin', 'syn-developer', 'syn-owner']);
   assert.deepEqual(plan.disabled.sort(), [...OPERATOR_PERSONAS].sort());
@@ -177,7 +177,7 @@ test('operator-class test personas never get a shared-password sign-in', () => {
 
 // ------------------------------------------------------------------ fixture coverage (PR #125 I11)
 test('fixture coverage: every seeded workflow has a bounded verification query; every UAT-created one says how to create it', () => {
-  const coverage = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing-db', 'fixture-coverage.json'), 'utf8'));
+  const coverage = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing', 'db', 'fixture-coverage.json'), 'utf8'));
   const ids = new Set();
   for (const item of coverage.workflows) {
     assert.ok(!ids.has(item.id), `duplicate ${item.id}`); ids.add(item.id);
@@ -189,13 +189,13 @@ test('fixture coverage: every seeded workflow has a bounded verification query; 
       assert.doesNotMatch(item.query, /;|\b(INSERT|UPDATE|DELETE|DROP|ALTER|EXEC|MERGE|GRANT)\b/i, `${item.id} is read-only`);
     } else assert.match(item.fixture, /^(UAT|Not pre-seeded)/, item.id);
   }
-  const workflows = fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing-db', 'seed-workflows.js'), 'utf8');
+  const workflows = fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing', 'db', 'seed-workflows.js'), 'utf8');
   for (const state of ['pending_report_to', 'pending_admin', 'approved', 'rejected', 'withdrawn']) assert.ok(workflows.includes(`afc.${state}`), state);
   for (const area of ['afc', 'swap', 'ta', 'timetable', 'roles', 'faculty']) assert.ok([...ids].some(id => id.startsWith(area + '.')), area);
 });
 
 test('verifyFixtureCoverage fails the reset when a seeded workflow is missing and skips UAT-created ones', async () => {
-  const { verifyFixtureCoverage } = require('../tools/testing-db/reset-testing-db');
+  const { verifyFixtureCoverage } = require('../tools/testing/db/reset-testing-db');
   const pool = counts => ({ request: () => ({ batch: async text => ({ recordset: [{ n: counts[text] ?? 0 }] }) }) });
   const coverage = { workflows: [{ id: 'a', status: 'seeded', min: 2, query: 'QA' }, { id: 'b', status: 'uat-created' }] };
   assert.deepEqual((await verifyFixtureCoverage(pool({ QA: 3 }), coverage)).map(r => r.status), ['ok', 'uat-created']);
@@ -203,22 +203,22 @@ test('verifyFixtureCoverage fails the reset when a seeded workflow is missing an
 });
 
 test('reset seeds current Availability and CCC readers after all forward migrations', () => {
-  const coverage = JSON.parse(fs.readFileSync(path.join(root, 'tools/testing-db/fixture-coverage.json'), 'utf8'));
+  const coverage = JSON.parse(fs.readFileSync(path.join(root, 'tools/testing/db/fixture-coverage.json'), 'utf8'));
   for (const id of ['availability.work', 'ccc.assigned', 'ccc.locum', 'ccc.other-year']) {
     const item = coverage.workflows.find(row => row.id === id);
     assert.equal(item?.status, 'seeded', id);
     assert.ok(item.min >= 1, id);
   }
-  const source = fs.readFileSync(path.join(root, 'tools/testing-db/reset-testing-db.js'), 'utf8');
+  const source = fs.readFileSync(path.join(root, 'tools/testing/db/reset-testing-db.js'), 'utf8');
   assert.ok(source.indexOf("await run(pool, sources.get('seed-readers.sql'))") > source.indexOf('for (const file of files)'));
-  const acceptance = fs.readFileSync(path.join(root, 'tools/testing-db/local-acceptance.js'), 'utf8');
+  const acceptance = fs.readFileSync(path.join(root, 'tools/testing/db/local-acceptance.js'), 'utf8');
   for (const label of ['Availability pagination returns all work rows', 'Availability denies another faculty', 'CCC Schedule includes assigned and Locum', 'CCC Schedule excludes the next academic year']) {
     assert.ok(acceptance.includes(label), label);
   }
 });
 
 test('workflow fixtures run only through the guarded runtime and accept only synthetic fixture identities', async () => {
-  const { fixtureAdmin, fixtureEnv, SYNTHETIC_UIDS } = require('../tools/testing-db/seed-workflows');
+  const { fixtureAdmin, fixtureEnv, SYNTHETIC_UIDS } = require('../tools/testing/db/seed-workflows');
   const verifier = fixtureAdmin('paws-testing').auth();
   assert.equal((await verifier.verifyIdToken('syn-fixture:syn-hicc')).uid, 'syn-hicc');
   for (const token of ['syn-fixture:real-user', 'syn-fixture:syn-developer', 'syn-fixture:syn-owner', 'syn-token:syn-admin', 'eyJhbGciOi']) await assert.rejects(verifier.verifyIdToken(token), /invalid fixture token/, token);
@@ -226,8 +226,8 @@ test('workflow fixtures run only through the guarded runtime and accept only syn
   const env = fixtureEnv({ PAWS_ENVIRONMENT: 'testing' });
   assert.equal(env.PAWS_ENVIRONMENT, 'testing');
   assert.equal(env.PAWS_TA_DRAFT_WRITE_ENABLED, 'true');
-  const source = fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing-db', 'reset-testing-db.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing', 'db', 'reset-testing-db.js'), 'utf8');
   assert.match(source, /await runtime\.assertEnvironment\(\);\s*return await seedWorkflows/);
-  const seed = fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing-db', 'seed-base.sql'), 'utf8');
+  const seed = fs.readFileSync(path.join(__dirname, '..', 'tools', 'testing', 'db', 'seed-base.sql'), 'utf8');
   assert.ok(!/@(?!example\.test)[a-z0-9.-]+\.[a-z]{2,}/i.test(seed.replace(/N'[^']*@example\.test'/g, '')), 'only @example.test addresses');
 });

@@ -62,7 +62,7 @@ jobs:
       - name: Build and verify source-level Testing candidate
         run: |
           node tools/build-static.js
-          node tools/build-testing-release.js --if-provisioned | tee testing-readiness.json
+          node tools/testing/build-testing-release.js --if-provisioned | tee testing-readiness.json
           if grep -q '"skipped":true' testing-readiness.json; then
             echo "::warning::Testing Hosting/API/Firebase config is NOT provisioned; this successful code gate is NOT deployment approval."
           fi
@@ -105,7 +105,7 @@ jobs:
       - run: node --test tests/beta-baseline.test.js tests/azure-deployment.test.js
       # Dual environment: one commit, two artifacts. The production artifact is unchanged; the Testing
       # artifact differs only in its rendered environment configuration and is built only once the
-      # Testing resources are provisioned (config/environments/testing.json complete).
+      # Testing resources are provisioned (tools/testing/config/environment.json complete).
       - name: Verify environment configuration (repository)
         run: node tools/verify-environment-config.js --repository
       - name: Verify production artifact environment
@@ -113,7 +113,7 @@ jobs:
       - name: Build Testing artifact (when provisioned)
         id: testing_artifact
         run: |
-          node tools/build-testing-release.js --if-provisioned | tee testing-build.json
+          node tools/testing/build-testing-release.js --if-provisioned | tee testing-build.json
           if [ -d .azure-testing/app ]; then echo "built=true" >> "$GITHUB_OUTPUT"; else echo "built=false" >> "$GITHUB_OUTPUT"; fi
       - name: Verify Testing artifact (environment guard + frozen runtime)
         if: steps.testing_artifact.outputs.built == 'true'

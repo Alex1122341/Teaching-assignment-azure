@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const file=path.resolve(__dirname,'../tools/testing-host/host-policy.js'),api=fs.existsSync(file)?require(file):{};
+const file=path.resolve(__dirname,'../tools/testing/host/host-policy.js'),api=fs.existsSync(file)?require(file):{};
 const {GATE_ENV}=require('../server/src/data/write-gates');
 const profile={computerName:'ITAPPVETOPSDB01',windowsIdentity:'UC\\synthetic',apiPort:18788,
  target:{profile:'university-testing',host:'itappvetopsdb01',physicalServer:'ITAPPVETOPSDB01',database:'VetMed-Ops-Testing',environmentId:'7e570000-0000-4000-8000-00000000c0de'},

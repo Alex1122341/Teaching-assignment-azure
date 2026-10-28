@@ -93,7 +93,8 @@ function provisionedRoot(testingConfig) {
   fs.mkdirSync(path.join(dir, 'config', 'environments'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'tools'), { recursive: true });
   fs.copyFileSync(path.join(root, 'config', 'environments', 'production.json'), path.join(dir, 'config', 'environments', 'production.json'));
-  fs.writeFileSync(path.join(dir, 'config', 'environments', 'testing.json'), JSON.stringify(testingConfig, null, 2));
+  fs.mkdirSync(path.join(dir, 'tools', 'testing', 'config'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'tools', 'testing', 'config', 'environment.json'), JSON.stringify(testingConfig, null, 2));
   fs.copyFileSync(path.join(root, 'tools', 'static-assets.json'), path.join(dir, 'tools', 'static-assets.json'));
   return dir;
 }
@@ -233,7 +234,7 @@ test('Testing deploy is manual main-only and verifies an already staged Universi
   assert.match(testing, /node tools\/beta-api-freeze\.js --artifact \.azure-production\/api/);
   assert.match(testing,/publish-testing-hosting\.js --probe-only/);
   assert.doesNotMatch(testing, /docker build[^\n]* \.\s*$/m);
-  // SQL allow-list, identity, CORS and gates are enforced by tools/verify-testing-api-env.js (tests/testing-deployment-readiness.test.js).
+  // SQL allow-list, identity, CORS and gates are enforced by tools/testing/verify-testing-api-env.js (tests/testing-deployment-readiness.test.js).
   // Plan-agnostic: no GitHub Environment (unavailable for private repos on GitHub Free); repository-level PAWS_TESTING_* settings.
   assert.doesNotMatch(testing, /^\s*environment:\s/m);
   assert.match(testing,/runtime_attestation_sha256:/);
@@ -262,13 +263,14 @@ test('a provisioned Testing build contains exactly the shipped manifest and pass
   const { execFileSync } = require('node:child_process');
   const dir = provisionedRoot(provisionedTesting);
   fs.mkdirSync(path.join(dir, 'tools', 'build'), { recursive: true });
-  for (const tool of ['build-testing-release.js', 'render-environment-config.js']) fs.copyFileSync(path.join(root, 'tools', tool), path.join(dir, 'tools', tool));
+  fs.copyFileSync(path.join(root, 'tools', 'render-environment-config.js'), path.join(dir, 'tools', 'render-environment-config.js'));
+  fs.copyFileSync(path.join(root, 'tools', 'testing', 'build-testing-release.js'), path.join(dir, 'tools', 'testing', 'build-testing-release.js'));
   for (const helper of ['frontend-paths.js', 'static-bundle.js']) {
     fs.copyFileSync(path.join(root, 'tools', 'build', helper), path.join(dir, 'tools', 'build', helper));
   }
   const assets = require('../tools/static-assets.json');
   for (const file of assets) { const dest=path.join(dir,frontendRelativePath(file));fs.mkdirSync(path.dirname(dest),{recursive:true});fs.copyFileSync(assetSourcePath(root,file),dest); }
-  const out = JSON.parse(execFileSync(process.execPath, [path.join(dir, 'tools', 'build-testing-release.js')], { encoding: 'utf8' }));
+  const out = JSON.parse(execFileSync(process.execPath, [path.join(dir, 'tools', 'testing', 'build-testing-release.js')], { encoding: 'utf8' }));
   assert.equal(out.ok, true);
   const app = path.join(dir, '.azure-testing', 'app');
   const shipped = [];
@@ -297,7 +299,7 @@ test('a test identity that reaches its expiry time is shown as expired, without 
 });
 
 test('the Testing banner reads "TESTING ENVIRONMENT — SYNTHETIC DATA ONLY" and shows actor, persona and effective role', () => {
-  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'config', 'environments', 'testing.json'), 'utf8')).environmentLabel, 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY');
+  assert.equal(loadConfig('testing').environmentLabel, 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY');
   assert.equal(nav.viewModel({ ...provisionedTesting, environmentLabel: undefined }, null).label, 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY');
   const html = renderBar({ ...provisionedTesting, environmentLabel: 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY' }, personaMe('2099-01-01T00:00:00Z'), '/index.html');
   assert.match(html, /TESTING ENVIRONMENT — SYNTHETIC DATA ONLY/);

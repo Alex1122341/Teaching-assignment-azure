@@ -11,17 +11,17 @@ test('Testing deploy stages the accepted artifact at the configured Firebase pub
   const hosting = JSON.parse(fs.readFileSync(path.join(root, 'firebase.hosting-only.json'), 'utf8')).hosting.public;
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/paws-testing-deploy.yml'), 'utf8');
   assert.equal(hosting, '.firebase-production/app');
-  const publisher=fs.readFileSync(path.join(root,'tools/publish-testing-hosting.js'),'utf8');
+  const publisher=fs.readFileSync(path.join(root,'tools/testing/publish-testing-hosting.js'),'utf8');
   assert.match(workflow,/publish-testing-hosting\.js/);
   assert.ok(publisher.includes("path.join(ROOT,'.azure-testing/app')")&&publisher.includes("path.join(ROOT,'.firebase-production/app')"));
   assert.match(publisher,/['"]--config['"],['"]firebase\.hosting-only\.json['"]/);
 });
 const { GATE_ENV, createWriteGates } = require('../server/src/data/write-gates');
-const { verifyTestingApiEnv, parseEnvFile } = require('../tools/verify-testing-api-env');
-const { preflight } = require('../tools/testing-preflight');
+const { verifyTestingApiEnv, parseEnvFile } = require('../tools/testing/verify-testing-api-env');
+const { preflight } = require('../tools/testing/testing-preflight');
 const { loadConfig, validateConfig, validatePair, render } = require('../tools/render-environment-config');
 const { findEvidence, checkEvidence } = require('../tools/verify-release-evidence');
-const publishModule=fs.existsSync(path.join(root,'tools/publish-testing-hosting.js'))?require('../tools/publish-testing-hosting'):{};
+const publishModule=fs.existsSync(path.join(root,'tools/testing/publish-testing-hosting.js'))?require('../tools/testing/publish-testing-hosting'):{};
 
 test('Testing Hosting remains fixed to its own site and independent Testing identity', () => {
   const { resolveTestingHostingProject } = publishModule;
@@ -33,7 +33,7 @@ test('Testing Hosting remains fixed to its own site and independent Testing iden
   assert.throws(() => resolveTestingHostingProject({ ...labTesting, environment: 'production' }));
   assert.throws(() => resolveTestingHostingProject({ ...labTesting, firebase: { projectId: 'tester-teaching' } }));
   assert.throws(() => resolveTestingHostingProject({ ...labTesting, firebase: { projectId: 'vista-teaching-lab' } }));
-  const publisher = fs.readFileSync(path.join(root, 'tools/publish-testing-hosting.js'), 'utf8');
+  const publisher = fs.readFileSync(path.join(root, 'tools/testing/publish-testing-hosting.js'), 'utf8');
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/paws-testing-deploy.yml'), 'utf8');
   assert.match(publisher, /'--project',resolveTestingHostingProject\(testing\)/);
   assert.match(workflow, /key\.project_id!==resolveTestingHostingProject\(testing\)/);
@@ -49,15 +49,16 @@ function configRoot(testing = testingConfig, prod = { ...production, peerSiteUrl
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'paws-ready-'));
   fs.mkdirSync(path.join(dir, 'config', 'environments'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'config', 'environments', 'production.json'), JSON.stringify(prod));
-  fs.writeFileSync(path.join(dir, 'config', 'environments', 'testing.json'), JSON.stringify(testing));
-  fs.mkdirSync(path.join(dir,'deploy/testing'),{recursive:true});fs.copyFileSync(path.join(root,'deploy/testing/write-gate-matrix.json'),path.join(dir,'deploy/testing/write-gate-matrix.json'));
+  fs.mkdirSync(path.join(dir, 'tools', 'testing', 'config'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'tools', 'testing', 'config', 'environment.json'), JSON.stringify(testing));
+  fs.mkdirSync(path.join(dir,'tools/testing/config'),{recursive:true});fs.copyFileSync(path.join(root,'tools/testing/config/write-gate-matrix.json'),path.join(dir,'tools/testing/config/write-gate-matrix.json'));
   return dir;
 }
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 // ------------------------------------------------------------------ write-gate matrix
 test('write-gate matrix lists every gate exactly once with its real variable and enforcing modules', () => {
-  const matrix = JSON.parse(read('deploy/testing/write-gate-matrix.json')).gates;
+  const matrix = JSON.parse(read('tools/testing/config/write-gate-matrix.json')).gates;
   assert.deepEqual(matrix.map(g => g.gate).sort(), Object.keys(GATE_ENV).sort());
   for (const entry of matrix) {
     assert.equal(entry.env, GATE_ENV[entry.gate], entry.gate);
@@ -71,9 +72,9 @@ test('write-gate matrix lists every gate exactly once with its real variable and
 });
 
 test('the Testing API template sets every gate explicitly and matches the matrix; gates open only on exact "true"', () => {
-  const template = parseEnvFile(read('deploy/testing/testing-api.env.template'));
+  const template = parseEnvFile(read('tools/testing/config/testing-api.env.template'));
   const byName = Object.fromEntries(template.map(e => [e.name, e.value]));
-  const matrix = JSON.parse(read('deploy/testing/write-gate-matrix.json')).gates;
+  const matrix = JSON.parse(read('tools/testing/config/write-gate-matrix.json')).gates;
   for (const entry of matrix) assert.equal(byName[entry.env], String(entry.testing), entry.env);
   const gates = createWriteGates(byName);
   assert.ok(Object.values(gates).every(Boolean));
@@ -114,7 +115,7 @@ test('malformed private env lines never echo credential content',()=>{
 });
 test('preflight CLI sanitizes malformed private JSON',()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'paws-private-preflight-')),file=path.join(dir,'private.json');fs.writeFileSync(file,'DO_NOT_LOG_SECRET');
- const result=require('node:child_process').spawnSync(process.execPath,[path.join(root,'tools/testing-preflight.js'),'--api-env',file,'--profile','university-testing'],{encoding:'utf8'});
+ const result=require('node:child_process').spawnSync(process.execPath,[path.join(root,'tools/testing/testing-preflight.js'),'--api-env',file,'--profile','university-testing'],{encoding:'utf8'});
  assert.notEqual(result.status,0);assert.ok(!(result.stdout+result.stderr).includes('DO_NOT_LOG_SECRET'));
 });
 test('publisher verifies bytes from the Testing artifact rather than the working repository',()=>{
@@ -168,7 +169,7 @@ test('Testing API environment: unsafe or incomplete settings are rejected with a
 test('Testing API environment: an unprovisioned configuration is reported, not assumed', () => {
   const unprovisioned = configRoot({ ...testingConfig, firebase: null, siteUrl: null }, { ...production, peerSiteUrl: null });
   const { errors } = verifyTestingApiEnv(goodEnv(), { root: unprovisioned });
-  assert.ok(errors.some(error => /testing\.json is not provisioned/.test(error)));
+  assert.ok(errors.some(error => /environment\.json is not provisioned/.test(error)));
 });
 
 // ------------------------------------------------------------------ configuration validation
@@ -202,7 +203,7 @@ test('Testing configuration rejects placeholders, IPs, localhost, Production hos
 });
 
 test('the committed template is never deployable as-is', () => {
-  const template = JSON.parse(read('config/environments/testing.template.json'));
+  const template = JSON.parse(read('tools/testing/config/testing.template.json'));
   const errors = validateConfig(template, { environment: 'testing' });
   assert.ok(errors.some(error => /placeholder/.test(error)));
 });
@@ -410,7 +411,7 @@ test('release evidence helper requires main and checks every requested kind agai
 test('retired cloud reset cannot mutate SQL and live reset stays in guarded University tooling', () => {
   const text = workflow('paws-testing-db-reset.yml');
   assert.match(text,/RETIRED_OPERATION/);assert.doesNotMatch(text,/azure\/login|az sql|reset-testing-db\.js|id-token: write/);
-  const local=read('tools/testing-db/university-admin.js');assert.match(local,/RESET-TESTING/);assert.match(local,/backupTesting/);assert.match(local,/withExclusiveReset/);
+  const local=read('tools/testing/db/university-admin.js');assert.match(local,/RESET-TESTING/);assert.match(local,/backupTesting/);assert.match(local,/withExclusiveReset/);
   for (const name of ['paws-testing-deploy.yml', 'paws-testing-db-reset.yml', 'paws-release-approval.yml']) {
     assert.doesNotMatch(workflow(name), /FIREBASE_SERVICE_ACCOUNT_TESTER_TEACHING/, `${name} never uses the Production Firebase credential`);
   }

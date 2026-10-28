@@ -18,7 +18,7 @@
 // Environment: GH_TOKEN (actions:read), GITHUB_REPOSITORY, optional GITHUB_API_URL.
 const fs = require('node:fs');
 const path = require('node:path');
-const {canonicalDigest,validateRuntimeAttestation}=require('./testing-runtime-attestation');
+const {canonicalDigest,validateRuntimeAttestation}=require('./testing/testing-runtime-attestation');
 const {BASELINE_COMMIT}=require('./beta-freeze');
 
 const SHA = /^[0-9a-f]{40}$/;
@@ -83,7 +83,7 @@ async function checkEvidence({ api, repository, kind, sha, evidence, found, appr
     assertRun(build, { repository, workflow: BUILD_WORKFLOW, label: 'build' });
     if (build.event !== 'push' || build.head_sha !== sha) fail('EVIDENCE_BUILD_MISMATCH', `build ${build.id} is ${build.event} of ${build.head_sha}`);
     if(String(evidence.runId)!==String(found?.runId)||evidence.targetProfile!=='university-testing'||!evidence.runtimeAttestation||canonicalDigest(evidence.runtimeAttestation)!==evidence.runtimeAttestationDigest)fail('EVIDENCE_ATTESTATION','Testing runtime attestation/run digest mismatch');
-    const expectedGates=Object.fromEntries(JSON.parse(fs.readFileSync(path.join(__dirname,'../deploy/testing/write-gate-matrix.json'),'utf8')).gates.map(row=>[row.gate,row.testing]));
+    const expectedGates=Object.fromEntries(JSON.parse(fs.readFileSync(path.join(__dirname,'testing/config/write-gate-matrix.json'),'utf8')).gates.map(row=>[row.gate,row.testing]));
     try{validateRuntimeAttestation(evidence.runtimeAttestation,{commitSha:sha,testing:expectedTestingConfig||{apiOrigin:evidence.apiOrigin,siteUrl:evidence.siteUrl,firebase:{projectId:evidence.runtimeAttestation.firebaseProjectId}},trustAnchor:BASELINE_COMMIT,expectedGates});}
     catch{fail('EVIDENCE_ATTESTATION','Testing runtime attestation source/target/gates are not accepted');}
     const proof=evidence.runtimeAttestation;

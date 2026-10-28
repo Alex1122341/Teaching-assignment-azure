@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const file=path.resolve(__dirname,'../tools/testing-host/host-platform.js'),api=fs.existsSync(file)?require(file):{};
+const file=path.resolve(__dirname,'../tools/testing/host/host-platform.js'),api=fs.existsSync(file)?require(file):{};
 function fn(name){assert.equal(typeof api[name],'function',name+' must enforce the native host boundary');return api[name];}
 test('private credentials cannot override runtime target Firebase identity or gates',()=>{
  const build=fn('buildRuntimeEnvironment'),profile={apiPort:18788,firebaseProjectId:'paws-testing-ucvm-20261022',allowedOrigin:'https://paws-testing-ucvm-20261022.web.app',target:{host:'itappvetopsdb01',database:'VetMed-Ops-Testing',environmentId:'7e570000-0000-4000-8000-00000000c0de'},gateMap:{}};
@@ -20,14 +20,14 @@ test('Windows process command-line matching is exact and rejects extra arguments
  assert.equal(match('"'+exe+'" --require evil.js "'+entry+'"',exe,entry),false);
 });
 test('supervisor wrapper exposes only approved actions and uses Node22 without echoing secret JSON',()=>{
- const script=path.resolve(__dirname,'../tools/testing-host/Invoke-PawsTestingHost.ps1');
+ const script=path.resolve(__dirname,'../tools/testing/host/Invoke-PawsTestingHost.ps1');
  assert.ok(fs.existsSync(script),'supervisor wrapper must exist');
  const text=fs.readFileSync(script,'utf8');assert.match(text,/ValidateSet\('Stage','Start','Check','Stop'\)/);assert.match(text,/HOST_CONFIGURATION_INVALID/);
  assert.doesNotMatch(text,/Write-(?:Output|Host|Error)\s+\$_|Write-(?:Output|Host|Error)\s+\$config\b/);
 });
 
 test('School preparation is fixed to private P drive and refuses existing directories without installing or starting services',()=>{
- const text=fs.readFileSync(path.resolve(__dirname,'../tools/testing-host/Prepare-UniversityTestingHost.ps1'),'utf8');
+ const text=fs.readFileSync(path.resolve(__dirname,'../tools/testing/host/Prepare-UniversityTestingHost.ps1'),'utf8');
  assert.match(text,/ITAPPVETOPSDB01/);assert.match(text,/P:\\PAWS\\Testing/);
  assert.match(text,/PREPARED_NOT_READY/);assert.match(text,/FileMode\]::CreateNew/);
  assert.match(text,/SetAccessRuleProtection\(\$true,\$false\)/);

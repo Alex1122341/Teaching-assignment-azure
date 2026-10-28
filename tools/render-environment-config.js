@@ -19,6 +19,7 @@ const KEYS = Object.freeze(['environment', 'environmentLabel', 'releaseLabel', '
 
 function configPath(environment, root = ROOT) {
   if (!ENVIRONMENTS.includes(environment)) throw new Error(`Unknown environment: ${environment}`);
+  if (environment === 'testing') return path.join(root, 'tools', 'testing', 'config', 'environment.json');
   return path.join(root, 'config', 'environments', `${environment}.json`);
 }
 
@@ -181,4 +182,4 @@ if (require.main === module) {
   try { main(process.argv.slice(2)); } catch (error) { console.error(error.message); process.exit(1); }
 }
 
-module.exports = { ENVIRONMENTS, PRODUCTION_FIREBASE_PROJECT_IDS, loadConfig, validateConfig, validatePair, render };
+module.exports = { ENVIRONMENTS, PRODUCTION_FIREBASE_PROJECT_IDS, configPath, loadConfig, validateConfig, validatePair, render };

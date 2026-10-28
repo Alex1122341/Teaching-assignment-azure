@@ -2,12 +2,12 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const root = path.resolve(__dirname, '..');
-const adapterFile = path.join(root, 'tools/testing-db/university-migration-adapter.js');
-const connectorFile = path.join(root, 'tools/testing-db/connection-profile.js');
+const adapterFile = path.join(root, 'tools/testing/db/university-migration-adapter.js');
+const connectorFile = path.join(root, 'tools/testing/db/connection-profile.js');
 const adapter = fs.existsSync(adapterFile) ? require(adapterFile) : {};
 const connector = fs.existsSync(connectorFile) ? require(connectorFile) : {};
 const { resolveSqlTarget } = require('../server/src/runtime/sql-environment-target');
-const reset = require('../tools/testing-db/reset-testing-db');
+const reset = require('../tools/testing/db/reset-testing-db');
 const UUID = '7e570000-0000-4000-8000-00000000c0de';
 const env = {
   PAWS_ENVIRONMENT: 'testing', PAWS_TESTING_SQL_PROFILE: 'university-testing',
@@ -22,12 +22,12 @@ function api(object, name) { assert.equal(typeof object[name], 'function', `${na
 function files() {
   const migrations = fs.readdirSync(path.join(root, 'database/azure-sql')).filter(file => /^\d{3}_.*\.sql$/.test(file) && !/(rollback|_proof|_acceptance)/.test(file));
   return [...migrations.map(file => ({file, path:path.join(root,'database/azure-sql',file)})),
-    ...['seed-base.sql','seed-ta.sql','seed-readers.sql'].map(file => ({file,path:path.join(root,'tools/testing-db',file)}))];
+    ...['seed-base.sql','seed-ta.sql','seed-readers.sql'].map(file => ({file,path:path.join(root,'tools/testing/db',file)}))];
 }
 
 test('enumerated forward migrations adapt only recognized database guards and preserve source files', () => {
   const adapt = api(adapter, 'adaptUniversitySql');
-  const manifest = JSON.parse(fs.readFileSync(path.join(root,'tools/testing-db/university-guard-manifest.json'),'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(path.join(root,'tools/testing/db/university-guard-manifest.json'),'utf8'));
   assert.equal(manifest.normalization, 'utf8-lf');
   assert.deepEqual(Object.keys(manifest.files).sort(), files().map(entry=>entry.file).sort());
   for (const entry of files()) {

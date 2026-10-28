@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
-const file=path.resolve(__dirname,'../tools/testing-host/artifact-attestation.js'),api=fs.existsSync(file)?require(file):{};
+const file=path.resolve(__dirname,'../tools/testing/host/artifact-attestation.js'),api=fs.existsSync(file)?require(file):{};
 const REPO='Alex1122341/Teaching-assignment-azure',SHA='1'.repeat(40),MERGE='2'.repeat(40),TREE='3'.repeat(40);
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'paws-host-artifact-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));

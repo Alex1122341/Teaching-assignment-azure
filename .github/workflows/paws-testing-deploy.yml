@@ -98,7 +98,7 @@ jobs:
           node tools/beta-api-freeze.js --artifact .azure-production/api
       - name: Probe attested API before Hosting authentication
         run: >-
-          node tools/publish-testing-hosting.js --probe-only --sha "$COMMIT_SHA"
+          node tools/testing/publish-testing-hosting.js --probe-only --sha "$COMMIT_SHA"
           --build source-build.json --source-artifact source-artifact.json
           --attestation runtime-attestation.json --attestation-digest "$RUNTIME_ATTESTATION_SHA256"
       - name: Install locked Firebase CLI
@@ -110,8 +110,8 @@ jobs:
           node - <<'NODE'
           try {
             const key=JSON.parse(process.env.TESTING_HOSTING_CREDENTIAL);
-            const testing=require('./config/environments/testing.json');
-            const {resolveTestingHostingProject}=require('./tools/publish-testing-hosting');
+            const testing=require('./tools/testing/config/environment.json');
+            const {resolveTestingHostingProject}=require('./tools/testing/publish-testing-hosting');
             if(key.project_id!==resolveTestingHostingProject(testing))process.exit(1);
           }catch{console.error('TESTING_HOSTING_CREDENTIAL_INVALID');process.exit(1);}
           NODE
@@ -121,7 +121,7 @@ jobs:
           credentials_json: '${{ secrets.PAWS_TESTING_FIREBASE_SERVICE_ACCOUNT }}'
       - name: Publish accepted Testing artifact and verify staged API again
         run: >-
-          node tools/publish-testing-hosting.js --sha "$COMMIT_SHA"
+          node tools/testing/publish-testing-hosting.js --sha "$COMMIT_SHA"
           --build source-build.json --source-artifact source-artifact.json
           --attestation runtime-attestation.json --attestation-digest "$RUNTIME_ATTESTATION_SHA256"
       - name: Upload successful main-defined Testing evidence

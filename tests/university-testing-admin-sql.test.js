@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const file=path.resolve(__dirname,'../tools/testing-db/university-admin-sql.js'),api=fs.existsSync(file)?require(file):{};
+const file=path.resolve(__dirname,'../tools/testing/db/university-admin-sql.js'),api=fs.existsSync(file)?require(file):{};
 const {resolveSqlTarget}=require('../server/src/runtime/sql-environment-target');
 const env={PAWS_ENVIRONMENT:'testing',PAWS_TESTING_SQL_PROFILE:'university-testing',PAWS_TESTING_SQL_SERVER:'itappvetopsdb01',PAWS_TESTING_DATABASE:'VetMed-Ops-Testing',
  PAWS_TESTING_ENVIRONMENT_ID:'7e570000-0000-4000-8000-00000000c0de',FIREBASE_PROJECT_ID:'paws-testing',PAWS_SQL_DRIVER:'msnodesqlv8',

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const file=path.resolve(__dirname,'../tools/testing-db/university-admin.js');
+const file=path.resolve(__dirname,'../tools/testing/db/university-admin.js');
 const api=fs.existsSync(file)?require(file):{};
 const target=Object.freeze({profile:'university-testing',host:'itappvetopsdb01',physicalServer:'ITAPPVETOPSDB01',database:'VetMed-Ops-Testing',environmentId:'7e570000-0000-4000-8000-00000000c0de'});
 const operator='UC\\synthetic-operator';

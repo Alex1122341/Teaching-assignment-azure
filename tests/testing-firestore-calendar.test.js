@@ -5,7 +5,7 @@ const { createLabCalendarReader } = require('../tools/testing/firestore-calendar
 const { createLabReadRuntime } = require('../tools/testing/firestore-read-runtime');
 
 test('Testing calendar index specification matches the scoped date query', async () => {
-  const spec = require('../deploy/testing/firestore-calendar-index.json');
+  const spec = require('../tools/testing/config/firestore-calendar-index.json');
   assert.equal(spec.project, 'vista-teaching-lab');
   assert.equal(spec.database, '(default)');
   assert.equal(spec.collectionGroup, 'paws_testing_sessions');

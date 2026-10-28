@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {main,SEED_PERSONAS,OPERATOR_PERSONAS}=require('../tools/testing-db/provision-test-accounts');
+const {main,SEED_PERSONAS,OPERATOR_PERSONAS}=require('../tools/testing/db/provision-test-accounts');
 const {resolveSqlTarget}=require('../server/src/runtime/sql-environment-target');
 const env={PAWS_ENVIRONMENT:'testing',PAWS_TESTING_SQL_PROFILE:'university-testing',PAWS_TESTING_SQL_SERVER:'ITAPPVETOPSDB01',
  PAWS_TESTING_DATABASE:'VetMed-Ops-Testing',PAWS_TESTING_ENVIRONMENT_ID:'7e570000-0000-4000-8000-00000000c0de',

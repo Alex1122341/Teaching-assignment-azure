@@ -14,11 +14,30 @@ IF EXISTS(SELECT 1 FROM sys.sql_modules WHERE object_id IN(OBJECT_ID(N'paws_api.
 BEGIN TRANSACTION;
 CREATE TABLE paws.LeadershipWorkflowModule(
  ObjectName sysname NOT NULL PRIMARY KEY,OriginalDefinition nvarchar(max) NOT NULL,OriginalHash char(64) NOT NULL,
+ OriginalObjectId int NOT NULL,RestoreDefinition nvarchar(max) NULL,RestoreHash char(64) NULL,
  InstalledHash char(64) NULL,InstalledAtUtc datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME()
 );
-INSERT paws.LeadershipWorkflowModule(ObjectName,OriginalDefinition,OriginalHash)
- SELECT name,OBJECT_DEFINITION(OBJECT_ID(name)),CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(name))),2)
+INSERT paws.LeadershipWorkflowModule(ObjectName,OriginalDefinition,OriginalHash,OriginalObjectId)
+ SELECT name,OBJECT_DEFINITION(OBJECT_ID(name)),CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(name))),2),OBJECT_ID(name)
  FROM (VALUES(N'paws_api.CanActOnTeachingAssignmentPackage'),(N'paws_api.RecordTeachingAssignmentReview'),(N'paws_api.AddTeachingAssignmentContribution')) known(name);
+-- Reuse025's bounded header normalization. SQL stores CREATE OR ALTER as a
+-- CREATE header on some versions; changing only the DDL verb to ALTER keeps
+-- every parameter/body byte, object identity and existing permission binding.
+DECLARE @ObjectName sysname,@Canonical nvarchar(max),@Header nvarchar(200),@CreatePosition int;
+DECLARE canonical_modules CURSOR LOCAL FAST_FORWARD FOR SELECT ObjectName,OriginalDefinition FROM paws.LeadershipWorkflowModule;
+OPEN canonical_modules;FETCH NEXT FROM canonical_modules INTO @ObjectName,@Canonical;
+WHILE @@FETCH_STATUS=0
+BEGIN
+ SET @Header=UPPER(LTRIM(REPLACE(REPLACE(REPLACE(LEFT(@Canonical,200),CHAR(9),N' '),CHAR(10),N' '),CHAR(13),N' ')));
+ WHILE CHARINDEX(N'  ',@Header)>0 SET @Header=REPLACE(@Header,N'  ',N' ');
+ SET @CreatePosition=CHARINDEX(N'CREATE',UPPER(@Canonical));
+ IF LEFT(@Header,16)=N'CREATE PROCEDURE' OR LEFT(@Header,15)=N'CREATE FUNCTION' SET @Canonical=STUFF(@Canonical,@CreatePosition,6,N'ALTER');
+ ELSE IF LEFT(@Header,25)=N'CREATE OR ALTER PROCEDURE' OR LEFT(@Header,24)=N'CREATE OR ALTER FUNCTION' SET @Canonical=STUFF(@Canonical,@CreatePosition,15,N'ALTER');
+ ELSE IF LEFT(@Header,15)<>N'ALTER PROCEDURE' AND LEFT(@Header,14)<>N'ALTER FUNCTION' THROW 54300,'Unsupported workflow module header.',1;
+ UPDATE paws.LeadershipWorkflowModule SET RestoreDefinition=@Canonical,RestoreHash=CONVERT(varchar(64),HASHBYTES('SHA2_256',@Canonical),2) WHERE ObjectName=@ObjectName;
+ FETCH NEXT FROM canonical_modules INTO @ObjectName,@Canonical;
+END;
+CLOSE canonical_modules;DEALLOCATE canonical_modules;
 GO
 CREATE OR ALTER FUNCTION paws_api.CanActOnTeachingAssignmentPackage
 (@PackageId uniqueidentifier,@ActorFirebaseUid nvarchar(128),@ActionKind nvarchar(16))
@@ -68,7 +87,7 @@ BEGIN
 END;
 GO
 DECLARE @Definition nvarchar(max),@Needle nvarchar(max),@Replacement nvarchar(max);
-SELECT @Definition=OriginalDefinition FROM paws.LeadershipWorkflowModule WHERE ObjectName=N'paws_api.RecordTeachingAssignmentReview';
+SELECT @Definition=RestoreDefinition FROM paws.LeadershipWorkflowModule WHERE ObjectName=N'paws_api.RecordTeachingAssignmentReview';
 SET @Needle=N'SELECT @RevisionId = RevisionId FROM paws.TeachingAssignmentRevision WHERE TeachingAssignmentPackageId = @PackageId AND RevisionNumber = @RevisionNumber;';
 IF @Definition IS NULL OR (LEN(@Definition)-LEN(REPLACE(@Definition,@Needle,N'')))/LEN(@Needle)<>1 THROW 54300,'Review procedure differs from the accepted source.',1;
 SET @Replacement=@Needle+N'
@@ -77,17 +96,15 @@ SET @Replacement=@Needle+N'
          OR EXISTS(SELECT 1 FROM paws.AuditEvent WHERE EntityType=N''TeachingAssignmentPackage'' AND EntityId=CONVERT(nvarchar(36),@PackageId) AND EventType=N''TeachingAssignmentSubmitted'' AND ActorFirebaseUid=@ActorFirebaseUid AND TRY_CONVERT(int,JSON_VALUE(AfterJson,''$.submittedRevision''))=@RevisionNumber)
          THROW 52133,''Another authorized VISC reviewer must review this proposal.'',1;';
 SET @Definition=REPLACE(@Definition,@Needle,@Replacement);
-SET @Definition=REPLACE(@Definition,N'CREATE OR ALTER PROCEDURE',N'ALTER PROCEDURE');
 EXEC sys.sp_executesql @Definition;
-SELECT @Definition=OriginalDefinition FROM paws.LeadershipWorkflowModule WHERE ObjectName=N'paws_api.AddTeachingAssignmentContribution';
+SELECT @Definition=RestoreDefinition FROM paws.LeadershipWorkflowModule WHERE ObjectName=N'paws_api.AddTeachingAssignmentContribution';
 SET @Needle=N'IF @ActorName IS NULL OR @BaseRole NOT IN (N''adc'',N''lab'',N''hicc'') OR @BaseRole<>@SuggestedByOffice';
 IF @Definition IS NULL OR (LEN(@Definition)-LEN(REPLACE(@Definition,@Needle,N'')))/LEN(@Needle)<>1 THROW 54300,'Contribution procedure differs from the accepted source.',1;
 SET @Replacement=N'-- PAWS_SCOPED_TEACHING_063: local action context only; never update BaseRole.
         IF @BaseRole IN(N''faculty'',N''visc'') AND @SuggestedByOffice=N''hicc'' AND paws_api.CanActOnTeachingAssignmentPackage(@PackageId,@ActorFirebaseUid,N''hicc'')=1 SET @BaseRole=N''hicc'';
         '+@Needle;
 SET @Definition=REPLACE(@Definition,@Needle,@Replacement);
-SET @Definition=REPLACE(@Definition,N'CREATE OR ALTER PROCEDURE',N'ALTER PROCEDURE');
 EXEC sys.sp_executesql @Definition;
 UPDATE paws.LeadershipWorkflowModule SET InstalledHash=CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(ObjectName))),2);
-IF EXISTS(SELECT 1 FROM paws.LeadershipWorkflowModule WHERE InstalledHash IS NULL OR OriginalHash<>CONVERT(varchar(64),HASHBYTES('SHA2_256',OriginalDefinition),2)) THROW 54300,'Workflow definition capture is incomplete.',1;
+IF EXISTS(SELECT 1 FROM paws.LeadershipWorkflowModule WHERE InstalledHash IS NULL OR RestoreDefinition IS NULL OR RestoreHash IS NULL OR OriginalObjectId<>OBJECT_ID(ObjectName) OR OriginalHash<>CONVERT(varchar(64),HASHBYTES('SHA2_256',OriginalDefinition),2) OR RestoreHash<>CONVERT(varchar(64),HASHBYTES('SHA2_256',RestoreDefinition),2)) THROW 54300,'Workflow definition capture is incomplete.',1;
 COMMIT;

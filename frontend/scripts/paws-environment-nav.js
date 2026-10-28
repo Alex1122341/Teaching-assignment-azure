@@ -71,7 +71,7 @@
     const reported = me && me.environment && me.environment.name;
     const profile = me && me.profile;
     const support = me && me.support;
-    if (!built) return { state: 'misconfigured', message: 'This site has no environment configuration.' };
+    if (!['production', 'testing'].includes(built) || !config.apiOrigin || !config.firebase) return { state: 'misconfigured', message: 'The selected PAWS environment is not configured; no data can be loaded.' };
     if (reported && reported !== built) {
       return { state: 'mismatch', message: `This ${built} site is connected to a ${reported} API. Access is blocked.` };
     }

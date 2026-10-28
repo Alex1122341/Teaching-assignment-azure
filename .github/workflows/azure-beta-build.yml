@@ -48,6 +48,7 @@ jobs:
           tests/testing-firestore-identities.test.js
           tests/testing-firestore-http.test.js
           tests/testing-firestore-host.test.js
+          tests/testing-firestore-session-writes.test.js
           tests/testing-firestore-readiness.test.js
           tests/dual-environment-config.test.js
       - name: Run Testing root behavior suite with explicit historical Production-only assertions

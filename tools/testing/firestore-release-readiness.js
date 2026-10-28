@@ -37,7 +37,8 @@ const REQUIRED = Object.freeze({
 // Keep this list conservative and synchronize additions with emulator API tests.
 // A listed route is only source-implemented, never proof of live acceptance.
 const SOURCE_IMPLEMENTED = new Set([
-  'GET /api/v1/me','GET /api/v1/sessions','GET /api/v1/dashboard/summary',
+  'GET /api/v1/me','GET /api/v1/sessions','PATCH /api/v1/sessions/:id', // explicit Testing-only write gate, default off
+  'GET /api/v1/dashboard/summary',
   'GET /api/v1/dashboard/faculty','GET /api/v1/dashboard/faculty/:id',
   'GET /api/v1/dashboard/teaching-summary','GET /api/v1/dashboard/roles',
   'GET /api/v1/dashboard/leadership-directory','GET /api/v1/ccc-schedule',

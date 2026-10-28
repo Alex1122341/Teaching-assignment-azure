@@ -59,3 +59,47 @@ test('failed navigation restores previous tab mode and never restores support se
   assert.equal(state.get('paws-site-mode'), 'production');
   assert.equal(state.has('paws-support-context-v1'), false);
 });
+
+test('boot selector chooses the Testing API and independent Firebase project before clients start', () => {
+  const vm = require('node:vm');
+  const { loadConfig, render, sameSiteCandidate } = require('../tools/render-environment-config');
+  const production = loadConfig('production');
+  const testing = {
+    environment: 'testing', environmentLabel: 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY',
+    releaseLabel: 'TESTING', apiOrigin: 'https://testing-api.example.org',
+    siteUrl: 'https://testing-app.web.app', peerSiteUrl: production.siteUrl,
+    firebase: { apiKey: 'synthetic-test-key', authDomain: 'test-project.firebaseapp.com',
+      projectId: 'test-project', appId: '1:123:web:456' }
+  };
+  assert.equal(sameSiteCandidate(production, testing).siteUrl, production.siteUrl);
+  const script = render(production, { sameSiteTesting: testing });
+  const win = { sessionStorage: { getItem: key => key === 'paws-site-mode' ? 'testing' : null } };
+  vm.runInNewContext(script, { window: win });
+  assert.equal(win.PAWS_ENVIRONMENT_CONFIG.environment, 'testing');
+  assert.equal(win.PAWS_API_ORIGIN_CONFIG.apiOrigin, testing.apiOrigin);
+  assert.equal(win.PAWS_API_ORIGIN_CONFIG.firebase.projectId, 'test-project');
+  assert.equal(win.PAWS_SINGLE_SITE.production.environment, 'production');
+  assert.equal(win.PAWS_SINGLE_SITE.modeKey, 'paws-site-mode');
+});
+
+test('unprovisioned Testing mode cannot silently route edits to Production', () => {
+  const vm = require('node:vm');
+  const { loadConfig, render } = require('../tools/render-environment-config');
+  const prod = loadConfig('production'), unready = loadConfig('testing');
+  assert.equal(unready.apiOrigin, null);
+  const win = { sessionStorage: { getItem: () => 'testing' } };
+  vm.runInNewContext(render(prod, { sameSiteTesting: unready }), { window: win });
+  assert.equal(win.PAWS_ENVIRONMENT_CONFIG.environment, 'unavailable');
+  assert.equal(win.PAWS_API_ORIGIN_CONFIG.apiOrigin, null);
+  assert.equal(win.PAWS_API_ORIGIN_CONFIG.firebase, null);
+  assert.equal(win.PAWS_SINGLE_SITE, undefined);
+});
+
+test('Production boot ignores untrusted query strings and never changes Firebase without a tab choice', () => {
+  const vm = require('node:vm');
+  const { loadConfig, render } = require('../tools/render-environment-config');
+  const win = { location: { search: '?environment=testing', hash: '#testing' }, sessionStorage: { getItem: () => null } };
+  vm.runInNewContext(render(loadConfig('production')), { window: win });
+  assert.equal(win.PAWS_ENVIRONMENT_CONFIG.environment, 'production');
+  assert.equal(win.PAWS_API_ORIGIN_CONFIG.firebase.projectId, 'tester-teaching');
+});

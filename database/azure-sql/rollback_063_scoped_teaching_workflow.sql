@@ -22,7 +22,16 @@ BEGIN
  ELSE IF LEFT(@Header,15)<>N'ALTER PROCEDURE' AND LEFT(@Header,14)<>N'ALTER FUNCTION' THROW 54362,'Unsupported original workflow module header.',1;
  IF (SELECT RestoreHash FROM paws.LeadershipWorkflowModule WHERE ObjectName=@Name)<>CONVERT(varchar(64),HASHBYTES('SHA2_256',@Original),2) THROW 54362,'Recovery differs beyond the accepted DDL-verb normalization.',1;
  EXEC sys.sp_executesql @Original;
- IF (SELECT RestoreHash FROM paws.LeadershipWorkflowModule WHERE ObjectName=@Name)<>CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(@Name))),2) THROW 54362,'Original module parameters/body did not restore exactly.',1;
+ -- Depending on SQL build, metadata retains the original CREATE header or the
+ -- canonical ALTER header. Both are exact complete definitions captured above;
+ -- no parameter/body difference or arbitrary normalization is accepted.
+ DECLARE @Actual nvarchar(max)=OBJECT_DEFINITION(OBJECT_ID(@Name)),@ActualHash char(64);
+ SET @ActualHash=CONVERT(varchar(64),HASHBYTES('SHA2_256',@Actual),2);
+ IF @Actual IS NULL OR NOT EXISTS(SELECT 1 FROM paws.LeadershipWorkflowModule WHERE ObjectName=@Name AND @ActualHash IN(OriginalHash,RestoreHash))
+ BEGIN
+  SELECT @Name moduleName,LEFT(@Original,100) expectedAlterHeader,LEFT(@Actual,100) actualHeader,DATALENGTH(@Original) expectedBytes,DATALENGTH(@Actual) actualBytes;
+  THROW 54362,'Original module parameters/body did not restore exactly.',1;
+ END;
  FETCH NEXT FROM originals INTO @Name,@Original;
 END;
 CLOSE originals;DEALLOCATE originals;

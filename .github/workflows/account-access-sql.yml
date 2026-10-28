@@ -1,10 +1,10 @@
 name: Account Access SQL Acceptance
 on:
   pull_request:
-    paths: ['database/azure-sql/060_*','database/azure-sql/061_*','database/azure-sql/062_*','database/azure-sql/rollback_060_*','database/azure-sql/rollback_061_*','database/azure-sql/rollback_062_*','server/src/access/**','server/src/data/sql-account-access-repository.js','server/src/data/sql-teaching-access-repository.js','server/src/data/sql-leadership-access-repository.js','server/test/account-access*','server/test/*teaching-access*','server/test/leadership-*','server/test/sql-leadership-*','server/test/fixtures/leadership-access-*','tools/test-account-access-sql.ps1','tools/test-teaching-access-sql.ps1','.github/workflows/account-access-sql.yml']
+    paths: ['database/azure-sql/060_*','database/azure-sql/061_*','database/azure-sql/062_*','database/azure-sql/063_*','database/azure-sql/rollback_060_*','database/azure-sql/rollback_061_*','database/azure-sql/rollback_062_*','database/azure-sql/rollback_063_*','server/src/access/**','server/src/data/sql-account-access-repository.js','server/src/data/sql-teaching-access-repository.js','server/src/data/sql-leadership-access-repository.js','server/test/account-access*','server/test/*teaching-access*','server/test/leadership-*','server/test/sql-leadership-*','server/test/fixtures/leadership-access-*','tools/test-account-access-sql.ps1','tools/test-teaching-access-sql.ps1','.github/workflows/account-access-sql.yml']
   push:
     branches: [main]
-    paths: ['database/azure-sql/060_*','database/azure-sql/061_*','database/azure-sql/062_*','database/azure-sql/rollback_060_*','database/azure-sql/rollback_061_*','database/azure-sql/rollback_062_*','server/src/access/**','server/src/data/sql-account-access-repository.js','server/src/data/sql-teaching-access-repository.js','server/src/data/sql-leadership-access-repository.js','server/test/account-access*','server/test/*teaching-access*','server/test/leadership-*','server/test/sql-leadership-*','server/test/fixtures/leadership-access-*','tools/test-account-access-sql.ps1','tools/test-teaching-access-sql.ps1','.github/workflows/account-access-sql.yml']
+    paths: ['database/azure-sql/060_*','database/azure-sql/061_*','database/azure-sql/062_*','database/azure-sql/063_*','database/azure-sql/rollback_060_*','database/azure-sql/rollback_061_*','database/azure-sql/rollback_062_*','database/azure-sql/rollback_063_*','server/src/access/**','server/src/data/sql-account-access-repository.js','server/src/data/sql-teaching-access-repository.js','server/src/data/sql-leadership-access-repository.js','server/test/account-access*','server/test/*teaching-access*','server/test/leadership-*','server/test/sql-leadership-*','server/test/fixtures/leadership-access-*','tools/test-account-access-sql.ps1','tools/test-teaching-access-sql.ps1','.github/workflows/account-access-sql.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -41,6 +41,9 @@ jobs:
           }
           foreach($marker in @('PERSISTED_REPLAY_AUDIT','STALE_ABA_DENIED','SCOPE_SOURCE_DATES_OVERLAP_DENIED','PROTECTED_AND_NULL_INPUT_DENIED','RECORDED_GAP_AND_ACTOR_CHANGED_DENIED','OWNER_ATOMIC_REVOKE','RECORDED_VISC_AREA_BOUNDARY','CONCURRENT_EPOCH_SERIALIZATION','USED_ROLLBACK_REFUSED','UNUSED_ROLLBACK_PRESERVES_061')){
             if(($output -join "`n") -notmatch ('LEADERSHIP_COMMAND_062_'+$marker)){throw "Missing leadership command acceptance marker: $marker"}
+          }
+          foreach($marker in @('DUAL_SCOPE_SWAP_DEVELOPER','MIXED_AND_OWNERSHIP_ABA','SEPARATE_REVIEW_REVISION_FLOW','EXPIRY_DISABLED_LEGACY','USED_ROLLBACK_REFUSED','UNUSED_EXACT_MODULE_RESTORE')){
+            if(($output -join "`n") -notmatch ('SCOPED_WORKFLOW_063_'+$marker)){throw "Missing scoped workflow acceptance marker: $marker"}
           }
       - name: Stop owned synthetic container
         if: always()

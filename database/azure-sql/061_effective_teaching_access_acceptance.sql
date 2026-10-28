@@ -63,9 +63,9 @@ INSERT paws.RoleAppointmentSchedule(RoleAssignmentId,PeriodsJson,UpdatedAtUtc,Up
 -- grant command and its independent transaction/audit acceptance follow separately.
 INSERT paws.LeadershipAccessOperation(OperationId,PreviewId,ActorUid,TargetUid,AcademicYear,IntentHash,Reason,ReceiptJson,CreatedAtUtc)
  VALUES(@Operation,NEWID(),N'leadership061-fixture',N'leadership061-faculty',N'2026-27',REPLICATE('A',64),N'Synthetic reader foundation fixture',N'{}',SYSUTCDATETIME());
-INSERT paws.TeachingLeadershipGrantSource(ResponsibilityAssigneeId,SourceRoleAssignmentId,ApprovedSourceSignature,UsesApprovedDefaultDates,OperationId) VALUES
- (@HiccAssignee,@HiccSource,paws_api.TeachingAppointmentAccessSourceStamp(@HiccSource),1,@Operation),
- (@ViscAssignee,@ViscSource,paws_api.TeachingAppointmentAccessSourceStamp(@ViscSource),0,@Operation);
+INSERT paws.TeachingLeadershipGrantSource(ResponsibilityAssigneeId,SourceRoleAssignmentId,ApprovedSourceSignature,ApprovedScopeSignature,ApprovedAssigneeSignature,UsesApprovedDefaultDates,OperationId) VALUES
+ (@HiccAssignee,@HiccSource,paws_api.TeachingAppointmentAccessSourceStamp(@HiccSource),paws_api.TeachingResponsibilityAccessScopeStamp(N'leadership061hicc'),paws_api.TeachingAssigneeAccessStamp(@HiccAssignee),1,@Operation),
+ (@ViscAssignee,@ViscSource,paws_api.TeachingAppointmentAccessSourceStamp(@ViscSource),paws_api.TeachingResponsibilityAccessScopeStamp(N'leadership061visc'),paws_api.TeachingAssigneeAccessStamp(@ViscAssignee),0,@Operation);
 IF (SELECT COUNT(*) FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027'))<>2
  THROW 54160,'Approved concurrent HICC/VISC roles were not returned.',1;
 IF NOT EXISTS(SELECT 1 FROM paws.UserProfile WHERE FirebaseUid=N'leadership061-faculty' AND BaseRole=N'faculty')

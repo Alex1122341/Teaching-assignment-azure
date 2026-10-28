@@ -24,6 +24,8 @@ IF OBJECT_ID(N'paws.LeadershipAccessState') IS NOT NULL
  OR OBJECT_ID(N'paws_api.EffectiveTeachingAssignments') IS NOT NULL
  OR OBJECT_ID(N'paws_api.TeachingAppointmentAccessSourceStamp') IS NOT NULL
  OR OBJECT_ID(N'paws_api.TeachingAuthorityState') IS NOT NULL
+ OR OBJECT_ID(N'paws_api.TeachingResponsibilityAccessScopeStamp') IS NOT NULL
+ OR OBJECT_ID(N'paws_api.TeachingAssigneeAccessStamp') IS NOT NULL
  THROW 54100,'061 refuses existing or unknown leadership deployment.',1;
 IF EXISTS(SELECT 1 FROM sys.columns WHERE system_type_id=189 AND object_id IN
  (OBJECT_ID(N'paws.TeachingResponsibility'),OBJECT_ID(N'paws.TeachingResponsibilityScope'),
@@ -84,13 +86,17 @@ CREATE TABLE paws.TeachingLeadershipGrantSource(
  ResponsibilityAssigneeId uniqueidentifier NOT NULL CONSTRAINT PK_TeachingLeadershipGrantSource PRIMARY KEY,
  SourceRoleAssignmentId uniqueidentifier NOT NULL,
  ApprovedSourceSignature char(64) NOT NULL,
+ ApprovedScopeSignature char(64) NOT NULL,
+ ApprovedAssigneeSignature char(64) NOT NULL,
  UsesApprovedDefaultDates bit NOT NULL,
  OperationId uniqueidentifier NOT NULL,
  AuthorityVersion rowversion NOT NULL,
  CONSTRAINT FK_TeachingLeadershipGrantSource_Assignee FOREIGN KEY(ResponsibilityAssigneeId) REFERENCES paws.TeachingResponsibilityAssignee(ResponsibilityAssigneeId),
  CONSTRAINT FK_TeachingLeadershipGrantSource_Source FOREIGN KEY(SourceRoleAssignmentId) REFERENCES paws.RoleAssignment(RoleAssignmentId),
  CONSTRAINT FK_TeachingLeadershipGrantSource_Operation FOREIGN KEY(OperationId) REFERENCES paws.LeadershipAccessOperation(OperationId),
- CONSTRAINT CK_TeachingLeadershipGrantSource_Hash CHECK(LEN(ApprovedSourceSignature)=64 AND ApprovedSourceSignature COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^a-fA-F0-9]%')
+ CONSTRAINT CK_TeachingLeadershipGrantSource_Hash CHECK(LEN(ApprovedSourceSignature)=64 AND ApprovedSourceSignature COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^a-fA-F0-9]%'),
+ CONSTRAINT CK_TeachingLeadershipGrantSource_ScopeHash CHECK(LEN(ApprovedScopeSignature)=64 AND ApprovedScopeSignature COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^a-fA-F0-9]%'),
+ CONSTRAINT CK_TeachingLeadershipGrantSource_AssigneeHash CHECK(LEN(ApprovedAssigneeSignature)=64 AND ApprovedAssigneeSignature COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^a-fA-F0-9]%')
 );
 GO
 CREATE FUNCTION paws_api.TeachingAuthorityState()
@@ -111,6 +117,28 @@ BEGIN
   FROM paws.RoleAssignment r LEFT JOIN paws.RoleAppointmentSchedule s ON s.RoleAssignmentId=r.RoleAssignmentId
   WHERE r.RoleAssignmentId=@RoleAssignmentId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES
  );
+ IF @Snapshot IS NULL OR @Snapshot=N'' RETURN NULL;
+ RETURN CONVERT(varchar(64),HASHBYTES('SHA2_256',@Snapshot),2);
+END;
+GO
+CREATE FUNCTION paws_api.TeachingResponsibilityAccessScopeStamp(@ResponsibilityId nvarchar(64))
+RETURNS varchar(64)
+AS
+BEGIN
+ DECLARE @Snapshot nvarchar(max)=(SELECT r.ResponsibilityId,r.Kind,r.Active,
+  JSON_QUERY((SELECT s.CourseId,s.SubjectId,c.CourseCode FROM paws.TeachingResponsibilityScope s JOIN paws.Course c ON c.CourseId=s.CourseId WHERE s.HiccResponsibilityId=r.ResponsibilityId ORDER BY s.CourseId,s.SubjectId FOR JSON PATH,INCLUDE_NULL_VALUES)) courses,
+  JSON_QUERY((SELECT g.GroupId,g.Name,g.Active,g.LeaderViscResponsibilityId FROM paws.TeachingAssignmentGroup g WHERE g.LeaderViscResponsibilityId=r.ResponsibilityId AND g.Active=1 ORDER BY g.GroupId FOR JSON PATH)) groups
+  FROM paws.TeachingResponsibility r WHERE r.ResponsibilityId=@ResponsibilityId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+ IF @Snapshot IS NULL OR @Snapshot=N'' RETURN NULL;
+ RETURN CONVERT(varchar(64),HASHBYTES('SHA2_256',@Snapshot),2);
+END;
+GO
+CREATE FUNCTION paws_api.TeachingAssigneeAccessStamp(@AssigneeId uniqueidentifier)
+RETURNS varchar(64)
+AS
+BEGIN
+ DECLARE @Snapshot nvarchar(max)=(SELECT ResponsibilityAssigneeId,ResponsibilityId,AcademicYear,FacultyId,ActiveDate,ExpirationDate,AssignmentMode
+  FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityAssigneeId=@AssigneeId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
  IF @Snapshot IS NULL OR @Snapshot=N'' RETURN NULL;
  RETURN CONVERT(varchar(64),HASHBYTES('SHA2_256',@Snapshot),2);
 END;
@@ -171,6 +199,8 @@ RETURN(
    AND ((r.Kind=N'hicc' AND UPPER(LTRIM(RTRIM(source.RoleType))) IN(N'HICC',N'COURSE COORDINATOR'))
     OR (r.Kind=N'visc' AND UPPER(LTRIM(RTRIM(source.RoleType)))=N'VISC'))
    AND linked.ApprovedSourceSignature=paws_api.TeachingAppointmentAccessSourceStamp(source.RoleAssignmentId)
+   AND linked.ApprovedScopeSignature=paws_api.TeachingResponsibilityAccessScopeStamp(r.ResponsibilityId)
+   AND linked.ApprovedAssigneeSignature=paws_api.TeachingAssigneeAccessStamp(a.ResponsibilityAssigneeId)
   ))
 );
 GO

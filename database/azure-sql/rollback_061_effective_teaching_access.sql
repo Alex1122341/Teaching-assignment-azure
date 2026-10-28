@@ -13,11 +13,13 @@ IF EXISTS(SELECT 1 FROM paws.LeadershipAccessOperation) OR EXISTS(SELECT 1 FROM 
  OR EXISTS(SELECT 1 FROM paws.LeadershipAccessState WHERE Enabled=1)
  OR EXISTS(SELECT 1 FROM paws.AuditEvent WHERE EventType=N'leadership_access_change')
  THROW 54162,'Keep used leadership operations and audits; disable additional access instead.',1;
-IF OBJECT_ID(N'paws_api.SetTeachingLeadershipAccess') IS NOT NULL
+IF OBJECT_ID(N'paws_api.SetTeachingLeadershipAccess') IS NOT NULL OR OBJECT_ID(N'paws.LeadershipWorkflowModule') IS NOT NULL
  THROW 54162,'061 foundation rollback refuses a later command deployment.',1;
 BEGIN TRANSACTION;
 DROP FUNCTION paws_api.EffectiveTeachingAssignments;
 DROP FUNCTION paws_api.TeachingAppointmentAccessSourceStamp;
+DROP FUNCTION paws_api.TeachingResponsibilityAccessScopeStamp;
+DROP FUNCTION paws_api.TeachingAssigneeAccessStamp;
 DROP FUNCTION paws_api.TeachingAuthorityState;
 DECLARE @Table sysname,@TriggerSql nvarchar(max);
 DECLARE authority_tables CURSOR LOCAL FAST_FORWARD FOR SELECT name FROM (VALUES

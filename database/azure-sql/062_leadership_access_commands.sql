@@ -179,16 +179,22 @@ BEGIN
   END;
   CLOSE grants_cursor;DEALLOCATE grants_cursor;
   DECLARE @Before nvarchar(max)=(SELECT CONVERT(varchar(36),a.ResponsibilityAssigneeId) assignmentId,a.ResponsibilityId responsibilityId,CONVERT(varchar(10),a.ActiveDate,23) startDate,CONVERT(varchar(10),a.ExpirationDate,23) endExclusive,
-   CONVERT(varchar(36),s.SourceRoleAssignmentId) sourceRoleAssignmentId,s.UsesApprovedDefaultDates usesApprovedDefaultDates FROM paws.TeachingResponsibilityAssignee a JOIN paws.TeachingLeadershipGrantSource s ON s.ResponsibilityAssigneeId=a.ResponsibilityAssigneeId WHERE a.FacultyId=@Faculty AND a.AcademicYear=@AcademicYear ORDER BY a.ResponsibilityAssigneeId FOR JSON PATH),@After nvarchar(max),@Receipt nvarchar(max),@Now datetime2(7)=SYSUTCDATETIME();
+   CONVERT(varchar(36),s.SourceRoleAssignmentId) sourceRoleAssignmentId,s.UsesApprovedDefaultDates usesApprovedDefaultDates,
+   CONVERT(varchar(36),a.FacultyId) facultyId,a.AcademicYear academicYear,a.AssignmentMode assignmentMode,
+   s.ApprovedSourceSignature approvedSourceSignature,s.ApprovedScopeSignature approvedScopeSignature,s.ApprovedAssigneeSignature approvedAssigneeSignature,CONVERT(varchar(36),s.OperationId) grantOperationId
+   FROM paws.TeachingResponsibilityAssignee a JOIN paws.TeachingLeadershipGrantSource s ON s.ResponsibilityAssigneeId=a.ResponsibilityAssigneeId WHERE a.FacultyId=@Faculty AND a.AcademicYear=@AcademicYear ORDER BY a.ResponsibilityAssigneeId FOR JSON PATH),@After nvarchar(max),@Receipt nvarchar(max),@Now datetime2(7)=SYSUTCDATETIME();
   INSERT paws.LeadershipAccessOperation(OperationId,PreviewId,ActorUid,TargetUid,AcademicYear,IntentHash,Reason,ReceiptJson,CreatedAtUtc) VALUES(@OperationId,@PreviewId,@ActorUid,@TargetUid,@AcademicYear,@IntentHash,@Reason,N'{}',@Now);
   DELETE s FROM paws.TeachingLeadershipGrantSource s JOIN @Changes c ON c.AssignmentId=s.ResponsibilityAssigneeId WHERE c.Action=N'revoke';
   DELETE a FROM paws.TeachingResponsibilityAssignee a JOIN @Changes c ON c.AssignmentId=a.ResponsibilityAssigneeId WHERE c.Action=N'revoke';
   INSERT paws.TeachingResponsibilityAssignee(ResponsibilityAssigneeId,ResponsibilityId,AcademicYear,FacultyId,ActiveDate,ExpirationDate,AssignmentMode)
    SELECT NewAssignee,ResponsibilityId,@AcademicYear,@Faculty,StartDate,EndExclusive,N'exclusive' FROM @Changes WHERE Action=N'grant';
-  INSERT paws.TeachingLeadershipGrantSource(ResponsibilityAssigneeId,SourceRoleAssignmentId,ApprovedSourceSignature,UsesApprovedDefaultDates,OperationId)
-   SELECT NewAssignee,SourceId,SourceSignature,DefaultDates,@OperationId FROM @Changes WHERE Action=N'grant';
+  INSERT paws.TeachingLeadershipGrantSource(ResponsibilityAssigneeId,SourceRoleAssignmentId,ApprovedSourceSignature,ApprovedScopeSignature,ApprovedAssigneeSignature,UsesApprovedDefaultDates,OperationId)
+   SELECT NewAssignee,SourceId,SourceSignature,paws_api.TeachingResponsibilityAccessScopeStamp(ResponsibilityId),paws_api.TeachingAssigneeAccessStamp(NewAssignee),DefaultDates,@OperationId FROM @Changes WHERE Action=N'grant';
   SET @After=(SELECT CONVERT(varchar(36),a.ResponsibilityAssigneeId) assignmentId,a.ResponsibilityId responsibilityId,CONVERT(varchar(10),a.ActiveDate,23) startDate,CONVERT(varchar(10),a.ExpirationDate,23) endExclusive,
-   CONVERT(varchar(36),s.SourceRoleAssignmentId) sourceRoleAssignmentId,s.UsesApprovedDefaultDates usesApprovedDefaultDates FROM paws.TeachingResponsibilityAssignee a JOIN paws.TeachingLeadershipGrantSource s ON s.ResponsibilityAssigneeId=a.ResponsibilityAssigneeId WHERE a.FacultyId=@Faculty AND a.AcademicYear=@AcademicYear ORDER BY a.ResponsibilityAssigneeId FOR JSON PATH);
+   CONVERT(varchar(36),s.SourceRoleAssignmentId) sourceRoleAssignmentId,s.UsesApprovedDefaultDates usesApprovedDefaultDates,
+   CONVERT(varchar(36),a.FacultyId) facultyId,a.AcademicYear academicYear,a.AssignmentMode assignmentMode,
+   s.ApprovedSourceSignature approvedSourceSignature,s.ApprovedScopeSignature approvedScopeSignature,s.ApprovedAssigneeSignature approvedAssigneeSignature,CONVERT(varchar(36),s.OperationId) grantOperationId
+   FROM paws.TeachingResponsibilityAssignee a JOIN paws.TeachingLeadershipGrantSource s ON s.ResponsibilityAssigneeId=a.ResponsibilityAssigneeId WHERE a.FacultyId=@Faculty AND a.AcademicYear=@AcademicYear ORDER BY a.ResponsibilityAssigneeId FOR JSON PATH);
   SET @Receipt=(SELECT CONVERT(varchar(36),@OperationId) operationId,CONVERT(varchar(36),@PreviewId) previewId,@ActorUid actorUid,@TargetUid targetUid,@AcademicYear academicYear,@Reason reason,
    (SELECT authorityVersion FROM paws_api.TeachingAuthorityState()) savedAuthorityVersion,@Now createdAtUtc,JSON_QUERY(@Before) before,JSON_QUERY(@After) after,JSON_QUERY(@ChangesJson) changes FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
   UPDATE paws.LeadershipAccessOperation SET ReceiptJson=@Receipt WHERE OperationId=@OperationId;

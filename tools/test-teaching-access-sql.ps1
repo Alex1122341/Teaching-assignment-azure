@@ -41,7 +41,11 @@ IF (SELECT COUNT(*) FROM paws.LeadershipAccessOperation WHERE TargetUid=N'leader
 IF (SELECT COUNT(*) FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityId=N'leadership062hicc')<>1 THROW 54260,'Concurrent intents duplicated the exclusive assignee.',1;
 PRINT 'LEADERSHIP_COMMAND_062_CONCURRENT_EPOCH_SERIALIZATION';
 '@ 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/063_scoped_teaching_workflow.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/063_scoped_teaching_workflow_acceptance.sql') -Raw) 'VetMed-Ops'
+$workflowRollback=Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_063_scoped_teaching_workflow.sql') -Raw
+$workflowEscaped=([regex]::Replace($workflowRollback,'(?m)^:[^\r\n]+\r?\n','')).Replace("'","''")
+Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$workflowEscaped');END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()=54362 SET @Refused=1;ELSE THROW;END CATCH;IF @Refused=0 THROW 54360,'Used workflow rollback was not refused.',1;PRINT 'SCOPED_WORKFLOW_063_USED_ROLLBACK_REFUSED';" 'VetMed-Ops'
 $commandRollback=Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_062_leadership_access_commands.sql') -Raw
 $commandEscaped=([regex]::Replace($commandRollback,'(?m)^:[^\r\n]+\r?\n','')).Replace("'","''")
 Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$commandEscaped');END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()=54262 SET @Refused=1;ELSE THROW;END CATCH;IF @Refused=0 THROW 54260,'Used command rollback was not refused.',1;PRINT 'LEADERSHIP_COMMAND_062_USED_ROLLBACK_REFUSED';" 'VetMed-Ops'
@@ -54,6 +58,10 @@ Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$escaped');END TRY BEGIN
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/060_account_access.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/063_scoped_teaching_workflow.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql 'SELECT ObjectName,OriginalHash INTO dbo.Leadership063RollbackBaseline FROM paws.LeadershipWorkflowModule;' 'VetMed-Ops'
+Invoke-TestSql $workflowRollback 'VetMed-Ops'
+Invoke-TestSql "IF OBJECT_ID(N'paws.LeadershipWorkflowModule') IS NOT NULL OR EXISTS(SELECT 1 FROM sys.triggers WHERE name LIKE N'LeadershipAuthority063[_]%') OR EXISTS(SELECT 1 FROM dbo.Leadership063RollbackBaseline WHERE OriginalHash<>CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(ObjectName))),2)) THROW 54360,'Unused workflow rollback did not restore original modules exactly.',1;PRINT 'SCOPED_WORKFLOW_063_UNUSED_EXACT_MODULE_RESTORE';" 'VetMed-Ops'
 Invoke-TestSql $commandRollback 'VetMed-Ops'
 Invoke-TestSql "IF OBJECT_ID(N'paws_api.SetTeachingLeadershipAccess') IS NOT NULL OR OBJECT_ID(N'paws.LeadershipAuthority062_SourceLink') IS NOT NULL THROW 54260,'Unused command rollback left command objects.',1;PRINT 'LEADERSHIP_COMMAND_062_UNUSED_ROLLBACK_PRESERVES_061';" 'VetMed-Ops'
 Invoke-TestSql $rollback 'VetMed-Ops'

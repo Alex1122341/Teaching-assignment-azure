@@ -23,8 +23,9 @@ INSERT paws.TeachingResponsibilityAssignee(ResponsibilityAssigneeId,Responsibili
 INSERT paws.RoleAssignment(RoleAssignmentId,FacultyId,FacultyResolutionStatus,AcademicYear,RoleType,CourseId,CourseOrSubjectOrRotation,EffectiveDate,ExpirationDate,SourceImportBatchId,SourceRow) VALUES
  (@HSource,@Faculty,N'resolved',@AY,N'HICC',@Course,N'Synthetic explicit course',@Start,DATEADD(day,-1,@End),@Batch,1),(@VSource,@Faculty,N'resolved',@AY,N'VISC',NULL,N'Synthetic explicit area',@Start,DATEADD(day,-1,@End),@Batch,2);
 INSERT paws.LeadershipAccessOperation(OperationId,PreviewId,ActorUid,TargetUid,AcademicYear,IntentHash,Reason,ReceiptJson,CreatedAtUtc) VALUES(@Operation,NEWID(),N'synthetic063fixture',N'leadership063dual',@AY,REPLICATE('F',64),N'Synthetic concurrent legacy workflow fixture',N'{}',SYSUTCDATETIME());
-INSERT paws.TeachingLeadershipGrantSource(ResponsibilityAssigneeId,SourceRoleAssignmentId,ApprovedSourceSignature,UsesApprovedDefaultDates,OperationId) VALUES
- (@HAssignee,@HSource,paws_api.TeachingAppointmentAccessSourceStamp(@HSource),0,@Operation),(@VAssignee,@VSource,paws_api.TeachingAppointmentAccessSourceStamp(@VSource),0,@Operation);
+INSERT paws.TeachingLeadershipGrantSource(ResponsibilityAssigneeId,SourceRoleAssignmentId,ApprovedSourceSignature,ApprovedScopeSignature,ApprovedAssigneeSignature,UsesApprovedDefaultDates,OperationId) VALUES
+ (@HAssignee,@HSource,paws_api.TeachingAppointmentAccessSourceStamp(@HSource),paws_api.TeachingResponsibilityAccessScopeStamp(N'leadership063hicc'),paws_api.TeachingAssigneeAccessStamp(@HAssignee),0,@Operation),
+ (@VAssignee,@VSource,paws_api.TeachingAppointmentAccessSourceStamp(@VSource),paws_api.TeachingResponsibilityAccessScopeStamp(N'leadership063visc'),paws_api.TeachingAssigneeAccessStamp(@VAssignee),0,@Operation);
 UPDATE paws.LeadershipAccessState SET Enabled=1 WHERE SingletonId=1;
 INSERT paws.TeachingAssignmentPackage(TeachingAssignmentPackageId,PackageIdentity,AcademicYear,GroupId,HiccResponsibilityId,Status,WorkingRevision) VALUES
  (@Package,CONCAT(N'ta-package-v1__',@AY,N'__leadership063area__leadership063hicc'),@AY,N'leadership063area',N'leadership063hicc',N'draft',0),

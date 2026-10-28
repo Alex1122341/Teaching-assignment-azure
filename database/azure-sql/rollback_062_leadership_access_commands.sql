@@ -8,6 +8,7 @@ IF DB_NAME()<>N'VetMed-Ops' OR OBJECT_ID(N'paws_api.SetTeachingLeadershipAccess'
 IF EXISTS(SELECT 1 FROM paws.LeadershipAccessOperation) OR EXISTS(SELECT 1 FROM paws.TeachingLeadershipGrantSource)
  OR EXISTS(SELECT 1 FROM paws.AuditEvent WHERE EventType=N'leadership_access_change')
  THROW 54262,'Preserve used leadership receipts and audits; disable writes/additional roles instead.',1;
+IF OBJECT_ID(N'paws.LeadershipWorkflowModule') IS NOT NULL THROW 54262,'Roll back the accepted scoped workflow layer first.',1;
 BEGIN TRANSACTION;
 DROP PROCEDURE paws_api.SetTeachingLeadershipAccess;
 DROP PROCEDURE paws_api.GetTeachingLeadershipAccessSnapshot;

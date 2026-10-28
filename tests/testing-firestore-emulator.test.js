@@ -28,6 +28,7 @@ test('lab read runtime verifies Testing emulator identity and scopes Firestore d
     await db.collection('paws_testing_sessions').doc('paws-emulator-1').set({ synthetic: true, date: '2027-01-12', course: 'VETM 301', year: 2, type: 'LAB', academicYear: '2026-27', facultyIds: ['synthetic-f1'], instructorNames: ['Test Faculty'], assignments: [{ facultyId: 'synthetic-f1', ucid: 'not-for-client', doeCredit: 123 }] });
     await db.collection('paws_testing_sessions').doc('paws-emulator-2').set({ synthetic: true, date: '2027-01-13', facultyIds: ['synthetic-f2'] });
     await db.collection('paws_testing_leadership').doc('paws-emulator-role').set({ synthetic: true, academicYear: '2026-27', roleType: 'HICC', courseCode: 'VETM 301', facultyFirstName: 'Test', facultyLastName: 'Faculty', facultyKey: 'synthetic-f1', effectiveDate: '2026-05-01', ucid: 'not-for-client', doe: 123 });
+    await db.collection('paws_testing_ccc').doc('paws-emulator-ccc').set({ synthetic: true, academicYear: '2026-27', date: '2027-01-15', endDate: '2027-01-15', facultyName: 'Test Faculty', courseCode: 'VETM 301', blockLabel: 'Synthetic CCC', halfDay: false, purpose: 'not-for-client', ucid: 'not-for-client' });
     const response = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator-only', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true })
     });
@@ -57,6 +58,13 @@ test('lab read runtime verifies Testing emulator identity and scopes Firestore d
       const directoryBody = await directory.json();
       assert.equal(directoryBody.hiccCc[0].facultyName, 'Faculty, Test');
       assert.doesNotMatch(JSON.stringify(directoryBody), /not-for-client|"ucid"|"doe"|"facultyKey"/);
+      const ccc = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/ccc-schedule?academicYear=2026-27`, {
+        headers: { origin: 'https://paws-testing-ucvm-20261022.web.app', authorization: 'Bearer ' + idToken }
+      });
+      assert.equal(ccc.status, 200);
+      const cccBody = await ccc.json();
+      assert.equal(cccBody.entries[0].facultyName, 'Faculty, Test');
+      assert.doesNotMatch(JSON.stringify(cccBody), /not-for-client|"ucid"|"purpose"/);
     } finally {
       await new Promise(resolve => server.close(resolve));
     }

@@ -23,7 +23,8 @@ function testingFixtures() {
     session('c2222222-2222-4222-8222-222222222222', '2027-01-13', 'VTMD 213', [first, second], [a, b]),
     session('c3333333-3333-4333-8333-333333333333', '2027-01-14', 'VTMD 304', [second], [b]),
     { collection: 'paws_testing_leadership', id: 'synthetic-hicc', data: { synthetic: true, academicYear: '2026-27', roleType: 'HICC', courseCode: 'VTMD 206', facultyFirstName: 'Avery', facultyLastName: 'Testwell', facultyKey: first, hasSchedule: false, effectiveDate: '2026-05-01', expirationDate: '2027-04-30' } },
-    { collection: 'paws_testing_leadership', id: 'synthetic-visc', data: { synthetic: true, academicYear: '2026-27', roleType: 'VISC', recordedScope: 'Synthetic clinical skills', facultyFirstName: 'Blair', facultyLastName: 'Sampleton', facultyKey: second, hasSchedule: false, effectiveDate: '2026-05-01', expirationDate: '2027-04-30' } }
+    { collection: 'paws_testing_leadership', id: 'synthetic-visc', data: { synthetic: true, academicYear: '2026-27', roleType: 'VISC', recordedScope: 'Synthetic clinical skills', facultyFirstName: 'Blair', facultyLastName: 'Sampleton', facultyKey: second, hasSchedule: false, effectiveDate: '2026-05-01', expirationDate: '2027-04-30' } },
+    { collection: 'paws_testing_ccc', id: 'synthetic-ccc', data: { synthetic: true, academicYear: '2026-27', date: '2027-01-15', endDate: '2027-01-15', facultyName: 'Testwell, Avery', courseCode: 'VTMD 206', blockLabel: 'Synthetic CCC', halfDay: false } }
   ];
 }
 

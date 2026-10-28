@@ -9,8 +9,9 @@ IF OBJECT_DEFINITION(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage')) N
  OR OBJECT_DEFINITION(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage')) NOT LIKE N'%N''developer''%'
  OR OBJECT_DEFINITION(OBJECT_ID(N'paws_api.RecordTeachingAssignmentReview')) IS NULL
  OR OBJECT_DEFINITION(OBJECT_ID(N'paws_api.AddTeachingAssignmentContribution')) IS NULL
+ OR OBJECT_DEFINITION(OBJECT_ID(N'paws_api.RecoverMasterAppointments')) IS NULL
  THROW 54300,'063 refuses an unknown or pre025 workflow authority.',1;
-IF EXISTS(SELECT 1 FROM sys.sql_modules WHERE object_id IN(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage'),OBJECT_ID(N'paws_api.RecordTeachingAssignmentReview'),OBJECT_ID(N'paws_api.AddTeachingAssignmentContribution')) AND(uses_ansi_nulls<>1 OR uses_quoted_identifier<>1)) THROW 54300,'063 requires the reviewed SQL module settings.',1;
+IF EXISTS(SELECT 1 FROM sys.sql_modules WHERE object_id IN(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage'),OBJECT_ID(N'paws_api.RecordTeachingAssignmentReview'),OBJECT_ID(N'paws_api.AddTeachingAssignmentContribution'),OBJECT_ID(N'paws_api.RecoverMasterAppointments')) AND(uses_ansi_nulls<>1 OR uses_quoted_identifier<>1)) THROW 54300,'063 requires the reviewed SQL module settings.',1;
 BEGIN TRANSACTION;
 CREATE TABLE paws.LeadershipWorkflowModule(
  ObjectName sysname NOT NULL PRIMARY KEY,OriginalDefinition nvarchar(max) NOT NULL,OriginalHash char(64) NOT NULL,
@@ -19,7 +20,7 @@ CREATE TABLE paws.LeadershipWorkflowModule(
 );
 INSERT paws.LeadershipWorkflowModule(ObjectName,OriginalDefinition,OriginalHash,OriginalObjectId)
  SELECT name,OBJECT_DEFINITION(OBJECT_ID(name)),CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(name))),2),OBJECT_ID(name)
- FROM (VALUES(N'paws_api.CanActOnTeachingAssignmentPackage'),(N'paws_api.RecordTeachingAssignmentReview'),(N'paws_api.AddTeachingAssignmentContribution')) known(name);
+ FROM (VALUES(N'paws_api.CanActOnTeachingAssignmentPackage'),(N'paws_api.RecordTeachingAssignmentReview'),(N'paws_api.AddTeachingAssignmentContribution'),(N'paws_api.RecoverMasterAppointments')) known(name);
 -- Reuse025's bounded header normalization. SQL stores CREATE OR ALTER as a
 -- CREATE header on some versions; changing only the DDL verb to ALTER keeps
 -- every parameter/body byte, object identity and existing permission binding.
@@ -103,6 +104,17 @@ IF @Definition IS NULL OR (LEN(@Definition)-LEN(REPLACE(@Definition,@Needle,N'')
 SET @Replacement=N'-- PAWS_SCOPED_TEACHING_063: local action context only; never update BaseRole.
         IF @BaseRole IN(N''faculty'',N''visc'') AND @SuggestedByOffice=N''hicc'' AND paws_api.CanActOnTeachingAssignmentPackage(@PackageId,@ActorFirebaseUid,N''hicc'')=1 SET @BaseRole=N''hicc'';
         '+@Needle;
+SET @Definition=REPLACE(@Definition,@Needle,@Replacement);
+EXEC sys.sp_executesql @Definition;
+-- Preserve historical MASTER snapshot bytes and receipts. New access grants
+-- must be explicitly revoked before Undo can delete their source appointment.
+SELECT @Definition=RestoreDefinition FROM paws.LeadershipWorkflowModule WHERE ObjectName=N'paws_api.RecoverMasterAppointments';
+SET @Needle=N'INSERT @Affected SELECT RoleId,IsNew FROM OPENJSON(@Operations) WITH(RoleId uniqueidentifier ''$.roleId'',IsNew bit ''$.isNew'');';
+IF @Definition IS NULL OR (LEN(@Definition)-LEN(REPLACE(@Definition,@Needle,N'')))/LEN(@Needle)<>1 THROW 54300,'MASTER recovery differs from the accepted source.',1;
+SET @Replacement=@Needle+N'
+  -- PAWS_SCOPED_TEACHING_063: refuse before recovery audit or business writes.
+  IF EXISTS(SELECT 1 FROM @Affected a JOIN paws.TeachingLeadershipGrantSource source WITH(UPDLOCK,HOLDLOCK) ON source.SourceRoleAssignmentId=a.RoleId WHERE a.IsNew=1)
+   THROW 54304,''Revoke dependent teaching leadership assignments before MASTER recovery.'',1;';
 SET @Definition=REPLACE(@Definition,@Needle,@Replacement);
 EXEC sys.sp_executesql @Definition;
 UPDATE paws.LeadershipWorkflowModule SET InstalledHash=CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(ObjectName))),2);

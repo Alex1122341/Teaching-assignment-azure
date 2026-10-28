@@ -33,7 +33,7 @@ test('Firestore host isolates the two Firebase apps and starts only the pinned l
   const admin={
     credential:{cert:key=>({projectId:key.project_id})},
     initializeApp(options,name){calls.push({kind:'app',name,options});return {name,delete:async()=>{deleted.push(name);}};},
-    firestore(app){assert.equal(app.name,'paws-testing-lab-host');return {projectId:'vista-teaching-lab',databaseId:'(default)',collection(){return {};}};},
+    firestore(app){assert.equal(app.name,'paws-testing-lab-host');return {projectId:'vista-teaching-lab',databaseId:'(default)',collection(){return {};},async runTransaction(){throw Error('not used in startup test');}};},
     auth(app){assert.equal(app.name,'paws-testing-auth-host');return {verifyIdToken:async()=>{throw Error('invalid');}};}
   };
   let started;

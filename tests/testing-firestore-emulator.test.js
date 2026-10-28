@@ -23,12 +23,15 @@ test('lab read runtime verifies Testing emulator identity and scopes Firestore d
     const email = 'paws-emulator-faculty@example.test';
     const password = 'Emulator-only-pass-2026';
     const uid = 'paws-emulator-faculty';
+    const facultyId = 'a9999999-9999-4999-8999-999999999999';
     await auth.createUser({ uid, email, password });
-    await db.collection('paws_testing_users').doc(uid).set({ synthetic: true, name: 'Test Faculty', role: 'faculty', facultyId: 'synthetic-f1', active: true, mustChangePassword: false });
-    await db.collection('paws_testing_sessions').doc('paws-emulator-1').set({ synthetic: true, date: '2027-01-12', course: 'VETM 301', year: 2, type: 'LAB', academicYear: '2026-27', facultyIds: ['synthetic-f1'], instructorNames: ['Test Faculty'], assignments: [{ facultyId: 'synthetic-f1', ucid: 'not-for-client', doeCredit: 123 }] });
+    await db.collection('paws_testing_users').doc(uid).set({ synthetic: true, name: 'Test Faculty', role: 'faculty', facultyId, active: true, mustChangePassword: false });
+    await db.collection('paws_testing_sessions').doc('paws-emulator-1').set({ synthetic: true, date: '2027-01-12', course: 'VETM 301', year: 2, type: 'LAB', academicYear: '2026-27', facultyIds: [facultyId], instructorNames: ['Test Faculty'], assignments: [{ facultyId, ucid: 'not-for-client', doeCredit: 123 }] });
     await db.collection('paws_testing_sessions').doc('paws-emulator-2').set({ synthetic: true, date: '2027-01-13', facultyIds: ['synthetic-f2'] });
     await db.collection('paws_testing_leadership').doc('paws-emulator-role').set({ synthetic: true, academicYear: '2026-27', roleType: 'HICC', courseCode: 'VETM 301', facultyFirstName: 'Test', facultyLastName: 'Faculty', facultyKey: 'synthetic-f1', effectiveDate: '2026-05-01', ucid: 'not-for-client', doe: 123 });
     await db.collection('paws_testing_ccc').doc('paws-emulator-ccc').set({ synthetic: true, academicYear: '2026-27', date: '2027-01-15', endDate: '2027-01-15', facultyName: 'Test Faculty', courseCode: 'VETM 301', blockLabel: 'Synthetic CCC', halfDay: false, purpose: 'not-for-client', ucid: 'not-for-client' });
+    await db.collection('paws_testing_activity_keys').doc('paws-emulator-key').set({ synthetic: true, facultyId, facultyKey: 'd9999999-9999-4999-8999-999999999999', active: true });
+    await db.collection('paws_testing_calendar_activities').doc('paws-emulator-activity').set({ synthetic: true, activityId: 'e9999999-9999-4999-8999-999999999999', facultyId, facultyDisplayName: 'Test Faculty', category: 'clinical_day', label: 'Synthetic clinical day', startDate: '2027-01-12', endDate: '2027-01-12', timeStatus: 'not_provided', version: '0000000000000001', purpose: 'not-for-client', ucid: 'not-for-client' });
     const response = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator-only', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true })
     });
@@ -65,6 +68,13 @@ test('lab read runtime verifies Testing emulator identity and scopes Firestore d
       const cccBody = await ccc.json();
       assert.equal(cccBody.entries[0].facultyName, 'Faculty, Test');
       assert.doesNotMatch(JSON.stringify(cccBody), /not-for-client|"ucid"|"purpose"/);
+      const activity = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/calendar-activities?start=2027-01-01&end=2027-02-01`, {
+        headers: { origin: 'https://paws-testing-ucvm-20261022.web.app', authorization: 'Bearer ' + idToken }
+      });
+      assert.equal(activity.status, 200);
+      const activityBody = await activity.json();
+      assert.equal(activityBody.activities[0].facultyDisplayName, 'Faculty, Test');
+      assert.doesNotMatch(JSON.stringify(activityBody), /not-for-client|"ucid"|"purpose"/);
     } finally {
       await new Promise(resolve => server.close(resolve));
     }

@@ -24,7 +24,11 @@ function testingFixtures() {
     session('c3333333-3333-4333-8333-333333333333', '2027-01-14', 'VTMD 304', [second], [b]),
     { collection: 'paws_testing_leadership', id: 'synthetic-hicc', data: { synthetic: true, academicYear: '2026-27', roleType: 'HICC', courseCode: 'VTMD 206', facultyFirstName: 'Avery', facultyLastName: 'Testwell', facultyKey: first, hasSchedule: false, effectiveDate: '2026-05-01', expirationDate: '2027-04-30' } },
     { collection: 'paws_testing_leadership', id: 'synthetic-visc', data: { synthetic: true, academicYear: '2026-27', roleType: 'VISC', recordedScope: 'Synthetic clinical skills', facultyFirstName: 'Blair', facultyLastName: 'Sampleton', facultyKey: second, hasSchedule: false, effectiveDate: '2026-05-01', expirationDate: '2027-04-30' } },
-    { collection: 'paws_testing_ccc', id: 'synthetic-ccc', data: { synthetic: true, academicYear: '2026-27', date: '2027-01-15', endDate: '2027-01-15', facultyName: 'Testwell, Avery', courseCode: 'VTMD 206', blockLabel: 'Synthetic CCC', halfDay: false } }
+    { collection: 'paws_testing_ccc', id: 'synthetic-ccc', data: { synthetic: true, academicYear: '2026-27', date: '2027-01-15', endDate: '2027-01-15', facultyName: 'Testwell, Avery', courseCode: 'VTMD 206', blockLabel: 'Synthetic CCC', halfDay: false } },
+    { collection: 'paws_testing_activity_keys', id: 'synthetic-faculty-a', data: { synthetic: true, facultyId: first, facultyKey: 'd1111111-1111-4111-8111-111111111111', active: true } },
+    { collection: 'paws_testing_activity_keys', id: 'synthetic-faculty-b', data: { synthetic: true, facultyId: second, facultyKey: 'd2222222-2222-4222-8222-222222222222', active: true } },
+    { collection: 'paws_testing_calendar_activities', id: 'synthetic-activity-a', data: { synthetic: true, activityId: 'e1111111-1111-4111-8111-111111111111', facultyId: first, facultyDisplayName: 'Avery Testwell', category: 'clinical_day', label: 'Synthetic clinical day', startDate: '2027-01-12', endDate: '2027-01-12', timeStatus: 'not_provided', version: '0000000000000001' } },
+    { collection: 'paws_testing_calendar_activities', id: 'synthetic-activity-b', data: { synthetic: true, activityId: 'e2222222-2222-4222-8222-222222222222', facultyId: second, facultyDisplayName: 'Blair Sampleton', category: 'rotation_participant', label: 'Synthetic rotation', startDate: '2027-01-13', endDate: '2027-01-14', timeStatus: 'not_provided', version: '0000000000000001' } }
   ];
 }
 

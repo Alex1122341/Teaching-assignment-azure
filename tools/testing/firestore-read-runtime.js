@@ -12,6 +12,10 @@ const { createLabCccReader } = require('./firestore-ccc');
 const { createCccScheduleApi } = require('../../server/src/ccc/ccc-schedule-api');
 const { createCccScheduleFunctions } = require('../../server/src/runtime/swa-ccc-schedule-functions');
 const CCC_PATH = '/api/v1/ccc-schedule';
+const { createLabActivityReader } = require('./firestore-activity');
+const { createCalendarActivityApi } = require('../../server/src/calendar/calendar-activity-api');
+const { createCalendarActivityFunctions } = require('../../server/src/runtime/swa-calendar-activity-functions');
+const ACTIVITY_PATH = '/api/v1/calendar-activities';
 
 function createLabReadRuntime({ db, verifyIdToken } = {}) {
   if (typeof verifyIdToken !== 'function') throw new Error('Firebase token verification is required');
@@ -21,11 +25,12 @@ function createLabReadRuntime({ db, verifyIdToken } = {}) {
   const route = createSwaFunctions({ api: createDataApi({ verifyToken, findUser, listSessions, writeGates: {} }) });
   const leadership = createLeadershipDirectoryFunctions({ api: createLeadershipDirectoryApi({ verifyToken, findUser, repository: { list: createLabLeadershipReader({ db }) } }) });
   const ccc = createCccScheduleFunctions({ api: createCccScheduleApi({ verifyToken, findUser, repository: { list: createLabCccReader({ db }) } }) });
+  const activities = createCalendarActivityFunctions({ api: createCalendarActivityApi({ verifyToken, findUser, repository: { list: createLabActivityReader({ db, findUser }) }, writeGates: {} }) });
   return async request => {
     const path = new URL(request.url).pathname;
-    if (!['/api/v1/me', '/api/v1/sessions', LEADERSHIP_PATH, CCC_PATH].includes(path)) return { status: 404, jsonBody: { error: { code: 'NOT_FOUND', message: 'Route not available.' } } };
+    if (!['/api/v1/me', '/api/v1/sessions', LEADERSHIP_PATH, CCC_PATH, ACTIVITY_PATH, ACTIVITY_PATH + '/capabilities'].includes(path)) return { status: 404, jsonBody: { error: { code: 'NOT_FOUND', message: 'Route not available.' } } };
     if (request.method !== 'GET') return { status: 405, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'GET required.' } } };
-    const result = await (path === LEADERSHIP_PATH ? leadership(request) : path === CCC_PATH ? ccc(request) : route(request));
+    const result = await (path === LEADERSHIP_PATH ? leadership(request) : path === CCC_PATH ? ccc(request) : path === ACTIVITY_PATH || path === ACTIVITY_PATH + '/capabilities' ? activities(request) : route(request));
     if (result.status === 503) return { status: 503, jsonBody: { error: { code: 'SERVICE_UNAVAILABLE', message: 'The Testing service is temporarily unavailable.' } } };
     if (path === '/api/v1/me' && result.status === 200) result.jsonBody.environment = { name: 'testing', testing: true };
     return result;

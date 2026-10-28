@@ -26,7 +26,7 @@ test('Testing seed contains only marked synthetic accounts and sessions', () => 
   assert.ok(fixtures.length >= 5);
   assert.equal(new Set(fixtures.map(x => `${x.collection}/${x.id}`)).size, fixtures.length);
   for (const row of fixtures) {
-    assert.ok(['paws_testing_users', 'paws_testing_sessions', 'paws_testing_leadership', 'paws_testing_ccc'].includes(row.collection));
+    assert.ok(['paws_testing_users', 'paws_testing_sessions', 'paws_testing_leadership', 'paws_testing_ccc', 'paws_testing_activity_keys', 'paws_testing_calendar_activities'].includes(row.collection));
     assert.equal(row.data.synthetic, true);
     if (row.collection === 'paws_testing_users') {
       assert.match(row.data.email, /@example\.test$/);
@@ -36,6 +36,8 @@ test('Testing seed contains only marked synthetic accounts and sessions', () => 
   assert.ok(fixtures.some(x => x.collection === 'paws_testing_sessions' && x.data.facultyIds.length > 1));
   assert.deepEqual(fixtures.filter(x => x.collection === 'paws_testing_leadership').map(x => x.data.roleType).sort(), ['HICC', 'VISC']);
   assert.ok(fixtures.some(x => x.collection === 'paws_testing_ccc'));
+  assert.equal(fixtures.filter(x => x.collection === 'paws_testing_activity_keys').length, 2);
+  assert.equal(fixtures.filter(x => x.collection === 'paws_testing_calendar_activities').length, 2);
 });
 
 test('Testing seed pins the lab project and creates its fixture atomically', async () => {

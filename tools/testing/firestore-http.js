@@ -5,7 +5,7 @@
 const http = require('node:http');
 const { once } = require('node:events');
 const TESTING_ORIGIN = 'https://paws-testing-ucvm-20261022.web.app';
-const ALLOWED_PATHS = new Set(['/api/v1/me', '/api/v1/sessions', '/api/v1/dashboard/leadership-directory', '/api/v1/ccc-schedule']);
+const ALLOWED_PATHS = new Set(['/api/v1/me', '/api/v1/sessions', '/api/v1/dashboard/leadership-directory', '/api/v1/ccc-schedule', '/api/v1/calendar-activities', '/api/v1/calendar-activities/capabilities']);
 
 async function startTestingHttpServer({ runtime, port = 18788 } = {}) {
   if (typeof runtime !== 'function') throw new TypeError('Testing runtime is required');

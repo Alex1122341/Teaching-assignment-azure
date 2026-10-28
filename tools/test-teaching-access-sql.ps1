@@ -81,6 +81,7 @@ IF (SELECT COUNT(*) FROM paws.LeadershipAccessOperation WHERE TargetUid=N'leader
 IF (SELECT COUNT(*) FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityId=N'leadership062hicc')<>1 THROW 54260,'Concurrent intents duplicated the exclusive assignee.',1;
 PRINT 'LEADERSHIP_COMMAND_062_CONCURRENT_EPOCH_SERIALIZATION';
 '@ 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/leadership-access-legacy-settings.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/063_scoped_teaching_workflow.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/063_scoped_teaching_workflow_acceptance.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/leadership-access-master-recovery.sql') -Raw) 'VetMed-Ops'
@@ -102,6 +103,7 @@ foreach($masterFile in @('045_calendar_away_classification.sql','046_calendar_co
 }
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/leadership-access-legacy-settings.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/063_scoped_teaching_workflow.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql 'SELECT ObjectName,OriginalHash,RestoreHash,OriginalObjectId INTO dbo.Leadership063RollbackBaseline FROM paws.LeadershipWorkflowModule;' 'VetMed-Ops'
 Invoke-TestSql $workflowRollback 'VetMed-Ops'

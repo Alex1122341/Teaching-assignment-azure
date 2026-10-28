@@ -42,3 +42,11 @@ test('an existing Firebase UID is never updated or reused', async () => {
   x.auth.createUser = async () => { throw Object.assign(Error('private provider details'), { code: 'auth/uid-already-exists' }); };
   await assert.rejects(createInactiveFacultyIdentity({ db: x.db, auth: x.auth, uid: x.fixture.id, password: 'synthetic-password-only' }), error => !error.message.includes('private provider details'));
 });
+
+test('all 31 synthetic Faculty identities are eligible for disabled-only provisioning; no privileged UID is', () => {
+  const users = testingFixtures().filter(row => row.collection === 'paws_testing_users');
+  assert.equal(users.filter(row => row.data.role === 'faculty').length, 31);
+  assert.ok(users.every(row => row.data.active === false));
+  assert.ok(users.every(row => row.data.email.endsWith('@example.test')));
+  assert.ok(!users.some(row => row.data.role === 'faculty' && row.id === 'paws-synthetic-owner'));
+});

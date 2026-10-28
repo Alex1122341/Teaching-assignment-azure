@@ -1,0 +1,31 @@
+# Agent Update — PR148 real-role acceptance and GUID recovery
+
+**Date:** 2026-10-28  
+**Repository:** Alex1122341/Teaching-assignment-azure  
+**Status:** PARTIAL — merge/release still authorized, not yet performed
+
+Continue the existing rotation-calendar-workspace-20261025 worktree and feat/effective-access-20261026 branch. Productd6b586a2ff8c0c1f987099a5776d72d61a2d6400 includes a real SQL receipt-case fix; separate governance working changes target it. Do not switch to Desktop Pages/Firestore or replay installed migrations.
+
+## Accepted and actual live state
+
+- At4883478 all7 CI workflows succeeded: Build40697258094/job122847234195, root1318/0/55 (1373total), server1003/0/8 (1011total), emulator1354/0/19; all four repository/artifact freezes green. Official artifact12820381197/digest57c47615c68c1d37b58bc7609905170f5ea7d85868261028c0e9e1587c065810 verified locally and on school server. This is historical after later API fixes.
+- Installed school SQL061 and062.063 first refused before DDL because existing CanActOnTeachingAssignmentPackage has QUOTED_IDENTIFIER OFF. Actual disposable reproduction40708678571/job122887655910 failed54300. ecc671b preserves that one original flag in the four-module journal, installs ON/ON, refuses metadata drift and restores original metadata/body/object identity. Independent review found no issue; all7 ecc CI workflows succeed, Account40713925348/job122906333619 passes38 markers. Installed corrected063; exact MASTER4.3MB snapshot and all15 profile business values unchanged.
+- Protected school staging: P:\PAWS\Runtime\Staging\EffectiveAccess-20261028-4883478. Private backups contain original launcher/recovery config/health/MASTER/profile snapshots,063 journal and raw Tim recovery receipt. Original liveAPI18787 remains e7d3ffec/ef2d053,27 old gates; Hosting still9bf5c7cba086fb4d/release1793054270493000, rules7dcc6e4d-3b95-497d-a0d6-9cc51d00ad7e. No production restart/merge/Hosting/rules cutover yet.
+- Candidate actual official488 API is18790, old27 gates preserved, accountAccess nowtrue solely for approved grant; collaborationfalse. Child launcher candidate-run/Start-MultipleRoles-Candidate.ps1 retains protected DPAPI credential flow; package/lock match live and dependencies junction to the same installed immutable graph. Browser loopback19068 serves actual official488app, only API-origin response redirected to candidate. Candidate HTTP/2 ingress **https://model-week-reduction-digest.trycloudflare.com**. Earlier QUIC ingress strongly-label-guitar-officers failed530; only its own18790 tunnel was replaced, not live18787. Cloudflare log is candidate-run/cloudflared-http2.log.
+- Four approved canonical configuration rows were transactionally created/audited: course505hicc, its exact505 scope4949b3ba-86b7-4427-80e6-60e7dce50df5, bovinevisc and bovine area group. No GroupHicc link, real package/session ownership or legacy Firestore owner was inferred/changed. Normal Owner catalog confirms exactly the source course and Bovine period; Tim initially has Faculty only.
+
+## Persisted grant — NEVER create a duplicate
+
+Normal Owner Auth/API previewbd44056f-2571-404b-99cb-a406c9e89c1f bound targetversiona425 and authoritya441. Both approved windows inclusive2026-05-01..2027-04-30; only505 has explicit default-date provenance. Operation **5d4e1c5a-b696-4cf2-8a1b-24a1548fc71e** committed **two assignees and one audit**. API returned503 due SQL's uppercase GUID serialization, not a failed transaction. Raw school recovery JSON is private/tim-leadership-5d4e1c5a-recovery.json; savedAuthorityVersiona469. **LeadershipAccessState.Enabled remains0**, so extra roles are not active yet; BaseRole/profile version/DOE/source appointments unchanged.
+
+Local private files in firebase-preflight-20261027: tim-exact-leadership-preview.json, tim-exact-leadership-operation.json, tim-exact-leadership-commit-result.json, canonical proposal/catalog and official ZIP/freeze/CI receipts. The stored operation JSON is the exact recovery input. Retry it only against the new accepted runtime; replay must return200/replayed and no extra audit/assignee. Do not rerun the full create-preview script or invent a new UUID.
+
+## Current correction and next steps
+
+20b4101/435f19f canonicalize only SQL operation/preview UUIDs and request UUIDs for both account and leadership. Three SQL-shaped tests reproduced503; input casing reproduced409. Independent review then found array coercion: d6b586a requires strings before normalization, observed RED TypeError then full37/37 green. Firebase UIDs remain untouched. New freeze working changes bind d6b586a; static hashes unchanged, API changes exactly4files,133+3 protection. Request independent governance review, commit after verification, then fresh complete CI/artifact.
+
+1. Stage **new** official artifact on18790; preserve native packages/DPAPI/new-gate state and old27. Retry the **same**5d4e1c5a operation using normal Owner Auth and verify exact catalog/history/recovery export.
+2. Verify2 intended grants,1audit, unchanged profiles/MASTER/other grants; then activate additional-role state under approved scope. Normal Tim browser19068 is already logged in through email/password, no impersonation. It currently shows Faculty and read-only calendar. Reverify own descriptors, nav, scoped empty/unmapped queues, groups and Owner-route denies; no fake packages or ownership transfer. Some existing display names appear transposed in source; do not silently rewrite business identities during permissions work.
+3. Final normal roles + official artifact/four freezes; merge accepted exact HEAD; exact-main7 workflows/package and **mandatory Graphify rebuild on merged main**, both views/raw hash/counts/source relation. Then coordinate API/Hosting/restrictive rules, preserve recovery/config/gates and verify public hashes/real logins/denies. Update original progress Excel preserving human signoffs.
+
+Latest script relationships graph predates current receipt changes; regenerate before fresh relationship tracing. After EVERY merge rebuild again on exact main, regardless of any premerge graph.

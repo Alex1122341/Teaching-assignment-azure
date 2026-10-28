@@ -7,7 +7,9 @@ const previous='cb4298c734e7162c86a71b729c797ff548111db7';
 const product='2974df368d61ab8f71ea04a3b21074fb2aafe54b';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('multiple teaching roles promote independently reviewed product blobs and retain prior Calendar receipt',()=>{
- assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(api.BASELINE_COMMIT,product);assert.equal(report.sourceCommit,product);
+ assert.ok(git('show','4883478270f1e2047947263a286c7fc18e0e3c6f:tools/beta-freeze.js').includes(`const BASELINE_COMMIT='${product}'`));
+ git('merge-base','--is-ancestor',product,freeze.BASELINE_COMMIT);
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);
  assert.ok(git('show','d76aa7e8d8a2098857190fa7f7b868a192f20cc2:tools/beta-freeze.js').includes(`const BASELINE_COMMIT='${previous}'`));
  git('merge-base','--is-ancestor',previous,product);git('merge-base','--is-ancestor',product,'HEAD');
  const before=freeze.readBaselineManifest({root,baselineCommit:previous}),after=freeze.readBaselineManifest({root,baselineCommit:product});

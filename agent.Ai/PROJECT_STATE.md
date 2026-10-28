@@ -1,3 +1,7 @@
+## Current: PR148 real-role acceptance; retry persisted operation after GUID fix — 2026-10-28
+
+Read `updates/2026-10-28-pr148-live-role-acceptance.md`. School061/062/063 installed, source/profile snapshots preserved. Two approved Tim grants committed once with one audit but oldcandidateAPI503 from uppercaseSQLGUIDs. ExtraRolesEnabled=0. NEVER submit a new operation: retry5d4e1c5a-b696-4cf2-8a1b-24a1548fc71e against corrected candidate. Productd6b586a37related tests green; independent governed freeze targetsit. Live18787/Hosting/rules unchanged; officialnewcandidate, realTim acceptance, exactmerge/mainrelease/Graphify and Excel remain.
+
 ## Current: PR148 MASTER compatibility accepted; final release gates — 2026-10-28
 
 Continue `updates/2026-10-28-pr148-master-compatibility.md`. Product2974df3 passes all six SQL workflows; Account40694847142/job122838749541 has37 markers. Two fresh standards/spec reviews report no additional code findings. Separate freeze promotion, controlled full server, final root/emulator/artifact, Tim exact mapping/live roles and coordinated release remain. Every merge requires Graphify regenerated on exact merged main before tracing/signoff. No school061–063/grant/restart/merge/deploy.

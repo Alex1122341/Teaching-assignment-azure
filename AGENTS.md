@@ -40,7 +40,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 
 ## Repository layout
 
-- **Before tracing script relationships** (imports, calls, build/release wiring, API-to-repository dependencies or change impact), consult the local Graphify index `graphify-out/graph.json` / `graphify-out/SCRIPT_MAP.html` and follow `docs/architecture/script-dependency-graph.md`. Query the index first, then confirm its file/line references in current source. If the index is absent or source has changed, regenerate it using that document; an absent graph edge is not proof of no dependency.
+- **Before tracing script relationships** (imports, calls, build/release wiring, API-to-repository dependencies or change impact), consult the local Graphify index `graphify-out/graph.json`, relationship overview `graphify-out/DEPENDENCIES.html` or file/symbol tree `graphify-out/SCRIPT_MAP.html`, following `docs/architecture/script-dependency-graph.md`. Query the index first, then confirm its file/line references in current source. If the index is absent or relevant source has changed, regenerate it using that document; an absent graph edge is not proof of no dependency.
 
 - Browser sources live in `frontend/pages/`, `frontend/scripts/`, `frontend/styles/` and `frontend/assets/`. Do not create duplicate browser files at the repository root.
 - `tools/static-assets.json` continues to list **public URLs**, not source locations. `tools/build/frontend-paths.js` resolves source locations; `tools/build/static-bundle.js` is the single static packaging implementation.

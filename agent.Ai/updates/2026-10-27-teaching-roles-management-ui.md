@@ -22,7 +22,9 @@ Browser: actual generated96-asset application with private synthetic API/Auth ad
 
 ## Next
 
-1. Push this product checkpoint and collect exact-head isolated SQL35 proof; fix any actual SQL error, preserving prior module/permission recovery boundaries.
+Latest acceptance after this checkpoint: SQL062 now returns explicit empty arrays for empty catalogs/history. Actual failing isolated tests exposed the omission; a bounded read-only constants query on school master reproduced SQL JSON behavior without any business-table access or mutation. Test capture keeps the standalone procedure's outer-transaction guard and uses compatible sqlcmd large-JSON options. At8547479171514203093def8b87428063fdfdea22, all six isolated SQL workflows pass; Account40628160864/job122617982193 has35 markers. Receipt: private `sql060-063-exact-8547479-receipt.json`. A new deferred-response test reproduced stale own-scope replacement after identity change;8547479 checks generation before assigning the scope and passes76 related tests. Older auth mocks and the explicit client method inventory were updated without weakening their assertions. Full root1371total/1270pass/46fail/55skip now has only unpromoted runtime-governance failures; Build40628160924 consequently skips emulator and official artifact. No green release/artifact claim.
+
+1. Product and exact8547479 isolated SQL35 proof are pushed/collected. Preserve them as historical receipts after later edits; no need to rerun the same unchanged boundary repeatedly.
 2. Finish normal Tim scoped configuration preview/recovery tooling and actual-role acceptance under the approved505/Bovine dates. Do not repurpose historical P2 packages or infer ownership from topic/area text.
 3. Independent complete-branch product review and separate reviewed immutable freeze promotion; fresh exact-head/main full/emulator/all-SQL/official artifact before coordinated API, Hosting and separate restrictive-rules release.
 4. Update the original progress workbook on material final acceptance/release, preserving existing human signoffs. Do not redo the previous workbook write as bookkeeping.

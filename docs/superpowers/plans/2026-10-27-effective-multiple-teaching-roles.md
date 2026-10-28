@@ -47,20 +47,20 @@ Earlier Task2 slice: exact eba55ebfbe54ac6f3171c57a26c103b5b05a29ed SQL run40605
 
 - [x] RED scope/grant/source collisions, grant and revoke atomicity, A→B→A for assignee and scope metadata, actor revocation, concurrent commands, conflicting/replayed UUID, response loss, protected Developer and used rollback. SQL command acceptance initially failed with missing command before implementation; source/date/scope/recorded VISC and concurrent cases now run in real disposable SQL. Response-loss handling is exercised through the actual API boundary and persisted-operation recovery.
 - [x] Implement additive schema/procedure/version maintenance using existing responsibility/assignee tables. Preserve Date storage convention, profile values, old scopes and existing audit. Refuse unknown existing principals/schema and unreviewed scope widening.
-- [ ] Re-run hardened061–063 actual disposable SQL with all34 required markers and exact empty/used recovery. Earlier27-marker proof is historical after the reproduced definition-widening fix. Never run fixture/acceptance SQL on VetMed-Ops. Final whole-branch product/governance review remains Task5.
+- [x] Hardened061–063 actual disposable SQL passed all34 markers at327b4aabdd5aac94b2f8564d1d13accc02854ff7, run40610807118/job122561576272, including exact empty/used recovery. Later Task4 catalog/history edits require fresh35-marker proof; the34-marker result is historical for those newer bytes. Never run fixture/acceptance SQL on VetMed-Ops. Final whole-branch product/governance review remains Task5.
 
 ### Task3 — Teaching Assignments and SWAP use explicit multiple responsibilities
 
-Implementation progress: reuse the versioned account profile reader for current own identity rather than duplicating UserProfile SQL in another reader. Self/workflow runtime, role gates, one SQL union queue, per-package capabilities and awaited profile/package/history rechecks are implemented/tested. SQL063 source follows expected missing-feature RED and preserves exact original modules for guarded rollback; actual mixed/self-review/expiry/SWAP ownership proof is pending. Additional SWAP response binding and Task4 client/UI remain.
+Implementation progress: reuse the versioned account profile reader for current own identity rather than duplicating UserProfile SQL in another reader. Self/workflow runtime, role gates, one SQL union queue, per-package capabilities and awaited profile/package/history/SWAP/DOE-preview rechecks are implemented/tested. SQL063 actual mixed/self-review/expiry/SWAP ownership and exact rollback proof passed at327b4aa. Task4 client/UI followed in0deedde; live Tim mapping and final release acceptance remain later tasks.
 
 **Files:** server/src/teaching-assignment/teaching-assignment-api.js, server/src/data/sql-teaching-assignment-workflow-repository.js, SQL061 replacements of affected authority functions/procedures, server/src/swap/swap-api.js if its checks require change, and related server/test files.
 
 **Interfaces:** API actor keeps baseRole and effectiveRoles; work queue unions HICC/VISC scope, package read returns canDraft/canSubmit/canReview/canFinalSubmit. SQL CanActOnTeachingAssignmentPackage remains the final package authority. SWAP consumes the same explicit ownership graph.
 
-- [ ] Wire the accepted SQL authority loader into sql-user-repository.js and sql-account-access-repository.js; add public self/API/HTTP tests for own descriptors and changed scope fingerprints, without replacing the account AccessVersion.
-- [ ] RED baseFaculty with two assignees gets both permitted queues, unauthorized/mixed scope denied, duplicate queues deduplicate, expired/current-year changes, prohibition of self-review where applicable, and stale revision behavior unchanged.
-- [ ] Replace BaseRole-only exclusions with trusted effective capabilities, never user-requested role/context. Preserve office/global checks and exact SQL rechecks; unknown ownership stays denied.
-- [ ] Run workflow/SWAP and disposable SQL regressions; commit after green.
+- [x] Wire the accepted authority loader through the existing versioned sql-account-access-repository profile reader and runtime identity composer, rather than duplicating an unversioned UserProfile query in sql-user-repository. Public self/API/HTTP tests cover own descriptors and changed scope fingerprints; account AccessVersion is preserved.
+- [x] RED baseFaculty with two assignees gets both permitted queues, unauthorized/mixed scope denied, duplicate queues deduplicate, expired/current-year changes, prohibition of self-review where applicable, and stale revision behavior unchanged.
+- [x] Replace BaseRole-only exclusions with trusted effective capabilities, never user-requested role/context. Preserve office/global checks and exact SQL rechecks; unknown ownership stays denied.
+- [x] Workflow/SWAP regressions and the34-marker disposable SQL core proof pass. Subsequent Task4 history has its own new35-marker gate; no release claim from the older core proof.
 
 ### Task4 — Collaboration, client invalidation and UI
 

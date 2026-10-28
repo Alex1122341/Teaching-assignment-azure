@@ -1,25 +1,36 @@
 {
-  "generatedAtUtc": "2026-10-28T03:14:30.439Z",
+  "generatedAtUtc": "2026-10-28T03:43:07.172Z",
   "repository": "Alex1122341/Teaching-assignment-azure",
-  "head": "327b4aabdd5aac94b2f8564d1d13accc02854ff7",
-  "dirtySource": true,
+  "head": "8547479171514203093def8b87428063fdfdea22",
+  "dirtySource": false,
   "tool": "graphifyy 0.9.97",
   "mode": "code-only local AST; no clustering or LLM",
-  "scannedCodeFiles": 845,
-  "nodeCount": 6442,
-  "rawEdgeCount": 14342,
+  "scannedCodeFiles": 846,
+  "nodeCount": 6444,
+  "rawEdgeCount": 14347,
   "inputTokens": 0,
   "outputTokens": 0,
-  "sha256": "5d0f26bcc83aab01577a565efdec443e6c115203ecd715ce5c54415f51f8f8c7",
+  "sha256": "39286d647eb92f3cf4b52fd4c94a7ee9f338e59a488b79bce9894f2e837e1b8e",
   "danglingEndpointEdges": 0,
   "exactDuplicateEdges": 0,
-  "projectionCollapsedRelationships": 1488,
-  "symbolFreeFiles": 102,
+  "projectionCollapsedRelationships": 1490,
+  "symbolFreeFiles": 101,
   "verifiedPath": {
     "from": "createSwaSqlRuntime",
     "to": "createLeadershipAccessApi",
     "relation": "calls",
     "source": "server/src/runtime/swa-sql-runtime.js:120"
   },
-  "publication": "local reference only; never a release artifact"
+  "publication": "local reference only; never a release artifact",
+  "aggregatedView": {
+    "nodes": 444,
+    "edges": 1359,
+    "communities": 444,
+    "usesRemoteModel": false
+  },
+  "outputs": [
+    "graphify-out/graph.json",
+    "graphify-out/DEPENDENCIES.html",
+    "graphify-out/SCRIPT_MAP.html"
+  ]
 }

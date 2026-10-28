@@ -44,7 +44,7 @@ test('unconfigured site cannot use same-origin switch', () => {
 });
 
 test('same-site view model does not expose Testing to Faculty', () => {
-  const config = { environment: 'production', environmentLabel: 'Production', peerSiteUrl: null };
+  const config = require('../tools/render-environment-config').loadConfig('production');
   const actor = role => ({ profile: { role }, environment: { name: 'production' } });
   assert.equal(nav.viewModel(config, actor('adfa_regular'), { sameSite: true }).openTesting, true);
   assert.equal(nav.viewModel(config, actor('faculty'), { sameSite: true }).openTesting, false);
@@ -102,4 +102,11 @@ test('Production boot ignores untrusted query strings and never changes Firebase
   vm.runInNewContext(render(loadConfig('production')), { window: win });
   assert.equal(win.PAWS_ENVIRONMENT_CONFIG.environment, 'production');
   assert.equal(win.PAWS_API_ORIGIN_CONFIG.firebase.projectId, 'tester-teaching');
+});
+
+test('environment nav blocks a selected Testing mode without working API and Auth', () => {
+  const broken = { environment:'unavailable',apiOrigin:null,firebase:null };
+  const model = nav.viewModel(broken,null);
+  assert.equal(model.state,'misconfigured');
+  assert.match(model.message,/not configured/);
 });

@@ -57,13 +57,15 @@ test('named canonical writers contain no direct Firestore session, AFC, or Facul
  assert.match(read('timetable.js'),/\$\('session-form'\)\.onsubmit\s*=\s*event\s*=>/,'the fail-closed editor handler must bind through the DOM helper so the browser script remains parseable');
 });
 
-test('public schedule remains read-only in the browser and public information retains its documented Firestore function',()=>{
+test('public schedule stays API-only and information publication uses effective SQL authorization',()=>{
  const timetable=read('timetable.js'),info=read('information-center.js'),rules=read('firestore.rules');
  assert.doesNotMatch(timetable,/ccc_events|loadCccEvents|expandCccEvents/);
  assert.match(timetable,/PAWS_CALENDAR_ACTIVITIES/);
  assert.match(read('calendar-activities.js'),/listCalendarActivities/);
  assert.doesNotMatch(timetable,/db\.collection\(['"]public_schedule['"]\)\.doc\(['"]ccc_events['"]\)\.(?:set|update|delete)\(/);
- assert.match(info,/db\.doc\(['"]public_info\/information_center['"]\)\.set\(/);
+ assert.match(info,/api\.publishAnnouncement\(/);
+ assert.doesNotMatch(info,/db\.(?:doc|collection)/);
+ assert.match(rules,/function ready\(\)\{return false;\}/);
  assert.match(rules,/match \/public_info\/\{id\}/);
 });
 

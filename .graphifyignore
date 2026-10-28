@@ -1,0 +1,17 @@
+# Keep the script index limited to source and checked-in tooling.
+.git/
+.superpowers/
+.worktrees/
+node_modules/
+.firebase/
+.deploy-static/
+.azure-production/
+graphify-out/
+output/
+azure-sql-import-private/
+.env*
+*.paws-import.json
+*.paws-import.jsonl
+*.dpapi
+*.pem
+*.key

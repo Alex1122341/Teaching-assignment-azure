@@ -26,7 +26,7 @@ test('AFC queue requires the SQL API and the disabled legacy approval module con
  assert.match(queue,/db\.collection\(['"]afc_requests['"]\)/,'legacy source is retained but is no longer loaded by a Beta page');
  assert.match(read('paws-data-client.js'),/api\/v1\/afc-requests/);
  assert.match(admin,/href="index\.html#approvals"/);
- assert.match(lookup,/awayFromCampusRecords/);assert.match(lookup,/sessions/);assert.match(lookup,/Available faculty/);
+ assert.match(lookup,/createFacultyAvailability/);assert.match(lookup,/PAWS_FACULTY_AVAILABILITY/);assert.doesNotMatch(lookup,/awayFromCampusRecords|db\.collection/);
 });
 
 test('the API-only Dashboard exposes no bulk import control and keeps the rules contract',()=>{

@@ -37,7 +37,7 @@ test('independent removals retain the other course; month alone refreshes range'
 test('clearing a subscribed unchanged range still repaints Calendar and activity results',async()=>{
  // Real refresh + subscribe functions execute the already-subscribed early return.
  const fields={'search-input':{value:'clinical'},'filter-month':{value:'all'}};
- const context={Set,$:id=>fields[id],currentUser:{uid:'synthetic'},viewMode:'week',sessionUnsubscribe:()=>{},sessionRangeKey:'week:2026-11-09:2026-11-13',
+ const context={Set,$:id=>fields[id],selectedYear:'all',currentUser:{uid:'synthetic'},viewMode:'week',sessionUnsubscribe:()=>{},sessionRangeKey:'week:2026-11-09:2026-11-13',
   visibleSessionRange:()=>({start:'2026-11-09',end:'2026-11-13'}),rendered:0,render(){context.rendered++;},renderActiveContentFilters(){},populateCourseFilter(){}};
  vm.createContext(context);vm.runInContext(`let selectedCourses=new Set(['200']),courseFilterActive=true,contentFilterBatch=false;
  const activityTypeFilter={reset(){}};

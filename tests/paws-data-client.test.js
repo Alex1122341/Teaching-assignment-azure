@@ -207,7 +207,7 @@ test('Dashboard client exposes explicit AFC methods without Firestore fallback',
   const source=fs.readFileSync(repositoryPath(process.cwd(), 'paws-data-client.js'),'utf8');
   const client=createPawsDataClient({tokenProvider:async()=>'t',fetchImpl:async()=>({ok:true,json:async()=>({})})});
   assert.deepEqual(Object.keys(client).sort(),[
-    'effectiveAccess','accessCatalog','accessAccounts','previewAccountAccess','commitAccountAccess','accountAccessHistory','collaborationGroups','saveCollaborationGroup','saveCollaborationMembers','announcements','publishAnnouncement','legacyAccessHistory',
+    'effectiveAccess','accessCatalog','accessAccounts','previewAccountAccess','commitAccountAccess','accountAccessHistory','leadershipAccessCatalog','leadershipAccessHistory','previewLeadershipAccess','commitLeadershipAccess','collaborationGroups','saveCollaborationGroup','saveCollaborationMembers','announcements','publishAnnouncement','legacyAccessHistory',
     'facultyAvailability','dashboardTrainees','exportDashboardTrainees','reportCatalog','reportQuery','reportPage','reportExport',
     'changeHistory','changeHistoryPage','changeHistoryExport','schedulingTasks','reviewSchedulingTask',
     'listCalendarActivities','calendarActivityCapabilities','stageCalendarActivityImport','getCalendarActivityImport','previewCalendarActivityImport','commitCalendarActivityImport','resolveCalendarActivityTime',

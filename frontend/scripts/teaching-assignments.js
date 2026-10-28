@@ -288,8 +288,9 @@
       profile=nextProfile;
       if (!profile || profile.active !== true) { showGate('An active PAWS account is required.'); return; }
       if (profile.mustChangePassword === true) { location.replace('password.html'); return; }
-      ownAccess=await UCVM_PAWS_DATA.effectiveAccess();
+      const nextOwnAccess=await UCVM_PAWS_DATA.effectiveAccess();
       if(generation!==authGeneration || auth.currentUser?.uid!==user.uid)return;
+      ownAccess=nextOwnAccess;
       if (!queueAccess() && role() !== 'faculty') { showGate('This account can’t access Teaching Assignments.'); return; }
       $('identity-chip').textContent = `${displayFaculty(profile.displayName || profile.name || user.displayName || user.email || 'PAWS user')} · ${role()}`;
       document.querySelectorAll('.admin-only').forEach(button => button.classList.toggle('hidden',!isAdmin()));

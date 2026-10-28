@@ -11,7 +11,6 @@ foreach($masterFile in @('045_calendar_away_classification.sql','046_calendar_co
 Invoke-TestSql @'
 CREATE TABLE dbo.PawsDisposableLeadership061(Marker bit NOT NULL);
 INSERT dbo.PawsDisposableLeadership061 VALUES(1);
-SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc INTO dbo.Leadership061ProfileBaseline FROM paws.UserProfile;
 DECLARE @Batch uniqueidentifier=NEWID(),@Faculty uniqueidentifier=NEWID();
 INSERT staging.ImportBatch(ImportBatchId,StartedAtUtc,Status,SourceManifestSha256,ImporterVersion,ValidationSummaryJson) VALUES(@Batch,SYSUTCDATETIME(),N'synthetic',REPLICATE('6',64),N'leadership061compat',N'{}');
 INSERT paws.Faculty(FacultyId,RecordType,DisplayName,Active,SourceImportBatchId) VALUES(@Faculty,N'faculty',N'Synthetic snapshot compatibility',1,@Batch);
@@ -19,6 +18,7 @@ INSERT paws.RoleAssignment(RoleAssignmentId,FacultyId,FacultyResolutionStatus,Ac
 '@ 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/leadership-access-master-stage.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql @'
+SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc INTO dbo.Leadership061ProfileBaseline FROM paws.UserProfile;
 SELECT paws_api.MasterRefreshSnapshot('2026-27') SnapshotJson INTO dbo.Leadership061MasterSnapshotBaseline;
 '@ 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access.sql') -Raw) 'VetMed-Ops'

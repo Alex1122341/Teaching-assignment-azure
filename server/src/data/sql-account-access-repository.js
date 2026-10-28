@@ -1,5 +1,6 @@
 'use strict';
 const PROFILE=`u.FirebaseUid AS firebaseUid,u.Email AS email,u.DisplayName AS displayName,u.BaseRole AS baseRole,
+ f.PreferredFirstName AS preferredFirstName,f.PreferredLastName AS preferredLastName,
  u.FacultyId AS facultyId,u.Active AS active,u.MustChangePassword AS mustChangePassword,CAST(COALESCE(f.Active,0) AS bit) AS facultyActive,
  LOWER(CONVERT(varchar(16),CONVERT(binary(8),u.AccessVersion),2)) AS version`;
 function receipt(row){

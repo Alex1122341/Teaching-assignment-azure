@@ -3,6 +3,20 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {createSqlAccountAccessRepository}=require('../src/data/sql-account-access-repository');
 
+test('own access uses canonical name parts when a legacy display string has reversed comma order',async()=>{
+ const {createAccountAccessApi}=require('../src/access/account-access-api');
+ const profile={firebaseUid:'faculty',baseRole:'faculty',active:true,mustChangePassword:false,facultyActive:true,
+  facultyId:'10000000-0000-4000-8000-000000000001',version:'0000000000000001',displayName:'Timothy, Olchowy',preferredFirstName:'Timothy',preferredLastName:'Olchowy'};
+ const repo=createSqlAccountAccessRepository({query:async sql=>{
+  assert.match(sql,/f\.PreferredFirstName AS preferredFirstName/);assert.match(sql,/f\.PreferredLastName AS preferredLastName/);
+  return [profile];
+ }});
+ assert.equal((await repo.read('faculty')).preferredLastName,'Olchowy');
+ const api=createAccountAccessApi({verifyToken:async()=>({uid:'faculty'}),findUser:uid=>repo.read(uid),repository:repo});
+ const result=await api.self('normal-token');assert.equal(result.status,200);assert.equal(result.body.access.displayName,'Olchowy, Timothy');
+ assert.equal(profile.displayName,'Timothy, Olchowy');
+});
+
 test('account receipts canonicalize SQL GUIDs without changing case-sensitive Firebase identities',async()=>{
  const operationId='5d4e1c5a-b696-4cf2-8a1b-24a1548fc71e',previewId='bd44056f-2571-404b-99cb-a406c9e89c1f';
  const stored={operationId:operationId.toUpperCase(),previewId:previewId.toUpperCase(),actorUid:'OwnerMixedCase',targetUid:'FacultyMixedCase'};

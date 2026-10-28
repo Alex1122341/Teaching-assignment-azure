@@ -47,3 +47,23 @@ test('Testing HTTP adapter rejects unexpected runtime errors without exposing de
   assert.equal(response.status, 503);
   assert.doesNotMatch(await response.text(), /sensitive runtime detail/);
 });
+
+test('same-site CORS requires an explicit Testing-host opt-in and still refuses writes', async t => {
+  const calls = [];
+  const server = await startTestingHttpServer({ port: 0, allowSameSite: true, runtime: async request => {
+    calls.push(request.method);
+    return { status: 401, jsonBody: { error: { code: 'UNAUTHORIZED' } } };
+  } });
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const url = 'http://127.0.0.1:' + server.address().port + '/api/v1/me';
+  const origin = 'https://tester-teaching.web.app';
+  const headers = { origin, 'access-control-request-method': 'GET', 'access-control-request-headers': 'authorization' };
+  const preflight = await fetch(url, { method: 'OPTIONS', headers });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+  const denied = await fetch(url, { headers: { origin } });
+  assert.equal(denied.status, 401, 'CORS is not authentication');
+  assert.equal((await fetch(url, { method: 'POST', headers: { origin } })).status, 405);
+  assert.equal((await fetch(url, { headers: { origin: 'https://untrusted.example.org' } })).status, 403);
+  assert.deepEqual(calls, ['GET']);
+});

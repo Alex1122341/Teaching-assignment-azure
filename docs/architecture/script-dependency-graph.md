@@ -13,6 +13,8 @@ Before investigating how PAWS scripts relate, consult the Graphify index. This a
 
 ## Generate or refresh
 
+**Mandatory after every merge:** use the exact merged `main` checkout to rerun code-only extraction, the file tree and the relationship overview. Record `git rev-parse HEAD`, a clean source status, counts/warnings and the raw graph SHA-256 in the release receipt. Verify a representative CLI path and its current source line, and open both generated views. This is required even if the previous branch graph appeared current. Do not continue dependency tracing or sign off a release using the pre-merge graph. Graph generation does not replace CI, approval or artifact verification.
+
 Use the installed Graphify CLI with its SQL extra (`graphifyy[sql]`). Run from the repository root:
 
 ```powershell

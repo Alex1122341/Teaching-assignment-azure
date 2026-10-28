@@ -37,6 +37,7 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 - Normal CI fails if any shipped runtime asset drifts from the baseline. Existing CI freeze checks must validate both the repository and build artifact; Firebase Hosting release remains a static-only `--only hosting` action.
 - Changing the baseline is explicit future release work: it requires updating the frozen baseline commit reference, the manifest-derived protection, and the documentation together, in a reviewed change. It is never an implicit side effect of a feature commit.
 - The feature branch is not live until its pull request is merged, exact-main push CI passes, and the directed Firebase Hosting deployment succeeds. Never treat a candidate build as a deployment.
+- **After every PR merge**, rebuild the Graphify raw index and both views from the exact merged `main` checkout before further dependency tracing or release signoff. Record the merge SHA, extraction warnings/counts and graph hash; verify a representative relationship against source. Do not reuse the feature-branch graph. Follow `docs/architecture/script-dependency-graph.md`; generated graphs remain local and outside deployment artifacts.
 
 ## Repository layout
 

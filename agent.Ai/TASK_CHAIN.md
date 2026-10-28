@@ -1,3 +1,7 @@
+## Current: PR148 MASTER compatibility accepted; final release gates — 2026-10-28
+
+Continue `updates/2026-10-28-pr148-master-compatibility.md`. Product2974df3 passes all six SQL workflows; Account40694847142/job122838749541 has37 markers. Two fresh standards/spec reviews report no additional code findings. Separate freeze promotion, controlled full server, final root/emulator/artifact, Tim exact mapping/live roles and coordinated release remain. Every merge requires Graphify regenerated on exact merged main before tracing/signoff. No school061–063/grant/restart/merge/deploy.
+
 ## Current: Graphify-first script lookup; PR148 Task4 continues — 2026-10-27
 
 Always consult the local Graphify index before investigating script relationships, then confirm current source. Start with `docs/architecture/script-dependency-graph.md`; the local outputs are `graphify-out/graph.json` and `graphify-out/SCRIPT_MAP.html`. Refresh on missing/stale data. Read `updates/2026-10-27-graphify-script-map.md` and preserve the ongoing Task4 UI/API/SQL changes; do not restart the accepted multi-role plan or mistake this documentation change for a deployment.

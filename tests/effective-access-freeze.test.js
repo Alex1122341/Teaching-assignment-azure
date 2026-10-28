@@ -37,7 +37,7 @@ test('effective access promotion covers127 API runtime files plus the unchanged 
  assert.deepEqual(changed(after),['server/src/access/account-access-api.js','server/src/access/account-access-policy.js','server/src/access/collaboration-api.js','server/src/access/legacy-access-store.js','server/src/data/sql-account-access-repository.js','server/src/data/write-gates.js','server/src/runtime/swa-account-access-functions.js','server/src/runtime/swa-report-functions.js','server/src/runtime/swa-sql-runtime.js','swa-api/index.js']);
  assert.deepEqual(changed([...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES]),[]);
  const result=api.verifyFreeze({root});
- assert.equal(result.protected,130);
+ assert.equal(result.protected,136);
  assert.equal(result.ok,true);
  const existing=git('ls-tree','-r','--name-only',previous,'database/azure-sql').split('\n');
  assert.deepEqual(changed(existing),[]);

@@ -12,6 +12,8 @@ This prerequisite is unrelated to the waived dedicated Windows SQL service-accou
 
 ## Candidate acceptance
 
+After every merge, rebuild Graphify from the exact merged main checkout, including `graph.json`, `SCRIPT_MAP.html` and `DEPENDENCIES.html`, before release signoff or further dependency tracing. Record the merge SHA, source status, warnings/counts, raw hash and a source-verified relationship. The feature-branch graph is historical after merge; do not package generated graph files into Hosting/API. See `docs/architecture/script-dependency-graph.md`.
+
 1. Verify exact PR HEAD, latest main ancestry, independent product findings/fixes and separately reviewed governance. All final required root/server/emulator/SQL checks must pass. Validate official ZIP metadata and digest; verify static/API artifact freezes. A local candidate is never an official CI artifact or a deployment.
 2. Retain current API source/config, Hosting release identity, exact Firestore rules source/release identity, previous27 gate values, current recovery configuration and tested recovery artifacts. Recheck live runtime/SQL/CORS and public assets because main can advance independently. Do not replay old data migrations/imports.
 3. Before applying060, inspect exact database/schema/principal collisions and grant inventory read-only. SQL060 refuses any existing feature principal; do not drop/reuse one to bypass the guard. Run only the approved migration, not the disposable fixture or acceptance script, on production. No real account role/active/faculty changes are part of acceptance.

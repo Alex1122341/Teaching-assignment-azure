@@ -11,14 +11,14 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed Calendar teaching-only defaults build on effective SQL access and next-request revocation
+// Reviewed dated multiple teaching responsibilities preserve Faculty and next-request revocation
 // are the immutable shared static/API trust anchor. SQL060 and restrictive rules require
 // coordinated release acceptance; this anchor is not evidence of live activation.
 // The independently reviewed historical governance receipts remain pinned to their own commits.
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='cb4298c734e7162c86a71b729c797ff548111db7';
+const BASELINE_COMMIT='2974df368d61ab8f71ea04a3b21074fb2aafe54b';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

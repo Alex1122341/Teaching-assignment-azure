@@ -60,7 +60,7 @@ function makeArtifact(contents = baseline, extra = []) {
 
 test('API freeze shares the static immutable baseline and protects the complete current runtime', () => {
   assert.equal(freeze.BASELINE_COMMIT, staticFreeze.BASELINE_COMMIT);
-  assert.equal(freeze.currentRuntimeFiles({ root }).length, 127);
+  assert.equal(freeze.currentRuntimeFiles({ root }).length, 133);
   assert.ok(freeze.currentRuntimeFiles({ root }).includes('server/src/swap/swap-view.js'));
   for(const file of ['server/src/data/sql-leadership-directory-repository.js','server/src/roles/leadership-directory-api.js','server/src/roles/role-effective-status.js','server/src/runtime/swa-leadership-directory-functions.js'])assert.ok(freeze.currentRuntimeFiles({root}).includes(file),`${file} must be protected`);
   for(const file of ['server/src/ccc/ccc-schedule-api.js','server/src/data/sql-ccc-schedule-repository.js','server/src/runtime/swa-ccc-schedule-functions.js'])assert.ok(freeze.currentRuntimeFiles({root}).includes(file),`${file} must be protected`);

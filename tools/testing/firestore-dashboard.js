@@ -41,7 +41,18 @@ function createLabDashboardReader({ db } = {}) {
     const max = limit == null ? MAX_FACULTY : Number(limit);
     if (!Number.isInteger(max) || max < 1 || max > MAX_FACULTY) throw new Error('Invalid Testing Faculty limit');
     const query = String(search || '').trim().toLowerCase().slice(0,100);
-    const rows = await all('faculty', FACULTY_FIELDS, MAX_FACULTY);
+    // Never scan the whole roster when a Faculty user asks for their own row.
+    // The PAWS Dashboard API has already checked the actor's canonical scope.
+    let rows;
+    if (facultyId) {
+      const snapshot = await own(db, 'faculty').doc(facultyId).get();
+      if (!snapshot.exists) rows = [];
+      else {
+        const data = snapshot.data();
+        if (!data || data.synthetic !== true || data.facultyId !== facultyId) throw Error('Testing Faculty scope rejected');
+        rows = [data];
+      }
+    } else rows = await all('faculty', FACULTY_FIELDS, MAX_FACULTY);
     return rows.filter(row => matches(row,academicYear) &&
       (!facultyId || row.facultyId === facultyId) &&
       (status === 'all' || (row.active === true) === (status === 'active')) &&

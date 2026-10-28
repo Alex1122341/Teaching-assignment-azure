@@ -1,7 +1,7 @@
 'use strict';
 const { isDeepStrictEqual } = require('node:util');
 const { testingFixtures } = require('./firestore-seed');
-const FACULTY_UIDS = new Set(['paws-synthetic-faculty-a', 'paws-synthetic-faculty-b']);
+const FACULTY_UIDS = new Set(testingFixtures().filter(row => row.collection === 'paws_testing_users' && row.data.role === 'faculty').map(row => row.id));
 
 // Provision only disabled synthetic Faculty accounts. Enabling accounts and
 // profiles requires a separate trusted workflow; this function never modifies

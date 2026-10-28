@@ -3,6 +3,25 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {createLeadershipAccessApi}=require('../src/access/leadership-access-api');
 const F='10000000-0000-4000-8000-000000000001',C='20000000-0000-4000-8000-000000000505',S='30000000-0000-4000-8000-000000000001';
 const OP='40000000-0000-4000-8000-000000000001';
+
+test('real repository SQL-shaped GUID receipts confirm a commit and same-operation retry exactly once',async()=>{
+ const {createSqlLeadershipAccessRepository}=require('../src/data/sql-leadership-access-repository');
+ const operationId='5d4e1c5a-b696-4cf2-8a1b-24a1548fc71e',previewId='bd44056f-2571-404b-99cb-a406c9e89c1f';
+ const h=fixture({randomId:()=>previewId});let writes=0,stored=null;
+ const sqlRepo=createSqlLeadershipAccessRepository({query:async(sql,params)=>{
+  if(sql.includes('SetTeachingLeadershipAccess')){
+   writes++;h.state.snapshot.authorityVersion='0000000000000012';
+   stored={operationId:params.operationId.toUpperCase(),previewId:params.previewId.toUpperCase(),actorUid:params.actorUid,targetUid:params.targetUid,
+    academicYear:params.academicYear,reason:params.reason,savedAuthorityVersion:'0000000000000012',createdAtUtc:'2026-10-28T15:44:00Z'};
+  }
+  return stored?[{receiptJson:JSON.stringify(stored)}]:[];
+ }});
+ h.repository.operation=sqlRepo.operation;h.repository.commit=sqlRepo.commit;
+ const preview=await h.api.preview('owner',h.request);assert.equal(preview.status,200);
+ const input={previewId,operationId},saved=await h.api.commit('owner',input);
+ assert.equal(saved.status,200);assert.equal(saved.body.replayed,false);assert.equal(saved.body.operation.operationId,operationId);
+ const retry=await h.api.commit('owner',input);assert.equal(retry.status,200);assert.equal(retry.body.replayed,true);assert.equal(writes,1);
+});
 test('leadership history is Owner-only, academic-year bounded and rechecks identity after awaited reads',async()=>{
  const h=fixture();let reads=0;h.repository.history=async input=>{reads++;assert.equal(input.academicYear,'2026-27');assert.equal(input.targetUid,'teacher');return {total:0,rows:[]};};
  const input={targetUid:'teacher',academicYear:'2026-27',offset:0};

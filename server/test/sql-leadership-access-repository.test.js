@@ -2,6 +2,14 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createSqlLeadershipAccessRepository}=require('../src/data/sql-leadership-access-repository');
 const OP='40000000-0000-4000-8000-000000000001';
+
+test('SQL GUID receipt casing is canonical while Firebase identity casing is preserved',async()=>{
+ const operationId='5d4e1c5a-b696-4cf2-8a1b-24a1548fc71e',previewId='bd44056f-2571-404b-99cb-a406c9e89c1f';
+ const stored={operationId:operationId.toUpperCase(),previewId:previewId.toUpperCase(),actorUid:'OwnerMixedCase',targetUid:'FacultyMixedCase'};
+ const repo=createSqlLeadershipAccessRepository({query:async()=>[{receiptJson:JSON.stringify(stored)}]});
+ const saved=await repo.operation(operationId,stored.actorUid);
+ assert.deepEqual(saved,{...stored,operationId,previewId});
+});
 test('leadership history retains original granted scope instead of current definitions and drops recovery signatures',async()=>{
  let call;const original={operationId:OP,changes:[{action:'grant',responsibilityId:'course505',kind:'hicc',courses:[{courseId:'canonical',courseCode:'505'}],groups:[],sourceSignature:'PRIVATE'}]};
  const repo=createSqlLeadershipAccessRepository({query:async(sql,params)=>{call={sql,params};return [{historyJson:JSON.stringify({total:1,operations:[{operationId:OP,actorName:'Alex Owner',targetName:'Tim Faculty',reason:'Approved revoke',createdAtUtc:'2026-10-27T18:00:00',receipt:{academicYear:'2026-27',changes:[{action:'revoke',assignmentId:OP,responsibilityId:'course505'}],before:[{assignmentId:OP,responsibilityId:'course505',startDate:'2026-05-01',endExclusive:'2027-05-01',grantOperationId:OP,approvedSourceSignature:'PRIVATE'}],after:[]}}],origins:[original]})}];}});

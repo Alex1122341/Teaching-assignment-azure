@@ -17,7 +17,11 @@ function parse(result,field,optional=false){
 function receipt(result,optional=false){
  const value=parse(result,'receiptJson',optional);if(value===null)return null;
  if(!UUID.test(value.operationId||'')||!UID.test(value.actorUid||'')||!UID.test(value.targetUid||''))throw Error('Persisted leadership receipt is invalid.');
- return pick(value,['operationId','previewId','actorUid','targetUid','academicYear','reason','savedAuthorityVersion','createdAtUtc']);
+ const resultView=pick(value,['operationId','previewId','actorUid','targetUid','academicYear','reason','savedAuthorityVersion','createdAtUtc']);
+ // SQL Server emits uniqueidentifier JSON in uppercase; browser UUIDs are
+ // lowercase. Firebase UIDs are case-sensitive and must remain untouched.
+ for(const key of ['operationId','previewId'])if(typeof resultView[key]==='string')resultView[key]=resultView[key].toLowerCase();
+ return resultView;
 }
 function createSqlLeadershipAccessRepository(db){
  if(typeof db?.query!=='function')throw TypeError('SQL query required.');

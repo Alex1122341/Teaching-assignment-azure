@@ -2,7 +2,13 @@
 const PROFILE=`u.FirebaseUid AS firebaseUid,u.Email AS email,u.DisplayName AS displayName,u.BaseRole AS baseRole,
  u.FacultyId AS facultyId,u.Active AS active,u.MustChangePassword AS mustChangePassword,CAST(COALESCE(f.Active,0) AS bit) AS facultyActive,
  LOWER(CONVERT(varchar(16),CONVERT(binary(8),u.AccessVersion),2)) AS version`;
-function receipt(row){return row?JSON.parse(row.receiptJson):null;}
+function receipt(row){
+ if(!row)return null;
+ const value=JSON.parse(row.receiptJson);
+ // Canonicalize SQL GUIDs only; never change case-sensitive Firebase UIDs.
+ for(const key of ['operationId','previewId'])if(typeof value[key]==='string')value[key]=value[key].toLowerCase();
+ return value;
+}
 function createSqlAccountAccessRepository(db){
  return Object.freeze({
   async read(uid){return (await db.query(`SELECT ${PROFILE} FROM paws.UserProfile u LEFT JOIN paws.Faculty f ON f.FacultyId=u.FacultyId WHERE u.FirebaseUid=@uid`,{uid}))[0]||null;},

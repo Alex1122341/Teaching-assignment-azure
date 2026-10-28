@@ -3,6 +3,13 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {createSqlAccountAccessRepository}=require('../src/data/sql-account-access-repository');
 
+test('account receipts canonicalize SQL GUIDs without changing case-sensitive Firebase identities',async()=>{
+ const operationId='5d4e1c5a-b696-4cf2-8a1b-24a1548fc71e',previewId='bd44056f-2571-404b-99cb-a406c9e89c1f';
+ const stored={operationId:operationId.toUpperCase(),previewId:previewId.toUpperCase(),actorUid:'OwnerMixedCase',targetUid:'FacultyMixedCase'};
+ const repo=createSqlAccountAccessRepository({query:async()=>[{receiptJson:JSON.stringify(stored)}]});
+ assert.deepEqual(await repo.operation(operationId),{...stored,operationId,previewId});
+});
+
 test('SQL account reads are bounded, parameterized and exclude confidential faculty fields',async()=>{
  const calls=[],profile={firebaseUid:'account',displayName:'Taylor Example',baseRole:'faculty',active:true,version:'0000000000000001'};
  const repo=createSqlAccountAccessRepository({query:async(sql,params)=>{calls.push({sql,params});return [profile];}});

@@ -82,6 +82,19 @@ IF EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership061-fa
  THROW 54160,'Academic year or half-open authority dates were not enforced.',1;
 PRINT 'TEACHING_ACCESS_061_DUAL_ROLE_SCOPE_AND_DATES';
 
+DECLARE @ExtraCourse uniqueidentifier=NEWID(),@ExtraScope uniqueidentifier=NEWID();
+INSERT paws.Course(CourseId,CourseCode,CourseName,SourceImportBatchId) VALUES(@ExtraCourse,N'061EXTRA',N'Synthetic unapproved course',@Batch);
+INSERT paws.TeachingResponsibilityScope(ResponsibilityScopeId,HiccResponsibilityId,CourseId) VALUES(@ExtraScope,N'leadership061hicc',@ExtraCourse);
+IF EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027') WHERE kind=N'hicc') THROW 54160,'Changed definition automatically widened an existing approved course grant.',1;
+DELETE paws.TeachingResponsibilityScope WHERE ResponsibilityScopeId=@ExtraScope;
+INSERT paws.TeachingAssignmentGroup(GroupId,Name,LeaderViscResponsibilityId,Active) VALUES(N'leadership061extraarea',N'Synthetic unapproved area',N'leadership061visc',1);
+IF EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027') WHERE kind=N'visc') THROW 54160,'Changed definition automatically widened an existing approved area grant.',1;
+DELETE paws.TeachingAssignmentGroup WHERE GroupId=N'leadership061extraarea';
+UPDATE paws.TeachingResponsibilityAssignee SET ActiveDate='20260502' WHERE ResponsibilityAssigneeId=@HiccAssignee;
+IF EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027') WHERE kind=N'hicc') THROW 54160,'Unreviewed assignee window change retained the old approval.',1;
+UPDATE paws.TeachingResponsibilityAssignee SET ActiveDate='20260501' WHERE ResponsibilityAssigneeId=@HiccAssignee;
+PRINT 'TEACHING_ACCESS_061_APPROVED_SCOPE_CANNOT_WIDEN';
+
 DECLARE @Epoch varchar(16)=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState()),@Definition varchar(64);
 SELECT @Definition=definitionVersion FROM paws_api.EffectiveTeachingAssignments(N'leadership061-faculty',N'2026-27','20261027') WHERE kind=N'hicc';
 UPDATE paws.TeachingResponsibility SET Label=N'Changed synthetic label' WHERE ResponsibilityId=N'leadership061hicc';

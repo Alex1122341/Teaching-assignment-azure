@@ -1,7 +1,7 @@
 :ON ERROR EXIT
 SET NOCOUNT ON;SET XACT_ABORT ON;
 IF DB_NAME()<>N'VetMed-Ops' OR OBJECT_ID(N'dbo.PawsDisposableLeadership061',N'U') IS NULL THROW 54360,'Disposable scoped workflow marker required.',1;
-IF OBJECT_DEFINITION(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage')) NOT LIKE N'%PAWS_SCOPED_TEACHING_063%'
+IF OBJECT_DEFINITION(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage')) IS NULL OR OBJECT_DEFINITION(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage')) NOT LIKE N'%PAWS_SCOPED_TEACHING_063%'
  THROW 54360,'Scoped multi-role SQL workflow authority is missing.',1;
 GO
 DECLARE @Today date=CONVERT(date,(SYSUTCDATETIME() AT TIME ZONE 'UTC') AT TIME ZONE 'Mountain Standard Time'),@Year int,@AY nvarchar(32),@Start date,@End date;
@@ -53,9 +53,9 @@ EXEC paws_api.RecordTeachingAssignmentReview @Package,1,N'approved',NULL,N'leade
 EXEC paws_api.FinalSubmitTeachingAssignment @Package,1,N'leadership063dual';
 IF NOT EXISTS(SELECT 1 FROM paws.TeachingAssignmentPackage WHERE TeachingAssignmentPackageId=@Package AND Status=N'submitted_to_adfad') THROW 54360,'Independent VISC approval flow did not complete.',1;
 PRINT 'SCOPED_WORKFLOW_063_SEPARATE_REVIEW_REVISION_FLOW';
-UPDATE paws.TeachingResponsibilityAssignee SET ExpirationDate=@Today WHERE ResponsibilityAssigneeId=@HAssignee;
+UPDATE paws.TeachingResponsibilityAssignee SET ActiveDate=DATEADD(day,-1,@Today),ExpirationDate=@Today WHERE ResponsibilityAssigneeId=@HAssignee;
 IF paws_api.CanActOnTeachingAssignmentPackage(@Package,N'leadership063dual',N'hicc')<>0 THROW 54360,'Expired HICC authority remained active.',1;
-UPDATE paws.TeachingResponsibilityAssignee SET ExpirationDate=@End WHERE ResponsibilityAssigneeId=@HAssignee;
+UPDATE paws.TeachingResponsibilityAssignee SET ActiveDate=@Start,ExpirationDate=@End WHERE ResponsibilityAssigneeId=@HAssignee;
 UPDATE paws.Faculty SET Active=0 WHERE FacultyId=@Faculty;
 IF paws_api.CanActOnTeachingAssignmentPackage(@Package,N'leadership063dual',N'visc')<>0 THROW 54360,'Deactivated Faculty retained authority.',1;
 UPDATE paws.Faculty SET Active=1 WHERE FacultyId=@Faculty;

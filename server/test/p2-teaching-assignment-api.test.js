@@ -44,6 +44,12 @@ test('scope revocation or an ABA epoch change during an awaited workflow result 
  let version='a'.repeat(64),calls=0;const api=createTeachingAssignmentApi({verifyToken:async uid=>({uid}),findUser:async uid=>({firebaseUid:uid,baseRole:'hicc',active:true,mustChangePassword:false,facultyId:'faculty-1',version:'0000000000000001',teachingAccess:{effectiveRoles:['hicc'],scopeVersion:version}}),repository:{getPackage:async()=>{calls++;version='b'.repeat(64);return {topic:'PRIVATE'};}}});
  const result=await api.getPackage('uid',packageId);assert.equal(calls,1);assert.equal(result.status,403);assert.doesNotMatch(JSON.stringify(result),/PRIVATE/);
 });
+test('SQL self-review and exact-authority denials are fixed403 responses, with no database details',async()=>{
+ for(const number of [52112,52121,52132,52133,52141,52152]){
+  const {api}=createApi({role:'visc',repository:{review:async()=>{throw {number,message:'PRIVATE SQL DETAIL'};}}});
+  const result=await api.review('uid',packageId,{revisionNumber:1,decision:'approved'});assert.equal(result.status,403);assert.doesNotMatch(JSON.stringify(result),/PRIVATE/);
+ }
+});
 
 test('write gates deny writes and only current HICC/VISC or admin capabilities can transition', async () => {
   assert.equal((await createApi({gate:false}).api.saveDraft('uid',{packageId,expectedWorkingRevision:0,sessions:[]})).status,503);

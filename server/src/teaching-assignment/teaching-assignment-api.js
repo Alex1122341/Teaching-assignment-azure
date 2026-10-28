@@ -46,6 +46,8 @@ function createTeachingAssignmentApi({verifyToken,findUser,repository,writeGates
     catch (error) {
       if (conflict(error)) return fail(409,'REVISION_CONFLICT','The workflow changed. Reload it and retry against the current revision.');
       const n=Number(error?.number || error?.code);
+      if(n===52133)return fail(403,'SELF_REVIEW_DENIED','Another authorized VISC reviewer must review a proposal you created or submitted.');
+      if([52112,52121,52132,52141,52152,52162,52171,52172].includes(n))return fail(403,'TEACHING_ASSIGNMENT_DENIED','Current authority for this exact workflow action is required.');
       if (n>=52100 && n<52200) return fail(n===52111?404:400,'TEACHING_ASSIGNMENT_INVALID',String(error.message || 'The workflow request was rejected.'));
       return fail(503,'SERVICE_UNAVAILABLE','The workflow service is temporarily unavailable.');
     }

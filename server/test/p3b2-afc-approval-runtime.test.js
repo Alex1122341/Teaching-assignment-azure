@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const TEST_RUNTIME_IDENTITY = { PAWS_RELEASE_SHA: 'a'.repeat(40), PAWS_RUNTIME_TRUST_ANCHOR: 'b'.repeat(40) };
+const TEST_RUNTIME_IDENTITY = { PAWS_ENVIRONMENT: 'production', PAWS_RELEASE_SHA: 'a'.repeat(40), PAWS_RUNTIME_TRUST_ANCHOR: 'b'.repeat(40) };
 const {
   createSqlAfcApprovalRepository,
   RECOMMEND_PROCEDURE,
@@ -126,6 +126,7 @@ test('actual SQL runtime mounts approval actions and rejects anonymous decisions
     async close() {}
   }
   const env = {
+    PAWS_ENVIRONMENT: 'production',
     FIREBASE_PROJECT_ID: 'test-project',
     PAWS_SQL_CONNECTION_STRING: 'Server=localhost;Database=VetMed-Ops;Encrypt=true;',
     PAWS_SQL_DRIVER: 'tedious'

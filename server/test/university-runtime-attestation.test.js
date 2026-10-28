@@ -6,6 +6,7 @@ const http = require('node:http');
 const { createUniversityHttpServer } = require('../src/runtime/university-http-server');
 
 const identity = {
+  PAWS_ENVIRONMENT: 'production',
   PAWS_RELEASE_SHA: 'a'.repeat(40),
   PAWS_RUNTIME_TRUST_ANCHOR: 'b'.repeat(40),
   PAWS_API_ALLOWED_ORIGINS: 'https://paws.example.edu',

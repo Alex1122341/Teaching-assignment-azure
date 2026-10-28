@@ -1,0 +1,29 @@
+# Agent Update — PR125 current-main refresh
+
+**Date:** 2026-10-22  
+**Repository:** Alex1122341/Teaching-assignment-azure  
+**Task status:** PARTIAL — local verification and independent review in progress
+
+## Goal and starting breakpoint
+
+Update existing PR125, branch `feat/paws-testing-environment`, original head `2994c73df92d1e692aa28094bb5c1ceec72403c8`, against main `924cc6761a3b2dfba4f19c2df912436cbd965b43`. This includes merged PR124 Availability and PR130 CCC Schedule. Preserved unrelated prior Availability receipt edits on local docs branch `docs/availability-release-receipt-20261021` at e07f31f.
+
+## Work performed and invariants
+
+- Merged current main and preserved both environment navigation and latest read panels; kept every historical freeze assertion.
+- Independent Standards review found Hosting staging path mismatch, new reader persona denial and unsafe guessing of LocalDB ownership. Spec review found missing current-reader fixtures/acceptance. Corrective regression tests reproduced the defects before fixes.
+- Testing deploy stages the accepted artifact at the Firebase configuration's actual public path.
+- Testing support allows only the exact GET Availability and CCC Schedule routes. Real domain APIs still enforce role/own-faculty scope; Production support allowlist is unchanged.
+- Initial acceptance creates only fresh LocalDB databases; any existing VetMed-Ops causes refusal before destructive SQL. The separately guarded Testing reset remains available only for its marked environment.
+- Added six synthetic CalendarActivity rows after all forward migrations; coverage includes assigned/Locum CCC, another academic year, rotation and a cross-year clinical range. No times are invented. Acceptance covers pagination, own/cross access, public-only CCC fields, academic year and reset restoration.
+- No business-data/DOE changes, live writes, infrastructure provisioning, merge to main or deployments.
+
+## Verification and next actions
+
+Original focused54/54, merged UI82/82, corrective focused45/45 and full server856pass/0fail/4skip. Independent Standards/Spec product reviews of35a8416 found no actionable finding. Separate governancea30ad39 was reviewed READY; full root then found two failures from one raw-vs-canonical PDF reporting hash. Corrected only that non-authoritative JSON field in637203c, independently reviewed and reproduced red2→green2. Product/runtime/anchor/tests remain unchanged. Initial full root1084total/1030pass/2fail/52skip; a full rerun is now active. Repository and built-artifact freezes pass with86static/111API and no drift; build and repository environment config pass. See `docs/dual-environment/10-main-refresh-readiness-20261022.md`.
+
+The new LocalDB checks are source only until a fresh isolated SQL run succeeds; current local tools have no LocalDB. Do not treat historical44/44 as evidence for this refresh. Testing infrastructure and deployed UAT remain prerequisites outside this code update. Owner accepts local checks while GitHub Actions quota is exhausted; no Actions were manually dispatched. Main and remote PR head rechecked:924cc67/2994c73. Next: read full root rerun result, record actual counts, push original PR branch without force and update PR body; do not merge/release an unprovisioned environment.
+
+## Latest-main follow-up
+
+Main advanced toad605db (PR131) before push, so integrated product4242426 preserves all Last, First naming changes together with environment configuration/navigation. Standards and Spec reviewed it READY; separate governance5abbb2c reviewed READY, exact14static/7API delta and86/111+3 protection. Server runtime/package bytes unchanged35a..424. Focused name/environment/tooling88/88 and current/historical governance6/6 pass. Full server default-concurrency runs each852pass/4parser-timeout failures/4skip; isolated parser files41/41 and complete server serial856pass/0fail/4skip, unchanged limits. Fresh latest root npmtest now running alone; do not reuse prior1032 result as latest. Afterit completes, refresh actual evidence, rebuild+freeze artifacts, push samePRbranch and updatePRbody. No live writes or deployment.

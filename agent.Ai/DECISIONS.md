@@ -1,3 +1,7 @@
+## Owner direction: PR125 Testing Firestore — 2026-10-27
+
+For PR125 Testing only, use the existing `vista-teaching-lab` Firestore with synthetic data instead of provisioning University Testing SQL. Keep PAWS Testing Hosting separate and preserve Production's SQL authority, data, Firebase resources and deployment. Existing lab data and security rules must not be overwritten merely to make the Testing UI work.
+
 ## Owner autonomy and current UI release boundary — 2026-10-24
 
 Choose recommended routine options and continue to merge/release readiness with minimal human participation; do not trigger grilling or repeated design/plan approval. Preserve existing Beta scope and independent final review. External/human-only blockers are recorded and independent preparation continues. Current PR140 code and checks are verified, but temporary API DNS/RDC are unavailable: do not silently claim current live readiness, weaken CORS/rules/gates, guess source identity or publish an expired-origin candidate. Latest UI brief still requires separate actual merge/publication direction. Review limits, test execution rulings and rollback are explicit in the final office release receipt.

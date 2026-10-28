@@ -1,0 +1,352 @@
+{
+  "description": "PAWS business write gates: what each one opens, where it is enforced, and the Testing default. Production gates are owner-managed on the Production API host and are not changed by this file. Verified by tests/testing-deployment-readiness.test.js. routeSummary is a reading aid; the enforcing check is in the listed modules.",
+  "gates": [
+    {
+      "gate": "sessionEdit",
+      "env": "PAWS_SESSION_EDIT_WRITE_ENABLED",
+      "feature": "Timetable: edit an existing session; replace session assignments",
+      "routeSummary": [
+        "PATCH /api/v1/sessions/{id}",
+        "PUT /api/v1/sessions/{id}/assignments"
+      ],
+      "modules": [
+        "server/src/data/data-api.js",
+        "server/src/afc/afc-request-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "sessionCreate",
+      "env": "PAWS_SESSION_CREATE_WRITE_ENABLED",
+      "feature": "Timetable: create one session or a batch",
+      "routeSummary": [
+        "POST /api/v1/sessions",
+        "POST /api/v1/sessions/batch"
+      ],
+      "modules": [
+        "server/src/data/data-api.js",
+        "server/src/afc/afc-request-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "facultyAdmin",
+      "env": "PAWS_FACULTY_ADMIN_WRITE_ENABLED",
+      "feature": "Faculty Dashboard: Faculty profile, roles and role periods; also required for manual DOE",
+      "routeSummary": [
+        "writes under /api/v1/dashboard/faculty/{id}…",
+        "writes under /api/v1/dashboard/roles/{id}…"
+      ],
+      "modules": [
+        "server/src/data/dashboard-api.js",
+        "server/src/doe/doe-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "afcSingle",
+      "env": "PAWS_AFC_SINGLE_WRITE_ENABLED",
+      "feature": "AFC records: add one record (ADFAD)",
+      "routeSummary": [
+        "POST /api/v1/dashboard/afc-records"
+      ],
+      "modules": [
+        "server/src/data/dashboard-api.js",
+        "server/src/afc/afc-request-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "afcBatch",
+      "env": "PAWS_AFC_BATCH_WRITE_ENABLED",
+      "feature": "AFC records: batch add",
+      "routeSummary": [
+        "POST /api/v1/dashboard/afc-records/batch"
+      ],
+      "modules": [
+        "server/src/data/dashboard-api.js",
+        "server/src/afc/afc-request-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "afcCancel",
+      "env": "PAWS_AFC_CANCEL_WRITE_ENABLED",
+      "feature": "AFC records: cancel a record",
+      "routeSummary": [
+        "write under /api/v1/dashboard/afc-records/{id}…"
+      ],
+      "modules": [
+        "server/src/data/dashboard-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "afcRequest",
+      "env": "PAWS_AFC_REQUEST_WRITE_ENABLED",
+      "feature": "AFC self-service requests: create, edit, submit, withdraw",
+      "routeSummary": [
+        "POST /api/v1/afc-requests",
+        "POST /api/v1/afc-requests/{id}/*"
+      ],
+      "modules": [
+        "server/src/afc/afc-request-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "afcDecision",
+      "env": "PAWS_AFC_DECISION_WRITE_ENABLED",
+      "feature": "AFC approvals: approve, reject, return",
+      "routeSummary": [
+        "POST /api/v1/afc-requests/{id}/decision*"
+      ],
+      "modules": [
+        "server/src/afc/afc-approval-api.js",
+        "server/src/afc/afc-request-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "afcArtifact",
+      "env": "PAWS_AFC_ARTIFACT_WRITE_ENABLED",
+      "feature": "AFC approved artifact (signed PDF) creation",
+      "routeSummary": [
+        "POST /api/v1/afc-requests/{id}/approved-artifact"
+      ],
+      "modules": [
+        "server/src/afc/afc-approved-artifact-api.js",
+        "server/src/afc/afc-request-api.js"
+      ],
+      "testing": true,
+      "personaNote": "Artifact routes are never available to personas; use your own account."
+    },
+    {
+      "gate": "afcFormUpload",
+      "env": "PAWS_AFC_FORM_UPLOAD_ENABLED",
+      "feature": "AFC original form PDF upload and record attachment",
+      "routeSummary": [
+        "POST /api/v1/afc-forms",
+        "POST /api/v1/dashboard/afc-records (documentId)"
+      ],
+      "modules": [
+        "server/src/afc/afc-form-api.js",
+        "server/src/data/dashboard-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "swapRequest",
+      "env": "PAWS_SWAP_REQUEST_WRITE_ENABLED",
+      "feature": "Swaps: faculty self-replacement request",
+      "routeSummary": [
+        "POST /api/v1/swaps"
+      ],
+      "modules": [
+        "server/src/swap/swap-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "swapDecision",
+      "env": "PAWS_SWAP_DECISION_WRITE_ENABLED",
+      "feature": "Swaps: candidate / ADFA decisions",
+      "routeSummary": [
+        "POST /api/v1/swaps/{id}/decision"
+      ],
+      "modules": [
+        "server/src/swap/swap-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "swapApply",
+      "env": "PAWS_SWAP_APPLY_WRITE_ENABLED",
+      "feature": "Swaps: apply an approved swap to the timetable",
+      "routeSummary": [
+        "POST /api/v1/swaps/{id}/apply"
+      ],
+      "modules": [
+        "server/src/swap/swap-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "taDraft",
+      "env": "PAWS_TA_DRAFT_WRITE_ENABLED",
+      "feature": "Teaching Assignments: HICC draft edits",
+      "routeSummary": [
+        "POST /api/v1/teaching-assignments/*/draft*"
+      ],
+      "modules": [
+        "server/src/teaching-assignment/teaching-assignment-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "taReview",
+      "env": "PAWS_TA_REVIEW_WRITE_ENABLED",
+      "feature": "Teaching Assignments: submit and VISC review",
+      "routeSummary": [
+        "POST /api/v1/teaching-assignments/*/review*"
+      ],
+      "modules": [
+        "server/src/teaching-assignment/teaching-assignment-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "taFinal",
+      "env": "PAWS_TA_FINAL_WRITE_ENABLED",
+      "feature": "Teaching Assignments: ADFAD final review",
+      "routeSummary": [
+        "POST /api/v1/teaching-assignments/*/final*"
+      ],
+      "modules": [
+        "server/src/teaching-assignment/teaching-assignment-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "taPublish",
+      "env": "PAWS_TA_PUBLISH_WRITE_ENABLED",
+      "feature": "Teaching Assignments: publish to the timetable",
+      "routeSummary": [
+        "POST /api/v1/teaching-assignments/*/publish"
+      ],
+      "modules": [
+        "server/src/teaching-assignment/teaching-assignment-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "doeAdmin",
+      "env": "PAWS_DOE_ADMIN_WRITE_ENABLED",
+      "feature": "DOE: Rule Book Draft edits, validation, Impact Preview, copy; DOE assignments and targets",
+      "routeSummary": [
+        "POST|PATCH /api/v1/doe/policies/*",
+        "POST /api/v1/doe/assignments*",
+        "POST /api/v1/doe/targets*"
+      ],
+      "modules": [
+        "server/src/doe/doe-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "doeManualAssignment",
+      "env": "PAWS_DOE_MANUAL_ASSIGNMENT_WRITE_ENABLED",
+      "feature": "DOE: manual DOE assignments and overrides (also needs facultyAdmin)",
+      "routeSummary": [
+        "POST /api/v1/doe/manual-assignments*"
+      ],
+      "modules": [
+        "server/src/doe/doe-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "doePolicyPublish",
+      "env": "PAWS_DOE_POLICY_PUBLISH_ENABLED",
+      "feature": "DOE: publish / retire a Rule Book policy",
+      "routeSummary": [
+        "POST /api/v1/doe/policies/{id}/publish",
+        "POST /api/v1/doe/policies/{id}/lifecycle"
+      ],
+      "modules": [
+        "server/src/doe/doe-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "doeRecalculate",
+      "env": "PAWS_DOE_RECALC_WRITE_ENABLED",
+      "feature": "DOE: recalculation",
+      "routeSummary": [
+        "POST /api/v1/doe/recalculate*"
+      ],
+      "modules": [
+        "server/src/doe/doe-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "calendarActivityStage",
+      "env": "PAWS_CALENDAR_ACTIVITY_STAGE_ENABLED",
+      "feature": "Calendar Activities: stage and preview an import",
+      "routeSummary": [
+        "POST /api/v1/calendar-activity-imports",
+        "POST /api/v1/calendar-activity-imports/{id}/preview"
+      ],
+      "modules": [
+        "server/src/calendar/calendar-activity-api.js"
+      ],
+      "testing": true,
+      "personaNote": "Import writes run on the separate import pool; run them as yourself."
+    },
+    {
+      "gate": "calendarActivityCommit",
+      "env": "PAWS_CALENDAR_ACTIVITY_COMMIT_ENABLED",
+      "feature": "Calendar Activities: commit a previewed import",
+      "routeSummary": [
+        "POST /api/v1/calendar-activity-imports/{id}/commit"
+      ],
+      "modules": [
+        "server/src/calendar/calendar-activity-api.js"
+      ],
+      "testing": true,
+      "personaNote": "Import writes run on the separate import pool; run them as yourself."
+    },
+    {
+      "gate": "calendarActivityTime",
+      "env": "PAWS_CALENDAR_ACTIVITY_TIME_ENABLED",
+      "feature": "Calendar Activities: resolve time evidence",
+      "routeSummary": [
+        "POST /api/v1/calendar-activities/{id}/time-evidence"
+      ],
+      "modules": [
+        "server/src/calendar/calendar-activity-api.js"
+      ],
+      "testing": true
+    },
+    {
+      "gate": "cccReplaceStage",
+      "env": "PAWS_CCC_REPLACE_STAGE_ENABLED",
+      "feature": "CCC replacement: stage and preview a whole-year source",
+      "routeSummary": [
+        "POST /api/v1/ccc-replacements",
+        "POST /api/v1/ccc-replacements/{id}/preview"
+      ],
+      "modules": [
+        "server/src/calendar/ccc-replacement-api.js"
+      ],
+      "testing": true,
+      "personaNote": "Import writes run on the separate import pool; run them as yourself."
+    },
+    {
+      "gate": "cccReplaceCommit",
+      "env": "PAWS_CCC_REPLACE_COMMIT_ENABLED",
+      "feature": "CCC replacement: commit the exact previewed source",
+      "routeSummary": [
+        "POST /api/v1/ccc-replacements/{id}/commit"
+      ],
+      "modules": [
+        "server/src/calendar/ccc-replacement-api.js"
+      ],
+      "testing": true,
+      "personaNote": "Import writes run on the separate import pool; run them as yourself. In Testing the synthetic data can be reset afterwards."
+    },
+    {
+      "gate": "schedulingTaskReview",
+      "env": "PAWS_SCHEDULING_TASK_REVIEW_ENABLED",
+      "feature": "Scheduling Tasks: review a task",
+      "routeSummary": [
+        "POST /api/v1/scheduling-tasks/{id}/review"
+      ],
+      "modules": [
+        "server/src/scheduling/scheduling-task-api.js"
+      ],
+      "testing": true
+    }
+  ]
+}

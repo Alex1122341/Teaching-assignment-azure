@@ -1,0 +1,13 @@
+# PR125 — Owner-approved School host amendment
+
+2026-10-22. Branch feat/paws-testing-environment, PR125, starting a77037ccb8191304b05f0d46a20f4c28b5116099. PARTIAL, not deployed.
+
+Owner explicitly chose the proposed School P: placement, independent loopback18788/tunnel/VetMed-Ops-Testing. No new architecture/plan permission loop is needed for this exact amendment. Written spec/plan and operations updated; prior desktop/local-install instructions are historical. No desktop install or local tests.
+
+Source host policy now requires exact ITAPPVETOPSDB01 and P:\PAWS\Testing\Host. Administrative store requires P:\PAWS\Testing. Stopped-host reset proof requires the School machine. Templates use verified full SQL FQDN; the short alias is not used for deployed TLS. Added Git-ancestor/private ACL checks for host root and confidential secrets files, preserving source/artifact/ownership/gate checks. Unit fixtures and new preparation assertions updated but not run under the latest no-local-testing instruction.
+
+Prepare-UniversityTestingHost.ps1 prepares a new private P: tree, never reuses an unknown directory. It verifies real machine/port/space/installed ODBC18/Node22 signature+inventory hash, takes an exclusive preparation-file lock, writes new files only, allocates a stable unverified UUID and all27 gates false, and fills the reviewed DBA SQL with that UUID. Host secrets ACL excludes SQL service; Backups grants only its needed filesystem access. It starts no API/tunnel, installs nothing and makes no SQL/Firebase call. Source review/whitespace checks are not a passing local or online functional test.
+
+Remote preflight reconfirmed current Windows identity UC\sa-xinyu.zhu1, signed OpenJS Node22.23.2 at C:\Program Files\nodejs\node.exe, SHA2560d0f5e39f9f3d9587bc19f73eab3c2c9c4903fd02d6dbf9c853dd81b3d95fad4. P:116.51GiB, approved Testing root absent, P:\PAWS is not a reparse point and P:/P:\PAWS have no .git.18788 has no listener. No preparation mutation yet at this documentation checkpoint.
+
+Next commit this source, copy only explicit nonsecret preparation inputs to a fresh School staging directory with hash verification, execute preparation there and record actual receipts. A source-only native Check may follow and must remain NOT_READY while no accepted artifact/API/SQL exists. Do not mislabel copied supervisor tools as an accepted API deployment. Current SQL account cannot create Testing DB, DBA handoff still required. Testing Auth initialized/providers disabled from prior turn. Whole-branch independent product/governance review and current-source CI/artifacts/online UAT pending. Existing Production process/data/27 gates remain untouched.

@@ -32,8 +32,8 @@ test('Firebase Hosting configuration and frontend environment origins avoid reti
     'firebase.json',
     'firebase.hosting-only.json',
     'config/environments/production.json',
-    'config/environments/testing.json',
-    'config/environments/testing.template.json'
+    'tools/testing/config/environment.json',
+    'tools/testing/config/testing.template.json'
   ];
   for (const relative of candidates) {
     const absolute = repositoryPath(root, relative);

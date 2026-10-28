@@ -1,0 +1,16 @@
+{
+  "environment": "testing",
+  "environmentLabel": "TESTING ENVIRONMENT — SYNTHETIC DATA ONLY",
+  "releaseLabel": "TESTING — SYNTHETIC DATA",
+  "apiOrigin": "https://testing-api.example.org",
+  "siteUrl": "https://<testing hosting site>.web.app",
+  "peerSiteUrl": "https://tester-teaching.web.app",
+  "firebase": {
+    "apiKey": "<testing web api key>",
+    "authDomain": "<testing project id>.firebaseapp.com",
+    "projectId": "<testing project id>",
+    "storageBucket": "<testing project id>.firebasestorage.app",
+    "messagingSenderId": "<testing sender id>",
+    "appId": "<testing web app id>"
+  }
+}

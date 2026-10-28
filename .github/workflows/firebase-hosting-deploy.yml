@@ -37,6 +37,15 @@ jobs:
   deploy_hosting:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    # No GitHub Environment: Required reviewers are unavailable for this private personal repository, and
+    # an environment would change nothing but the job's OIDC subject. Approval is release evidence instead.
+    env:
+      # Owner-managed repository variables. Set to "true" once the Production API reports its environment
+      # and Testing is live: the release then requires an explicit environment identity, a successful
+      # Testing deploy of the exact commit and/or a recorded UAT approval (tools/require-release-evidence.sh).
+      REQUIRE_ENVIRONMENT_IDENTITY: ${{ vars.PAWS_REQUIRE_ENVIRONMENT_IDENTITY }}
+      REQUIRE_TESTING_PASS: ${{ vars.PAWS_REQUIRE_TESTING_PASS }}
+      REQUIRE_RELEASE_APPROVAL: ${{ vars.PAWS_REQUIRE_RELEASE_APPROVAL }}
     steps:
       - name: Checkout deployment workflow
         uses: actions/checkout@v4
@@ -97,6 +106,15 @@ jobs:
           console.log('STATIC_ONLY_API_SOURCE_IDENTICAL: '+protectedApi.length+' paths');
           NODE
 
+      - name: Verify release evidence for the exact commit (when required)
+        if: env.REQUIRE_TESTING_PASS == 'true' || env.REQUIRE_RELEASE_APPROVAL == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          PAWS_RELEASE_APPROVERS: ${{ vars.PAWS_RELEASE_APPROVERS }}
+        run: bash tools/require-release-evidence.sh
+
       - name: Download exact tested artifact
         uses: actions/download-artifact@v8
         with:
@@ -122,6 +140,9 @@ jobs:
           grep -Fq 'Role Review' .firebase-production/app/faculty-admin.js
           grep -Fq 'Annual DOE Rule Book' .firebase-production/app/faculty-admin.html
           grep -Fq 'calculatedDoeCredit' .firebase-production/app/faculty-admin-doe-renderer.js
+
+      - name: Verify artifact is the Production environment build
+        run: node tools/verify-environment-config.js --artifact .firebase-production/app --environment production
 
       - name: Derive source API origin
         id: source_identity
@@ -160,10 +181,11 @@ jobs:
 
           runtime_status="$(curl --silent --show-error --max-time 15 -o predeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
           test "$runtime_status" = "200"
-          jq -e '
+          jq -e --arg strictEnvironment "${REQUIRE_ENVIRONMENT_IDENTITY:-false}" '
             .status == "ok" and
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
+            (if $strictEnvironment == "true" then .environment == "production" else ((.environment // "production") == "production") end) and
             (.writeGates | type == "object")
           ' predeploy-runtime.json > /dev/null
           if [ "$STATIC_ONLY" = "true" ]; then
@@ -289,11 +311,12 @@ jobs:
 
           runtime_status="$(curl --silent --show-error --max-time 15 -o postdeploy-runtime.json -w '%{http_code}' "$API_ORIGIN/api/health/runtime" || true)"
           test "$runtime_status" = "200"
-          jq -e --arg expected "$PREFLIGHT_RELEASE_SHA" '
+          jq -e --arg expected "$PREFLIGHT_RELEASE_SHA" --arg strictEnvironment "${REQUIRE_ENVIRONMENT_IDENTITY:-false}" '
             .status == "ok" and
             .service == "paws-university-api" and
             .authority == "vetmed-ops-sql" and
             .releaseSha == $expected and
+            (if $strictEnvironment == "true" then .environment == "production" else ((.environment // "production") == "production") end) and
             (.writeGates | type == "object")
           ' postdeploy-runtime.json > /dev/null
           if [ "$STATIC_ONLY" != "true" ]; then

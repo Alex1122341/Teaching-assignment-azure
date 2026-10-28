@@ -130,6 +130,6 @@ test('real runtime exposes read-only preview with unavailable source data marked
    return{recordset:[]};
   }};}
  }
- const project='synthetic-project',runtime=createSwaSqlRuntime({env:{FIREBASE_PROJECT_ID:project,PAWS_SQL_CONNECTION_STRING:'Server=localhost;Database=VetMed-Ops;Encrypt=true;',PAWS_SQL_DRIVER:'tedious'},admin:{initializeApp:()=>({}),auth:()=>({verifyIdToken:async()=>({uid:'synthetic',aud:project,iss:'https://securetoken.google.com/'+project})})},sql:{ConnectionPool:Pool}});
+ const project='synthetic-project',runtime=createSwaSqlRuntime({env:{PAWS_ENVIRONMENT:'production',FIREBASE_PROJECT_ID:project,PAWS_SQL_CONNECTION_STRING:'Server=localhost;Database=VetMed-Ops;Encrypt=true;',PAWS_SQL_DRIVER:'tedious'},admin:{initializeApp:()=>({}),auth:()=>({verifyIdToken:async()=>({uid:'synthetic',aud:project,iss:'https://securetoken.google.com/'+project})})},sql:{ConnectionPool:Pool}});
  try{const response=await runtime(request());assert.equal(response.status,200);assert.equal(response.jsonBody.preview.status,'needs_review');assert.equal(response.jsonBody.preview.evidencePersisted,false);}finally{await runtime.close();}
 });

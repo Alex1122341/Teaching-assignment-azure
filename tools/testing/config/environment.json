@@ -1,0 +1,16 @@
+{
+  "environment": "testing",
+  "environmentLabel": "TESTING ENVIRONMENT — SYNTHETIC DATA ONLY",
+  "releaseLabel": "TESTING — SYNTHETIC DATA",
+  "apiOrigin": null,
+  "siteUrl": "https://paws-testing-ucvm-20261022.web.app",
+  "peerSiteUrl": "https://tester-teaching.web.app",
+  "firebase": {
+    "apiKey": "AIzaSyBFWqm-xOOsg-FOD0JWcEadblOnw08J67s",
+    "authDomain": "paws-testing-ucvm-20261022.firebaseapp.com",
+    "projectId": "paws-testing-ucvm-20261022",
+    "storageBucket": "paws-testing-ucvm-20261022.firebasestorage.app",
+    "messagingSenderId": "165982140501",
+    "appId": "1:165982140501:web:9f6aab4069c83544f57cdc"
+  }
+}

@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { createAfcRequestFunctions } = require('../src/runtime/swa-afc-request-functions');
-const TEST_RUNTIME_IDENTITY = { PAWS_RELEASE_SHA: 'a'.repeat(40), PAWS_RUNTIME_TRUST_ANCHOR: 'b'.repeat(40) };
+const TEST_RUNTIME_IDENTITY = { PAWS_ENVIRONMENT: 'production', PAWS_RELEASE_SHA: 'a'.repeat(40), PAWS_RUNTIME_TRUST_ANCHOR: 'b'.repeat(40) };
 
 const REQUEST_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -84,6 +84,7 @@ test('actual SQL runtime mounts AFC requests and rejects anonymous callers befor
     async close() {}
   }
   const env = {
+    PAWS_ENVIRONMENT: 'production',
     FIREBASE_PROJECT_ID: 'test-project',
     PAWS_SQL_CONNECTION_STRING: 'Server=localhost;Database=VetMed-Ops;Encrypt=true;',
     PAWS_SQL_DRIVER: 'tedious'

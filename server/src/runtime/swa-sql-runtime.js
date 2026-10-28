@@ -74,10 +74,16 @@ const {createAfcFormFunctions}=require('./swa-afc-form-functions');
 const {createCccReplacementApi}=require('../calendar/ccc-replacement-api');
 const {createSqlCccReplacementRepository}=require('../data/sql-ccc-replacement-repository');
 const {createCccReplacementFunctions}=require('./swa-ccc-replacement-functions');
+const { resolveEnvironment, assertDatabaseIdentity } = require('./environment');
+const { resolveSqlTarget, compileTargetGuard } = require('./sql-environment-target');
 
 function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
+  // Fail closed before any SQL or Firebase configuration is used.
+  const environment = resolveEnvironment(env);
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
   const allowSelfSigned = parseBooleanFlag(env.PAWS_SQL_ALLOW_SELF_SIGNED, 'PAWS_SQL_ALLOW_SELF_SIGNED');
+  const target = resolveSqlTarget(env);
+  const targetGuard = target ? compileTargetGuard(target) : undefined;
   const connectionConfig = buildSqlConnectionConfig({
     connectionString: env.PAWS_SQL_CONNECTION_STRING,
     miClientId: env.PAWS_SQL_MI_CLIENT_ID,
@@ -85,8 +91,8 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     allowSelfSigned
   });
   const sqlClient = sql || require(driver === 'msnodesqlv8' ? 'mssql/msnodesqlv8' : 'mssql');
-  const db = createSqlConnection({ config: connectionConfig, sql: sqlClient });
-  const calendarImportDb = createSqlConnection({ config: connectionConfig, sql: sqlClient, requestTimeoutMs: 90000 });
+  const db = createSqlConnection({ config: connectionConfig, sql: sqlClient, targetGuard });
+  const calendarImportDb = createSqlConnection({ config: connectionConfig, sql: sqlClient, requestTimeoutMs: 90000, targetGuard });
   const users = createSqlUserRepository(db);
   const sessions = createSqlSessionRepository(db);
   const dashboard = {
@@ -100,7 +106,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     verifyIdToken: createFirebaseVerifier({ admin, projectId: env.FIREBASE_PROJECT_ID, serviceAccountJson: env.FIREBASE_SERVICE_ACCOUNT_JSON }),
     expectedProjectId: env.FIREBASE_PROJECT_ID
   });
-  const support=createSupportService({db,verifyToken:realVerify,findUser:users.findByUid});
+  const support=createSupportService({db,verifyToken:realVerify,findUser:users.findByUid,environment});
   const verify=support.verify;
   const doeRepository = createSqlDoeEngineRepository(db);
   const doeAssignmentRepository = createSqlDoeAssignmentRepository(db);
@@ -203,8 +209,30 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     if (pathname === '/api/v1/afc-requests' || pathname.startsWith('/api/v1/afc-requests/')) return afcRequests(request);
     return timetable(request);
   };
-  const handler = request => support.handle(request,route);
+  // The database must declare the same environment before any request is served.
+  // Success is remembered; a failure is retried on the next request but never bypassed.
+  let identityVerified = null;
+  const verifyIdentity = () => {
+    if (!identityVerified) identityVerified = assertDatabaseIdentity(db, environment).catch(error => { identityVerified = null; throw error; });
+    return identityVerified;
+  };
+  const handler = async request => {
+    // Production verifies at process start (university-api.js) so anonymous requests never
+    // reach SQL; Testing additionally re-verifies lazily so a misconfigured test API cannot serve.
+    try { if (environment.testing) await verifyIdentity(); }
+    catch (error) {
+      const code = error && error.code === 'ENVIRONMENT_MISCONFIGURED' ? 'ENVIRONMENT_MISCONFIGURED' : 'SERVICE_UNAVAILABLE';
+      return { status: 503, jsonBody: { error: { code, message: 'The service is temporarily unavailable.' } } };
+    }
+    const result = await support.handle(request, route);
+    if (result && result.status === 200 && result.jsonBody && new URL(request.url).pathname === '/api/v1/me') {
+      result.jsonBody.environment = { name: environment.name, testing: environment.testing };
+    }
+    return result;
+  };
   handler.close = () => Promise.all([db.close(), calendarImportDb.close()]);
+  handler.environment = environment.name;
+  handler.assertEnvironment = verifyIdentity;
   return handler;
 }
 module.exports={createSwaSqlRuntime};

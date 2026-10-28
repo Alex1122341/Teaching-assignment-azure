@@ -13,7 +13,7 @@ test('AFC form route adapter has exact paths/methods and fixed binary attachment
 });
 test('real University HTTP permits only exact upload route to expand JSON cap and exact document route for binary',async t=>{
  const {createUniversityHttpServer}=require('../src/runtime/university-http-server');
- const s=createUniversityHttpServer({env:{PAWS_RELEASE_SHA:'a'.repeat(40),PAWS_RUNTIME_TRUST_ANCHOR:'b'.repeat(40)},runtime:async r=>new URL(r.url).pathname.endsWith('/document')?{status:200,binaryBody:Buffer.from('%PDF synthetic')}:{status:201,jsonBody:{length:(await r.json()).x.length}}});
+ const s=createUniversityHttpServer({env:{PAWS_ENVIRONMENT:'production',PAWS_RELEASE_SHA:'a'.repeat(40),PAWS_RUNTIME_TRUST_ANCHOR:'b'.repeat(40)},runtime:async r=>new URL(r.url).pathname.endsWith('/document')?{status:200,binaryBody:Buffer.from('%PDF synthetic')}:{status:201,jsonBody:{length:(await r.json()).x.length}}});
  await new Promise(r=>s.listen(0,'127.0.0.1',r));t.after(()=>s.close());const root='http://127.0.0.1:'+s.address().port;
  const body=JSON.stringify({x:'A'.repeat(1200000)}),headers={'content-type':'application/json'};
  assert.equal((await fetch(root+'/api/v1/afc-forms',{method:'POST',headers,body})).status,201);

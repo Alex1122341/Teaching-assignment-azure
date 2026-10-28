@@ -26,4 +26,23 @@ async function createInactiveFacultyIdentity({ db, auth, uid, password } = {}) {
   }
 }
 
-module.exports = { createInactiveFacultyIdentity };
+// Preparing a disabled synthetic Owner is not account activation. Creation
+// requires an exact inactive fixture in the isolated Testing collection.
+async function createInactiveOwnerIdentity({ db, auth, password } = {}) {
+  const uid = 'paws-synthetic-owner';
+  const fixture = testingFixtures().find(row => row.collection === 'paws_testing_users' && row.id === uid);
+  if (!db || db.projectId !== 'vista-teaching-lab' || db.databaseId !== '(default)' || typeof db.collection !== 'function' ||
+      auth?.app?.options?.projectId !== 'paws-testing-ucvm-20261022' || typeof auth.createUser !== 'function' ||
+      typeof password !== 'string' || password.length < 20 || password.length > 128 ||
+      fixture?.data.role !== 'owner' || fixture.data.active !== false) throw Error('Testing Owner identity target rejected');
+  const snapshot = await db.collection('paws_testing_users').doc(uid).get();
+  if (!snapshot.exists || !isDeepStrictEqual(snapshot.data(), fixture.data)) throw Error('Testing Owner profile rejected');
+  try {
+    const result = await auth.createUser({ uid, email:fixture.data.email, password,
+      displayName:'Owner, Synthetic', disabled:true });
+    if (result.uid !== uid || result.email !== fixture.data.email || result.disabled !== true) throw Error('Testing Owner identity result rejected');
+    return { uid, status:'disabled' };
+  } catch (_) { throw Error('Testing Owner identity creation failed'); }
+}
+
+module.exports = { createInactiveFacultyIdentity, createInactiveOwnerIdentity };

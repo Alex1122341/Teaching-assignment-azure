@@ -60,7 +60,7 @@ function testingFixtures() {
   }
   for (let i = 0; i < 300; i++) {
     const block = Math.floor(i / 3);
-    const sessionDate = new Date(Date.UTC(2026, 8, 1) + block * 86400000).toISOString().slice(0, 10);
+    const sessionDate = new Date(Date.UTC(2026, 8, 1) + block * 2 * 86400000).toISOString().slice(0, 10);
     const hour = 8 + i % 3;
     const course = courses[block % courses.length];
     const teacherIndex = block % 29;

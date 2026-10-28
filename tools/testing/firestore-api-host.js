@@ -13,6 +13,7 @@ function hostConfig(env = process.env) {
       env.PAWS_API_PORT !== '18788' || env.PAWS_TESTING_FIRESTORE_PROJECT !== TEST_DB ||
       env.PAWS_TESTING_AUTH_PROJECT !== TEST_AUTH ||
       !['true','false'].includes(env.PAWS_TESTING_ALLOW_SAME_SITE) ||
+      !['true','false'].includes(env.PAWS_TESTING_SESSION_WRITES_ENABLED ?? 'false') ||
       !/^[0-9a-f]{40}$/i.test(env.PAWS_TESTING_RELEASE_SHA || '')) {
     throw new Error('Invalid Testing Firestore host settings');
   }
@@ -28,7 +29,8 @@ function hostConfig(env = process.env) {
   if (!isAccount(auth,TEST_AUTH) || !isAccount(lab,TEST_DB) ||
       auth.client_email===lab.client_email ||
       auth.private_key===lab.private_key) throw new Error('Testing Firebase credential target rejected');
-  return Object.freeze({ auth, lab, allowSameSite: env.PAWS_TESTING_ALLOW_SAME_SITE==='true', releaseSha:env.PAWS_TESTING_RELEASE_SHA });
+  return Object.freeze({ auth, lab, allowSameSite: env.PAWS_TESTING_ALLOW_SAME_SITE==='true',
+    enableSessionWrites:env.PAWS_TESTING_SESSION_WRITES_ENABLED==='true',releaseSha:env.PAWS_TESTING_RELEASE_SHA });
 }
 
 async function startHost({ env = process.env, adminSdk, startServer = startTestingHttpServer } = {}) {
@@ -42,8 +44,10 @@ async function startHost({ env = process.env, adminSdk, startServer = startTesti
     const db = admin.firestore(labApp);
     if (db.projectId !== TEST_DB || db.databaseId !== '(default)') throw new Error('Firestore database target rejected');
     const auth = admin.auth(authApp);
-    const runtime = createLabReadRuntime({db, verifyIdToken: token => auth.verifyIdToken(token,true)});
-    server = await startServer({runtime,port:18788,allowSameSite:config.allowSameSite});
+    const runtime = createLabReadRuntime({db, verifyIdToken: token => auth.verifyIdToken(token,true),
+      enableSessionWrites:config.enableSessionWrites});
+    server = await startServer({runtime,port:18788,allowSameSite:config.allowSameSite,
+      allowSessionWrites:config.enableSessionWrites});
     return { server, releaseSha:config.releaseSha, close:async()=>{
       await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
       await Promise.allSettled([authApp.delete(),labApp.delete()]);

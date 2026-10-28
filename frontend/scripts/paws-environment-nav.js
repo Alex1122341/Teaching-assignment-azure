@@ -8,11 +8,12 @@
 
   // Shared environment switcher for every PAWS page.
   //
-  // * The environment shown is the one this deployment was BUILT for (paws-api-origin.js) and is
-  //   cross-checked against the environment the API reports in /api/v1/me. A mismatch locks the page.
-  // * Switching environments is plain navigation to the other, separately deployed site. Only an
-  //   allow-listed page path is carried over: never a token, query string or hash. The other site
-  //   uses its own Firebase project, so the user signs in there separately.
+  // * The selected environment is fixed before authentication and data-client startup;
+  //   /api/v1/me must report the same environment or access is locked.
+  // * In same-site mode a tab-scoped switch reloads an allow-listed PAWS path on the SAME
+  //   origin. The generated pre-bootstrap config selects a distinct Firebase Auth project
+  //   and Testing API. No query, hash, token or support context crosses the switch.
+  // * Legacy separate-site navigation remains only for independently built Testing sites.
   // * Testing identity switching is offered only when the SERVER reports environment=testing; the
   //   persona itself is resolved and enforced server-side (Developer Support adapter).
 
@@ -36,8 +37,36 @@
     return target.origin + target.pathname;
   }
 
+  // Same-origin navigation never carries a URL query, hash, token or arbitrary path.
+  function modeDestination(pathname) {
+    const page = String(pathname || '').split('/').pop();
+    return '/' + (PAGES.includes(page) ? page : 'index.html');
+  }
+
+  function switchMode(win, nextMode) {
+    const modes = win && win.PAWS_SINGLE_SITE;
+    const current = win && win.PAWS_ENVIRONMENT_CONFIG && win.PAWS_ENVIRONMENT_CONFIG.environment;
+    if (!modes || !modes.testing || !modes.production || modes.modeKey !== 'paws-site-mode' ||
+        !['production', 'testing'].includes(nextMode) || current !== (nextMode === 'testing' ? 'production' : 'testing')) return false;
+    let previous;
+    try {
+      previous = win.sessionStorage.getItem(modes.modeKey);
+      // A saved Developer Support context must NEVER be replayed against the other API.
+      win.sessionStorage.setItem(modes.modeKey, nextMode);
+      win.sessionStorage.removeItem('paws-support-context-v1');
+      win.location.assign(modeDestination(win.location.pathname));
+      return true;
+    } catch (_) {
+      try {
+        if (previous === null || previous === undefined) win.sessionStorage.removeItem(modes.modeKey);
+        else win.sessionStorage.setItem(modes.modeKey, previous);
+      } catch (_) { /* storage unavailable: the boot config fails closed to Production */ }
+      return false;
+    }
+  }
+
   // Pure view model, unit-tested without a DOM.
-  function viewModel(config, me, { now = Date.now(), expired = false } = {}) {
+  function viewModel(config, me, { now = Date.now(), expired = false, sameSite = false } = {}) {
     const built = config && config.environment;
     const reported = me && me.environment && me.environment.name;
     const profile = me && me.profile;
@@ -49,13 +78,14 @@
     const testing = built === 'testing';
     const actorRole = support ? support.actorRole : profile && profile.role;
     const operator = isOperator(actorRole);
+    const canSwitch = Boolean(sameSite || config.peerSiteUrl);
     return {
       state: 'ok',
       testing,
       label: config.environmentLabel || (testing ? 'TESTING ENVIRONMENT — SYNTHETIC DATA ONLY' : 'Production'),
-      showBar: testing || (operator && Boolean(config.peerSiteUrl)),
-      openTesting: !testing && operator && Boolean(config.peerSiteUrl),
-      returnToProduction: testing && Boolean(config.peerSiteUrl),
+      showBar: testing || (operator && canSwitch),
+      openTesting: !testing && operator && canSwitch,
+      returnToProduction: testing && canSwitch,
       switchIdentity: testing && reported === 'testing' && operator,
       actor: support ? { name: support.actorName, role: support.actorRole } : profile ? { name: profile.displayName, role: profile.role } : null,
       persona: support ? { name: support.targetName, role: support.targetRole, expiresAtUtc: support.expiresAtUtc } : null,
@@ -98,7 +128,8 @@ body.paws-env-locked main,body.paws-env-locked .main-view,body.paws-env-locked .
     }
 
     function render() {
-      const model = viewModel(config, lastMe, { expired });
+      const sameSite = Boolean(win.PAWS_SINGLE_SITE && win.PAWS_SINGLE_SITE.testing);
+      const model = viewModel(config, lastMe, { expired, sameSite });
       if (expiryTimer) { win.clearTimeout(expiryTimer); expiryTimer = null; }
       if (model.persona && !model.personaExpired && model.persona.expiresAtUtc) {
         const wait = Date.parse(model.persona.expiresAtUtc) - Date.now();
@@ -122,10 +153,14 @@ body.paws-env-locked main,body.paws-env-locked .main-view,body.paws-env-locked .
         : (model.testing ? 'Synthetic test data only · sign in with your Testing account' : '');
       const dest = peerDestination(config, win.location.pathname);
       el.innerHTML = `<span class="paws-env-badge">${esc(model.label)}</span><span class="paws-env-who">${who}</span><span class="paws-env-actions">` +
-        (model.openTesting ? `<a class="paws-env-link" data-env-open href="${esc(dest)}">Open Testing Environment</a>` : '') +
-        (model.returnToProduction ? `<a class="paws-env-link" data-env-return href="${esc(dest)}">Return to Production</a>` : '') +
+        (model.openTesting ? (sameSite ? '<button type="button" data-env-open>Open Testing Environment</button>' : `<a class="paws-env-link" data-env-open href="${esc(dest)}">Open Testing Environment</a>`) : '') +
+        (model.returnToProduction ? (sameSite ? '<button type="button" data-env-return>Return to Production</button>' : `<a class="paws-env-link" data-env-return href="${esc(dest)}">Return to Production</a>`) : '') +
         (model.switchIdentity && !model.personaExpired ? `<button type="button" data-env-switch>${model.persona ? 'Change Test Identity' : 'Switch Test Identity'}</button>` : '') +
         (model.persona ? `<button type="button" data-env-self>Return to myself</button>` : '') + '</span>';
+      if (sameSite) {
+        el.querySelector('[data-env-open]')?.addEventListener('click', () => switchMode(win, 'testing'));
+        el.querySelector('[data-env-return]')?.addEventListener('click', () => switchMode(win, 'production'));
+      }
       el.querySelector('[data-env-switch]')?.addEventListener('click', () => win.PAWS_SUPPORT && win.PAWS_SUPPORT.open());
       el.querySelector('[data-env-self]')?.addEventListener('click', () => (win.PAWS_SUPPORT ? win.PAWS_SUPPORT.leave() : win.location.reload()));
     }
@@ -146,5 +181,5 @@ body.paws-env-locked main,body.paws-env-locked .main-view,body.paws-env-locked .
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', render); else render();
   }
 
-  return Object.freeze({ install, viewModel, peerDestination, isOperator, PAGES });
+  return Object.freeze({ install, viewModel, peerDestination, modeDestination, switchMode, isOperator, PAGES });
 });

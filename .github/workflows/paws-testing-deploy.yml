@@ -49,6 +49,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Require complete Firestore API and authenticated same-site UAT evidence
+        run: node tools/testing/firestore-release-readiness.js --assert
       - name: Verify main workflow operator and exact push build before executing release tooling
         shell: bash
         env:

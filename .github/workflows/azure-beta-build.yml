@@ -59,6 +59,8 @@ jobs:
           node tools/render-environment-config.js --check
           node tools/verify-environment-config.js --repository
           node --test tests/dual-environment-config.test.js tests/testing-db-tooling.test.js tests/university-testing-migrations.test.js tests/testing-deployment-readiness.test.js
+      - name: Report remaining Firestore release gaps (not a deployment approval)
+        run: node tools/testing/firestore-release-readiness.js --report
       - name: Build and verify source-level Testing candidate
         run: |
           node tools/build-static.js

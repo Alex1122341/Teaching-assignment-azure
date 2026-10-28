@@ -51,7 +51,7 @@ async function startTestingHttpServer({ runtime, port = 18788, allowSameSite = f
     if (patchRequest && incoming.headers['content-encoding'])
       return send(415, { error: { code: 'UNSUPPORTED_CONTENT_ENCODING' } });
     if (patchRequest && incoming.headers['content-length'] &&
-        (!/^\\d+$/.test(incoming.headers['content-length']) || Number(incoming.headers['content-length']) > 16384))
+        (!/^\d+$/.test(incoming.headers['content-length']) || Number(incoming.headers['content-length']) > 16384))
       return send(413, { error: { code: 'REQUEST_TOO_LARGE' } });
     try {
       const headers = new Headers();

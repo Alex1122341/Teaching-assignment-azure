@@ -8,6 +8,8 @@ Read-only live evidence: Tim's UserProfile BaseRole is faculty. AY2026–27 Role
 
 Current API/UI and SQL gates compare a single BaseRole. Consequently the previous successful Tim smoke proves Faculty access only. It is not HICC/VISC acceptance. Previously green8311e99 remains valid for that narrower revision, not this new scope.
 
+**October28 evidence correction:** the earlier group-owner sentence above was inferred from a dropdown that excluded the current baseFaculty owner. Fresh UID-filtered SQL-authorized reads resolve existing Bovine document0ZFIKsy6v5MumieBlEgQ to Tim; its version1788893413.228534000 predates this work(September8). No Firestore write/transfer occurred. Preserve its actual source UID, not the mistaken label. The approved505/Bovine assignees have since been saved once and activated; earlier no-assignee evidence remains the pre-implementation baseline. See the dated role-accepted-owner-picker update and COLLABORATION_OWNER_GOVERNANCE.md receipt.
+
 ## Approach and reuse
 
 Reuse SQL TeachingResponsibility, TeachingResponsibilityScope, TeachingAssignmentGroup/GroupHicc and TeachingResponsibilityAssignee as explicit authority records. Their stable IDs and canonical CourseId/group relationships define scope; labels, DOE numbers, workbook prose and collaboration membership never grant authority. RoleAssignment/RoleAppointmentSchedule remain business appointment evidence and are not silently converted into access grants.

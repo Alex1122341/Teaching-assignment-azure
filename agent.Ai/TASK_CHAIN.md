@@ -1,3 +1,7 @@
+## Current: Tim real roles accepted; finish existing-owner correction and PR148 release — 2026-10-28
+
+Read `updates/2026-10-28-pr148-role-accepted-owner-picker.md`. Actual2grants/1audit confirmed by sameUUID twice; ExtraRolesEnabled=1, Faculty retained,505HICC+BovineVISC/date bounds verified. No duplicate operations, source/MASTER/profile changes or Firestorewrites. Existing Bovine owner actuallyTim(oldSeptember8source); oldGupta claim came from faultybase-rolepicker. Product2c87d5c corrects picker/currentownerretention,30relatedtests/independentreview pass. Separate one-static/one-API freeze, newofficialcandidatevisual check, exactmerge/mainGraphify/fullrelease and originalExcel remain. Live18787/Hosting/rules stillold.
+
 ## Current: PR148 real-role acceptance; retry persisted operation after GUID fix — 2026-10-28
 
 Read `updates/2026-10-28-pr148-live-role-acceptance.md`. School061/062/063 installed, source/profile snapshots preserved. Two approved Tim grants committed once with one audit but oldcandidateAPI503 from uppercaseSQLGUIDs. ExtraRolesEnabled=0. NEVER submit a new operation: retry5d4e1c5a-b696-4cf2-8a1b-24a1548fc71e against corrected candidate. Product8df12ef38related tests green, including canonical own-name components; final governed freeze targetsit. Live18787/Hosting/rules unchanged; officialnewcandidate, realTim acceptance, exactmerge/mainrelease/Graphify and Excel remain.

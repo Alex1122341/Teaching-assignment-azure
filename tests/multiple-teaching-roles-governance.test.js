@@ -12,11 +12,13 @@ test('multiple teaching roles promote independently reviewed product blobs and r
  assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);
  assert.ok(git('show','d76aa7e8d8a2098857190fa7f7b868a192f20cc2:tools/beta-freeze.js').includes(`const BASELINE_COMMIT='${previous}'`));
  git('merge-base','--is-ancestor',previous,product);git('merge-base','--is-ancestor',product,'HEAD');
+ const historicalReport=JSON.parse(git('show','4883478270f1e2047947263a286c7fc18e0e3c6f:tools/beta-baseline.json'));
+ assert.equal(historicalReport.sourceCommit,product);
  const before=freeze.readBaselineManifest({root,baselineCommit:previous}),after=freeze.readBaselineManifest({root,baselineCommit:product});
  assert.deepEqual(after,before);assert.equal(after.length,96);
  assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,96);
- assert.deepEqual(Object.keys(report.sha256).sort(),after.slice().sort());
- for(const file of after)assert.equal(report.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:product,file})),file);
+ assert.deepEqual(Object.keys(historicalReport.sha256).sort(),after.slice().sort());
+ for(const file of after)assert.equal(historicalReport.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:product,file})),file);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
 });
 test('multiple teaching roles retain every earlier API input and protect the six added runtime modules',()=>{

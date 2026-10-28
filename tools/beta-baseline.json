@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "8df12efc7c9ab6d2a6735d0aed057bf35820eeb9",
+  "sourceCommit": "2c87d5c6121284db36ade094b0652de6f2c3f91c",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "faculty-reports.js": "ad4f070c3aa319ec20dd9139cec4d6fcfcf23f4350b73a84d0c8b8648aa238c9",
@@ -68,7 +68,7 @@
     "timetable.js": "8f4d11efa6c4a86207741db99b580173e2fb6b19faf46bcbb274a5132a936f4c",
     "user-management.html": "520a60ad2b33fafbc85f16cd1de9bd3adffda96f1030674ae76bed2712826292",
     "user-management.css": "200ab53fe4350f6a86fb9951e794551b3208ce55aa2dee436ef9dd5a4b24fde4",
-    "user-management.js": "b69bf9b4b726d4dbcee6d47d102fe91c8cb08710154962a750fce26d6b1b401a",
+    "user-management.js": "655c33198882341390f815a26671eaec163b85068153c62676d6d06d32b66d3f",
     "faculty-name.js": "118264ae497909027f195548bb1f291a88528a3de0090f1cbf29bd976cb0fe26",
     "swap-workflow-sql.js": "8d472b411e941439fa624342356c3b964dd91af8660e30cd132d40085c2d9a3a",
     "adfa-swap-panel.js": "cb72f42df985d8f9472c329bef58468ac2025eb32e911fa5b999d7259b470731",

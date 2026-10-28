@@ -20,6 +20,9 @@ const { createLabDashboardReader } = require('./firestore-dashboard');
 const { createDashboardApi } = require('../../server/src/data/dashboard-api');
 const { createDashboardFunctions } = require('../../server/src/runtime/swa-dashboard-functions');
 const { createLabSessionWrites } = require('./firestore-session-writes');
+const { createLabHistoryRepository } = require('./firestore-history');
+const { createChangeHistoryApi } = require('../../server/src/history/change-history-api');
+const { createChangeHistoryFunctions } = require('../../server/src/runtime/swa-change-history-functions');
 const DASHBOARD_PATHS = new Set(['/api/v1/dashboard/summary', '/api/v1/dashboard/faculty',
   '/api/v1/dashboard/teaching-summary', '/api/v1/dashboard/roles',
   '/api/v1/dashboard/faculty-admin/write-capabilities']);
@@ -39,13 +42,16 @@ function createLabReadRuntime({ db, verifyIdToken, enableSessionWrites = false, 
   const ccc = createCccScheduleFunctions({ api: createCccScheduleApi({ verifyToken, findUser, repository: { list: createLabCccReader({ db }) } }) });
   const activities = createCalendarActivityFunctions({ api: createCalendarActivityApi({ verifyToken, findUser, repository: { list: createLabActivityReader({ db, findUser }) }, writeGates: {} }) });
   const dashboard = createDashboardFunctions({ api: createDashboardApi({ verifyToken, findUser, repository: createLabDashboardReader({ db }), writeGates: {} }) });
+  const history = createChangeHistoryFunctions({ api: createChangeHistoryApi({ verifyToken, findUser,
+    repository: createLabHistoryRepository({ db }) }) });
   return async request => {
     const path = new URL(request.url).pathname;
     const isDashboard = DASHBOARD_PATHS.has(path) || /^\/api\/v1\/dashboard\/faculty\/[0-9a-f-]{36}$/i.test(path);
+    const isHistory = ['/api/v1/change-history','/api/v1/change-history/page','/api/v1/change-history/export'].includes(path);
     const sessionEdit = /^\/api\/v1\/sessions\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(path);
-    if (!isDashboard && !sessionEdit && !['/api/v1/me', '/api/v1/sessions', LEADERSHIP_PATH, CCC_PATH, ACTIVITY_PATH, ACTIVITY_PATH + '/capabilities'].includes(path)) return { status: 404, jsonBody: { error: { code: 'NOT_FOUND', message: 'Route not available.' } } };
+    if (!isDashboard && !isHistory && !sessionEdit && !['/api/v1/me', '/api/v1/sessions', LEADERSHIP_PATH, CCC_PATH, ACTIVITY_PATH, ACTIVITY_PATH + '/capabilities'].includes(path)) return { status: 404, jsonBody: { error: { code: 'NOT_FOUND', message: 'Route not available.' } } };
     if (request.method !== 'GET' && !(sessionEdit && enableSessionWrites && request.method === 'PATCH')) return { status: 405, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'GET required.' } } };
-    const result = await (isDashboard ? dashboard(request) : path === LEADERSHIP_PATH ? leadership(request) : path === CCC_PATH ? ccc(request) : path === ACTIVITY_PATH || path === ACTIVITY_PATH + '/capabilities' ? activities(request) : route(request));
+    const result = await (isHistory ? history(request) : isDashboard ? dashboard(request) : path === LEADERSHIP_PATH ? leadership(request) : path === CCC_PATH ? ccc(request) : path === ACTIVITY_PATH || path === ACTIVITY_PATH + '/capabilities' ? activities(request) : route(request));
     if (result.status === 503) return { status: 503, jsonBody: { error: { code: 'SERVICE_UNAVAILABLE', message: 'The Testing service is temporarily unavailable.' } } };
     if (path === '/api/v1/me' && result.status === 200) result.jsonBody.environment = { name: 'testing', testing: true };
     return result;

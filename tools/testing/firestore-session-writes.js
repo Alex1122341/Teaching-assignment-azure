@@ -67,10 +67,37 @@ function createLabSessionWrites({ db } = {}) {
         const change={ date:updated.date,start:updated.start,end:updated.end,
           timeUnknown:updated.timeUnknown===true,course:updated.course,
           type:updated.type,topic:updated.topic,room:updated.room,revision,updatedAtUtc:changedAtUtc };
+        // Use the same audited before/after contract as the Production
+        // Change History projector; never expose raw Firestore documents.
+        const historyRow = row => ({
+          academicYear:row.academicYear,courseCode:row.course,
+          courseName:row.courseName||'',sessionType:row.type,topic:row.topic,
+          date:row.date,startTime:row.timeUnknown?null:row.start,
+          endTime:row.timeUnknown?null:row.end,room:row.room,
+          assignments:(Array.isArray(row.assignments)?row.assignments:[])
+            .filter(person=>person && typeof person.facultyId==='string')
+            .map(person=>({facultyId:person.facultyId,
+              sourceFacultyName:names.format(person),teachingRole:person.role||null}))
+        });
+        const before = historyRow(existing), after = historyRow(updated);
+        const recorded = new Map();
+        for (const row of [before,after]) for (const person of row.assignments)
+          recorded.set(person.facultyId.toLowerCase(),{
+            facultyId:person.facultyId,facultyKey:person.facultyId,
+            displayName:person.sourceFacultyName
+          });
+        for (const facultyId of [...(existing.facultyIds||[]),...(updated.facultyIds||[])])
+          if (typeof facultyId==='string' && !recorded.has(facultyId.toLowerCase()))
+            recorded.set(facultyId.toLowerCase(),{facultyId,facultyKey:facultyId});
         tx.update(target,change);
-        tx.create(audit,{ synthetic:true,type:'SESSION_EDIT',sessionId,actorFirebaseUid,
-          actorName:typeof actorName==='string'?actorName.slice(0,260):null,
-          occurredAtUtc:changedAtUtc,changedFields:Object.keys(patch),revision });
+        tx.create(audit,{ synthetic:true,type:'SESSION_EDIT',source:'paws_testing',
+          eventId:randomUUID(),eventType:'session_updated',entityType:'session',
+          entityId:sessionId,sessionId,academicYear:updated.academicYear,
+          actorFirebaseUid,actorName:typeof actorName==='string'?actorName.slice(0,260):null,
+          occurredAtUtc:changedAtUtc,changedFields:Object.keys(patch),revision,
+          beforeJson:JSON.stringify(before),afterJson:JSON.stringify(after),
+          contextJson:JSON.stringify({academicYear:updated.academicYear,
+            affectedFaculty:[...recorded.values()]}) });
         const assignments=Array.isArray(updated.assignments)?updated.assignments:[];
         const allowed=assignments.filter(row=>row&&typeof row.facultyId==='string').map(row=>({
           facultyId:row.facultyId,teachingRole:row.role||null,

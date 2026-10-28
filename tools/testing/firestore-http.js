@@ -6,7 +6,7 @@ const http = require('node:http');
 const { once } = require('node:events');
 const TESTING_ORIGIN = 'https://paws-testing-ucvm-20261022.web.app';
 const SAME_SITE_ORIGIN = 'https://tester-teaching.web.app';
-const ALLOWED_PATHS = new Set(['/api/v1/me', '/api/v1/sessions', '/api/v1/dashboard/leadership-directory', '/api/v1/ccc-schedule', '/api/v1/calendar-activities', '/api/v1/calendar-activities/capabilities', '/api/v1/dashboard/summary', '/api/v1/dashboard/faculty', '/api/v1/dashboard/teaching-summary', '/api/v1/dashboard/roles', '/api/v1/dashboard/faculty-admin/write-capabilities']);
+const ALLOWED_PATHS = new Set(['/api/v1/me', '/api/v1/sessions', '/api/v1/dashboard/leadership-directory', '/api/v1/ccc-schedule', '/api/v1/calendar-activities', '/api/v1/calendar-activities/capabilities', '/api/v1/dashboard/summary', '/api/v1/dashboard/faculty', '/api/v1/dashboard/teaching-summary', '/api/v1/dashboard/roles', '/api/v1/dashboard/faculty-admin/write-capabilities', '/api/v1/change-history', '/api/v1/change-history/page', '/api/v1/change-history/export']);
 
 async function startTestingHttpServer({ runtime, port = 18788, allowSameSite = false, allowSessionWrites = false } = {}) {
   if (typeof runtime !== 'function') throw new TypeError('Testing runtime is required');

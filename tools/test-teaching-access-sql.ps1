@@ -16,6 +16,9 @@ DECLARE @Batch uniqueidentifier=NEWID(),@Faculty uniqueidentifier=NEWID();
 INSERT staging.ImportBatch(ImportBatchId,StartedAtUtc,Status,SourceManifestSha256,ImporterVersion,ValidationSummaryJson) VALUES(@Batch,SYSUTCDATETIME(),N'synthetic',REPLICATE('6',64),N'leadership061compat',N'{}');
 INSERT paws.Faculty(FacultyId,RecordType,DisplayName,Active,SourceImportBatchId) VALUES(@Faculty,N'faculty',N'Synthetic snapshot compatibility',1,@Batch);
 INSERT paws.RoleAssignment(RoleAssignmentId,FacultyId,FacultyResolutionStatus,AcademicYear,RoleType,CourseOrSubjectOrRotation,SourceImportBatchId,SourceRow) VALUES(NEWID(),@Faculty,N'resolved',N'2026-27',N'VISC',N'Synthetic snapshot baseline',@Batch,1);
+'@ 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/leadership-access-master-stage.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql @'
 SELECT paws_api.MasterRefreshSnapshot('2026-27') SnapshotJson INTO dbo.Leadership061MasterSnapshotBaseline;
 '@ 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access.sql') -Raw) 'VetMed-Ops'
@@ -23,6 +26,9 @@ Invoke-TestSql @'
 IF EXISTS(SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc FROM paws.UserProfile EXCEPT SELECT * FROM dbo.Leadership061ProfileBaseline) OR EXISTS(SELECT * FROM dbo.Leadership061ProfileBaseline EXCEPT SELECT FirebaseUid,Email,DisplayName,BaseRole,FacultyId,Active,MustChangePassword,OfficeName,CreatedAtUtc,UpdatedAtUtc FROM paws.UserProfile) THROW 54160,'Migration changed a base account profile.',1;
 PRINT 'TEACHING_ACCESS_061_PROFILE_VALUES_PRESERVED';
 IF paws_api.MasterRefreshSnapshot('2026-27')<>(SELECT SnapshotJson FROM dbo.Leadership061MasterSnapshotBaseline) THROW 54160,'Leadership metadata invalidated historical MASTER after-state hashes.',1;
+DECLARE @OldReceipt uniqueidentifier=(SELECT ReceiptId FROM dbo.LeadershipMasterCompatibility);
+EXEC paws_api.RecoverMasterRefresh @OldReceipt,N'leadership-master-owner',1;
+IF NOT EXISTS(SELECT 1 FROM paws.MasterRefreshReceipt WHERE ReceiptId=@OldReceipt AND Status=N'recovered') THROW 54160,'Retained MASTER receipt did not recover after061.',1;
 PRINT 'TEACHING_ACCESS_061_MASTER_SNAPSHOT_COMPATIBILITY';
 '@ 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/061_effective_teaching_access_acceptance.sql') -Raw) 'VetMed-Ops'
@@ -77,6 +83,7 @@ PRINT 'LEADERSHIP_COMMAND_062_CONCURRENT_EPOCH_SERIALIZATION';
 '@ 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/063_scoped_teaching_workflow.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/063_scoped_teaching_workflow_acceptance.sql') -Raw) 'VetMed-Ops'
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/leadership-access-master-recovery.sql') -Raw) 'VetMed-Ops'
 $workflowRollback=Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/rollback_063_scoped_teaching_workflow.sql') -Raw
 $workflowEscaped=([regex]::Replace($workflowRollback,'(?m)^:[^\r\n]+\r?\n','')).Replace("'","''")
 Invoke-TestSql "DECLARE @Refused bit=0;BEGIN TRY EXEC(N'$workflowEscaped');END TRY BEGIN CATCH IF XACT_STATE()<>0 ROLLBACK;IF ERROR_NUMBER()=54362 SET @Refused=1;ELSE THROW;END CATCH;IF @Refused=0 THROW 54360,'Used workflow rollback was not refused.',1;PRINT 'SCOPED_WORKFLOW_063_USED_ROLLBACK_REFUSED';" 'VetMed-Ops'

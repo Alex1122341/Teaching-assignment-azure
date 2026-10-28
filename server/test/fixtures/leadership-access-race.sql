@@ -9,7 +9,7 @@ IF @Source IS NULL OR @Course IS NULL THROW 54260,'Synthetic race source unavail
 SET @Changes=(SELECT N'grant' action,N'leadership062hicc' responsibilityId,N'hicc' kind,
  LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062hicc')),2)) definitionVersion,
  CONVERT(varchar(36),@Source) sourceRoleAssignmentId,
- (SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),AuthorityVersion),2)) FROM paws.RoleAssignment WHERE RoleAssignmentId=@Source) sourceVersion,
+ @Epoch sourceVersion,
  CAST(NULL AS varchar(16)) sourceScheduleVersion,LOWER(paws_api.TeachingAppointmentAccessSourceStamp(@Source)) sourceSignature,
  N'Synthetic canonical course' recordedScope,N'2026-05-01' startDate,N'2027-05-01' endExclusive,
  CAST(1 AS bit) usesApprovedDefaultDates,N'exclusive' assignmentMode,

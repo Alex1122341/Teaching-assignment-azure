@@ -28,7 +28,7 @@ DECLARE @ActorVersion varchar(16)=(SELECT LOWER(CONVERT(varchar(16),CONVERT(bina
 SET @Changes=(SELECT N'grant' action,N'leadership062hicc' responsibilityId,N'hicc' kind,
  LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062hicc')),2)) definitionVersion,
  CONVERT(varchar(36),@Source) sourceRoleAssignmentId,
- (SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),AuthorityVersion),2)) FROM paws.RoleAssignment WHERE RoleAssignmentId=@Source) sourceVersion,
+ @Epoch sourceVersion,
  CAST(NULL AS varchar(16)) sourceScheduleVersion,LOWER(paws_api.TeachingAppointmentAccessSourceStamp(@Source)) sourceSignature,
  N'Synthetic canonical course' recordedScope,N'2026-05-01' startDate,N'2027-05-01' endExclusive,
  CAST(1 AS bit) usesApprovedDefaultDates,N'exclusive' assignmentMode,
@@ -68,6 +68,7 @@ SET @Rejected=0;
 BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062admin',@AdminVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Revoke,N'Forbidden admin',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54101 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 THROW 54260,'Administrator changed leadership authority.',1;
 SET @Changes=JSON_MODIFY(@Changes,'$[0].definitionVersion',LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062hicc')),2)));
+SET @Changes=JSON_MODIFY(@Changes,'$[0].sourceVersion',@Epoch);
 DECLARE @Replacement nvarchar(max)=JSON_MODIFY(@Changes,'append $',JSON_QUERY((SELECT N'revoke' action,CONVERT(varchar(36),@Assignee) assignmentId,
  LOWER(CONVERT(varchar(16),CONVERT(binary(8),AuthorityVersion),2)) expectedVersion,N'leadership062hicc' responsibilityId FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityAssigneeId=@Assignee FOR JSON PATH,WITHOUT_ARRAY_WRAPPER))),@Fault nvarchar(max);
 -- The existing exclusive assignee must block another grant even to the same person.
@@ -105,6 +106,7 @@ PRINT 'LEADERSHIP_COMMAND_062_PROTECTED_AND_NULL_INPUT_DENIED';
 INSERT paws.RoleAppointmentSchedule(RoleAssignmentId,PeriodsJson,UpdatedAtUtc,UpdatedByFirebaseUid) VALUES(@Source,N'[{"startDate":"2026-05-01","endDate":"2026-08-31"},{"startDate":"2026-10-01","endDate":"2027-04-30"}]',SYSUTCDATETIME(),N'leadership062owner');
 SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());
 SET @Fault=JSON_MODIFY(@Replacement,'$[0].definitionVersion',LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062hicc')),2)));
+SET @Fault=JSON_MODIFY(@Fault,'$[0].sourceVersion',@Epoch);
 SET @Fault=JSON_MODIFY(@Fault,'$[0].usesApprovedDefaultDates',CAST(0 AS bit));
 SET @Fault=JSON_MODIFY(@Fault,'$[0].sourceScheduleVersion',(SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),ScheduleVersion),2)) FROM paws.RoleAppointmentSchedule WHERE RoleAssignmentId=@Source));
 SET @Fault=JSON_MODIFY(@Fault,'$[0].sourceSignature',LOWER(paws_api.TeachingAppointmentAccessSourceStamp(@Source)));SET @Rejected=0;
@@ -113,6 +115,7 @@ IF @Rejected=0 THROW 54260,'Uncovered source schedule gap was accepted.',1;
 DELETE paws.RoleAppointmentSchedule WHERE RoleAssignmentId=@Source;
 SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());
 SET @Replacement=JSON_MODIFY(@Replacement,'$[0].definitionVersion',LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062hicc')),2)));
+SET @Replacement=JSON_MODIFY(@Replacement,'$[0].sourceVersion',@Epoch);
 UPDATE paws.UserProfile SET BaseRole=BaseRole WHERE FirebaseUid=N'leadership062owner';SET @Rejected=0;
 BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Revoke,N'Synthetic Owner version changed',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54101 SET @Rejected=1;ELSE THROW;END CATCH;
 IF @Rejected=0 THROW 54260,'Changed Owner version was accepted.',1;
@@ -143,7 +146,7 @@ SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());SET 
 DECLARE @VChanges nvarchar(max)=(SELECT N'grant' action,N'leadership062visc' responsibilityId,N'visc' kind,
  LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062visc')),2)) definitionVersion,
  CONVERT(varchar(36),@ViscSource) sourceRoleAssignmentId,
- (SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),AuthorityVersion),2)) FROM paws.RoleAssignment WHERE RoleAssignmentId=@ViscSource) sourceVersion,
+ @Epoch sourceVersion,
  (SELECT LOWER(CONVERT(varchar(16),CONVERT(binary(8),ScheduleVersion),2)) FROM paws.RoleAppointmentSchedule WHERE RoleAssignmentId=@ViscSource) sourceScheduleVersion,
  LOWER(paws_api.TeachingAppointmentAccessSourceStamp(@ViscSource)) sourceSignature,N'Synthetic explicit area' recordedScope,
  N'2026-05-01' startDate,N'2027-05-01' endExclusive,CAST(0 AS bit) usesApprovedDefaultDates,N'exclusive' assignmentMode,
@@ -153,6 +156,7 @@ IF NOT EXISTS(SELECT 1 FROM paws_api.EffectiveTeachingAssignments(N'leadership06
  THROW 54260,'Recorded VISC grant did not produce its exact area authority.',1;
 SET @Epoch=(SELECT authorityVersion FROM paws_api.TeachingAuthorityState());
 SET @VChanges=JSON_MODIFY(@VChanges,'$[0].definitionVersion',LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|leadership062visc')),2)));
+SET @VChanges=JSON_MODIFY(@VChanges,'$[0].sourceVersion',@Epoch);
 SET @VChanges=JSON_MODIFY(@VChanges,'append $',JSON_QUERY((SELECT N'revoke' action,CONVERT(varchar(36),ResponsibilityAssigneeId) assignmentId,LOWER(CONVERT(varchar(16),CONVERT(binary(8),AuthorityVersion),2)) expectedVersion,N'leadership062visc' responsibilityId FROM paws.TeachingResponsibilityAssignee WHERE ResponsibilityId=N'leadership062visc' FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)));
 SET @Fault=JSON_MODIFY(@VChanges,'$[0].groups[0].groupId',N'anotherarea');SET @Rejected=0;SET @Operation=NEWID();
 BEGIN TRY EXEC paws_api.SetTeachingLeadershipAccess N'leadership062owner',@ActorVersion,N'leadership062target',@TargetVersion,N'2026-27',@Epoch,@Fault,N'Synthetic forged VISC area',@Hash,@Operation,@Preview;END TRY BEGIN CATCH IF ERROR_NUMBER()=54104 SET @Rejected=1;ELSE THROW;END CATCH;

@@ -45,7 +45,7 @@ BEGIN
   SET @Sources=(SELECT TOP(1001) CONVERT(varchar(36),r.RoleAssignmentId) sourceRoleAssignmentId,CONVERT(varchar(36),r.FacultyId) facultyId,r.AcademicYear academicYear,r.RoleType roleType,
    CONVERT(varchar(36),r.CourseId) courseId,r.CourseOrSubjectOrRotation recordedScope,CONVERT(varchar(10),r.EffectiveDate,23) effectiveDate,CONVERT(varchar(10),r.ExpirationDate,23) expirationDate,
    CAST(IIF(s.RoleAssignmentId IS NULL,0,1) AS bit) hasSchedule,s.PeriodsJson periodsJson,
-   LOWER(CONVERT(varchar(16),CONVERT(binary(8),r.AuthorityVersion),2)) version,
+   @Epoch version,
    LOWER(CONVERT(varchar(16),CONVERT(binary(8),s.ScheduleVersion),2)) scheduleVersion,LOWER(paws_api.TeachingAppointmentAccessSourceStamp(r.RoleAssignmentId)) signature
    FROM paws.RoleAssignment r LEFT JOIN paws.RoleAppointmentSchedule s ON s.RoleAssignmentId=r.RoleAssignmentId
    WHERE r.FacultyId=@Faculty AND r.AcademicYear=@AcademicYear AND UPPER(LTRIM(RTRIM(r.RoleType))) IN(N'HICC',N'COURSE COORDINATOR',N'VISC') ORDER BY r.RoleAssignmentId FOR JSON PATH,INCLUDE_NULL_VALUES);
@@ -177,7 +177,7 @@ BEGIN
     FROM paws.RoleAssignment r WITH(UPDLOCK,HOLDLOCK) LEFT JOIN paws.RoleAppointmentSchedule s WITH(UPDLOCK,HOLDLOCK) ON s.RoleAssignmentId=r.RoleAssignmentId
     WHERE r.RoleAssignmentId=@Source AND r.FacultyId=@Faculty AND r.AcademicYear=@AcademicYear
      AND ((@Kind=N'hicc' AND UPPER(LTRIM(RTRIM(r.RoleType))) IN(N'HICC',N'COURSE COORDINATOR')) OR (@Kind=N'visc' AND UPPER(LTRIM(RTRIM(r.RoleType)))=N'VISC'))
-     AND LOWER(CONVERT(varchar(16),CONVERT(binary(8),r.AuthorityVersion),2))=LOWER(JSON_VALUE(@Raw,'$.sourceVersion'))
+     AND @Epoch=LOWER(JSON_VALUE(@Raw,'$.sourceVersion'))
      AND ((s.RoleAssignmentId IS NULL AND JSON_VALUE(@Raw,'$.sourceScheduleVersion') IS NULL) OR LOWER(CONVERT(varchar(16),CONVERT(binary(8),s.ScheduleVersion),2))=LOWER(JSON_VALUE(@Raw,'$.sourceScheduleVersion')))
      AND LOWER(paws_api.TeachingAppointmentAccessSourceStamp(r.RoleAssignmentId))=LOWER(JSON_VALUE(@Raw,'$.sourceSignature'))
      AND LTRIM(RTRIM(r.CourseOrSubjectOrRotation))=JSON_VALUE(@Raw,'$.recordedScope')

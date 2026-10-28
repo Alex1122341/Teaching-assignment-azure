@@ -41,7 +41,9 @@ ALTER TABLE paws.TeachingResponsibilityScope ADD AuthorityVersion rowversion NOT
 ALTER TABLE paws.TeachingResponsibilityAssignee ADD AuthorityVersion rowversion NOT NULL;
 ALTER TABLE paws.TeachingAssignmentGroup ADD AuthorityVersion rowversion NOT NULL;
 ALTER TABLE paws.TeachingAssignmentGroupHicc ADD AuthorityVersion rowversion NOT NULL;
-ALTER TABLE paws.RoleAssignment ADD AuthorityVersion rowversion NOT NULL;
+-- RoleAssignment is serialized by retained MASTER receipts via SELECT r.*.
+-- Its existing business shape must not change. The retained authority epoch
+-- and RoleAssignment trigger version appointment changes, including ABA.
 
 CREATE TABLE paws.LeadershipAccessState(
  SingletonId tinyint NOT NULL CONSTRAINT PK_LeadershipAccessState PRIMARY KEY,
@@ -109,7 +111,7 @@ RETURNS varchar(64)
 AS
 BEGIN
  -- Only authority-relevant appointment facts participate, never credit amounts
- -- or unrelated person fields. Source rowversions separately invalidate intents.
+ -- or unrelated person fields. The retained epoch separately invalidates intents.
  DECLARE @Snapshot nvarchar(max)=(
   SELECT r.RoleAssignmentId,r.FacultyId,r.AcademicYear,UPPER(LTRIM(RTRIM(r.RoleType))) RoleType,
    r.CourseId,LTRIM(RTRIM(r.CourseOrSubjectOrRotation)) RecordedScope,r.EffectiveDate,r.ExpirationDate,
@@ -158,7 +160,6 @@ RETURN(
    CONVERT(varchar(16),CONVERT(binary(8),r.AuthorityVersion),2),N'|',
    CONVERT(varchar(16),CONVERT(binary(8),state.AuthorityVersion),2),N'|',
    ISNULL(CONVERT(varchar(16),CONVERT(binary(8),linked.AuthorityVersion),2),N''),N'|',
-   ISNULL(CONVERT(varchar(16),CONVERT(binary(8),source.AuthorityVersion),2),N''),N'|',
    ISNULL(CONVERT(varchar(16),CONVERT(binary(8),periods.ScheduleVersion),2),N''),N'|',
    (SELECT scope.ResponsibilityScopeId,scope.CourseId,scope.SubjectId,course.CourseCode,
      CONVERT(varchar(16),CONVERT(binary(8),scope.AuthorityVersion),2) version

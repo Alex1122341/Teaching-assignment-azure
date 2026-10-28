@@ -42,6 +42,5 @@ ALTER TABLE paws.TeachingResponsibilityScope DROP COLUMN AuthorityVersion;
 ALTER TABLE paws.TeachingResponsibilityAssignee DROP COLUMN AuthorityVersion;
 ALTER TABLE paws.TeachingAssignmentGroup DROP COLUMN AuthorityVersion;
 ALTER TABLE paws.TeachingAssignmentGroupHicc DROP COLUMN AuthorityVersion;
-ALTER TABLE paws.RoleAssignment DROP COLUMN AuthorityVersion;
 -- Preserve the pre-existing ScheduleVersion, SQL060, its role and all business rows.
 COMMIT;

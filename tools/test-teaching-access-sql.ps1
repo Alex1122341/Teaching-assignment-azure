@@ -18,9 +18,9 @@ Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sq
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/062_leadership_access_commands_acceptance.sql') -Raw) 'VetMed-Ops'
 # INSERT ... EXEC introduces an outer transaction and is intentionally rejected
 # by the standalone history procedure. Capture its real JSON across sqlcmd instead.
-function Read-LeadershipHistory([string]$AcademicYear){
+function Read-LeadershipHistory([string]$AcademicYear,[switch]$Snapshot){
  if($AcademicYear -notin @('2026-27','2027-28')){throw 'Synthetic history year required.'}
- $statement="SET NOCOUNT ON; EXEC paws_api.GetTeachingLeadershipAccessHistory N'leadership062owner',N'leadership062target',N'$AcademicYear',0;"
+ $statement=if($Snapshot){"SET NOCOUNT ON; EXEC paws_api.GetTeachingLeadershipAccessSnapshot N'leadership062owner',N'leadership062target',N'$AcademicYear';"}else{"SET NOCOUNT ON; EXEC paws_api.GetTeachingLeadershipAccessHistory N'leadership062owner',N'leadership062target',N'$AcademicYear',0;"}
  $output=$statement | & docker exec -e "SQLCMDPASSWORD=$env:PAWS_SQL_TEST_PASSWORD" -i $ContainerName /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -I -b -d 'VetMed-Ops' -i /dev/stdin -f 65001 -y 0 -w 65535
  if($LASTEXITCODE -ne 0){throw 'Synthetic leadership history query failed.'}
  # sqlcmd does not permit -h with -y0. Remove the heading/separator, retaining
@@ -34,7 +34,9 @@ $leadershipHistory=Read-LeadershipHistory '2026-27'
 if($leadershipHistory.total -lt 1 -or @($leadershipHistory.operations).Count -lt 1 -or @($leadershipHistory.origins).Count -lt 1){throw 'Owner history did not preserve operations and original grants.'}
 if(@($leadershipHistory.operations | Where-Object {$_.receipt.academicYear -ne '2026-27'}).Count){throw 'History returned another academic year.'}
 $otherYearHistory=Read-LeadershipHistory '2027-28'
-if($otherYearHistory.total -ne 0 -or @($otherYearHistory.operations).Count -ne 0){throw 'History crossed academic-year scope.'}
+if($otherYearHistory.total -ne 0 -or $otherYearHistory.operations -isnot [Array] -or @($otherYearHistory.operations).Count -ne 0 -or $otherYearHistory.origins -isnot [Array]){throw 'History crossed academic-year scope or omitted its empty arrays.'}
+$emptyYearSnapshot=Read-LeadershipHistory '2027-28' -Snapshot
+if($emptyYearSnapshot.sources -isnot [Array] -or $emptyYearSnapshot.assignments -isnot [Array] -or @($emptyYearSnapshot.sources).Count -ne 0 -or @($emptyYearSnapshot.assignments).Count -ne 0){throw 'Empty-year catalog omitted its empty source/assignment arrays.'}
 Write-Output 'LEADERSHIP_COMMAND_062_HISTORY_YEAR_OWNER_BOUNDARY'
 Invoke-TestSql @'
 CREATE TABLE dbo.Leadership062RaceBarrier(RaceId tinyint PRIMARY KEY);

@@ -56,7 +56,7 @@ BEGIN
    FROM paws.TeachingResponsibilityAssignee a LEFT JOIN paws.TeachingLeadershipGrantSource s ON s.ResponsibilityAssigneeId=a.ResponsibilityAssigneeId
    WHERE a.AcademicYear=@AcademicYear ORDER BY a.ResponsibilityAssigneeId FOR JSON PATH);
   IF (SELECT COUNT(*) FROM OPENJSON(@Catalog))>1000 OR (SELECT COUNT(*) FROM OPENJSON(@Sources))>1000 OR (SELECT COUNT(*) FROM OPENJSON(@Assignments))>1000 THROW 54107,'Leadership snapshot exceeds its bounded limit.',1;
-  SET @Snapshot=(SELECT JSON_QUERY(@Target) target,@Epoch authorityVersion,JSON_QUERY(@Catalog) catalog,JSON_QUERY(@Sources) sources,JSON_QUERY(@Assignments) assignments FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES);
+  SET @Snapshot=(SELECT JSON_QUERY(@Target) target,@Epoch authorityVersion,JSON_QUERY(COALESCE(@Catalog,N'[]')) catalog,JSON_QUERY(COALESCE(@Sources,N'[]')) sources,JSON_QUERY(COALESCE(@Assignments,N'[]')) assignments FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES);
   COMMIT;SELECT @Snapshot snapshotJson;
  END TRY BEGIN CATCH IF @@TRANCOUNT>0 ROLLBACK;THROW;END CATCH
 END;
@@ -89,7 +89,7 @@ BEGIN
   SET @Origins=(SELECT CONVERT(varchar(36),o.OperationId) operationId,JSON_QUERY(o.ReceiptJson,'$.changes') changes FROM paws.LeadershipAccessOperation o
    WHERE o.TargetUid=@TargetUid AND o.AcademicYear=@AcademicYear AND EXISTS(SELECT 1 FROM @Page p CROSS APPLY OPENJSON(p.ReceiptJson,'$.before') b WHERE TRY_CONVERT(uniqueidentifier,JSON_VALUE(b.value,'$.grantOperationId'))=o.OperationId
     UNION ALL SELECT 1 FROM @Page p CROSS APPLY OPENJSON(p.ReceiptJson,'$.after') a WHERE TRY_CONVERT(uniqueidentifier,JSON_VALUE(a.value,'$.grantOperationId'))=o.OperationId) FOR JSON PATH);
-  SET @History=(SELECT @Total total,JSON_QUERY(@Operations) operations,JSON_QUERY(@Origins) origins FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+  SET @History=(SELECT @Total total,JSON_QUERY(COALESCE(@Operations,N'[]')) operations,JSON_QUERY(COALESCE(@Origins,N'[]')) origins FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
   IF DATALENGTH(@History)>4194304 THROW 54107,'History page exceeds its bounded limit.',1;
   COMMIT;SELECT @History historyJson;
  END TRY BEGIN CATCH IF @@TRANCOUNT>0 ROLLBACK;THROW;END CATCH

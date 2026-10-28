@@ -9,6 +9,18 @@ function harness(){
 }
 const request=(path,options={})=>new Request('https://paws.test/api/v1/access/'+path,{...options,headers:{authorization:'Bearer credential',...(options.headers||{})}});
 const json=(body,method='POST')=>({method,headers:{'content-type':'application/json'},body:typeof body==='string'?body:JSON.stringify(body)});
+test('leadership routes use the same bounded private HTTP boundary and exact query allowlist',async()=>{
+ const calls=[],leadership=Object.fromEntries(['catalog','preview','commit'].map(name=>[name,async(token,input)=>{calls.push({name,token,input});return {status:200,body:{name}};}]));
+ const handle=createAccountAccessFunctions({api:{},collaboration:{},leadership});
+ for(const [path,options,name,input] of [
+  ['leadership/catalog?targetUid=faculty&academicYear=2026-27',{},'catalog',{targetUid:'faculty',academicYear:'2026-27'}],
+  ['leadership/preview',json({reason:'Approved'}),'preview',{reason:'Approved'}],
+  ['leadership/commit',json({operationId:'same'}),'commit',{operationId:'same'}]
+ ]){const result=await handle(request(path,options));assert.equal(result.status,200);assert.equal(result.headers['Cache-Control'],'private, no-store');assert.deepEqual(calls.at(-1),{name,token:'credential',input});}
+ assert.equal((await handle(request('leadership/catalog?targetUid=a&targetUid=b'))).status,400);
+ assert.equal((await handle(request('leadership/catalog?role=owner'))).status,400);
+ assert.equal((await handle(request('leadership/commit'))).status,405);
+});
 
 test('access HTTP routes dispatch exact methods and preserve private no-store and domain status',async()=>{
  const h=harness();

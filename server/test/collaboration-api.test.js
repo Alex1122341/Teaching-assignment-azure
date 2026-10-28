@@ -3,6 +3,22 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {createCollaborationApi}=require('../src/access/collaboration-api');
 const H='10000000-0000-4000-8000-000000000001',F='10000000-0000-4000-8000-000000000002',O='10000000-0000-4000-8000-000000000003';
+test('effective HICC uses only existing owned groups and revoked scope cannot return private data',async()=>{
+ const h=fixture(),person=h.state.profiles.get('faculty');
+ person.teachingAccess={effectiveRoles:['faculty','hicc','visc'],scopeVersion:'a'.repeat(64)};
+ const empty=await h.api.groups('faculty');assert.equal(empty.status,200);assert.deepEqual(empty.body.groups,[]);
+ h.state.groups.push({id:'owned',name:'Existing owned group',ownerUid:'faculty',courseIds:['505'],memberUids:['faculty'],version:'123.000000004'});
+ const own=await h.api.groups('faculty');assert.deepEqual(own.body.groups.map(row=>row.id),['owned']);
+ assert.equal(own.body.groups[0].canManageMembers,true);assert.equal(own.body.groups[0].canManageDetails,false);
+ const load=h.repository.collaborators;h.repository.collaborators=async()=>{const rows=await load();person.teachingAccess={...person.teachingAccess,scopeVersion:'b'.repeat(64)};return rows;};
+ const changed=await h.api.groups('faculty');assert.equal(changed.status,403);assert.equal(changed.body.groups,undefined);
+});
+test('VISC and malformed additional roles never grant group access',async()=>{
+ for(const teachingAccess of [{effectiveRoles:['faculty','visc'],scopeVersion:'a'.repeat(64)},{effectiveRoles:['faculty','hicc'],scopeVersion:null}]){
+  const h=fixture();h.state.profiles.get('faculty').teachingAccess=teachingAccess;
+  assert.equal((await h.api.groups('faculty')).status,403);assert.equal(h.state.groupReads,0);
+ }
+});
 function fixture(options={}){
  const profiles=new Map([
   ['owner',{firebaseUid:'owner',baseRole:'owner',active:true,displayName:'Alex Owner'}],

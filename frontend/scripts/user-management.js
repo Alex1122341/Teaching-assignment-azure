@@ -4,8 +4,8 @@
 })(typeof window==='undefined'?null:window,function(){
  'use strict';
  function createUserManagement({api,onChange,randomId=()=>crypto.randomUUID()}){
-  let revision=0;
-  const empty=()=>({access:null,catalog:null,accounts:[],total:0,offset:0,search:'',groups:[],candidates:[],collaborationWriteEnabled:false,groupError:null,selected:null,preview:null,operation:null,uncertain:false,saved:null,history:null,legacy:null,loading:false,error:null});
+  let revision=0,leadershipRevision=0,historyRequest=0;
+  const empty=()=>({access:null,catalog:null,accounts:[],total:0,offset:0,search:'',groups:[],candidates:[],collaborationWriteEnabled:false,groupError:null,selected:null,preview:null,operation:null,uncertain:false,saved:null,history:null,legacy:null,leadership:null,leadershipHistory:null,loading:false,error:null});
   let state=empty();
   const emit=()=>onChange({...state,accounts:state.accounts.slice(),groups:state.groups.slice(),candidates:state.candidates.slice()});
   function clear(){revision++;state=empty();emit();}
@@ -33,14 +33,14 @@
   function selectAccount(uid){
    editable();const selected=state.accounts.find(row=>row.uid===uid);
    if(!selected?.editable)throw Error('This account is protected or needs review.');
-   state={...state,selected:{...selected},preview:null,operation:null,saved:null,error:null};emit();
+   leadershipRevision++;state={...state,selected:{...selected},preview:null,operation:null,saved:null,error:null,leadership:null,leadershipHistory:null};emit();
   }
   function cancelPreview(){editable();state={...state,preview:null,operation:null,error:null};emit();}
   async function preview(changes,reason){
    editable();if(!state.selected)throw Error('Select an account before previewing.');
    if(!state.catalog?.writeEnabled)throw Error('Access changes are currently disabled.');
    if(typeof reason!=='string'||!reason.trim()||reason.trim().length>1000)throw Error('A reason of 1–1000 characters is required.');
-   const current=revision,target=state.selected;state={...state,loading:true,error:null,preview:null,operation:null,saved:null};emit();
+   const current=revision,target=state.selected;state={...state,loading:true,error:null,preview:null,operation:null,saved:null,leadership:null};emit();
    try{const result=await api.previewAccountAccess({targetUid:target.uid,expectedVersion:target.version,changes,reason:reason.trim()});if(current!==revision)return;state={...state,loading:false,preview:result,operation:{previewId:result.previewId,operationId:randomId()}};emit();}
    catch(error){if(current===revision){state={...state,loading:false,error:error.message};emit();}throw error;}
   }
@@ -64,21 +64,49 @@
   async function legacyHistory(input={}){
    requireOwner();const current=revision;try{const result=await api.legacyAccessHistory(input);if(current===revision){state={...state,legacy:result};emit();}}catch(error){if(current===revision){state.error=error.message;emit();}throw error;}
   }
-  return Object.freeze({load,clear,selectAccount,cancelPreview,preview,commit,history,legacyHistory});
+  async function leadershipHistory(input){
+   requireOwner();if(!state.selected)throw Error('Select an account before loading history.');const current=revision,scope=leadershipRevision,request=++historyRequest,target=state.selected;
+   try{const result=await api.leadershipAccessHistory({targetUid:target.uid,...input});if(current!==revision||scope!==leadershipRevision||request!==historyRequest||state.selected?.uid!==target.uid)return;state={...state,leadershipHistory:result};emit();}
+   catch(error){if(current===revision&&scope===leadershipRevision&&request===historyRequest){state.error=error.message;emit();}throw error;}
+  }
+  function clearLeadership(){editable();leadershipRevision++;state={...state,leadership:null,leadershipHistory:null,error:null};emit();}
+  async function loadLeadership(academicYear){
+   editable();if(!state.selected)throw Error('Select an account before loading responsibilities.');
+   const current=revision,target=state.selected;leadershipRevision++;state={...state,loading:true,error:null,leadership:null,leadershipHistory:null,preview:null,operation:null};emit();
+   try{const catalog=await api.leadershipAccessCatalog({targetUid:target.uid,academicYear});if(current!==revision)return;state={...state,loading:false,leadership:{catalog,preview:null,operation:null,saved:null}};emit();}
+   catch(error){if(current===revision){state={...state,loading:false,error:error.message};emit();}throw error;}
+  }
+  async function previewLeadership(changes,reason){
+   editable();const catalog=state.leadership?.catalog;if(!catalog||!catalog.writeEnabled)throw Error('Load writable leadership choices before previewing.');
+   if(typeof reason!=='string'||!reason.trim()||reason.trim().length>1000)throw Error('A reason of 1–1000 characters is required.');
+   const current=revision;state={...state,loading:true,error:null,leadership:{catalog,preview:null,operation:null,saved:null}};emit();
+   try{const preview=await api.previewLeadershipAccess({targetUid:catalog.target.uid,academicYear:catalog.academicYear,expectedVersion:catalog.target.version,expectedAuthorityVersion:catalog.authorityVersion,changes,reason:reason.trim()});if(current!==revision)return;state={...state,loading:false,leadership:{catalog,preview,operation:{previewId:preview.previewId,operationId:randomId()},saved:null}};emit();}
+   catch(error){if(current===revision){state={...state,loading:false,error:error.message};emit();}throw error;}
+  }
+  function cancelLeadership(){editable();if(!state.leadership)return;state={...state,leadership:{...state.leadership,preview:null,operation:null},error:null};emit();}
+  async function commitLeadership(){
+   requireOwner();if(state.loading)throw Error('Wait for the current request.');
+   const leadership=state.leadership;if(!leadership?.preview||!leadership.operation)throw Error('Preview the exact leadership change before confirming.');
+   const current=revision,operation={...leadership.operation};state={...state,loading:true,error:null};emit();
+   try{const saved=await api.commitLeadershipAccess(operation);if(current!==revision)return;state={...state,loading:false,uncertain:false,leadership:{...leadership,catalog:{...leadership.catalog,writeEnabled:false},preview:null,operation:null,saved}};emit();}
+   catch(error){if(current===revision){const definite=['LEADERSHIP_STALE','LEADERSHIP_PREVIEW_EXPIRED','LEADERSHIP_SOURCE_CHANGED','LEADERSHIP_OVERLAP','INVALID_LEADERSHIP_CHANGE','WRITE_DISABLED','PROTECTED_ACCOUNT','TARGET_ACCESS_INELIGIBLE'].includes(error.code);state={...state,loading:false,error:error.message,uncertain:!definite,leadership:{...leadership,...(definite?{preview:null,operation:null}:{})}};emit();}throw error;}
+  }
+  return Object.freeze({load,clear,selectAccount,cancelPreview,preview,commit,history,legacyHistory,loadLeadership,previewLeadership,commitLeadership,cancelLeadership,leadershipHistory,clearLeadership});
  }
- return {createUserManagement};
+ function leadershipPreviewRows(changes,catalog){return changes.map(change=>{const assignment=change.action==='revoke'?catalog.assignments.find(row=>row.assignmentId===change.assignmentId):null,definition=catalog.definitions.find(row=>row.responsibilityId===change.responsibilityId);return {...definition,...assignment,...change};});}
+ return {createUserManagement,leadershipPreviewRows};
 });
 
 (function(root){
  'use strict';if(!root?.document||!root.UCVM||!root.UCVM_PAWS_DATA||!root.PAWS_USER_MANAGEMENT)return;
  const doc=root.document,$=id=>doc.getElementById(id),api=root.UCVM_PAWS_DATA,{auth}=root.UCVM.init(),esc=root.UCVM.esc;
  const person=value=>root.PAWS_FACULTY_NAME.format(value),role=value=>root.UCVM.label(value||'Not provided');
- let state=null,editorKey='',groupKey='',selectedGroup=null,creationId=null,groupBusy=false;
+ let state=null,editorKey='',leadershipKey='',groupKey='',selectedGroup=null,creationId=null,groupBusy=false;
  const status=(message,error=false)=>{$('status').textContent=message;$('status').classList.toggle('error',error);};
  const run=work=>Promise.resolve().then(work).catch(error=>status(error.message,true));
  const facultyLabel=id=>state?.catalog?.faculty.find(row=>row.facultyId===id)?.displayName||(id?'Linked faculty':'Not linked');
  const scopeLabel=scope=>role(scope?.role)+' · '+(scope?.active?'Active':'Disabled')+' · '+facultyLabel(scope?.facultyId);
- const time=value=>value?new Date(value).toLocaleString('en-CA',{timeZone:'America/Edmonton'}):'Not recorded';
+ const time=value=>value?new Date(/(?:Z|[+-]\d\d:\d\d)$/i.test(value)?value:value+'Z').toLocaleString('en-CA',{timeZone:'America/Edmonton'}):'Not recorded';
  const controller=root.PAWS_USER_MANAGEMENT.createUserManagement({api,onChange:render});
  function render(next){
   state=next;const access=state.access,isOwner=access?.canManageAccounts===true;
@@ -86,6 +114,8 @@
   $('self-summary').hidden=!access;$('self-summary').classList.toggle('access-summary-compact',isOwner);$('content').hidden=!access?.allowed;$('accounts').hidden=!isOwner;$('access-history').hidden=!isOwner;$('groups').hidden=access?.canManageGroups!==true;
   $('directory-link').hidden=!access?.allowed||!root.UCVM.canOpenFacultyDashboard({role:access.role});
   $('access-summary').innerHTML=access?'<div><dt>Role</dt><dd>'+esc(role(access.role))+'</dd></div><div><dt>Status</dt><dd>'+esc(({ready:'Ready',inactive:'Inactive',password_required:'Password change required',not_provisioned:'Not provisioned',needs_review:'Review required'})[access.status]||'Review required')+'</dd></div><div><dt>Authority</dt><dd>University account profile</dd></div>':'';
+  const own=access?.responsibilities||[];
+  $('own-teaching-roles').innerHTML=access?'<p class="muted">Current academic year: '+esc(access.academicYear||'Not applicable')+'</p>'+(own.length?'<div class="table-scroll"><table class="access-table"><thead><tr><th>Responsibility</th><th>Course / area</th><th>Start</th><th>End (inclusive)</th></tr></thead><tbody>'+own.map(row=>'<tr><td>'+esc(row.kind==='hicc'?'HICC / Course Coordinator':'VISC')+'</td><td>'+esc(teachingScope(row))+'</td><td>'+esc(row.startDate)+'</td><td>'+esc(row.endDate)+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted">No additional teaching responsibilities are active.</p>'):'';
   status(state.error||(state.loading?'Loading…':state.uncertain?'The outcome needs confirmation. Retry the same operation below.':access?.allowed?'Access verified.':access?'This account cannot use PAWS. Contact an Owner for review.':'Checking access…'),Boolean(state.error||state.uncertain));
   for(const id of ['account-reset','refresh','account-prev','account-next','history-load'])$(id).disabled=state.loading||state.uncertain;
   if(!isOwner){editorKey='';$('accounts-body').innerHTML='';$('history-body').innerHTML='';$('legacy-body').innerHTML='';return renderGroups();}
@@ -95,14 +125,15 @@
   $('account-prev').disabled=state.loading||state.uncertain||state.offset===0;$('account-next').disabled=state.loading||state.uncertain||state.offset+50>=state.total;
   $('accounts-body').innerHTML=state.accounts.map(row=>'<tr><td><strong>'+esc(person(row.displayName))+'</strong><small>'+esc(row.email||'Email not provided')+'</small></td><td>'+esc(role(row.role))+'</td><td><span class="status-pill">'+esc(!row.active?'Disabled':row.mustChangePassword?'Password required':'Active')+'</span></td><td>'+esc(facultyLabel(row.facultyId))+'</td><td><button type="button" data-edit="'+esc(row.uid)+'" '+(!row.editable||state.loading||state.uncertain?'disabled':'')+'>'+(!row.editable?'Protected / review':'Edit access')+'</button></td></tr>').join('')||'<tr><td colspan="5">'+(state.loading?'Loading accounts…':'No matching accounts.')+'</td></tr>';
   doc.querySelectorAll('[data-edit]').forEach(button=>button.onclick=()=>run(()=>{controller.selectAccount(button.dataset.edit);$('account-editor').scrollIntoView({block:'nearest'});$('account-role').focus();}));
-  renderEditor();renderGroups();renderHistory();
+  renderEditor();renderLeadership();renderGroups();renderHistory();
  }
  function renderEditor(){
   const row=state.selected;$('account-editor').hidden=!row;
-  if(!row){editorKey='';return;}
+  if(!row){editorKey='';leadershipKey='';return;}
   const key=row.uid+'/'+row.version;
   if(editorKey!==key){
    editorKey=key;$('edit-title').textContent='Edit access · '+person(row.displayName);$('edit-identity').textContent=row.email||'Email not provided';$('account-uid').textContent=row.uid;
+   $('leadership-year').value=state.access.academicYear||'';
    $('account-role').innerHTML=(state.catalog?.roles||[]).map(value=>'<option value="'+esc(value)+'">'+esc(role(value))+'</option>').join('');$('account-role').value=row.role;
    $('account-faculty').innerHTML='<option value="">Not linked</option>'+(state.catalog?.faculty||[]).map(value=>'<option value="'+esc(value.facultyId)+'">'+esc(person(value.displayName))+'</option>').join('');
    if(row.facultyId&&!state.catalog?.faculty.some(value=>value.facultyId===row.facultyId)){const option=doc.createElement('option');option.value=row.facultyId;option.textContent='Existing inactive or unavailable faculty link';$('account-faculty').append(option);}
@@ -116,6 +147,41 @@
    $('access-confirm').onclick=()=>run(()=>controller.commit());$('preview-cancel').onclick=()=>run(()=>controller.cancelPreview());
   }
   const saved=state.saved;$('save-result').textContent=saved?(saved.superseded?'Saved operation confirmed. This account has changed again; current access is shown.':saved.replayed?'Previously saved operation confirmed.':'Saved access confirmed from the current account profile.')+' Operation: '+saved.operation.operationId:'';
+ }
+ function teachingScope(row){return [...(row.courses||[]).map(value=>value.courseCode),...(row.groups||[]).map(value=>value.name)].join(', ')||'Scope not provided';}
+ function inclusiveEnd(value){return value?new Date(Date.parse(value+'T12:00:00Z')-86400000).toISOString().slice(0,10):'Not provided';}
+ function renderLeadership(){
+  const data=state.leadership,catalog=data?.catalog,locked=state.loading||state.uncertain||Boolean(data?.preview);
+  $('leadership-load').disabled=locked;$('leadership-year').disabled=locked;
+  $('leadership-form').hidden=!catalog;$('leadership-fields').disabled=locked||!catalog?.writeEnabled;
+  const key=catalog?catalog.target.uid+'/'+catalog.academicYear+'/'+catalog.authorityVersion:'';
+  if(key!==leadershipKey){
+   leadershipKey=key;$('leadership-current').innerHTML='';$('leadership-source').innerHTML='';$('leadership-definition').innerHTML='';$('leadership-reason').value='';
+   if(catalog){
+    $('leadership-source').innerHTML='<option value="">Select a recorded appointment</option>'+catalog.sources.map(row=>'<option value="'+esc(row.sourceRoleAssignmentId)+'">'+esc((row.kind==='hicc'?'HICC / Course Coordinator':'VISC')+' · '+row.description+' · '+row.status)+'</option>').join('');
+    $('leadership-current').innerHTML='<p class="muted">'+catalog.assignments.length+' recorded responsibilities · '+esc(catalog.academicYear)+(catalog.writeEnabled?'':' · Read only')+'</p>'+(catalog.assignments.length?'<div class="table-scroll"><table class="access-table"><thead><tr><th>Course / area</th><th>Start</th><th>End (inclusive)</th><th>Action</th></tr></thead><tbody>'+catalog.assignments.map(row=>{const definition=catalog.definitions.find(item=>item.responsibilityId===row.responsibilityId);return '<tr><td>'+esc(definition?teachingScope(definition):'Definition needs review')+'</td><td>'+esc(row.startDate)+'</td><td>'+esc(inclusiveEnd(row.endExclusive))+'</td><td>'+(row.managed?'<button type="button" data-revoke-leadership="'+esc(row.assignmentId)+'">Preview revoke</button>':'Existing assignment · separate review')+'</td></tr>';}).join('')+'</tbody></table></div>':'<p class="muted">No assigned responsibilities in this academic year.</p>');
+   }
+  }
+  doc.querySelectorAll('[data-revoke-leadership]').forEach(button=>{button.disabled=locked||!catalog?.writeEnabled;button.onclick=()=>run(()=>{const row=catalog.assignments.find(item=>item.assignmentId===button.dataset.revokeLeadership);return controller.previewLeadership([{action:'revoke',assignmentId:row.assignmentId,expectedVersion:row.version}],$('leadership-reason').value);});});
+  const preview=data?.preview;$('leadership-preview').hidden=!preview;
+  if(preview){$('leadership-preview').innerHTML='<h4>Confirm teaching responsibility change</h4><p>'+esc(person(state.selected.displayName))+' · '+esc(preview.academicYear)+' · Base role retained: '+esc(role(state.selected.role))+'</p><div class="table-scroll"><table class="access-table"><thead><tr><th>Change</th><th>Course / area</th><th>Start</th><th>End (inclusive)</th></tr></thead><tbody>'+root.PAWS_USER_MANAGEMENT.leadershipPreviewRows(preview.changes,catalog).map(row=>'<tr><td>'+esc(row.action==='grant'?(row.kind==='hicc'?'Grant HICC / Course Coordinator':'Grant VISC'):'Revoke responsibility')+'</td><td>'+esc(teachingScope(row))+(row.usesApprovedDefaultDates?'<small>Academic-year default approved</small>':'')+'</td><td>'+esc(row.startDate||'N/A')+'</td><td>'+esc(row.endDate||inclusiveEnd(row.endExclusive))+'</td></tr>').join('')+'</tbody></table></div><p><strong>Reason:</strong> '+esc(preview.reason)+'</p><div class="actions"><button type="button" class="primary" id="leadership-confirm" '+(state.loading?'disabled':'')+'>'+(state.uncertain?'Confirm same operation':'Confirm responsibility change')+'</button><button type="button" id="leadership-back" '+(state.loading||state.uncertain?'disabled':'')+'>Back to edit</button></div>'+(state.uncertain?'<p class="muted">Keep this page open and retry this same operation to confirm the saved outcome.</p>':'');$('leadership-confirm').onclick=()=>run(()=>controller.commitLeadership());$('leadership-back').onclick=()=>run(()=>controller.cancelLeadership());}
+  $('leadership-result').textContent=data?.saved?(data.saved.superseded?'Saved operation confirmed; authority has since changed. Reload responsibilities.':'Saved responsibility operation confirmed. Reload responsibilities to see current assignments.'):' ';
+  renderLeadershipHistory();
+ }
+ function renderLeadershipHistory(){
+  const history=state.leadershipHistory,query=$('leadership-history-search').value.trim().toLowerCase(),scope=rows=>(rows||[]).map(row=>(row.kind==='hicc'?'HICC / Course Coordinator':row.kind==='visc'?'VISC':'Responsibility')+' · '+(row.scopeRecorded?teachingScope(row):'Historical scope not recorded')+' · '+(row.startDate||'N/A')+' → '+(row.endDate||'N/A')+(row.usesApprovedDefaultDates?' · Approved year default':'')).join('; ')||'None';
+  const rows=(history?.rows||[]).map(row=>({row,before:scope(row.before),after:scope(row.after)})).filter(item=>!query||[time(item.row.createdAtUtc),item.row.actorName,item.row.targetName,item.row.reason,item.before,item.after].join(' ').toLowerCase().includes(query));
+  $('leadership-history-body').innerHTML=rows.map(({row,before,after})=>'<tr><td>'+esc(time(row.createdAtUtc))+'</td><td>'+esc(before)+'</td><td>'+esc(after)+'</td><td>'+esc(row.reason)+'</td><td>'+esc(person(row.actorName))+'</td></tr>').join('')||'<tr><td colspan="5">'+(history?'No matching changes in this page.':'Choose a year and load responsibility history.')+'</td></tr>';
+  $('leadership-history-count').textContent=history?rows.length+' shown in page · '+history.total+' changes · '+history.academicYear:'';
+  $('leadership-history-prev').disabled=!history||state.loading||history.offset===0;$('leadership-history-next').disabled=!history||state.loading||history.offset+50>=history.total;
+ }
+ function leadershipSourceChanged(){
+  const catalog=state.leadership?.catalog,source=catalog?.sources.find(row=>row.sourceRoleAssignmentId===$('leadership-source').value);
+  const definitions=(catalog?.definitions||[]).filter(row=>row.kind===source?.kind&&(!source.courseId||row.courses.some(item=>item.courseId.toLowerCase()===source.courseId.toLowerCase())));
+  $('leadership-definition').innerHTML='<option value="">Select an explicit scope</option>'+definitions.map(row=>'<option value="'+esc(row.responsibilityId)+'">'+esc(row.label+' · '+teachingScope(row))+'</option>').join('');
+  $('leadership-default').checked=false;$('leadership-default').disabled=!source?.canUseAcademicYearDefault;
+  $('leadership-start').value=source?.periods[0]?.startDate||'';$('leadership-end').value=source?.periods.at(-1)?.endDate||'';
+  $('leadership-date-help').textContent=source?.canUseAcademicYearDefault?'This appointment has no recorded dates. Explicitly approve the academic-year default or leave it unassigned.':source?'Dates must be covered continuously by the recorded appointment.':'Choose a recorded appointment to inspect its dates.';
  }
  function renderGroups(){
   if(!state.access?.canManageGroups){selectedGroup=null;groupKey='';$('group-members').innerHTML='';return;}
@@ -150,6 +216,15 @@
  $('account-next').onclick=()=>run(()=>controller.load({search:state.search,offset:state.offset+50}));
  $('account-form').onsubmit=event=>{event.preventDefault();run(async()=>{await controller.preview({role:$('account-role').value,active:$('account-active').checked,facultyId:$('account-faculty').value||null},$('account-reason').value);if(state.preview)$('access-preview').focus();});};
  $('account-cancel').onclick=()=>{$('account-editor').hidden=true;};
+ $('leadership-load-form').onsubmit=event=>{event.preventDefault();run(()=>controller.loadLeadership($('leadership-year').value.trim()));};
+ $('leadership-source').onchange=leadershipSourceChanged;
+ $('leadership-year').oninput=()=>run(()=>controller.clearLeadership());
+ $('leadership-history-load').onclick=()=>run(()=>controller.leadershipHistory({academicYear:$('leadership-year').value.trim(),offset:0}));
+ $('leadership-history-search').oninput=renderLeadershipHistory;
+ $('leadership-history-prev').onclick=()=>run(()=>controller.leadershipHistory({academicYear:state.leadershipHistory.academicYear,offset:Math.max(0,state.leadershipHistory.offset-50)}));
+ $('leadership-history-next').onclick=()=>run(()=>controller.leadershipHistory({academicYear:state.leadershipHistory.academicYear,offset:state.leadershipHistory.offset+50}));
+ $('leadership-default').onchange=()=>{if($('leadership-default').checked){const year=Number(state.leadership.catalog.academicYear.slice(0,4));$('leadership-start').value=year+'-05-01';$('leadership-end').value=(year+1)+'-04-30';}};
+ $('leadership-form').onsubmit=event=>{event.preventDefault();run(async()=>{await controller.previewLeadership([{action:'grant',responsibilityId:$('leadership-definition').value,sourceRoleAssignmentId:$('leadership-source').value,startDate:$('leadership-start').value,endDate:$('leadership-end').value,usesApprovedDefaultDates:$('leadership-default').checked}],$('leadership-reason').value);if(state.leadership?.preview)$('leadership-preview').focus();});};
  $('history-load').onclick=()=>run(()=>controller.history({offset:0}));
  $('history-prev').onclick=()=>run(()=>controller.history({offset:Math.max(0,state.history.offset-50)}));
  $('history-next').onclick=()=>run(()=>controller.history({offset:state.history.offset+50}));

@@ -1,7 +1,7 @@
 'use strict';
 const {uniqueJson}=require('./swa-report-functions');
 const PREFIX='/api/v1/access/';
-function createAccountAccessFunctions({api,collaboration}){
+function createAccountAccessFunctions({api,collaboration,leadership}){
  return async request=>{
   const headers={'Cache-Control':'private, no-store'};
   const error=(status,code,message)=>({status,headers,jsonBody:{error:{code,message}}});
@@ -15,6 +15,10 @@ function createAccountAccessFunctions({api,collaboration}){
     case 'preview':methods=['POST'];handler=(token,input)=>api.preview(token,input);break;
     case 'commit':methods=['POST'];handler=(token,input)=>api.commit(token,input);break;
     case 'history':methods=['GET'];query=['targetUid','offset'];handler=(token,input)=>api.history(token,input);break;
+    case 'leadership/catalog':methods=['GET'];query=['targetUid','academicYear'];handler=(token,input)=>leadership.catalog(token,input);break;
+    case 'leadership/preview':methods=['POST'];handler=(token,input)=>leadership.preview(token,input);break;
+    case 'leadership/commit':methods=['POST'];handler=(token,input)=>leadership.commit(token,input);break;
+    case 'leadership/history':methods=['GET'];query=['targetUid','academicYear','offset'];handler=(token,input)=>leadership.history(token,input);break;
     case 'groups':methods=['GET','POST'];handler=(token,input)=>request.method==='GET'?collaboration.groups(token):collaboration.saveGroup(token,null,input);break;
     case 'announcements':methods=['GET','POST'];handler=(token,input)=>request.method==='GET'?collaboration.announcements(token):collaboration.publishAnnouncement(token,input);break;
     case 'legacy-audit':methods=['GET'];query=['cursor'];handler=(token,input)=>collaboration.legacyAudit(token,input);break;

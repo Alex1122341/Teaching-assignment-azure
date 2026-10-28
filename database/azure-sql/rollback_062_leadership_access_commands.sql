@@ -13,5 +13,6 @@ BEGIN TRANSACTION;
 DROP PROCEDURE paws_api.SetTeachingLeadershipAccess;
 DROP PROCEDURE paws_api.GetTeachingLeadershipAccessSnapshot;
 DROP PROCEDURE paws_api.GetTeachingLeadershipAccessOperation;
+DROP PROCEDURE paws_api.GetTeachingLeadershipAccessHistory;
 DROP TRIGGER paws.LeadershipAuthority062_SourceLink;
 COMMIT;

@@ -75,6 +75,8 @@ const {createCccReplacementApi}=require('../calendar/ccc-replacement-api');
 const {createSqlCccReplacementRepository}=require('../data/sql-ccc-replacement-repository');
 const {createCccReplacementFunctions}=require('./swa-ccc-replacement-functions');
 const {createAccountAccessApi}=require('../access/account-access-api');
+const {createLeadershipAccessApi}=require('../access/leadership-access-api');
+const {createSqlLeadershipAccessRepository}=require('../data/sql-leadership-access-repository');
 const {createCollaborationApi}=require('../access/collaboration-api');
 const {createLegacyAccessStore}=require('../access/legacy-access-store');
 const {createSqlAccountAccessRepository}=require('../data/sql-account-access-repository');
@@ -115,6 +117,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const accessIdentity={verifyToken:verify,findUser:effectiveAccessIdentity,repository:accessRepository};
   const accessRoutes=createAccountAccessFunctions({
     api:createAccountAccessApi({...accessIdentity,writeEnabled:writeGates.accountAccess}),
+    leadership:createLeadershipAccessApi({...accessIdentity,repository:createSqlLeadershipAccessRepository(db),writeEnabled:writeGates.accountAccess,clock}),
     collaboration:createCollaborationApi({...accessIdentity,writeEnabled:writeGates.collaboration,store:createLegacyAccessStore({
       getFirestore:()=>admin.firestore(admin.app('paws-beta-sql')),
       serverTimestamp:()=>admin.firestore.FieldValue.serverTimestamp()

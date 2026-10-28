@@ -1,5 +1,12 @@
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.PAWS_TEACHING_CAPABILITIES=api;})(typeof window==='undefined'?null:window,function(){
+ 'use strict';
+ function hasQueueAccess(profile,own){const role=String(profile?.role||profile?.baseRole||'').toLowerCase();return ['hicc','visc','owner','administrator','adfa_general','adfa_regular','admin'].includes(role)||['faculty','hicc','visc'].includes(role)&&own?.allowed===true&&/^[a-f0-9]{64}$/i.test(own.scopeVersion||'')&&own.effectiveRoles?.some(value=>value==='hicc'||value==='visc')===true;}
+ function packageActions(pkg,gates){const caps=pkg?.capabilities||{},status=pkg?.status,canEdit=caps.canDraft===true&&['draft','changes_requested'].includes(status)&&gates.taDraft===true;return {isHicc:caps.canActAsHicc===true,canEdit,canSubmit:canEdit&&caps.canSubmit===true,canReview:caps.canReview===true&&status==='visc_review'&&gates.taReview===true,canFinalSubmit:caps.canFinalSubmit===true&&status==='visc_approved'&&gates.taDraft===true};}
+ return {hasQueueAccess,packageActions};
+});
 (() => {
   'use strict';
+  if(typeof window==='undefined'||!window.document)return;
 
   const FIREBASE_CONFIG = { apiKey: "AIzaSyDS9VE2zTXv0656_Mh0uDXB67-mZ5Y_LkY", authDomain: 'tester-teaching.firebaseapp.com', projectId: 'tester-teaching', storageBucket: 'tester-teaching.firebasestorage.app', messagingSenderId: '566638053186', appId: '1:566638053186:web:90e04b52251c4b859baadb' };
   const $ = id => document.getElementById(id);
@@ -8,12 +15,13 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const adminRoles = new Set(['owner','administrator','adfa_general','adfa_regular','admin']);
-  const queueRoles = new Set(['hicc','visc',...adminRoles]);
+  const queueAccess=()=>window.PAWS_TEACHING_CAPABILITIES.hasQueueAccess(profile,ownAccess);
+  let ownAccess=null;
   let profile = null, packages = [], selectedId = '', selectedPackage = null, capabilities = {}, facultyOptions = [], facultyEvidence = new Map();
   let auth = null, authGeneration = 0, activeView = 'queue', busy = false, focusedAssignmentEditor = null, controlsBound = false;
 
   function academicYearNow() {
-    const now = new Date(); const start = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+    const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit'}).formatToParts(new Date()),year=Number(parts.find(row=>row.type==='year').value),month=Number(parts.find(row=>row.type==='month').value);const start=month>=5?year:year-1;
     return `${start}-${String((start + 1) % 100).padStart(2,'0')}`;
   }
   function role() { return String(profile?.role || profile?.baseRole || '').trim().toLowerCase(); }
@@ -74,10 +82,8 @@
   }
   function renderDetail() {
     if (!selectedPackage) { $('detail-panel').innerHTML = '<div class="empty detail-empty"><span class="empty-icon">↗</span><h2>Select a package</h2><p>The detail view separates the working proposal, VISC review, ADFAD final assignment, and published release.</p></div>'; return; }
-    const pkg = selectedPackage, working = currentWorking(), status = String(pkg.status || ''), isHicc = role() === 'hicc';
-    const canEdit = isHicc && ['draft','changes_requested'].includes(status) && capabilities.taDraft === true;
-    const canReview = role() === 'visc' && status === 'visc_review' && capabilities.taReview === true;
-    const canFinalSubmit = isHicc && status === 'visc_approved' && capabilities.taDraft === true;
+    const pkg = selectedPackage, working = currentWorking(), status = String(pkg.status || '');
+    const {isHicc,canEdit,canSubmit,canReview,canFinalSubmit}=window.PAWS_TEACHING_CAPABILITIES.packageActions(pkg,capabilities);
     const canFinalize = isAdmin() && status === 'submitted_to_adfad' && capabilities.taFinal === true;
     const reviewList = (pkg.reviews || []).map(review => `<li><strong>${esc(review.decision === 'push_back' ? 'Changes requested' : review.decision)}</strong><span>${esc(displayFaculty(review.actorName || 'Reviewer'))} · ${dateText(review.createdAtUtc)} · revision ${esc(review.revisionNumber)}</span>${review.comment ? `<p>${esc(review.comment)}</p>` : ''}</li>`).join('') || '<li class="muted">No review decisions yet.</li>';
     const contributionList = (pkg.contributions || []).map(item => `<li><strong>Suggestion · ${esc(displayFaculty(item.suggestedDisplayName))}</strong><span>${esc(item.suggestedByOffice)} · ${dateText(item.createdAtUtc)} · revision ${esc(item.revisionNumber)}</span>${item.note ? `<p>${esc(item.note)}</p>` : ''}</li>`).join('') || '<li class="muted">No suggestions recorded.</li>';
@@ -87,7 +93,7 @@
     $('detail-panel').innerHTML = `<div class="detail-header"><div><p class="eyebrow">${esc(pkg.academicYear)} · ${esc(pkg.groupName || pkg.groupId)}</p><h2>${esc(pkg.hiccLabel || 'HICC package')}</h2><p>${esc(pkg.packageIdentity || pkg.responsibleHiccResponsibilityId || '')}</p></div><span class="status-pill status-${esc(status)}">${esc(statusLabel(status))}</span></div>
       <div class="detail-meta"><div><span>Next action</span><strong>${esc(statusLabel(status))}</strong></div><div><span>Revision</span><strong>${esc(pkg.workingRevision || 0)}${pkg.approvedRevision ? ` · VISC approved ${esc(pkg.approvedRevision)}` : ''}</strong></div><div><span>Due</span><strong>${dateText(pkg.dueAtUtc)}</strong></div><div><span>Last activity</span><strong>${dateText(pkg.updatedAtUtc)}</strong></div></div>
       ${canEdit ? '<div class="notice">Edit the working proposal below. Changes create a new numbered revision; previous VISC approval never carries forward.</div>' : ''}
-      <section class="detail-section"><div class="section-heading"><div><h3>Working proposal</h3><p>Revision ${esc(working.revisionNumber)} · changes here are not published.</p></div></div>${renderSessionRows(working.sessions || [],{editable:canEdit,purpose:'draft'})}${canEdit ? `<label class="note-field">Revision note<input id="revision-note" maxlength="1000" placeholder="What changed in this revision?"></label><div class="action-row">${actionButton('save-draft','Save working revision')}${pkg.workingRevision ? actionButton('submit','Submit to VISC') : ''}</div>` : ''}</section>
+      <section class="detail-section"><div class="section-heading"><div><h3>Working proposal</h3><p>Revision ${esc(working.revisionNumber)} · changes here are not published.</p></div></div>${renderSessionRows(working.sessions || [],{editable:canEdit,purpose:'draft'})}${canEdit ? `<label class="note-field">Revision note<input id="revision-note" maxlength="1000" placeholder="What changed in this revision?"></label><div class="action-row">${actionButton('save-draft','Save working revision')}${canSubmit ? actionButton('submit','Submit to VISC') : ''}</div>` : ''}</section>
       <section class="detail-section"><div class="section-heading"><div><h3>VISC review history</h3><p>Decisions stay attached to the revision reviewed.</p></div></div><ul class="history-list">${reviewList}</ul>${canReview ? `<label class="note-field">Review comment<textarea id="review-comment" rows="3" maxlength="2000" placeholder="Required when requesting changes"></textarea></label><div class="action-row">${actionButton('push-back','Request changes')}${actionButton('approve','Approve revision')}</div>` : ''}${canFinalSubmit ? `<div class="notice success">Revision ${esc(pkg.approvedRevision)} is approved. HICC must explicitly final-submit it to ADFAD.</div><div class="action-row">${actionButton('final-submit','Final submit to ADFAD')}</div>` : ''}</section>
       <section class="detail-section"><div class="section-heading"><div><h3>Contribution suggestions</h3><p>Suggestions are informational and never become assignments automatically.</p></div></div><ul class="history-list">${contributionList}</ul>${isHicc && capabilities.taDraft && working.sessions?.length ? `<form class="inline-contribution" data-hicc-contribution="${esc(pkg.packageId)}" data-revision="${esc(pkg.workingRevision)}"><label>Session<select name="sessionId" required>${working.sessions.map(session=>`<option value="${esc(session.sessionId)}">${esc(session.courseCode)} · ${esc(session.topic || session.courseName || 'Session')}</option>`).join('')}</select></label><div class="contribution-form-row"><label>Opaque candidate key<input name="candidateKey" maxlength="128" required></label><label>Suggested display name<input name="suggestedDisplayName" maxlength="260" required></label></div><label>Note<textarea name="note" rows="2" maxlength="1000"></textarea></label><button class="button" type="submit">Add suggestion</button></form>` : ''}</section>
       <section class="detail-section"><div class="section-heading"><div><h3>ADFAD final assignment</h3><p>Authoritative assignment is separate from the HICC proposal and VISC decision.</p></div></div>${canFinalize ? `<p class="notice">Use exact canonical Faculty IDs. This action creates a new immutable finalization version.</p>${renderSessionRows(finalEditable,{editable:true,purpose:'final'})}<label class="note-field">Final note<textarea id="final-note" rows="3" maxlength="2000" placeholder="Decision context (optional)"></textarea></label><div class="action-row">${actionButton('save-final','Save final assignment')}</div>` : finalRows.length ? `<p class="version-label">Finalization version ${esc((pkg.finalization || [])[0]?.versionNumber || '')} · ${esc(displayFaculty((pkg.finalization || [])[0]?.actorName || ''))}</p>${renderSessionRows(finalRows,{purpose:'final'})}` : '<p class="muted">No ADFAD final assignment has been saved.</p>'}</section>
@@ -152,7 +158,7 @@
   }
   function apiError(error) { return error?.message || 'The University API could not complete this request. Refresh and try again.'; }
   async function selectView(view) {
-    if (view === 'queue' && !queueRoles.has(role())) view = 'published';
+    if (view === 'queue' && !queueAccess()) view = 'published';
     if (view === 'contributions' && !['adc','lab'].includes(role())) view = 'published';
     if (['publish','releases'].includes(view) && !isAdmin()) view = 'published';
     activeView = view;
@@ -271,7 +277,7 @@
   }
   async function start(user) {
     const generation=++authGeneration;
-    profile=null; packages=[]; selectedId=''; selectedPackage=null; capabilities={}; facultyOptions=[]; facultyEvidence.clear();
+    profile=null;ownAccess=null; packages=[]; selectedId=''; selectedPackage=null; capabilities={}; facultyOptions=[]; facultyEvidence.clear();
     focusedAssignmentEditor=null;
     for(const id of ['queue-list','detail-panel','published-content','release-history','contribution-targets'])if($(id))$(id).textContent='';
     showGate('Checking Teaching Assignments access…');
@@ -282,15 +288,17 @@
       profile=nextProfile;
       if (!profile || profile.active !== true) { showGate('An active PAWS account is required.'); return; }
       if (profile.mustChangePassword === true) { location.replace('password.html'); return; }
-      if (!queueRoles.has(role()) && role() !== 'faculty') { showGate('This account can’t access Teaching Assignments.'); return; }
+      ownAccess=await UCVM_PAWS_DATA.effectiveAccess();
+      if(generation!==authGeneration || auth.currentUser?.uid!==user.uid)return;
+      if (!queueAccess() && role() !== 'faculty') { showGate('This account can’t access Teaching Assignments.'); return; }
       $('identity-chip').textContent = `${displayFaculty(profile.displayName || profile.name || user.displayName || user.email || 'PAWS user')} · ${role()}`;
       document.querySelectorAll('.admin-only').forEach(button => button.classList.toggle('hidden',!isAdmin()));
       document.querySelectorAll('.contributor-only').forEach(button => button.classList.toggle('hidden',!['adc','lab'].includes(role())));
-      document.querySelector('[data-view="queue"]').classList.toggle('hidden',!queueRoles.has(role()));
+      document.querySelector('[data-view="queue"]').classList.toggle('hidden',!queueAccess());
       $('contribution-tab').classList.toggle('hidden',!['adc','lab'].includes(role()));
       unlock(); $('academic-year').value = academicYearNow(); bind(); await Promise.all([loadCapabilities(),loadFacultyReference()]);
       if(generation!==authGeneration || auth.currentUser?.uid!==user.uid)return;
-      await selectView(queueRoles.has(role()) ? 'queue' : ['adc','lab'].includes(role()) ? 'contributions' : 'published');
+      await selectView(queueAccess() ? 'queue' : ['adc','lab'].includes(role()) ? 'contributions' : 'published');
     } catch (error) { if(generation!==authGeneration)return; console.error(error); showGate(apiError(error)); }
   }
   try {

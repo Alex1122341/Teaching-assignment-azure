@@ -27,14 +27,31 @@ function createSqlLeadershipAccessRepository(db){
     {actorUid:uid(actorUid),targetUid:uid(targetUid),academicYear:year(academicYear)});
    const value=parse(result,'snapshotJson');
    if(!value.target||typeof value.target!=='object'||Array.isArray(value.target)||!UID.test(value.target.firebaseUid||'')||!VERSION.test(value.target.version||'')||!VERSION.test(value.authorityVersion||''))throw Error('Versioned leadership snapshot unavailable.');
-   const catalog=rows(value.catalog,['responsibilityId','kind','active','definitionVersion','courses','groups']).map(row=>({...row,courses:rows(row.courses,['courseId','courseCode'],200),groups:rows(row.groups,['groupId','name'],200)}));
+   const catalog=rows(value.catalog,['responsibilityId','kind','label','active','definitionVersion','courses','groups']).map(row=>({...row,courses:rows(row.courses,['courseId','courseCode'],200),groups:rows(row.groups,['groupId','name'],200)}));
    return {target:pick(value.target,['firebaseUid','baseRole','active','mustChangePassword','facultyId','facultyActive','version']),authorityVersion:value.authorityVersion.toLowerCase(),catalog,
     sources:rows(value.sources,['sourceRoleAssignmentId','facultyId','academicYear','roleType','courseId','recordedScope','effectiveDate','expirationDate','hasSchedule','periodsJson','version','scheduleVersion','signature']),
-    assignments:rows(value.assignments,['assignmentId','responsibilityId','facultyId','academicYear','startDate','endExclusive','version','managed'])};
+    assignments:rows(value.assignments,['assignmentId','responsibilityId','facultyId','academicYear','startDate','endExclusive','version','managed','sourceRoleAssignmentId','usesApprovedDefaultDates'])};
   },
   async operation(operationId,actorUid){
    if(typeof operationId!=='string'||!UUID.test(operationId))throw Error('Canonical operation identifier required.');
    return receipt(await db.query('EXEC paws_api.GetTeachingLeadershipAccessOperation @ActorUid=@actorUid,@OperationId=@operationId',{actorUid:uid(actorUid),operationId}),true);
+  },
+  async history({actorUid,targetUid,academicYear,offset=0}){
+   if(!Number.isSafeInteger(offset)||offset<0||offset%50)throw Error('Valid history offset required.');
+   const value=parse(await db.query('EXEC paws_api.GetTeachingLeadershipAccessHistory @ActorUid=@actorUid,@TargetUid=@targetUid,@AcademicYear=@academicYear,@Offset=@offset',{actorUid:uid(actorUid),targetUid:uid(targetUid),academicYear:year(academicYear),offset}),'historyJson');
+   if(!Number.isSafeInteger(value.total)||value.total<0||!Array.isArray(value.operations)||value.operations.length>50||!Array.isArray(value.origins)||value.origins.length>1000)throw Error('Bounded history unavailable.');
+   const origins=new Map(value.origins.map(item=>[String(item.operationId).toLowerCase(),item]));
+   const state=items=>rows(items||[],['assignmentId','responsibilityId','startDate','endExclusive','grantOperationId','usesApprovedDefaultDates']).map(item=>{
+    const origin=origins.get(String(item.grantOperationId).toLowerCase()),grant=origin?.changes?.find(change=>change.action==='grant'&&change.responsibilityId===item.responsibilityId);
+    const date=item.endExclusive&&/^\d{4}-\d{2}-\d{2}$/.test(item.endExclusive)?new Date(Date.parse(item.endExclusive+'T12:00:00Z')-86400000):null;
+    return {assignmentId:item.assignmentId,responsibilityId:item.responsibilityId,startDate:item.startDate||null,endDate:date&&!Number.isNaN(date.valueOf())?date.toISOString().slice(0,10):null,usesApprovedDefaultDates:item.usesApprovedDefaultDates===true,
+     kind:grant?.kind||null,courses:rows(grant?.courses||[],['courseId','courseCode'],200),groups:rows(grant?.groups||[],['groupId','name'],200),scopeRecorded:Boolean(grant)};
+   });
+   return {total:value.total,rows:value.operations.map(item=>{
+    if(!UUID.test(item.operationId||'')||item.receipt?.academicYear!==academicYear)throw Error('History target mismatch.');
+    return {operationId:item.operationId,actorName:item.actorName||'Name unavailable',targetName:item.targetName||'Name unavailable',academicYear,reason:item.reason,createdAtUtc:item.createdAtUtc,
+     before:state(item.receipt.before),after:state(item.receipt.after)};
+   })};
   },
   async commit(intent){
    const result=await db.query(`EXEC paws_api.SetTeachingLeadershipAccess @ActorUid=@actorUid,@ActorVersion=@actorVersion,

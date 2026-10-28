@@ -3,6 +3,15 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {createLeadershipAccessApi}=require('../src/access/leadership-access-api');
 const F='10000000-0000-4000-8000-000000000001',C='20000000-0000-4000-8000-000000000505',S='30000000-0000-4000-8000-000000000001';
 const OP='40000000-0000-4000-8000-000000000001';
+test('leadership history is Owner-only, academic-year bounded and rechecks identity after awaited reads',async()=>{
+ const h=fixture();let reads=0;h.repository.history=async input=>{reads++;assert.equal(input.academicYear,'2026-27');assert.equal(input.targetUid,'teacher');return {total:0,rows:[]};};
+ const input={targetUid:'teacher',academicYear:'2026-27',offset:0};
+ assert.equal((await h.api.history('teacher',input)).status,403);assert.equal(reads,0);
+ assert.equal((await h.api.history('owner',{...input,academicYear:'2026-29'})).status,400);
+ assert.equal((await h.api.history('owner',input)).status,200);
+ h.repository.history=async()=>{h.state.profiles.owner.active=false;return {total:1,rows:[{reason:'PRIVATE'}]};};
+ const revoked=await h.api.history('owner',input);assert.equal(revoked.status,403);assert.doesNotMatch(JSON.stringify(revoked),/PRIVATE/);
+});
 function fixture(options={}){
  const owner={firebaseUid:'owner',baseRole:'owner',active:true,mustChangePassword:false,version:'0000000000000001'};
  const target={firebaseUid:'teacher',baseRole:'faculty',active:true,mustChangePassword:false,facultyId:F,facultyActive:true,version:'0000000000000002'};
@@ -72,4 +81,17 @@ test('a later authority change is reported as superseded; receipts never expose 
 test('unavailable trusted authority snapshot fails closed instead of offering an empty successful preview',async()=>{
  const {api,repository,request}=fixture();repository.snapshot=async()=>{throw Error('PRIVATE');};const reply=await api.preview('owner',request);
  assert.equal(reply.status,503);assert.doesNotMatch(JSON.stringify(reply),/PRIVATE/);
+});
+test('Owner catalog offers only this target’s grants and safe source periods, with a versioned authority context',async()=>{
+ const {api,state}=fixture();state.snapshot.target.email='PRIVATE';state.snapshot.sources[0].doe='PRIVATE';state.snapshot.sources[0].email='PRIVATE';
+ state.snapshot.assignments=[{assignmentId:OP,facultyId:F,academicYear:'2026-27',responsibilityId:'course-505',managed:true},{assignmentId:'40000000-0000-4000-8000-000000000002',facultyId:'10000000-0000-4000-8000-000000000002',academicYear:'2026-27',responsibilityId:'course-505'}];
+ const result=await api.catalog('owner',{targetUid:'teacher',academicYear:'2026-27'});assert.equal(result.status,200);assert.equal(result.body.authorityVersion,'0000000000000010');assert.equal(result.body.target.version,'0000000000000002');
+ assert.equal(result.body.assignments.length,1);assert.equal(result.body.sources[0].canUseAcademicYearDefault,true);assert.equal(result.body.sources[0].kind,'hicc');
+ assert.doesNotMatch(JSON.stringify(result),/PRIVATE|email|"signature"|"sourceVersion"/);
+ assert.equal((await api.catalog('teacher',{targetUid:'teacher',academicYear:'2026-27'})).status,403);
+ assert.equal((await api.catalog('owner',{targetUid:'teacher',academicYear:'2026-28'})).status,400);
+});
+test('a definition change between the Owner catalog and preview cannot silently change the selected scope',async()=>{
+ const {api,state,request}=fixture();state.snapshot.authorityVersion='0000000000000011';
+ const result=await api.preview('owner',{...request,expectedAuthorityVersion:'0000000000000010'});assert.equal(result.status,409);assert.equal(result.body.error.code,'LEADERSHIP_STALE');
 });

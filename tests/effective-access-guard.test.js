@@ -3,6 +3,14 @@ const test=require('node:test'),assert=require('node:assert/strict');
 let createEffectiveAccessGuard;
 try{({createEffectiveAccessGuard}=require('../frontend/scripts/effective-access-guard'));}catch(error){if(error.code!=='MODULE_NOT_FOUND')throw error;}
 const access=(patch={})=>({allowed:true,status:'ready',role:'faculty',facultyId:'faculty-a',version:'0000000000000001',...patch});
+test('teaching authority epoch and current academic year invalidate a page with unchanged base access',()=>{
+ for(const patch of [{scopeVersion:'b'.repeat(64)},{academicYear:'2027-28'},{scopeVersion:null}]){
+  const h=fixture(),initial=access({scopeVersion:'a'.repeat(64),academicYear:'2026-27'});
+  h.guard.observe(initial);const pending=h.guard.capture();h.guard.observe({...initial,...patch});
+  assert.equal(h.guard.current(pending),false);assert.deepEqual(h.changes,['changed']);
+ }
+ const malformed=fixture();malformed.guard.observe(access({scopeVersion:'untrusted'}));assert.deepEqual(malformed.changes,['unverified']);
+});
 function fixture(load=async()=>access()){
  assert.equal(typeof createEffectiveAccessGuard,'function');const changes=[];
  return {changes,guard:createEffectiveAccessGuard({load,onChange:reason=>changes.push(reason)})};

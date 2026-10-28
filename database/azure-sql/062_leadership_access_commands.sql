@@ -6,7 +6,7 @@ IF DB_NAME()<>N'VetMed-Ops' OR OBJECT_ID(N'paws_api.EffectiveTeachingAssignments
  OR DATABASE_PRINCIPAL_ID(N'paws_runtime_account_access') IS NULL
  THROW 54200,'062 requires the accepted061 leadership foundation.',1;
 IF OBJECT_ID(N'paws_api.SetTeachingLeadershipAccess') IS NOT NULL OR OBJECT_ID(N'paws_api.GetTeachingLeadershipAccessSnapshot') IS NOT NULL
- OR OBJECT_ID(N'paws_api.GetTeachingLeadershipAccessOperation') IS NOT NULL OR OBJECT_ID(N'paws.LeadershipAuthority062_SourceLink') IS NOT NULL
+ OR OBJECT_ID(N'paws_api.GetTeachingLeadershipAccessOperation') IS NOT NULL OR OBJECT_ID(N'paws_api.GetTeachingLeadershipAccessHistory') IS NOT NULL OR OBJECT_ID(N'paws.LeadershipAuthority062_SourceLink') IS NOT NULL
  THROW 54200,'062 refuses an existing or unknown command deployment.',1;
 BEGIN TRANSACTION;
 GO
@@ -36,7 +36,7 @@ BEGIN
    LOWER(CONVERT(varchar(16),CONVERT(binary(8),u.AccessVersion),2)) version
    FROM paws.UserProfile u LEFT JOIN paws.Faculty f ON f.FacultyId=u.FacultyId WHERE u.FirebaseUid=@TargetUid FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES);
   IF NULLIF(@Target,N'') IS NULL THROW 54102,'Target account unavailable.',1;
-  SET @Catalog=(SELECT TOP(1001) r.ResponsibilityId responsibilityId,r.Kind kind,r.Active active,
+  SET @Catalog=(SELECT TOP(1001) r.ResponsibilityId responsibilityId,r.Kind kind,r.Label label,r.Active active,
    LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONCAT(N'leadership062|',@Epoch,N'|',r.ResponsibilityId)),2)) definitionVersion,
    JSON_QUERY(CASE WHEN r.Kind=N'hicc' THEN (SELECT CONVERT(varchar(36),s.CourseId) courseId,c.CourseCode courseCode FROM paws.TeachingResponsibilityScope s JOIN paws.Course c ON c.CourseId=s.CourseId WHERE s.HiccResponsibilityId=r.ResponsibilityId AND s.SubjectId IS NULL ORDER BY s.CourseId FOR JSON PATH) ELSE N'[]' END) courses,
    JSON_QUERY(CASE WHEN r.Kind=N'visc' THEN (SELECT g.GroupId groupId,g.Name name FROM paws.TeachingAssignmentGroup g WHERE g.LeaderViscResponsibilityId=r.ResponsibilityId AND g.Active=1 ORDER BY g.GroupId FOR JSON PATH) ELSE N'[]' END) groups
@@ -51,7 +51,8 @@ BEGIN
    WHERE r.FacultyId=@Faculty AND r.AcademicYear=@AcademicYear AND UPPER(LTRIM(RTRIM(r.RoleType))) IN(N'HICC',N'COURSE COORDINATOR',N'VISC') ORDER BY r.RoleAssignmentId FOR JSON PATH,INCLUDE_NULL_VALUES);
   SET @Assignments=(SELECT TOP(1001) CONVERT(varchar(36),a.ResponsibilityAssigneeId) assignmentId,a.ResponsibilityId responsibilityId,CONVERT(varchar(36),a.FacultyId) facultyId,a.AcademicYear academicYear,
    CONVERT(varchar(10),a.ActiveDate,23) startDate,CONVERT(varchar(10),a.ExpirationDate,23) endExclusive,
-   LOWER(CONVERT(varchar(16),CONVERT(binary(8),a.AuthorityVersion),2)) version,CAST(IIF(s.ResponsibilityAssigneeId IS NULL,0,1) AS bit) managed
+   LOWER(CONVERT(varchar(16),CONVERT(binary(8),a.AuthorityVersion),2)) version,CAST(IIF(s.ResponsibilityAssigneeId IS NULL,0,1) AS bit) managed,
+   CONVERT(varchar(36),s.SourceRoleAssignmentId) sourceRoleAssignmentId,s.UsesApprovedDefaultDates usesApprovedDefaultDates
    FROM paws.TeachingResponsibilityAssignee a LEFT JOIN paws.TeachingLeadershipGrantSource s ON s.ResponsibilityAssigneeId=a.ResponsibilityAssigneeId
    WHERE a.AcademicYear=@AcademicYear ORDER BY a.ResponsibilityAssigneeId FOR JSON PATH);
   IF (SELECT COUNT(*) FROM OPENJSON(@Catalog))>1000 OR (SELECT COUNT(*) FROM OPENJSON(@Sources))>1000 OR (SELECT COUNT(*) FROM OPENJSON(@Assignments))>1000 THROW 54107,'Leadership snapshot exceeds its bounded limit.',1;
@@ -66,6 +67,32 @@ BEGIN
  SET NOCOUNT ON;
  IF NOT EXISTS(SELECT 1 FROM paws.UserProfile WHERE FirebaseUid=@ActorUid AND Active=1 AND MustChangePassword=0 AND LOWER(LTRIM(RTRIM(BaseRole))) IN(N'owner',N'adfa_general')) THROW 54101,'Active Owner required.',1;
  SELECT ReceiptJson receiptJson FROM paws.LeadershipAccessOperation WHERE OperationId=@OperationId;
+END;
+GO
+CREATE PROCEDURE paws_api.GetTeachingLeadershipAccessHistory
+ @ActorUid nvarchar(128),@TargetUid nvarchar(128),@AcademicYear nvarchar(32),@Offset int=0
+AS
+BEGIN
+ SET NOCOUNT ON;SET XACT_ABORT ON;
+ IF @@TRANCOUNT<>0 OR @Offset IS NULL OR @Offset<0 OR @Offset%50<>0 OR @AcademicYear IS NULL OR LEN(@AcademicYear)<>7
+ OR @AcademicYear NOT LIKE '[1-9][0-9][0-9][0-9]-[0-9][0-9]' OR TRY_CONVERT(int,RIGHT(@AcademicYear,2))<>(TRY_CONVERT(int,LEFT(@AcademicYear,4))+1)%100
+ THROW 54107,'Canonical history year and page required.',1;
+ BEGIN TRY
+  BEGIN TRANSACTION;
+  IF NOT EXISTS(SELECT 1 FROM paws.UserProfile WITH(HOLDLOCK) WHERE FirebaseUid=@ActorUid AND Active=1 AND MustChangePassword=0 AND LOWER(LTRIM(RTRIM(BaseRole))) IN(N'owner',N'adfa_general')) THROW 54101,'Active Owner required.',1;
+  DECLARE @Page TABLE(OperationId uniqueidentifier PRIMARY KEY,ReceiptJson nvarchar(max),ActorName nvarchar(260),TargetName nvarchar(260),Reason nvarchar(1000),CreatedAtUtc datetime2(7));
+  DECLARE @Total int=(SELECT COUNT(*) FROM paws.LeadershipAccessOperation WITH(HOLDLOCK) WHERE TargetUid=@TargetUid AND AcademicYear=@AcademicYear);
+  INSERT @Page SELECT o.OperationId,o.ReceiptJson,a.DisplayName,t.DisplayName,o.Reason,o.CreatedAtUtc
+   FROM paws.LeadershipAccessOperation o WITH(HOLDLOCK) LEFT JOIN paws.UserProfile a ON a.FirebaseUid=o.ActorUid LEFT JOIN paws.UserProfile t ON t.FirebaseUid=o.TargetUid
+   WHERE o.TargetUid=@TargetUid AND o.AcademicYear=@AcademicYear ORDER BY o.CreatedAtUtc DESC,o.OperationId DESC OFFSET @Offset ROWS FETCH NEXT 50 ROWS ONLY;
+  DECLARE @Operations nvarchar(max)=(SELECT CONVERT(varchar(36),OperationId) operationId,ActorName actorName,TargetName targetName,Reason reason,CreatedAtUtc createdAtUtc,JSON_QUERY(ReceiptJson) receipt FROM @Page ORDER BY CreatedAtUtc DESC,OperationId DESC FOR JSON PATH),@Origins nvarchar(max),@History nvarchar(max);
+  SET @Origins=(SELECT CONVERT(varchar(36),o.OperationId) operationId,JSON_QUERY(o.ReceiptJson,'$.changes') changes FROM paws.LeadershipAccessOperation o
+   WHERE o.TargetUid=@TargetUid AND o.AcademicYear=@AcademicYear AND EXISTS(SELECT 1 FROM @Page p CROSS APPLY OPENJSON(p.ReceiptJson,'$.before') b WHERE TRY_CONVERT(uniqueidentifier,JSON_VALUE(b.value,'$.grantOperationId'))=o.OperationId
+    UNION ALL SELECT 1 FROM @Page p CROSS APPLY OPENJSON(p.ReceiptJson,'$.after') a WHERE TRY_CONVERT(uniqueidentifier,JSON_VALUE(a.value,'$.grantOperationId'))=o.OperationId) FOR JSON PATH);
+  SET @History=(SELECT @Total total,JSON_QUERY(@Operations) operations,JSON_QUERY(@Origins) origins FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+  IF DATALENGTH(@History)>4194304 THROW 54107,'History page exceeds its bounded limit.',1;
+  COMMIT;SELECT @History historyJson;
+ END TRY BEGIN CATCH IF @@TRANCOUNT>0 ROLLBACK;THROW;END CATCH
 END;
 GO
 CREATE PROCEDURE paws_api.SetTeachingLeadershipAccess
@@ -206,5 +233,6 @@ END;
 GO
 GRANT EXECUTE ON OBJECT::paws_api.GetTeachingLeadershipAccessSnapshot TO paws_runtime_account_access;
 GRANT EXECUTE ON OBJECT::paws_api.GetTeachingLeadershipAccessOperation TO paws_runtime_account_access;
+GRANT EXECUTE ON OBJECT::paws_api.GetTeachingLeadershipAccessHistory TO paws_runtime_account_access;
 GRANT EXECUTE ON OBJECT::paws_api.SetTeachingLeadershipAccess TO paws_runtime_account_access;
 COMMIT;

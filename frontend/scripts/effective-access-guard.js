@@ -34,7 +34,8 @@
    if(blocked)return;
    if(!access||access.allowed!==true||access.status!=='ready'){invalidate(access?.status==='password_required'?'password_required':'changed');return;}
    if(typeof access.version!=='string'||! /^[a-f0-9]{16}$/i.test(access.version)){invalidate('unverified');return;}
-   const next=JSON.stringify([access.role,access.facultyId||null,access.version]);
+   if(access.scopeVersion!=null&&(typeof access.scopeVersion!=='string'||! /^[a-f0-9]{64}$/i.test(access.scopeVersion))){invalidate('unverified');return;}
+   const next=JSON.stringify([access.role,access.facultyId||null,access.version,access.scopeVersion||null,access.academicYear||null]);
    if(profileSignature!==null&&profileSignature!==JSON.stringify([access.role,access.facultyId||null])){invalidate('changed');return;}
    if(signature!==null&&signature!==next){invalidate('changed');return;}
    signature=next;

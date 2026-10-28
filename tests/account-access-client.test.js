@@ -1,6 +1,15 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createPawsDataClient}=require('../frontend/scripts/paws-data-client');
+test('leadership client preserves closed commands and current-year catalog through authenticated API only',async()=>{
+ const calls=[],client=createPawsDataClient({tokenProvider:async()=>'credential',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,status:200,json:async()=>({})};}});
+ await client.leadershipAccessCatalog({targetUid:'faculty',academicYear:'2026-27'});
+ await client.previewLeadershipAccess({targetUid:'faculty',expectedAuthorityVersion:'exact',changes:[]});
+ const operation={previewId:'exact-preview',operationId:'same-operation'};await client.commitLeadershipAccess(operation);await client.commitLeadershipAccess(operation);
+ assert.deepEqual(calls.map(row=>new URL(row.url).pathname),['catalog','preview','commit','commit'].map(path=>'/api/v1/access/leadership/'+path));
+ assert.equal(new URL(calls[0].url).searchParams.get('academicYear'),'2026-27');assert.equal(calls[2].init.body,calls[3].init.body);
+ assert.ok(calls.every(row=>row.init.headers.Authorization==='Bearer credential'));
+});
 test('access client sends exact persisted-intent commands and uses only authenticated API reads',async()=>{
  const calls=[],client=createPawsDataClient({tokenProvider:async()=>'identity',fetchImpl:async(url,init)=>{calls.push({url,init});return {ok:true,status:200,json:async()=>({access:{allowed:true},accounts:[]})};}});
  assert.equal(typeof client.effectiveAccess,'function');

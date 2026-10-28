@@ -2,6 +2,13 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createSqlLeadershipAccessRepository}=require('../src/data/sql-leadership-access-repository');
 const OP='40000000-0000-4000-8000-000000000001';
+test('leadership history retains original granted scope instead of current definitions and drops recovery signatures',async()=>{
+ let call;const original={operationId:OP,changes:[{action:'grant',responsibilityId:'course505',kind:'hicc',courses:[{courseId:'canonical',courseCode:'505'}],groups:[],sourceSignature:'PRIVATE'}]};
+ const repo=createSqlLeadershipAccessRepository({query:async(sql,params)=>{call={sql,params};return [{historyJson:JSON.stringify({total:1,operations:[{operationId:OP,actorName:'Alex Owner',targetName:'Tim Faculty',reason:'Approved revoke',createdAtUtc:'2026-10-27T18:00:00',receipt:{academicYear:'2026-27',changes:[{action:'revoke',assignmentId:OP,responsibilityId:'course505'}],before:[{assignmentId:OP,responsibilityId:'course505',startDate:'2026-05-01',endExclusive:'2027-05-01',grantOperationId:OP,approvedSourceSignature:'PRIVATE'}],after:[]}}],origins:[original]})}];}});
+ const result=await repo.history({actorUid:'owner',targetUid:'teacher',academicYear:'2026-27',offset:0});
+ assert.match(call.sql,/EXEC paws_api.GetTeachingLeadershipAccessHistory/);assert.deepEqual(call.params,{actorUid:'owner',targetUid:'teacher',academicYear:'2026-27',offset:0});
+ assert.equal(result.rows[0].before[0].courses[0].courseCode,'505');assert.equal(result.rows[0].before[0].endDate,'2027-04-30');assert.deepEqual(result.rows[0].after,[]);assert.doesNotMatch(JSON.stringify(result),/PRIVATE|grantOperationId|approvedSource|sourceSignature/);
+});
 test('Owner snapshot uses only the explicit parameterized SQL entry point and strips extra source/profile fields',async()=>{
  let call;const repo=createSqlLeadershipAccessRepository({query:async(sql,params)=>{call={sql,params};return [{snapshotJson:JSON.stringify({target:{firebaseUid:'teacher',baseRole:'faculty',version:'0000000000000001',email:'PRIVATE'},authorityVersion:'0000000000000010',catalog:[],sources:[{sourceRoleAssignmentId:OP,recordedScope:'505',email:'PRIVATE',doe:'PRIVATE'}],assignments:[],private:'PRIVATE'})}];}});
  const result=await repo.snapshot('teacher','2026-27','owner');assert.deepEqual(call.params,{actorUid:'owner',targetUid:'teacher',academicYear:'2026-27'});

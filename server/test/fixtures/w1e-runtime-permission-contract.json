@@ -1,7 +1,7 @@
 {
   "accessReadObjects": ["paws.AccountAccessChange"],
   "teachingAccessReadFunctions": ["paws_api.EffectiveTeachingAssignments", "paws_api.TeachingAuthorityState"],
-  "leadershipAccessProcedures": ["paws_api.GetTeachingLeadershipAccessSnapshot", "paws_api.GetTeachingLeadershipAccessOperation", "paws_api.SetTeachingLeadershipAccess"],
+  "leadershipAccessProcedures": ["paws_api.GetTeachingLeadershipAccessSnapshot", "paws_api.GetTeachingLeadershipAccessOperation", "paws_api.GetTeachingLeadershipAccessHistory", "paws_api.SetTeachingLeadershipAccess"],
   "accessWriteProcedures": ["paws_api.SetAccountAccess"],
   "readObjects": [
     "paws.AfcRequest",

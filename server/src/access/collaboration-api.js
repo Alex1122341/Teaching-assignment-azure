@@ -8,7 +8,8 @@ const dateText=value=>{try{if(typeof value==='string'&&value.length<=64)return v
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
 const ok=body=>({status:200,body});
 const owner=auth=>auth.role==='adfa_general';
-const scope=auth=>JSON.stringify([auth.uid,auth.role,auth.profile.facultyId||null,auth.profile.version]);
+const scope=auth=>JSON.stringify([auth.uid,auth.role,auth.profile.facultyId||null,auth.profile.version,auth.profile.teachingAccess?.scopeVersion||null]);
+const effectiveHicc=auth=>isSelfServiceRole(auth.role)&&/^[a-f0-9]{64}$/i.test(auth.profile.teachingAccess?.scopeVersion||'')&&auth.profile.teachingAccess.effectiveRoles?.includes('hicc');
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const GROUP=/^[A-Za-z0-9_-]{1,128}$/,VERSION=/^[0-9]{1,12}\.[0-9]{9}$/;
 const closed=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(key=>keys.includes(key));
@@ -62,7 +63,7 @@ function createCollaborationApi({verifyToken,findUser,repository,store,writeEnab
    const auth={uid:decoded.uid,profile:{...profile},role:validated.role};auth.binding=scope(auth);return auth;
   }catch(_){return {response:fail(503,'COLLABORATION_UNAVAILABLE','Effective access could not be checked.')};}
  }
- async function groupActor(token){const auth=await authorize(token);if(auth.response)return auth;if(!owner(auth)&&auth.role!=='hicc')return {response:fail(403,'COLLABORATION_ROLE_DENIED','Owner or HICC access is required for collaboration groups.')};return auth;}
+ async function groupActor(token){const auth=await authorize(token);if(auth.response)return auth;if(!owner(auth)&&auth.role!=='hicc'&&!effectiveHicc(auth))return {response:fail(403,'COLLABORATION_ROLE_DENIED','Owner or HICC access is required for collaboration groups.')};return auth;}
  async function recheck(token,auth){const current=await authorize(token);if(current.response)return current.response;if(scope(current)!==auth.binding)return fail(403,'ACCESS_CHANGED','Your effective access changed. Refresh before continuing.');return null;}
  return Object.freeze({
   async groups(token){

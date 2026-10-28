@@ -4,6 +4,11 @@ const assert=require('node:assert/strict');
 const {createAccountAccessApi}=require('../src/access/account-access-api');
 const {createDataApi}=require('../src/data/data-api');
 const FID='10000000-0000-4000-8000-000000000001';
+test('own effective HICC summary enables existing group management without replacing Faculty',async()=>{
+ const h=fixture();h.state.profiles.get('faculty').teachingAccess={effectiveRoles:['faculty','hicc','visc'],scopeVersion:'a'.repeat(64),academicYear:'2026-27',responsibilities:[]};
+ const result=await h.api.self('faculty');assert.equal(result.body.access.role,'faculty');assert.equal(result.body.access.canManageGroups,true);
+ h.state.profiles.get('faculty').teachingAccess.effectiveRoles=['faculty','visc'];assert.equal((await h.api.self('faculty')).body.access.canManageGroups,false);
+});
 function fixture(options={}){
  const state={now:Date.parse('2026-10-26T18:00:00Z'),reads:0,serial:0,profiles:new Map(),operations:new Map()};
  for(const [uid,baseRole] of [['owner','adfa_general'],['admin','adfa_regular'],['developer','developer'],['faculty','faculty'],['hicc','hicc']])state.profiles.set(uid,{firebaseUid:uid,baseRole,active:true,mustChangePassword:false,facultyId:['faculty','hicc'].includes(baseRole)?FID:null,displayName:uid==='owner'?'Alex Owner':'Taylor Example',email:uid+'@example.test',version:'0000000000000001'});

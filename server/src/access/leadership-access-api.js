@@ -1,6 +1,7 @@
 'use strict';
 const {randomUUID}=require('node:crypto');
-const {normalizeBaseRole}=require('../auth/role-policy');
+const {normalizeBaseRole,isSelfServiceRole}=require('../auth/role-policy');
+const {effectivePeriods,calgaryDate,classify}=require('../roles/role-effective-status');
 const {buildLeadershipGrantIntent}=require('./leadership-grant-policy');
 const UID=/^[A-Za-z0-9_.:@-]{1,128}$/,VERSION=/^[a-f0-9]{16}$/i;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
@@ -22,13 +23,39 @@ function createLeadershipAccessApi({verifyToken,findUser,repository,writeEnabled
  async function recheck(token,auth){const current=await authorize(token);if(current.response)return current.response;return current.uid===auth.uid&&current.binding===auth.binding?null:fail(403,'ACCESS_CHANGED','Your effective access changed. Refresh before continuing.');}
  function prune(){for(const [id,entry] of previews)if(entry.expiresAt<=clock())previews.delete(id);}
  return Object.freeze({
+  async catalog(token,input){
+   const auth=await authorize(token);if(auth.response)return auth.response;
+   if(!closed(input,['targetUid','academicYear'])||typeof input.targetUid!=='string'||!UID.test(input.targetUid)||!yearValid(input.academicYear))return fail(400,'INVALID_LEADERSHIP_QUERY','Choose an account and canonical academic year.');
+   try{
+    const snapshot=await repository.snapshot(input.targetUid,input.academicYear,auth.uid),target=snapshot?.target;
+    if(target?.firebaseUid!==input.targetUid||!isSelfServiceRole(target.baseRole)||target.active!==true||target.mustChangePassword!==false||target.facultyActive!==true||!UUID.test(target.facultyId||'')||!VERSION.test(target.version||''))return fail(409,'TARGET_ACCESS_INELIGIBLE','Leadership grants require a ready account linked to active Faculty.');
+    if(!VERSION.test(snapshot.authorityVersion||'')||!['catalog','sources','assignments'].every(key=>Array.isArray(snapshot[key])&&snapshot[key].length<=1000))throw Error('Invalid leadership catalog.');
+    const definitions=snapshot.catalog.map(row=>({responsibilityId:row.responsibilityId,kind:row.kind,label:typeof row.label==='string'?row.label:row.kind==='hicc'?'HICC / Course Coordinator':'VISC',
+     courses:(row.courses||[]).map(item=>({courseId:item.courseId,courseCode:item.courseCode})),groups:(row.groups||[]).map(item=>({groupId:item.groupId,name:item.name}))}));
+    const asOfDate=calgaryDate(new Date(clock()));
+    const sources=snapshot.sources.map(row=>{
+     if(row.facultyId?.toLowerCase()!==target.facultyId.toLowerCase()||row.academicYear!==input.academicYear||typeof row.hasSchedule!=='boolean')throw Error('Source target mismatch.');
+     const type=typeof row.roleType==='string'?row.roleType.trim().toUpperCase():'';
+     const kind=['HICC','COURSE COORDINATOR'].includes(type)?'hicc':type==='VISC'?'visc':null;if(!kind)throw Error('Unsupported source appointment.');
+     const periods=effectivePeriods(row);
+     return {sourceRoleAssignmentId:row.sourceRoleAssignmentId,kind,description:typeof row.recordedScope==='string'?row.recordedScope.trim():'Not provided',courseId:row.courseId||null,
+      periods:periods||[],status:classify(row,asOfDate).status,datesNeedReview:periods===null||periods.some(period=>!period.startDate),
+      canUseAcademicYearDefault:row.hasSchedule===false&&row.effectiveDate==null&&row.expirationDate==null};
+    });
+    const assignments=snapshot.assignments.filter(row=>row.facultyId?.toLowerCase()===target.facultyId.toLowerCase()&&row.academicYear===input.academicYear).map(row=>Object.fromEntries(
+     ['assignmentId','responsibilityId','startDate','endExclusive','version','managed','sourceRoleAssignmentId','usesApprovedDefaultDates'].filter(key=>Object.hasOwn(row,key)).map(key=>[key,row[key]])));
+    const changed=await recheck(token,auth);if(changed)return changed;
+    return ok({target:{uid:target.firebaseUid,role:normalizeBaseRole(target.baseRole),facultyId:target.facultyId,version:target.version},academicYear:input.academicYear,authorityVersion:snapshot.authorityVersion,asOfDate,definitions,sources,assignments,writeEnabled});
+   }catch(_){return fail(503,'LEADERSHIP_UNAVAILABLE','Leadership choices could not be loaded. No permissions were changed.');}
+  },
   async preview(token,input){
    const auth=await authorize(token);if(auth.response)return auth.response;
-   if(!closed(input,['targetUid','academicYear','expectedVersion','changes','reason'])||!UID.test(input.targetUid||'')||!yearValid(input.academicYear)||!VERSION.test(input.expectedVersion||''))return fail(400,'INVALID_LEADERSHIP_CHANGE','Provide an exact target version, academic year and scope changes.');
+   if(!closed(input,['targetUid','academicYear','expectedVersion','expectedAuthorityVersion','changes','reason'])||!UID.test(input.targetUid||'')||!yearValid(input.academicYear)||!VERSION.test(input.expectedVersion||'')||input.expectedAuthorityVersion!==undefined&&!VERSION.test(input.expectedAuthorityVersion||''))return fail(400,'INVALID_LEADERSHIP_CHANGE','Provide an exact target version, academic year and scope changes.');
    try{
     const snapshot=await repository.snapshot(input.targetUid,input.academicYear,auth.uid);
     if(!snapshot?.target||snapshot.target.firebaseUid!==input.targetUid)return fail(409,'TARGET_ACCESS_INELIGIBLE','The target account is unavailable.');
     if(snapshot.target.version?.toLowerCase()!==input.expectedVersion.toLowerCase())return fail(409,'LEADERSHIP_STALE','Target access changed. Refresh and preview again.');
+    if(input.expectedAuthorityVersion!==undefined&&snapshot.authorityVersion?.toLowerCase()!==input.expectedAuthorityVersion.toLowerCase())return fail(409,'LEADERSHIP_STALE','The authority choices changed. Reload them and preview again.');
     const intent=buildLeadershipGrantIntent({...snapshot,actor:auth.profile,target:snapshot.target,academicYear:input.academicYear,changes:input.changes,reason:input.reason});
     const changed=await recheck(token,auth);if(changed)return changed;
     prune();const previewId=randomId(),expiresAt=clock()+600000;
@@ -41,6 +68,16 @@ function createLeadershipAccessApi({verifyToken,findUser,repository,writeEnabled
     const known={OWNER_REQUIRED:403,TARGET_ACCESS_INELIGIBLE:409,INVALID_LEADERSHIP_CHANGE:400,LEADERSHIP_OVERLAP:409};
     return known[error?.code]?fail(known[error.code],error.code,error.message):fail(503,'LEADERSHIP_UNAVAILABLE','The scope change could not be previewed. No permissions were changed.');
    }
+  },
+  async history(token,input={}){
+   const auth=await authorize(token);if(auth.response)return auth.response;
+   if(!closed(input,['targetUid','academicYear','offset'])||!UID.test(input.targetUid||'')||!yearValid(input.academicYear)||input.offset!==undefined&&(!Number.isSafeInteger(input.offset)||input.offset<0||input.offset%50))return fail(400,'INVALID_ACCESS_QUERY','Choose a target, academic year and valid page offset.');
+   try{
+    const result=await repository.history({actorUid:auth.uid,targetUid:input.targetUid,academicYear:input.academicYear,offset:input.offset||0});
+    if(!Number.isSafeInteger(result?.total)||result.total<0||!Array.isArray(result.rows)||result.rows.length>50)throw Error('Invalid history result.');
+    const changed=await recheck(token,auth);if(changed)return changed;
+    return ok({total:result.total,rows:result.rows,academicYear:input.academicYear,offset:input.offset||0,pageSize:50});
+   }catch(_){return fail(503,'LEADERSHIP_UNAVAILABLE','Teaching responsibility history could not be loaded.');}
   },
   async commit(token,input){
    const auth=await authorize(token);if(auth.response)return auth.response;

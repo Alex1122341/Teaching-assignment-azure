@@ -43,7 +43,7 @@ function createAccountAccessApi({verifyToken,findUser,repository,writeEnabled=fa
    return ok({access:{authority:'University SQL',allowed,status,displayName:names.format(profile),role:normalizeBaseRole(profile.baseRole),facultyId:profile.facultyId||null,version:VERSION.test(profile.version||'')?profile.version:null,
     effectiveRoles:allowed?(teaching?.effectiveRoles||[normalizeBaseRole(profile.baseRole)]):[],academicYear:teaching?.academicYear||null,
     responsibilities:allowed&&ownScope?structuredClone(teaching.responsibilities):[],scopeVersion:ownScope?teaching.scopeVersion:null,
-    canManageAccounts:allowed&&owner(profile),canManageGroups:allowed&&(owner(profile)||validated.role==='hicc')}});
+    canManageAccounts:allowed&&owner(profile),canManageGroups:allowed&&(owner(profile)||validated.role==='hicc'||ownScope&&teaching.effectiveRoles?.includes('hicc'))}});
   },
   async catalog(token){
    const auth=await authorize(token);if(auth.response)return auth.response;

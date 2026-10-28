@@ -5,20 +5,24 @@
 const http = require('node:http');
 const { once } = require('node:events');
 const TESTING_ORIGIN = 'https://paws-testing-ucvm-20261022.web.app';
+const SAME_SITE_ORIGIN = 'https://tester-teaching.web.app';
 const ALLOWED_PATHS = new Set(['/api/v1/me', '/api/v1/sessions', '/api/v1/dashboard/leadership-directory', '/api/v1/ccc-schedule', '/api/v1/calendar-activities', '/api/v1/calendar-activities/capabilities']);
 
-async function startTestingHttpServer({ runtime, port = 18788 } = {}) {
+async function startTestingHttpServer({ runtime, port = 18788, allowSameSite = false } = {}) {
   if (typeof runtime !== 'function') throw new TypeError('Testing runtime is required');
   if (port !== 0 && port !== 18788) throw new Error('Invalid Testing port');
+  if (typeof allowSameSite !== 'boolean') throw new Error('Invalid same-site policy');
+  const allowedOrigins = new Set([TESTING_ORIGIN]);
+  if (allowSameSite) allowedOrigins.add(SAME_SITE_ORIGIN);
   const server = http.createServer(async (incoming, outgoing) => {
     const origin = incoming.headers.origin;
-    const cors = origin === TESTING_ORIGIN ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : { Vary: 'Origin' };
+    const cors = allowedOrigins.has(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : { Vary: 'Origin' };
     const send = (status, body) => {
       const payload = JSON.stringify(body);
       outgoing.writeHead(status, { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Length': Buffer.byteLength(payload) });
       outgoing.end(payload);
     };
-    if (origin && origin !== TESTING_ORIGIN) return send(403, { error: { code: 'CORS_ORIGIN_DENIED' } });
+    if (origin && !allowedOrigins.has(origin)) return send(403, { error: { code: 'CORS_ORIGIN_DENIED' } });
     let url;
     try {
       url = new URL(incoming.url || '/', 'http://127.0.0.1');
@@ -27,7 +31,7 @@ async function startTestingHttpServer({ runtime, port = 18788 } = {}) {
     if (!ALLOWED_PATHS.has(url.pathname)) return send(404, { error: { code: 'NOT_FOUND' } });
     if (incoming.method === 'OPTIONS') {
       const headers = String(incoming.headers['access-control-request-headers'] || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
-      if (origin !== TESTING_ORIGIN || incoming.headers['access-control-request-method'] !== 'GET' || headers.some(x => x !== 'authorization')) {
+      if (!allowedOrigins.has(origin) || incoming.headers['access-control-request-method'] !== 'GET' || headers.some(x => x !== 'authorization')) {
         return send(403, { error: { code: 'CORS_PREFLIGHT_DENIED' } });
       }
       outgoing.writeHead(204, { ...cors, 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization', 'Cache-Control': 'no-store' });

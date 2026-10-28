@@ -1,4 +1,8 @@
-## Current: PR148 multiple teaching roles approved and in implementation — 2026-10-27
+## Current: PR148 scoped leadership SQL accepted; identity/workflow next — 2026-10-27
+
+Task2 accepted in isolated SQL at eba55eb: run40605457721/job122543708622 passes27 required060/061/062 markers, including recorded VISC area/date bounds, exact HICC, concurrent commands, atomic audit/replay and guarded used/unused rollback. Owner API/repository are implemented but unmounted. Local current81focused pass; earlier full server975pass/0fail/7skip after installing pinned npm dependencies, new full suite collection pending. Root full1275pass/32expected unfinished freeze drift/56skip; anchorcb4298c unchanged. Task3's request-time Calgary/year identity composer is tested locally, not wired. No live061/062/Tim grant/new Auth identity/restart/deploy/merge. Owner authorizes extra suitable Faculty login only if needed; none created. Continue updates/2026-10-27-teaching-roles-sql-accepted.md and the new multiple-role plan. Original workbook remains under acceptance.
+
+## Historical: PR148 multiple-role initial foundation — 2026-10-27
 
 Latest continuation:52 focused checks pass for source/date/overlap/version-bound grant intent, retained empty-list ABA epoch, canonical snapshot reader and original account/collaboration. SQL061 foundation/guarded rollback and disposable actual-SQL acceptance are ready for Draft CI; no command/integration/live061 claim yet. Existing ScheduleVersion reused. Owner permits an additional suitably scoped Faculty Auth account only if needed; none created. Continue updates/2026-10-27-multiple-role-grant-foundation.md before the older checkpoint below; current local full-suite results and new SQL CI must be collected.
 

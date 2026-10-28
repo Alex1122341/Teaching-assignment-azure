@@ -49,7 +49,7 @@ function deriveEffectiveTeachingAccess({profile,assignments,academicYear,asOfDat
  if(!Array.isArray(assignments)||assignments.length>1000)throw Error('A bounded trusted responsibility list is required.');
  const baseRole=normalizeBaseRole(profile?.baseRole);
  const ready=Boolean(baseRole&&profile?.active===true&&profile?.mustChangePassword!==true);
- const eligible=ready&&isSelfServiceRole(baseRole)&&UUID.test(profile?.facultyId||'')&&profile?.facultyActive===true;
+ const eligible=ready&&profile?.mustChangePassword===false&&ROW_VERSION.test(profile?.version||'')&&isSelfServiceRole(baseRole)&&UUID.test(profile?.facultyId||'')&&profile?.facultyActive===true;
  const responsibilities=[],versions=[],seen=new Set();
  if(eligible&&window.start<=asOfDate&&asOfDate<window.end){
   for(const row of assignments){

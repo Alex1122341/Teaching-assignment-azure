@@ -40,7 +40,7 @@ test('missing dates, absent canonical scope, another Faculty and inactive defini
  }
 });
 test('inactive/password-required/invalid Faculty binding cannot inherit teaching responsibilities',()=>{
- for(const change of [{active:false},{mustChangePassword:true},{facultyId:null},{facultyActive:false}]){
+ for(const change of [{active:false},{mustChangePassword:true},{mustChangePassword:undefined},{facultyId:null},{facultyActive:false},{version:null}]){
   assert.equal(derive(undefined,{profile:{...profile,...change}}).responsibilities.length,0);
  }
 });

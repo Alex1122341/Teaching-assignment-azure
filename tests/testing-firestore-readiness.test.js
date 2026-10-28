@@ -20,7 +20,7 @@ test('read-only Testing backend cannot be mistaken for completed DOE, AFC, TA or
     const found = assessFirestoreTestingReadiness().groups.find(x=>x.name===group);
     assert.ok(found.missing.length>0,group);
   }
-  assert.equal(SOURCE_IMPLEMENTED.has('PATCH /api/v1/sessions/:id'),false);
+  assert.equal(SOURCE_IMPLEMENTED.has('PATCH /api/v1/sessions/:id'),true, 'Testing-only source route is gated off until the API host explicitly enables writes');
   assert.equal(SOURCE_IMPLEMENTED.has('GET /api/v1/dashboard/doe-overview'),false);
 });
 

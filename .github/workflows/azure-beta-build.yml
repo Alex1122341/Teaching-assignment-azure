@@ -39,6 +39,17 @@ jobs:
         run: |
           git fetch origin main
           node tools/testing/verify-overlay.js
+      - name: Fast Firestore Testing focused acceptance (before full suites)
+        run: >-
+          node --test --test-concurrency=2
+          tests/testing-same-site-switch.test.js
+          tests/testing-firestore-dashboard.test.js
+          tests/testing-firestore-seed.test.js
+          tests/testing-firestore-identities.test.js
+          tests/testing-firestore-http.test.js
+          tests/testing-firestore-host.test.js
+          tests/testing-firestore-readiness.test.js
+          tests/dual-environment-config.test.js
       - name: Run Testing root behavior suite with explicit historical Production-only assertions
         run: node tools/testing/run-root-suite.js
       - name: Run all server tests

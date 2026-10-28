@@ -11,16 +11,19 @@ IF OBJECT_DEFINITION(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage')) N
  OR OBJECT_DEFINITION(OBJECT_ID(N'paws_api.AddTeachingAssignmentContribution')) IS NULL
  OR OBJECT_DEFINITION(OBJECT_ID(N'paws_api.RecoverMasterAppointments')) IS NULL
  THROW 54300,'063 refuses an unknown or pre025 workflow authority.',1;
-IF EXISTS(SELECT 1 FROM sys.sql_modules WHERE object_id IN(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage'),OBJECT_ID(N'paws_api.RecordTeachingAssignmentReview'),OBJECT_ID(N'paws_api.AddTeachingAssignmentContribution'),OBJECT_ID(N'paws_api.RecoverMasterAppointments')) AND(uses_ansi_nulls<>1 OR uses_quoted_identifier<>1)) THROW 54300,'063 requires the reviewed SQL module settings.',1;
+IF EXISTS(SELECT 1 FROM sys.sql_modules WHERE object_id IN(OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage'),OBJECT_ID(N'paws_api.RecordTeachingAssignmentReview'),OBJECT_ID(N'paws_api.AddTeachingAssignmentContribution'),OBJECT_ID(N'paws_api.RecoverMasterAppointments')) AND(uses_ansi_nulls<>1 OR (uses_quoted_identifier<>1 AND object_id<>OBJECT_ID(N'paws_api.CanActOnTeachingAssignmentPackage')))) THROW 54300,'063 requires the reviewed SQL module settings.',1;
 BEGIN TRANSACTION;
 CREATE TABLE paws.LeadershipWorkflowModule(
  ObjectName sysname NOT NULL PRIMARY KEY,OriginalDefinition nvarchar(max) NOT NULL,OriginalHash char(64) NOT NULL,
- OriginalObjectId int NOT NULL,RestoreDefinition nvarchar(max) NULL,RestoreHash char(64) NULL,
+ OriginalObjectId int NOT NULL,OriginalQuotedIdentifier bit NOT NULL,RestoreDefinition nvarchar(max) NULL,RestoreHash char(64) NULL,
+ CONSTRAINT CK_LeadershipWorkflowModule_OriginalQuotedIdentifier CHECK(OriginalQuotedIdentifier=1 OR ObjectName=N'paws_api.CanActOnTeachingAssignmentPackage'),
  InstalledHash char(64) NULL,InstalledAtUtc datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME()
 );
-INSERT paws.LeadershipWorkflowModule(ObjectName,OriginalDefinition,OriginalHash,OriginalObjectId)
- SELECT name,OBJECT_DEFINITION(OBJECT_ID(name)),CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(name))),2),OBJECT_ID(name)
- FROM (VALUES(N'paws_api.CanActOnTeachingAssignmentPackage'),(N'paws_api.RecordTeachingAssignmentReview'),(N'paws_api.AddTeachingAssignmentContribution'),(N'paws_api.RecoverMasterAppointments')) known(name);
+INSERT paws.LeadershipWorkflowModule(ObjectName,OriginalDefinition,OriginalHash,OriginalObjectId,OriginalQuotedIdentifier)
+ SELECT name,OBJECT_DEFINITION(OBJECT_ID(name)),CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(name))),2),OBJECT_ID(name),m.uses_quoted_identifier
+ FROM (VALUES(N'paws_api.CanActOnTeachingAssignmentPackage'),(N'paws_api.RecordTeachingAssignmentReview'),(N'paws_api.AddTeachingAssignmentContribution'),(N'paws_api.RecoverMasterAppointments')) known(name) JOIN sys.sql_modules m ON m.object_id=OBJECT_ID(name);
+-- The accepted legacy authority function may have QUOTED_IDENTIFIER OFF.
+-- Its exact original flag is journaled; new definitions compile with ON.
 -- Reuse025's bounded header normalization. SQL stores CREATE OR ALTER as a
 -- CREATE header on some versions; changing only the DDL verb to ALTER keeps
 -- every parameter/body byte, object identity and existing permission binding.
@@ -118,5 +121,6 @@ SET @Replacement=@Needle+N'
 SET @Definition=REPLACE(@Definition,@Needle,@Replacement);
 EXEC sys.sp_executesql @Definition;
 UPDATE paws.LeadershipWorkflowModule SET InstalledHash=CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(ObjectName))),2);
+IF EXISTS(SELECT 1 FROM paws.LeadershipWorkflowModule j JOIN sys.sql_modules m ON m.object_id=OBJECT_ID(j.ObjectName) WHERE m.uses_ansi_nulls<>1 OR m.uses_quoted_identifier<>1) THROW 54300,'Installed workflow module settings differ.',1;
 IF EXISTS(SELECT 1 FROM paws.LeadershipWorkflowModule WHERE InstalledHash IS NULL OR RestoreDefinition IS NULL OR RestoreHash IS NULL OR OriginalObjectId<>OBJECT_ID(ObjectName) OR OriginalHash<>CONVERT(varchar(64),HASHBYTES('SHA2_256',OriginalDefinition),2) OR RestoreHash<>CONVERT(varchar(64),HASHBYTES('SHA2_256',RestoreDefinition),2)) THROW 54300,'Workflow definition capture is incomplete.',1;
 COMMIT;

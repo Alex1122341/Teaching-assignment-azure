@@ -1,0 +1,25 @@
+{
+  "generatedAtUtc": "2026-10-28T03:14:30.439Z",
+  "repository": "Alex1122341/Teaching-assignment-azure",
+  "head": "327b4aabdd5aac94b2f8564d1d13accc02854ff7",
+  "dirtySource": true,
+  "tool": "graphifyy 0.9.97",
+  "mode": "code-only local AST; no clustering or LLM",
+  "scannedCodeFiles": 845,
+  "nodeCount": 6442,
+  "rawEdgeCount": 14342,
+  "inputTokens": 0,
+  "outputTokens": 0,
+  "sha256": "5d0f26bcc83aab01577a565efdec443e6c115203ecd715ce5c54415f51f8f8c7",
+  "danglingEndpointEdges": 0,
+  "exactDuplicateEdges": 0,
+  "projectionCollapsedRelationships": 1488,
+  "symbolFreeFiles": 102,
+  "verifiedPath": {
+    "from": "createSwaSqlRuntime",
+    "to": "createLeadershipAccessApi",
+    "relation": "calls",
+    "source": "server/src/runtime/swa-sql-runtime.js:120"
+  },
+  "publication": "local reference only; never a release artifact"
+}

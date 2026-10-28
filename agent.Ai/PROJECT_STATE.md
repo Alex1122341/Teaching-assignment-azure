@@ -1,4 +1,8 @@
-## Current: PR148 scoped leadership SQL accepted; identity/workflow next — 2026-10-27
+## Current: Graphify-first script lookup; PR148 Task4 continues — 2026-10-27
+
+Before tracing any script dependency or call relationship, consult `graphify-out/graph.json` / `graphify-out/SCRIPT_MAP.html`, then verify current source. Regenerate if absent or stale using `docs/architecture/script-dependency-graph.md`. Read `updates/2026-10-27-graphify-script-map.md` for the accepted graph evidence and current PR148 breakpoint. The generated graph is local-only; no release occurred.
+
+## Prior checkpoint: PR148 scoped leadership SQL accepted; identity/workflow next — 2026-10-27
 
 **Newest:** Own effective identity is now mounted in candidate source for access/self and Teaching Assignments; latest full server991pass/0fail/7skip. Scoped queue/capabilities and awaited profile/package/history rechecks are implemented. Review reproduced approval scope expansion (6fd5526/run40608758073); hardened061/062 now bind approved definition and assignee windows plus complete recovery values. SQL063 source/actual acceptance/guarded exact rollback implemented after expected missing-feature RED (c8f1a46/run40608110192). New hardened061–063 actual SQL proof remains pending; prior27-marker success applies only to eba55eb. No live migrations/grants/accounts/deploy/merge. Read updates/2026-10-27-teaching-roles-workflow-integration.md first; then collect SQL and complete Task3/4. Keep anchorcb4298c until final reviewed product promotion.
 

@@ -1,4 +1,8 @@
-## Current: PR148 concurrent Faculty/HICC/VISC in progress — 2026-10-27
+## Current: Graphify-first script lookup; PR148 Task4 continues — 2026-10-27
+
+Always consult the local Graphify index before investigating script relationships, then confirm current source. Start with `docs/architecture/script-dependency-graph.md`; the local outputs are `graphify-out/graph.json` and `graphify-out/SCRIPT_MAP.html`. Refresh on missing/stale data. Read `updates/2026-10-27-graphify-script-map.md` and preserve the ongoing Task4 UI/API/SQL changes; do not restart the accepted multi-role plan or mistake this documentation change for a deployment.
+
+## Prior checkpoint: PR148 concurrent Faculty/HICC/VISC in progress — 2026-10-27
 
 Newest step: collect hardened061–063 exact SQL proof. Reproduced approved-scope widening before fixing; scope/window signatures now constrain additional grants, not just invalidate previews. Own-self/workflow identity/queue/rechecks implemented, full server991/0/7 before latest small additions. SQL063 exact package/mixed scope/self-review/SWAP route/recovery source is ready; actual SQL pending. Then finish Task3 SWAP identity rechecks and Task4 routes/UI/guard/collaboration. See updates/2026-10-27-teaching-roles-workflow-integration.md. Do not reuse older27-marker green for changed migrations or claim Tim is configured/live.
 

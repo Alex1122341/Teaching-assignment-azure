@@ -4,6 +4,15 @@ const {createLeadershipAccessApi}=require('../src/access/leadership-access-api')
 const F='10000000-0000-4000-8000-000000000001',C='20000000-0000-4000-8000-000000000505',S='30000000-0000-4000-8000-000000000001';
 const OP='40000000-0000-4000-8000-000000000001';
 
+test('commit rejects non-string UUID inputs before normalization or repository calls',async()=>{
+ const h=fixture(),id='bd44056f-2571-404b-99cb-a406c9e89c1f';let calls=0;
+ h.repository.operation=async()=>{calls++;return null;};
+ for(const field of ['previewId','operationId'])for(const value of [null,[],[id],{},123]){
+  const result=await h.api.commit('owner',{previewId:id,operationId:OP,[field]:value});assert.equal(result.status,400);
+ }
+ assert.equal(calls,0);assert.equal(h.state.commits.length,0);
+});
+
 test('real repository SQL-shaped GUID receipts confirm a commit and same-operation retry exactly once',async()=>{
  const {createSqlLeadershipAccessRepository}=require('../src/data/sql-leadership-access-repository');
  const operationId='5d4e1c5a-b696-4cf2-8a1b-24a1548fc71e',previewId='bd44056f-2571-404b-99cb-a406c9e89c1f';

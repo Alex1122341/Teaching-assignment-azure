@@ -35,4 +35,4 @@ The active path is Firebase Hosting + Firebase Authentication -> University Wind
 
 The historical `swa-api/`, `deploy/aca/` and `.azure-production` build contract remains pending a separate non-DB Azure deployment migration; it is not a recommendation to deploy new Azure services. See [SETUP.md](SETUP.md), [AGENTS.md](AGENTS.md), and [the Azure audit](docs/azure-frontend-retirement-audit-20261022.md).
 
-The repository layout changes source locations only: all 85 public paths and file contents are preserved from PR133 checkpoint `8249a33`. No source aliases or duplicate frontend files remain at the root.
+The repository layout changes source locations only: all 95 public paths and file contents are preserved (current count per `tools/static-assets.json`; 85 was the PR133 checkpoint count). No source aliases or duplicate frontend files remain at the root.

@@ -13,4 +13,6 @@ __pycache__/
 azure-sql-import-private/
 *.paws-import.json
 *.paws-import.jsonl
+firebase-export-private/
+*.private.json
 graphify-out/

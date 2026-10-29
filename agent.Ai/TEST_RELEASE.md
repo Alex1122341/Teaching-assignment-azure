@@ -30,7 +30,7 @@ This top section supersedes the older per-milestone "Current" labels below witho
 
 ## Current Draft/not-yet-releasable chain
 
-- PR #97: documentation/design only; #98: Calendar working activity and exact-source AFC counterpart migration candidate, code/review/CI prepared but not in main, no live SQL objects/import/deletion.
+- PR #97: documentation/design only; #98: Calendar working activity and exact-source AFC counterpart migration candidate, code/review/CI prepared; at the 2026-10-15 checkpoint it was not in main, and HEAD now contains the 038–043 source range covering this scope; no live SQL objects/import/deletion follows from source presence alone.
 - PR #99: ADFA SWAP DOE/availability preview on #98; draft/not released.
 - PR #100: scoped scheduling conflict Tasks on #99/#98; at last inspection Azure Beta Build #386 (run38771955326) failure, despite SQL and Calendar Activity acceptance checks passing. Not release-ready.
 - Before #98's irreversible source change: approved private recovery artifacts, exact source preflight, dedicated narrow runtime identity, SQL locks and explicit separate destructive-data authorization. No preview number is permission to delete.

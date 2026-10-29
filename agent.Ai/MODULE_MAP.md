@@ -39,7 +39,7 @@ No automatic Microsoft Graph or Brightspace/D2L synchronization module is proven
 
 ## 3. SQL definitions and tools
 
-- database/azure-sql/001–037: versioned Schema SQL, rollback scripts and SQL acceptance. Current major domains: Faculty, Session/SessionAssignment, AFC, Teaching Assignment, DOE, SWAP, Developer Support, RoleAppointmentSchedule.
+- database/azure-sql/001–063: versioned Schema SQL, rollback scripts and SQL acceptance. Current major domains: Faculty, Session/SessionAssignment, AFC, Teaching Assignment, DOE, SWAP, Developer Support, RoleAppointmentSchedule, Calendar activities, ADFA SWAP preview, scheduling tasks, CCC replacement, account/effective teaching access, leadership grants, and scoped workflow.
 - tools/azure_sql_migration/*; tools/build_azure_sql_import.py: historical deterministic source import/reconciliation. Initial empty SQL import **already completed**.
 - tools/populate-current-doe-rulebook.cjs; tools/rationalize-current-doe-rulebook.cjs; tools/apply-confirmed-master-doe-allocations.cjs: approved DOE source/Draft and exception processing. Do not rerun prior live corrections.
 - tools/build-static.js; tools/beta-freeze.js; tools/beta-api-freeze.js; tools/static-assets.json; tools/beta-baseline.json: static build and pinned immutable reference checks. Freeze product anchor is not an arbitrary mutable JSON.
@@ -53,4 +53,4 @@ No automatic Microsoft Graph or Brightspace/D2L synchronization module is proven
 
 ## 5. Unmerged branches to inspect independently
 
-As of review: Draft #97 architecture/design, #98 Calendar working activities/AFC source migration, #99 admin DOE/availability SWAP preview (stacked on #98), #100 scoped scheduling conflicts/Tasks (stacked on #99/#98). Never use one PR's implementation as evidence of a deployed feature.
+As of the 2026-10-15 review, Draft #97 architecture/design, #98 Calendar working activities/AFC source migration, #99 admin DOE/availability SWAP preview (stacked on #98), #100 scoped scheduling conflicts/Tasks (stacked on #99/#98) were unmerged. HEAD now contains the 038–043 source range covering the #98–#100 scope; merge attribution and live / SQL-applied status still need separate verification. Never use one PR's implementation as evidence of a deployed feature.

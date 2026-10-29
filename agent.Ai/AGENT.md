@@ -42,7 +42,7 @@ Review these active workstreams before implementing:
 1. Preserve the accepted Oct14 AFC/LAB API + Hosting release ca465bf and its immutable trust anchor fb2c625; no repeat migration or deployment solely for continuity.
 2. DOE is a current Beta module (Worksheets, Rule Book Draft/Preview, manual/target operations, engine). The candidate 2026-27 Rule Book remains a **Draft** in the latest documented SQL receipts; do not claim published Active policy or run recalculation without separate authorization.
 3. Existing SQL Teaching Assignment, Session/SWAP, Faculty Dashboard, Role periods, Developer Support and Tasks are implemented subject to role/scope/write gates.
-4. Draft PR #97 (design), #98 (Calendar working activities/exact AFC migration), #99 (ADFA SWAP DOE preview), and #100 (Tasks conflicts) are **not in main and not live**. Read their exact HEADs, dependencies and CI before acting; #100 most recently had a failing Beta Build.
+4. Draft PR #97 (design), #98 (Calendar working activities/exact AFC migration), #99 (ADFA SWAP DOE preview), and #100 (Tasks conflicts) were **not in main and not live at the 2026-10-15 checkpoint**. HEAD now contains the 038–043 source range covering the #98–#100 scope; live / SQL-applied status still needs separate verification. Read their exact HEADs, dependencies and CI before acting; #100 most recently had a failing Beta Build.
 5. Before any new Calendar/AFC migration or destructive source data operation: confirm dedicated narrow-permission service identity, exact preflight, review and owner-authorized release. Do not use existing temporary db_owner membership as evidence of least privilege.
 6. Graph Outlook and Brightspace/D2L synchronization are future interfaces, NOT verified PAWS implementations.
 

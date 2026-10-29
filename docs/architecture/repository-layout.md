@@ -4,7 +4,7 @@
 The Owner requested additional cleanup in existing PR #133: make source easier to locate, simplify unnecessary repetition, and preserve the active application. Starting checkpoint: `8249a331a2069d2172db304cc7dff586a7f8df02`.
 
 ## Decisions
-- Move all 85 public-source files out of the root into `frontend/pages` (5 HTML), `frontend/scripts` (66 JS), `frontend/styles` (13 CSS), and `frontend/assets` (1 public PDF template).
+- Move all 95 public-source files out of the root into `frontend/pages` (5 HTML), `frontend/scripts` (74 JS), `frontend/styles` (15 CSS), and `frontend/assets` (1 public PDF template).
 - Preserve public URLs, HTML script/style order, module-relative imports and all browser file bytes. This is a source-layout refactor, not a URL migration or business rewrite.
 - Keep CLI configuration and dependency manifests at the root; they have tool-defined locations.
 - Keep established server/domain, database, test, deployment and operational tool directories. Do not move operational scripts without evidence that every caller is updated.
@@ -17,7 +17,7 @@ Removed: duplicate static-file copying/manifest-validation implementation in the
 
 Retained deliberately: runtime authorization and fail-closed legacy interfaces, frozen historical acceptance receipts, SQL migrations, shared `swa-*` University API modules, and deployed business functions. A small or apparently inactive module is not proven dead solely by its name. Deleting legacy approval guards, import recovery, role compatibility or security tests would require a separate dependency/behavior audit.
 
-Deferred: split of the large `timetable.js` and `faculty-admin.js` into smaller business modules, and removal of non-database Azure deployment infrastructure. Combining those changes with physical relocation would obscure review and regressions. Their current features and security gates remain intact.
+Deferred: split of the large `timetable.js` and `faculty-admin.js` into smaller business modules. Removal of non-database Azure deployment infrastructure is partly done: the ACA/ACR deployment workflows have been removed from active CI; `deploy/aca/Dockerfile`, the `swa-api` compatibility package and the `.azure-production` layout are retained pending a separate migration. Combining those changes with physical relocation would obscure review and regressions. Their current features and security gates remain intact.
 
 ## Verification contract
 1. All four new layout tests fail on the pre-refactor tree (observed: 0 pass / 4 fail).
@@ -28,7 +28,7 @@ Deferred: split of the large `timetable.js` and `faculty-admin.js` into smaller 
 6. No database, live API, Firebase project, production deployment, permission or write-gate changes. No merge is authorized by this cleanup.
 
 ## Existing protections
-The immutable runtime anchor remains `f78b10a1401bcb8675f8fd5414ec3d98eafa1ffd` because published runtime bytes and public manifest have not changed. `tools/beta-freeze.js` reads working assets from organized source but still compares every byte to immutable Git blobs. The previous product/governance receipt is checked against its historical accepted checkpoint, and new layout tests separately prove current source equivalence. Do not update reporting hashes to hide drift.
+At the 2026-10-29 pre-PR151 main checkpoint, the reviewed runtime anchor is `2c87d5c6121284db36ade094b0652de6f2c3f91c`; `19d5042473917bc96434b141ab1f9a41f8e8eb1e` and `f78b10a…` were older checkpoints. Check the actual current `tools/beta-freeze.js` and `tools/beta-baseline.json` before claiming an anchor is live/current. `tools/beta-freeze.js` reads working assets from organized source but still compares every byte to immutable Git blobs. The previous product/governance receipt is checked against its historical accepted checkpoint, and new layout tests separately prove current source equivalence. Do not update reporting hashes to hide drift.
 
 ## Execution checklist
 - [x] Inspect current PR branch, clean workspace and dependency paths.

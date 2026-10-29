@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "2c87d5c6121284db36ade094b0652de6f2c3f91c",
+  "sourceCommit": "7dca82ecf41654bc6e8cbe106d0cacc4ea5a3709",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "faculty-reports.js": "ad4f070c3aa319ec20dd9139cec4d6fcfcf23f4350b73a84d0c8b8648aa238c9",
@@ -32,7 +32,7 @@
     "faculty-admin-enhancements.js": "dd3786a53c3c21a3aff23e03d01d66541a7bdb063773ea356da41a8015638f76",
     "faculty-admin.css": "1cb9cbb5bc9ff3014122f2efeb9e4f34f266790578ac932dcad346294eed224d",
     "faculty-admin-afc-batch.js": "a57b84ce4942d0549b8c28739899f7a3c998dd97c9c960d7c1d83e920320cb33",
-    "faculty-admin.html": "7b23b31351899cee82041eb95349e97e8685ce4eae17d62b364cd08b47c926d9",
+    "faculty-admin.html": "b9352158f63a21981ffdbe5eee8c366f313d52e77458dd5cb6ed4226926742a4",
     "faculty-admin-trainees.js": "42e8cf8bf668a769575d3ffcca52fcfa8f6dead297a9c7154634eea305a66d4a",
     "faculty-admin-trainees.css": "521709a8efcc501a6b73aead35d50dd6d112e0486440abf5fc6b151826e788fb",
     "faculty-admin.js": "53035ecb826bc3f96053c51de4664bc9cb0d12be0afe89e753f9194a3b52ee6a",
@@ -77,7 +77,7 @@
     "workspace-tasks.js": "4520839dd547c21d6d9e6e49ddc2f8a5645f3d06b8954c3f53840edf9200a6c6",
     "workspace.css": "00ede35273c902b193ddfd34de176c04dc7e3f9c30363f0505fcf3a95f2fc174",
     "faculty-role-periods.js": "ec3bfdff22bcf4101514504d6666556c55fcb18cb39425b73f21b7f75033fbac",
-    "faculty-admin-afc-records.js": "5489a6dc069d8c98f3c8e9a98e887e6530a4ea4a8662e0954bd4d7b366017229",
+    "faculty-admin-afc-records.js": "82befcea4f7ec811ef95f2d232adfed1c03aa6f812e4bb30ad8a9cf85f9240de",
     "faculty-admin-afc-forms.js": "5b84183aedc359e8acfb201f7b637a11524ef790d3ca178d6d172025e56c5735",
     "faculty-admin-ccc-replacement.js": "2cd2bb1159f7ab68dfe63c40231756d18ce454562a4316215a2150c34f6ac415",
     "lab-session-detail.js": "2028b93e94f214b79886b5ac4d508455aa1c9b915898827226dd7475b738a0c6",

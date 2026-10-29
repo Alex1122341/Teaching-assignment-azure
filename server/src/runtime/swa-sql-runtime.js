@@ -74,8 +74,17 @@ const {createAfcFormFunctions}=require('./swa-afc-form-functions');
 const {createCccReplacementApi}=require('../calendar/ccc-replacement-api');
 const {createSqlCccReplacementRepository}=require('../data/sql-ccc-replacement-repository');
 const {createCccReplacementFunctions}=require('./swa-ccc-replacement-functions');
+const {createAccountAccessApi}=require('../access/account-access-api');
+const {createLeadershipAccessApi}=require('../access/leadership-access-api');
+const {createSqlLeadershipAccessRepository}=require('../data/sql-leadership-access-repository');
+const {createCollaborationApi}=require('../access/collaboration-api');
+const {createLegacyAccessStore}=require('../access/legacy-access-store');
+const {createSqlAccountAccessRepository}=require('../data/sql-account-access-repository');
+const {createSqlTeachingAccessRepository}=require('../data/sql-teaching-access-repository');
+const {createEffectiveTeachingIdentity}=require('../access/effective-teaching-identity');
+const {createAccountAccessFunctions}=require('./swa-account-access-functions');
 
-function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql } = {}) {
+function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admin'), sql, clock=Date.now } = {}) {
   const driver = resolveSqlDriver(env.PAWS_SQL_DRIVER);
   const allowSelfSigned = parseBooleanFlag(env.PAWS_SQL_ALLOW_SELF_SIGNED, 'PAWS_SQL_ALLOW_SELF_SIGNED');
   const connectionConfig = buildSqlConnectionConfig({
@@ -102,6 +111,18 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   });
   const support=createSupportService({db,verifyToken:realVerify,findUser:users.findByUid});
   const verify=support.verify;
+  const accessRepository=createSqlAccountAccessRepository(db);
+  const teachingAccessRepository=createSqlTeachingAccessRepository(db);
+  const effectiveAccessIdentity=createEffectiveTeachingIdentity({readProfile:accessRepository.read,repository:teachingAccessRepository,clock});
+  const accessIdentity={verifyToken:verify,findUser:effectiveAccessIdentity,repository:accessRepository};
+  const accessRoutes=createAccountAccessFunctions({
+    api:createAccountAccessApi({...accessIdentity,writeEnabled:writeGates.accountAccess}),
+    leadership:createLeadershipAccessApi({...accessIdentity,repository:createSqlLeadershipAccessRepository(db),writeEnabled:writeGates.accountAccess,clock}),
+    collaboration:createCollaborationApi({...accessIdentity,writeEnabled:writeGates.collaboration,store:createLegacyAccessStore({
+      getFirestore:()=>admin.firestore(admin.app('paws-beta-sql')),
+      serverTimestamp:()=>admin.firestore.FieldValue.serverTimestamp()
+    })})
+  });
   const doeRepository = createSqlDoeEngineRepository(db);
   const doeAssignmentRepository = createSqlDoeAssignmentRepository(db);
   const doeCalculationService = createDoeCalculationService({ repository: doeRepository });
@@ -149,7 +170,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     })
   });
   const teachingAssignmentRoutes = createTeachingAssignmentFunctions({api:createTeachingAssignmentApi({
-    verifyToken:verify,findUser:users.findByUid,repository:createSqlTeachingAssignmentWorkflowRepository(db),writeGates
+    verifyToken:verify,findUser:effectiveAccessIdentity,repository:createSqlTeachingAssignmentWorkflowRepository(db),writeGates
   })});
   const doeWorksheetRepository = createSqlDoeWorksheetRepository(db);
   const doeWorksheetService = createWorksheetService({ repository: doeWorksheetRepository });
@@ -171,7 +192,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     writeGates
   }) });
   const swapRoutes = createSwapFunctions({api:createSwapApi({
-    verifyToken:verify,findUser:users.findByUid,repository:createSqlSwapRepository(db),workflowPreviewService:doeWorkflowPreviewService,worksheetService:doeWorksheetService,writeGates
+    verifyToken:verify,findUser:effectiveAccessIdentity,repository:createSqlSwapRepository(db),workflowPreviewService:doeWorkflowPreviewService,worksheetService:doeWorksheetService,writeGates
   })});
   const cccScheduleRoutes=createCccScheduleFunctions({api:createCccScheduleApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCccScheduleRepository(db)})});
   const leadershipDirectoryRoutes=createLeadershipDirectoryFunctions({api:createLeadershipDirectoryApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlLeadershipDirectoryRepository(db)})});
@@ -186,6 +207,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   const cccReplacementRoutes=createCccReplacementFunctions({api:createCccReplacementApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlCccReplacementRepository(db,{importDb:calendarImportDb}),writeGates})});
   const route = async request => {
     const pathname = new URL(request.url).pathname;
+    if(pathname==='/api/v1/access'||pathname.startsWith('/api/v1/access/'))return accessRoutes(request);
     if(pathname==='/api/v1/reports'||pathname.startsWith('/api/v1/reports/'))return reportRoutes(request);
     if(pathname==='/api/v1/ccc-schedule')return cccScheduleRoutes(request);
     if(pathname===LEADERSHIP_DIRECTORY_PATH)return leadershipDirectoryRoutes(request);

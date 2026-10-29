@@ -1,6 +1,6 @@
 # PAWS Beta Data Model — current 2026-10-15
 
-**Source:** Beta main 0d4b4d9, migrations in database/azure-sql/001–059 and reviewed API/repositories. This is a conceptual inventory of SQL definitions and live domain provenance, **not** a fresh live SQL INFORMATION_SCHEMA audit. Historical early table counts and Firestore inventories are retained in dated updates / Git history and must not be assumed current.
+**Source:** Beta main 0d4b4d9, migrations in database/azure-sql/001–063 and reviewed API/repositories. This is a conceptual inventory of SQL definitions and live domain provenance, **not** a fresh live SQL INFORMATION_SCHEMA audit. Historical early table counts and Firestore inventories are retained in dated updates / Git history and must not be assumed current.
 
 ## 1. SQL location / domains
 
@@ -93,5 +93,6 @@ See server/src/data/sql-doe-* repositories and server/src/doe/* services for exa
 - 035 RoleAppointmentSchedule effective periods.
 - 036–037 AFC cancellation, token/version encoding correction.
 - 038–059 later migrations (Calendar working activities, ADFA SWAP preview, scheduling tasks, change history, AFC form upload, CCC full replacement, faculty availability / CCC schedule reads, role-appointment rowversion, SWAP approval reads); see the individual migration files for the full list.
+- 060–063 Account access, effective teaching access, leadership grants, and scoped teaching workflow (source definitions; not proof of deployment to every SQL environment).
 
 Always inspect the actual migration source and **live applied inventory** before extending a table: existence in source is not proof that all migrations were applied everywhere. No initial SQL reset/import rerun.

@@ -10,8 +10,10 @@ const previous='ef2d053ff9963aad972c22ec6c3fa8fc53bcb149';
 const product='19d5042473917bc96434b141ab1f9a41f8e8eb1e';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('HICC/LAB display promotion retains all 95 shipped files and changes only three protected assets',()=>{
- assert.equal(freeze.BASELINE_COMMIT,product);
- assert.equal(api.BASELINE_COMMIT,product);
+ const historical=git('show','0da9433876f880dc93c7c4b56e4144c9d8429d64:tools/beta-freeze.js');
+ assert.ok(historical.includes(`const BASELINE_COMMIT='${product}'`));
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);
+ git('merge-base','--is-ancestor',product,freeze.BASELINE_COMMIT);
  git('merge-base','--is-ancestor',previous,product);
  git('merge-base','--is-ancestor',product,'HEAD');
  const before=freeze.readBaselineManifest({root,baselineCommit:previous});

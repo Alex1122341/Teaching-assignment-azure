@@ -15,3 +15,4 @@ azure-sql-import-private/
 *.paws-import.jsonl
 firebase-export-private/
 *.private.json
+graphify-out/

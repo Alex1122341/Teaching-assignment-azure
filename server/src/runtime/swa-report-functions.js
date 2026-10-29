@@ -32,4 +32,4 @@ function createReportFunctions({api}){
   }catch(_){return error(503,'REPORT_UNAVAILABLE','Reports are temporarily unavailable. Retry shortly.');}
  };
 }
-module.exports={createReportFunctions};
+module.exports={createReportFunctions,uniqueJson};

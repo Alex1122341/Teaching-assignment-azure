@@ -37,8 +37,11 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 - Normal CI fails if any shipped runtime asset drifts from the baseline. Existing CI freeze checks must validate both the repository and build artifact; Firebase Hosting release remains a static-only `--only hosting` action.
 - Changing the baseline is explicit future release work: it requires updating the frozen baseline commit reference, the manifest-derived protection, and the documentation together, in a reviewed change. It is never an implicit side effect of a feature commit.
 - The feature branch is not live until its pull request is merged, exact-main push CI passes, and the directed Firebase Hosting deployment succeeds. Never treat a candidate build as a deployment.
+- **After every PR merge**, rebuild the Graphify raw index and both views from the exact merged `main` checkout before further dependency tracing or release signoff. Record the merge SHA, extraction warnings/counts and graph hash; verify a representative relationship against source. Do not reuse the feature-branch graph. Follow `docs/architecture/script-dependency-graph.md`; generated graphs remain local and outside deployment artifacts.
 
 ## Repository layout
+
+- **Before tracing script relationships** (imports, calls, build/release wiring, API-to-repository dependencies or change impact), consult the local Graphify index `graphify-out/graph.json`, relationship overview `graphify-out/DEPENDENCIES.html` or file/symbol tree `graphify-out/SCRIPT_MAP.html`, following `docs/architecture/script-dependency-graph.md`. Query the index first, then confirm its file/line references in current source. If the index is absent or relevant source has changed, regenerate it using that document; an absent graph edge is not proof of no dependency.
 
 - Browser sources live in `frontend/pages/`, `frontend/scripts/`, `frontend/styles/` and `frontend/assets/`. Do not create duplicate browser files at the repository root.
 - `tools/static-assets.json` continues to list **public URLs**, not source locations. `tools/build/frontend-paths.js` resolves source locations; `tools/build/static-bundle.js` is the single static packaging implementation.
@@ -61,13 +64,16 @@ For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and
 ## Roles
 
 Formal roles:
+- `developer`
 - `owner`
 - `administrator`
+- `adc`
+- `lab`
 - `hicc`
 - `visc`
 - `faculty`
 
-Server-side, only the roles in `server/src/auth/role-policy.js` (`SUPPORTED_ROLES`) are authorized; anything else fails closed. `adfa_general`, `adfa_regular` and `admin` are normalized to `owner` / `administrator` server-side. `editor` and `viewer` are frontend display mappings to `faculty` only and grant no server-side permission; `other_office` is retired and fails closed server-side. Use the shared role helpers in `faculty-access.js` instead of inventing new role checks.
+Server-side, only the roles in `server/src/auth/role-policy.js` (`SUPPORTED_ROLES`) are authorized; unsupported roles fail closed. `owner` normalizes to `adfa_general`, and `administrator` / `admin` normalize to `adfa_regular` server-side; `adfa_general` and `adfa_regular` remain recognized. `editor` and `viewer` are frontend display mappings to `faculty` only and grant no server-side permission; `other_office` is retired and fails closed server-side. Use the shared role helpers in `faculty-access.js` instead of inventing new role checks.
 
 ## Faculty privacy rules
 

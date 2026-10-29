@@ -1,6 +1,8 @@
 'use strict';
 
-const { isAdministratorRole } = require('../auth/role-policy');
+const CAP_KEYS=['canActAsHicc','canActAsVisc','canDraft','canSubmit','canReview','canFinalSubmit'];
+function packageView(row){const result={...row,capabilities:{}};for(const key of CAP_KEYS){result.capabilities[key]=row[key]===true||row[key]===1;delete result[key];}return result;}
+const packageState=row=>JSON.stringify(['packageId','academicYear','groupId','responsibleHiccResponsibilityId','status','workingRevision','submittedRevision','approvedRevision','updatedAtUtc',...CAP_KEYS].map(key=>row[key]??null));
 
 function createSqlTeachingAssignmentWorkflowRepository(db) {
   const run=(sql,params={})=>db.query(sql,params);
@@ -8,12 +10,26 @@ function createSqlTeachingAssignmentWorkflowRepository(db) {
     const bound=Object.fromEntries(Object.entries(params).map(([key,value])=>[key,value===undefined?null:value]));
     return run(`EXEC paws_api.${name}\n${Object.keys(bound).map(key=>`@${key} = @${key}`).join(',\n')}`,bound);
   };
-  const packageScope=`paws_api.CanActOnTeachingAssignmentPackage(p.TeachingAssignmentPackageId,@actorFirebaseUid,@actionKind)=1`;
+  const hicc=`paws_api.CanActOnTeachingAssignmentPackage(p.TeachingAssignmentPackageId,@actorFirebaseUid,N'hicc')`;
+  const visc=`paws_api.CanActOnTeachingAssignmentPackage(p.TeachingAssignmentPackageId,@actorFirebaseUid,N'visc')`;
+  const packageScope=`(${hicc}=1 OR ${visc}=1 OR paws_api.CanActOnTeachingAssignmentPackage(p.TeachingAssignmentPackageId,@actorFirebaseUid,N'adfad')=1)`;
+  const today=`CONVERT(date,(SYSUTCDATETIME() AT TIME ZONE 'UTC') AT TIME ZONE 'Mountain Standard Time')`;
+  const capabilities=`CAST(${hicc} AS bit) canActAsHicc,CAST(${visc} AS bit) canActAsVisc,
+    CAST(${hicc} AS bit) canDraft,CAST(IIF(${hicc}=1 AND p.WorkingRevision>0,1,0) AS bit) canSubmit,
+    CAST(IIF(${visc}=1 AND p.Status=N'visc_review' AND p.SubmittedWorkingRevision=p.WorkingRevision
+      AND NOT EXISTS(SELECT 1 FROM paws.TeachingAssignmentRevision own WHERE own.TeachingAssignmentPackageId=p.TeachingAssignmentPackageId AND own.RevisionNumber=p.WorkingRevision AND own.CreatedByFirebaseUid=@actorFirebaseUid)
+      AND NOT EXISTS(SELECT 1 FROM paws.AuditEvent own WHERE own.EntityType=N'TeachingAssignmentPackage' AND own.EntityId=CONVERT(nvarchar(36),p.TeachingAssignmentPackageId) AND own.EventType=N'TeachingAssignmentSubmitted' AND own.ActorFirebaseUid=@actorFirebaseUid AND TRY_CONVERT(int,JSON_VALUE(own.AfterJson,'$.submittedRevision'))=p.WorkingRevision),1,0) AS bit) canReview,
+    CAST(IIF(${hicc}=1 AND p.Status=N'visc_approved' AND p.ViscApprovedWorkingRevision=p.WorkingRevision AND p.ViscApprovedFingerprint=p.ReviewFingerprint,1,0) AS bit) canFinalSubmit`;
+  const packageQuery=`SELECT p.TeachingAssignmentPackageId AS packageId,p.PackageIdentity AS packageIdentity,p.AcademicYear AS academicYear,p.GroupId AS groupId,g.Name AS groupName,
+    p.HiccResponsibilityId AS responsibleHiccResponsibilityId,hr.Label AS hiccLabel,p.Status AS status,p.WorkingRevision AS workingRevision,
+    p.SubmittedWorkingRevision AS submittedRevision,p.ViscApprovedWorkingRevision AS approvedRevision,p.ViscReviewComment AS lastReviewComment,
+    p.DueAtUtc AS dueAtUtc,p.CreatedAtUtc AS createdAtUtc,p.UpdatedAtUtc AS updatedAtUtc,${capabilities}
+    FROM paws.TeachingAssignmentPackage p JOIN paws.TeachingAssignmentGroup g ON g.GroupId=p.GroupId
+    JOIN paws.TeachingResponsibility hr ON hr.ResponsibilityId=p.HiccResponsibilityId AND hr.Kind=N'hicc'
+    WHERE p.TeachingAssignmentPackageId=@packageId AND ${packageScope}`;
   return Object.freeze({
-    async listWorkQueue({actorFirebaseUid,facultyId,role,academicYear}) {
-      const admin=isAdministratorRole(role);
-      const actionKind=role==='hicc'?'hicc':'visc';
-      return run(`SELECT p.TeachingAssignmentPackageId AS packageId,p.AcademicYear AS academicYear,p.GroupId AS groupId,
+    async listWorkQueue({actorFirebaseUid,academicYear}) {
+      const rows=await run(`SELECT p.TeachingAssignmentPackageId AS packageId,p.AcademicYear AS academicYear,p.GroupId AS groupId,
           g.Name AS groupName,p.HiccResponsibilityId AS responsibleHiccResponsibilityId,hr.Label AS hiccLabel,
           p.Status AS status,p.WorkingRevision AS workingRevision,p.SubmittedWorkingRevision AS submittedRevision,
           p.ViscApprovedWorkingRevision AS approvedRevision,p.DueAtUtc AS dueAtUtc,p.UpdatedAtUtc AS lastActivityAtUtc,
@@ -21,18 +37,19 @@ function createSqlTeachingAssignmentWorkflowRepository(db) {
             WHEN N'visc_review' THEN N'VISC review' WHEN N'visc_approved' THEN N'HICC final submit'
             WHEN N'submitted_to_adfad' THEN N'ADFAD final assignment' WHEN N'adfad_finalized' THEN N'Publish' END AS nextAction,
           assignee.EffectiveAssignee AS effectiveAssignee,assignee.AssigneeCount AS effectiveAssigneeCount,
-          CASE WHEN assignee.AssigneeCount>1 THEN N'Conflicting current assignees' END AS warning
+          CASE WHEN assignee.AssigneeCount>1 THEN N'Conflicting current assignees' END AS warning,${capabilities}
         FROM paws.TeachingAssignmentPackage p
         JOIN paws.TeachingAssignmentGroup g ON g.GroupId=p.GroupId AND g.Active=1
         JOIN paws.TeachingResponsibility hr ON hr.ResponsibilityId=p.HiccResponsibilityId AND hr.Kind=N'hicc' AND hr.Active=1
         OUTER APPLY (SELECT COUNT_BIG(*) AS AssigneeCount,MIN(f.DisplayName) AS EffectiveAssignee
           FROM paws.TeachingResponsibilityAssignee a JOIN paws.Faculty f ON f.FacultyId=a.FacultyId AND f.Active=1
-          WHERE a.ResponsibilityId=p.HiccResponsibilityId AND a.AcademicYear=p.AcademicYear AND a.ActiveDate<=CONVERT(date,SYSUTCDATETIME())
-            AND (a.ExpirationDate IS NULL OR CONVERT(date,SYSUTCDATETIME())<a.ExpirationDate)) assignee
+          WHERE a.ResponsibilityId=p.HiccResponsibilityId AND a.AcademicYear=p.AcademicYear AND a.ActiveDate<=${today}
+            AND (a.ExpirationDate IS NULL OR ${today}<a.ExpirationDate)) assignee
         WHERE p.AcademicYear=@academicYear AND
-          ((@isAdmin=1) OR ${packageScope})
+          ${packageScope}
         ORDER BY CASE p.Status WHEN N'changes_requested' THEN 0 WHEN N'draft' THEN 1 WHEN N'visc_review' THEN 2 ELSE 3 END,p.DueAtUtc,p.UpdatedAtUtc`,
-        {actorFirebaseUid,facultyId,role,academicYear,isAdmin:admin?1:0,actionKind});
+        {actorFirebaseUid,academicYear});
+      return rows.map(packageView);
     },
     async listContributionTargets({academicYear}) {
       return run(`SELECT p.TeachingAssignmentPackageId AS packageId,p.AcademicYear AS academicYear,p.Status AS status,
@@ -48,17 +65,8 @@ function createSqlTeachingAssignmentWorkflowRepository(db) {
         WHERE p.AcademicYear=@academicYear AND p.Status IN (N'draft',N'changes_requested')
         ORDER BY g.Name,hr.Label,rs.SessionOrder`,{academicYear});
     },
-    async getPackage({packageId,actorFirebaseUid,role}) {
-      const admin=isAdministratorRole(role);
-      const actionKind=role==='hicc'?'hicc':'visc';
-      const p=await run(`SELECT p.TeachingAssignmentPackageId AS packageId,p.PackageIdentity AS packageIdentity,p.AcademicYear AS academicYear,p.GroupId AS groupId,g.Name AS groupName,
-          p.HiccResponsibilityId AS responsibleHiccResponsibilityId,hr.Label AS hiccLabel,p.Status AS status,p.WorkingRevision AS workingRevision,
-          p.SubmittedWorkingRevision AS submittedRevision,p.ViscApprovedWorkingRevision AS approvedRevision,p.ViscReviewComment AS lastReviewComment,
-          p.DueAtUtc AS dueAtUtc,p.CreatedAtUtc AS createdAtUtc,p.UpdatedAtUtc AS updatedAtUtc
-        FROM paws.TeachingAssignmentPackage p JOIN paws.TeachingAssignmentGroup g ON g.GroupId=p.GroupId
-        JOIN paws.TeachingResponsibility hr ON hr.ResponsibilityId=p.HiccResponsibilityId AND hr.Kind=N'hicc'
-        WHERE p.TeachingAssignmentPackageId=@packageId AND (@isAdmin=1 OR paws_api.CanActOnTeachingAssignmentPackage(p.TeachingAssignmentPackageId,@actorFirebaseUid,@actionKind)=1)`,
-        {packageId,actorFirebaseUid,role,isAdmin:admin?1:0,actionKind});
+    async getPackage({packageId,actorFirebaseUid}) {
+      const p=await run(packageQuery,{packageId,actorFirebaseUid});
       if (!p.length) return null;
       const [sessions,reviews,finalization,contributions]=await Promise.all([
         run(`SELECT rev.RevisionNumber AS revisionNumber,rs.SessionOrder AS sessionOrder,rs.SessionId AS sessionId,s.CourseCode AS courseCode,s.CourseName AS courseName,s.Topic AS topic,s.SessionType AS sessionType,s.SessionDate AS sessionDate,s.StartTime AS startTime,s.EndTime AS endTime,s.Room AS room,
@@ -92,12 +100,18 @@ function createSqlTeachingAssignmentWorkflowRepository(db) {
         if (!item) { item={...row,facultyId:undefined,facultyName:undefined,teachingRole:undefined,assignments:[]}; list.push(item); }
         if (row.facultyId) item.assignments.push({facultyId:row.facultyId,facultyName:row.facultyName,teachingRole:row.teachingRole});
       }
-      return {...p[0],revisions:[...byRevision].map(([revisionNumber,items])=>({revisionNumber,sessions:items})),reviews,finalization,contributions};
+      const current=await run(packageQuery,{packageId,actorFirebaseUid});
+      if(!current.length)return null;
+      if(packageState(current[0])!==packageState(p[0]))throw Object.assign(Error('Package authority or content changed during the read.'),{number:52113});
+      return {...packageView(current[0]),revisions:[...byRevision].map(([revisionNumber,items])=>({revisionNumber,sessions:items})),reviews,finalization,contributions};
     },
     async getHistory({packageId,actorFirebaseUid,role}) {
       const pkg=await this.getPackage({packageId,actorFirebaseUid,role});
       if (!pkg) return null;
-      return {reviews:pkg.reviews,finalizations:pkg.finalization,activities:await run(`SELECT EventType AS eventType,ActorName AS actorName,OccurredAtUtc AS occurredAtUtc,BeforeJson AS beforeJson,AfterJson AS afterJson,MetadataJson AS metadataJson FROM paws.AuditEvent WHERE EntityType=N'TeachingAssignmentPackage' AND EntityId=@entityId ORDER BY OccurredAtUtc DESC`,{entityId:packageId})};
+      const activities=await run(`SELECT EventType AS eventType,ActorName AS actorName,OccurredAtUtc AS occurredAtUtc,BeforeJson AS beforeJson,AfterJson AS afterJson,MetadataJson AS metadataJson FROM paws.AuditEvent WHERE EntityType=N'TeachingAssignmentPackage' AND EntityId=@entityId ORDER BY OccurredAtUtc DESC`,{entityId:packageId});
+      const current=await run(packageQuery,{packageId,actorFirebaseUid});if(!current.length)return null;
+      if(packageState(current[0])!==packageState({...pkg,...pkg.capabilities}))throw Object.assign(Error('Package changed during the history read.'),{number:52113});
+      return {reviews:pkg.reviews,finalizations:pkg.finalization,activities};
     },
     async getPublishedRelease({academicYear,role,facultyId}) {
       if (role==='faculty' && !facultyId) return null;

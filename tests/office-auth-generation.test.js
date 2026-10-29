@@ -1,20 +1,21 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
 const sourceFunction=require('../test-support/source-function');
+const teachingCapabilities=require('../frontend/scripts/teaching-assignments');
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
-function harness(page){
+function harness(page,options={}){
  const events=[],requests=[],nodes=new Map(),node=id=>{if(!nodes.has(id))nodes.set(id,{value:'2026-27',classList:{add(){},remove(){},toggle(){}},textContent:'',innerHTML:''});return nodes.get(id);};
  let handler;
  const auth={currentUser:null,setPersistence:()=>Promise.resolve(),onAuthStateChanged:f=>{handler=f;}};
  const firebase={apps:[{}],auth:()=>auth};firebase.auth.Auth={Persistence:{LOCAL:'local'}};
  const ctx={console:{error(){}},performance:{now:()=>0},firebase,FIREBASE_CONFIG:{},auth,authGeneration:0,currentUser:null,profile:null,
-  $,document:{body:{classList:{add(){},remove(){}}},querySelector:()=>node('query'),querySelectorAll:()=>[]},window:{},location:{replace:()=>events.push('redirect')},
+  $,document:{body:{classList:{add(){},remove(){}}},querySelector:()=>node('query'),querySelectorAll:()=>[]},window:options.window||{},location:{replace:()=>events.push('redirect')},
   officeWorkspace:{sync:p=>events.push(p?.role||'LOCK')},traineesEntry:null,otherWorkTab:null,afcForms:null,facultyArchive:null,cccReplace:null,workView:null,workImport:null,
-  UCVM_PAWS_DATA:{currentUser:()=>{const r=deferred();requests.push(r);return r.promise;}},
+  UCVM_PAWS_DATA:{currentUser:()=>{const r=deferred();requests.push(r);return r.promise;},effectiveAccess:options.effectiveAccess||(async()=>({allowed:true,status:'ready',academicYear:'2026-27',role:ctx.profile?.role,scopeVersion:null,effectiveRoles:[ctx.profile?.role]}))},
   bindUI(){},cameFromTimetable:()=>false,lock:()=>events.push('LOCK'),unlock:()=>events.push(ctx.profile?.role||'LOCK'),
   pawsTimingLog(){},dashboardAuthFailureMessage:()=>'',dashboardAdmin:p=>['adfa_general','administrator'].includes(p?.role),isSelfServiceProfile:p=>p?.role==='faculty',
   enterAdminMode:(u,p)=>events.push(p.role),enterSelfMode:async(u,p)=>events.push(p.role),
-  queueRoles:new Set(['adfa_general','hicc','visc']),role:()=>ctx.profile?.role,isAdmin:()=>ctx.profile?.role==='adfa_general',displayFaculty:x=>x,
+  ownAccess:null,queueAccess:()=>teachingCapabilities.hasQueueAccess(ctx.profile,ctx.ownAccess),queueRoles:new Set(['adfa_general','hicc','visc']),role:()=>ctx.profile?.role,isAdmin:()=>ctx.profile?.role==='adfa_general',displayFaculty:x=>x,
   academicYearNow:()=> '2026-27',bind(){},loadCapabilities:async()=>{},loadFacultyReference:async()=>{},selectView:async()=>events.push('VIEW'),apiError:()=>'',
   packages:[],selectedId:'',selectedPackage:null,capabilities:{},facultyOptions:[],facultyEvidence:new Map(),aggregateCache:{},invalidateFacultyDetails(){},resetAuthData(){}};
  function $(id){return node(id);}
@@ -22,6 +23,17 @@ function harness(page){
  else {vm.runInNewContext(sourceFunction('faculty-admin.js','init')+'\ninit();',ctx);ctx.start=handler;}
  return {ctx,events,requests,node,run(user){auth.currentUser=user;return ctx.start(user);}};
 }
+
+for(const page of ['dashboard','assignments'])test(page+' own-auth bootstrap actually starts SQL revocation monitoring',()=>{
+ const calls=[],window={UCVM_EFFECTIVE_ACCESS:{start:auth=>calls.push(auth)}};
+ const h=harness(page,{window});
+ if(page==='assignments'){
+  const fs=require('node:fs'),source=fs.readFileSync('frontend/scripts/teaching-assignments.js','utf8');
+  const bootstrap=source.slice(source.lastIndexOf('  try {'),source.lastIndexOf('})();'));
+  vm.runInNewContext(bootstrap,h.ctx);
+ }
+ assert.equal(calls.length,1);assert.equal(calls[0],h.ctx.auth);
+});
 for(const page of ['assignments','dashboard']){
  test(page+' immediately locks while a new identity profile is pending',async()=>{
   const h=harness(page),pending=h.run({uid:'a'});assert.equal(h.events.at(-1),'LOCK');h.requests[0].resolve({active:false});await pending;
@@ -37,6 +49,15 @@ for(const page of ['assignments','dashboard']){
   const h=harness(page),old=h.run({uid:'a'}),current=h.run({uid:'b'});h.requests[1].resolve({active:true,role:'faculty',facultyId:'self'});await current;const count=h.events.length;h.requests[0].reject(Error('old request'));await old;assert.equal(h.events.length,count);
  });
 }
+test('Assignments ignores a prior identity teaching-scope response before replacing current own access',{timeout:1000},async()=>{
+ const scopes=[],entered=[deferred(),deferred()],h=harness('assignments',{effectiveAccess:()=>{const pending=deferred();scopes.push(pending);entered[scopes.length-1].resolve();return pending.promise;}});
+ const old=h.run({uid:'a'});h.requests[0].resolve({active:true,role:'faculty',facultyId:'old'});await entered[0].promise;
+ const current=h.run({uid:'b'});h.requests[1].resolve({active:true,role:'faculty',facultyId:'current'});await entered[1].promise;
+ const currentScope={allowed:true,status:'ready',academicYear:'2026-27',role:'faculty',scopeVersion:'b'.repeat(64),effectiveRoles:['faculty']};
+ scopes[1].resolve(currentScope);await current;
+ scopes[0].resolve({...currentScope,scopeVersion:'a'.repeat(64),effectiveRoles:['faculty','hicc','visc']});await old;
+ assert.equal(h.ctx.ownAccess.scopeVersion,currentScope.scopeVersion);assert.equal(h.ctx.queueAccess(),false);
+});
 test('Dashboard admin loader discards responses after authorization generation changes',async()=>{
  const d=deferred(),ctx={authGeneration:1,currentUser:{uid:'a'},facultyStatus:'active',performance:{now:()=>0},setDashboardLoading(){},UCVM_PAWS_DATA:{dashboardSummary:()=>d.promise,dashboardFaculty:async()=>[]},console:{error(){}},markDashboardUnavailable(){throw Error('stale error applied')},dashboardAuthFailureMessage:()=>''};
  vm.runInNewContext(sourceFunction('faculty-admin.js','loadAdminDashboard'),ctx);const pending=ctx.loadAdminDashboard();ctx.authGeneration++;ctx.currentUser=null;d.resolve({private:true});await pending;assert.equal(ctx.dashboardSummary,undefined);

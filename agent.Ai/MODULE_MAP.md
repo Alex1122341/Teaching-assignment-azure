@@ -39,7 +39,7 @@ No automatic Microsoft Graph or Brightspace/D2L synchronization module is proven
 
 ## 3. SQL definitions and tools
 
-- database/azure-sql/001–059: versioned Schema SQL, rollback scripts and SQL acceptance. Current major domains: Faculty, Session/SessionAssignment, AFC, Teaching Assignment, DOE, SWAP, Developer Support, RoleAppointmentSchedule, Calendar activities, ADFA SWAP preview, scheduling tasks, CCC replacement.
+- database/azure-sql/001–063: versioned Schema SQL, rollback scripts and SQL acceptance. Current major domains: Faculty, Session/SessionAssignment, AFC, Teaching Assignment, DOE, SWAP, Developer Support, RoleAppointmentSchedule, Calendar activities, ADFA SWAP preview, scheduling tasks, CCC replacement, account/effective teaching access, leadership grants, and scoped workflow.
 - tools/azure_sql_migration/*; tools/build_azure_sql_import.py: historical deterministic source import/reconciliation. Initial empty SQL import **already completed**.
 - tools/populate-current-doe-rulebook.cjs; tools/rationalize-current-doe-rulebook.cjs; tools/apply-confirmed-master-doe-allocations.cjs: approved DOE source/Draft and exception processing. Do not rerun prior live corrections.
 - tools/build-static.js; tools/beta-freeze.js; tools/beta-api-freeze.js; tools/static-assets.json; tools/beta-baseline.json: static build and pinned immutable reference checks. Freeze product anchor is not an arbitrary mutable JSON.

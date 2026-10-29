@@ -37,7 +37,7 @@ test('session create gate is independent, exact-true, and fail-closed by default
     afcRequest: false, afcDecision: false, afcArtifact: false, afcFormUpload: false, cccReplaceStage: false, cccReplaceCommit: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
     doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
-    schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
+    accountAccess:false,collaboration:false,schedulingTaskReview:false,calendarActivityStage:false,calendarActivityCommit:false,calendarActivityTime:false
   });
   assert.equal(createWriteGates({ PAWS_SESSION_CREATE_WRITE_ENABLED: 'TRUE' }).sessionCreate, false);
   assert.equal(createWriteGates({ PAWS_SESSION_CREATE_WRITE_ENABLED: 'true' }).sessionCreate, true);

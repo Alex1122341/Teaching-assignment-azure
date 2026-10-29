@@ -167,6 +167,7 @@
     try {
       if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       auth = firebase.auth(); if (window.UCVMSessionGuard) window.UCVMSessionGuard.start(auth);
+      window.UCVM_EFFECTIVE_ACCESS?.start(auth);
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {}); bindUI();
       if(cameFromTimetable())lock('Opening Dashboard…');
       auth.onAuthStateChanged(async user => {

@@ -1,3 +1,7 @@
+## Explicit concurrent teaching roles in PR148 — 2026-10-27
+
+Owner directs Tim's existing account for Faculty/HICC/VISC acceptance and explicitly approves extending this PR: retain Faculty, HICC/Course Coordinator only VTMD505, VISC only Bovine, by academic year/effective dates. Reuse canonical SQL responsibility/assignee/course/group mappings; business appointment/DOE labels and collaboration membership never silently grant access. Scope grant preview/audit uses the prior explicit AY2026–27 default dates where source dates are absent, without rewriting appointment/DOE values. Preserve global Owner/Administrator/Developer checks, group ownership, revisions and source privacy. Follow new spec/plan sequentially under standing recommended-choice authority with independent final product/governance review; no repeated grilling or execution-method approval. The scope is approved; genuine source/scope mismatches must still be held rather than invented.
+
 ## Owner autonomy and current UI release boundary — 2026-10-24
 
 Choose recommended routine options and continue to merge/release readiness with minimal human participation; do not trigger grilling or repeated design/plan approval. Preserve existing Beta scope and independent final review. External/human-only blockers are recorded and independent preparation continues. Current PR140 code and checks are verified, but temporary API DNS/RDC are unavailable: do not silently claim current live readiness, weaken CORS/rules/gates, guess source identity or publish an expired-origin candidate. Latest UI brief still requires separate actual merge/publication direction. Review limits, test execution rulings and rollback are explicit in the final office release receipt.
@@ -308,3 +312,11 @@ Owner approved reference Faculty Lookup/Edit and full annual Rule Book lifecycle
 ## Owner approves range-activity written design — 2026-10-14
 
 The owner approved the written CalendarActivity design in PR97 and directed implementation planning. The first module uses SQL date ranges integrated into Calendar and faculty schedules with unknown time marked Needs Review before exact AFC cleanup. This approves design and plan preparation; implementation-plan review/execution selection and later live release/migration authorizations remain separate.
+
+## 2026-10-26 — latest user-supplied Desktop target and completed Beta release
+
+Custom Reports23–25 completed under the earlier explicit Beta/SQL choice and published via PR146/147. The newly supplied Desktop/Teaching-assignment-main AGENTS now names Alex1122341/Teaching-assignment/main, GitHub Pages and vista-teaching-lab for active development/test. The requested local note was aligned exactly. This changes the target instruction for future work, not the already released Beta architecture: inspect the intended checkout before starting another feature, preserve both lines, and never synchronize business backends or release targets implicitly. No additional deployment or data migration follows from this documentation update.
+
+## 2026-10-26 — explicit26/27 Beta target and effective-access decisions
+
+Owner subsequently selected “继续台账原任务：Teaching-assignment-azure／Beta／SQL” for26/27. This direct task choice overrides the Desktop Pages note for this implementation. Grilling recommendations Q1–Q5 all accepted; user then explicitly stopped grilling. Implement real SQL-persisted account access with Owner-only changes and last-ready-Owner protection; groups remain collaboration, not course grants; revoke on next request and clear obsolete client state; reason, before/after preview, immutable actor/time audit and persisted readback required. Keep real production account/group permissions unchanged during acceptance. Sequential implementation and standing recommended technical choices apply without another questions loop; dedicated staged proof is required before claiming SEC-01 complete.

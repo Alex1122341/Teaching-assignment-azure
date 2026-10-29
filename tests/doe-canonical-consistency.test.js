@@ -42,7 +42,7 @@ test('legacy Faculty Dashboard enhancement delegates only to the canonical API-b
 });
 
 test('pages load canonical DOE before data-index consumers',()=>{
- for(const file of ['index.html','user-management.html']){
+ for(const file of ['index.html']){
   const html=fs.readFileSync(repositoryPath(__dirname,'..',file),'utf8');
   const canonical=html.indexOf('src="faculty-doe.js"');
   const consumer=html.indexOf('src="data-index.js"');
@@ -51,6 +51,8 @@ test('pages load canonical DOE before data-index consumers',()=>{
   assert.ok(canonical<consumer,`${file} must load faculty-doe.js before data-index.js`);
  }
  const dashboard=fs.readFileSync(repositoryPath(__dirname,'..','faculty-admin.html'),'utf8');
+ const management=fs.readFileSync(repositoryPath(__dirname,'..','user-management.html'),'utf8');
+ assert.doesNotMatch(management,/faculty-doe\.js|data-index\.js/,'account grants do not load or calculate workload DOE');
  assert.equal(dashboard.includes('faculty-doe.js'),false,'the API-only Dashboard must not load the legacy DOE canonicaliser');
  assert.equal(dashboard.includes('data-index.js'),false,'the API-only Dashboard must not load the legacy data index');
 });

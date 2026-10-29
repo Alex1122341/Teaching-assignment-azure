@@ -9,12 +9,30 @@ function harness(responses=[]) { const seen=[];return {seen,repo:createSqlTeachi
 test('work queue query enforces active temporal authority and SQL server package scope',async()=>{
   const {repo,seen}=harness();
   await repo.listWorkQueue({actorFirebaseUid:'uid',facultyId:'faculty',role:'hicc',academicYear:'2026-27'});
-  assert.match(seen[0].sql,/CanActOnTeachingAssignmentPackage\(p\.TeachingAssignmentPackageId,@actorFirebaseUid,@actionKind\)=1/i);
+  assert.match(seen[0].sql,/CanActOnTeachingAssignmentPackage\(p\.TeachingAssignmentPackageId,@actorFirebaseUid,N'hicc'\)=1/i);
+  assert.match(seen[0].sql,/CanActOnTeachingAssignmentPackage\(p\.TeachingAssignmentPackageId,@actorFirebaseUid,N'visc'\)=1/i);
   assert.match(seen[0].sql,/ExpirationDate\s+IS\s+NULL/i);
-  assert.match(seen[0].sql,/ActiveDate<=CONVERT\(date,SYSUTCDATETIME\(\)\)/i);
+  assert.match(seen[0].sql,/Mountain Standard Time/);
   assert.equal(seen[0].params.actorFirebaseUid,'uid');
-  assert.equal(seen[0].params.actionKind,'hicc');
-  assert.equal(seen[0].params.isAdmin,0);
+  assert.equal(seen[0].params.actionKind,undefined);
+  assert.equal(seen[0].params.isAdmin,undefined);
+});
+test('multi-role work queue uses one scoped union query, never a browser selected action role',async()=>{
+ const {repo,seen}=harness([[{packageId:'package',canActAsHicc:true,canActAsVisc:true,canDraft:true,canSubmit:true,canReview:false,canFinalSubmit:false}]]);
+ const result=await repo.listWorkQueue({actorFirebaseUid:'uid',facultyId:'faculty',role:'faculty',roles:['hicc','visc'],academicYear:'2026-27'});
+ assert.equal(seen.length,1);assert.match(seen[0].sql,/CanActOnTeachingAssignmentPackage\([^)]*,N'hicc'\)/);assert.match(seen[0].sql,/CanActOnTeachingAssignmentPackage\([^)]*,N'visc'\)/);
+ assert.equal(result.length,1);assert.deepEqual(result[0].capabilities,{canActAsHicc:true,canActAsVisc:true,canDraft:true,canSubmit:true,canReview:false,canFinalSubmit:false});assert.equal(result[0].canDraft,undefined);
+});
+test('package data is withheld if its SQL ownership changes while nested private records are read',async()=>{
+ const p={packageId:'package',groupId:'first',responsibleHiccResponsibilityId:'course505',workingRevision:1,status:'draft',updatedAtUtc:'2026-10-27T18:00:00Z'};
+ const lost=harness([[p],[],[],[],[],[]]);assert.equal(await lost.repo.getPackage({packageId:'package',actorFirebaseUid:'uid',role:'hicc'}),null);
+ const changed=harness([[p],[],[],[],[],[{...p,groupId:'another',updatedAtUtc:'2026-10-27T18:01:00Z'}]]);
+ await assert.rejects(changed.repo.getPackage({packageId:'package',actorFirebaseUid:'uid',role:'hicc'}),error=>error.number===52113);
+});
+test('history also rechecks the package after its additional audit query',async()=>{
+ const p={packageId:'package',groupId:'first',responsibleHiccResponsibilityId:'course505',workingRevision:1,status:'draft',updatedAtUtc:'2026-10-27T18:00:00Z'};
+ const {repo}=harness([[p],[],[],[],[],[p],[{eventType:'PRIVATE'}],[]]);
+ assert.equal(await repo.getHistory({packageId:'package',actorFirebaseUid:'uid',role:'hicc'}),null);
 });
 
 test('ADC/LAB contribution target query exposes only open current-revision session metadata',async()=>{

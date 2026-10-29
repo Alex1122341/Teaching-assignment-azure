@@ -15,18 +15,19 @@
  const validTime=value=>typeof value==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
  function academicRange(value){const match=String(value||'').match(/^(\d{4})-(\d{2}|\d{4})$/);if(!match)return null;const start=Number(match[1]),end=start+1;if(String(end).slice(-match[2].length)!==match[2])return null;return {start:start+'-05-01',end:end+'-05-01'};}
  const labels={ccc:'CCC',rotation_participant:'Rotation participant',clinical_day:'Clinical day / PPVM',vetm581_rounds:'VETM 581 clinical rounds',vetm571_clinical_pharmacology:'VETM 571 clinical pharmacology',vetm591_presentations:'VETM 591 IM presentations',teaching_excellence:'Teaching excellence'};
- function createActivityTypeFilter({host=null,onChange=()=>{},activityCategories=null}={}){
+ function createActivityTypeFilter({host=null,onChange=()=>{},activityCategories=null,defaultGroups=null}={}){
   const options=[...['LEC','LAB','SRL','Quiz/Midterm','OSCE','Exam'].map(label=>({key:'teaching:'+label,label,group:'teaching'})),...Object.entries(labels).filter(([category])=>!Array.isArray(activityCategories)||activityCategories.includes(category)).map(([category,label])=>({key:'work:'+category,label,group:'work'}))];
   const defaults=options.slice();
-  let selected=new Set(options.map(x=>x.key));
+  const defaultKeys=()=>options.filter(x=>!Array.isArray(defaultGroups)||defaultGroups.includes(x.group)).map(x=>x.key);
+  let selected=new Set(defaultKeys());
   const summary=()=>!selected.size?'No activity types':selected.size===options.length?'All activity types':`${selected.size} of ${options.length} activity types`;
   function position(){if(!host||!host.querySelector('details')?.open)return;const panel=host.querySelector('.activity-type-options'),anchor=host.getBoundingClientRect(),width=panel.getBoundingClientRect().width,viewport=host.ownerDocument.defaultView.innerWidth;panel.style.left=`${Math.max(16,Math.min(anchor.left,viewport-width-16))-anchor.left}px`;}
   function sync(){if(!host)return;const title=host.querySelector('[data-type-summary]');if(title)title.textContent=summary();host.querySelectorAll('[data-type-key]').forEach(input=>{input.checked=selected.has(input.value);});}
   function render(){if(!host)return;const open=host.querySelector('details')?.open;host.innerHTML=`<details class="activity-type-picker" ${open?'open':''}><summary data-type-summary>${esc(summary())}</summary><div class="activity-type-options"><div class="activity-type-actions"><button type="button" data-type-action="all">Select all types</button><button type="button" data-type-action="clear">Clear types</button></div>${[['teaching','Teaching sessions'],['work','Work activities']].map(([group,title])=>`<fieldset><legend>${title}</legend>${options.filter(x=>x.group===group).map(x=>`<label><input type="checkbox" data-type-key value="${esc(x.key)}" ${selected.has(x.key)?'checked':''}><span>${esc(x.label)}</span></label>`).join('')}</fieldset>`).join('')}</div></details>`;position();}
   const changed=()=>{sync();onChange();},selectAll=()=>{selected=new Set(options.map(x=>x.key));changed();};
-  const api=Object.freeze({options:()=>options.map(x=>({...x})),selectedKeys:()=>[...selected],selectAll,reset:selectAll,clear(){selected.clear();changed();},
-   setSessionTypes(types){let added=false;const all=selected.size===options.length;for(const value of types){const type=String(value||'').trim(),key='teaching:'+type;if(type.toUpperCase()==='CCC'||options.some(x=>x.key===key))continue;options.push({key,label:type||'Teaching type not provided',group:'teaching'});if(all)selected.add(key);added=true;}if(added)render();},
-   resetForUser(){options.splice(0,options.length,...defaults);selected=new Set(options.map(x=>x.key));render();},
+  const api=Object.freeze({options:()=>options.map(x=>({...x})),selectedKeys:()=>[...selected],selectAll,reset(){selected=new Set(defaultKeys());changed();},clear(){selected.clear();changed();},
+   setSessionTypes(types){let added=false;const allTeaching=selected.size===options.length||(Array.isArray(defaultGroups)&&defaultGroups.includes('teaching')&&options.filter(x=>x.group==='teaching').every(x=>selected.has(x.key)));for(const value of types){const type=String(value||'').trim(),key='teaching:'+type;if(type.toUpperCase()==='CCC'||options.some(x=>x.key===key))continue;options.push({key,label:type||'Teaching type not provided',group:'teaching'});if(allTeaching)selected.add(key);added=true;}if(added)render();},
+   resetForUser(){options.splice(0,options.length,...defaults);selected=new Set(defaultKeys());render();},
    setSelected(keys){selected=new Set(keys.filter(key=>options.some(x=>x.key===key)));changed();},summary,
    matchesSession:row=>selected.has(String(row.type||'').trim().toUpperCase()==='CCC'?'work:ccc':'teaching:'+String(row.type||'').trim()),
    matchesActivity:row=>selected.has('work:'+row.category)});

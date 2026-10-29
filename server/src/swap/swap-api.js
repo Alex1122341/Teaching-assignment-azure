@@ -4,6 +4,7 @@ const {writeDisabled}=require('../data/write-gates');
 const {isAdministratorRole}=require('../auth/role-policy');
 const approvalView=require('./swap-view');
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
+const binding=actor=>JSON.stringify([actor.uid,actor.user.baseRole,actor.user.facultyId||null,actor.user.active,actor.user.mustChangePassword,actor.user.version||null,actor.user.teachingAccess?.scopeVersion||null]);
 const number=value=>value===null||value===undefined||value===''?null:Number.isFinite(Number(value))?Number(value):null;
 const doeSummary=value=>({status:value?.status==='calculated'?'calculated':'needs_review',contractDoe:number(value?.target?.contractTeachingDoe??value?.contractDoe),currentDoe:value?.status==='calculated'?number(value.totals?.assignedTeachingDoe):null,targetDoe:value?.status==='calculated'?number(value.totals?.effectiveTargetDoe):null,remainingDoe:value?.status==='calculated'?number(value.totals?.remainingDoe):null});
 const doePair=value=>{const current=doeSummary(value?.current),projected=value?.projected?doeSummary(value.projected):null;return{current,projected,deltaDoe:current.currentDoe!==null&&projected?.currentDoe!=null?Number((projected.currentDoe-current.currentDoe).toFixed(6)):null};};
@@ -11,20 +12,23 @@ function createSwapApi({verifyToken,findUser,repository,workflowPreviewService,w
   async function auth(token){
     let decoded;try{decoded=token&&await verifyToken(token);}catch(_){return {response:fail(401,'UNAUTHENTICATED','A valid bearer token is required.')};}
     if(!decoded?.uid)return {response:fail(401,'UNAUTHENTICATED','A bearer token is required.')};
-    const user=await findUser(decoded.uid);
+    let user;try{user=await findUser(decoded.uid);}catch(_){return {response:fail(503,'SERVICE_UNAVAILABLE','Current SQL access could not be checked.')};}
     if(!user||user.active!==true)return {response:fail(403,'PROFILE_REQUIRED','An active SQL profile is required.')};
     if(user.mustChangePassword===true)return {response:fail(403,'PASSWORD_CHANGE_REQUIRED','Change your password before accessing SWAP.')};
-    return {uid:decoded.uid,user};
+    return {uid:decoded.uid,user:{...user}};
   }
+  async function recheck(token,expected){const current=await auth(token);if(current.response)return current.response;return binding(current)===expected?null:fail(403,'ACCESS_CHANGED','Your effective authority changed. Refresh before continuing.');}
   async function call(token,method,params={},gate){
     const a=await auth(token);if(a.response)return a.response;
     if(gate&&writeGates[gate]!==true)return writeDisabled();
-    try{const value=await repository[method]({...params,actorFirebaseUid:a.uid});const body=value&&(method==='queue'?approvalView.queue(value):method==='context'?value:approvalView.detail(value));return body?{status:200,body}:fail(404,'NOT_FOUND','The request or session is unavailable in your scope.');}
+    const expected=binding(a);
+    try{const value=await repository[method]({...params,actorFirebaseUid:a.uid});const changed=await recheck(token,expected);if(changed)return changed;const body=value&&(method==='queue'?approvalView.queue(value):method==='context'?value:approvalView.detail(value));return body?{status:200,body}:fail(404,'NOT_FOUND','The request or session is unavailable in your scope.');}
     catch(error){const n=Number(error.number||error.code);if(n>=53000&&n<53100)return fail([53009,53010,53011].includes(n)?409:n===53003?403:n===53004?404:400,n===53009?'REVISION_CONFLICT':n===53010?'STALE_SESSION':'SWAP_REJECTED',error.message);return fail(503,'SERVICE_UNAVAILABLE','The SWAP service is unavailable.');}
   }
   return Object.freeze({
     async facultyPreview(token,payload){
       const actor=await auth(token);if(actor.response)return actor.response;
+      const expected=binding(actor);
       if(!isAdministratorRole(actor.user.baseRole))return fail(403,'ROLE_DENIED','ADFA permission is required for DOE preview.');
       if(!onlyKeys(payload,['sessionId','assignmentId','candidateKey','snapshotToken'])||!UUID.test(payload.sessionId||'')||!UUID.test(payload.assignmentId||'')||(payload.candidateKey!=null&&!UUID.test(payload.candidateKey))||!/^[0-9a-f]{64}$/i.test(payload.snapshotToken||''))return fail(400,'INVALID_PREVIEW','Choose an assignment and reload its current session.');
       try{
@@ -41,6 +45,7 @@ function createSwapApi({verifyToken,findUser,repository,workflowPreviewService,w
         const live=await repository.facultyPreviewContext(args);
         if(!live||live.outgoingFacultyId!==context.outgoingFacultyId||live.incomingFacultyId!==context.incomingFacultyId)return fail(409,'STALE_SESSION','The assignment changed; reload before previewing.');
         const status=['Available','Unavailable','Needs Review'].includes(live.availabilityStatus)?live.availabilityStatus:'Needs Review';
+        const changed=await recheck(token,expected);if(changed)return changed;
         return {status:200,body:{preview:{status:result.status==='calculated'?'calculated':'needs_review',academicYear:context.academicYear,
           assignment:{assignmentId:payload.assignmentId,displayName:context.outgoingDisplayName,teachingRole:context.teachingRole,persistedDoeCredit:number(context.persistedDoeCredit)},
           availability:{status,conflicts:(Array.isArray(live.conflicts)?live.conflicts:[]).map(row=>({courseCode:row.courseCode,date:row.date,startTime:row.startTime,endTime:row.endTime,topic:row.topic}))},

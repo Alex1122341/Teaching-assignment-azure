@@ -80,16 +80,16 @@ Interfaces: `PAWS_REPORTS.mount(host,{api,getUser,getAcademicYear}) -> {refresh?
 
 ## Task6 — Browser, independent review and governance
 
-- [ ] Build static preview. Use CUA actual shipped component fixtures with synthetic data, desktop/narrow, long names, multi-period, null/0, loading/error/empty, large pages, keyboard, actual CSV/Excel values. Save comparable before/after; no real confidential screenshots in public Git.
-- [ ] Independent full branch spec/standards reviews through installed code-review skill; reproduce/fix actionable findings RED→GREEN and recheck. Product commit first.
-- [ ] Separate independent freeze promotion to exact reviewed product, full static union/new API dependency closure, historical receipts pinned; algorithms unchanged. Full root/server/emulator/build/source+artifact freeze and necessary isolated SQL regression CI; no production test data.
+- [x] Build static preview. Use CUA actual shipped component fixtures with synthetic data, desktop/narrow, long names, multi-period, null/0, loading/error/empty, large pages, keyboard, actual CSV/Excel values. Save comparable before/after; no real confidential screenshots in public Git.
+- [x] Independent full branch spec/standards reviews through installed code-review skill; reproduce/fix actionable findings RED→GREEN and recheck. Product commit first.
+- [x] Separate independent freeze promotion to exact reviewed product, full static union/new API dependency closure, historical receipts pinned; algorithms unchanged. Full root/server/emulator/build/source+artifact freeze and necessary isolated SQL regression CI; no production test data.
 
 ## Task7 — Controlled coordinated release / tracker
 
-- [ ] PR merge only after review and full exact-head checks. Verify exact-main push CI, official ZIP digest/safe extraction/all freezes; save prior approved artifact/runtime/recovery configuration for rollback.
-- [ ] Stage University API on isolated loopback port using reviewed scripts and current27 gates. Validate runtime manifests, normal Owner/admin report reads/CSV/XLSX, denied Faculty and existing health/critical read routes; no writes.
-- [ ] Coordinated API + Hosting release using reviewed official artifact; update recovery manifest/config atomically as required by existing runbook, not trust-anchor bypass. Verify public files, exact API SHA/trust/input manifests, gates/API/SQL/401/CORS/native RecoveryCheckOnly and real read-only UI; rollback if failed.
-- [ ] Update original progress Excel23–25, preserve styles/formulas/human signoffs and existing counts; record exact acceptance boundaries and outstanding user signoff. Refresh repository continuity.
+- [x] PR merge only after review and full exact-head checks. Verify exact-main push CI, official ZIP digest/safe extraction/all freezes; save prior approved artifact/runtime/recovery configuration for rollback.
+- [x] Stage University API on isolated loopback port using reviewed scripts and current27 gates. Validate runtime manifests, normal Owner/admin report reads/CSV/XLSX, denied Faculty and existing health/critical read routes; no writes.
+- [x] Coordinated API + Hosting release using reviewed official artifact; update recovery manifest/config atomically as required by existing runbook, not trust-anchor bypass. Verify public files, exact API SHA/trust/input manifests, gates/API/SQL/401/CORS/native RecoveryCheckOnly and real read-only UI; rollback if failed.
+- [x] Update original progress Excel23–25, preserve styles/formulas/human signoffs and existing counts; record exact acceptance boundaries and outstanding user signoff. Refresh repository continuity.
 
 ## Execution rulings / checkpoint
 
@@ -108,3 +108,5 @@ Task3 checkpoint:29 targeted tests pass, including private snapshot concurrency/
 
 Task5 checkpoint:160 Dashboard/auth/name/static/report tests pass. Browser shipped component at127.0.0.1:19050 with synthetic API:all4 source tabs; numerical >=0 excludes20 nulls (137→117);50-row pages; empty result; Faculty identity clear; actual CSV117 and XLSX117/94/15 rows verified. Expanded condition panel regression RED→GREEN and keyboard focus retained.95 static assets built; no production operations.
 Ruling: use slim bounded reportFaculty reader (10001 sentinel) instead of ordinary roster page (default200/max500), preventing silent truncation and omitting UCID/email/HR joins. Existing dashboard readers remain unchanged. One-pass count indexes preserve source cardinality while avoiding repeated assignment parsing.
+
+Final checkpoint (2026-10-26): tasks1–7 completed. PR146/147 merged and exact-main e7d3ffec published to Beta; accepted shared anchor ef2d053, CI40364636235, official artifact12670375863, Hosting1793035279588000/version5e4d032f63f916d8. Public95/95 bytes,119 API source/package inputs,27 gates,SQL,CORS,401/403 and RecoveryCheckOnly verified. Real Admin/Faculty API/UI acceptance completed and both signed out. Workbook23–25 updated with three explicitly pending human business checks R01–R03 (original43 preserved, total46). Full evidence and current target caveat: agent.Ai/updates/2026-10-26-custom-reports-published.md. Native200% zoom was not verified; no production data writes/migrations/imports.

@@ -6,47 +6,46 @@ const fs=require('node:fs');
 const root=repositoryPath(__dirname,'..');
 const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 
-test('faculty-first account form derives name and email from the selected profile',()=>{
+test('access editor uses canonical faculty choices without editable source identity or required administrative link',()=>{
  const html=read('user-management.html'),source=read('user-management.js');
- assert.match(html,/id="account-faculty"[^>]*required/);
- assert.match(html,/id="account-identity"/);
+ assert.match(html,/id="account-faculty"/);
+ assert.match(html,/id="edit-identity"/);
  assert.doesNotMatch(html,/id="account-name"[^>]*required/);
  assert.doesNotMatch(html,/id="account-email"[^>]*required/);
  assert.doesNotMatch(html,/id="account-uid"[^>]*required/);
- assert.match(source,/function identityFromFaculty/);
- assert.match(source,/renderAccountIdentity/);
+ assert.match(source,/api\.accessCatalog\(\)/);
+ assert.match(source,/facultyId:\$\('account-faculty'\)\.value\|\|null/);
 });
 
-test('new accounts are created with secondary Firebase Auth without replacing the Owner session',()=>{
+test('role editor does not provision authentication accounts or pretend to clear password requirements',()=>{
  const html=read('user-management.html'),source=read('user-management.js');
- assert.ok(html.indexOf('faculty-account-planner.js')<html.indexOf('user-management.js'));
- assert.match(source,/secondaryAuth/);
- assert.match(source,/createUserWithEmailAndPassword/);
- assert.match(source,/mustChangePassword:true/);
- assert.match(source,/secondaryAuth\.signOut/);
+ assert.doesNotMatch(html,/faculty-account-planner\.js|account-password-change|account-password/);
+ assert.doesNotMatch(source,/secondaryAuth|createUserWithEmailAndPassword|mustChangePassword\s*:/);
+ assert.match(html,/Account creation and password policies use their separate support process/);
 });
 
-test('bulk provisioning requires a fresh preview and writes auditable results',()=>{
+test('existing account changes require reason, server preview and persisted confirmation, with no bulk grant path',()=>{
  const html=read('user-management.html'),source=read('user-management.js');
- assert.match(html,/id="account-bulk-preview"/);
- assert.match(html,/id="account-bulk-run"[^>]*disabled/);
- assert.match(html,/id="account-bulk-password"[^>]*type="password"/);
- assert.match(source,/function renderProvisionPlan/);
- assert.match(source,/account_provisioned/);
- assert.match(source,/previewRevision/);
+ assert.doesNotMatch(html,/account-bulk/);
+ assert.match(html,/id="account-reason"[^>]*required/);
+ assert.match(source,/api\.previewAccountAccess\(/);
+ assert.match(source,/api\.commitAccountAccess\(operation\)/);
+ assert.match(source,/Saved access confirmed from the current account profile/);
  assert.doesNotMatch(source,/console\.(?:log|error)\([^\n]*password/i);
 });
 
-test('account table shows all faculty-facing roles while preserving one primary access role',()=>{
+test('account and group role labels reuse the shared helper without inventing workload grants',()=>{
  const source=read('user-management.js');
- assert.match(source,/facultyRoles/);
- assert.match(source,/UCVM_ACCOUNT_PLANNER\.primaryRole/);
+ assert.match(source,/root\.UCVM\.label\(/);
+ assert.doesNotMatch(source,/UCVM_ACCOUNT_PLANNER|facultyRoles\s*:/);
+ assert.match(source,/state\.access\?\.canManageAccounts!==true/);
 });
 
-test('account role options use current display names and retain compatible role values',()=>{
- const html=read('user-management.html');
- assert.match(html,/<option value="administrator">ADFAD Admin<\/option>/);
- assert.match(html,/<option value="owner">ADFAD Owner<\/option>/);
+test('account role choices come from the trusted supported-role catalog rather than hardcoded broader roles',()=>{
+ const html=read('user-management.html'),source=read('user-management.js');
+ assert.match(html,/id="account-role"/);
+ assert.match(source,/state\.catalog\?\.roles/);
+ assert.doesNotMatch(html,/<option value="(?:owner|other_office|developer)"/);
 });
 
 test('provisioned accounts receive a readable Change History action label',()=>{

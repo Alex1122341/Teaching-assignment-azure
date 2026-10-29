@@ -24,12 +24,10 @@ test('the main timetable shares visible snapshots and the profile read with the 
   assert.doesNotMatch(workflow, /async function loadPeopleOnce/);
 });
 
-test('authenticated pages reuse the profile read when starting the role watcher', () => {
-  for (const name of ['user-management.js']) {
-    const source = read(name);
-    const reads = source.match(/db\.doc\(`users\/\$\{u\.uid\}`\)\.get\(\)/g) || [];
-    assert.equal(reads.length, 1, `${name} should fetch the signed-in profile once`);
-  }
+test('User Management uses effective SQL status instead of a second compatibility profile read or watcher', () => {
+  const source=read('user-management.js');
+  assert.match(source,/api\.effectiveAccess\(\)/);
+  assert.doesNotMatch(source,/db\.doc|onSnapshot|UCVM\.watch/);
 });
 
 test('the Dashboard no longer loads the legacy auxiliary settings document', () => {

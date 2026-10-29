@@ -28,7 +28,7 @@ Deferred: split of the large `timetable.js` and `faculty-admin.js` into smaller 
 6. No database, live API, Firebase project, production deployment, permission or write-gate changes. No merge is authorized by this cleanup.
 
 ## Existing protections
-The immutable runtime anchor is `19d5042473917bc96434b141ab1f9a41f8e8eb1e` (see `tools/beta-freeze.js` and `tools/beta-baseline.json`); the `f78b10a…` anchor was the PR133 checkpoint and is now historical. `tools/beta-freeze.js` reads working assets from organized source but still compares every byte to immutable Git blobs. The previous product/governance receipt is checked against its historical accepted checkpoint, and new layout tests separately prove current source equivalence. Do not update reporting hashes to hide drift.
+At the 2026-10-29 pre-PR151 main checkpoint, the reviewed runtime anchor is `2c87d5c6121284db36ade094b0652de6f2c3f91c`; `19d5042473917bc96434b141ab1f9a41f8e8eb1e` and `f78b10a…` were older checkpoints. Check the actual current `tools/beta-freeze.js` and `tools/beta-baseline.json` before claiming an anchor is live/current. `tools/beta-freeze.js` reads working assets from organized source but still compares every byte to immutable Git blobs. The previous product/governance receipt is checked against its historical accepted checkpoint, and new layout tests separately prove current source equivalence. Do not update reporting hashes to hide drift.
 
 ## Execution checklist
 - [x] Inspect current PR branch, clean workspace and dependency paths.

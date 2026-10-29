@@ -56,6 +56,7 @@
   "paws-api-origin.js",
   "signature-capture.js",
   "paws-data-client.js",
+  "effective-access-guard.js",
   "paws-auth-continuity.js",
   "paws-login-performance.js",
   "scheduling-core.js",

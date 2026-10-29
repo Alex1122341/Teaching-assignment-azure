@@ -56,6 +56,7 @@ window.UCVM=(()=>{
   }
   const auth=firebase.auth();
   if(window.UCVMSessionGuard)window.UCVMSessionGuard.start(auth);
+  if(window.UCVM_EFFECTIVE_ACCESS)window.UCVM_EFFECTIVE_ACCESS.start(auth);
   return {auth,db};
  }
  // BETA-R4D-9H: the landing-reset hook existed only to clear the retired automatic-landing
@@ -68,9 +69,10 @@ window.UCVM=(()=>{
   const facultyId=String(p?.facultyId||'').trim();
   if(!facultyId)return null;
   try{
-   const d=await firebase.firestore().collection('faculty').doc(facultyId).get();
-   if(!d.exists)return null;
-   const f=d.data()||{},raw=String(f.preferredFullName||f.hrFullName||f.name||'').trim(),comma=raw.match(/^([^,]+),\s*(.+)$/),firstLast=String(f.hrFirstLast||f.teachingAssignmentName||((f.firstName&&f.lastName)?`${f.firstName} ${f.lastName}`:'')||(comma?`${comma[2]} ${comma[1]}`:'')||raw||p.instructor||p.name||'').trim(),name=firstLast;
+   if(!window.UCVM_PAWS_DATA)return null;
+   const detail=await window.UCVM_PAWS_DATA.dashboardFacultyById(facultyId),f=detail?.faculty;
+   if(!f)return null;
+   const name=String(f.displayName||p.instructor||p.name||'').trim();
    if(name)p.instructor=name;
    p.facultyDirectoryMatch={id:facultyId,email:String(f.email||'').trim(),name};
    return p.facultyDirectoryMatch;
@@ -91,7 +93,7 @@ window.UCVM=(()=>{
  // and to clear legacy sessionStorage left behind by older releases.
  function scheduleAdminLanding(){clearLegacyAdminLanding();return false}
  async function ready(user,p){if(window.__ucvmSessionGuard?.blocked)return false;if(!p?.active){const error=new Error('This account is inactive.');error.code='ACCOUNT_INACTIVE';throw error}if(p.mustChangePassword){location.replace('password.html');return false}installLandingReset();clearLegacyAdminLanding();return true}
- function watch(user,p){let initial=true;return firebase.firestore().doc(`users/${user.uid}`).onSnapshot(s=>{const n=s.data();if(initial){initial=false;return}if(!n||['role','active','mustChangePassword'].some(k=>n[k]!==p[k]))location.reload()})}
+ function watch(user,p){if(window.UCVM_EFFECTIVE_ACCESS?.guard)return ()=>{};let initial=true;return firebase.firestore().doc(`users/${user.uid}`).onSnapshot(s=>{const n=s.data();if(initial){initial=false;return}if(!n||['role','active','mustChangePassword'].some(k=>n[k]!==p[k]))location.reload()})}
  const value=v=>v===null||v===undefined?'—':Array.isArray(v)?v.map(x=>typeof x==='object'?`${x.name||x.ucid||''}${x.role?' ('+x.role+')':''}`:String(x)).filter(Boolean).join('; '):typeof v==='object'?JSON.stringify(v):String(v);
  const time=e=>e.changedAt?.toDate?e.changedAt.toDate().toLocaleString('en-CA',{timeZone:'America/Edmonton'}):'Pending';
  function normalizeEntry(raw,source){const e={...raw,source};e.changes=window.UCVM_AUDIT_DETAILS?.changes(e)||e.changes||[];if(e.changes.length)return e;if(source==='session'&&e.action==='swap_faculty')e.changes=[{field:'assignments',label:'Faculty',before:e.fromFaculty?.name||e.fromFaculty?.ucid||'',after:e.toFaculty?.name||e.toFaculty?.ucid||''}];else if(source==='session'&&e.action==='create')e.changes=[{field:'session',label:'Session',before:null,after:[e.course,e.date,e.topic].filter(Boolean).join(' · ')}];else if(source==='session'&&e.action==='delete')e.changes=[{field:'session',label:'Session',before:[e.course,e.date,e.topic].filter(Boolean).join(' · '),after:null}];else if(source==='faculty'&&e.action==='create')e.changes=[{field:'faculty',label:'Faculty record',before:null,after:e.facultyName||e.facultyId}];else if(source==='faculty'&&e.action==='delete')e.changes=[{field:'faculty',label:'Faculty record',before:e.facultyName||e.facultyId,after:null}];else if(source==='account')e.changes=[{field:'access',label:'Account access',before:e.beforeRole?`${e.targetName||e.targetUid} · ${label(e.beforeRole)}`:null,after:[e.targetName||e.targetUid,e.role?label(e.role):'',typeof e.active==='boolean'?(e.active?'Active':'Disabled'):''].filter(Boolean).join(' · ')}];return e}

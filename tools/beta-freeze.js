@@ -11,13 +11,14 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 
-// Reviewed HICC-CC display preference and combined LAB Calendar block presentation are the
-// immutable static trust anchor. No SQL, API, DOE, permission or Session mutation is included.
+// Reviewed dated multiple teaching responsibilities preserve Faculty and next-request revocation
+// are the immutable shared static/API trust anchor. SQL060 and restrictive rules require
+// coordinated release acceptance; this anchor is not evidence of live activation.
 // The independently reviewed historical governance receipts remain pinned to their own commits.
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-const BASELINE_COMMIT='19d5042473917bc96434b141ab1f9a41f8e8eb1e';
+const BASELINE_COMMIT='2c87d5c6121284db36ade094b0652de6f2c3f91c';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

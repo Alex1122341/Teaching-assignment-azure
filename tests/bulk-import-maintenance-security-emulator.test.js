@@ -1,16 +1,17 @@
 'use strict';
+const {historicalFirestoreRules}=require('./helpers/historical-firestore-rules');
 const {test,before,after}=require('node:test');
 const fs=require('node:fs'),path=require('node:path');
 const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
 let env;
 const users={general:{role:'adfa_general',name:'General'},general2:{role:'adfa_general',name:'General Two'},regular:{role:'adfa_regular',name:'Regular'},member:{role:'faculty',name:'Member',facultyId:'f1'}};
-const check=(name,fn)=>test(name,{skip:!enabled},fn);
+const check=(name,fn)=>test('historical pre-SEC01: '+name,{skip:!enabled},fn);
 
 before(async()=>{
  if(!enabled)return;
  const {initializeTestEnvironment}=require('@firebase/rules-unit-testing');
  const {doc,setDoc}=require('firebase/firestore');
- env=await initializeTestEnvironment({projectId:'demo-ucvm-maintenance',firestore:{rules:fs.readFileSync(path.join(__dirname,'../firestore.rules'),'utf8')}});
+ env=await initializeTestEnvironment({projectId:'demo-ucvm-maintenance',firestore:{rules:historicalFirestoreRules()}});
  await env.clearFirestore();
  await env.withSecurityRulesDisabled(async context=>{
   const admin=context.firestore();

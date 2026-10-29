@@ -6,7 +6,7 @@ const { createWriteGates } = require('../src/data/write-gates');
 
 test('write gate environment is per-domain and fail-closed for missing, false, and non-exact values', () => {
   assert.deepEqual(createWriteGates({}), {
-    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
+    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false, afcBatch: false, afcCancel: false, afcEdit: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false, afcFormUpload: false, cccReplaceStage: false, cccReplaceCommit: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
     doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
@@ -23,7 +23,7 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     PAWS_UNRELATED_WRITE_ENABLED: 'true',
     PAWS_FACULTY_ADMIN_WRITE_ENABLED: 'true'
   }), {
-    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: true, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
+    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: true, afcBatch: false, afcCancel: false, afcEdit: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false, afcFormUpload: false, cccReplaceStage: false, cccReplaceCommit: false,
     taDraft: true, taReview: true, taFinal: false, taPublish: false, facultyAdmin: true,
     doeAdmin: false, doeManualAssignment: false, doePolicyPublish: false, doeRecalculate: false,
@@ -34,7 +34,7 @@ test('write gate environment is per-domain and fail-closed for missing, false, a
     PAWS_DOE_POLICY_PUBLISH_ENABLED: 'true',
     PAWS_DOE_RECALC_WRITE_ENABLED: 'true'
   }), {
-    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false, afcBatch: false, afcCancel: false, sessionEdit: false, sessionCreate: false,
+    swapRequest: false, swapDecision: false, swapApply: false, afcSingle: false, afcBatch: false, afcCancel: false, afcEdit: false, sessionEdit: false, sessionCreate: false,
     afcRequest: false, afcDecision: false, afcArtifact: false, afcFormUpload: false, cccReplaceStage: false, cccReplaceCommit: false,
     taDraft: false, taReview: false, taFinal: false, taPublish: false, facultyAdmin: false,
     doeAdmin: true, doeManualAssignment: false, doePolicyPublish: true, doeRecalculate: true,

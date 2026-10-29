@@ -166,6 +166,10 @@
   "afcCancelWriteSets": {
     "cancel": [
       "paws_api.CancelAfcRecord"
+    ],
+    "edit": [
+      "paws_api.UpdateAfcDates",
+      "paws_api.SubmitAfcDateChange"
     ]
   },
   "afcFormProcedures": [

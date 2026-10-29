@@ -17,6 +17,15 @@ function createSqlAfcWriteRepository(db) {
       { afcRecordId, sourceKind, expectedVersion, actorFirebaseUid, actorName, requestId });
       return rows[0] || null;
     },
+    // UX-07: office date change for a manual/imported record or an approved request.
+    async updateAfcDates({ afcRecordId, sourceKind, expectedVersion, startDate, endDate, workDays = null, actorFirebaseUid, requestId } = {}) {
+      const rows = await db.query(`EXEC paws_api.UpdateAfcDates
+        @AfcRecordId = @afcRecordId, @SourceKind = @sourceKind, @ExpectedVersion = @expectedVersion,
+        @StartDate = @startDate, @EndDate = @endDate, @WorkDays = @workDays,
+        @ActorFirebaseUid = @actorFirebaseUid, @RequestId = @requestId`,
+      { afcRecordId, sourceKind, expectedVersion, startDate, endDate, workDays, actorFirebaseUid, requestId });
+      return rows[0] || null;
+    },
     async createAfcRecord({
       afcRecordId,
       facultyId,

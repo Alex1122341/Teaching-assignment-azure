@@ -69,8 +69,8 @@
     return rows.map(row => {
       const key = `${row.sourceKind}:${row.afcRecordId}`;
       const canCancel = allowed && row.active !== false && /^[0-9a-f]{16}$/i.test(row.versionToken || '');
-      const action = canCancel ? `<button class="btn" type="button" data-afc-cancel="${esc(key)}" ${busy(key) ? 'disabled' : ''}>${busy(key) ? 'Deleting…' : 'Delete'}</button>` : row.active === false ? 'Archived' : 'Unavailable';
-      return `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(facultyName(row, 'Name unavailable'))}</button></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${row.active === false ? 'No' : 'Yes'}</td><td>${renderPdf(row)}</td><td>${action}</td></tr>`;
+      const action = canCancel ? `<button class="btn" type="button" data-afc-cancel="${esc(key)}" ${busy(key) ? 'disabled' : ''}>${busy(key) ? 'Withdrawing…' : 'Withdraw'}</button>` : row.active === false ? 'Withdrawn' : 'Unavailable';
+      return `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(facultyName(row, 'Name unavailable'))}</button></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${row.active === false ? 'Withdrawn' : 'Active'}</td><td>${renderPdf(row)}</td><td>${action}</td></tr>`;
     }).join('') || '<tr><td colspan="9" class="empty">No AFC records match the current filters.</td></tr>';
   }
   function profileAfc(records,{selfMode=false,renderPdf=()=>'<span class="muted">N/A</span>'}={}) {
@@ -84,11 +84,11 @@
     const past = records.filter(archived).sort((a,b) => text(b.endDate).localeCompare(text(a.endDate)));
     const table = rows => rows.length?'<div class="table-wrap"><table class="data-table"><thead><tr>'+['Start','End','Availability status','Reason','Notes','Source','PDF'].map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(record => {
       const start = dateOnly(record.startDate), end = dateOnly(record.endDate);
-      const status = record.active === false ? 'Inactive' : !start || !end ? 'Dates need review' : end < today ? 'Past' : start <= today ? 'Current' : 'Upcoming';
+      const status = record.active === false ? 'Withdrawn' : !start || !end ? 'Dates need review' : end < today ? 'Past' : start <= today ? 'Current' : 'Upcoming';
       const values=[record.startDate,record.endDate,status,record.reason||record.reasonCode||record.purpose,record.notes||record.legacyPurpose,record.sourceKind||'Source unavailable'];return '<tr>'+values.map(v=>'<td>'+esc(v??'—')+'</td>').join('')+'<td>'+renderPdf(record)+'</td></tr>';
     }).join('')+'</tbody></table></div>':'<div class="afc-none">No records in this group.</div>';
     const fold = (label, rows, open = false) => `<details class="afc-fold" ${open ? 'open' : ''}><summary><span>${label}</span><span>${rows.length} record${rows.length === 1 ? '' : 's'}</span></summary>${table(rows)}</details>`;
-    return `<section class="section wide"><div class="section-title">Away from Campus · Availability & HR Archive</div><div class="afc-wrap">${fold('Current / Upcoming', upcoming, true)}${fold('Past / Inactive · HR Archive', past)}<div class="afc-privacy">${selfMode ? 'Your private Away from Campus / availability records.' : 'Confidential availability and HR records. Detailed reasons follow your Dashboard permissions.'} PDF: N/A means no original was archived, including legacy records.</div></div></section><section id="faculty-afc-originals" class="section wide"></section>`;
+    return `<section class="section wide"><div class="section-title">Away from Campus · Availability & HR Archive</div><div class="afc-wrap">${fold('Current / Upcoming', upcoming, true)}${fold('Past / Withdrawn · HR Archive', past)}<div class="afc-privacy">${selfMode ? 'Your private Away from Campus / availability records.' : 'Confidential availability and HR records. Detailed reasons follow your Dashboard permissions.'} PDF: N/A means no original was archived, including legacy records.</div></div></section><section id="faculty-afc-originals" class="section wide"></section>`;
   }
 
   function createActions({api,facultyName,canCancel,getRecords,render,refresh,refreshRecords,notify,confirm}) {
@@ -97,14 +97,14 @@
     if (!canCancel() || afcCancelInFlight.has(key)) return;
     const row = getRecords().find(record => `${record.sourceKind}:${record.afcRecordId}` === key);
     if (!row || row.active === false || !/^[0-9a-f]{16}$/i.test(row.versionToken || '')) return;
-    if (!confirm(`Delete the AFC record for ${facultyName(row, 'this faculty member')} (${row.startDate} to ${row.endDate})?\n\nIt will stop affecting availability. Its history and audit record will be retained.`)) return;
+    if (!confirm(`Withdraw the AFC record for ${facultyName(row, 'this faculty member')} (${row.startDate} to ${row.endDate})?\n\nIt will stop affecting availability. Its history and audit record will be retained.`)) return;
     afcCancelInFlight.add(key); render();
     try {
       await api.cancelDashboardAfcRecord(row.afcRecordId, { sourceKind: row.sourceKind, expectedVersion: row.versionToken });
       await refresh();
-      notify('AFC record deleted from active availability. History retained.');
+      notify('AFC record withdrawn. It no longer affects availability; its history is kept.');
     } catch (error) {
-      notify(error?.message || 'AFC record could not be deleted.', true);
+      notify(error?.message || 'AFC record could not be withdrawn.', true);
       if (error?.status === 409 || error?.status === 404) await refreshRecords();
     } finally { afcCancelInFlight.delete(key); render(); }
   }

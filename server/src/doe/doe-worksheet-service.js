@@ -74,7 +74,8 @@ function createWorksheetService({ repository } = {}) {
     if (!errors.some(error => error.blocking !== false)) {
       try {
         reserve = applyTeachingReserve({
-          teachingTarget: target, stream: source.stream, rawSupervision: sections.supervision.rawSubtotal,
+          teachingTarget: target, contractTeachingTarget: finite(source.target?.contractTeachingDoe),
+          stream: source.stream, rawSupervision: sections.supervision.rawSubtotal,
           assignedTeaching: round(sections.scheduledTeaching.subtotal + sections.roles.subtotal - manualRoleDoe + sections.adjustments.subtotal),
           policy: source.reservePolicy
         });

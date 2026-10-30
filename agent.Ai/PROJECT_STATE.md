@@ -1,3 +1,7 @@
+## Current: current MASTER DOE reconciliation — 2026-10-30
+
+Branch `fix/doe-master-reconciliation-20261030` from verified main `beca0d9`. Owner-approved read-only current copy and detail-over-aggregate decision. First guarded data operation committed 20 target overrides + 30 manual allocations with 50 audit rows; private recovery receipts preserved and actual Reports readback confirms values. DO NOT REPLAY. Annual contract-reserve mode approved and implemented as optional policy parameter; TDD and related tests pass, prior full server run 1,017 pass / 0 fail / 7 skips. UI/Draft round-trip preservation is covered. Still unmerged/unreleased; Active policy unchanged. Remaining source-detail transaction, new Draft/impact/publication, independent review, separate freeze governance and final real-site acceptance remain. See `updates/2026-10-30-live-master-doe-reconciliation.md`.
+
 ## Current: UX-01 AFC Withdraw / Withdrawn wording PR — 2026-10-29
 
 Read `updates/2026-10-29-ux01-afc-withdraw-wording.md`. Product `7dca82e` makes the admin AFC record removal say Withdraw / Withdrawn everywhere (list, filter, profile, messages, API errors); governance commit promotes the two-static/one-API freeze. No SQL/data/permission change. Awaiting review, merge and release.

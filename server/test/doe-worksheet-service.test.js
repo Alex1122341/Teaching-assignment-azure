@@ -65,3 +65,22 @@ test('DOE List and Faculty Detail share the same worksheet totals and expose spe
   assert.ok(listRow.issueCodes.includes('COURSE_MAPPING_REQUIRED'));
   assert.equal(listRow.roleAssignments[0].assignmentFactId, 'assignment-1');
 });
+
+test('MASTER worksheet uses contract reserve and applies its signed manual adjustment once afterward', async () => {
+  const shared = source({ target: { contractTeachingDoe: 15, effectiveTargetDoe: 7.5 },
+    reservePolicy: { ...reservePolicy, contractReserveCap: 1 }, lines: [
+      { lineId: 'role', category: 'role', resultDoe: 2.5, status: 'stored' },
+      { lineId: 'supervision', category: 'supervision', resultDoe: 24.5, status: 'source_snapshot' },
+      { lineId: 'adjustment', sourceEntityType: 'manual_doe_assignment', category: 'role', resultDoe: -3.75, status: 'manual' }
+    ] });
+  const service = createWorksheetService({ repository: { getFacultyWorksheetSource: async () => shared,
+    listFacultyWorksheetSources: async () => [shared] } });
+  const detail = await service.buildFacultyWorksheet({ facultyId: 'faculty-1', academicYear: '2026-27' });
+  assert.equal(detail.status, 'calculated');
+  assert.equal(detail.totals.rawSupervisionDoe, 24.5);
+  assert.equal(detail.totals.appliedSupervisionDoe, 7.5);
+  assert.equal(detail.totals.assignedTeachingDoe, 6.25);
+  assert.equal(detail.totals.remainingDoe, 1.25);
+  const [list] = await service.listFacultyDoe({ academicYear: '2026-27' });
+  assert.equal(list.assignedTeachingDoe, detail.totals.assignedTeachingDoe);
+});

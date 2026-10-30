@@ -36,26 +36,40 @@ function normalizePolicy(policy = {}) {
   if (!Number.isInteger(normalized.rollingAverageYears)) {
     throw new DoeReservePolicyError('RESERVE_POLICY_INVALID', 'Reserve policy rollingAverageYears must be an integer.', { parameter: 'rollingAverageYears' });
   }
+  if (Object.prototype.hasOwnProperty.call(policy, 'contractReserveCap')) {
+    const value = finite(policy.contractReserveCap);
+    if (value !== 0 && value !== 1) {
+      throw new DoeReservePolicyError('RESERVE_POLICY_INVALID', 'Reserve policy contractReserveCap must be 0 or 1.', { parameter: 'contractReserveCap' });
+    }
+    normalized.contractReserveCap = value;
+  }
   return normalized;
 }
 
-function applyTeachingReserve({ teachingTarget, stream, rawSupervision, assignedTeaching, policy } = {}) {
+function applyTeachingReserve({ teachingTarget, contractTeachingTarget, stream, rawSupervision, assignedTeaching, policy } = {}) {
   const config = normalizePolicy(policy);
   const target = finite(teachingTarget), supervision = finite(rawSupervision), assigned = finite(assignedTeaching);
   if (target === null || target < 0 || supervision === null || supervision < 0 || assigned === null || assigned < 0) {
     throw new DoeReservePolicyError('RESERVE_INPUT_INVALID', 'Teaching target, supervision, and assigned teaching must be finite non-negative numbers.');
   }
 
-  let initialTraineeReserve;
-  if (teachingFocused(stream)) initialTraineeReserve = Math.min(target, config.teachingFocusedTraineeCeiling);
-  else if (target <= config.splitThreshold) initialTraineeReserve = target * config.splitRatio;
-  else initialTraineeReserve = Math.min(target, config.highTeachingTraineeCeiling);
+  const contractCap = config.contractReserveCap === 1;
+  const reserveTarget = contractCap ? finite(contractTeachingTarget) : target;
+  if (reserveTarget === null || reserveTarget < 0) {
+    throw new DoeReservePolicyError('RESERVE_CONTRACT_UNAVAILABLE', 'Contract Teaching DOE is required for the annual contract reserve calculation.');
+  }
 
-  const initialAssignedTeachingReserve = Math.max(0, target - initialTraineeReserve);
+  let initialTraineeReserve;
+  if (teachingFocused(stream)) initialTraineeReserve = Math.min(reserveTarget, config.teachingFocusedTraineeCeiling);
+  else if (reserveTarget <= config.splitThreshold) initialTraineeReserve = reserveTarget * config.splitRatio;
+  else initialTraineeReserve = Math.min(reserveTarget, config.highTeachingTraineeCeiling);
+
+  const initialAssignedTeachingReserve = Math.max(0, reserveTarget - initialTraineeReserve);
   const roomAfterAssigned = Math.max(0, target - assigned);
   const flexible = !teachingFocused(stream) && target <= config.splitThreshold;
   const supervisionCeiling = flexible ? target : initialTraineeReserve;
-  const appliedSupervision = Math.min(supervision, supervisionCeiling, roomAfterAssigned);
+  const appliedSupervision = contractCap ? Math.min(supervision, initialTraineeReserve)
+    : Math.min(supervision, supervisionCeiling, roomAfterAssigned);
   const maxAssignedTeaching = Math.max(0, target - appliedSupervision);
   const totalAppliedTeaching = assigned + appliedSupervision;
 

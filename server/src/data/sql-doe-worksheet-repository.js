@@ -28,7 +28,7 @@ const parseObject = value => {
 
 const RESERVE_PARAMETERS = new Set([
   'splitThreshold', 'splitRatio', 'highTeachingTraineeCeiling',
-  'teachingFocusedTraineeCeiling', 'rollingAverageYears'
+  'teachingFocusedTraineeCeiling', 'rollingAverageYears', 'contractReserveCap'
 ]);
 
 function createSqlDoeWorksheetRepository(db) {

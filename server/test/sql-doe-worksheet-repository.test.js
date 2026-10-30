@@ -57,3 +57,17 @@ test('DOE worksheet list uses one bounded SQL read per source category and inclu
   assert.ok(calls.every(call => call.params.academicYear === '2026-27'));
 });
 
+test('annual contract reserve parameter reaches the worksheet without accepting unrelated numeric parameters', async () => {
+  const db = { async query(sql, params) {
+    assert.equal(params.academicYear, '2026-27');
+    if (/FROM paws\.Faculty AS f/i.test(sql)) return [{ facultyId: 'faculty-1', displayName: 'Test Faculty', stream: 'clinical' }];
+    if (/FROM paws\.DoeRuleParameter/i.test(sql)) return [
+      { name: 'contractReserveCap', valueNumber: 1 }, { name: 'rate', valueNumber: 999 }
+    ];
+    return [];
+  } };
+  const source = await createSqlDoeWorksheetRepository(db).getFacultyWorksheetSource('faculty-1', '2026-27');
+  assert.equal(source.reservePolicy.contractReserveCap, 1);
+  assert.equal(source.reservePolicy.rate, undefined);
+});
+

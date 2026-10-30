@@ -1,3 +1,7 @@
+## Current: current MASTER DOE reconciliation — 2026-10-30
+
+Continue `updates/2026-10-30-live-master-doe-reconciliation.md` and the approved source/reserve spec and implementation plan. Fifty scalar corrections are committed/audited; never replay them. Contract-reserve code is a tested candidate, not deployed. Finish exact detail correction/readback, source-issue register, new annual Draft/impact, independent product/governance review and controlled release. Keep existing approved leadership source metadata untouched unless separately reconciled; a semantically equivalent default-period insert can invalidate its signed source.
+
 ## Current: UX-01 AFC Withdraw / Withdrawn wording PR — 2026-10-29
 
 Read `updates/2026-10-29-ux01-afc-withdraw-wording.md`. Product `7dca82e` makes the admin AFC record removal say Withdraw / Withdrawn everywhere (list, filter, profile, messages, API errors); governance commit promotes the two-static/one-API freeze. No SQL/data/permission change. Awaiting review, merge and release.

@@ -5,7 +5,7 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const reviews = ['needs_review','approved','updated','new','retired'];
   const modes = ['fixed','per_hour','per_shift','per_week','per_trainee','tiered','minimum','capped','percentage_of_target','prorated','formula'];
-  const reserveKeys = ['splitThreshold','splitRatio','highTeachingTraineeCeiling','teachingFocusedTraineeCeiling','rollingAverageYears'];
+  const reserveKeys = ['splitThreshold','splitRatio','highTeachingTraineeCeiling','teachingFocusedTraineeCeiling','rollingAverageYears','contractReserveCap'];
   const categories = [['all','All categories'],['teaching','Teaching Rules'],['role','Role Rules'],['supervision','Supervision & Complex'],['target','Target Rules'],['exceptions','Exceptions']];
   const groups = [['all','All groups'],['assigned','Assigned Teaching'],['coordination','Course Coordination'],['clinical','Clinical Rotations'],['supervision','Supervision'],['hicc','HICC / VISC'],['reserve','Reserve Logic'],['other','Other / Approved Activities']];
   const field = (key,label,type='text',options=null,required=false) => ({key,label,type,options,required});
@@ -471,7 +471,7 @@
             bundle.reservePolicy=row;
             const reserve=bundle.rules.find(r=>r.category==='reserve');
             reserve.referenceId=row.referenceId||null;reserve.reviewStatus=row.reviewStatus;
-            reserve.parameters=[...(reserve.parameters||[]).filter(p=>!reserveKeys.includes(p.name)),...reserveKeys.map(name=>({...(reserve.parameters||[]).find(p=>p.name===name),name,valueNumber:row[name],valueText:null}))];
+            reserve.parameters=[...(reserve.parameters||[]).filter(p=>!reserveKeys.includes(p.name)),...reserveKeys.filter(name=>row[name]!=null).map(name=>({...(reserve.parameters||[]).find(p=>p.name===name),name,valueNumber:row[name],valueText:null}))];
           }else{
             bundle[key] ||= [];if(index<0)bundle[key].push(row);else bundle[key][index]=row;
             if(key==='rules'&&row.category==='reserve')bundle.reservePolicy={...Object.fromEntries((row.parameters||[]).filter(p=>reserveKeys.includes(p.name)&&p.valueNumber!=null).map(p=>[p.name,p.valueNumber])),referenceId:row.referenceId,reviewStatus:row.reviewStatus};

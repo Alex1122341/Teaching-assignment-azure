@@ -20,6 +20,20 @@ function lecture(){
     parameters:[{name:'rate',valueNumber:0.3,valueText:null}]
   };
 }
+
+test('editing an annual Rule Book retains the contract reserve mode in its saved patch',()=>{
+  const context={window:{},document:{getElementById:()=>null}};
+  vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(),'faculty-admin-doe-rulebook.js'),'utf8'),context);
+  const view=context.window.UCVM_FACULTY_DOE_RULEBOOK.create({editable:()=>true});
+  view.setBundle({version:{academicYear:'2026-27',status:'draft'},rules:[{
+    ruleId:'reserve',category:'reserve',parameters:[{name:'contractReserveCap',valueNumber:1}]
+  }]});
+  assert.equal(view.getPatch().reservePolicy.contractReserveCap,1);
+  view.setBundle({version:{academicYear:'2025-26',status:'draft'},rules:[{
+    ruleId:'reserve',category:'reserve',parameters:[{name:'splitRatio',valueNumber:0.5}]
+  }]});
+  assert.equal(Object.hasOwn(view.getPatch().reservePolicy,'contractReserveCap'),false);
+});
 function fields(value,basis){
   return {querySelector:selector=>{
     if(selector==='[data-doe-session-weight]')return{value:String(value)};

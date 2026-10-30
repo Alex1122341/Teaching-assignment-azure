@@ -29,3 +29,13 @@ At `2026-10-30T16:19:07.7713580Z`, one guarded SERIALIZABLE transaction applied 
 6. Produce final stable-ID comparison, applied-changes list and source-issues register. Do not claim workbook parity or policy completion yet.
 
 Graphify guide and existing raw graph consulted before dependency investigation; source is authoritative. No merge performed, so no post-merge graph refresh yet. Desktop Commander reported 95% monthly usage during this task; minimize repeated remote inventory calls.
+
+## Second committed data operation: DO NOT REPLAY
+
+At `2026-10-30T16:55:02.0761274Z`, a separately previewed guarded transaction committed seven exact teaching hours/DOE corrections, four role amount/type corrections, one explicitly removed source assignee, and 49 appointment intervals. Twelve DOE audit rows plus 49 period audit rows. Original source and all earlier audits preserved; before/after recovery receipts exist on server and locally. Plan SHA256 `43da70ac7b99ba89d34c131989cdc1b9a3b0804b12e7c0a064a10844d3c6450b`; applied server receipt SHA256 `cd89dbbb51d33999c32754019abcad6cee194d6ff0b5c77841f67865129429ea`.
+
+One period update was held because its source is referenced by an existing approved teaching-leadership grant; its source metadata and authority were preserved. Two source notes incompletely describe replacement intervals, so their recorded intervals were retained. The exact removal required zero linked leadership grants and preserves its original row/schedule in private before-image and the immutable DOE audit. No permission rows, gates, source workbook, API, policy publication or deployment changed.
+
+## Runtime candidate and independent review
+
+Initial product `bcaa76edaf17214b254f0a3eb6b5b6e319e5947d` adds optional annual `contractReserveCap`, contract-basis calculation, SQL parameter transport and Draft/browser-patch preservation. Independent product review found one Important legacy fallback regression: adding an absent optional key with `undefined` made historical source policies invalid. Reproduced RED with repository-to-worksheet test; fix copies fallback keys only when present. New regression covers absent mode and explicit annual zero end to end. Latest focused server 24/24 and browser-controller 12/12 pass; earlier full server 1,017 pass / 0 fail / 7 skip. Do not use the pre-fix generated artifact. Final review/freeze/full-check and new annual Draft/impact remain pending; existing Active policy is unchanged.

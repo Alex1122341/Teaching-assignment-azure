@@ -71,3 +71,25 @@ test('annual contract reserve parameter reaches the worksheet without accepting 
   assert.equal(source.reservePolicy.rate, undefined);
 });
 
+test('historical workload-source fallback preserves absent mode and explicit annual zero end to end', async () => {
+  const { createWorksheetService } = require('../src/doe/doe-worksheet-service');
+  const legacyPolicy = { splitThreshold: 35, splitRatio: 0.5, highTeachingTraineeCeiling: 15,
+    teachingFocusedTraineeCeiling: 7.5, rollingAverageYears: 3 };
+  for (const mode of [undefined, 0]) {
+    const repository = createSqlDoeWorksheetRepository({ async query(sql) {
+      if (/FROM paws\.Faculty AS f/.test(sql)) return [{ facultyId: 'faculty-1', stream: 'clinical' }];
+      if (/FROM paws\.DoeFacultyTarget/.test(sql)) return [{ facultyId: 'faculty-1', contractTeachingDoe: 10, effectiveTargetDoe: 10 }];
+      if (/FROM paws\.DoeRuleParameter/.test(sql)) return mode === undefined ? [] : [{ name: 'contractReserveCap', valueNumber: 0 }];
+      if (/FROM paws\.DoeWorkloadSource/.test(sql)) return [{ parametersJson: JSON.stringify(legacyPolicy),
+        facultyId: 'faculty-1', snapshotId: 'snapshot-1', rawDoe: 25 }];
+      return [];
+    } });
+    const source = await repository.getFacultyWorksheetSource('faculty-1', '2025-26');
+    assert.equal(Object.hasOwn(source.reservePolicy, 'contractReserveCap'), mode !== undefined);
+    const worksheet = await createWorksheetService({ repository }).buildFacultyWorksheet({ facultyId: 'faculty-1', academicYear: '2025-26' });
+    assert.equal(worksheet.status, 'calculated');
+    assert.equal(worksheet.totals.appliedSupervisionDoe, 10);
+    assert.equal(worksheet.totals.remainingDoe, 0);
+  }
+});
+

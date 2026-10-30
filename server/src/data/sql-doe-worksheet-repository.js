@@ -144,7 +144,7 @@ function createSqlDoeWorksheetRepository(db) {
     const sourceReservePolicy = parseObject(workloadSource?.parametersJson);
     // Explicit, owner-supplied policy evidence fills only absent annual parameters.
     if (sourceReservePolicy) for (const name of RESERVE_PARAMETERS) {
-      if (reservePolicy[name] === undefined) reservePolicy[name] = sourceReservePolicy[name];
+      if (reservePolicy[name] === undefined && Object.hasOwn(sourceReservePolicy, name)) reservePolicy[name] = sourceReservePolicy[name];
     }
     const assignmentsByFaculty = new Map();
     const pushLine = (faculty, line) => {

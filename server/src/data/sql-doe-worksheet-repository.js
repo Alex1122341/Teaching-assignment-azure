@@ -10,6 +10,7 @@ function resolutionEvidence(resolved) {
     storedDoe: resolved.storedDoe ?? resolved.mappedDoe ?? null, overrideDoe: resolved.overrideDoe ?? null,
     doeSource: resolved.source, status: resolved.source === 'missing' ? 'needs_review' : resolved.status,
     applicable: resolved.applicable, requiresReview: resolved.requiresReview === true,
+    sourceEvidenceInvalid: resolved.sourceEvidenceInvalid === true,
     reviewReason: resolved.reviewReason, ruleKey: resolved.ruleCode,
     reference: { title: resolved.sourceReference || resolved.calculatorSource }, calculatorVersion: resolved.calculatorVersion,
     errorCode: resolved.reviewReason ? resolved.reviewReason.replace(/-/g, '_').toUpperCase() : null
@@ -208,7 +209,7 @@ function createSqlDoeWorksheetRepository(db) {
       try { exceptionRows = JSON.parse(row.annualExceptionsJson || '[]'); } catch (_) {}
       const exception = (Array.isArray(exceptionRows) ? exceptionRows : []).filter(e => engine.exceptionMatches({ ...e, enabled: bool(e.enabled) }, facts));
       // An approved annual exception only clears a review when it agrees with the recorded allocation.
-      const accepted = exception.length === 1 && number(resolved.resultDoe) !== null &&
+      const accepted = !resolved.sourceEvidenceInvalid && exception.length === 1 && number(resolved.resultDoe) !== null &&
         Math.abs(Number(exception[0].fixedDoe) - Number(resolved.resultDoe)) < 0.000001 ? exception[0] : null;
       pushLine(row.facultyId, {
       lineId: text(row.roleAssignmentId), sourceEntityType: 'legacy_role_assignment',

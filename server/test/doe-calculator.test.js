@@ -157,6 +157,19 @@ test('explicit unknown role counts never fall back to the omitted legacy single-
   }
 });
 
+test('stored CCC allocations retain nonblocking warnings for invalid or contradictory explicit source evidence',()=>{
+  for(const creditField of ['doeMappedValue','doeOverrideValue']) {
+    for(const evidence of [{shiftCount:24,halfDays:1,halfDayDeduction:.5},{shiftCount:24,halfDayDeduction:13},{shiftCount:24,halfDays:-1}]) {
+      const result=resolveRoleDoe({roleType:'CCC',[creditField]:11.75,...evidence});
+      assert.equal(result.effectiveDoe,11.75);
+      assert.equal(result.requiresReview,true);
+      assert.equal(result.sourceEvidenceInvalid,true);
+      assert.match(result.reviewReason,/ccc-half-day/);
+      assert.notEqual(result.status,'needs-review');
+    }
+  }
+});
+
 test('role resolution preserves override > mapped > calculator precedence', () => {
   const override = resolveRoleDoe({ roleType: 'VISC', academicYear: '2026-27', courseOrSubjectOrRotation: 'VTMD subject', doeMappedValue: 5, doeOverrideValue: 0 });
   assert.equal(override.effectiveDoe, 0);

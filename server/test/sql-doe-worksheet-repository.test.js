@@ -4,6 +4,27 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createSqlDoeWorksheetRepository } = require('../src/data/sql-doe-worksheet-repository');
 
+test('repository through Worksheet preserves CCC evidence warnings even with a matching annual exception',async()=>{
+  const {createWorksheetService}=require('../src/doe/doe-worksheet-service');
+  for(const withException of [false,true]) {
+    const db={async query(sql){
+      if(/FROM paws\.Faculty AS f/.test(sql))return [{facultyId:'faculty-1',stream:'clinical'}];
+      if(/FROM paws\.DoeFacultyTarget/.test(sql))return [{facultyId:'faculty-1',contractTeachingDoe:20,effectiveTargetDoe:20}];
+      if(/FROM paws\.DoeRuleParameter/.test(sql))return Object.entries({splitThreshold:35,splitRatio:.5,highTeachingTraineeCeiling:15,teachingFocusedTraineeCeiling:7.5,rollingAverageYears:3}).map(([name,valueNumber])=>({name,valueNumber}));
+      if(/FROM paws\.DoeWorkloadSource/.test(sql))return [{facultyId:'faculty-1',snapshotId:'zero',rawDoe:0,evidenceJson:'{"ownerConfirmedZero":true}'}];
+      if(/FROM paws\.RoleAssignment AS r/.test(sql))return [{roleAssignmentId:'ccc',facultyId:'faculty-1',roleType:'CCC',doeMappedValue:11.75,sourceFactsJson:'{"shifts":24,"halfDayDeduction":13}',annualExceptionsJson:JSON.stringify(withException?[{exceptionId:'accepted',category:'rotation',scopeType:'source_entity',scopeKey:'ccc',facultyId:'faculty-1',fixedDoe:11.75,enabled:true}]:[])}];
+      return [];
+    }};
+    const worksheet=await createWorksheetService({repository:createSqlDoeWorksheetRepository(db)}).buildFacultyWorksheet({facultyId:'faculty-1',academicYear:'2026-27'});
+    const error=worksheet.errors.find(e=>e.lineId==='ccc');
+    assert.equal(worksheet.status,'needs_review');
+    assert.equal(worksheet.totals.roleDoe,11.75);
+    assert.equal(worksheet.totals.assignedTeachingDoe,11.75);
+    assert.equal(error?.blocking,false);
+    assert.match(error?.message||'',/ccc half day deduction invalid/);
+  }
+});
+
 test('verified Master role quantities reach legacy calculations without replacing missing source allocations',async()=>{
   const db={async query(sql){
     if(/FROM paws\.Faculty AS f/.test(sql))return [{facultyId:'faculty-1'}];

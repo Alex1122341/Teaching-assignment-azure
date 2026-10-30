@@ -458,6 +458,11 @@ function resolveRoleDoe(role = {}, inputs = {}) {
   const unresolvedReason = prorationReview
     ? 'role-date-proration-review-required'
     : calculation.reviewReason;
+  // A stored approved amount remains authoritative, but cannot validate
+  // contradictory explicit source quantities. Keep this a nonblocking warning.
+  const sourceEvidenceInvalid = [
+    'ccc-half-day-deduction-invalid','ccc-half-day-count-invalid','ccc-half-day-evidence-conflict'
+  ].includes(calculation.reviewReason);
 
   return {
     ...calculation,
@@ -472,10 +477,11 @@ function resolveRoleDoe(role = {}, inputs = {}) {
         : source,
     reviewReason: mismatch
       ? 'stored-doe-differs-from-calculator'
-      : source === 'missing'
+      : source === 'missing' || sourceEvidenceInvalid
         ? unresolvedReason
         : null,
-    requiresReview: mismatch || source === 'missing',
+    requiresReview: mismatch || source === 'missing' || sourceEvidenceInvalid,
+    sourceEvidenceInvalid,
     hasTemporalWindow,
     prorationReview,
     candidateBasis: calculation.candidateBasis || (calculation.prorationSensitive === true ? 'full-year-reference-before-proration' : null)

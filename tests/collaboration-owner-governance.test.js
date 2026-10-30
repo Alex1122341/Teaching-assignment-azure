@@ -5,14 +5,18 @@ const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-free
 const root=path.resolve(__dirname,'..'),previous='8df12efc7c9ab6d2a6735d0aed057bf35820eeb9',product='2c87d5c6121284db36ade094b0652de6f2c3f91c';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 test('existing-owner promotion preserves previous receipts and changes only one static and one API file',()=>{
- assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(api.BASELINE_COMMIT,product);assert.equal(report.sourceCommit,product);
+ assert.ok(git('show','c74327fb562d8da877ab26b2183a6fa888b19d8e:tools/beta-freeze.js').includes(`const BASELINE_COMMIT='${product}'`));
+ git('merge-base','--is-ancestor',product,freeze.BASELINE_COMMIT);
+ assert.equal(api.BASELINE_COMMIT,freeze.BASELINE_COMMIT);assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);
+ const historicalReport=JSON.parse(git('show','c74327fb562d8da877ab26b2183a6fa888b19d8e:tools/beta-baseline.json'));
+ assert.equal(historicalReport.sourceCommit,product);
  assert.ok(git('show','220dda40643a520450a9c0fbbfb252b3eea009d4:tools/beta-freeze.js').includes(`const BASELINE_COMMIT='${previous}'`));
  git('merge-base','--is-ancestor',previous,product);git('merge-base','--is-ancestor',product,'HEAD');
  assert.equal(git('diff','--name-only',previous,product,'--','frontend'),'frontend/scripts/user-management.js');
  assert.equal(git('diff','--name-only',previous,product,'--','server/src','swa-api'),'server/src/access/collaboration-api.js');
  const before=JSON.parse(git('show','220dda40643a520450a9c0fbbfb252b3eea009d4:tools/beta-baseline.json'));
  const expected={...before.sha256,'user-management.js':freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:product,file:'user-management.js'}))};
- assert.deepEqual(report.sha256,expected);
+ assert.deepEqual(historicalReport.sha256,expected);
  assert.deepEqual(freeze.readBaselineManifest({root,baselineCommit:product}),freeze.readBaselineManifest({root,baselineCommit:previous}));
  assert.deepEqual(api.baselineRuntimeFiles({root,baselineCommit:product}),api.baselineRuntimeFiles({root,baselineCommit:previous}));
  assert.equal(git('diff','--name-only',previous,product,'--','tools/static-assets.json','package.json','package-lock.json','server/package.json','server/package-lock.json','deploy/aca/Dockerfile','database','firestore.rules','firestore.indexes.json'),'');

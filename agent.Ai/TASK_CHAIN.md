@@ -1,6 +1,6 @@
 ## Current: current MASTER DOE reconciliation — 2026-10-30
 
-Continue `updates/2026-10-30-live-master-doe-reconciliation.md` and the approved source/reserve spec and implementation plan. Fifty scalar corrections are committed/audited; never replay them. Contract-reserve code is a tested candidate, not deployed. Finish exact detail correction/readback, source-issue register, new annual Draft/impact, independent product/governance review and controlled release. Keep existing approved leadership source metadata untouched unless separately reconciled; a semantically equivalent default-period insert can invalidate its signed source.
+Continue `updates/2026-10-30-live-master-doe-reconciliation.md`. All 111 applied operations independently verified; never replay either transaction. Numeric source roles match 195/195. Product and freeze governance independently reviewed. Finish final running checks and Draft/source-review resolution, then actual Dashboard acceptance before any merge/release. Draft rev2 has 107 review rows; no publication while that gate fails. Owner says retain Archer HICC / Pfau and Weller contract values unavailable. Keep the 105 empty trainee-count snapshots and one missing teaching-hours issue explicit; no invented zeros. Private reconciliation workbook has current and proposed totals, applied rows, roles and outstanding issues. Preserve approved leadership source metadata; no permission change.
 
 ## Current: UX-01 AFC Withdraw / Withdrawn wording PR — 2026-10-29
 

@@ -55,7 +55,7 @@ test('Research and Service credit cannot enter classified Assigned Teaching DOE'
   assert.equal(data.excluded.length,2);
   assert.equal(data.legacyTotal,25.6);
 });
-test('Ambiguous HICC/Coordinator and negotiated manual credit block a false Teaching subtotal',()=>{
+test('Ambiguous HICC/Coordinator blocks a false subtotal while approved manual credit remains classified',()=>{
   const view=worksheetView();
   const data=view.buildLookupBreakdown({status:'calculated',lines:[
     teaching('LEC','Lecture',2,0.6),
@@ -64,7 +64,51 @@ test('Ambiguous HICC/Coordinator and negotiated manual credit block a false Teac
   ],totals:{rawSupervisionDoe:0,appliedSupervisionDoe:0,assignedTeachingDoe:7.1}});
   assert.equal(data.without,null);
   assert.equal(data.withTrainees,null);
-  assert.equal(data.unclassified.length,2);
+  assert.equal(data.unclassified.length,1);
+  assert.equal(data.groups.find(g=>g.title==='Approved Manual DOE').items[0].amount,-0.5);
+});
+
+test('CCC role takes precedence over a stale course-coordination category',()=>{
+  const data=worksheetView().buildLookupBreakdown({lines:[other('course_coordination','CCC',11.75,{shifts:24})],totals:{appliedSupervisionDoe:0}});
+  assert.equal(data.groups.find(g=>g.title==='Clinical Rotations').items.find(r=>r.key==='ccc').amount,11.75);
+  assert.equal(data.groups.find(g=>g.title==='Course Coordination').items[0].rows,0);
+});
+
+test('structured teaching type and activity win over misleading rule labels',()=>{
+  for(const [type,role,activity,key] of [['LAB','Lab Primary','Lab Primary','lab_primary'],['LAB','Lab Secondary','Lab Secondary','lab_secondary'],['LEC','Lecture','Lecture','lecture'],['SRL','SRL','SRL','srl']]) {
+    const line={...teaching(type,role,2,.4),activityType:activity,ruleKey:'legacy_srl_lab_secondary_lecture'};
+    const data=worksheetView().buildLookupBreakdown({lines:[line],totals:{}});
+    assert.equal(data.groups[0].items.find(r=>r.key===key).rows,1,activity);
+  }
+});
+
+test('seven structured supervision activities do not depend on free-text rule labels',()=>{
+  const entries=[['Undergraduate Supervision','undergrad'],['VETM 506','vetm506'],['IM','im'],['4th Year Preceptor','preceptor'],['Graduate Primary Supervisor','grad_primary'],['Graduate Co-supervisor','grad_co'],['Postdoctoral Fellow','postdoc']];
+  for(const [activity,key] of entries) {
+    const line={...other('supervision','',1,{trainees:1}),activityType:activity,ruleKey:'legacy_vetm506_im_undergrad'};
+    const data=worksheetView().buildLookupBreakdown({lines:[line],totals:{}});
+    assert.equal(data.groups.at(-1).items.find(r=>r.key===key).rows,1,activity);
+  }
+});
+
+test('conflicting structured lab or supervision activities remain unclassified',()=>{
+  for(const line of [ {...teaching('LAB','Lab Primary',2,.4),activityType:'Lab Secondary'}, {...other('supervision','VETM 506',.5),activityType:'IM'} ]) {
+    assert.equal(worksheetView().buildLookupBreakdown({lines:[line],totals:{}}).unclassified.length,1);
+  }
+});
+
+test('approved signed manual allocations reconcile without invented quantities or label-based subcategories',()=>{
+  const lines=[teaching('LEC','Lecture',2,.6), ...[2,-.5].map(resultDoe=>({sourceEntityType:'manual_doe_assignment',category:'role',roleType:'Early Career / Special Project',scopeText:'unverified free text',resultDoe,status:'manual'}))];
+  const data=worksheetView().buildLookupBreakdown({lines,totals:{appliedSupervisionDoe:1,assignedTeachingDoe:3.1},status:'calculated'});
+  const manual=data.groups.find(g=>g.title==='Approved Manual DOE').items[0];
+  assert.equal(manual.amount,1.5);
+  assert.equal(manual.quantity,2);
+  assert.equal(manual.unit,'records');
+  assert.equal(data.without,2.1);
+  assert.equal(data.withTrainees,3.1);
+  assert.equal(data.unclassified.length,0);
+  const excluded=worksheetView().buildLookupBreakdown({lines:[{...lines[1],category:'research'}],totals:{}});
+  assert.equal(excluded.excluded.length,1);
 });
 test('Quantity is unavailable if source fact does not provide it; never invert DOE to make up hours',()=>{
   const view=worksheetView();

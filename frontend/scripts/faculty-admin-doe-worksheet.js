@@ -35,7 +35,7 @@
       return `<strong class="doe-policy-label">${esc(title)}</strong>${updated ? `<div class="muted">Updated ${esc(updated)}</div>` : ''}<div class="muted">Academic year ${esc(year)}</div>${basis ? `<div class="muted">${esc(basis)}</div>` : ''}${referenceBubble(details, 'Policy & source')}`;
     }
 
-    const groups=[{"title":"Lectures & Labs","items":[["lecture","Lectures","hours"],["srl","Self-Regulated Learning","hours"],["lab_primary","Labs (Primary)","hours"],["lab_secondary","Labs (Secondary)","hours"]]},{"title":"Course Coordination","items":[["course_coordinator","Course Coordination","courses"]]},{"title":"DVM HICC Course Development","items":[["hicc","HICC Development","units"]]},{"title":"VISC Coordination","items":[["visc","VISC Subjects","subjects"]]},{"title":"Clinical Rotations","items":[["rotation","Rotation Participant","weeks"],["ccc","Community Care Clinic","shifts"],["rotation_coordination","Designated Clinical Rotation Coordination","types"]]},{"title":"Other Approved Teaching","items":[["early_career","Early Career Development","approved"],["special","Special Activities","approved"]]},{"title":"Trainees & Supervision","items":[["undergrad","Undergraduate Students / Interns","trainees"],["vetm506","Undergraduate VETM 506","trainees"],["im","Undergraduate IM","trainees"],["preceptor","Fourth-Year Preceptor","trainees"],["grad_primary","Graduate Student (Primary)","trainees"],["grad_co","Graduate Student (Co-Supervised)","trainees"],["postdoc","Postdocs","trainees"],["supervision_unknown","Other Recorded Supervision","unavailable"]]}];
+    const groups=[{"title":"Lectures & Labs","items":[["lecture","Lectures","hours"],["srl","Self-Regulated Learning","hours"],["lab_primary","Labs (Primary)","hours"],["lab_secondary","Labs (Secondary)","hours"]]},{"title":"Course Coordination","items":[["course_coordinator","Course Coordination","courses"]]},{"title":"DVM HICC Course Development","items":[["hicc","HICC Development","units"]]},{"title":"VISC Coordination","items":[["visc","VISC Subjects","subjects"]]},{"title":"Clinical Rotations","items":[["rotation","Rotation Participant","weeks"],["ccc","Community Care Clinic","shifts"],["rotation_coordination","Designated Clinical Rotation Coordination","types"]]},{"title":"Other Approved Teaching","items":[["early_career","Early Career Development","approved"],["special","Special Activities","approved"]]},{"title":"Approved Manual DOE","items":[["manual","Approved Manual DOE","records"]]},{"title":"Trainees & Supervision","items":[["undergrad","Undergraduate Students / Interns","trainees"],["vetm506","Undergraduate VETM 506","trainees"],["im","Undergraduate IM","trainees"],["preceptor","Fourth-Year Preceptor","trainees"],["grad_primary","Graduate Student (Primary)","trainees"],["grad_co","Graduate Student (Co-Supervised)","trainees"],["postdoc","Postdocs","trainees"],["supervision_unknown","Other Recorded Supervision","unavailable"]]}];
     function isReviewLine(line) {
   const status=String(line.status || '').toLowerCase();
   return line.applicable !== false && (finite(line.resultDoe) === null || line.requiresReview === true || ['needs_review','needs-review','error','stored-calculation-mismatch'].includes(status));
@@ -43,13 +43,22 @@
     function categoryForLine(line) {
   const category = String(line.category || '').toLowerCase();
   if (['research','administration','admin','contract_admin','service','service_admin','clinical_activity_ppvm'].includes(category)) return 'non_teaching';
-  if (line.sourceEntityType === 'manual_doe_assignment') return 'unclassified';
+  if (line.sourceEntityType === 'manual_doe_assignment') return 'manual';
   const role = String(line.roleType || '').trim().toLowerCase();
   const activity = String(line.activityType || '').trim().toLowerCase();
   const fact = line.facts || {};
   const sessionType = String(fact.sessionType || '').trim().toLowerCase();
   const label = [role,activity,String(line.ruleKey || '').toLowerCase()].join(' ');
   if (['supervision','trainee_supervision'].includes(category)) {
+    const types = new Map([
+      ['undergraduate supervision','undergrad'], ['vetm 506','vetm506'], ['im','im'],
+      ['4th year preceptor','preceptor'], ['fourth-year preceptor','preceptor'],
+      ['graduate primary supervisor','grad_primary'], ['graduate co-supervisor','grad_co'],
+      ['postdoctoral fellow','postdoc']
+    ]);
+    const explicit = [...new Set([types.get(role),types.get(activity)].filter(Boolean))];
+    if (explicit.length > 1) return 'unclassified';
+    if (explicit.length) return explicit[0];
     if (/vetm[\s_-]*506/.test(label)) return 'vetm506';
     if (/(^|\W)im($|\W)/.test(label)) return 'im';
     if (/4th|fourth|preceptor/.test(label)) return 'preceptor';
@@ -60,15 +69,25 @@
     return 'supervision_unknown';
   }
   if (/coordinator\s*\/\s*hicc|hicc.*coordinator|legacy ambiguous/.test(role)) return 'unclassified';
+  if (role === 'ccc' || /community care clinic/.test(role)) return 'ccc';
   if (role === 'course coordinator' || category === 'course_coordination') return 'course_coordinator';
   if (role === 'hicc' || category === 'hicc') return 'hicc';
   if (role === 'visc' || category === 'visc') return 'visc';
-  if (role === 'ccc' || /community care clinic/.test(role)) return 'ccc';
   if (/rotation participant/.test(role) || (category === 'rotation' && /participant/.test(label))) return 'rotation';
   if (/designated rotation coordinat|designated clinical rotation coordinat/.test(label)) return 'rotation_coordination';
   if (category === 'approved_activity' && /early career/.test(label)) return 'early_career';
   if (category === 'approved_activity' && /special activit/.test(label)) return 'special';
   if (['teaching','assigned_teaching'].includes(category)) {
+    const types = new Map([['lab primary','lab_primary'],['lab secondary','lab_secondary'],['lecture','lecture'],['lecturer','lecture'],['srl','srl'],['self-regulated learning','srl']]);
+    const explicit = [...new Set([types.get(role),types.get(activity)].filter(Boolean))];
+    if (explicit.length > 1) return 'unclassified';
+    if (explicit.length) {
+      const kind = explicit[0];
+      if (sessionType && !({lab:['lab_primary','lab_secondary'],lec:['lecture'],lecture:['lecture'],srl:['srl']}[sessionType] || []).includes(kind)) return 'unclassified';
+      return kind;
+    }
+    if (sessionType === 'srl') return 'srl';
+    if (sessionType === 'lec' || sessionType === 'lecture') return 'lecture';
     if (sessionType === 'srl' || /\bsrl\b|self.regulat/.test(label)) return 'srl';
     if (sessionType === 'lab' || /\blab\b|laboratory/.test(label)) {
       if (/secondary|co.instructor|lab_secondary/.test(label)) return 'lab_secondary';
@@ -80,6 +99,7 @@
   return 'unclassified';
 }
     function quantityForLine(line,defaultUnit) {
+  if (defaultUnit === 'records') return {unit:'records',value:1};
   if (defaultUnit === 'unavailable') return {unit:'unavailable',value:null};
   const facts = line.facts || {};
   const inputs = line.inputs || {};
@@ -146,7 +166,7 @@
   const quantity=item=>{
     if(!item.rows)return '—';
     if(item.quantity===null)return 'Source quantity unavailable';
-    const labels={hours:'hrs',session:'sessions',units:'units',weeks:'weeks',shifts:'shifts',courses:'courses',subjects:'subjects',types:'types',trainees:'trainees',approved:'% allocated'};
+    const labels={hours:'hrs',session:'sessions',units:'units',weeks:'weeks',shifts:'shifts',courses:'courses',subjects:'subjects',types:'types',trainees:'trainees',approved:'% allocated',records:'records'};
     return `${Number(item.quantity.toFixed(2))} ${labels[item.unit] || item.unit}`;
   };
   const body=breakdown.groups.map(group=>`<tbody class="doe-excel-rows"><tr class="doe-excel-heading"><th colspan="3">${esc(group.title)}</th></tr>${group.items.map(item=>`<tr><td>${esc(item.label)}</td><td>${esc(quantity(item))}</td><td>${item.rows===0?'—':item.needsReview?'Needs Review':esc(pct(item.amount))}</td></tr>`).join('')}</tbody>`).join('');

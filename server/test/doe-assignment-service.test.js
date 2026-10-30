@@ -22,6 +22,15 @@ function setup() {
   return { calls, service: createDoeAssignmentService({ repository, calculationService, idFactory: () => '11111111-1111-1111-1111-111111111112', calculationIdFactory: () => '11111111-1111-1111-1111-111111111113', clock: () => new Date('2026-10-07T12:00:00.000Z') }) };
 }
 
+test('CCC assignment uses the existing annual rotation category throughout preview and persistence',async()=>{
+  const {calls,service}=setup();
+  await service.saveDoeAssignment({actor:{uid:'admin-uid'},academicYear:'2026-27',facultyId:'11111111-1111-1111-1111-111111111111',facts:{roleType:'CCC',shifts:24,halfDayDeduction:.25}});
+  assert.equal(calls[0][1].facts.category,'rotation');
+  assert.equal(calls[1][1].assignment.category,'rotation');
+  assert.equal(calls[1][1].calculation.category,'rotation');
+  assert.equal(calls[1][1].assignment.inputs.halfDayDeduction,.25);
+});
+
 test('DOE role assignment save submits facts for server preview and persists calculation evidence without client DOE', async () => {
   const { calls, service } = setup();
   const result = await service.saveDoeAssignment({

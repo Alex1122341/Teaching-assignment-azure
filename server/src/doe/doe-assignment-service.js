@@ -5,7 +5,7 @@ const { randomUUID } = require('node:crypto');
 const text = value => String(value ?? '').trim();
 const ROLE_CATEGORY = new Map([
   ['course coordinator', 'course_coordination'], ['course coordinator / hicc', 'hicc'], ['hicc', 'hicc'],
-  ['visc', 'visc'], ['rotation / week lead', 'rotation'], ['ccc', 'course_coordination'],
+  ['visc', 'visc'], ['rotation / week lead', 'rotation'], ['ccc', 'rotation'],
   ['trainee / supervision', 'supervision'], ['special project', 'approved_activity'], ['other', 'other']
 ]);
 const ALLOWED_ROLES = new Set(ROLE_CATEGORY.keys());

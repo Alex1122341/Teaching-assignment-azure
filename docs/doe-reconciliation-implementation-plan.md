@@ -43,10 +43,10 @@ Files: `server/src/domain/doe-calculator.js`, `server/src/domain/doe-rule-book.j
 
 Files: `server/src/doe/doe-assignment-service.js`, `frontend/scripts/faculty-admin-doe-worksheet.js`; tests `server/test/doe-assignment-service.test.js`, `tests/faculty-admin-doe-breakdown.test.js` and review-controller tests.
 
-- [ ] Test explicit CCC role against its existing rotation-category annual rule, and ensure frontend does not call it Course Coordination because of stale category text.
-- [ ] Test structured Lab Primary/Secondary and seven supervision activities against misleading legacy label words. Unknown/conflicting inputs stay visible for review.
-- [ ] Test approved `manual_doe_assignment` in a separate manual allocation group (including a signed reduction); record counts as counts, never infer hours/trainee quantities from DOE. Explicit non-teaching classification still excludes records.
-- [ ] Implement and verify worksheet subtotal equality for identical complete inputs, with incomplete applicable records keeping finalized totals unavailable.
+- [x] Test explicit CCC role against its existing rotation-category annual rule, and ensure frontend does not call it Course Coordination because of stale category text.
+- [x] Test structured Lab Primary/Secondary and seven supervision activities against misleading legacy label words. Unknown/conflicting inputs stay visible for review.
+- [x] Test approved `manual_doe_assignment` in a separate manual allocation group (including a signed reduction); record counts as counts, never infer hours/trainee quantities from DOE. Explicit non-teaching classification still excludes records.
+- [x] Implement and verify worksheet subtotal equality for identical complete inputs, with incomplete applicable records keeping finalized totals unavailable.
 
 ## Task 3 — Actionable source issues and navigation (TDD)
 
@@ -76,4 +76,4 @@ Files: existing worksheet renderer and its source repository only as necessary; 
 
 ## Execution state
 
-Phase-1 code reproducers and live policy/source verification completed before implementation. Task 1 implemented: RED calculator/repository cases reproduced, then 37/37 focused and adjacent tests passed (0 skipped). Reference calculator version is now 2026-27-v2; annual policy activation is unchanged. Continue Task 2. Previous candidate and data operations are preserved; all new operations require their own exact evidence.
+Phase-1 code reproducers and live policy/source verification completed before implementation. Task 1 implemented: RED calculator/repository cases reproduced, then 37/37 focused and adjacent tests passed (0 skipped). Reference calculator version is now 2026-27-v2; annual policy activation is unchanged. Task 2 completed: seven RED cases, then 29/29 classification/assignment/annual-policy/repository tests passed; signed manual records reconcile in their own group without invented quantities. Continue Task 3. Previous candidate and data operations are preserved; all new operations require their own exact evidence.

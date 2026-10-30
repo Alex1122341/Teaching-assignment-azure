@@ -1,5 +1,9 @@
 'use strict';
 
+require('node:test')('parity corrections carry a distinct reference-calculator version', () => {
+  require('node:assert/strict').equal(require('../src/domain/doe-calculator').CALCULATOR_VERSION, '2026-27-v2');
+});
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
@@ -74,16 +78,71 @@ test('HICC, VISC, clinical rotation and CCC formulas match the DOE Calculator', 
 test('supervision calculator preserves category rates and trainee reserve references', () => {
   const supervision = calculateSupervisionDoe({
     undergraduate: 1,
+    vetm506: 0,
+    im: 0,
     fourthYearPreceptor: 2,
     graduatePrimary: 1,
     graduateCosupervisor: 1,
     postdoctoral: 2
   });
   assert.equal(supervision.calculatedDoe, 10.5);
-  assert.equal(supervision.components.length, 5);
+  assert.equal(supervision.components.length, 7);
   assert.equal(calculateTraineeReserveReference({ teachingDoe: 30 }).calculatedDoe, 15);
   assert.equal(calculateTraineeReserveReference({ teachingDoe: 40 }).ceilingDoe, 15);
   assert.equal(calculateTraineeReserveReference({ teachingDoe: 40, teachingFocused: true }).ceilingDoe, 7.5);
+});
+
+const completeSupervision = overrides => ({ undergraduate: 0, vetm506: 0, fourthYearPreceptor: 0,
+  im: 0, graduatePrimary: 0, graduateCosupervisor: 0, postdoctoral: 0, ...overrides });
+
+test('VETM 506 and IM use the existing annual step formula for confirmed counts', () => {
+  for (const category of ['vetm506','im']) for (const [count, expected] of [[0,0],[0.5,0],[1,0.5],[1.5,1],[2,1],[3,1],[10,1]]) {
+    const result = calculateSupervisionDoe(completeSupervision({ [category]: count }));
+    assert.equal(result.calculatedDoe, expected, `${category}: ${count}`);
+    assert.equal(result.status, 'calculated');
+    assert.equal(result.components.find(c => c.key === category).doe, expected);
+  }
+  assert.equal(calculateSupervisionDoe(completeSupervision({vetm506:4,im:3})).calculatedDoe,2);
+});
+
+test('partial or invalid supervision cannot become a finalized total; explicit seven-category zero can', () => {
+  assert.equal(calculateSupervisionDoe(completeSupervision()).calculatedDoe,0);
+  for (const counts of [{undergraduate:1},completeSupervision({im:null}),completeSupervision({vetm506:-1}),completeSupervision({postdoctoral:'unknown'})]) {
+    const result=calculateSupervisionDoe(counts);
+    assert.equal(result.status,'needs-review');
+    assert.equal(result.calculatedDoe,null);
+    assert.ok(result.missingCategories.length>0);
+  }
+});
+
+test('CCC deducts explicit source half-day credit once and rejects invalid deductions', () => {
+  for(const [shifts,deduction,expected] of [[24,.25,11.75],[30,.25,14.75],[38,.5,18.5],[12,0,6],[0,0,0]]) {
+    assert.equal(calculateCccDoe(shifts,deduction).calculatedDoe,expected);
+  }
+  for(const deduction of [null,-.25,13,'unknown'])assert.equal(calculateCccDoe(24,deduction).status,'needs-review');
+  assert.equal(calculateCccDoe(12).calculatedDoe,6);
+  const stored=resolveRoleDoe({roleType:'CCC',shiftCount:24,halfDayDeduction:.25,doeMappedValue:11.75});
+  assert.equal(stored.calculatedDoe,11.75);assert.equal(stored.effectiveDoe,11.75);assert.equal(stored.requiresReview,false);
+});
+
+test('CCC source half-day counts and deduction agree; conflicting evidence remains unresolved',()=>{
+  assert.equal(resolveRoleDoe({roleType:'CCC',shiftCount:24,halfDays:1}).calculatedDoe,11.75);
+  const conflict=resolveRoleDoe({roleType:'CCC',shiftCount:24,halfDays:1,halfDayDeduction:.5});
+  assert.equal(conflict.calculatedDoe,null);assert.equal(conflict.requiresReview,true);
+  assert.equal(conflict.reviewReason,'ccc-half-day-evidence-conflict');
+});
+
+test('verified zero role quantities are calculated, while unknown quantities stay unresolved',()=>{
+  assert.equal(calculateViscDoe('2026-27',0).calculatedDoe,0);
+  assert.equal(calculateRotationCoordinationDoe(0).calculatedDoe,0);
+  for(const unknown of [null,'',-1,'unknown']){
+    assert.equal(calculateViscDoe('2026-27',unknown).status,'needs-review');
+    assert.equal(calculateRotationCoordinationDoe(unknown).status,'needs-review');
+  }
+});
+
+test('teaching-focused reserve reference stays within the confirmed teaching allocation',()=>{
+  for(const [target,expected] of [[5,5],[7.5,7.5],[45,7.5]])assert.equal(calculateTraineeReserveReference({teachingDoe:target,teachingFocused:true}).ceilingDoe,expected);
 });
 
 test('role resolution preserves override > mapped > calculator precedence', () => {

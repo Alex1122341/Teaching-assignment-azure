@@ -194,7 +194,12 @@ function createSqlDoeWorksheetRepository(db) {
       if (assignmentRows.some(a => text(a.sourceEntityType).toLowerCase() === 'role_assignment'
           && text(a.facultyId).toLowerCase() === text(row.facultyId).toLowerCase()
           && text(a.sourceEntityId).toLowerCase() === text(row.roleAssignmentId).toLowerCase())) continue;
-      const resolved = resolutionEvidence(resolveRoleDoe({ ...row, academicYear: row.academicYear || academicYear, courseOrSubjectOrRotation: row.scopeText }));
+      const masterFacts = parseObject(row.sourceFactsJson) || {};
+      const resolved = resolutionEvidence(resolveRoleDoe({ ...row, academicYear: row.academicYear || academicYear, courseOrSubjectOrRotation: row.scopeText }, {
+        courseUnits: masterFacts.units, rotationWeeks: masterFacts.weeks,
+        subjectCount: masterFacts.subjectCount, uniqueRotationTypes: masterFacts.uniqueRotationTypes,
+        shiftCount: masterFacts.shifts, halfDayDeduction: masterFacts.halfDayDeduction
+      }));
       const facts = sourceFacts({ facultyId: row.facultyId, academicYear }, {
         lineId: row.roleAssignmentId, sourceEntityId: row.roleAssignmentId, sourceEntityType: 'legacy_role_assignment',
         roleType: row.roleType, scopeText: row.scopeText

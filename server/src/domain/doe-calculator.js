@@ -37,7 +37,7 @@ function text(value) {
 }
 
 function number(value) {
-  if (value === null || value === undefined || value === '') return null;
+  if (!['number','string'].includes(typeof value) || (typeof value === 'string' && value.trim() === '')) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -352,11 +352,13 @@ function calculateRoleRule(role = {}, inputs = {}) {
   switch (roleType) {
     case 'VISC': {
       const inferredOneSubject = course ? 1 : null;
-      return { ...calculateViscDoe(academicYear, inputs.subjectCount ?? role.subjectCount ?? inferredOneSubject), prorationSensitive: true, candidateBasis: 'full-year-reference-before-proration' };
+      const count = inputs.subjectCount !== undefined ? inputs.subjectCount : role.subjectCount !== undefined ? role.subjectCount : inferredOneSubject;
+      return { ...calculateViscDoe(academicYear, count), prorationSensitive: true, candidateBasis: 'full-year-reference-before-proration' };
     }
     case 'Designated Rotation Coordinator': {
       const inferredOneType = course ? 1 : null;
-      return calculateRotationCoordinationDoe(inputs.uniqueRotationTypes ?? role.uniqueRotationTypes ?? inferredOneType);
+      const count = inputs.uniqueRotationTypes !== undefined ? inputs.uniqueRotationTypes : role.uniqueRotationTypes !== undefined ? role.uniqueRotationTypes : inferredOneType;
+      return calculateRotationCoordinationDoe(count);
     }
     case 'Rotation Participant':
       return calculateRotationParticipantDoe(inputs.rotationWeeks ?? role.rotationWeeks);

@@ -190,21 +190,56 @@
         ['Other approved adjustments', totals.adjustmentDoe], ['Total assigned teaching DOE', totals.assignedTeachingDoe],
         ['Remaining / Overage', totals.remainingDoe]
       ].map(([label, value]) => `<div class="p4-doe-worksheet-card"><span>${esc(label)}</span><strong>${esc(finiteDoe(value) === null && missingData ? 'Pending data / policy' : formatDoe(value))}</strong></div>`).join('');
-      const provenance = (worksheet.lines || []).map(line => {
+      const provenance = (worksheet.lines || []).map((line,index) => {
         const reference = line.reference || {};
         const source = [line.ruleKey, reference.title, reference.section, reference.table, reference.page ? `p. ${reference.page}` : '', line.calculationId].filter(Boolean).join(' · ');
         const legacy = finiteDoe(line.resultDoe) === null && line.legacyResultDoe !== null && line.legacyResultDoe !== undefined ? ` · legacy stored ${formatDoe(line.legacyResultDoe)}` : '';
-        return `<tr><td>${esc(line.category || '—')}</td><td>${esc(line.roleType || line.activityType || line.sourceEntityType || '—')}</td><td>${esc(line.scopeText || line.courseCode || line.subjectKey || '—')}</td><td>${esc(line.applicable === false && finiteDoe(line.resultDoe) === null ? 'Not applicable' : formatDoe(line.resultDoe))}${esc(legacy)}</td><td>${esc(line.status || 'Needs Review')}${line.errorCode ? ` · ${esc(line.errorCode)}` : ''}</td><td>${referenceBubble(source || line.sourceEntityId || '—')}</td></tr>`;
+        return `<tr id="${esc(sourceAnchor(worksheet,index))}" tabindex="-1"><td>${esc(line.category || '—')}</td><td>${esc(line.roleType || line.activityType || line.sourceEntityType || '—')}</td><td>${esc(line.scopeText || line.courseCode || line.subjectKey || '—')}</td><td>${esc(line.applicable === false && finiteDoe(line.resultDoe) === null ? 'Not applicable' : formatDoe(line.resultDoe))}${esc(legacy)}</td><td>${esc(line.status || 'Needs Review')}${line.errorCode ? ` · ${esc(line.errorCode)}` : ''}</td><td>${referenceBubble(source || line.sourceEntityId || '—')}</td></tr>`;
       }).join('');
       const issues = (worksheet.errors || []).map(error => `<li><strong>${esc(error.code || 'Needs Review')}</strong>: ${esc(error.message || 'Calculation evidence is incomplete.')}</li>`).join('');
       const reserveSummary = reserve && Object.keys(reserve).length ? `<p class="aux-note">Reserve · ${esc(reserve.stream || worksheet.stream || 'stream unavailable')} · applied supervision ${esc(formatDoe(reserve.appliedSupervision))} · unapplied ${esc(formatDoe(reserve.unappliedSupervision))} · remaining to target ${esc(formatDoe(reserve.remainingToTarget))}</p>` : '';
       const targetPolicy = worksheet.targetPolicyVersionLabel || target.policyVersionId;
       const policyText = worksheet.policyVersionId ? `Calculation policy ${worksheet.policyVersionId}` : worksheet.workloadSourceReference ? `Workload policy ${worksheet.workloadSourceReference}` : 'Annual calculation policy not recorded';
       const calculationText = worksheet.lastCalculatedAt ? `latest calculation evidence ${worksheet.lastCalculatedAt}` : 'No annual calculation record; line values retain their recorded source';
-      return `<div class="p4-doe-worksheet"><div class="section-title">Faculty DOE Worksheet · ${esc(worksheet.academicYear || 'Academic Year unavailable')}</div><p class="aux-note">Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</p><div class="p4-doe-worksheet-summary">${cards}</div>${reserveSummary}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div>${renderLookupBreakdown(worksheet)}</div>`;
+      return `<div class="p4-doe-worksheet"><div class="section-title">Faculty DOE Worksheet · ${esc(worksheet.academicYear || 'Academic Year unavailable')}</div><p class="aux-note">Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</p><div class="p4-doe-worksheet-summary">${cards}</div>${reserveSummary}${renderSourceIssues(worksheet)}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div>${renderLookupBreakdown(worksheet)}</div>`;
     }
 
     function finite(value) { return value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value); }
+
+    function sourceAnchor(worksheet,index) {
+      const context = `${worksheet.facultyId || 'selected'}:${worksheet.academicYear || 'unknown'}`;
+      return `doe-source-${Array.from(context).map(char=>char.codePointAt(0).toString(16)).join('_')}-${index}`;
+    }
+
+    function buildSourceIssues(worksheet) {
+      const person = (getFaculty() || []).find(row=>String(row.facultyId)===String(worksheet.facultyId));
+      const faculty = showFaculty(person || worksheet.displayName || 'Selected faculty');
+      return (worksheet.lines || []).flatMap((line,index)=>{
+        if (line.applicable===false && finite(line.resultDoe)===null) return [];
+        const category=categoryForLine(line), review=isReviewLine(line);
+        if (!review && !['unclassified','non_teaching'].includes(category)) return [];
+        const errors=(worksheet.errors || []).filter(error=>(error.lineId && error.lineId===line.lineId) || (error.sourceEntityId && error.sourceEntityId===line.sourceEntityId));
+        const label=category==='unclassified'?'Unclassified Teaching source':category==='non_teaching'?'Excluded from Teaching':'Source requires review';
+        const reason=[...new Set(errors.map(error=>error.message).filter(Boolean))].join(' · ') || line.reviewReason || line.errorCode || (review?'Calculation evidence is incomplete.':label);
+        const expected=finite(line.expectedDoe);
+        const recorded=Object.hasOwn(line,'storedDoe') || Object.hasOwn(line,'overrideDoe')
+          ? finite(line.overrideDoe) ?? finite(line.storedDoe) ?? finite(line.legacyResultDoe)
+          : finite(line.legacyResultDoe) ?? finite(line.resultDoe);
+        const ref=line.facts?.sourceRef || line.sourceRef;
+        const sourceCell=ref && ref.sheet && ref.column && Number.isInteger(Number(ref.row)) && Number(ref.row)>0 ? `${ref.sheet}!${ref.column}${ref.row}` : '';
+        return [{faculty,role:line.roleType || line.activityType || line.sourceEntityType || 'Activity unavailable',scope:line.scopeText || line.courseCode || line.subjectKey || 'Scope unavailable',
+          expected,recorded,reference:finite(line.calculatedDoe),delta:expected!==null&&recorded!==null?Number((recorded-expected).toFixed(6)):null,
+          label,reason,sourceCell,sourceReference:line.reference?.title || line.facts?.sourceDetails || 'Source reference not recorded',anchor:sourceAnchor(worksheet,index)}];
+      });
+    }
+
+    function renderSourceIssues(worksheet) {
+      const issues=buildSourceIssues(worksheet);
+      if (!issues.length) return '';
+      const amount=value=>value===null?'N/A':formatDoe(value);
+      const rows=issues.map(issue=>`<tr><td><strong>${esc(issue.faculty)}</strong><div>${esc(issue.role)}</div><div class="muted">${esc(issue.scope)}</div></td><td class="doe-number">${esc(amount(issue.expected))}</td><td class="doe-number">${esc(amount(issue.recorded))}</td><td class="doe-number">${esc(amount(issue.reference))}</td><td class="doe-number">${esc(amount(issue.delta))}</td><td><strong>${esc(issue.label)}</strong><div>${esc(issue.reason)}</div></td><td>${issue.sourceCell?`<code>${esc(issue.sourceCell)}</code>`:'Source cell unavailable in this Worksheet'}${referenceBubble(issue.sourceReference,'Source')}<a href="#${esc(issue.anchor)}" class="doe-source-link">View source line</a></td></tr>`).join('');
+      return `<section class="doe-source-issues" aria-label="DOE source issues"><h3>DOE source issues (${issues.length})</h3><p class="aux-note">Academic year ${esc(worksheet.academicYear || 'unavailable')}. Expected means an explicit approved allocation. A full-year reference does not replace an approved split or dated allocation. Delta is recorded minus expected; unavailable evidence remains N/A.</p><div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable DOE source issues"><table class="data-table"><thead><tr><th>Faculty / activity / scope</th><th>Expected allocation</th><th>Recorded DOE</th><th>Full-year / calculator reference</th><th>Delta</th><th>Issue / reason</th><th>Source / action</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+    }
 
     function closeReview() {
       if (reviewPopover?.matches(':popover-open')) reviewPopover.hidePopover();
@@ -331,7 +366,7 @@
         if (button) onView(button.dataset.doeView);
       });
     }
-    return Object.freeze({ loadDetail, loadList, renderList, buildLookupBreakdown, renderLookupBreakdown, invalidate() { worksheets = null; reviewDetails.clear(); reviewRequest++; if (reviewPopover?.matches(':popover-open')) reviewPopover.hidePopover(); }, bindList });
+    return Object.freeze({ loadDetail, loadList, renderList, buildLookupBreakdown, renderLookupBreakdown, buildSourceIssues, renderSourceIssues, invalidate() { worksheets = null; reviewDetails.clear(); reviewRequest++; if (reviewPopover?.matches(':popover-open')) reviewPopover.hidePopover(); }, bindList });
   }
 
   window.UCVM_FACULTY_DOE_WORKSHEET = Object.freeze({ create });

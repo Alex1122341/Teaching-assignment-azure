@@ -173,3 +173,63 @@ test('Rotation coordination quantity uses the calculator input uniqueRotationTyp
   assert.equal(item.quantity,3);
   assert.equal(item.amount,6);
 });
+
+test('source issues identify classified unresolved lines with honest amounts and scoped source anchors',()=>{
+  const worksheet={facultyId:'faculty-1',displayName:'Sample, Avery',academicYear:'2026-27',status:'needs_review',
+    lines:[{...other('role','HICC',null,{sourceRef:{sheet:'HICCs',row:18,column:'E'}}),lineId:'role-1',scopeText:'VTMD 304',calculatedDoe:6,reviewReason:'source-allocation-missing',requiresReview:true}],
+    errors:[{lineId:'role-1',message:'The approved source allocation is missing.'}],totals:{}};
+  const view=worksheetView(), issues=view.buildSourceIssues(worksheet);
+  assert.equal(issues.length,1);
+  assert.equal(issues[0].faculty,'Sample, Avery');
+  assert.equal(issues[0].scope,'VTMD 304');
+  assert.equal(issues[0].expected,null);
+  assert.equal(issues[0].recorded,null);
+  assert.equal(issues[0].reference,6);
+  assert.equal(issues[0].delta,null);
+  assert.equal(issues[0].sourceCell,'HICCs!E18');
+  const html=view.renderSourceIssues(worksheet);
+  assert.match(html,/The approved source allocation is missing/);
+  assert.match(html,/Full-year \/ calculator reference/);
+  assert.match(html,/N\/A/);
+  assert.match(html,new RegExp('href="#'+issues[0].anchor+'"'));
+  assert.notEqual(issues[0].anchor,view.buildSourceIssues({...worksheet,academicYear:'2027-28'})[0].anchor);
+});
+
+test('issue comparisons use explicit approved expectations, not an automatic full-year proration',()=>{
+  const view=worksheetView();
+  const worksheet={lines:[{...other('role','Course Coordinator',1.75),expectedDoe:1.75,calculatedDoe:3.5,requiresReview:true,hasTemporalWindow:true}]};
+  const issue=view.buildSourceIssues(worksheet)[0];
+  assert.equal(issue.recorded,1.75);
+  assert.equal(issue.expected,1.75);
+  assert.equal(issue.reference,3.5);
+  assert.equal(issue.delta,0);
+  assert.equal(view.buildSourceIssues({lines:[{...worksheet.lines[0],expectedDoe:undefined}]})[0].delta,null);
+  const calculatedOnly={...worksheet.lines[0],sourceEntityType:'legacy_role_assignment',storedDoe:null,overrideDoe:null,legacyResultDoe:null};
+  assert.equal(view.buildSourceIssues({lines:[calculatedOnly]})[0].recorded,null);
+});
+
+test('unclassified and explicitly excluded records are actionable and all source text is escaped',()=>{
+  const view=worksheetView();
+  const html=view.renderSourceIssues({facultyId:'<bad>',displayName:'<img onerror=bad>',academicYear:'2026-27',lines:[
+    {...other('role','<script>bad</script>',2),scopeText:'<b>scope</b>',facts:{sourceRef:{sheet:'<sheet>',column:'D',row:12}}},
+    other('research','Research',5)
+  ]});
+  assert.match(html,/Unclassified Teaching source/);
+  assert.match(html,/Excluded from Teaching/);
+  assert.match(html,/&lt;script&gt;/);
+  assert.match(html,/&lt;sheet&gt;!D12/);
+  assert.doesNotMatch(html,/<img|<script|<b>/);
+  assert.equal(view.renderSourceIssues({lines:[]}), '');
+});
+
+test('rendered worksheet source links reveal a focusable actual provenance row',async()=>{
+  const worksheet={facultyId:'faculty-1',academicYear:'2026-27',lines:[{...other('role','HICC',null),lineId:'role-1',scopeText:'VTMD 304'}],totals:{}};
+  const context={window:{}};
+  vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(),'faculty-admin-doe-worksheet.js'),'utf8'),context);
+  const view=context.window.UCVM_FACULTY_DOE_WORKSHEET.create({api:{doeWorksheet:async()=>worksheet},escapeHtml:v=>String(v??''),formatDoe:v=>v===null?'Needs Review':v+'%',finiteDoe:v=>v==null?null:Number(v),getFaculty:()=>[],getAcademicYear:()=> '2026-27',editAction:()=>'',onView:()=>{}});
+  const panel={isConnected:true,innerHTML:''};
+  await view.loadDetail('faculty-1','2026-27',panel,()=>true);
+  const anchor=view.buildSourceIssues(worksheet)[0].anchor;
+  assert.match(panel.innerHTML,new RegExp('id="'+anchor+'" tabindex="-1"'));
+  assert.match(panel.innerHTML,new RegExp('href="#'+anchor+'"'));
+});

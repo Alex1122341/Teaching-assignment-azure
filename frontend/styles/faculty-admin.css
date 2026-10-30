@@ -162,6 +162,18 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .doe-excel-summary-table thead th:nth-child(2){width:30%}
 .doe-excel-summary-table thead th:last-child{width:24%}
 .doe-excel-summary-table tbody th{position:static}
+.doe-source-issues{margin:20px 0}
+.doe-source-issues .data-table{min-width:920px}
+.doe-source-issues .table-wrap{max-height:480px}
+.doe-source-issues td{vertical-align:top;overflow-wrap:anywhere}
+.doe-source-issues .doe-number{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.doe-source-issues th:first-child{min-width:180px}
+.doe-source-issues th:nth-last-child(2){min-width:210px}
+.doe-source-issues th:last-child{min-width:155px}
+.doe-source-issues th:nth-child(n+2):nth-child(-n+5){text-align:right}
+.doe-source-link{display:inline-block;margin-top:8px}
+.p4-doe-worksheet-lines tr[id]{scroll-margin-block:110px}
+.p4-doe-worksheet-lines tr[id]:target,.p4-doe-worksheet-lines tr[id]:focus{outline:2px solid #2563eb;outline-offset:-2px;background:#eff6ff}
 
 .afc-forms-card{margin:16px 0;padding:18px;border:1px solid #dce1e8;border-radius:5px;background:#fff}.afc-forms-card header p{max-width:78ch;color:#59657a;line-height:1.5}.afc-forms-card h3{margin:0 0 8px}.afc-forms-card h4{margin:20px 0 10px}.afc-form-preview{padding:12px;background:#f5f7fa;border-radius:4px;overflow-wrap:anywhere}.afc-form-preview .btn{margin-left:8px}.afc-forms-card .field-grid{margin-top:14px}.afc-forms-card input[type=file]{max-width:100%}
 .ccc-preview-table{max-height:360px;overflow:auto;margin:10px 0 18px}.ccc-preview-table th{position:sticky;top:0;background:#f5f7fa}.ccc-confirm{display:flex;align-items:flex-start;gap:10px;line-height:1.5;margin:18px 0}.ccc-confirm input{flex-shrink:0;margin-top:4px}#ccc-replacement .aux-note{overflow-wrap:anywhere}#ccc-replacement details{margin:12px 0}#ccc-replacement summary{cursor:pointer;font-weight:600}

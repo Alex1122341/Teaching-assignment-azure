@@ -145,6 +145,18 @@ test('teaching-focused reserve reference stays within the confirmed teaching all
   for(const [target,expected] of [[5,5],[7.5,7.5],[45,7.5]])assert.equal(calculateTraineeReserveReference({teachingDoe:target,teachingFocused:true}).ceilingDoe,expected);
 });
 
+test('explicit unknown role counts never fall back to the omitted legacy single-record reference',()=>{
+  for(const [roleType,field] of [['VISC','subjectCount'],['Designated Rotation Coordinator','uniqueRotationTypes']]) {
+    const role={roleType,academicYear:'2026-27',courseOrSubjectOrRotation:'An approved named group'};
+    for(const value of [null,'',false,true,[],{},' ']) {
+      assert.equal(resolveRoleDoe({...role,[field]:value}).effectiveDoe,null,`${roleType} ${String(value)}`);
+      assert.equal(resolveRoleDoe(role,{[field]:value}).effectiveDoe,null,`${roleType} input ${String(value)}`);
+    }
+    assert.equal(resolveRoleDoe({...role,[field]:0}).effectiveDoe,0);
+    assert.equal(resolveRoleDoe(role).effectiveDoe,roleType==='VISC'?5:2);
+  }
+});
+
 test('role resolution preserves override > mapped > calculator precedence', () => {
   const override = resolveRoleDoe({ roleType: 'VISC', academicYear: '2026-27', courseOrSubjectOrRotation: 'VTMD subject', doeMappedValue: 5, doeOverrideValue: 0 });
   assert.equal(override.effectiveDoe, 0);

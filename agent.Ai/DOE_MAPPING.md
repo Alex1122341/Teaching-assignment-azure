@@ -191,3 +191,13 @@ DOE List badge: **Within DOE** if two-decimal Remaining >0, **At DOE** if =0, **
 - [2026-27 initial policy Draft evidence](../docs/current-doe-rulebook-import-20261011.md); [58-rule Draft rationalization](../docs/doe-source-rationalization-20261011.md); [supervision source recovery](../docs/operations/doe-worksheet-source-recovery-20261008.md).
 
 **Documentation only:** no application/SQL/Firebase source changes, live SQL query, imports, Rule Book Publish, Recalculate or deployment.
+
+## 2026-10-30 verified reconciliation addendum (supersedes mutable status above)
+
+Current read-only verification found the 58-rule 2026–27 Guidelines + MASTER policy **Active**, revision 2; its VETM 506 / IM formulas already implement the approved step. The report's unconditional missing-rule, averaging and VISC-horizon claims are not current facts. See `docs/doe-reconciliation-verification.md` for the evidence and M1–M9 / G1–G8 rulings.
+
+Reference calculator v2 closes legacy parity gaps without replacing stored source exceptions. Seven supported trainee counts must be explicit to finalize a legacy total. CCC subtracts explicit half-day deductions once; recorded net credit remains authoritative. The optional contract-reserve mode remains a separate unpublished annual candidate where source/publication guards fail.
+
+CCC's annual category is `rotation`. Lookup uses structured role/activity evidence and a separate Approved Manual DOE group, retaining signed adjustments. Unresolved/conflicting sources keep the Teaching subtotal unavailable. Recorded allocations, a full-year calculator reference and an explicitly approved expected amount are distinct evidence fields; UI deltas exist only when both recorded and expected values are known.
+
+Additional source audit matched 55 numeric CC rows and 3,828 uniquely linked teaching details (313 faculty/category groups); 19 blank-DOE CC assignments and ambiguous/unmatched teaching details remain private review records. No fee, role or identity was guessed. This addendum documents candidate behavior and source reads; it does not establish deployment, policy activation or full workbook parity.

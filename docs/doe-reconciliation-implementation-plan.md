@@ -52,18 +52,18 @@ Files: `server/src/doe/doe-assignment-service.js`, `frontend/scripts/faculty-adm
 
 Files: existing worksheet renderer and its source repository only as necessary; no new permissions/API domain. Reuse `data-table`, `table-wrap`, `warn-box`, reference bubbles and existing review navigation.
 
-- [ ] Test record-level issue rows: faculty, role/course, allocated/recorded/reference amount, delta where meaningful, reason, available source cell and source record link.
-- [ ] Distinguish approved expected allocation from full-year reference; unknown expected/actual/delta remain unavailable.
-- [ ] Add stable source-line anchors within the current authorized worksheet and one-click navigation that reveals the actual affected source; precise copyable sheet/cell when no workbook URL is available. Do not invent a SharePoint link.
-- [ ] Include classified-but-unresolved lines as well as unclassified/non-teaching warnings; keep counts, loading/error states, keyboard behavior and escaping coverage.
-- [ ] Check actual/synthetic comparable before/after screenshots at desktop and narrower widths; real source values remain private.
+- [x] Test record-level issue rows: faculty, role/course, allocated/recorded/reference amount, delta where meaningful, reason, available source cell and source record link.
+- [x] Distinguish approved expected allocation from full-year reference; unknown expected/actual/delta remain unavailable.
+- [x] Add stable source-line anchors within the current authorized worksheet and one-click navigation that reveals the actual affected source; precise copyable sheet/cell when no workbook URL is available. Do not invent a SharePoint link.
+- [x] Include classified-but-unresolved lines as well as unclassified/non-teaching warnings; keep counts, loading/error states, keyboard behavior and escaping coverage.
+- [x] Check actual/synthetic comparable before/after screenshots at desktop and narrower widths; real source values remain private.
 
 ## Task 4 — Complete source-record and workbook audit
 
-- [ ] Audit CC rows with blank DOE and graduate names in DOE column against actual current roles using exact verified identity/scope; distinguish already-present allocations from genuinely missing source records. Do not interpret a broken aggregate as a deletion instruction.
-- [ ] Preserve unprovided credits; create only independently verified missing business assignments through the existing source-refresh mechanism if its precise staging/atomic acceptance is safe and authorized. Otherwise retain a precise unresolved record, not a guessed price.
-- [ ] Re-derive teaching components from Transform/OTHER using real Primary/Secondary markers and separate exams/course-zero/ambiguous Lab records; do not import ambiguous rows by position or inferred price.
-- [ ] Produce private faculty/category comparison (`Excel verified | PAWS before | PAWS after | delta | status`), source-error/cached-value register and exact remaining decisions. Keep known source allocation examples and historical corrections; no repeat import.
+- [x] Audit CC rows with blank DOE and graduate names in DOE column against actual current roles using exact verified identity/scope; distinguish already-present allocations from genuinely missing source records. Do not interpret a broken aggregate as a deletion instruction.
+- [x] Preserve unprovided credits; create only independently verified missing business assignments through the existing source-refresh mechanism if its precise staging/atomic acceptance is safe and authorized. Otherwise retain a precise unresolved record, not a guessed price.
+- [x] Re-derive teaching components from Transform/OTHER using real Primary/Secondary markers and separate exams/course-zero/ambiguous Lab records; do not import ambiguous rows by position or inferred price.
+- [x] Produce private faculty/category comparison (`Excel verified | PAWS before | PAWS after | delta | status`), source-error/cached-value register and exact remaining decisions. Keep known source allocation examples and historical corrections; no repeat import.
 
 ## Task 5 — Review, freeze and coordinated release
 
@@ -76,4 +76,4 @@ Files: existing worksheet renderer and its source repository only as necessary; 
 
 ## Execution state
 
-Phase-1 code reproducers and live policy/source verification completed before implementation. Task 1 implemented: RED calculator/repository cases reproduced, then 37/37 focused and adjacent tests passed (0 skipped). Reference calculator version is now 2026-27-v2; annual policy activation is unchanged. Task 2 completed: seven RED cases, then 29/29 classification/assignment/annual-policy/repository tests passed; signed manual records reconcile in their own group without invented quantities. Continue Task 3. Previous candidate and data operations are preserved; all new operations require their own exact evidence.
+Phase-1 code reproducers and live policy/source verification completed before implementation. Task 1 implemented: RED calculator/repository cases reproduced, then 37/37 focused and adjacent tests passed (0 skipped). Reference calculator version is now 2026-27-v2; annual policy activation is unchanged. Task 2 completed: seven RED cases, then 29/29 classification/assignment/annual-policy/repository tests passed; signed manual records reconcile in their own group without invented quantities. Tasks 3–4 completed: 33/33 UI/controller/reference tests, actual comparable Chrome synthetic checks, 3,828 linked teaching details / 313 category groups with zero numeric differences. Nineteen CC source rows have unknown DOE and no supported atomic refresh path; retain the precise unresolved list. Ruling: no guessed rate or unsupported refresh bypass. Continue Task 5: fresh independent product review, then governance and exact release checks. Previous candidate and data operations are preserved; all new operations require their own exact evidence.

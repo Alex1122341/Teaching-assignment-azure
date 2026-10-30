@@ -96,3 +96,11 @@ See server/src/data/sql-doe-* repositories and server/src/doe/* services for exa
 - 060–063 Account access, effective teaching access, leadership grants, and scoped teaching workflow (source definitions; not proof of deployment to every SQL environment).
 
 Always inspect the actual migration source and **live applied inventory** before extending a table: existence in source is not proof that all migrations were applied everywhere. No initial SQL reset/import rerun.
+
+## DOE reconciliation data boundary — 2026-10-30
+
+Two earlier exact-source, guarded transactions applied 111 audited target/manual/teaching/role/period operations; independent readback passed. They are not repeatable refresh commands: never replay them. Their private plans and recovery receipts remain outside Git and Hosting. No DDL, import, permissions or additional DML was performed for the subsequent report-verification/calculator/UI fixes.
+
+`vMasterRoleFacts` already supplies units, weeks, subject/type counts, CCC shifts and the net half-day deduction; the Worksheet resolver now consumes those fields. `MasterRoleSourceEvidence.AllocationStatus=source_missing` prevents unknown source DOE from becoming a catalog-tier allocation. Preserve that flag and null amounts. The runtime view does not expose raw source JSON/private notes; the UI reports unavailable source-cell metadata honestly instead of broadening SQL access.
+
+Nineteen identified CC source rows have blank DOE and no matching current assignment. Existing MASTER staging restricts its role types and does not accept CC. Keep the exact private review list and N/A status rather than bypassing atomic refresh or assigning a default tier. Business appointments do not silently grant account access. Source unresolved counts and policy impact checks must stay effective before any future activation/recalculation.

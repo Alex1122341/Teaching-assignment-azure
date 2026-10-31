@@ -69,14 +69,14 @@ function createWorksheetService({ repository } = {}) {
 
     let reserve = null;
     // Negotiated adjustments are applied after the source supervision reserve.
-    // Manual adjustments must not affect roomAfterAssigned; compute non-manual roles separately.
-    const nonManualRolesSubtotal = sumLines(sections.roles.lines.filter(line => line.sourceEntityType !== 'manual_doe_assignment'));
+    // Manual adjustments must not affect roomAfterAssigned.
+    const nonManualAdjustmentsSubtotal = sumLines(sections.adjustments.lines.filter(line => line.sourceEntityType !== 'manual_doe_assignment'));
     if (!errors.some(error => error.blocking !== false)) {
       try {
         reserve = applyTeachingReserve({
           teachingTarget: target, contractTeachingTarget: finite(source.target?.contractTeachingDoe),
           stream: source.stream, rawSupervision: sections.supervision.rawSubtotal,
-          assignedTeaching: round(sections.scheduledTeaching.subtotal + nonManualRolesSubtotal + sections.adjustments.subtotal),
+          assignedTeaching: round(sections.scheduledTeaching.subtotal + sections.roles.subtotal + nonManualAdjustmentsSubtotal),
           policy: source.reservePolicy
         });
       } catch (error) {

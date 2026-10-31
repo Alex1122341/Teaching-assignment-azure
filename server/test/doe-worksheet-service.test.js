@@ -71,7 +71,7 @@ test('MASTER worksheet uses contract reserve and applies its signed manual adjus
     reservePolicy: { ...reservePolicy, contractReserveCap: 1 }, lines: [
       { lineId: 'role', category: 'role', resultDoe: 2.5, status: 'stored' },
       { lineId: 'supervision', category: 'supervision', resultDoe: 24.5, status: 'source_snapshot' },
-      { lineId: 'adjustment', sourceEntityType: 'manual_doe_assignment', category: 'role', resultDoe: -3.75, status: 'manual' }
+      { lineId: 'adjustment', sourceEntityType: 'manual_doe_assignment', category: 'adjustment', resultDoe: -3.75, status: 'manual' }
     ] });
   const service = createWorksheetService({ repository: { getFacultyWorksheetSource: async () => shared,
     listFacultyWorksheetSources: async () => [shared] } });

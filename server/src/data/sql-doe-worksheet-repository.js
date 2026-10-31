@@ -175,7 +175,7 @@ function createSqlDoeWorksheetRepository(db) {
 
     for (const row of manualRows) pushLine(row.facultyId, {
       lineId: text(row.assignmentFactId), assignmentFactId: text(row.assignmentFactId), sourceEntityId: text(row.assignmentFactId),
-      sourceEntityType: 'manual_doe_assignment', category: 'role', roleType: text(row.roleType),
+      sourceEntityType: 'manual_doe_assignment', category: 'adjustment', roleType: text(row.roleType),
       scopeText: text(row.scopeText), courseCode: text(row.courseCode), subjectKey: text(row.subjectKey),
       resultDoe: number(row.resultDoe), status: 'manual', doeSource: 'manual_adjustment', active: true,
       revision: Number(row.revision), notes: text(row.notes), calculatedAt: row.calculatedAt,

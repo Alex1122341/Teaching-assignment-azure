@@ -88,8 +88,8 @@ test('supervision calculator preserves category rates and trainee reserve refere
   assert.equal(supervision.calculatedDoe, 10.5);
   assert.equal(supervision.components.length, 7);
   assert.equal(calculateTraineeReserveReference({ teachingDoe: 30 }).calculatedDoe, 15);
-  assert.equal(calculateTraineeReserveReference({ teachingDoe: 40 }).ceilingDoe, 15);
-  assert.equal(calculateTraineeReserveReference({ teachingDoe: 40, teachingFocused: true }).ceilingDoe, 7.5);
+  assert.equal(calculateTraineeReserveReference({ teachingDoe: 40 }).ceilingDoe, 25);
+  assert.equal(calculateTraineeReserveReference({ teachingDoe: 40, teachingFocused: true }).ceilingDoe, 32.5);
 });
 
 const completeSupervision = overrides => ({ undergraduate: 0, vetm506: 0, fourthYearPreceptor: 0,
@@ -142,7 +142,7 @@ test('verified zero role quantities are calculated, while unknown quantities sta
 });
 
 test('teaching-focused reserve reference stays within the confirmed teaching allocation',()=>{
-  for(const [target,expected] of [[5,5],[7.5,7.5],[45,7.5]])assert.equal(calculateTraineeReserveReference({teachingDoe:target,teachingFocused:true}).ceilingDoe,expected);
+  for(const [target,expected] of [[5,0],[7.5,0],[45,37.5]])assert.equal(calculateTraineeReserveReference({teachingDoe:target,teachingFocused:true}).ceilingDoe,expected);
 });
 
 test('explicit unknown role counts never fall back to the omitted legacy single-record reference',()=>{

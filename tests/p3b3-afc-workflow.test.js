@@ -54,12 +54,12 @@ test('SQL AFC workflow lists scoped API rows, escapes content, and never referen
 
 test('request action policy limits withdraw, Reports-To decisions and final approval by ownership, stage and role',()=>{
   const row={status:'pending_report_to',requesterFirebaseUid:'u1',reportToFirebaseUid:'u2'};
-  assert.deepEqual(requestActions(row,{uid:'u1',role:'faculty'}),{canWithdraw:true,canRecommend:false,canReject:false,canApprove:false});
-  assert.deepEqual(requestActions(row,{uid:'u2',role:'faculty'}),{canWithdraw:false,canRecommend:true,canReject:true,canApprove:false});
-  assert.deepEqual(requestActions(row,{uid:'admin',role:'adfa_general'}),{canWithdraw:false,canRecommend:true,canReject:true,canApprove:false});
-  assert.deepEqual(requestActions({...row,status:'pending_admin'},{uid:'u1',role:'faculty'}),{canWithdraw:true,canRecommend:false,canReject:false,canApprove:false});
-  assert.deepEqual(requestActions({...row,status:'pending_admin'},{uid:'admin',role:'admin'}),{canWithdraw:false,canRecommend:false,canReject:true,canApprove:true});
-  assert.deepEqual(requestActions({...row,status:'approved'},{uid:'u1',role:'faculty'}),{canWithdraw:false,canRecommend:false,canReject:false,canApprove:false});
+  assert.deepEqual(requestActions(row,{uid:'u1',role:'faculty'}),{canWithdraw:true,canRecommend:false,canReject:false,canApprove:false,canChangeDates:false,canOfficeChangeDates:false});
+  assert.deepEqual(requestActions(row,{uid:'u2',role:'faculty'}),{canWithdraw:false,canRecommend:true,canReject:true,canApprove:false,canChangeDates:false,canOfficeChangeDates:false});
+  assert.deepEqual(requestActions(row,{uid:'admin',role:'adfa_general'}),{canWithdraw:false,canRecommend:true,canReject:true,canApprove:false,canChangeDates:false,canOfficeChangeDates:false});
+  assert.deepEqual(requestActions({...row,status:'pending_admin'},{uid:'u1',role:'faculty'}),{canWithdraw:true,canRecommend:false,canReject:false,canApprove:false,canChangeDates:false,canOfficeChangeDates:false});
+  assert.deepEqual(requestActions({...row,status:'pending_admin'},{uid:'admin',role:'admin'}),{canWithdraw:false,canRecommend:false,canReject:true,canApprove:true,canChangeDates:false,canOfficeChangeDates:false});
+  assert.deepEqual(requestActions({...row,status:'approved'},{uid:'u1',role:'faculty'}),{canWithdraw:false,canRecommend:false,canReject:false,canApprove:false,canChangeDates:true,canOfficeChangeDates:false});
 });
 
 test('submit, requester withdrawal, Reports-To recommendation, and Admin approval call only the data-client API',async()=>{

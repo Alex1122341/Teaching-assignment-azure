@@ -1,3 +1,7 @@
+## Current: UX-07 AFC date edit PR (stacked on UX-01) — 2026-10-29
+
+Read `updates/2026-10-29-ux07-afc-date-edit.md`. Product `3425cba`: office "Edit dates" (direct, history old->new), faculty "Change dates" on approved requests (new approval; old dates stay until approved; old request superseded), pending must be withdrawn. Migration 064 + gate `PAWS_AFC_EDIT_WRITE_ENABLED`; not applied/enabled. Merge UX-01 first.
+
 ## Current: UX-01 AFC Withdraw / Withdrawn wording PR — 2026-10-29
 
 Read `updates/2026-10-29-ux01-afc-withdraw-wording.md`. Product `7dca82e` makes the admin AFC record removal say Withdraw / Withdrawn everywhere (list, filter, profile, messages, API errors); governance commit promotes the two-static/one-API freeze. No SQL/data/permission change. Awaiting review, merge and release.

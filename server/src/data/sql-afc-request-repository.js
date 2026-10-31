@@ -2,6 +2,8 @@
 
 const SUBMIT_PROCEDURE = 'paws_api.SubmitAfcRequest';
 const WITHDRAW_PROCEDURE = 'paws_api.WithdrawAfcRequest';
+const DATE_CHANGE_PROCEDURE = 'paws_api.SubmitAfcDateChange';
+const OFFICE_DATES_PROCEDURE = 'paws_api.UpdateAfcDates';
 
 function createSqlAfcRequestRepository(db) {
   return {
@@ -21,7 +23,10 @@ function createSqlAfcRequestRepository(db) {
            ar.PurposeDestination AS purposeDestination,
            ar.Coverage AS coverage,
            ar.SubmittedAtUtc AS submittedAtUtc,
-           ar.UpdatedAtUtc AS updatedAtUtc
+           ar.UpdatedAtUtc AS updatedAtUtc,
+           ar.ReplacesAfcRequestId AS replacesAfcRequestId,
+           ar.SupersededByAfcRequestId AS supersededByAfcRequestId,
+           CONVERT(varchar(16), ar.AfcVersion, 2) AS versionToken
          FROM paws.AfcRequest AS ar
          WHERE @administrator = 1
             OR ar.RequesterFirebaseUid = @actorFirebaseUid
@@ -56,6 +61,47 @@ function createSqlAfcRequestRepository(db) {
       return rows[0] || null;
     },
 
+    // UX-07: a faculty date change for their own approved request. It is a new
+    // linked request that goes through the normal approval; the old dates stay
+    // approved until it is approved.
+    async submitDateChange(input = {}) {
+      const rows = await db.query(
+        `EXEC ${DATE_CHANGE_PROCEDURE}
+          @ReplacesAfcRequestId = @replacesAfcRequestId,
+          @AfcRequestId = @afcRequestId,
+          @StartDate = @startDate,
+          @EndDate = @endDate,
+          @WorkDays = @workDays,
+          @Reason = @reason,
+          @PurposeDestination = @purposeDestination,
+          @Coverage = @coverage,
+          @ContactAddress = @contactAddress,
+          @ContactPhone = @contactPhone,
+          @TermsVersion = @termsVersion,
+          @TermsSource = @termsSource,
+          @SignatureMode = @signatureMode,
+          @SignatureName = @signatureName,
+          @SignatureSignedAt = @signatureSignedAt,
+          @SignatureFingerprint = @signatureFingerprint,
+          @SignatureImageDataUrl = @signatureImageDataUrl,
+          @ActorFirebaseUid = @actorFirebaseUid`,
+        input
+      );
+      return rows[0] ? { ...rows[0], replacesAfcRequestId: input.replacesAfcRequestId } : null;
+    },
+
+    // UX-07: office date change for an approved request (no new approval).
+    async updateApprovedRequestDates({ afcRequestId, expectedVersion, startDate, endDate, workDays, actorFirebaseUid, requestId } = {}) {
+      const rows = await db.query(
+        `EXEC ${OFFICE_DATES_PROCEDURE}
+          @AfcRecordId = @afcRequestId, @SourceKind = N'request', @ExpectedVersion = @expectedVersion,
+          @StartDate = @startDate, @EndDate = @endDate, @WorkDays = @workDays,
+          @ActorFirebaseUid = @actorFirebaseUid, @RequestId = @requestId`,
+        { afcRequestId, expectedVersion, startDate, endDate, workDays, actorFirebaseUid, requestId }
+      );
+      return rows[0] || null;
+    },
+
     async withdrawRequest({ afcRequestId, actorFirebaseUid, auditRequestId } = {}) {
       const rows = await db.query(
         `EXEC ${WITHDRAW_PROCEDURE}
@@ -72,5 +118,7 @@ function createSqlAfcRequestRepository(db) {
 module.exports = {
   createSqlAfcRequestRepository,
   SUBMIT_PROCEDURE,
-  WITHDRAW_PROCEDURE
+  WITHDRAW_PROCEDURE,
+  DATE_CHANGE_PROCEDURE,
+  OFFICE_DATES_PROCEDURE
 };

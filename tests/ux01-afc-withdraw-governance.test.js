@@ -16,7 +16,7 @@ test('historical UX-01 promotion pins the AFC withdraw wording product and chang
  const before=JSON.parse(git('show','c74327fb562d8da877ab26b2183a6fa888b19d8e:tools/beta-baseline.json'));
  const expected={...before.sha256};
  for(const file of ['faculty-admin.html','faculty-admin-afc-records.js'])expected[file]=freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:product,file}));
- assert.deepEqual(report.sha256,expected);
+ assert.deepEqual(historicalReport.sha256,expected);
  assert.deepEqual(freeze.readBaselineManifest({root,baselineCommit:product}),freeze.readBaselineManifest({root,baselineCommit:previous}));
  assert.deepEqual(api.baselineRuntimeFiles({root,baselineCommit:product}),api.baselineRuntimeFiles({root,baselineCommit:previous}));
  assert.equal(git('diff','--name-only',previous,product,'--','tools/static-assets.json','package.json','package-lock.json','server/package.json','server/package-lock.json','deploy/aca/Dockerfile','database','firestore.rules','firestore.indexes.json'),'');

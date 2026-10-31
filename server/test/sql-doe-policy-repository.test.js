@@ -101,6 +101,22 @@ test('Reserve parameters are unavailable until the annual Reserve rule is approv
   assert.equal(loaded.reservePolicy, null);
 });
 
+test('saving an annual MASTER reserve mode replaces stale parameters and supports disabling it', async () => {
+  for (const mode of [1, 0]) {
+    let written;
+    const repository = createSqlDoePolicyRepository({ async query(sql, params) { written = params; return []; } });
+    await repository.saveDraft({ policyVersionId: 'p1', academicYear: '2026-27', expectedRevision: 0, actorUid: 'admin-1', bundle: {
+      version: { versionLabel: 'Draft', sourceReference: 'Approved MASTER' },
+      rules: [{ ruleId: 'reserve', category: 'reserve', parameters: [{ name: 'contractReserveCap', valueNumber: 1 - mode }], selectors: [], tiers: [], inputs: [] }],
+      reservePolicy: { splitThreshold: 35, splitRatio: 0.5, highTeachingTraineeCeiling: 15,
+        teachingFocusedTraineeCeiling: 7.5, rollingAverageYears: 3, contractReserveCap: mode },
+      references: [], exceptions: [], courseMappings: [], subjectMappings: []
+    } });
+    const parameters = JSON.parse(written.rulesJson)[0].parameters.filter(p => p.name === 'contractReserveCap');
+    assert.deepEqual(parameters, [{ name: 'contractReserveCap', valueNumber: mode }]);
+  }
+});
+
 test('controlled recalculation writes immutable result records and atomically moves current pointers', async () => {
   const calls = [];
   const db = { async query(sql, params) {

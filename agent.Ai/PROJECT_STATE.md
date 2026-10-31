@@ -1,4 +1,8 @@
-## Current: UX-07 AFC date edit PR (stacked on UX-01) — 2026-10-29
+## Current: current MASTER DOE reconciliation — 2026-10-30
+
+Branch `fix/doe-master-reconciliation-20261030` from verified main `beca0d9`. Two source-bound data transactions committed 111 audited operations; independent fresh SELECT readback passed every operation at 17:12:58 UTC. DO NOT REPLAY. All 195 numeric source role details match current SQL. Optional annual contract-reserve product `09ae583` and separate freeze governance `a7cc4d3` each passed independent review. New policy is Draft `0FFAECE8-3152-498D-9FDB-43B286E4270F` revision 2, structurally valid but impact has 107 unresolved source review rows. Owner explicitly retains three queried missing DOE/contract values as unavailable. Do not fabricate zero inputs or bypass publication gates. Existing Active policy unchanged; no merge/deployment. Final checks are running; Chrome detached during final Dashboard refresh. Private six-tab reconciliation workbook exists outside Git/Hosting. See `updates/2026-10-30-live-master-doe-reconciliation.md`.
+
+## Previous: UX-07 AFC date edit PR (stacked on UX-01) — 2026-10-29
 
 Read `updates/2026-10-29-ux07-afc-date-edit.md`. Product `3425cba`: office "Edit dates" (direct, history old->new), faculty "Change dates" on approved requests (new approval; old dates stay until approved; old request superseded), pending must be withdrawn. Migration 064 + gate `PAWS_AFC_EDIT_WRITE_ENABLED`; not applied/enabled. Merge UX-01 first.
 

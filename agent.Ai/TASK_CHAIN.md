@@ -1,4 +1,8 @@
-## Current: UX-07 AFC date edit PR (stacked on UX-01) — 2026-10-29
+## Current: current MASTER DOE reconciliation — 2026-10-30
+
+Continue `updates/2026-10-30-live-master-doe-reconciliation.md`. All 111 applied operations independently verified; never replay either transaction. Numeric source roles match 195/195. Product and freeze governance independently reviewed. Finish final running checks and Draft/source-review resolution, then actual Dashboard acceptance before any merge/release. Draft rev2 has 107 review rows; no publication while that gate fails. Owner says retain Archer HICC / Pfau and Weller contract values unavailable. Keep the 105 empty trainee-count snapshots and one missing teaching-hours issue explicit; no invented zeros. Private reconciliation workbook has current and proposed totals, applied rows, roles and outstanding issues. Preserve approved leadership source metadata; no permission change.
+
+## Previous: UX-07 AFC date edit PR (stacked on UX-01) — 2026-10-29
 
 Read `updates/2026-10-29-ux07-afc-date-edit.md`. Product `3425cba`: office "Edit dates" (direct, history old->new), faculty "Change dates" on approved requests (new approval; old dates stay until approved; old request superseded), pending must be withdrawn. Migration 064 + gate `PAWS_AFC_EDIT_WRITE_ENABLED`; not applied/enabled. Merge UX-01 first.
 

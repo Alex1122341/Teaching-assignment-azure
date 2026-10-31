@@ -120,7 +120,7 @@ function createSqlDoePolicyRepository(db) {
       if (bundle.reservePolicy) {
         const reserveRule = serializedRules.find(rule => text(rule.category).toLowerCase() === 'reserve');
         if (!reserveRule) throw Object.assign(new Error('DOE_RESERVE_RULE_REQUIRED'), { code: 'DOE_DRAFT_INVALID' });
-        const reserveKeys = ['splitThreshold','splitRatio','highTeachingTraineeCeiling','teachingFocusedTraineeCeiling','rollingAverageYears'];
+        const reserveKeys = ['splitThreshold','splitRatio','highTeachingTraineeCeiling','teachingFocusedTraineeCeiling','rollingAverageYears','contractReserveCap'];
         reserveRule.parameters = reserveRule.parameters.filter(item => !reserveKeys.includes(text(item.name)));
         for (const name of reserveKeys) if (bundle.reservePolicy[name] !== undefined) reserveRule.parameters.push({ name, valueNumber: Number(bundle.reservePolicy[name]) });
       }

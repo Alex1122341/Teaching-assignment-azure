@@ -10,6 +10,7 @@ function resolutionEvidence(resolved) {
     storedDoe: resolved.storedDoe ?? resolved.mappedDoe ?? null, overrideDoe: resolved.overrideDoe ?? null,
     doeSource: resolved.source, status: resolved.source === 'missing' ? 'needs_review' : resolved.status,
     applicable: resolved.applicable, requiresReview: resolved.requiresReview === true,
+    sourceEvidenceInvalid: resolved.sourceEvidenceInvalid === true,
     reviewReason: resolved.reviewReason, ruleKey: resolved.ruleCode,
     reference: { title: resolved.sourceReference || resolved.calculatorSource }, calculatorVersion: resolved.calculatorVersion,
     errorCode: resolved.reviewReason ? resolved.reviewReason.replace(/-/g, '_').toUpperCase() : null
@@ -28,7 +29,7 @@ const parseObject = value => {
 
 const RESERVE_PARAMETERS = new Set([
   'splitThreshold', 'splitRatio', 'highTeachingTraineeCeiling',
-  'teachingFocusedTraineeCeiling', 'rollingAverageYears'
+  'teachingFocusedTraineeCeiling', 'rollingAverageYears', 'contractReserveCap'
 ]);
 
 function createSqlDoeWorksheetRepository(db) {
@@ -144,7 +145,7 @@ function createSqlDoeWorksheetRepository(db) {
     const sourceReservePolicy = parseObject(workloadSource?.parametersJson);
     // Explicit, owner-supplied policy evidence fills only absent annual parameters.
     if (sourceReservePolicy) for (const name of RESERVE_PARAMETERS) {
-      if (reservePolicy[name] === undefined) reservePolicy[name] = sourceReservePolicy[name];
+      if (reservePolicy[name] === undefined && Object.hasOwn(sourceReservePolicy, name)) reservePolicy[name] = sourceReservePolicy[name];
     }
     const assignmentsByFaculty = new Map();
     const pushLine = (faculty, line) => {
@@ -194,7 +195,12 @@ function createSqlDoeWorksheetRepository(db) {
       if (assignmentRows.some(a => text(a.sourceEntityType).toLowerCase() === 'role_assignment'
           && text(a.facultyId).toLowerCase() === text(row.facultyId).toLowerCase()
           && text(a.sourceEntityId).toLowerCase() === text(row.roleAssignmentId).toLowerCase())) continue;
-      const resolved = resolutionEvidence(resolveRoleDoe({ ...row, academicYear: row.academicYear || academicYear, courseOrSubjectOrRotation: row.scopeText }));
+      const masterFacts = parseObject(row.sourceFactsJson) || {};
+      const resolved = resolutionEvidence(resolveRoleDoe({ ...row, academicYear: row.academicYear || academicYear, courseOrSubjectOrRotation: row.scopeText }, {
+        courseUnits: masterFacts.units, rotationWeeks: masterFacts.weeks,
+        subjectCount: masterFacts.subjectCount, uniqueRotationTypes: masterFacts.uniqueRotationTypes,
+        shiftCount: masterFacts.shifts, halfDayDeduction: masterFacts.halfDayDeduction
+      }));
       const facts = sourceFacts({ facultyId: row.facultyId, academicYear }, {
         lineId: row.roleAssignmentId, sourceEntityId: row.roleAssignmentId, sourceEntityType: 'legacy_role_assignment',
         roleType: row.roleType, scopeText: row.scopeText
@@ -203,7 +209,7 @@ function createSqlDoeWorksheetRepository(db) {
       try { exceptionRows = JSON.parse(row.annualExceptionsJson || '[]'); } catch (_) {}
       const exception = (Array.isArray(exceptionRows) ? exceptionRows : []).filter(e => engine.exceptionMatches({ ...e, enabled: bool(e.enabled) }, facts));
       // An approved annual exception only clears a review when it agrees with the recorded allocation.
-      const accepted = exception.length === 1 && number(resolved.resultDoe) !== null &&
+      const accepted = !resolved.sourceEvidenceInvalid && exception.length === 1 && number(resolved.resultDoe) !== null &&
         Math.abs(Number(exception[0].fixedDoe) - Number(resolved.resultDoe)) < 0.000001 ? exception[0] : null;
       pushLine(row.facultyId, {
       lineId: text(row.roleAssignmentId), sourceEntityType: 'legacy_role_assignment',

@@ -4,7 +4,7 @@ const { DOE_RULES } = require('./doe-rule-book');
 const { courseEvidence } = require('./doe-course-catalog-2026-27');
 
 const CALCULATOR_SOURCE = 'Teaching Assignments 2026-27 MASTER.xlsx · DOE Calculator';
-const CALCULATOR_VERSION = '2026-27-v1';
+const CALCULATOR_VERSION = '2026-27-v2';
 const TOLERANCE = 0.000001;
 
 const RULE_BY_CODE = Object.freeze(Object.fromEntries(DOE_RULES.map(rule => [rule.ruleCode, rule])));
@@ -24,7 +24,9 @@ const VISC_RATE_BY_YEAR = Object.freeze({
 });
 const SUPERVISION_RATES = Object.freeze({
   undergraduate: Object.freeze({ ruleCode: 'supervision_undergraduate', rate: 1 }),
+  vetm506: Object.freeze({ ruleCode: 'supervision_vetm506', rate: 0.5, mode: 'step' }),
   fourthYearPreceptor: Object.freeze({ ruleCode: 'supervision_4th_year_preceptor', rate: 0.75 }),
+  im: Object.freeze({ ruleCode: 'supervision_im', rate: 0.5, mode: 'step' }),
   graduatePrimary: Object.freeze({ ruleCode: 'supervision_graduate_primary', rate: 3 }),
   graduateCosupervisor: Object.freeze({ ruleCode: 'supervision_graduate_cosupervisor', rate: 2 }),
   postdoctoral: Object.freeze({ ruleCode: 'supervision_postdoctoral', rate: 1.5 })
@@ -35,7 +37,7 @@ function text(value) {
 }
 
 function number(value) {
-  if (value === null || value === undefined || value === '') return null;
+  if (!['number','string'].includes(typeof value) || (typeof value === 'string' && value.trim() === '')) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -213,7 +215,7 @@ function calculateViscDoe(academicYear, subjectCount = 1) {
   const selected = VISC_RATE_BY_YEAR[year] || (year && /^20(?:2[89]|[3-9]\d)-/.test(year) ? VISC_RATE_BY_YEAR['2028+'] : null);
   if (!selected) return review('visc-year-not-covered-by-calculator', { academicYear: year || null, calculatorSource: CALCULATOR_SOURCE, calculatorVersion: CALCULATOR_VERSION });
   const quantity = nonNegative(subjectCount);
-  if (quantity === null || quantity === 0) return review('visc-subject-count-required', { rate: selected.rate, unit: 'subject', ...ruleMeta(selected.ruleCode) });
+  if (quantity === null) return review('visc-subject-count-required', { rate: selected.rate, unit: 'subject', ...ruleMeta(selected.ruleCode) });
   return {
     applicable: true,
     calculatedDoe: fixed(selected.rate * quantity),
@@ -243,7 +245,7 @@ function calculateRotationParticipantDoe(rotationWeeks) {
 
 function calculateRotationCoordinationDoe(uniqueRotationTypes = 1) {
   const quantity = nonNegative(uniqueRotationTypes);
-  if (quantity === null || quantity === 0) return review('rotation-type-count-required', { rate: 2, unit: 'unique rotation type', ...ruleMeta('rotation_coordination') });
+  if (quantity === null) return review('rotation-type-count-required', { rate: 2, unit: 'unique rotation type', ...ruleMeta('rotation_coordination') });
   return {
     applicable: true,
     calculatedDoe: fixed(quantity * 2),
@@ -256,12 +258,15 @@ function calculateRotationCoordinationDoe(uniqueRotationTypes = 1) {
   };
 }
 
-function calculateCccDoe(shiftCount) {
+function calculateCccDoe(shiftCount, halfDayDeduction = 0) {
   const quantity = nonNegative(shiftCount);
   if (quantity === null) return review('ccc-shift-count-required', { rate: 0.5, unit: 'shift', ...ruleMeta('ccc_shift') });
+  const deduction = nonNegative(halfDayDeduction);
+  if (deduction === null || deduction > quantity * 0.5) return review('ccc-half-day-deduction-invalid', { rate: 0.5, unit: 'shift', ...ruleMeta('ccc_shift') });
   return {
     applicable: true,
-    calculatedDoe: fixed(quantity * 0.5),
+    calculatedDoe: fixed(quantity * 0.5 - deduction),
+    halfDayDeduction: deduction,
     rate: 0.5,
     quantity,
     unit: 'shift',
@@ -273,17 +278,22 @@ function calculateCccDoe(shiftCount) {
 
 function calculateSupervisionDoe(counts = {}) {
   const components = [];
-  let supplied = 0;
+  const missingCategories = [];
   let total = 0;
   for (const [key, config] of Object.entries(SUPERVISION_RATES)) {
-    const value = nonNegative(counts[key]);
-    if (value === null) continue;
-    supplied += 1;
-    const doe = fixed(value * config.rate);
+    const raw = counts && typeof counts === 'object' && !Array.isArray(counts) ? counts[key] : null;
+    const value = typeof raw === 'boolean' || typeof raw === 'object' ? null : nonNegative(raw);
+    if (value === null) { missingCategories.push(key); continue; }
+    // Same approved formula as the annual VETM 506 / IM rules, including averaged counts.
+    const doe = fixed(config.mode === 'step'
+      ? (Math.min(1, Math.floor(value)) + Math.min(1, Math.ceil(Math.max(0, value - 1)))) * config.rate
+      : value * config.rate);
     total += doe;
     components.push({ key, count: value, rate: config.rate, doe, ...ruleMeta(config.ruleCode) });
   }
-  if (!supplied) return review('trainee-counts-required', { calculatorSource: CALCULATOR_SOURCE, calculatorVersion: CALCULATOR_VERSION, components: [] });
+  if (missingCategories.length) return review(components.length ? 'trainee-counts-incomplete' : 'trainee-counts-required', {
+    calculatorSource: CALCULATOR_SOURCE, calculatorVersion: CALCULATOR_VERSION, components, missingCategories
+  });
   return {
     applicable: true,
     calculatedDoe: fixed(total),
@@ -302,7 +312,7 @@ function calculateTraineeReserveReference({ teachingDoe, teachingFocused = false
     return {
       applicable: true,
       calculatedDoe: null,
-      ceilingDoe: 7.5,
+      ceilingDoe: fixed(Math.min(teaching, 7.5)),
       status: 'ceiling-only',
       reviewReason: null,
       ...ruleMeta('teaching_focused_reserve_ceiling')
@@ -342,16 +352,32 @@ function calculateRoleRule(role = {}, inputs = {}) {
   switch (roleType) {
     case 'VISC': {
       const inferredOneSubject = course ? 1 : null;
-      return { ...calculateViscDoe(academicYear, inputs.subjectCount ?? role.subjectCount ?? inferredOneSubject), prorationSensitive: true, candidateBasis: 'full-year-reference-before-proration' };
+      const count = inputs.subjectCount !== undefined ? inputs.subjectCount : role.subjectCount !== undefined ? role.subjectCount : inferredOneSubject;
+      return { ...calculateViscDoe(academicYear, count), prorationSensitive: true, candidateBasis: 'full-year-reference-before-proration' };
     }
     case 'Designated Rotation Coordinator': {
       const inferredOneType = course ? 1 : null;
-      return calculateRotationCoordinationDoe(inputs.uniqueRotationTypes ?? role.uniqueRotationTypes ?? inferredOneType);
+      const count = inputs.uniqueRotationTypes !== undefined ? inputs.uniqueRotationTypes : role.uniqueRotationTypes !== undefined ? role.uniqueRotationTypes : inferredOneType;
+      return calculateRotationCoordinationDoe(count);
     }
     case 'Rotation Participant':
       return calculateRotationParticipantDoe(inputs.rotationWeeks ?? role.rotationWeeks);
-    case 'CCC':
-      return calculateCccDoe(inputs.shiftCount ?? role.shiftCount);
+    case 'CCC': {
+      const shifts = inputs.shiftCount ?? role.shiftCount;
+      let deduction = inputs.halfDayDeduction !== undefined ? inputs.halfDayDeduction : role.halfDayDeduction;
+      const halfDays = inputs.halfDays !== undefined ? inputs.halfDays : role.halfDays;
+      if (halfDays !== undefined && halfDays !== null) {
+        const days = nonNegative(halfDays);
+        if (days === null) return review('ccc-half-day-count-invalid', ruleMeta('ccc_shift'));
+        const fromDays = fixed(days * 0.25);
+        if (deduction !== undefined && deduction !== null) {
+          const supplied = nonNegative(deduction);
+          if (supplied === null || Math.abs(supplied - fromDays) > TOLERANCE) return review('ccc-half-day-evidence-conflict', ruleMeta('ccc_shift'));
+        }
+        deduction = fromDays;
+      } else if (halfDays === null && deduction === undefined) deduction = null;
+      return calculateCccDoe(shifts, deduction === undefined ? 0 : deduction);
+    }
     case 'Course Coordinator':
       return { ...calculateCourseCoordinatorDoe(courseUnits), courseUnits, courseEvidenceSource: catalog?.source || null, prorationSensitive: true, candidateBasis: 'full-year-reference-before-proration' };
     case 'HICC':
@@ -432,6 +458,11 @@ function resolveRoleDoe(role = {}, inputs = {}) {
   const unresolvedReason = prorationReview
     ? 'role-date-proration-review-required'
     : calculation.reviewReason;
+  // A stored approved amount remains authoritative, but cannot validate
+  // contradictory explicit source quantities. Keep this a nonblocking warning.
+  const sourceEvidenceInvalid = [
+    'ccc-half-day-deduction-invalid','ccc-half-day-count-invalid','ccc-half-day-evidence-conflict'
+  ].includes(calculation.reviewReason);
 
   return {
     ...calculation,
@@ -446,10 +477,11 @@ function resolveRoleDoe(role = {}, inputs = {}) {
         : source,
     reviewReason: mismatch
       ? 'stored-doe-differs-from-calculator'
-      : source === 'missing'
+      : source === 'missing' || sourceEvidenceInvalid
         ? unresolvedReason
         : null,
-    requiresReview: mismatch || source === 'missing',
+    requiresReview: mismatch || source === 'missing' || sourceEvidenceInvalid,
+    sourceEvidenceInvalid,
     hasTemporalWindow,
     prorationReview,
     candidateBasis: calculation.candidateBasis || (calculation.prorationSensitive === true ? 'full-year-reference-before-proration' : null)

@@ -13,8 +13,10 @@ const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 
 test('PR154 promotes only two reviewed DOE API modules with no static or SQL schema changes',()=>{
   const manifest=JSON.parse(fs.readFileSync(path.join(root,'tools/beta-baseline.json'),'utf8'));
-  assert.equal(freeze.BASELINE_COMMIT,product);
-  assert.equal(manifest.sourceCommit,product);
+  const historicalManifest=JSON.parse(git('show','5752b148b1966943910e87e1cfe2c272b934b072:tools/beta-baseline.json'));
+  assert.equal(historicalManifest.sourceCommit,product);
+  assert.ok(git('show','5752b148b1966943910e87e1cfe2c272b934b072:tools/beta-freeze.js').includes(`const BASELINE_COMMIT='${product}'`));
+  assert.equal(freeze.BASELINE_COMMIT,manifest.sourceCommit);
   git('merge-base','--is-ancestor',previous,product);
   git('merge-base','--is-ancestor',product,'HEAD');
   const previousFiles=api.baselineRuntimeFiles({root,baselineCommit:previous});
@@ -23,7 +25,7 @@ test('PR154 promotes only two reviewed DOE API modules with no static or SQL sch
   const changed=git('diff','--name-only',previous,product,'--','server/src','swa-api').split(/\r?\n/).filter(Boolean).sort();
   assert.deepEqual(changed,['server/src/data/sql-doe-worksheet-repository.js','server/src/doe/doe-worksheet-service.js']);
   assert.equal(git('diff','--name-only',previous,product,'--','frontend','tools/static-assets.json','database','server/package.json','server/package-lock.json','deploy/aca/Dockerfile','firestore.rules','firestore.indexes.json'),'');
-  assert.deepEqual(manifest.sha256,JSON.parse(git('show','cbd5fa9e9e832e99d35f456fc9bb42d53ab889e7:tools/beta-baseline.json')).sha256);
+  assert.deepEqual(historicalManifest.sha256,JSON.parse(git('show','cbd5fa9e9e832e99d35f456fc9bb42d53ab889e7:tools/beta-baseline.json')).sha256);
   assert.equal(freeze.verifyFreeze({root}).ok,true);
   assert.equal(api.verifyFreeze({root}).ok,true);
 });

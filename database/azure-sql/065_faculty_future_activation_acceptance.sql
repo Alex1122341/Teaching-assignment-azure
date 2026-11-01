@@ -54,8 +54,5 @@ BEGIN CATCH
  THROW;
 END CATCH;
 IF EXISTS(SELECT 1 FROM paws.Faculty WHERE Email=@Email)
- OR EXISTS(SELECT 1 FROM staging.ImportBatch WHERE ImporterVersion=N'paws-faculty-admin-ui-065'
-   AND ValidationSummaryJson LIKE N'%"source":"faculty-admin-create"%' AND ActorUpn=
-    (SELECT TOP (1) Email FROM paws.UserProfile WHERE FirebaseUid=@AdminUid))
-  PRINT N'Acceptance created no committed Faculty rows (external batches may exist).';
+ THROW 56585,'Rollback-only fixture left a Faculty record behind',1;
 PRINT N'FACULTY_FUTURE_ACTIVATION_ROLLBACK_ACCEPTANCE_OK';

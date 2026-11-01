@@ -6,8 +6,8 @@
 // runtime stays untouched. Both wrappers are mounted by the same Functions app.
 //
 // Contract:
-//   * Existing Dashboard routes remain GET only. The B1 AFC Records route is
-//     the sole exception and accepts GET + POST.
+//   * Existing Dashboard read routes remain GET only. AFC Records and Faculty
+//     creation explicitly accept GET + POST; Faculty detail accepts GET + PATCH.
 //   * Unauthenticated requests return 401; the API layer decides that, this
 //     wrapper only extracts the bearer token.
 //   * Unknown paths return 404.
@@ -83,8 +83,8 @@ function createDashboardFunctions({ api,traineeApi }) {
       if (request.method !== 'GET' && !(isAfcRecords && request.method === 'POST') && !(isAfcBatch && request.method === 'POST') && !isFacultyWrite) {
         return {
           status: 405,
-          headers: { Allow: isAfcBatch ? 'POST' : isAfcRecords ? 'GET, POST' : facultyAction ? 'POST' : facultyUpdate ? 'GET, PATCH' : 'GET' },
-          jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: isAfcBatch ? 'POST required.' : isAfcRecords ? 'GET or POST required.' : facultyAction ? 'POST required.' : facultyUpdate ? 'GET or PATCH required.' : 'GET required.' } }
+          headers: { Allow: isAfcBatch ? 'POST' : isAfcRecords ? 'GET, POST' : facultyAction ? 'POST' : facultyUpdate ? 'GET, PATCH' : pathname === '/api/v1/dashboard/faculty' ? 'GET, POST' : 'GET' },
+          jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: isAfcBatch ? 'POST required.' : isAfcRecords ? 'GET or POST required.' : facultyAction ? 'POST required.' : facultyUpdate ? 'GET or PATCH required.' : pathname === '/api/v1/dashboard/faculty' ? 'GET or POST required.' : 'GET required.' } }
         };
       }
 

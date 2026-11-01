@@ -391,7 +391,7 @@ function createSqlDashboardRepository(db) {
 
       if (status === 'active') predicates.push('(' + effectiveActive + ')');
       else if (status === 'pending') predicates.push('(' + pending + ')');
-      else if (status === 'inactive') predicates.push('(f.Active = 0 OR (' + pending + '))');
+      else if (status === 'inactive') predicates.push('(f.Active = 0)');
       else if (status !== 'all') throw new Error('Invalid Faculty status filter');
 
       if (facultyId) {

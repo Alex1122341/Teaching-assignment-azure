@@ -806,13 +806,13 @@
 
   function facultyEligibleForSession(faculty,dateYmd) {
     const start=String(faculty?.activationDate||'');
-    return faculty?.administrativeActive!==false && (!start || (dateYmd && dateYmd>=start));
+    return (faculty?.administrativeActive === undefined ? faculty?.active !== false : faculty.administrativeActive !== false) && (!start || (dateYmd && dateYmd>=start));
   }
 
   async function ensureCanonicalWriteFacultyDirectory(){
     if(canonicalWriteFaculty.length)return canonicalWriteFaculty.slice();
     const rows=await window.UCVM_PAWS_DATA.dashboardFaculty({limit:500,status:'all'});
-    canonicalWriteFaculty=(Array.isArray(rows)?rows:[]).filter(row=>row?.administrativeActive!==false&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(row?.facultyId||'')))
+    canonicalWriteFaculty=(Array.isArray(rows)?rows:[]).filter(row=>(row?.administrativeActive === undefined ? row?.active !== false : row.administrativeActive !== false)&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(row?.facultyId||'')))
       .map(row=>({...row,__id:String(row.facultyId),name:String(row.displayName||'').trim()}))
       .sort((a,b)=>a.name.localeCompare(b.name));
     return canonicalWriteFaculty.slice();
@@ -1709,7 +1709,7 @@
     showModal(`<div class="modal-header"><div class="modal-title">Manage Session Instructors</div><div class="modal-subtitle">Only administratively active Faculty whose official start date is on or before this session date can be assigned. DOE is recalculated by the University server after save; missing rules or mappings remain Needs Review. Removing a line that has recorded workload or DOE is blocked.</div></div><form id="sql-assignment-form"><div class="modal-body"><div id="sql-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-assignment-add">+ Add instructor</button><div id="sql-assignment-error" class="hidden" role="alert"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-assignment-cancel">Cancel</button><button type="submit" class="btn btn-primary">Save instructors</button></div></form>`);
     const render=()=>{
       const host=$('sql-assignment-rows');if(!host)return;
-      host.innerHTML=rows.map((row,index)=>`<div class="instructor-line"><div class="form-grid"><select class="form-select" data-assignment-faculty="${index}" required><option value="">Choose active Faculty</option>${directory.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(displayFaculty(person.displayName||person.facultyId))}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-assignment-role="${index}"><option value="">Role unavailable</option>${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-assignment-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
+      host.innerHTML=rows.map((row,index)=>`<div class="instructor-line"><div class="form-grid"><select class="form-select" data-assignment-faculty="${index}" required><option value="">Choose Faculty eligible on this session date</option>${directory.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(displayFaculty(person.displayName||person.facultyId))}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-assignment-role="${index}"><option value="">Role unavailable</option>${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-assignment-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
       host.querySelectorAll('[data-assignment-faculty]').forEach(control=>control.onchange=()=>{rows[Number(control.dataset.assignmentFaculty)].facultyId=control.value});
       host.querySelectorAll('[data-assignment-role]').forEach(control=>control.onchange=()=>{rows[Number(control.dataset.assignmentRole)].teachingRole=control.value});
       host.querySelectorAll('[data-assignment-remove]').forEach(control=>control.onclick=()=>{rows.splice(Number(control.dataset.assignmentRemove),1);render()});

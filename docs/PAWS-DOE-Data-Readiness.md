@@ -1,5 +1,7 @@
 # PAWS DOE Data Readiness
 
+> **Historical audit — 2026-10-04:** All SQL counts, DOE coverage, blockers and the word "current" below refer to this dated snapshot only. They are **not** a 2026-11-01 VetMed-Ops inventory, a verified MASTER reconciliation, or permission to alter DOE policies or Faculty records. Recheck the authoritative live source before acting.
+
 **Environment:** live Beta `VetMed-Ops`
 **Academic year:** `2026-27`
 **Audit date:** 2026-10-04

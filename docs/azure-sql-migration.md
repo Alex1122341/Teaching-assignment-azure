@@ -1,6 +1,9 @@
 # PAWS Azure SQL authoritative workbook migration
 
-This runbook covers Phase 1 of the PAWS Firestore-to-Azure SQL cutover. The three approved workbooks are the sole initialization source.
+> **Historical checkpoint (2026-09-24):** The “Current post-load live state” section is current *at that source-load checkpoint only*. It does not describe the verified November 2026 University `VetMed-Ops` inventory. Do not rerun the original empty-db reset/import from this dated report.
+
+
+This **historical** runbook records the September 24, 2026 PAWS Firestore-to-Azure SQL **lab** initialization. The three approved workbooks were the source for that specific lab load; they are not a standing import instruction for the University-hosted `VetMed-Ops` SQL Server. No step below is authorized for replay on a current environment.
 
 This migration has two distinct checkpoints, and they must not be confused:
 

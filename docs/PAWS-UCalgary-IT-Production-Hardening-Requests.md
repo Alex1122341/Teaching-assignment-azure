@@ -1,5 +1,8 @@
 # PAWS — UCalgary IT Production / Hardening Requests
 
+> **Historical draft:** The document records a past proposed IT hardening plan, not verified open work or an approved deployment. Confirm current service identity, ingress, permissions and IT ownership before using its recommendations.
+
+
 **Status:** Draft for post-Beta acceptance. No requests have been sent to UCalgary IT.
 **Current Beta ingress:** temporary Cloudflare Quick Tunnel to loopback `127.0.0.1:18787`; not production infrastructure.
 

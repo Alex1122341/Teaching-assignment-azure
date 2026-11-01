@@ -327,7 +327,8 @@ function createSqlDashboardRepository(db) {
                ))
          )
          SELECT
-             (SELECT ${rowCount('f.FacultyId')} FROM paws.Faculty f WHERE f.Active = 1) AS activeFacultyCount,
+             (SELECT ${rowCount('f.FacultyId')} FROM paws.Faculty f WHERE f.Active = 1 AND
+               (f.ActivationDate IS NULL OR f.ActivationDate<=CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time'))) AS activeFacultyCount,
              (SELECT COUNT(*) FROM scoped) AS sessionCount,
              (SELECT COUNT(DISTINCT s.CourseCode) FROM scoped s) AS courseCount,
              (SELECT COUNT(*)
@@ -384,9 +385,13 @@ function createSqlDashboardRepository(db) {
       const resolvedYear = resolveAcademicYear(year);
       const params = { academicYear: resolvedYear, limit: boundLimit(limit) };
       const predicates = [];
+      const localToday = "CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time')";
+      const effectiveActive = "f.Active = 1 AND (f.ActivationDate IS NULL OR f.ActivationDate <= " + localToday + ")";
+      const pending = "f.Active = 1 AND f.ActivationDate > " + localToday;
 
-      if (status === 'active') predicates.push('f.Active = 1');
-      else if (status === 'inactive') predicates.push('f.Active = 0');
+      if (status === 'active') predicates.push('(' + effectiveActive + ')');
+      else if (status === 'pending') predicates.push('(' + pending + ')');
+      else if (status === 'inactive') predicates.push('(f.Active = 0 OR (' + pending + '))');
       else if (status !== 'all') throw new Error('Invalid Faculty status filter');
 
       if (facultyId) {
@@ -415,7 +420,9 @@ function createSqlDashboardRepository(db) {
              f.Fte AS fte,
              f.ReportsToFacultyId AS reportsToFacultyId,
              ${facultyDisplayNameSql('manager')} AS reportsToName,
-             f.Active AS active,
+             CASE WHEN ${effectiveActive} THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END AS active,
+             f.Active AS administrativeActive,
+             CONVERT(varchar(10),f.ActivationDate,23) AS activationDate,
              CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc,
              profile.TeachingArea AS teachingArea,
              profile.ProfessionalCategory AS professionalCategory,
@@ -455,7 +462,7 @@ function createSqlDashboardRepository(db) {
         fte: toNumber(row.fte),
         reportsToFacultyId: toText(row.reportsToFacultyId),
         reportsToName: toText(row.reportsToName),
-        active: toBool(row.active),
+        active: toBool(row.active), administrativeActive: toBool(row.administrativeActive), activationDate: toText(row.activationDate),
         updatedAtUtc: row.updatedAtUtc instanceof Date ? row.updatedAtUtc.toISOString() : toText(row.updatedAtUtc),
         teachingArea: toText(row.teachingArea),
         professionalCategory: toText(row.professionalCategory),
@@ -565,12 +572,15 @@ function createSqlDashboardRepository(db) {
              f.FteSourceUpdatedAtUtc AS fteSourceUpdatedAtUtc,
              f.ReportsToFacultyId AS reportsToFacultyId,
              ${facultyDisplayNameSql('manager')} AS reportsToName,
-             f.Active AS active,
+             CASE WHEN f.Active=1 AND (f.ActivationDate IS NULL OR f.ActivationDate<=CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time')) THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END AS active,
+             f.Active AS administrativeActive,
+             CONVERT(varchar(10),f.ActivationDate,23) AS activationDate,
              CONVERT(varchar(33), f.UpdatedAtUtc, 126) + 'Z' AS updatedAtUtc
          FROM paws.Faculty f
          LEFT JOIN paws.Faculty manager ON manager.FacultyId = f.ReportsToFacultyId
          WHERE f.FacultyId = @facultyId
-           AND (@includeInactive = 1 OR f.Active = 1)`,
+           AND (@includeInactive = 1 OR (f.Active=1 AND
+             (f.ActivationDate IS NULL OR f.ActivationDate<=CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time'))))`,
         { facultyId, includeInactive: includeInactive ? 1 : 0 }
       );
 
@@ -839,6 +849,7 @@ function createSqlDashboardRepository(db) {
           reportsToFacultyId: toText(record.reportsToFacultyId),
           reportsToName: toText(record.reportsToName),
           active: toBool(record.active),
+          administrativeActive: toBool(record.administrativeActive), activationDate: toText(record.activationDate),
           updatedAtUtc: toText(record.updatedAtUtc)
         },
         academicYear: resolvedYear,

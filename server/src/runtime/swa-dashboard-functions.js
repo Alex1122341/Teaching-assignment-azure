@@ -67,7 +67,8 @@ function createDashboardFunctions({ api,traineeApi }) {
         let payload; try {payload=await request.json();} catch {return {status:400,jsonBody:{error:{code:'INVALID_JSON',message:'Invalid JSON.'}}};}
         const response=await api.updateRolePeriods(bearer(request),rolePeriods[1],payload);return {status:response.status,jsonBody:response.body};
       }
-      const isFacultyWrite = (!!facultyAction && request.method === 'POST') || (!!facultyUpdate && request.method === 'PATCH');
+      const isFacultyCreate = pathname === '/api/v1/dashboard/faculty' && request.method === 'POST';
+      const isFacultyWrite = isFacultyCreate || (!!facultyAction && request.method === 'POST') || (!!facultyUpdate && request.method === 'PATCH');
       if ((facultyAction && request.method !== 'POST') || (facultyUpdate && !['GET', 'PATCH'].includes(request.method))) {
         const allow = facultyAction ? 'POST' : 'GET, PATCH';
         return { status: 405, headers: { Allow: allow }, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: `${allow} required.` } } };
@@ -100,6 +101,13 @@ function createDashboardFunctions({ api,traineeApi }) {
         return { status: response.status, jsonBody: response.body };
       }
 
+      if (isFacultyCreate) {
+        let payload;
+        try { payload = typeof request.json === 'function' ? await request.json() : request.body; }
+        catch (_) { return { status: 400, jsonBody: { error: { code: 'INVALID_JSON', message: 'Request JSON is invalid.' } } }; }
+        const response = await api.createFaculty(token, payload);
+        return { status: response.status, jsonBody: response.body };
+      }
       if (isFacultyWrite) {
         let payload;
         try { payload = typeof request.json === 'function' ? await request.json() : request.body; }

@@ -9,7 +9,7 @@
     let saving = false;
     function actions(f) {
       if (!canWrite() || !f?.facultyId || !f.updatedAtUtc) return '';
-      return `<div class="faculty-admin-actions"><button type="button" class="btn btn-primary" data-faculty-edit="1">Edit Faculty</button>${f.administrativeActive === false ? '<button type="button" class="btn" data-faculty-restore="1">Restore Faculty</button>' : '<button type="button" class="btn" data-faculty-deactivate="1">Deactivate Faculty</button>'}</div>`;
+      return `<div class="faculty-admin-actions"><button type="button" class="btn btn-primary" data-faculty-edit="1">Edit Faculty</button>${(f.administrativeActive === undefined ? f.active === false : f.administrativeActive === false) ? '<button type="button" class="btn" data-faculty-restore="1">Restore Faculty</button>' : '<button type="button" class="btn" data-faculty-deactivate="1">Deactivate Faculty</button>'}</div>`;
     }
     function editAction(facultyId) { return canWrite() && facultyId ? `<button type="button" class="btn btn-small" data-faculty-edit-id="${esc(facultyId)}">Edit Faculty</button>` : ''; }
     function relationshipWarning(linked = {}) {
@@ -98,17 +98,18 @@
         button.disabled = true; status.textContent = 'Saving canonical Faculty record…';
         const values = payload(form);
         let finalId = id;
+        let saved = null;
         if (id) {
-          await UCVM_PAWS_DATA.updateDashboardFaculty(id,values);
+          saved = await UCVM_PAWS_DATA.updateDashboardFaculty(id,values);
         } else {
           const { expectedUpdatedAtUtc, expectedProfileVersion, ...createValues } = values;
-          const result = await UCVM_PAWS_DATA.createDashboardFaculty(createValues);
-          finalId = result?.faculty?.facultyId;
+          saved = await UCVM_PAWS_DATA.createDashboardFaculty(createValues);
+          finalId = saved?.faculty?.facultyId;
           if (!finalId) throw new Error('The Faculty API did not return an identifier; reload Lookup before retrying.');
         }
         $('faculty-record-editor').close();
         notify(id ? 'Faculty record saved.' : 'New Faculty record created.');
-        await onChanged(finalId, values.activationDate ? 'pending' : 'active');
+        await onChanged(finalId, saved?.faculty?.active === false ? (saved?.faculty?.administrativeActive === false ? 'inactive' : 'pending') : 'active');
       } catch (error) { status.textContent = error?.message || 'Faculty record could not be saved.'; button.disabled = false; }
       finally { saving = false; $('faculty-record-cancel').disabled = false; $('faculty-record-close').disabled = false; }
     }
@@ -120,7 +121,7 @@
     }
     async function restore(f) {
       if (!window.confirm(`Restore ${facultyName(f, f.facultyId)} as the same Faculty record? Its Faculty ID and existing relationships will be preserved.`)) return;
-      try { await UCVM_PAWS_DATA.restoreDashboardFaculty(f.facultyId,{expectedUpdatedAtUtc:f.updatedAtUtc}); notify('Existing Faculty record restored.'); await onChanged(f.facultyId,f.activationDate && f.active === false ? 'pending' : 'active'); }
+      try { await UCVM_PAWS_DATA.restoreDashboardFaculty(f.facultyId,{expectedUpdatedAtUtc:f.updatedAtUtc}); notify('Existing Faculty record restored.'); await onChanged(f.facultyId,'all'); }
       catch (error) { notify(error?.message || 'Faculty record could not be restored.',true); }
     }
     return Object.freeze({

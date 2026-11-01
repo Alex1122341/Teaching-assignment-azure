@@ -1731,7 +1731,7 @@
   }
 
   function assignmentErrorMessage(error){
-    const messages={WRITE_DISABLED:'Instructor editing is currently disabled.',ROLE_DENIED:'This account cannot edit timetable instructors.',SESSION_NOT_FOUND:'This session no longer exists. Reload the timetable.',SESSION_FACULTY_INVALID:'Choose active canonical Faculty entries.',ASSIGNMENT_HAS_RECORDED_DOE:'A removed instructor line has recorded workload or DOE and cannot be removed here.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before editing.',SQL_UNAVAILABLE:'Instructor changes were not saved because the University API is unavailable.'};
+    const messages={WRITE_DISABLED:'Instructor editing is currently disabled.',ROLE_DENIED:'This account cannot edit timetable instructors.',SESSION_NOT_FOUND:'This session no longer exists. Reload the timetable.',SESSION_FACULTY_INVALID:'Choose active canonical Faculty entries.',FACULTY_START_DATE_CONFLICT:'This Faculty member is inactive or the session date is before their official start date.',ASSIGNMENT_HAS_RECORDED_DOE:'A removed instructor line has recorded workload or DOE and cannot be removed here.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before editing.',SQL_UNAVAILABLE:'Instructor changes were not saved because the University API is unavailable.'};
     return messages[String(error?.code||'')]||'Instructor changes were not saved. Review the selections and try again.';
   }
 
@@ -1965,11 +1965,15 @@
       <div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-session-create-cancel">Cancel</button><button class="btn btn-primary" type="submit">Create session</button></div></form>`);
     const renderRows=()=>{
       const host=$('sql-create-assignment-rows');if(!host)return;
-      host.innerHTML=assignmentRows.map((row,index)=>`<div class="instructor-line" data-create-assignment="${index}"><div class="form-grid"><select class="form-select" data-create-faculty="${index}" required><option value="">Choose active Faculty</option>${directory.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(displayFaculty(person.displayName||person.facultyId))}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-create-role="${index}">${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-create-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
+      const selectedDate=$('create-date')?.value||'';
+      const eligible=directory.filter(person=>facultyEligibleForSession(person,selectedDate));
+      host.innerHTML=assignmentRows.map((row,index)=>`<div class="instructor-line" data-create-assignment="${index}"><div class="form-grid"><select class="form-select" data-create-faculty="${index}" required><option value="">Choose Faculty eligible on this date</option>${eligible.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(displayFaculty(person.displayName||person.facultyId))}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-create-role="${index}">${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-create-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
       host.querySelectorAll('[data-create-faculty]').forEach(control=>control.onchange=()=>{assignmentRows[Number(control.dataset.createFaculty)].facultyId=control.value});
       host.querySelectorAll('[data-create-role]').forEach(control=>control.onchange=()=>{assignmentRows[Number(control.dataset.createRole)].teachingRole=control.value});
       host.querySelectorAll('[data-create-remove]').forEach(control=>control.onclick=()=>{assignmentRows.splice(Number(control.dataset.createRemove),1);renderRows()});
     };
+    $('create-date')?.addEventListener('change',renderRows);
+    $('create-date')?.addEventListener('input',renderRows);
     $('sql-create-add-assignment').onclick=()=>{if(assignmentRows.length>=30){toast('A session can include at most 30 instructors.',true);return}assignmentRows.push({facultyId:'',teachingRole:'Lecture'});renderRows()};
     $('sql-session-create-cancel').onclick=closeModal;
     $('sql-session-create-form').onsubmit=async event=>{
@@ -1978,8 +1982,8 @@
       if(!scheduling.normalizeDate(date)||!sqlAcademicYearForDate(date)||scheduling.validateInterval(String(form.get('create-start')||''),String(form.get('create-end')||'')).status!=='valid'){
         error.textContent='Enter a valid date and a start/end time with the end after the start.';error.classList.remove('hidden');return;
       }
-      if(assignments.some(row=>!row.facultyId)||new Set(assignments.map(row=>row.facultyId.toLowerCase())).size!==assignments.length){
-        error.textContent='Choose a distinct active Faculty member for each instructor line.';error.classList.remove('hidden');return;
+      if(assignments.some(row=>!row.facultyId||!facultyEligibleForSession(directory.find(f=>f.facultyId===row.facultyId),date))||new Set(assignments.map(row=>row.facultyId.toLowerCase())).size!==assignments.length){
+        error.textContent='Choose a distinct Faculty member who is eligible on the selected date for each instructor line.';error.classList.remove('hidden');return;
       }
       button.disabled=true;button.textContent='Creating...';error.classList.add('hidden');
       try{
@@ -1991,7 +1995,7 @@
   }
 
   function creationErrorMessage(error){
-    const messages={WRITE_DISABLED:'Session creation is currently disabled.',ROLE_DENIED:'This account cannot create timetable sessions.',COURSE_NOT_FOUND:'Choose a course that exists in VetMed-Ops.',DUPLICATE_SESSION_CONFLICT:'A matching session already exists. Review the date and time.',SESSION_FACULTY_INVALID:'Choose active Faculty entries from the list.',INVALID_SESSION_ACADEMIC_YEAR:'The selected date is outside the supported academic year.',SESSION_DATE_OUTSIDE_ACADEMIC_YEAR:'The date does not match the academic year.',INVALID_SESSION_ASSIGNMENTS:'Review the instructor assignments.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before creating a session.',SQL_UNAVAILABLE:'No session was created because the University API is unavailable.'};
+    const messages={WRITE_DISABLED:'Session creation is currently disabled.',ROLE_DENIED:'This account cannot create timetable sessions.',COURSE_NOT_FOUND:'Choose a course that exists in VetMed-Ops.',DUPLICATE_SESSION_CONFLICT:'A matching session already exists. Review the date and time.',SESSION_FACULTY_INVALID:'Choose active Faculty entries from the list.',FACULTY_START_DATE_CONFLICT:'A Faculty member is inactive or their start date is after the session date.',INVALID_SESSION_ACADEMIC_YEAR:'The selected date is outside the supported academic year.',SESSION_DATE_OUTSIDE_ACADEMIC_YEAR:'The date does not match the academic year.',INVALID_SESSION_ASSIGNMENTS:'Review the instructor assignments.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before creating a session.',SQL_UNAVAILABLE:'No session was created because the University API is unavailable.'};
     return messages[String(error?.code||'')]||'The session was not created. Review the values and try again.';
   }
 

@@ -1,5 +1,8 @@
 # PAWS Data Quality — Needs Review
 
+> **Historical source-data snapshot (2026-10-04):** This is not a current error queue. Recheck each finding against current authoritative data; never apply an old cleanup instruction to live SQL without review.
+
+
 **Environment:** live Beta, `VetMed-Ops`
 **Academic year in source:** `2026-27`
 **Audit date:** 2026-10-04

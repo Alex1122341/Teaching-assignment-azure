@@ -1,5 +1,8 @@
 # Repository organization and simplification
 
+> **Historical PR #133 work journal (October 2026):** Its original unchecked implementation tasks are not current work orders. Inspect the present source tree and current `SETUP.md` before treating these items as unfinished.
+
+
 ## Goal and scope
 The Owner requested additional cleanup in existing PR #133: make source easier to locate, simplify unnecessary repetition, and preserve the active application. Starting checkpoint: `8249a331a2069d2172db304cc7dff586a7f8df02`.
 

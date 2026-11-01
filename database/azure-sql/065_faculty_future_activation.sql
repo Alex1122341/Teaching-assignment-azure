@@ -233,19 +233,19 @@ BEGIN
      SELECT 1 FROM inserted i
      JOIN paws.SessionAssignment sa ON sa.SessionId=i.SessionId
      JOIN paws.Faculty f ON f.FacultyId=sa.FacultyId
-     WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate))
+     WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate)
    )
    OR EXISTS(
      SELECT 1 FROM inserted i
      JOIN paws.TeachingAssignmentRevisionInstructor ri ON ri.SessionId=i.SessionId
      JOIN paws.Faculty f ON f.FacultyId=ri.FacultyId
-     WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate))
+     WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate)
    )
    OR EXISTS(
      SELECT 1 FROM inserted i
      JOIN paws.TeachingAssignmentFinalizationLine fi ON fi.SessionId=i.SessionId
      JOIN paws.Faculty f ON f.FacultyId=fi.FacultyId
-     WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate))
+     WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate)
    )
  THROW 56551,'Rescheduling would place a Faculty course before their start date.',1;
 END;

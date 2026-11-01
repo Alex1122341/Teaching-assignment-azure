@@ -86,7 +86,7 @@
     return { __id: id, facultyId: id, preferredFirstName: first, preferredLastName: last,
       preferredFullName: facultyName(r, id), displayName: facultyName(r, id),
       ucid: text(r.ucid), email: text(r.email), recordType: text(r.recordType), stream: text(r.stream), rank: text(r.rank), fte: present(r.fte) ? r.fte : undefined,
-      reportsToFacultyId: text(r.reportsToFacultyId), reportsToName: facultyName(r.reportsToName), active: r.active !== false, administrativeActive: r.administrativeActive !== false, activationDate: text(r.activationDate), teachingArea: text(r.teachingArea), professionalCategory: text(r.professionalCategory),
+      reportsToFacultyId: text(r.reportsToFacultyId), reportsToName: facultyName(r.reportsToName), active: r.active !== false, administrativeActive: r.administrativeActive === undefined ? (r.active !== false) : (r.administrativeActive !== false), activationDate: text(r.activationDate), teachingArea: text(r.teachingArea), professionalCategory: text(r.professionalCategory),
       updatedAtUtc: text(r.updatedAtUtc),
       sessionCount: number(r.sessionCount), roleCount: number(r.roleCount), afcCount: number(r.afcCount), jointAppointmentCount: number(r.jointAppointmentCount) };
   }
@@ -623,6 +623,7 @@
     onEditOpen: (form, f, p, detail) => { rolePeriodsEditor.remember(detail); facultyDoeEdit?.mount(form, f); const roles = rolePeriodsEditor.rolesFor(f.facultyId); form.querySelector('#faculty-record-fields')?.insertAdjacentHTML('beforeend', '<section class="form-section"><h3>Roles &amp; Appointments · effective periods</h3>' + roles.map(r => '<p>' + esc(r.roleType) + ' · ' + esc(r.courseOrSubjectOrRotation) + ' · ' + esc(window.PAWS_ROLE_PERIODS.status(r).label) + ' ' + rolePeriodsEditor.action(r) + '</p>').join('') + '</section>'); },
     notify: showToast,
     onChanged: async (id, requestedStatus) => {
+      if (requestedStatus === 'all') facultyStatus = 'all';
       if (requestedStatus === 'inactive' && facultyStatus === 'active') facultyStatus = 'inactive';
       else if (requestedStatus === 'pending') facultyStatus = 'pending';
       else if (requestedStatus === 'active' && ['inactive', 'pending'].includes(facultyStatus)) facultyStatus = 'active';

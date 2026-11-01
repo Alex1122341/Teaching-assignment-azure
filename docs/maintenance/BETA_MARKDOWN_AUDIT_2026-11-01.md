@@ -4,9 +4,9 @@
 
 ## Inventory and scope
 
-- Initial inventory: **422 Markdown files**, **2,896,123 bytes** (dated baseline). Includes 181 chronological `agent.Ai/updates/` handoffs, 89 `docs/superpowers/` specs/plans, 16 `docs/audits/` records.
+- Baseline `main` inventory: **422 Markdown files**, **2,896,123 bytes**. PR #156 initially added this audit report, so its pre-cleanup branch had **423 Markdown files**. Includes 181 chronological `agent.Ai/updates/` handoffs, 89 `docs/superpowers/` specs/plans, 16 `docs/audits/` records.
 - Disposition of original 17 candidates: **10 deleted**, **7 retained** after individual source reading, exact-filename GitHub code searches (no hits against the baseline default branch), later-document comparison and Git-history recoverability review.
-- Expected post-cleanup Markdown inventory: **413** = 422 baseline - 10 deleted + 1 new `agent.Ai/CURRENT.md`. The existing historical Agent handoffs, SQL migrations, rollback, security, Owner decisions and substantive acceptance records remain.
+- Verified post-cleanup Markdown inventory: **414** = 422 baseline + 1 PR audit report - 10 deleted + 1 new `agent.Ai/CURRENT.md` (complete Git tree, not truncated). The existing historical Agent handoffs, SQL migrations, rollback, security, Owner decisions and substantive acceptance records remain.
 - Scope of edits: Markdown only; no protected static/API asset, University SQL, Firebase, DOE rule, Faculty source, migration or deployment changes.
 
 ## Deleted after individual provenance review

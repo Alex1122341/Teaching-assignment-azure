@@ -153,11 +153,22 @@ BEGIN
    FROM paws.Faculty WITH(UPDLOCK,HOLDLOCK) WHERE FacultyId=@FacultyId;
   IF @Current IS NULL THROW 52303,'Faculty was not found.',1;
   IF @Current<>TRY_CONVERT(datetime2(7),@ExpectedUpdatedAtUtc,127) THROW 52305,'Faculty changed; reload before setting activation.',1;
-  IF @ActivationDate IS NOT NULL AND EXISTS(
-     SELECT 1 FROM paws.SessionAssignment sa
-     JOIN paws.vCalendarSession s ON s.SessionId=sa.SessionId
-     WHERE sa.FacultyId=@FacultyId AND s.SessionDate<@ActivationDate)
-     THROW 56552,'Existing course assignment predates the requested Faculty start date.',1;
+  IF @ActivationDate IS NOT NULL AND
+  (
+    EXISTS(SELECT 1 FROM paws.SessionAssignment sa
+      JOIN paws.vCalendarSession s ON s.SessionId=sa.SessionId
+      WHERE sa.FacultyId=@FacultyId AND (s.SessionDate IS NULL OR s.SessionDate<@ActivationDate))
+    OR EXISTS(SELECT 1 FROM paws.TeachingAssignmentRevisionInstructor ri
+      JOIN paws.Session s ON s.SessionId=ri.SessionId
+      WHERE ri.FacultyId=@FacultyId AND (s.SessionDate IS NULL OR s.SessionDate<@ActivationDate))
+    OR EXISTS(SELECT 1 FROM paws.TeachingAssignmentFinalizationLine fi
+      JOIN paws.Session s ON s.SessionId=fi.SessionId
+      WHERE fi.FacultyId=@FacultyId AND (s.SessionDate IS NULL OR s.SessionDate<@ActivationDate))
+    OR EXISTS(SELECT 1 FROM paws.TeachingAssignmentPublishedInstructor pi
+      JOIN paws.TeachingAssignmentPublishedSession ps ON ps.PublishedSessionId=pi.PublishedSessionId
+      WHERE pi.FacultyId=@FacultyId AND (ps.SessionDate IS NULL OR ps.SessionDate<@ActivationDate))
+  )
+     THROW 56552,'Existing teaching assignments predate the requested Faculty start date.',1;
   IF (@Before IS NULL AND @ActivationDate IS NOT NULL)
    OR (@Before IS NOT NULL AND @ActivationDate IS NULL)
    OR (@Before<>@ActivationDate)
@@ -206,7 +217,7 @@ BEGIN
   JOIN paws.vCalendarSession s ON s.SessionId=i.SessionId
   LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId
   WHERE i.FacultyId IS NOT NULL AND
-    (f.FacultyId IS NULL OR f.Active<>1 OR (f.ActivationDate IS NOT NULL AND s.SessionDate<f.ActivationDate)))
+    (f.FacultyId IS NULL OR f.Active<>1 OR (f.ActivationDate IS NOT NULL AND (s.SessionDate IS NULL OR s.SessionDate<f.ActivationDate))))
   THROW 56551,'Faculty is inactive or the course session is before the effective start date.',1;
 END;
 GO
@@ -231,7 +242,7 @@ BEGIN
  IF NOT(UPDATE(FacultyId) OR UPDATE(SessionId)) RETURN;
  IF EXISTS(SELECT 1 FROM inserted i JOIN paws.Session s ON s.SessionId=i.SessionId
   LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId
-  WHERE f.FacultyId IS NULL OR f.Active<>1 OR (f.ActivationDate IS NOT NULL AND s.SessionDate<f.ActivationDate))
+  WHERE f.FacultyId IS NULL OR f.Active<>1 OR (f.ActivationDate IS NOT NULL AND (s.SessionDate IS NULL OR s.SessionDate<f.ActivationDate)))
  THROW 56551,'Draft teaching assignment precedes Faculty activation or Faculty is disabled.',1;
 END;
 GO
@@ -243,7 +254,7 @@ BEGIN
  IF NOT(UPDATE(FacultyId) OR UPDATE(SessionId)) RETURN;
  IF EXISTS(SELECT 1 FROM inserted i JOIN paws.Session s ON s.SessionId=i.SessionId
   LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId
-  WHERE f.FacultyId IS NULL OR f.Active<>1 OR (f.ActivationDate IS NOT NULL AND s.SessionDate<f.ActivationDate))
+  WHERE f.FacultyId IS NULL OR f.Active<>1 OR (f.ActivationDate IS NOT NULL AND (s.SessionDate IS NULL OR s.SessionDate<f.ActivationDate)))
  THROW 56551,'Final teaching assignment precedes Faculty activation or Faculty is disabled.',1;
 END;
 GO
@@ -256,7 +267,7 @@ BEGIN
  IF EXISTS(SELECT 1 FROM inserted i
   JOIN paws.TeachingAssignmentPublishedSession s ON s.PublishedSessionId=i.PublishedSessionId
   LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId
-  WHERE f.FacultyId IS NULL OR f.Active<>1 OR (f.ActivationDate IS NOT NULL AND s.SessionDate<f.ActivationDate))
+  WHERE f.FacultyId IS NULL OR f.Active<>1 OR (f.ActivationDate IS NOT NULL AND (s.SessionDate IS NULL OR s.SessionDate<f.ActivationDate)))
  THROW 56551,'Published teaching assignment precedes Faculty activation or Faculty is disabled.',1;
 END;
 GO

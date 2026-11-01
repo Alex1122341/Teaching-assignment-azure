@@ -1,7 +1,15 @@
 'use strict';
 const PROFILE=`u.FirebaseUid AS firebaseUid,u.Email AS email,u.DisplayName AS displayName,u.BaseRole AS baseRole,
  f.PreferredFirstName AS preferredFirstName,f.PreferredLastName AS preferredLastName,
- u.FacultyId AS facultyId,u.Active AS active,u.MustChangePassword AS mustChangePassword,CAST(COALESCE(f.Active,0) AS bit) AS facultyActive,
+ u.FacultyId AS facultyId,
+ CASE WHEN LOWER(LTRIM(RTRIM(u.BaseRole))) IN(N'faculty',N'hicc',N'visc')
+   AND (f.FacultyId IS NULL OR f.Active=0 OR (f.ActivationDate IS NOT NULL AND
+        f.ActivationDate>CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time')))
+   THEN CAST(0 AS bit) ELSE u.Active END AS active,
+ u.MustChangePassword AS mustChangePassword,
+ CAST(CASE WHEN f.Active=1 AND (f.ActivationDate IS NULL OR
+    f.ActivationDate<=CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time'))
+    THEN 1 ELSE 0 END AS bit) AS facultyActive,
  LOWER(CONVERT(varchar(16),CONVERT(binary(8),u.AccessVersion),2)) AS version`;
 function receipt(row){
  if(!row)return null;
@@ -17,7 +25,12 @@ function createSqlAccountAccessRepository(db){
   eligibleFaculty:()=>db.query(`SELECT TOP(5001) FacultyId AS facultyId,DisplayName AS displayName,PreferredFirstName AS preferredFirstName,PreferredLastName AS preferredLastName,Active AS active FROM paws.Faculty WHERE Active=1 ORDER BY DisplayName,FacultyId`),
   collaborators:()=>db.query(`SELECT TOP(1001) u.FirebaseUid AS firebaseUid,u.FacultyId AS facultyId,
    f.DisplayName AS displayName,f.PreferredFirstName AS preferredFirstName,f.PreferredLastName AS preferredLastName,
-   u.BaseRole AS baseRole,u.Active AS active,u.MustChangePassword AS mustChangePassword,f.Active AS facultyActive
+   u.BaseRole AS baseRole,
+   CASE WHEN f.Active=1 AND (f.ActivationDate IS NULL OR f.ActivationDate<=CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time'))
+        THEN u.Active ELSE CAST(0 AS bit) END AS active,
+   u.MustChangePassword AS mustChangePassword,
+   CAST(CASE WHEN f.Active=1 AND (f.ActivationDate IS NULL OR f.ActivationDate<=CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time'))
+        THEN 1 ELSE 0 END AS bit) AS facultyActive
    FROM paws.UserProfile u JOIN paws.Faculty f ON f.FacultyId=u.FacultyId
    WHERE LOWER(LTRIM(RTRIM(u.BaseRole))) IN(N'faculty',N'hicc',N'visc') ORDER BY f.DisplayName,u.FirebaseUid`),
   async operation(operationId){return receipt((await db.query('SELECT ReceiptJson AS receiptJson FROM paws.AccountAccessChange WHERE OperationId=@operationId',{operationId}))[0]);},

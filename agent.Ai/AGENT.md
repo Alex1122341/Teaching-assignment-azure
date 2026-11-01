@@ -1,111 +1,27 @@
-# PAWS Agent Startup and Handoff Protocol
+# PAWS Beta — Agent Startup and Handoff
 
-This file is the canonical continuity instruction for AI agents working in the PAWS Beta repository.
+## Minimum startup (in order)
 
-## Mandatory startup rule
+1. Read the root [`AGENTS.md`](../AGENTS.md) for binding security, privacy, approvals, protected runtime and release gates.
+2. Read [`CURRENT.md`](CURRENT.md) for the most recently **source-verified** repository status, with an explicit date and scope.
+3. Verify the task's exact GitHub PR, branch, head SHA, CI, and the relevant current code/tests before modifying anything.
+4. Read the **specific** spec, policy, owner decision or runbook needed for the change. Use [`DECISIONS.md`](DECISIONS.md), [`PROJECT_STATE.md`](PROJECT_STATE.md), [`TASK_CHAIN.md`](TASK_CHAIN.md), and `updates/` only for a needed historical detail or prior operation.
 
-If you do **not** already have reliable, recent PAWS project context in your current conversation/session, stop before implementation and read, in order:
+Do not require full historical records at every restart. Do not restart architecture from scratch simply because the chat context is new.
 
-1. repository root `AGENTS.md`
-2. `agent.Ai/README.md`
-3. `agent.Ai/PROJECT_STATE.md`
-4. `agent.Ai/TASK_CHAIN.md`
-5. `agent.Ai/DECISIONS.md`
-6. the newest file in `agent.Ai/updates/`
-7. only then, the relevant sections of `ARCHITECTURE.md`, `DOMAINS.md`, and `ALGORITHMS.md`
+## Authority and evidence
 
-If the task references a PR/branch/commit, verify that exact ref before using conclusions from a different branch.
+Latest explicit Owner direction and verified live state govern operational decisions. Verify PR, CI, deployed version, SQL counts and gate values afresh. Exact requested source and binding decisions outrank dated reports. `CURRENT.md` is a **GitHub source checkpoint**, not proof of the live University environment.
 
-Do not restart architecture from scratch merely because the chat context is new.
+Keep **Experimental / GitHub Pages Demo** separate from **Beta / University SQL**. A code feature, a merged PR, a published artifact and live acceptance are four different states. Do not infer SQL migrations, DOE approval, Firebase publication or Faculty data changes from source files alone.
 
-## Source-of-truth order
+## No-repeat and safety
 
-When sources disagree, use this order:
+Before any repeat migration, reset, import, credential/role change, deployment or merge, consult the exact prior receipt in `updates/`/`PROJECT_STATE.md`, inspect the live target and obtain applicable authorization. Never replay an already accepted SQL migration because a session lacks context. Never bypass frozen runtime/baseline protections, release reviews, role/privacy boundaries, or required tests. Follow the root `AGENTS.md` and `PAWS_CONSTITUTION.md`.
 
-1. **Latest explicit owner instruction**
-2. **Fresh verified live evidence** for mutable operational facts
-3. **Exact requested repository/PR/commit source**
-4. **Locked decisions in `agent.Ai/DECISIONS.md`**
-5. **Current state in `agent.Ai/PROJECT_STATE.md`**
-6. Older reports, prompts, comments and historical notes
+## End of substantive PR / checkpoint
 
-Never silently “correct” the owner’s product choice with an older architecture report.
-
-## Current strategic priority — verified 2026-10-15
-
-The Beta is **already deployed as a University SQL-backed modular application**. The historical BETA-R1 connection milestone and old DOE-out-of-scope instruction are completed/superseded for later owner-approved modules, not today's task.
-
-Current documented deployment: Firebase Hosting (tester-teaching.web.app) -> Firebase Authentication -> temporary Cloudflare HTTPS ingress -> University Node.js API -> SQL Server ITAPPVETOPSDB01 / VetMed-Ops. SQL UserProfile is the role/scope authority. This is university-hosted SQL Server, not a direct browser-to-Azure-SQL connection.
-
-Review these active workstreams before implementing:
-
-1. Preserve the accepted Oct14 AFC/LAB API + Hosting release ca465bf and its immutable trust anchor fb2c625; no repeat migration or deployment solely for continuity.
-2. DOE is a current Beta module (Worksheets, Rule Book Draft/Preview, manual/target operations, engine). The candidate 2026-27 Rule Book remains a **Draft** in the latest documented SQL receipts; do not claim published Active policy or run recalculation without separate authorization.
-3. Existing SQL Teaching Assignment, Session/SWAP, Faculty Dashboard, Role periods, Developer Support and Tasks are implemented subject to role/scope/write gates.
-4. Draft PR #97 (design), #98 (Calendar working activities/exact AFC migration), #99 (ADFA SWAP DOE preview), and #100 (Tasks conflicts) were **not in main and not live at the 2026-10-15 checkpoint**. HEAD now contains the 038–043 source range covering the #98–#100 scope; live / SQL-applied status still needs separate verification. Read their exact HEADs, dependencies and CI before acting; #100 most recently had a failing Beta Build.
-5. Before any new Calendar/AFC migration or destructive source data operation: confirm dedicated narrow-permission service identity, exact preflight, review and owner-authorized release. Do not use existing temporary db_owner membership as evidence of least privilege.
-6. Graph Outlook and Brightspace/D2L synchronization are future interfaces, NOT verified PAWS implementations.
-
-Distinguish **present in source**, **merged**, **released**, and **live accepted** for every feature. Current main/ref, runtime gates, policy status and SQL counts are mutable and must be freshly verified. Read ARCHITECTURE.md, DOMAINS.md, WORKFLOWS.md, ALGORITHMS.md and the newest dated update for current diagrams and boundaries.
-
-## Two-track rule
-
-Do not conflate:
-
-- `Alex1122341/Teaching-assignment` = Experimental / feature-forward / Firebase demo track.
-- `Alex1122341/Teaching-assignment-azure` = controlled Azure Beta / migration / release track.
-
-Features move from Experimental to Beta deliberately. There is no automatic parity requirement.
-
-## No-repeat rule
-
-Before repeating a migration, reset, import, provisioning step, live write, deployment or merge, read `PROJECT_STATE.md` and the newest update.
-
-In particular, do not rerun the Azure SQL reset or the initial empty-database loader merely because a new agent does not remember that they already completed.
-
-## Mandatory end-of-task update
-
-For every substantive task, before the agent declares completion:
-
-1. create a new file in `agent.Ai/updates/` using `UPDATE_TEMPLATE.md`;
-2. update `PROJECT_STATE.md` if the current breakpoint changed;
-3. update `TASK_CHAIN.md` if task status/order changed;
-4. update `DECISIONS.md` only when the owner/architect actually changed a decision;
-5. update architecture/domain/algorithm docs if an implementation or invariant materially changed.
-
-Do not rewrite old update files. They are chronological evidence.
-
-## Update filenames
-
-Preferred form:
-
-`YYYY-MM-DD-HHMM-<short-task-name>.md`
-
-If exact time is unavailable:
-
-`YYYY-MM-DD-<short-task-name>.md`
-
-## Handoff completeness checklist
-
-Every update must state:
-
-- repository
-- base branch/SHA
-- working branch/SHA
-- PR number if any
-- task goal
-- files/areas changed
-- architecture/invariants affected
-- tests/CI and exact outcomes
-- live operations performed, if any
-- live operations explicitly not performed
-- blockers/unresolved questions
-- exact current breakpoint
-- next safe action
-- things the next agent must not redo
-
-## Safety
-
-This continuity system never stores secrets or sensitive source records.
-
-Do not put credentials, tokens, connection strings, private IDs, student identifiers, AFC reasons or other restricted values in these files.
+- Record exact repository, PR/head/base, changes, test/CI evidence, current release state, blockers and the next safe step in **one concise handoff** if needed.
+- Refresh `CURRENT.md` when verified repository state advances. Update `DECISIONS.md` **only** for an actual Owner decision; update architecture docs only when the contract changes.
+- Preserve older `updates/`, `PROJECT_STATE.md` and `TASK_CHAIN.md` as chronological history. Do not add one note per small commit or make every agent reread the full chronology.
+- Never put secrets, connection strings, private identifiers, student records, AFC reasons or other confidential source values in handoffs.

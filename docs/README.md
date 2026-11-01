@@ -1,12 +1,28 @@
-# Documentation map
+# PAWS Beta documentation index
 
-- [Repository organization](architecture/repository-layout.md): current source folders, shared build behavior and safety boundaries.
-- [Azure frontend audit](azure-frontend-retirement-audit-20261022.md): prior cleanup and remaining non-database cloud deployment work.
-- `operations/`, `sql/` and `../deploy/windows/`: operational evidence and reviewed server/SQL procedures.
-- `superpowers/specs/` and `superpowers/plans/`: dated specifications and implementation records; check current Owner decisions before executing historical plans.
-- `performance/`: preserved historical reports, not new benchmark claims.
-- Other dated reports preserve release, acceptance and governance evidence. They are not executable instructions for a new release.
+**Start here:** [`SETUP.md`](../SETUP.md) for repository setup; [`AGENTS.md`](../AGENTS.md) and [`agent.Ai/CURRENT.md`](../agent.Ai/CURRENT.md) for binding agent rules and a **dated, source-verified** checkpoint. Neither is a live runtime attestation.
 
-Current active setup: [SETUP.md](../SETUP.md). Agent instructions and chronology: [AGENTS.md](../AGENTS.md) and `../agent.Ai/`.
+## Active references
 
-**2026-11-01 documentation audit:** [Beta Markdown review](maintenance/BETA_MARKDOWN_AUDIT_2026-11-01.md) inventories 422 files and identifies historical notes for conservative pruning. This audit does not verify live SQL, authorize deleting migration evidence, or deploy an application. Old 2026-10 checkpoints are dated historical snapshots; verify current PR/release status from GitHub and the live system.
+- [Repository layout and boundaries](architecture/repository-layout.md)
+- [PAWS Constitution: person-name presentation](../PAWS_CONSTITUTION.md)
+- [Architecture and domains](../agent.Ai/ARCHITECTURE.md) / [domain map](../agent.Ai/DOMAINS.md)
+- [Agent startup and handoff](../agent.Ai/AGENT.md) / [locked decisions](../agent.Ai/DECISIONS.md)
+- `operations/`, `sql/`, and `../deploy/windows/` — review relevant operational/SQL evidence before any live action.
+- `superpowers/specs/` and `superpowers/plans/` — dated specs/plans; not direct authorization to execute.
+
+## Dated evidence — **not current live state**
+
+- [2026-09-24 Azure SQL lab import](azure-sql-migration.md) — historical lab-only source migration; never replay into University SQL.
+- [2026-10-04 DOE data-readiness audit](PAWS-DOE-Data-Readiness.md) — historical DOE counts, **not** an up-to-date MASTER reconciliation.
+- [2026-10-04 data-quality report](PAWS-Data-Quality-Needs-Review.md) — historical issue counts, not today's work queue.
+- [2026-10-21 Faculty Availability acceptance/release report](faculty-availability-acceptance-release-report-20261021.md) and [local-release authorization](faculty-availability-local-release-authorization-20261021.md) — dated evidence and release boundaries.
+- [2026-10-22 HICC–CC/VISC directory design and verification](hicc-visc-directory-20261022.md).
+- [2026-10-15 selected schedule export acceptance](selected-schedule-export-acceptance-20261015.md) and [governance review](selected-schedule-export-governance-20261015.md).
+- [Historic Azure frontend retirement audit](azure-frontend-retirement-audit-20261022.md) — legacy references may remain for University API/build compatibility.
+- `performance/`, `audits/`, and [`agent.Ai` history](../agent.Ai/README.md) — chronological records, not automatically current.
+
+## Maintenance
+
+- [2026-11-01 Markdown audit and file-by-file deletion decisions](maintenance/BETA_MARKDOWN_AUDIT_2026-11-01.md).
+- Delete only verified redundant notes; keep SQL migration/rollback, security, Owner decisions, substantive acceptance evidence and historical Agent records. Verify exact PR CI, runtime freeze, and source status before a release.

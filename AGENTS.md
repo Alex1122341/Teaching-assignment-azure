@@ -8,12 +8,11 @@ Before changing any person-name display or generated output, read and follow [PA
 
 For UI work, follow [docs/ui-design.md](docs/ui-design.md): reuse existing components and tokens, preserve business/security contracts, and verify comparable synthetic screenshots before claiming visual completion.
 
-If you do not already have reliable recent PAWS project context, you MUST read `agent.Ai/AGENT.md`, `agent.Ai/PROJECT_STATE.md`, `agent.Ai/TASK_CHAIN.md`, `agent.Ai/DECISIONS.md`, and the newest file under `agent.Ai/updates/` before starting substantive work.
+If recent PAWS context is unavailable, begin with this `AGENTS.md`, then `agent.Ai/CURRENT.md`, then the task-specific policy/specification and exact PR diff. Use `agent.Ai/DECISIONS.md`, `PROJECT_STATE.md`, `TASK_CHAIN.md`, and dated `agent.Ai/updates/` only when a decision, prior operation, historical dependency or unresolved breakpoint requires them. Do not read the entire history by default.
 
-The `agent.Ai/` directory is documentation-only continuity memory. It has no application/runtime role.
+The `agent.Ai/` directory is non-runtime continuity evidence. Never treat a dated note as a live SQL, CI or deployment receipt.
 
-Before completing substantive work, leave a new chronological update under `agent.Ai/updates/` using `agent.Ai/UPDATE_TEMPLATE.md`, and refresh the current-state/task files when the breakpoint changes.
-
+Provide **one concise handoff per substantive PR or major checkpoint**, not a new freeze/promotion/handoff note after every small commit. Update `agent.Ai/CURRENT.md` when verified repository status materially changes. Preserve chronological records rather than rewriting history; create a new `agent.Ai/updates/` entry using `UPDATE_TEMPLATE.md` when a substantial task actually needs a handoff.
 For mutable facts such as PR heads, CI, live SQL counts, Azure configuration and deployed runtime, verify current evidence before acting.
 
 ## Repository and deployment source of truth

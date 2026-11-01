@@ -257,3 +257,10 @@ test('dated annual roles keep proration case by case and do not false-mismatch s
   assert.equal(datedYear1Zero.effectiveDoe, 0);
   assert.equal(datedYear1Zero.prorationReview, false);
 });
+
+
+test('reserve reference uses trainee ceilings, not the remaining teaching share', () => {
+  assert.equal(calculateTraineeReserveReference({ teachingDoe: 50, teachingFocused: true }).ceilingDoe, 7.5);
+  assert.equal(calculateTraineeReserveReference({ teachingDoe: 50 }).ceilingDoe, 15);
+  assert.equal(calculateTraineeReserveReference({ teachingDoe: 5, teachingFocused: true }).ceilingDoe, 5);
+});

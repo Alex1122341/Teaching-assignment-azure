@@ -154,7 +154,9 @@ function validateFacultyUpdate(payload, facultyId) {
     ? null : strictDate(payload.activationDate);
   if (payload.activationDate !== undefined && payload.activationDate !== null && payload.activationDate !== '' && !activationDate)
     return { error: error(400, 'INVALID_FACULTY_ACTIVATION_DATE', 'Activation date must be a real YYYY-MM-DD date.') };
-  return { value: { expectedUpdatedAtUtc, expectedProfileVersion, ...faculty, activationDate, professionalProfile } };
+  return { value: { expectedUpdatedAtUtc, expectedProfileVersion, ...faculty,
+    ...(Object.prototype.hasOwnProperty.call(payload, 'activationDate') ? { activationDate } : {}),
+    professionalProfile } };
 }
 
 function validateFacultyCreate(payload) {

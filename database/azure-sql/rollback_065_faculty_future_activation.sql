@@ -26,6 +26,8 @@ IF OBJECT_ID(N'paws.trg_FacultyActivation_Finalization',N'TR') IS NOT NULL
  DROP TRIGGER paws.trg_FacultyActivation_Finalization;
 IF OBJECT_ID(N'paws.trg_FacultyActivation_PublishedInstructor',N'TR') IS NOT NULL
  DROP TRIGGER paws.trg_FacultyActivation_PublishedInstructor;
+IF OBJECT_ID(N'paws.trg_FacultyActivation_PublishedSession',N'TR') IS NOT NULL
+ DROP TRIGGER paws.trg_FacultyActivation_PublishedSession;
 IF OBJECT_ID(N'paws_api.CreateFaculty',N'P') IS NOT NULL DROP PROCEDURE paws_api.CreateFaculty;
 IF OBJECT_ID(N'paws_api.SetFacultyActivation',N'P') IS NOT NULL DROP PROCEDURE paws_api.SetFacultyActivation;
 IF COL_LENGTH(N'paws.Faculty',N'ActivationDate') IS NOT NULL

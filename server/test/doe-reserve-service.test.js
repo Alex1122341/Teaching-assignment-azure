@@ -26,8 +26,8 @@ test('reserve splits a low-target stream and caps applied supervision by remaini
 });
 
 test('reserve applies teaching-focused and high-target ceilings from policy', () => {
-  assert.equal(applyTeachingReserve({ teachingTarget: 50, stream: 'teaching_focused', rawSupervision: 20, assignedTeaching: 0, policy }).initialTraineeReserve, 42.5);
-  assert.equal(applyTeachingReserve({ teachingTarget: 50, stream: 'clinical', rawSupervision: 20, assignedTeaching: 0, policy }).initialTraineeReserve, 35);
+  assert.equal(applyTeachingReserve({ teachingTarget: 50, stream: 'teaching_focused', rawSupervision: 20, assignedTeaching: 0, policy }).initialTraineeReserve, 7.5);
+  assert.equal(applyTeachingReserve({ teachingTarget: 50, stream: 'clinical', rawSupervision: 20, assignedTeaching: 0, policy }).initialTraineeReserve, 15);
 });
 
 test('reserve rejects missing or invalid policy and input instead of inventing a result', () => {
@@ -71,4 +71,30 @@ test('absent or disabled annual MASTER mode preserves flexible-transfer results'
   const config = policy;
   assert.equal(applyTeachingReserve({ teachingTarget: 10, stream: 'clinical',
     rawSupervision: 25, assignedTeaching: 0, policy: config }).appliedSupervision, 10);
+});
+
+
+test('legacy reserve ignores a supplied contract until the annual flag is enabled', () => {
+  for (const configuredPolicy of [policy, { ...policy, contractReserveCap: 0 }]) {
+    const result = applyTeachingReserve({ teachingTarget: 50, contractTeachingTarget: 30,
+      stream: 'teaching_focused', rawSupervision: 20, assignedTeaching: 0, policy: configuredPolicy });
+    assert.equal(result.initialTraineeReserve, 7.5);
+    assert.equal(result.appliedSupervision, 7.5);
+  }
+});
+
+test('annual MASTER mode caps supervision by contract trainee reserve, not assigned teaching reserve', () => {
+  const result = applyTeachingReserve({ teachingTarget: 50, contractTeachingTarget: 50,
+    stream: 'teaching_focused', rawSupervision: 20, assignedTeaching: 42.5,
+    policy: { ...policy, contractReserveCap: 1 } });
+  assert.equal(result.initialTraineeReserve, 7.5);
+  assert.equal(result.initialAssignedTeachingReserve, 42.5);
+  assert.equal(result.appliedSupervision, 7.5);
+  assert.equal(result.remainingToTarget, 0);
+});
+
+test('annual MASTER mode rejects unknown contract source rather than silently using effective target', () => {
+  assert.throws(() => applyTeachingReserve({ teachingTarget: 50,
+    stream: 'clinical', rawSupervision: 5, assignedTeaching: 0,
+    policy: { ...policy, contractReserveCap: 1 } }), { code: 'RESERVE_CONTRACT_UNAVAILABLE' });
 });

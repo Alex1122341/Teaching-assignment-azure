@@ -312,7 +312,7 @@ function calculateTraineeReserveReference({ teachingDoe, teachingFocused = false
     return {
       applicable: true,
       calculatedDoe: null,
-      ceilingDoe: fixed(Math.max(0, teaching - 7.5)),
+      ceilingDoe: fixed(Math.min(teaching, 7.5)),
       status: 'ceiling-only',
       reviewReason: null,
       ...ruleMeta('teaching_focused_reserve_ceiling')
@@ -331,7 +331,7 @@ function calculateTraineeReserveReference({ teachingDoe, teachingFocused = false
   return {
     applicable: true,
     calculatedDoe: null,
-    ceilingDoe: fixed(Math.max(0, teaching - 15)),
+    ceilingDoe: 15,
     status: 'ceiling-only',
     reviewReason: null,
     ...ruleMeta('supervision_reserve_ceiling')

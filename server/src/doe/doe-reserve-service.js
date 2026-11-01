@@ -53,23 +53,22 @@ function applyTeachingReserve({ teachingTarget, contractTeachingTarget, stream, 
     throw new DoeReservePolicyError('RESERVE_INPUT_INVALID', 'Teaching target, supervision, and assigned teaching must be finite non-negative numbers.');
   }
 
-  const contractTarget = finite(contractTeachingTarget);
-  const reserveTarget = contractTarget !== null ? contractTarget : target;
+  const contractCap = config.contractReserveCap === 1;
+  const reserveTarget = contractCap ? finite(contractTeachingTarget) : target;
   if (reserveTarget === null || reserveTarget < 0) {
     throw new DoeReservePolicyError('RESERVE_CONTRACT_UNAVAILABLE', 'Contract Teaching DOE is required for the annual contract reserve calculation.');
   }
 
   let initialTraineeReserve;
-  if (teachingFocused(stream)) initialTraineeReserve = Math.max(0, reserveTarget - config.teachingFocusedTraineeCeiling);
+  if (teachingFocused(stream)) initialTraineeReserve = Math.min(reserveTarget, config.teachingFocusedTraineeCeiling);
   else if (reserveTarget <= config.splitThreshold) initialTraineeReserve = reserveTarget * config.splitRatio;
-  else initialTraineeReserve = Math.max(0, reserveTarget - config.highTeachingTraineeCeiling);
+  else initialTraineeReserve = Math.min(reserveTarget, config.highTeachingTraineeCeiling);
 
   const initialAssignedTeachingReserve = Math.max(0, reserveTarget - initialTraineeReserve);
   const roomAfterAssigned = Math.max(0, target - assigned);
   const flexible = !teachingFocused(stream) && target <= config.splitThreshold;
   const supervisionCeiling = flexible ? target : initialTraineeReserve;
-  const hasContract = contractTarget !== null;
-  const appliedSupervision = hasContract ? Math.min(supervision, initialTraineeReserve)
+  const appliedSupervision = contractCap ? Math.min(supervision, initialTraineeReserve)
     : Math.min(supervision, supervisionCeiling, roomAfterAssigned);
   const maxAssignedTeaching = Math.max(0, target - appliedSupervision);
   const totalAppliedTeaching = assigned + appliedSupervision;

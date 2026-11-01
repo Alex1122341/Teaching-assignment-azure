@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {execFileSync}=require('node:child_process'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-freeze');
-const product='e4abbc9a3566c15da81c6610d42ff97e388f7912',previous='5752b148b1966943910e87e1cfe2c272b934b072';
+const product='4da4598bd27f2b7adea07c9682f6569a2c7a3529',previous='5752b148b1966943910e87e1cfe2c272b934b072';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const changed=(...paths)=>git('diff','--name-only',previous,product,'--',...paths).split(/\r?\n/).filter(Boolean).sort();
 test('PR155 pins reviewed Faculty activation product and keeps every protected path',()=>{

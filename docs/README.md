@@ -8,3 +8,5 @@
 - Other dated reports preserve release, acceptance and governance evidence. They are not executable instructions for a new release.
 
 Current active setup: [SETUP.md](../SETUP.md). Agent instructions and chronology: [AGENTS.md](../AGENTS.md) and `../agent.Ai/`.
+
+**2026-11-01 documentation audit:** [Beta Markdown review](maintenance/BETA_MARKDOWN_AUDIT_2026-11-01.md) inventories 422 files and identifies historical notes for conservative pruning. This audit does not verify live SQL, authorize deleting migration evidence, or deploy an application. Old 2026-10 checkpoints are dated historical snapshots; verify current PR/release status from GitHub and the live system.

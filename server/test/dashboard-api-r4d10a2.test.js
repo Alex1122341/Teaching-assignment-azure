@@ -453,13 +453,18 @@ test('Y: read-only Dashboard routes reject methods while Faculty detail exposes 
   for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
     for (const url of urls) {
       const response = await app(request(url, { method }));
+      if (url === '/api/v1/dashboard/faculty' && method === 'POST') {
+        assert.equal(response.status, 503);
+        assert.equal(response.jsonBody.error.code, 'WRITE_DISABLED');
+        continue;
+      }
       if (url.endsWith('/' + FACULTY_ID) && method === 'PATCH') {
         assert.equal(response.status, 503);
         assert.equal(response.jsonBody.error.code, 'WRITE_DISABLED');
         continue;
       }
       assert.equal(response.status, 405, method + ' ' + url);
-      assert.equal(response.headers.Allow, url.endsWith('/' + FACULTY_ID) ? 'GET, PATCH' : 'GET', method + ' ' + url);
+      assert.equal(response.headers.Allow, url.endsWith('/' + FACULTY_ID) ? 'GET, PATCH' : url === '/api/v1/dashboard/faculty' ? 'GET, POST' : 'GET', method + ' ' + url);
       assert.equal(response.jsonBody.error.code, 'METHOD_NOT_ALLOWED');
     }
   }
@@ -629,8 +634,9 @@ test('E4: a faculty-scoped roster query is narrowed by FacultyId', async () => {
 
 test('Faculty roster status filters build valid optional WHERE clauses', async () => {
   const cases = [
-    { name: 'active', input: { status: 'active' }, where: /WHERE f\.Active = 1/ },
-    { name: 'inactive', input: { status: 'inactive' }, where: /WHERE f\.Active = 0/ },
+    { name: 'active', input: { status: 'active' }, where: /WHERE \(f\.Active = 1 AND \(f\.ActivationDate IS NULL OR f\.ActivationDate <=/ },
+    { name: 'inactive', input: { status: 'inactive' }, where: /WHERE \(f\.Active = 0\)/ },
+    { name: 'pending', input: { status: 'pending' }, where: /WHERE \(f\.Active = 1 AND f\.ActivationDate >/ },
     { name: 'all with search', input: { status: 'all', search: 'fixture' }, where: /WHERE .*f\.DisplayName LIKE @search/ },
     { name: 'all with FacultyId', input: { status: 'all', facultyId: FACULTY_ID }, where: /WHERE f\.FacultyId = @facultyId/ }
   ];

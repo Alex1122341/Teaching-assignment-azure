@@ -44,7 +44,7 @@ test('editing appointment + date is serialized inside one SQL transaction',async
   throw Error('unexpected procedure');
  }, transaction:async action=>{calls.push(['BEGIN']);const result=await action();calls.push(['COMMIT']);return result;}};
  const value=await createSqlFacultyAdminRepository(db).updateFaculty(fields);
- assert.deepEqual(calls.map(c=>c[0].startsWith('EXEC')?c[0].split('paws_api.')[1].split('\\n')[0]:c[0]),['BEGIN','UpdateFaculty','SetFacultyActivation','COMMIT']);
+ assert.deepEqual(calls.map(c=>c[0].startsWith('EXEC')?c[0].split('paws_api.')[1].split('\n')[0]:c[0]),['BEGIN','UpdateFaculty','SetFacultyActivation','COMMIT']);
  assert.equal(calls[2][1].ExpectedUpdatedAtUtc,'2026-10-31T15:30:00.000Z');
  assert.equal(value.activationDate,'2027-06-01');
  assert.equal(value.active,false);

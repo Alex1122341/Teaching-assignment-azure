@@ -20,6 +20,8 @@ IF OBJECT_ID(N'paws.Faculty',N'U') IS NULL
  OR OBJECT_ID(N'paws.TeachingAssignmentRevisionInstructor',N'U') IS NULL
  OR OBJECT_ID(N'paws.TeachingAssignmentFinalizationLine',N'U') IS NULL
  OR OBJECT_ID(N'paws.TeachingAssignmentPublishedInstructor',N'U') IS NULL
+ OR OBJECT_ID(N'paws.TeachingAssignmentPublishedSession',N'U') IS NULL
+ OR COL_LENGTH(N'paws.FacultyProfessionalProfile',N'ProfileVersion') IS NULL
  THROW 56501,'Missing prerequisites: Faculty P3 and Teaching Assignment P2 are required.',1;
 IF COL_LENGTH(N'paws.Faculty',N'ActivationDate') IS NULL
  ALTER TABLE paws.Faculty ADD ActivationDate date NULL;
@@ -227,10 +229,24 @@ AS
 BEGIN
  SET NOCOUNT ON;
  IF NOT UPDATE(SessionDate) RETURN;
- IF EXISTS(SELECT 1 FROM inserted i
-   JOIN paws.SessionAssignment sa ON sa.SessionId=i.SessionId
-   JOIN paws.Faculty f ON f.FacultyId=sa.FacultyId
-   WHERE f.ActivationDate IS NOT NULL AND i.SessionDate<f.ActivationDate)
+ IF EXISTS(
+     SELECT 1 FROM inserted i
+     JOIN paws.SessionAssignment sa ON sa.SessionId=i.SessionId
+     JOIN paws.Faculty f ON f.FacultyId=sa.FacultyId
+     WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate))
+   )
+   OR EXISTS(
+     SELECT 1 FROM inserted i
+     JOIN paws.TeachingAssignmentRevisionInstructor ri ON ri.SessionId=i.SessionId
+     JOIN paws.Faculty f ON f.FacultyId=ri.FacultyId
+     WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate))
+   )
+   OR EXISTS(
+     SELECT 1 FROM inserted i
+     JOIN paws.TeachingAssignmentFinalizationLine fi ON fi.SessionId=i.SessionId
+     JOIN paws.Faculty f ON f.FacultyId=fi.FacultyId
+     WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate))
+   )
  THROW 56551,'Rescheduling would place a Faculty course before their start date.',1;
 END;
 GO
@@ -269,6 +285,19 @@ BEGIN
   LEFT JOIN paws.Faculty f ON f.FacultyId=i.FacultyId
   WHERE f.FacultyId IS NULL OR f.Active<>1 OR (f.ActivationDate IS NOT NULL AND (s.SessionDate IS NULL OR s.SessionDate<f.ActivationDate)))
  THROW 56551,'Published teaching assignment precedes Faculty activation or Faculty is disabled.',1;
+END;
+GO
+CREATE OR ALTER TRIGGER paws.trg_FacultyActivation_PublishedSession
+ON paws.TeachingAssignmentPublishedSession AFTER UPDATE
+AS
+BEGIN
+ SET NOCOUNT ON;
+ IF NOT UPDATE(SessionDate) RETURN;
+ IF EXISTS(SELECT 1 FROM inserted i
+   JOIN paws.TeachingAssignmentPublishedInstructor pi ON pi.PublishedSessionId=i.PublishedSessionId
+   JOIN paws.Faculty f ON f.FacultyId=pi.FacultyId
+   WHERE f.ActivationDate IS NOT NULL AND (i.SessionDate IS NULL OR i.SessionDate<f.ActivationDate))
+ THROW 56551,'A published course session cannot move before the assigned Faculty start date.',1;
 END;
 GO
 IF DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NOT NULL

@@ -11,13 +11,16 @@ test('Faculty dashboard exposes gated edit and Active/Inactive/All views through
   const js = read('faculty-admin.js');
   const management = read('faculty-admin-management.js');
   const client = read('paws-data-client.js');
-  assert.match(html, /id="faculty-status-filter"[\s\S]*value="active"[\s\S]*value="inactive"[\s\S]*value="all"/);
+  assert.match(html, /id="faculty-status-filter"[\s\S]*value="active"[\s\S]*value="inactive"[\s\S]*value="pending"[\s\S]*value="all"/);
   assert.match(html, /id="faculty-record-editor"/);
   assert.match(js, /refreshFacultyAdminWriteCapabilities/);
+  assert.match(management, /UCVM_PAWS_DATA\.createDashboardFaculty/);
   assert.match(management, /UCVM_PAWS_DATA\.updateDashboardFaculty/);
+  assert.match(html,/id="faculty-create-btn"/);
+  assert.match(html,/value="pending"/);
   assert.match(management, /UCVM_PAWS_DATA\.deactivateDashboardFaculty/);
   assert.match(management, /UCVM_PAWS_DATA\.restoreDashboardFaculty/);
-  assert.match(management, /dataset\.expectedProfileVersion = p\.profileVersion/);
+  assert.match(management, /dataset\.expectedProfileVersion = creating \? '' : \(p\.profileVersion \|\| ''\)/);
   assert.match(management, /expectedProfileVersion: form\.dataset\.expectedProfileVersion \|\| null/);
   assert.match(js, /UCVM_PAWS_DATA\.dashboardFaculty\(\{ status: facultyStatus \}\)/);
   assert.match(js, /facultyManagement\.editAction\(row\.facultyId\)/);

@@ -7,6 +7,9 @@ foreach($file in @('045_calendar_away_classification.sql','046_calendar_commit_p
 }
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'server/test/fixtures/faculty-availability.sql') -Raw) 'VetMed-Ops'
 Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/056_faculty_availability_read.sql') -Raw) 'VetMed-Ops'
+# The Faculty availability read-only module now relies on the canonical
+# effective Faculty activation column; install 065 in this isolated CI fixture.
+Invoke-TestSql (Get-Content -LiteralPath (Join-Path $repoPath 'database/azure-sql/065_faculty_future_activation.sql') -Raw) 'VetMed-Ops'
 node (Join-Path $PSScriptRoot 'test-faculty-availability-integration.cjs')
 if($LASTEXITCODE -ne 0){throw 'Actual Node / SQL availability integration failed.'}
 # Node rehearses edited-definition refusal and actual hash-bound rollback.

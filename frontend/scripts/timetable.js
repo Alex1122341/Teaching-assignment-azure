@@ -804,10 +804,15 @@
     return facultyLoading;
   }
 
+  function facultyEligibleForSession(faculty,dateYmd) {
+    const start=String(faculty?.activationDate||'');
+    return (faculty?.administrativeActive === undefined ? faculty?.active !== false : faculty.administrativeActive !== false) && (!start || (dateYmd && dateYmd>=start));
+  }
+
   async function ensureCanonicalWriteFacultyDirectory(){
     if(canonicalWriteFaculty.length)return canonicalWriteFaculty.slice();
-    const rows=await window.UCVM_PAWS_DATA.dashboardFaculty({limit:500});
-    canonicalWriteFaculty=(Array.isArray(rows)?rows:[]).filter(row=>row?.active!==false&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(row?.facultyId||'')))
+    const rows=await window.UCVM_PAWS_DATA.dashboardFaculty({limit:500,status:'all'});
+    canonicalWriteFaculty=(Array.isArray(rows)?rows:[]).filter(row=>(row?.administrativeActive === undefined ? row?.active !== false : row.administrativeActive !== false)&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(row?.facultyId||'')))
       .map(row=>({...row,__id:String(row.facultyId),name:String(row.displayName||'').trim()}))
       .sort((a,b)=>a.name.localeCompare(b.name));
     return canonicalWriteFaculty.slice();
@@ -1699,11 +1704,12 @@
     let directory;
     try{directory=await ensureCanonicalWriteFacultyDirectory()}catch(error){console.error('[canonical faculty directory]',error);toast('The canonical Faculty list could not be loaded.',true);return}
     const rows=(Array.isArray(session.assignments)?session.assignments:[]).filter(row=>row?.facultyId).map(row=>({facultyId:String(row.facultyId),teachingRole:String(row.role||'')}));
+    directory=directory.filter(person=>facultyEligibleForSession(person,session.date));
     const roles=['Lecture','SRL','Lab Lead','Lab Primary','Lab Support','Lab Secondary'];
-    showModal(`<div class="modal-header"><div class="modal-title">Manage Session Instructors</div><div class="modal-subtitle">Only active canonical Faculty IDs can be assigned. DOE is recalculated by the University server after save; missing rules or mappings remain Needs Review. Removing a line that has recorded workload or DOE is blocked.</div></div><form id="sql-assignment-form"><div class="modal-body"><div id="sql-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-assignment-add">+ Add instructor</button><div id="sql-assignment-error" class="hidden" role="alert"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-assignment-cancel">Cancel</button><button type="submit" class="btn btn-primary">Save instructors</button></div></form>`);
+    showModal(`<div class="modal-header"><div class="modal-title">Manage Session Instructors</div><div class="modal-subtitle">Only administratively active Faculty whose official start date is on or before this session date can be assigned. DOE is recalculated by the University server after save; missing rules or mappings remain Needs Review. Removing a line that has recorded workload or DOE is blocked.</div></div><form id="sql-assignment-form"><div class="modal-body"><div id="sql-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-assignment-add">+ Add instructor</button><div id="sql-assignment-error" class="hidden" role="alert"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-assignment-cancel">Cancel</button><button type="submit" class="btn btn-primary">Save instructors</button></div></form>`);
     const render=()=>{
       const host=$('sql-assignment-rows');if(!host)return;
-      host.innerHTML=rows.map((row,index)=>`<div class="instructor-line"><div class="form-grid"><select class="form-select" data-assignment-faculty="${index}" required><option value="">Choose active Faculty</option>${directory.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(displayFaculty(person.displayName||person.facultyId))}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-assignment-role="${index}"><option value="">Role unavailable</option>${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-assignment-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
+      host.innerHTML=rows.map((row,index)=>`<div class="instructor-line"><div class="form-grid"><select class="form-select" data-assignment-faculty="${index}" required><option value="">Choose Faculty eligible on this session date</option>${directory.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(displayFaculty(person.displayName||person.facultyId))}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-assignment-role="${index}"><option value="">Role unavailable</option>${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-assignment-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
       host.querySelectorAll('[data-assignment-faculty]').forEach(control=>control.onchange=()=>{rows[Number(control.dataset.assignmentFaculty)].facultyId=control.value});
       host.querySelectorAll('[data-assignment-role]').forEach(control=>control.onchange=()=>{rows[Number(control.dataset.assignmentRole)].teachingRole=control.value});
       host.querySelectorAll('[data-assignment-remove]').forEach(control=>control.onclick=()=>{rows.splice(Number(control.dataset.assignmentRemove),1);render()});
@@ -1712,7 +1718,7 @@
     $('sql-assignment-cancel').onclick=closeModal;
     $('sql-assignment-form').onsubmit=async event=>{
       event.preventDefault();const error=$('sql-assignment-error'),button=event.submitter;
-      if(rows.some(row=>!row.facultyId)||new Set(rows.map(row=>row.facultyId.toLowerCase())).size!==rows.length){error.textContent='Choose a distinct active Faculty member for each line.';error.classList.remove('hidden');return}
+      if(rows.some(row=>!row.facultyId||!directory.some(person=>person.facultyId===row.facultyId))||new Set(rows.map(row=>row.facultyId.toLowerCase())).size!==rows.length){error.textContent='Choose a distinct Faculty member who is eligible on the session date for each line.';error.classList.remove('hidden');return}
       const original=(Array.isArray(session.assignments)?session.assignments:[]).filter(row=>row?.facultyId).map(row=>({facultyId:String(row.facultyId),teachingRole:String(row.role||'')}));
       if(JSON.stringify(original)===JSON.stringify(rows)){toast('No instructor changes to save.');return}
       button.disabled=true;button.textContent='Saving...';error.classList.add('hidden');
@@ -1725,7 +1731,7 @@
   }
 
   function assignmentErrorMessage(error){
-    const messages={WRITE_DISABLED:'Instructor editing is currently disabled.',ROLE_DENIED:'This account cannot edit timetable instructors.',SESSION_NOT_FOUND:'This session no longer exists. Reload the timetable.',SESSION_FACULTY_INVALID:'Choose active canonical Faculty entries.',ASSIGNMENT_HAS_RECORDED_DOE:'A removed instructor line has recorded workload or DOE and cannot be removed here.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before editing.',SQL_UNAVAILABLE:'Instructor changes were not saved because the University API is unavailable.'};
+    const messages={WRITE_DISABLED:'Instructor editing is currently disabled.',ROLE_DENIED:'This account cannot edit timetable instructors.',SESSION_NOT_FOUND:'This session no longer exists. Reload the timetable.',SESSION_FACULTY_INVALID:'Choose active canonical Faculty entries.',FACULTY_START_DATE_CONFLICT:'This Faculty member is inactive or the session date is before their official start date.',ASSIGNMENT_HAS_RECORDED_DOE:'A removed instructor line has recorded workload or DOE and cannot be removed here.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before editing.',SQL_UNAVAILABLE:'Instructor changes were not saved because the University API is unavailable.'};
     return messages[String(error?.code||'')]||'Instructor changes were not saved. Review the selections and try again.';
   }
 
@@ -1897,6 +1903,10 @@
       const duplicateKey=[sqlAcademicYearForDate(date),course.toUpperCase(),date,start,end,type,topic.trim().toLowerCase()].join('\u001f');
       if(seen.has(duplicateKey))errors.push(`Row ${n}: duplicates another row in this batch.`);else seen.add(duplicateKey);
       const resolved=resolveBulkFaculty(row.faculty,n);errors.push(...resolved.errors);
+      for(const assignment of resolved.assignments){
+        const person=canonicalWriteFaculty.find(f=>String(f.facultyId)===String(assignment.facultyId));
+        if(!facultyEligibleForSession(person,date)) errors.push(`Row ${n}: ${assignment.name} is inactive or starts after ${date}.`);
+      }
       const assignments=resolved.assignments.map(assignment=>({facultyId:assignment.facultyId,teachingRole:defaultTeachingRole(type)}));
       for(const assignment of resolved.assignments){const faculty=facultyDirectory.find(f=>String(f.facultyId||f.__id)===String(assignment.facultyId));if(!faculty)continue;const availability=facultyAssignmentAvailability(faculty,date,start,end,'');if(availability.available!==true)warnings.push(`Row ${n} · ${displayFaculty(assignment.name)}: ${assignmentAvailabilityDetail(availability,date,start,end)}`)}
       if(!errors.some(message=>message.startsWith(`Row ${n}:`))){const pos=academicPositionForDate(parseYmd(date));prepared.push({date,week:pos.week,semester:pos.semester,year,course,courseName:COURSES.find(c=>String(c.code)===course)?.name||'',type,topic,instructor:resolved.assignments.map(a=>a.name).join('; '),room:String(row.room||'').trim(),start,end,assignments,labDetails:labDetailsFromAssignments(type,resolved.assignments,topic),sourceSystem:'Bulk live timetable entry'})}
@@ -1942,7 +1952,7 @@
     catch(error){console.error('[canonical faculty directory]',error);toast('The canonical Faculty list could not be loaded. No session was created.',true);return}
     const roles=['Lecture','SRL','Lab Lead','Lab Primary','Lab Support','Lab Secondary'];
     const assignmentRows=[];
-    showModal(`<div class="modal-header"><div class="modal-title">Add VetMed-Ops Session</div><div class="modal-subtitle">Saved to the canonical timetable through the University API. Instructor assignments use active SQL Faculty IDs; DOE values are not calculated here.</div></div>
+    showModal(`<div class="modal-header"><div class="modal-title">Add VetMed-Ops Session</div><div class="modal-subtitle">Saved to the canonical timetable through the University API. Faculty with a future start date can be assigned only on or after that date; DOE values are not calculated here.</div></div>
       <form id="sql-session-create-form"><div class="modal-body"><div class="form-grid">
         ${input('create-date','Date','date',ymd(new Date()))}
         ${select('create-year','Curriculum year',[1,2,3,4],1)}
@@ -1950,16 +1960,20 @@
         ${select('create-type','Session type',['LEC','LAB','SRL','Quiz/Midterm','OSCE','Exam'],'LEC')}
         ${input('create-start','Start','time','09:00')}${input('create-end','End','time','10:00')}
         ${input('create-topic','Topic','text','','full')}${input('create-room','Room','text','')}
-        <div class="form-field full"><label class="form-label">Instructor assignments</label><div id="sql-create-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-create-add-assignment">+ Add instructor</button><div class="form-hint">Assignments resolve only to active canonical Faculty. The server calculates DOE from active annual rules; missing rules or mappings stay Needs Review.</div></div>
+        <div class="form-field full"><label class="form-label">Instructor assignments</label><div id="sql-create-assignment-rows"></div><button type="button" class="btn btn-secondary" id="sql-create-add-assignment">+ Add instructor</button><div class="form-hint">Assignments require administrative Active status and a start date on or before the session. The server calculates DOE from active annual rules; missing rules or mappings stay Needs Review.</div></div>
       </div><div id="sql-session-create-error" class="hidden" role="alert"></div></div>
       <div class="modal-footer"><button type="button" class="btn btn-secondary" id="sql-session-create-cancel">Cancel</button><button class="btn btn-primary" type="submit">Create session</button></div></form>`);
     const renderRows=()=>{
       const host=$('sql-create-assignment-rows');if(!host)return;
-      host.innerHTML=assignmentRows.map((row,index)=>`<div class="instructor-line" data-create-assignment="${index}"><div class="form-grid"><select class="form-select" data-create-faculty="${index}" required><option value="">Choose active Faculty</option>${directory.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(displayFaculty(person.displayName||person.facultyId))}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-create-role="${index}">${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-create-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
+      const selectedDate=$('create-date')?.value||'';
+      const eligible=directory.filter(person=>facultyEligibleForSession(person,selectedDate));
+      host.innerHTML=assignmentRows.map((row,index)=>`<div class="instructor-line" data-create-assignment="${index}"><div class="form-grid"><select class="form-select" data-create-faculty="${index}" required><option value="">Choose Faculty eligible on this date</option>${eligible.map(person=>`<option value="${escapeHtml(person.facultyId)}" ${person.facultyId===row.facultyId?'selected':''}>${escapeHtml(displayFaculty(person.displayName||person.facultyId))}${person.email?' · '+escapeHtml(person.email):''}</option>`).join('')}</select><select class="form-select" data-create-role="${index}">${roles.map(role=>`<option value="${escapeHtml(role)}" ${role===row.teachingRole?'selected':''}>${escapeHtml(role)}</option>`).join('')}</select></div><button type="button" class="instructor-remove" data-create-remove="${index}">Remove</button></div>`).join('')||'<div class="instructor-empty">No instructors assigned.</div>';
       host.querySelectorAll('[data-create-faculty]').forEach(control=>control.onchange=()=>{assignmentRows[Number(control.dataset.createFaculty)].facultyId=control.value});
       host.querySelectorAll('[data-create-role]').forEach(control=>control.onchange=()=>{assignmentRows[Number(control.dataset.createRole)].teachingRole=control.value});
       host.querySelectorAll('[data-create-remove]').forEach(control=>control.onclick=()=>{assignmentRows.splice(Number(control.dataset.createRemove),1);renderRows()});
     };
+    $('create-date')?.addEventListener('change',renderRows);
+    $('create-date')?.addEventListener('input',renderRows);
     $('sql-create-add-assignment').onclick=()=>{if(assignmentRows.length>=30){toast('A session can include at most 30 instructors.',true);return}assignmentRows.push({facultyId:'',teachingRole:'Lecture'});renderRows()};
     $('sql-session-create-cancel').onclick=closeModal;
     $('sql-session-create-form').onsubmit=async event=>{
@@ -1968,8 +1982,8 @@
       if(!scheduling.normalizeDate(date)||!sqlAcademicYearForDate(date)||scheduling.validateInterval(String(form.get('create-start')||''),String(form.get('create-end')||'')).status!=='valid'){
         error.textContent='Enter a valid date and a start/end time with the end after the start.';error.classList.remove('hidden');return;
       }
-      if(assignments.some(row=>!row.facultyId)||new Set(assignments.map(row=>row.facultyId.toLowerCase())).size!==assignments.length){
-        error.textContent='Choose a distinct active Faculty member for each instructor line.';error.classList.remove('hidden');return;
+      if(assignments.some(row=>!row.facultyId||!facultyEligibleForSession(directory.find(f=>f.facultyId===row.facultyId),date))||new Set(assignments.map(row=>row.facultyId.toLowerCase())).size!==assignments.length){
+        error.textContent='Choose a distinct Faculty member who is eligible on the selected date for each instructor line.';error.classList.remove('hidden');return;
       }
       button.disabled=true;button.textContent='Creating...';error.classList.add('hidden');
       try{
@@ -1981,7 +1995,7 @@
   }
 
   function creationErrorMessage(error){
-    const messages={WRITE_DISABLED:'Session creation is currently disabled.',ROLE_DENIED:'This account cannot create timetable sessions.',COURSE_NOT_FOUND:'Choose a course that exists in VetMed-Ops.',DUPLICATE_SESSION_CONFLICT:'A matching session already exists. Review the date and time.',SESSION_FACULTY_INVALID:'Choose active Faculty entries from the list.',INVALID_SESSION_ACADEMIC_YEAR:'The selected date is outside the supported academic year.',SESSION_DATE_OUTSIDE_ACADEMIC_YEAR:'The date does not match the academic year.',INVALID_SESSION_ASSIGNMENTS:'Review the instructor assignments.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before creating a session.',SQL_UNAVAILABLE:'No session was created because the University API is unavailable.'};
+    const messages={WRITE_DISABLED:'Session creation is currently disabled.',ROLE_DENIED:'This account cannot create timetable sessions.',COURSE_NOT_FOUND:'Choose a course that exists in VetMed-Ops.',DUPLICATE_SESSION_CONFLICT:'A matching session already exists. Review the date and time.',SESSION_FACULTY_INVALID:'Choose active Faculty entries from the list.',FACULTY_START_DATE_CONFLICT:'A Faculty member is inactive or their start date is after the session date.',INVALID_SESSION_ACADEMIC_YEAR:'The selected date is outside the supported academic year.',SESSION_DATE_OUTSIDE_ACADEMIC_YEAR:'The date does not match the academic year.',INVALID_SESSION_ASSIGNMENTS:'Review the instructor assignments.',UNAUTHENTICATED:'Your sign-in expired. Sign in again before creating a session.',SQL_UNAVAILABLE:'No session was created because the University API is unavailable.'};
     return messages[String(error?.code||'')]||'The session was not created. Review the values and try again.';
   }
 

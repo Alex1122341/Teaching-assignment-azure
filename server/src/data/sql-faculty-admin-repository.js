@@ -14,7 +14,7 @@ function facultyDto(row) {
     facultyId: text(row.facultyId), preferredFirstName: text(row.preferredFirstName), preferredLastName: text(row.preferredLastName),
     displayName: text(row.displayName), ucid: text(row.ucid), email: text(row.email), recordType: text(row.recordType),
     stream: text(row.stream), rank: text(row.rank), fte: number(row.fte), reportsToFacultyId: text(row.reportsToFacultyId),
-    active: row.active === true || row.active === 1, updatedAtUtc: row.updatedAtUtc instanceof Date ? row.updatedAtUtc.toISOString() : text(row.updatedAtUtc),
+    active: row.active === true || row.active === 1, administrativeActive: row.administrativeActive === undefined ? (row.active === true || row.active === 1) : (row.administrativeActive === true || row.administrativeActive === 1), activationDate: text(row.activationDate), updatedAtUtc: row.updatedAtUtc instanceof Date ? row.updatedAtUtc.toISOString() : text(row.updatedAtUtc),
     profileVersion: text(row.profileVersion),
     professionalProfile: Object.fromEntries(PROFILE_FIELDS.map(field => [field, field.endsWith('Count') || field === 'priorYearsExperience' ? number(row[field]) : text(row[field])]))
   };
@@ -45,9 +45,33 @@ function createSqlFacultyAdminRepository(db) {
       const rows = await run('SetRoleAppointmentPeriods', {RoleAssignmentId:input.roleAssignmentId,ExpectedVersion:input.expectedVersion,PeriodsJson:JSON.stringify(input.periods),ActorFirebaseUid:input.actorFirebaseUid});
       return rows[0] || null;
     },
-    async updateFaculty(input) {
-      const rows = await run('UpdateFaculty', paramsForUpdate(input));
+    async createFaculty(input) {
+      const params = paramsForUpdate(input);
+      delete params.FacultyId;
+      delete params.ExpectedUpdatedAtUtc;
+      delete params.ExpectedProfileVersion;
+      params.ActivationDate = input.activationDate ?? null;
+      const rows = await run('CreateFaculty', params);
       return facultyDto(rows[0]);
+    },
+    async updateFaculty(input) {
+      if (!Object.prototype.hasOwnProperty.call(input, 'activationDate')) {
+        const rows = await run('UpdateFaculty', paramsForUpdate(input));
+        return facultyDto(rows[0]);
+      }
+      if (typeof db.transaction !== 'function')
+        throw new Error('Atomic Faculty profile/activation update requires a SQL transaction.');
+      return db.transaction(async () => {
+        const rows = await run('UpdateFaculty', paramsForUpdate(input));
+        if (!rows[0]) return null;
+        const after = await run('SetFacultyActivation', {
+          FacultyId: input.facultyId,
+          ExpectedUpdatedAtUtc: rows[0].updatedAtUtc,
+          ActivationDate: input.activationDate ?? null,
+          ActorFirebaseUid: input.actorFirebaseUid
+        });
+        return facultyDto(after[0]);
+      });
     },
     async deactivateFaculty(input) {
       const rows = await run('DeactivateFaculty', {

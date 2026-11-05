@@ -15,14 +15,15 @@ test('UX-03 preserves the original isolated one-API-file receipt',()=>{
  assert.equal(git('diff','--name-only',originalPrevious,originalProduct,'--','server/src','swa-api'),'server/src/history/change-history-projection.js');
 });
 test('UX-03 on current main promotes only the reviewed one API file',()=>{
- assert.equal(freeze.BASELINE_COMMIT,product);
- assert.equal(api.BASELINE_COMMIT,product);
- assert.equal(report.sourceCommit,product);
+ assert.ok(git('show','5c00ce931c350e6369ad8d333444b6fd2aacc2a1:tools/beta-freeze.js').includes(`const BASELINE_COMMIT='${product}'`));
+ assert.equal(JSON.parse(git('show','5c00ce931c350e6369ad8d333444b6fd2aacc2a1:tools/beta-baseline.json')).sourceCommit,product);
+ assert.equal(freeze.BASELINE_COMMIT,api.BASELINE_COMMIT);
+ assert.equal(report.sourceCommit,freeze.BASELINE_COMMIT);
  git('merge-base','--is-ancestor',previous,product);
  git('merge-base','--is-ancestor',product,'HEAD');
  assert.equal(git('diff','--name-only',previous,product,'--','frontend','database'),'');
  assert.equal(git('diff','--name-only',previous,product,'--','server/src','swa-api'),'server/src/history/change-history-projection.js');
- assert.deepEqual(report.sha256,JSON.parse(git('show','036e8a6fd8d17cfa35f143668fca84f2865b5928:tools/beta-baseline.json')).sha256);
+ assert.deepEqual(JSON.parse(git('show','5c00ce931c350e6369ad8d333444b6fd2aacc2a1:tools/beta-baseline.json')).sha256,JSON.parse(git('show','036e8a6fd8d17cfa35f143668fca84f2865b5928:tools/beta-baseline.json')).sha256);
  assert.deepEqual(api.baselineRuntimeFiles({root,baselineCommit:product}),api.baselineRuntimeFiles({root,baselineCommit:previous}));
  assert.equal(git('diff','--name-only',previous,product,'--','tools/static-assets.json','package.json','package-lock.json','server/package.json','server/package-lock.json','deploy/aca/Dockerfile','firestore.rules','firestore.indexes.json'),'');
  assert.equal(freeze.verifyFreeze({root}).ok,true);

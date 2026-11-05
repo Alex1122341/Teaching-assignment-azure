@@ -46,7 +46,7 @@ function normalizePolicy(policy = {}) {
   return normalized;
 }
 
-function applyTeachingReserve({ teachingTarget, contractTeachingTarget, stream, rawSupervision, assignedTeaching, policy } = {}) {
+function applyTeachingReserve({ teachingTarget, contractTeachingTarget, stream, rawSupervision, assignedTeaching, policy, strictTraineeCap = false } = {}) {
   const config = normalizePolicy(policy);
   const target = finite(teachingTarget), supervision = finite(rawSupervision), assigned = finite(assignedTeaching);
   if (target === null || target < 0 || supervision === null || supervision < 0 || assigned === null || assigned < 0) {
@@ -68,14 +68,17 @@ function applyTeachingReserve({ teachingTarget, contractTeachingTarget, stream, 
   const roomAfterAssigned = Math.max(0, target - assigned);
   const flexible = !teachingFocused(stream) && target <= config.splitThreshold;
   const supervisionCeiling = flexible ? target : initialTraineeReserve;
-  const appliedSupervision = contractCap ? Math.min(supervision, initialTraineeReserve)
+  const appliedSupervision = contractCap || strictTraineeCap ? Math.min(supervision, initialTraineeReserve)
     : Math.min(supervision, supervisionCeiling, roomAfterAssigned);
+  const assignedTeachingReserveWithBalance = supervision < initialTraineeReserve
+    ? round(initialAssignedTeachingReserve + initialTraineeReserve - supervision) : null;
   const maxAssignedTeaching = Math.max(0, target - appliedSupervision);
   const totalAppliedTeaching = assigned + appliedSupervision;
 
   return {
     teachingTarget: round(target), stream: String(stream || ''), rawSupervision: round(supervision), assignedTeaching: round(assigned),
     initialTraineeReserve: round(initialTraineeReserve), initialAssignedTeachingReserve: round(initialAssignedTeachingReserve),
+    assignedTeachingReserveWithBalance,
     appliedSupervision: round(appliedSupervision), unappliedSupervision: round(Math.max(0, supervision - appliedSupervision)),
     maxAssignedTeaching: round(maxAssignedTeaching), totalAppliedTeaching: round(totalAppliedTeaching),
     remainingToTarget: round(target - totalAppliedTeaching), policy: config

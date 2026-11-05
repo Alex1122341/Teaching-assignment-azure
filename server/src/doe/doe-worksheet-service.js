@@ -39,6 +39,7 @@ function createWorksheetService({ repository } = {}) {
       totals: { assignedTeachingDoe: null, effectiveTargetDoe: null, remainingDoe: null }
     };
 
+    const worksheetYear = text(source.academicYear || academicYear);
     const lines = (Array.isArray(source.lines) ? source.lines : []).map(row => ({ ...row }));
     const errors = [];
     if (text(source.policyStatus).toLowerCase() === 'mixed') errors.push({ code: 'MIXED_POLICY_VERSIONS', message: 'Faculty DOE source rows span multiple policy versions and require review.' });
@@ -77,7 +78,8 @@ function createWorksheetService({ repository } = {}) {
           teachingTarget: target, contractTeachingTarget: finite(source.target?.contractTeachingDoe),
           stream: source.stream, rawSupervision: sections.supervision.rawSubtotal,
           assignedTeaching: round(sections.scheduledTeaching.subtotal + sections.roles.subtotal + nonManualAdjustmentsSubtotal),
-          policy: source.reservePolicy
+          policy: source.reservePolicy,
+          strictTraineeCap: worksheetYear === '2026-27'
         });
       } catch (error) {
         errors.push({ code: error.code || 'RESERVE_CALCULATION_FAILED', message: error.message });
@@ -88,7 +90,7 @@ function createWorksheetService({ repository } = {}) {
     const assigned = reserve ? round(sections.scheduledTeaching.subtotal + sections.roles.subtotal + sections.adjustments.subtotal + reserve.appliedSupervision) : null;
     const lastCalculatedAt = lines.map(row => text(row.calculatedAt)).filter(Boolean).sort().at(-1) || '';
     return {
-      facultyId: text(source.facultyId || facultyId), academicYear: text(source.academicYear || academicYear),
+      facultyId: text(source.facultyId || facultyId), academicYear: worksheetYear,
       displayName: text(source.displayName), stream: text(source.stream), status: errors.length ? 'needs_review' : 'calculated',
       policyVersionId: policyVersion(lines), target: { ...(source.target || {}) }, reservePolicy: { ...(source.reservePolicy || {}) },
       targetPolicyVersionLabel: text(source.targetPolicyVersionLabel),

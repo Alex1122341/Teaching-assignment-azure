@@ -237,15 +237,17 @@ test('Calendar activity freeze promotion preserves AFC LAB coverage and names th
 });
 
 // A. Baseline identity -------------------------------------------------------
-test('trainee breakdown promotion changes only its reviewed display module',()=>{
+test('historical trainee breakdown promotion changes only its reviewed display module',()=>{
   const previous='4da4598bd27f2b7adea07c9682f6569a2c7a3529';
-  const changed=freeze.verifyFreeze({root,baselineCommit:previous}).drift;
-  assert.deepEqual(changed,[{file:'faculty-admin-doe-worksheet.js',reason:'content-drift'}]);
-  assert.equal(require('../tools/beta-api-freeze').verifyFreeze({root,baselineCommit:previous}).ok,true);
-  const before=historicalStaticPaths(previous),after=historicalStaticPaths(BASELINE_COMMIT);
+  const accepted='23af7e978ef928469cc985ffcfee20d946413f20';
+  const before=historicalStaticPaths(previous),after=historicalStaticPaths(accepted);
   assert.deepEqual(after,before);
   assert.equal(after.length,96);
-  execFileSync('git',['merge-base','--is-ancestor',previous,BASELINE_COMMIT],{cwd:root});
+  const delta=execFileSync('git',['diff','--name-only',previous,accepted],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+  assert.deepEqual(delta.filter(file=>file.startsWith('frontend/')),['frontend/scripts/faculty-admin-doe-worksheet.js']);
+  assert.deepEqual(delta.filter(file=>file.startsWith('server/')||file.startsWith('swa-api/')),[]);
+  execFileSync('git',['merge-base','--is-ancestor',previous,accepted],{cwd:root});
+  execFileSync('git',['merge-base','--is-ancestor',accepted,BASELINE_COMMIT],{cwd:root});
 });
 
 test('beta identity is pinned to the reviewed HICC and LAB calendar product baseline',()=>{

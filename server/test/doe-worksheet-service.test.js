@@ -84,3 +84,40 @@ test('MASTER worksheet uses contract reserve and applies its signed manual adjus
   const [list] = await service.listFacultyDoe({ academicYear: '2026-27' });
   assert.equal(list.assignedTeachingDoe, detail.totals.assignedTeachingDoe);
 });
+
+test('2026-27 caps Applied Trainee DOE at the displayed reserve and leaves historical policy behavior intact', async () => {
+  const lines = [
+    { category: 'teaching', resultDoe: 6.45, status: 'recorded' },
+    { category: 'supervision', resultDoe: 17.5, status: 'recorded' }
+  ];
+  const service = createWorksheetService({ repository: {
+    getFacultyWorksheetSource: async (_facultyId, academicYear) => source({
+      academicYear, lines, target: { contractTeachingDoe: 15, effectiveTargetDoe: 15 }
+    })
+  } });
+  const request = { facultyId: 'faculty-1', academicYear: '2026-27' };
+  const current = await service.buildFacultyWorksheet(request);
+  assert.equal(current.reserve.initialTraineeReserve, 7.5);
+  assert.equal(current.totals.appliedSupervisionDoe, 7.5);
+  assert.equal(current.totals.assignedTeachingDoe, 13.95);
+  assert.equal(current.reserve.assignedTeachingReserveWithBalance, null);
+  const historical = await service.buildFacultyWorksheet({ ...request, academicYear: '2025-26' });
+  assert.equal(historical.totals.appliedSupervisionDoe, 8.55);
+});
+
+test('2026-27 applies actual supervision below the reserve even when scheduled teaching exceeds the target', async () => {
+  const service = createWorksheetService({ repository: { getFacultyWorksheetSource: async () => source({
+    target: { contractTeachingDoe: 30, effectiveTargetDoe: 15 },
+    lines: [
+      { category: 'teaching', resultDoe: 16, status: 'recorded' },
+      { category: 'supervision', resultDoe: 4, status: 'recorded' },
+      { category: 'adjustment', sourceEntityType: 'manual_doe_assignment', resultDoe: -1.25, status: 'manual' }
+    ]
+  }) } });
+  const detail = await service.buildFacultyWorksheet({ facultyId: 'faculty-1', academicYear: '2026-27' });
+  assert.equal(detail.reserve.initialTraineeReserve, 7.5);
+  assert.equal(detail.reserve.initialAssignedTeachingReserve, 7.5);
+  assert.equal(detail.reserve.assignedTeachingReserveWithBalance, 11);
+  assert.equal(detail.totals.appliedSupervisionDoe, 4);
+  assert.equal(detail.totals.assignedTeachingDoe, 18.75);
+});

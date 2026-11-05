@@ -60,10 +60,40 @@ test('Lookup derives the provided Excel sample from individual source lines, not
   assert.equal(data.groups.find(g=>g.title==='Clinical Rotations').items[0].quantity,0.7);
   const html=view.renderLookupBreakdown({academicYear:'2026-27',status:'calculated',lines,
     totals:{rawSupervisionDoe:4.5,appliedSupervisionDoe:4.5,assignedTeachingDoe:20.47}});
-  assert.match(html,/Total Without Trainees/);
+  assert.match(html,/Total \(Without Trainees\)/);
   assert.match(html,/15\.97%/);
   assert.match(html,/20\.47%/);
-  assert.match(html,/Fourth-Year Preceptor/);
+  assert.match(html,/4th Year Preceptor/);
+});
+
+test('Lookup renders the Excel item titles and server teaching reserve rows in workbook order',()=>{
+  const html=worksheetView().renderLookupBreakdown({academicYear:'2026-27',status:'calculated',lines:[],
+    reserve:{initialAssignedTeachingReserve:7.5,assignedTeachingReserveWithBalance:11,initialTraineeReserve:7.5},
+    totals:{rawSupervisionDoe:4,appliedSupervisionDoe:4}});
+  for(const title of ['Courses - 0.75 - 15 Units','HICC Development (per Unit)','Year 2 (2026-27)',
+    'Coordination of Designated Clinical Rotations','Undergrad: Summer Students, Interns','Undergrad: VETM 506',
+    'Undergrad: IM','4th Year Preceptor','Number of Trainees','Total + Trainees']) assert.ok(html.includes(title),title);
+  assert.match(html,/<th>Assigned Teaching Reserve<\/th><td><\/td><td>7\.50%<\/td>/);
+  assert.match(html,/<th>Assigned Teaching Reserve \+ Balance \(if Trainees are under\)<\/th><td><\/td><td>11\.00%<\/td>/);
+  assert.ok(html.indexOf('Total (Without Trainees)') < html.indexOf('Trainees &amp; Supervision'));
+});
+
+test('Lookup displays seven source-confirmed trainee rows without adding the snapshot twice',()=>{
+  const view=worksheetView();
+  const line={sourceEntityType:'supervision_source_snapshot',category:'supervision',resultDoe:17.5,status:'source_snapshot',
+    facts:{sourceRef:{columns:'D,F,H,K,N,P,R'},counts:[2,0,0,0,2,1,5],categoryCredits:[2,0,0,0,6,2,7.5]}};
+  const fixture={academicYear:'2026-27',status:'calculated',lines:[teaching('LEC','Lecture',1.5,.45),line],
+    reserve:{initialTraineeReserve:7.5},totals:{rawSupervisionDoe:17.5,appliedSupervisionDoe:7.5}};
+  const result=view.buildLookupBreakdown(fixture);
+  const items=new Map(result.groups.at(-1).items.map(item=>[item.key,item]));
+  assert.equal(items.get('grad_primary').quantity,2);
+  assert.equal(items.get('grad_primary').amount,6);
+  assert.equal(items.get('vetm506').amount,0);
+  assert.equal(items.get('supervision_unknown').rows,0);
+  assert.equal(result.withTrainees,7.95);
+  const inconsistent={...line,resultDoe:18};
+  const fallback=view.buildLookupBreakdown({...fixture,lines:[inconsistent]});
+  assert.equal(fallback.groups.at(-1).items.find(x=>x.key==='supervision_unknown').amount,18);
 });
 test('Research and Service credit cannot enter classified Assigned Teaching DOE',()=>{
   const view=worksheetView();

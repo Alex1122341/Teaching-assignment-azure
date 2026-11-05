@@ -35,7 +35,29 @@
       return `<strong class="doe-policy-label">${esc(title)}</strong>${updated ? `<div class="muted">Updated ${esc(updated)}</div>` : ''}<div class="muted">Academic year ${esc(year)}</div>${basis ? `<div class="muted">${esc(basis)}</div>` : ''}${referenceBubble(details, 'Policy & source')}`;
     }
 
-    const groups=[{"title":"Lectures & Labs","items":[["lecture","Lectures","hours"],["srl","Self-Regulated Learning","hours"],["lab_primary","Labs (Primary)","hours"],["lab_secondary","Labs (Secondary)","hours"]]},{"title":"Course Coordination","items":[["course_coordinator","Course Coordination","courses"]]},{"title":"DVM HICC Course Development","items":[["hicc","HICC Development","units"]]},{"title":"VISC Coordination","items":[["visc","VISC Subjects","subjects"]]},{"title":"Clinical Rotations","items":[["rotation","Rotation Participant","weeks"],["ccc","Community Care Clinic","shifts"],["rotation_coordination","Designated Clinical Rotation Coordination","types"]]},{"title":"Other Approved Teaching","items":[["early_career","Early Career Development","approved"],["special","Special Activities","approved"]]},{"title":"Approved Manual DOE","items":[["manual","Approved Manual DOE","records"]]},{"title":"Trainees & Supervision","items":[["undergrad","Undergraduate Students / Interns","trainees"],["vetm506","Undergraduate VETM 506","trainees"],["im","Undergraduate IM","trainees"],["preceptor","Fourth-Year Preceptor","trainees"],["grad_primary","Graduate Student (Primary)","trainees"],["grad_co","Graduate Student (Co-Supervised)","trainees"],["postdoc","Postdocs","trainees"],["supervision_unknown","Other Recorded Supervision","unavailable"]]}];
+    const groups = [
+      {title:'Lectures & Labs', quantityLabel:'Hours', items:[
+        ['lecture','Lectures','hours'], ['srl','Self-Regulated Learning','hours'],
+        ['lab_primary','Labs (Primary)','hours'], ['lab_secondary','Labs (Secondary)','hours']
+      ]},
+      {title:'Course Coordination', quantityLabel:'Number of Courses', items:[['course_coordinator','Courses - 0.75 - 15 Units','courses']]},
+      {title:'DVM HICC Course Development', quantityLabel:'Units', items:[['hicc','HICC Development (per Unit)','units']]},
+      {title:'VISC Coordination', quantityLabel:'Number of VISC Subjects', items:[['visc','Year 2 (2026-27)','subjects']]},
+      {title:'Clinical Rotations', items:[
+        ['rotation','Rotation Participant','weeks'], ['ccc','Community Care Clinic','shifts'],
+        ['rotation_coordination','Coordination of Designated Clinical Rotations','types']
+      ]},
+      {title:'Other', quantityLabel:'% Allocated', items:[
+        ['early_career','Early Career Development','approved'], ['special','Special Activities','approved']
+      ]},
+      {title:'Approved Manual DOE', items:[['manual','Approved Manual DOE','records']]},
+      {title:'Trainees & Supervision', quantityLabel:'Number of Trainees', items:[
+        ['undergrad','Undergrad: Summer Students, Interns','trainees'], ['vetm506','Undergrad: VETM 506','trainees'],
+        ['im','Undergrad: IM','trainees'], ['preceptor','4th Year Preceptor','trainees'],
+        ['grad_primary','Graduate Student (Primary)','trainees'], ['grad_co','Graduate Student (Co-Supervised)','trainees'],
+        ['postdoc','Postdocs','trainees'], ['supervision_unknown','Other Recorded Supervision','unavailable']
+      ]}
+    ];
     function isReviewLine(line) {
   const status=String(line.status || '').toLowerCase();
   return line.applicable !== false && (finite(line.resultDoe) === null || line.requiresReview === true || ['needs_review','needs-review','error','stored-calculation-mismatch'].includes(status));
@@ -132,16 +154,31 @@
     function buildLookupBreakdown(worksheet) {
   const lines=Array.isArray(worksheet?.lines)?worksheet.lines:[];
   const mapped=new Map(),excluded=[],unclassified=[];
+  const addItem=(item,line)=>{
+    if(!mapped.has(item))mapped.set(item,[]);
+    mapped.get(item).push(line);
+  };
   for(const line of lines){
     if(line.applicable===false && finite(line.resultDoe)===null) continue;
+    if (line.sourceEntityType==='supervision_source_snapshot' && !isReviewLine(line)) {
+      const {sourceRef,counts,categoryCredits}=line.facts||{};
+      const categories=['undergrad','vetm506','preceptor','im','grad_primary','grad_co','postdoc'];
+      const valid=values=>Array.isArray(values)&&values.length===categories.length&&
+        values.every(value=>Number.isFinite(value)&&value>=0);
+      if(sourceRef?.columns==='D,F,H,K,N,P,R' && valid(counts) && valid(categoryCredits) &&
+        Math.abs(categoryCredits.reduce((sum,credit)=>sum+credit,0)-Number(line.resultDoe))<1e-6) {
+        categories.forEach((key,index)=>addItem(key,{...line,resultDoe:categoryCredits[index],facts:{trainees:counts[index]}}));
+        continue;
+      }
+    }
     const item=categoryForLine(line);
     if(item==='non_teaching'){excluded.push(line);continue;}
     if(item==='unclassified'){unclassified.push(line);continue;}
-    if(!mapped.has(item))mapped.set(item,[]);
-    mapped.get(item).push(line);
+    addItem(item,line);
   }
   const ordered=groups.map(group=>({
     title:group.title,
+    quantityLabel:group.quantityLabel,
     items:group.items.map(([key,label,unit])=>{
       const rows=mapped.get(key)||[];
       const quantities=rows.map(line=>quantityForLine(line,unit));
@@ -158,7 +195,10 @@
   const applied=finite(worksheet?.totals?.appliedSupervisionDoe);
   const supervisionUnresolved=ordered[ordered.length-1].items.some(row=>row.needsReview);
   const withTrainees=allMapped&&excluded.length===0&&!supervisionUnresolved&&applied!==null?Number((without+applied).toFixed(6)):null;
-  return {groups:ordered,without,rawSupervision:finite(worksheet?.totals?.rawSupervisionDoe),trainingReserve:finite(worksheet?.reserve?.initialTraineeReserve),appliedSupervision:applied,withTrainees,unclassified,excluded,legacyTotal:finite(worksheet?.totals?.assignedTeachingDoe),status:worksheet?.status};
+  return {groups:ordered,without,rawSupervision:finite(worksheet?.totals?.rawSupervisionDoe),trainingReserve:finite(worksheet?.reserve?.initialTraineeReserve),
+    assignedTeachingReserve:finite(worksheet?.reserve?.initialAssignedTeachingReserve),
+    assignedTeachingReserveWithBalance:finite(worksheet?.reserve?.assignedTeachingReserveWithBalance),
+    appliedSupervision:applied,withTrainees,unclassified,excluded,legacyTotal:finite(worksheet?.totals?.assignedTeachingDoe),status:worksheet?.status};
 }
     function renderLookupBreakdown(worksheet) {
   const breakdown=buildLookupBreakdown(worksheet);
@@ -169,15 +209,31 @@
     const labels={hours:'hrs',session:'sessions',units:'units',weeks:'weeks',shifts:'shifts',courses:'courses',subjects:'subjects',types:'types',trainees:'trainees',approved:'% allocated',records:'records'};
     return `${Number(item.quantity.toFixed(2))} ${labels[item.unit] || item.unit}`;
   };
-  const body=breakdown.groups.map(group=>`<tbody class="doe-excel-rows"><tr class="doe-excel-heading"><th colspan="3">${esc(group.title)}</th></tr>${group.items.map(item=>`<tr><td>${esc(item.label)}</td><td>${esc(quantity(item))}</td><td>${item.rows===0?'—':item.needsReview?'Needs Review':esc(pct(item.amount))}</td></tr>`).join('')}</tbody>`).join('');
+  const groupRows=group=>`<tbody class="doe-excel-rows"><tr class="doe-excel-heading"><th scope="rowgroup">${esc(group.title)}</th><th>${esc(group.quantityLabel||'')}</th><td></td></tr>${group.items.map(item=>{
+    const label=item.key==='visc'&&worksheet.academicYear!=='2026-27'?'VISC Subjects':item.label;
+    return `<tr><td>${esc(label)}</td><td>${esc(quantity(item))}</td><td>${item.rows===0?'—':item.needsReview?'Needs Review':esc(pct(item.amount))}</td></tr>`;
+  }).join('')}</tbody>`;
+  const subtotalRow=(label,value)=>`<tr><th>${esc(label)}</th><td></td><td>${esc(value)}</td></tr>`;
+  const reserveBalance=breakdown.assignedTeachingReserveWithBalance;
+  const teachingTotals=[
+    subtotalRow('Assigned Teaching Reserve',pct(breakdown.assignedTeachingReserve)),
+    subtotalRow('Assigned Teaching Reserve + Balance (if Trainees are under)',reserveBalance===null?'—':pct(reserveBalance)),
+    subtotalRow('Total (Without Trainees)',pct(breakdown.without))
+  ].join('');
+  const traineeTotals=[
+    subtotalRow('Training Actual',pct(breakdown.rawSupervision)),
+    subtotalRow('Training Reserve',pct(breakdown.trainingReserve)),
+    subtotalRow('Applied Trainee DOE',pct(breakdown.appliedSupervision)),
+    subtotalRow('Total + Trainees',pct(breakdown.withTrainees))
+  ].join('');
   const warnings=[
     breakdown.unclassified.length?`${breakdown.unclassified.length} DOE source line(s) cannot be safely classified as Teaching. These records remain in the existing Worksheet and are not silently added to this breakdown.`:'',
     breakdown.excluded.length?`${breakdown.excluded.length} source line(s) are explicitly Non-Teaching. Teaching-only Total + Trainees is held for review because the existing server reserve may include these sources.`:'',
     breakdown.rawSupervision===null?'Confirmed raw supervision evidence is unavailable.':'',
-    breakdown.without===null?'Total Without Trainees cannot be finalized until every applicable Teaching source is classified and resolved.':'',
+    breakdown.without===null?'Total (Without Trainees) cannot be finalized until every applicable Teaching source is classified and resolved.':'',
     breakdown.status!=='calculated'?'The source Worksheet is not fully calculated; use its Needs Review details above.':''
   ].filter(Boolean);
-  return `<section class="doe-excel-summary"><h3>Assigned Teaching DOE · Excel-style Breakdown</h3><p class="aux-note">Source: current Faculty DOE Worksheet · ${esc(worksheet.academicYear||'Academic year unavailable')}. Each quantity comes from the linked assignment; no missing quantity is back-calculated from DOE.</p><div class="table-wrap"><table class="data-table doe-excel-summary-table"><thead><tr><th>Item</th><th>Quantity</th><th>Calculated DOE</th></tr></thead>${body}<tbody class="doe-excel-totals"><tr><th>Total Without Trainees</th><td></td><td>${esc(pct(breakdown.without))}</td></tr><tr><th>Training Actual</th><td></td><td>${esc(pct(breakdown.rawSupervision))}</td></tr><tr><th>Training Reserve</th><td></td><td>${esc(pct(breakdown.trainingReserve))}</td></tr><tr><th>Applied Trainee DOE</th><td></td><td>${esc(pct(breakdown.appliedSupervision))}</td></tr><tr><th>Total + Applied Trainees</th><td></td><td>${esc(pct(breakdown.withTrainees))}</td></tr></tbody></table></div>${warnings.length?`<div class="warn-box">${warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</div>`:''}<p class="aux-note">Current saved Worksheet Total Assigned: ${esc(pct(breakdown.legacyTotal))}. This may differ from the classified Teaching subtotal until all legacy and manual sources have an approved Teaching/Non-Teaching classification. The existing server calculation is not overwritten.</p></section>`;
+  return `<section class="doe-excel-summary"><h3>Assigned Teaching DOE · Excel-style Breakdown</h3><p class="aux-note">Source: current Faculty DOE Worksheet · ${esc(worksheet.academicYear||'Academic year unavailable')}. Each quantity comes from the linked assignment; no missing quantity is back-calculated from DOE.</p><div class="table-wrap"><table class="data-table doe-excel-summary-table"><thead><tr><th>Item</th><th>Quantity</th><th>DOE (%)</th></tr></thead>${breakdown.groups.slice(0,-1).map(groupRows).join('')}<tbody class="doe-excel-totals">${teachingTotals}</tbody>${groupRows(breakdown.groups.at(-1))}<tbody class="doe-excel-totals">${traineeTotals}</tbody></table></div>${warnings.length?`<div class="warn-box">${warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</div>`:''}<p class="aux-note">Current saved Worksheet Total Assigned: ${esc(pct(breakdown.legacyTotal))}. This may differ from the classified Teaching subtotal until all legacy and manual sources have an approved Teaching/Non-Teaching classification.</p></section>`;
 }
     function renderWorksheet(worksheet) {
       const target = worksheet.target || {}, totals = worksheet.totals || {}, reserve = worksheet.reserve || {};

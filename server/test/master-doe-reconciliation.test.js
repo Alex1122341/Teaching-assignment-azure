@@ -10,10 +10,15 @@ test('actual active engine uses old CCC facts and discloses an override masking 
  const actual={...bundle,rules:[{ruleId:'ccc',ruleKey:'ccc',category:'rotation',enabled:true,reviewStatus:'approved',calculationMode:'per_shift',priority:1,parameters:[{name:'rate',valueNumber:0.5}],inputs:[{inputName:'shifts',required:true}],selectors:[{field:'roleType',operator:'equals',valueText:'CCC'}],referenceId:'ref'}],references:[{referenceId:'ref',title:'Synthetic',reviewStatus:'approved'}]};
  const comparison=await compareMasterDoe({...input,activeBundle:actual,candidateBundle:actual});assert.equal(comparison.rows[0].activeDoe,10);assert.equal(comparison.rows[0].candidateDoe,5);assert.equal(comparison.rows[0].status,'held_mismatch');assert.equal(comparison.rows[0].overrideDoe,5);assert.equal(comparison.rows[0].overrideReason,'Approved old override');
 });
-test('matching new role cannot silently reduce already applied supervision DOE',async()=>{
+test('2026-27 strict trainee cap preserves applied supervision when new teaching roles are added',async()=>{
  const input=fixture(5);input.currentRoles=[];
  const r=await compareMasterDoe({...input,domain:'appointments',worksheetSources:[worksheet()],calculate:async()=>({resultDoe:5})});
- assert.equal(r.rows[0].status,'held_aggregate_change');assert.equal(r.facultyImpacts[0].before.appliedSupervisionDoe,10);assert.equal(r.facultyImpacts[0].proposed.appliedSupervisionDoe,5);assert.equal(r.facultyImpacts[0].status,'held_aggregate_change');
+ assert.equal(r.rows[0].status,'matched');
+ assert.equal(r.facultyImpacts[0].before.appliedSupervisionDoe,15);
+ assert.equal(r.facultyImpacts[0].proposed.appliedSupervisionDoe,15);
+ assert.equal(r.facultyImpacts[0].before.assignedTeachingDoe,45);
+ assert.equal(r.facultyImpacts[0].proposed.assignedTeachingDoe,50);
+ assert.equal(r.facultyImpacts[0].status,'safe');
 });
 test('new credit requires complete aggregate evidence and binds safe projected assigned/remaining totals',async()=>{
  const input=fixture(5);input.currentRoles=[];

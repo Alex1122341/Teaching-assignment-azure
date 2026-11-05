@@ -1,3 +1,7 @@
+## Current: UX-03 Change History search fix PR — 2026-11-03
+
+Read `updates/2026-11-03-ux03-change-history-search.md`. Year filter and six columns verified working; keyword search now finds names typed "Last, First" as displayed. One API file; separate freeze promotion.
+
 ## Current: current MASTER DOE reconciliation — 2026-10-30
 
 Continue `updates/2026-10-30-live-master-doe-reconciliation.md`. All 111 applied operations independently verified; never replay either transaction. Numeric source roles match 195/195. Product and freeze governance independently reviewed. Finish final running checks and Draft/source-review resolution, then actual Dashboard acceptance before any merge/release. Draft rev2 has 107 review rows; no publication while that gate fails. Owner says retain Archer HICC / Pfau and Weller contract values unavailable. Keep the 105 empty trainee-count snapshots and one missing teaching-hours issue explicit; no invented zeros. Private reconciliation workbook has current and proposed totals, applied rows, roles and outstanding issues. Preserve approved leadership source metadata; no permission change.

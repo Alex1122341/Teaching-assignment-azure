@@ -165,9 +165,11 @@ function projectHistoryEvent(event,auth){
 
 function filterHistoryRows(rows,filters){
  const contains=(values,needle)=>!needle||values.some(value=>String(value).toLocaleLowerCase('en-CA').includes(needle.toLocaleLowerCase('en-CA')));
- const terms=String(filters.keyword||'').trim().toLocaleLowerCase('en-CA').split(/\s+/).filter(Boolean);
+ // Names display as "Last, First" but are recorded as "First Last": commas are
+ // separators, so a name typed either way matches by its words.
+ const terms=String(filters.keyword||'').replace(/,/g,' ').trim().toLocaleLowerCase('en-CA').split(/\s+/).filter(Boolean);
  return rows.filter(row=>{
-  const haystack=[filters.academicYear,...Object.entries(publicHistoryRow(row)).filter(([key])=>key!=='rowId').map(([,value])=>value)].join(' ').toLocaleLowerCase('en-CA');
+  const haystack=[filters.academicYear,...Object.entries(publicHistoryRow(row)).filter(([key])=>key!=='rowId').map(([,value])=>value)].join(' ').replace(/,/g,' ').toLocaleLowerCase('en-CA');
   return (!filters.domain||row.domain===filters.domain)
    &&(!filters.changeType||row.changeType===filters.changeType)
    &&contains(row._courseValues,filters.course)&&contains(row._topicValues,filters.topic)

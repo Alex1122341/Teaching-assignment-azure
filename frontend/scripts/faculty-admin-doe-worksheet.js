@@ -65,8 +65,15 @@
     function categoryForLine(line) {
   const category = String(line.category || '').toLowerCase();
   if (['research','administration','admin','contract_admin','service','service_admin','clinical_activity_ppvm'].includes(category)) return 'non_teaching';
-  if (line.sourceEntityType === 'manual_doe_assignment') return 'manual';
   const role = String(line.roleType || '').trim().toLowerCase();
+  if (line.sourceEntityType === 'manual_doe_assignment') {
+    const scope=String(line.scopeText||'').trim().toLowerCase();
+    if (line.status==='manual' && finite(line.resultDoe)>0) {
+      if (role==='other' && scope==='early career development') return 'early_career';
+      if (role==='special project' && scope==='special activities') return 'special';
+    }
+    return 'manual';
+  }
   const activity = String(line.activityType || '').trim().toLowerCase();
   const fact = line.facts || {};
   const sessionType = String(fact.sessionType || '').trim().toLowerCase();
@@ -123,6 +130,9 @@
     function quantityForLine(line,defaultUnit) {
   if (defaultUnit === 'records') return {unit:'records',value:1};
   if (defaultUnit === 'unavailable') return {unit:'unavailable',value:null};
+  if (defaultUnit === 'approved' && line.sourceEntityType === 'manual_doe_assignment') {
+    return {unit:'approved',value:finite(line.resultDoe)};
+  }
   const facts = line.facts || {};
   const inputs = line.inputs || {};
   const rule = line.rule || {};

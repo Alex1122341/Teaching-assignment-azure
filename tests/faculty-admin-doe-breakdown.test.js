@@ -162,6 +162,14 @@ test('approved signed manual allocations reconcile without invented quantities o
   const excluded=worksheetView().buildLookupBreakdown({lines:[{...lines[1],category:'research'}],totals:{}});
   assert.equal(excluded.excluded.length,1);
 });
+test('Lookup places the explicitly named positive allocation under Special Activities once',()=>{
+  const lines=[{sourceEntityType:'manual_doe_assignment',category:'adjustment',roleType:'Special Project',
+    scopeText:'Special Activities',resultDoe:3.5,status:'manual'}];
+  const result=worksheetView().buildLookupBreakdown({lines,status:'calculated',totals:{appliedSupervisionDoe:0}});
+  assert.equal(result.groups.find(group=>group.title==='Other').items[1].quantity,3.5);
+  assert.equal(result.groups.find(group=>group.title==='Approved Manual DOE').items[0].rows,0);
+  assert.equal(result.without,3.5);
+});
 test('Quantity is unavailable if source fact does not provide it; never invert DOE to make up hours',()=>{
   const view=worksheetView();
   const html=view.renderLookupBreakdown({academicYear:'2026-27',status:'calculated',lines:[

@@ -18,6 +18,28 @@ const teaching=(type,role,hours,credit)=>({category:'teaching',sourceEntityType:
   roleType:role,facts:{sessionType:type},creditedHours:hours,resultDoe:credit,status:'recorded'});
 const other=(category,role,resultDoe,facts={})=>({category,sourceEntityType:'legacy_role_assignment',
   roleType:role,facts,resultDoe,status:'recorded'});
+
+test('Lookup shows Training Actual, Training Reserve and Applied Trainee DOE as distinct server values',()=>{
+  const view=worksheetView();
+  const worksheet={academicYear:'2026-27',status:'calculated',lines:[teaching('LEC','Lecture',2,.6)],
+    reserve:{initialTraineeReserve:5,appliedSupervision:10},
+    totals:{rawSupervisionDoe:25,appliedSupervisionDoe:10,assignedTeachingDoe:10.6}};
+  const data=view.buildLookupBreakdown(worksheet);
+  assert.equal(data.trainingReserve,5);
+  const html=view.renderLookupBreakdown(worksheet);
+  assert.match(html,/<th>Training Actual<\/th><td><\/td><td>25\.00%<\/td>/);
+  assert.match(html,/<th>Training Reserve<\/th><td><\/td><td>5\.00%<\/td>/);
+  assert.match(html,/<th>Applied Trainee DOE<\/th><td><\/td><td>10\.00%<\/td>/);
+  assert.doesNotMatch(html,/Trainee Actual \(Raw\)|Trainee Applied after Reserve/);
+});
+
+test('Lookup preserves zero and shows missing Training Reserve as Needs Review without estimating it',()=>{
+  const view=worksheetView();
+  const base={status:'calculated',lines:[teaching('LEC','Lecture',1,.3)],
+    totals:{rawSupervisionDoe:0,appliedSupervisionDoe:0,assignedTeachingDoe:.3}};
+  assert.match(view.renderLookupBreakdown({...base,reserve:{initialTraineeReserve:0}}),/<th>Training Reserve<\/th><td><\/td><td>0\.00%<\/td>/);
+  assert.match(view.renderLookupBreakdown(base),/<th>Training Reserve<\/th><td><\/td><td>Needs Review<\/td>/);
+});
 test('Lookup derives the provided Excel sample from individual source lines, not hardcoded numbers',()=>{
   const lines=[
     teaching('LEC','Lecture',7.5,2.25),

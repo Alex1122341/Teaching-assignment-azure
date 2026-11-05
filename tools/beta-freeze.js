@@ -18,8 +18,8 @@ const {execFileSync}=require('node:child_process');
 // Prior AFC, DOE Rule Book / Lookup UI, Selected Schedule Export, DOE Calculator,
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
-// The three trainee breakdown rows are display-only; the API calculation is unchanged.
-const BASELINE_COMMIT='23af7e978ef928469cc985ffcfee20d946413f20';
+// Reviewed 2026–27 strict trainee cap and Excel-style DOE worksheet.
+const BASELINE_COMMIT='0bf28e9c09fde6f71f4b6b715337d2ad570a99c1';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

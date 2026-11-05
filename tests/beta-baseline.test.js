@@ -12,7 +12,7 @@ const freeze=require('../tools/beta-freeze.js');
 
 // Work/Away classification is current. Prior Calendar timeout, activity filters, AFC recovery, DOE Lookup layout/UI, Selected Schedule Export, Scheduling Tasks, ADFA SWAP, Calendar activities, AFC/LAB and P4/DOE Calculator/AUTH-1/P3/P2/P1/W1M/W1H/W1F remain immutable historical evidence so each
 // reviewed protected-runtime promotion stays independently pinned.
-const BASELINE_COMMIT='23af7e978ef928469cc985ffcfee20d946413f20';
+const BASELINE_COMMIT='0bf28e9c09fde6f71f4b6b715337d2ad570a99c1';
 const CCC_SCHEDULE_PRODUCT_COMMIT='5b135dfc91332a6fad29376d1d88d9acd33fd62a';
 const SELECTED_SCHEDULE_GOVERNANCE_COMMIT='e76878cbcfe470eb8d3f3c8b560da4114f9f16e6';
 const DOE_RULEBOOK_LOOKUP_PRODUCT_COMMIT='6b1d2fe200b756f08049ae6cb30d1ba0194a18d5';
@@ -239,13 +239,27 @@ test('Calendar activity freeze promotion preserves AFC LAB coverage and names th
 // A. Baseline identity -------------------------------------------------------
 test('trainee breakdown promotion changes only its reviewed display module',()=>{
   const previous='4da4598bd27f2b7adea07c9682f6569a2c7a3529';
-  const changed=freeze.verifyFreeze({root,baselineCommit:previous}).drift;
-  assert.deepEqual(changed,[{file:'faculty-admin-doe-worksheet.js',reason:'content-drift'}]);
-  assert.equal(require('../tools/beta-api-freeze').verifyFreeze({root,baselineCommit:previous}).ok,true);
-  const before=historicalStaticPaths(previous),after=historicalStaticPaths(BASELINE_COMMIT);
+  const accepted='23af7e978ef928469cc985ffcfee20d946413f20';
+  const before=historicalStaticPaths(previous),after=historicalStaticPaths(accepted);
   assert.deepEqual(after,before);
   assert.equal(after.length,96);
-  execFileSync('git',['merge-base','--is-ancestor',previous,BASELINE_COMMIT],{cwd:root});
+  const delta=execFileSync('git',['diff','--name-only',previous,accepted],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+  assert.deepEqual(delta.filter(file=>file.startsWith('frontend/')),['frontend/scripts/faculty-admin-doe-worksheet.js']);
+  assert.deepEqual(delta.filter(file=>file.startsWith('server/')||file.startsWith('swa-api/')||file==='deploy/aca/Dockerfile'),[]);
+  execFileSync('git',['merge-base','--is-ancestor',previous,accepted],{cwd:root});
+  execFileSync('git',['merge-base','--is-ancestor',accepted,BASELINE_COMMIT],{cwd:root});
+});
+
+test('2026-27 strict trainee cap promotion preserves protected inventories and the reviewed delta',()=>{
+  const previous='23af7e978ef928469cc985ffcfee20d946413f20';
+  assert.deepEqual(historicalStaticPaths(BASELINE_COMMIT),historicalStaticPaths(previous));
+  assert.deepEqual(historicalApiPaths(BASELINE_COMMIT),historicalApiPaths(previous));
+  const delta=execFileSync('git',['diff','--name-only',previous,BASELINE_COMMIT,'--','frontend','server/src','swa-api','deploy/aca/Dockerfile','server/package.json','server/package-lock.json'],{cwd:root,encoding:'utf8'}).trim().split(/\r?\n/);
+  assert.deepEqual(delta,[
+    'frontend/scripts/faculty-admin-doe-worksheet.js',
+    'server/src/doe/doe-reserve-service.js',
+    'server/src/doe/doe-worksheet-service.js'
+  ]);
 });
 
 test('beta identity is pinned to the reviewed HICC and LAB calendar product baseline',()=>{

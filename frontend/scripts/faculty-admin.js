@@ -452,7 +452,7 @@
     const academicYear = text(data.academicYear) || currentAcademicYear();
     const workload = renderWorkload(data, academicYear);
     pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyName(facultyRecord, facultyRecord.facultyId))}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div>${specialtyHtml}</div>${actions}</div>${relationshipNote}<div class="profile-sections">${workload}${afcHtml}${rolesHtml}${renderTeachingCourses(assignments)}${section('Identity & contact', identity)}${section('Appointment', appointment)}${profile ? section('Specialty & education', professional, true) : ''}${joints}${scope}</div>`;
-    loadDetailDoeWorksheet(facultyRecord.facultyId, academicYear);
+    loadDetailDoeWorksheet(facultyRecord.facultyId, academicYear, data.contractDoe);
     const archiveHost=$('faculty-afc-originals');if(archiveHost){facultyArchive=window.PAWS_AFC_FORMS?.createArchiveController({api:UCVM_PAWS_DATA,host:archiveHost,getUser:()=>currentUser,getFacultyId:()=>selectedId===facultyRecord.facultyId?facultyRecord.facultyId:''});facultyArchive?.load();}
   }
 
@@ -461,8 +461,8 @@
   function currentAcademicYear() { return text(dashboardSummary?.academicYear || ''); }
   function otherWorkAcademicYear() { return currentAcademicYear() || text(selectedDetail?.academicYear); }
   function doeValue(value) { return number(value) === null ? 'Needs Review' : `${Number(value).toFixed(2)}%`; }
-  function loadDetailDoeWorksheet(facultyId, academicYear) {
-    return doeWorksheetView?.loadDetail(facultyId, academicYear, $('faculty-doe-worksheet'), () => String(selectedId || '').toLowerCase() === String(facultyId || '').toLowerCase(), { embedded: true });
+  function loadDetailDoeWorksheet(facultyId, academicYear, contractDoe) {
+    return doeWorksheetView?.loadDetail(facultyId, academicYear, $('faculty-doe-worksheet'), () => String(selectedId || '').toLowerCase() === String(facultyId || '').toLowerCase(), { embedded: true, contractDoe });
   }
   function loadDoeList(force = false) { return doeWorksheetView?.loadList(force); }
 

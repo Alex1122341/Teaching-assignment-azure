@@ -36,5 +36,7 @@ test('profile places one combined Workload / Contract section first, with summar
   assert.equal((pane.innerHTML.match(/id="faculty-doe-worksheet"/g)||[]).length,1);
   assert.equal((pane.innerHTML.match(/Workload \/ Contract/g)||[]).length,1);
   assert.match(pane.innerHTML,/Sessional · Visiting lecturer/);
-  assert.deepEqual(calls,[['faculty-1','2027-28']]);
+  assert.equal(calls.length,1);
+  assert.deepEqual(calls[0].slice(0,2),['faculty-1','2027-28']);
+  assert.equal(calls[0][2].teachingDoe,20);
 });

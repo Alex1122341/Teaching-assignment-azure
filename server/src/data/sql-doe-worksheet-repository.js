@@ -39,7 +39,8 @@ function createSqlDoeWorksheetRepository(db) {
     const params = { academicYear, facultyId: text(facultyId), limit: 501 };
     const [facultyRows, targetRows, policyRows, reserveRows, assignmentRows, sessionRows, legacyRoleRows, supervisionSourceRows, manualRows] = await Promise.all([
       db.query(
-        `SELECT TOP (@limit) f.FacultyId AS facultyId, f.DisplayName AS displayName, f.Stream AS stream, f.Active AS facultyActive
+        `SELECT TOP (@limit) f.FacultyId AS facultyId, f.DisplayName AS displayName,
+                f.PreferredFirstName AS preferredFirstName, f.PreferredLastName AS preferredLastName, f.Stream AS stream, f.Active AS facultyActive
            FROM paws.Faculty AS f
           WHERE (@facultyId=N'' OR f.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))
           ORDER BY f.DisplayName, f.FacultyId`, params),
@@ -247,6 +248,7 @@ function createSqlDoeWorksheetRepository(db) {
         : lines.some(line => line.policyVersionId && !policy?.policyVersionId) ? 'missing_version' : 'consistent';
       return {
         facultyId: text(row.facultyId), displayName: text(row.displayName), stream: text(row.stream), facultyActive: bool(row.facultyActive),
+        preferredFirstName: text(row.preferredFirstName), preferredLastName: text(row.preferredLastName),
         academicYear, policyStatus,
         // Target snapshot provenance is not an annual calculation policy.
         targetPolicyVersionLabel: text(targetRow?.targetPolicyVersionLabel),

@@ -92,6 +92,7 @@ function createWorksheetService({ repository } = {}) {
     return {
       facultyId: text(source.facultyId || facultyId), academicYear: worksheetYear,
       displayName: text(source.displayName), stream: text(source.stream), status: errors.length ? 'needs_review' : 'calculated',
+      preferredFirstName: text(source.preferredFirstName), preferredLastName: text(source.preferredLastName),
       policyVersionId: policyVersion(lines), target: { ...(source.target || {}) }, reservePolicy: { ...(source.reservePolicy || {}) },
       targetPolicyVersionLabel: text(source.targetPolicyVersionLabel),
       workloadSourceReference: text(source.workloadSourceReference),

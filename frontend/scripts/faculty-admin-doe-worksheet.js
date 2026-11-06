@@ -256,7 +256,7 @@
       const balanceTone = displayedRemaining === null ? 'unknown' : displayedRemaining === 0 ? 'at' : displayedRemaining > 0 ? 'remaining' : 'over';
       const balanceLabel = displayedRemaining === null ? 'None' : displayedRemaining === 0 ? 'At expected' : `${formatDoe(Math.abs(displayedRemaining))} ${displayedRemaining > 0 ? 'Remaining' : 'Over'}`;
       const cards = [
-        ['Faculty Name', showFaculty(worksheet.displayName).trim() || 'None', 'name'],
+        ['Faculty Name', showFaculty(worksheet.preferredFirstName || worksheet.preferredLastName ? worksheet : worksheet.displayName).trim() || 'None', 'name'],
         ['Contracted Teaching (%)', percent(target.contractTeachingDoe), 'contract'],
         ['Contracted Clinical Teaching (%)', percent(target.contractClinicalTeachingDoe), 'contract'],
         [`Expected ${year} Teaching (%)`, percent(target.effectiveTargetDoe), 'expected'],

@@ -26,6 +26,11 @@ function summaryEntries(html) {
   return [...summary.matchAll(/<dt>(.*?)<\/dt><dd>(.*?)<\/dd>/g)].map(match => [match[1], match[2]]);
 }
 
+test('MASTER summary uses structured preferred names over a reversed stored display label',async()=>{
+ const html=await render({displayName:'Douglas, Morck',preferredFirstName:'Douglas',preferredLastName:'Morck',academicYear:'2026-27',target:{},totals:{},lines:[]});
+ assert.deepEqual(summaryEntries(html)[0],['Faculty Name','Morck, Douglas']);
+});
+
 test('worksheet presents the eight MASTER fields from independent API values and selected year', async () => {
   const worksheet = { facultyId: 'faculty-1', displayName: 'de la Cruz, Mary Jane', academicYear: '2027-28', status: 'calculated',
     target: { contractTeachingDoe: 30, contractClinicalTeachingDoe: 12, effectiveTargetDoe: 24, potentialGradTeachingDoe: 4 },

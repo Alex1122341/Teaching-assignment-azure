@@ -435,8 +435,7 @@
     if (!facultyRecord) { pane.innerHTML = '<div class="empty">Select a faculty member to view their profile.</div>'; return; }
     const profile = data.professionalProfile && typeof data.professionalProfile === 'object' ? data.professionalProfile : null;
     const roles = Array.isArray(data.roles) ? data.roles : []; const assignments = Array.isArray(data.teachingAssignments) ? data.teachingAssignments : [];
-    const contributorLabels = [...new Set(assignments.filter(row => row.contributorCategory === 'Sessional').map(row => row.contributorLabel && row.contributorLabel !== 'Sessional' ? `Sessional · ${row.contributorLabel}` : 'Sessional'))];
-    const badges = [facultyRecord.rank, present(facultyRecord.fte) ? `FTE ${facultyRecord.fte}` : '', facultyRecord.stream, facultyRecord.recordType, ...contributorLabels].filter(Boolean).map(value => `<span class="badge">${esc(value)}</span>`).join('');
+    const badges = renderFacultyBadges(facultyRecord, assignments);
     const identity = field('Preferred name', facultyName(facultyRecord)) + field('HR name', facultyRecord.hrName || 'Not imported from an exact source match') + field('HR name source', facultyRecord.hrNameSource) + field('UCID', facultyRecord.ucid) + field('Email', facultyRecord.email) + field('Reports to', facultyName(facultyRecord.reportsToName));
     const appointment = field('Rank', facultyRecord.rank) + field('Stream', facultyRecord.stream) + field('FTE', facultyRecord.fte) + field('Record type', facultyRecord.recordType) + field('Service date', profile?.serviceDate) + field('Prior years experience', profile?.priorYearsExperience) + field('Start',facultyRecord.activationDate)+field('Status',facultyRecord.administrativeActive===false?'Inactive':facultyRecord.active===false?'Pending':'Active');
     const professional = profile ? field('Teaching area', profile.teachingArea, true) + field('Professional category', profile.professionalCategory) + field('DVM earned', profile.dvmEarnedDate) + field('DVM type', profile.dvmType) + field('Masters earned', profile.mastersEarnedDate) + field('Masters area', profile.mastersArea, true) + field('PhD earned', profile.phdEarnedDate) + field('PhD area', profile.phdArea, true) + field('Board certified date', profile.boardCertifiedDate) + field('Board certification count', profile.boardCertificationCount) + field('Board certification', profile.boardCertification, true) + field('ABVMA license number', profile.abvmaLicenseNumber) + field('ABVMA member type', profile.abvmaMemberType) : '';
@@ -451,7 +450,7 @@
     const actions = facultyManagement.actions(facultyRecord);
     const relationshipNote = canManage && facultyRecord.administrativeActive !== false ? facultyManagement.relationshipWarning(linked) : '';
     const academicYear = text(data.academicYear) || currentAcademicYear();
-    const workload = `<section class="section wide doe-workload-contract"><div class="section-title">Workload / Contract · ${esc(academicYear || 'Academic year unavailable')}</div><div id="faculty-doe-worksheet"><div class="empty">Loading authoritative DOE Worksheet…</div></div>${renderContractDoe(data.contractDoe, facultyRecord, { embedded: true })}${renderDoeRuleBook(data.doeRuleBook)}</section>`;
+    const workload = renderWorkload(data, academicYear);
     pane.innerHTML = `<div class="profile-header"><div><div class="profile-name">${esc(facultyName(facultyRecord, facultyRecord.facultyId))}</div><div class="profile-sub">${esc(facultyRecord.email || '')}${facultyRecord.ucid ? ' · UCID ' + esc(facultyRecord.ucid) : ''}</div><div class="badges">${badges}</div>${specialtyHtml}</div>${actions}</div>${relationshipNote}<div class="profile-sections">${workload}${afcHtml}${rolesHtml}${renderTeachingCourses(assignments)}${section('Identity & contact', identity)}${section('Appointment', appointment)}${profile ? section('Specialty & education', professional, true) : ''}${joints}${scope}</div>`;
     loadDetailDoeWorksheet(facultyRecord.facultyId, academicYear);
     const archiveHost=$('faculty-afc-originals');if(archiveHost){facultyArchive=window.PAWS_AFC_FORMS?.createArchiveController({api:UCVM_PAWS_DATA,host:archiveHost,getUser:()=>currentUser,getFacultyId:()=>selectedId===facultyRecord.facultyId?facultyRecord.facultyId:''});facultyArchive?.load();}
@@ -546,7 +545,7 @@
   }
 
   const DOE_PROFILE_RENDERER = window.UCVM_FACULTY_DOE_RENDERER.create({ esc, number, formatDoe, display, effectiveRoleDoe, groupTeachingAssignments });
-  const { renderContractDoe, renderDoeRuleBook, renderTeachingCourses } = DOE_PROFILE_RENDERER;
+  const { renderWorkload, renderFacultyBadges, renderTeachingCourses } = DOE_PROFILE_RENDERER;
   function renderDetailPending(row) { const pane = $('profile-pane'); if (pane) pane.innerHTML = row ? `<div class="empty">Loading ${esc(row.preferredFullName || row.__id)}…</div>` : '<div class="empty">Select a faculty member to view their profile.</div>'; }
   async function selectFacultyDetail(facultyId) {
     const started = typeof performance?.now === 'function' ? performance.now() : 0;

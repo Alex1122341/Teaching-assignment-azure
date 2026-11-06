@@ -1,8 +1,9 @@
-name: Future Faculty activation SQL acceptance
+name: Faculty administration SQL acceptance
 on:
   pull_request:
     paths:
       - 'database/azure-sql/065_*'
+      - 'database/azure-sql/067_*'
       - 'database/azure-sql/rollback_065_*'
       - 'tools/test-faculty-future-activation-sql.ps1'
       - 'server/test/faculty-future-activation*'
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'database/azure-sql/065_*'
+      - 'database/azure-sql/067_*'
       - 'database/azure-sql/rollback_065_*'
       - 'tools/test-faculty-future-activation-sql.ps1'
       - 'server/test/faculty-future-activation*'
@@ -55,6 +57,17 @@ jobs:
              'FACULTY_065_EMPTY_ROLLBACK_OK'
           )) { if($combined -notmatch $marker){throw "Missing marker: $marker"} }
           Write-Output 'FUTURE_FACULTY_065_ACCEPTANCE_OK'
+      - name: Validate Faculty DOE inputs, source preservation and rollback
+        shell: pwsh
+        run: |
+          . ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-faculty-065 -Through '041' -SkipAcceptance
+          foreach ($script in @('065_faculty_future_activation','066_sessional_and_doe_summary_source','067_faculty_teaching_doe_inputs','067_faculty_teaching_doe_inputs_acceptance')) {
+            $result=Invoke-TestSql (Get-Content -LiteralPath "database/azure-sql/$script.sql" -Raw) 'VetMed-Ops'
+            $result | Write-Output
+            if ($script.EndsWith('_acceptance') -and ($result -join "`n") -notmatch 'FACULTY_067_TEACHING_DOE_ACCEPTANCE_OK') {
+              throw 'Missing Faculty DOE SQL acceptance marker.'
+            }
+          }
       - name: Destroy only the labeled synthetic container
         if: always()
         shell: pwsh

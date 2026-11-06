@@ -55,3 +55,31 @@ test('changing an effective date never falls back to nontransactional writes',as
  await assert.rejects(()=>repo.updateFaculty(fields),/transaction/i);
  assert.equal(calls,0);
 });
+
+test('a failure writing DOE rolls back Faculty creation or editing as one save', async () => {
+ const teachingDoe = { academicYear: '2026-27', before: {}, values: { contractTeachingDoe: 20 } };
+ for (const operation of ['createFaculty', 'updateFaculty']) {
+  const calls = [];
+  const db = {
+   query: async (query, params) => {
+    const command = query.match(/EXEC paws_api\.(\w+)/)[1];
+    calls.push(command);
+    if (command === 'SetFacultyTeachingDoeInputs') {
+     assert.equal(params.FacultyId, fields.facultyId);
+     assert.equal(params.AcademicYear, '2026-27');
+     throw Error('stale DOE');
+    }
+    return [fields];
+   },
+   transaction: async callback => {
+    calls.push('BEGIN');
+    try { const value = await callback(); calls.push('COMMIT'); return value; }
+    catch (error) { calls.push('ROLLBACK'); throw error; }
+   }
+  };
+  await assert.rejects(() => createSqlFacultyAdminRepository(db)[operation]({ ...fields, teachingDoe }), /stale DOE/);
+  assert.deepEqual(calls, operation === 'createFaculty'
+   ? ['BEGIN', 'CreateFaculty', 'SetFacultyTeachingDoeInputs', 'ROLLBACK']
+   : ['BEGIN', 'UpdateFaculty', 'SetFacultyActivation', 'SetFacultyTeachingDoeInputs', 'ROLLBACK']);
+ }
+});

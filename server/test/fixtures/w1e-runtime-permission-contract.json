@@ -45,7 +45,7 @@
   ],
   "p4ReadObjects": [
     "paws.SessionalAssignment",
-    "paws.DoeFacultySummarySource",
+    "paws.vFacultyDoeSummaryInputs",
     "paws.DoePolicyRule",
     "paws.DoeRuleSelector",
     "paws.DoeRuleParameter",
@@ -112,6 +112,9 @@
   ],
   "rolePeriodWriteProcedures": [
     "paws_api.SetRoleAppointmentPeriods"
+  ],
+  "facultyDoeWriteProcedures": [
+    "paws_api.SetFacultyTeachingDoeInputs"
   ],
   "manualReadObjects": [
     "paws.Course",

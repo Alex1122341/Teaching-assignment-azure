@@ -261,15 +261,15 @@
       const displayedRemaining = remaining === null ? null : Number(remaining.toFixed(2));
       const balanceTone = displayedRemaining === null ? 'unknown' : displayedRemaining > 1 ? 'positive' : displayedRemaining < -1 ? 'negative' : 'near';
       const balanceLabel = displayedRemaining === null ? 'None' : displayedRemaining === 0 ? 'At expected' : `${formatDoe(Math.abs(displayedRemaining))} ${displayedRemaining > 0 ? 'Remaining' : 'Over'}`;
+      const potentialGrad = finite(target.potentialGradTeachingDoe);
       const cards = [
         ['Contracted Teaching (%)', percent(target.contractTeachingDoe)],
         ['Contracted Clinical Teaching (%)', percent(target.contractClinicalTeachingDoe)],
         [`Expected ${year} Teaching (%)`, percent(target.effectiveTargetDoe)],
-        ['Assigned Teaching (%)', percent(totals.assignedTeachingDoe)],
+        ['Assigned Teaching (%)', percent(totals.assignedTeachingDoe), '', potentialGrad === null ? '' : `(Potential Grad Teaching: ${percent(potentialGrad)})`],
         ['Remaining', percent(displayedRemaining), ` doe-master-remaining doe-master-remaining-${balanceTone}`],
-        ['Potential Grad Teaching', percent(target.potentialGradTeachingDoe)],
         ['Adjustment', percent(totals.adjustmentDoe)]
-      ].map(([label, value, classes = '']) => `<div class="p4-doe-worksheet-card${classes}"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');
+      ].map(([label, value, classes = '', reference = '']) => `<div class="p4-doe-worksheet-card${classes}"><dt>${esc(label)}</dt><dd>${esc(value)}${reference ? `<small class="doe-summary-reference">${esc(reference)}</small>` : ''}</dd></div>`).join('');
       const lineCount = (worksheet.lines || []).length;
       const provenance = (worksheet.lines || []).map((line,index) => {
         const reference = line.reference || {};

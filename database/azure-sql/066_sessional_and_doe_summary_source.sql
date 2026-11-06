@@ -22,7 +22,7 @@ IF OBJECT_ID(N'paws.SessionalAssignment',N'U') IS NULL
   RecordedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_SessionalAssignment_Recorded DEFAULT SYSUTCDATETIME(),
   CONSTRAINT PK_SessionalAssignment PRIMARY KEY(SessionId,ContributorName),
   CONSTRAINT FK_SessionalAssignment_Session FOREIGN KEY(SessionId) REFERENCES paws.Session(SessionId),
-  CONSTRAINT FK_SessionalAssignment_Assignment FOREIGN KEY(SessionId,SessionAssignmentId) REFERENCES paws.SessionAssignment(SessionId,SessionAssignmentId),
+  CONSTRAINT FK_SessionalAssignment_Assignment FOREIGN KEY(SessionId,SessionAssignmentId) REFERENCES paws.SessionAssignment(SessionId,SessionAssignmentId) ON DELETE CASCADE,
   CONSTRAINT CK_SessionalAssignment_Name CHECK(LEN(LTRIM(RTRIM(ContributorName)))>0),
   CONSTRAINT CK_SessionalAssignment_Label CHECK(LEN(LTRIM(RTRIM(ContributorLabel)))>0),
   CONSTRAINT CK_SessionalAssignment_Source CHECK(SourceRow>0 AND LEN(SourceSha256)=64 AND SourceSha256 NOT LIKE '%[^0-9a-fA-F]%')

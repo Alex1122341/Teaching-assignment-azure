@@ -40,3 +40,21 @@ test('Calendar labels Sessional assignments from explicit source classification 
  assert.match(query,/sn\.SessionAssignmentId/);
  assert.doesNotMatch(query,/UPDATE|INSERT|DELETE/);
 });
+
+test('Sessional name formatting precedes long and parenthesized labels and stays stable in the browser formatter',async()=>{
+ const names=require('../src/domain/person-name');
+ const subtype='Visiting librarian (UCVM) and information literacy instructor';
+ const result=await createSqlSessionRepository({async query(){return [{instructorNames:'Rebecca Jackson',sessionalContributorsJson:JSON.stringify([{name:'Heather Ganshorn',label:subtype}])}];}}).list({academicYear:'2026-27'});
+ assert.equal(result[0].instructorNames,`Jackson, Rebecca; Ganshorn, Heather (Sessional · ${subtype})`);
+ assert.equal(names.formatList(result[0].instructorNames),result[0].instructorNames);
+ assert.equal(Object.hasOwn(result[0],'sessionalContributorsJson'),false);
+});
+
+test('Sessional subtype never reparses placeholders or a single recorded name',async()=>{
+ const names=require('../src/domain/person-name');
+ const subtype='Visiting librarian (UCVM) and information literacy instructor';
+ for(const person of ['TBD','Locum','Madonna']){
+  const rows=await createSqlSessionRepository({async query(){return [{instructorNames:'',sessionalContributorsJson:JSON.stringify([{name:person,label:subtype}])}];}}).list({academicYear:'2026-27'});
+  assert.equal(names.formatList(rows[0].instructorNames),`${person} (Sessional · ${subtype})`);
+ }
+});

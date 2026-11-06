@@ -23,6 +23,20 @@ INSERT paws.DoeFacultySummarySource(FacultyId,AcademicYear,ContractClinicalTeach
 IF NOT EXISTS(SELECT 1 FROM paws.DoeFacultySummarySource WHERE FacultyId=@Faculty AND AcademicYear=N'2999-00'
  AND ContractClinicalTeachingDoe=0 AND PotentialGradTeachingDoe IS NULL)
  THROW 56684,'Zero and absent source values must remain distinct.',1;
+IF NOT EXISTS(SELECT 1 FROM paws.DoeFacultyTarget target
+ FULL OUTER JOIN paws.DoeFacultySummarySource source ON source.FacultyId=target.FacultyId AND source.AcademicYear=target.AcademicYear AND target.Active=1
+ WHERE source.FacultyId=@Faculty AND source.AcademicYear=N'2999-00' AND source.ContractClinicalTeachingDoe=0)
+ THROW 56686,'Independent summary was lost without a contract target.',1;
+DECLARE @TemporaryAssignment uniqueidentifier=NEWID();
+INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,SourceFacultyName,FacultyResolutionStatus,SourceImportBatchId,SourceRow)
+ SELECT @TemporaryAssignment,SessionId,N'[ACCEPTANCE] Contributor',N'unresolved',SourceImportBatchId,1
+ FROM paws.SessionAssignment WHERE SessionAssignmentId=@Assignment;
+INSERT paws.SessionalAssignment(SessionId,SessionAssignmentId,ContributorName,SourceSha256,SourceSheet,SourceRow)
+ SELECT SessionId,@TemporaryAssignment,N'[ACCEPTANCE] Replacement lifecycle',REPLICATE('d',64),N'[ACCEPTANCE]',1
+ FROM paws.SessionAssignment WHERE SessionAssignmentId=@TemporaryAssignment;
+DELETE FROM paws.SessionAssignment WHERE SessionAssignmentId=@TemporaryAssignment;
+IF EXISTS(SELECT 1 FROM paws.SessionalAssignment WHERE SessionAssignmentId=@TemporaryAssignment)
+ THROW 56687,'Replaced assignment retained a stale classification.',1;
 ROLLBACK TRANSACTION;
 DECLARE @OtherSession uniqueidentifier=(SELECT TOP(1) SessionId FROM paws.Session WHERE SessionId<>(SELECT SessionId FROM paws.SessionAssignment WHERE SessionAssignmentId=@Assignment)),
  @Rejected bit=0;

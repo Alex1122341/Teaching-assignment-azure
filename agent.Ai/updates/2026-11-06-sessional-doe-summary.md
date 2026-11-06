@@ -1,6 +1,6 @@
 # Sessional source labels and compact DOE summary
 
-Product c01ff949c0448f432c6f79ea3e0bebab02bdd972 is based on accepted Beta e20771fd3de5158142ad77facbb666dc2b40d953. The separate governance commit promotes this exact product across the full existing static/API freeze; no protection is removed. Existing annual DOE calculation and permissions are preserved.
+Product fba8b0c802a9c832da959bef215583151c48f7e2 is based on accepted Beta e20771fd3de5158142ad77facbb666dc2b40d953. The separate governance commit promotes this exact product across the full existing static/API freeze; no protection is removed. Existing annual DOE calculation and permissions are preserved.
 
 The first profile section combines the MASTER-aligned eight-field Worksheet summary and contract information. Contract allocations, calculation provenance, each Excel breakdown group and DOE Rule Reference default closed. Null displays None and numeric zero remains zero; source links expand the provenance container. Sessional contributors are source metadata on an existing session, with optional same-session links to current assignments. Long/parenthesized labels are appended after shared person formatting, including placeholders and single components.
 

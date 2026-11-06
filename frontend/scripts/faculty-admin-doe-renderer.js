@@ -9,7 +9,7 @@
       if (!rows.length) return '';
       return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(header => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells => `<tr>${cells.map((cell, index) => `<td>${/source|reference/i.test(headers[index]) ? referenceBubble(display(cell)) : esc(display(cell))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
     }
-    function renderContractDoe(contractDoe, faculty = {}) {
+    function renderContractDoe(contractDoe, faculty = {}, { embedded = false } = {}) {
       const data = contractDoe && typeof contractDoe === 'object' ? contractDoe : {};
       const categoryLabels = {
         scholarly_activity: 'Scholarly Activity', ppvm_cost_share: 'PPVM Cost Share',
@@ -31,7 +31,9 @@
       const sourceLine = `Source: ${source}${data.sourceReference ? ` · ${data.sourceReference}` : ''}`;
       const totalLine = total === null ? 'DOE unavailable' : formatDoe(total);
       const fteReference = faculty?.fteSourceReference ? `FTE source: ${faculty.fteSourceReference}` : 'FTE source: not recorded';
-      return `<section class="section wide contract-doe-allocation"><div class="section-title">Workload / Contract · ${esc(data.academicYear || 'Academic year unavailable')}</div><div class="doe-profile-source"><strong>FTE:</strong> ${fte === null ? 'Unavailable' : esc(fte.toFixed(2))} ${referenceBubble(fteReference,'FTE source')} ${referenceBubble(sourceLine,'Contract DOE source')}</div><div class="table-wrap"><table class="data-table"><tbody>${rows.join('')}<tr class="contract-doe-total"><th scope="row">Total Contract DOE</th><td>${esc(totalLine)}</td></tr></tbody></table></div>${teaching === null ? '<div class="doe-note warn-box">Teaching contract target is unavailable; displayed total includes only supplied allocations.</div>' : ''}</section>`;
+      const body = `<div class="doe-profile-source"><strong>FTE:</strong> ${fte === null ? 'Unavailable' : esc(fte.toFixed(2))} ${referenceBubble(fteReference,'FTE source')} ${referenceBubble(sourceLine,'Contract DOE source')}</div><div class="table-wrap"><table class="data-table"><tbody>${rows.join('')}<tr class="contract-doe-total"><th scope="row">Total Contract DOE</th><td>${esc(totalLine)}</td></tr></tbody></table></div>${teaching === null ? '<div class="doe-note warn-box">Teaching contract target is unavailable; displayed total includes only supplied allocations.</div>' : ''}`;
+      if (embedded) return `<details class="contract-doe-allocation doe-contract-details"><summary>Contract allocations · ${esc(data.academicYear || 'Academic year unavailable')} · ${supplied.length} ${supplied.length === 1 ? 'allocation' : 'allocations'}</summary>${body}</details>`;
+      return `<section class="section wide contract-doe-allocation"><div class="section-title">Workload / Contract · ${esc(data.academicYear || 'Academic year unavailable')}</div>${body}</section>`;
     }
 
     function renderDoeRuleBook(ruleBook) {

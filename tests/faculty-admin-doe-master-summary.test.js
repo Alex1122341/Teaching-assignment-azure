@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const names = require('../frontend/scripts/faculty-name');
 
-async function render(worksheet) {
+async function render(worksheet, options) {
   const context = { window: { PAWS_FACULTY_NAME: names } };
   vm.runInNewContext(fs.readFileSync('frontend/scripts/faculty-admin-doe-worksheet.js', 'utf8'), context);
   const view = context.window.UCVM_FACULTY_DOE_WORKSHEET.create({
@@ -17,7 +17,7 @@ async function render(worksheet) {
     getFaculty: () => [], getAcademicYear: () => '2026-27', editAction: () => '', onView() {}
   });
   const panel = { isConnected: true, innerHTML: '' };
-  await view.loadDetail('faculty-1', worksheet.academicYear || '2026-27', panel, () => true);
+  await view.loadDetail('faculty-1', worksheet.academicYear || '2026-27', panel, () => true, options);
   return panel.innerHTML;
 }
 
@@ -29,6 +29,19 @@ function summaryEntries(html) {
 test('MASTER summary uses structured preferred names over a reversed stored display label',async()=>{
  const html=await render({displayName:'Douglas, Morck',preferredFirstName:'Douglas',preferredLastName:'Morck',academicYear:'2026-27',target:{},totals:{},lines:[]});
  assert.deepEqual(summaryEntries(html)[0],['Faculty Name','Morck, Douglas']);
+});
+
+test('embedded worksheet presents summary first and keeps errors visible above closed calculation details', async () => {
+  const html = await render({ academicYear: '2026-27', status: 'needs_review', target: {}, totals: {},
+    errors: [{ code: 'MISSING_SOURCE', message: 'Confirm course evidence' }],
+    lines: [{ category: 'teaching', activityType: 'Lecture', resultDoe: null, status: 'needs_review' }] }, { embedded: true });
+  assert.doesNotMatch(html, /class="section-title">Faculty DOE Worksheet/);
+  assert.match(html, /<details class="doe-calculation-details"><summary>Calculation details · 1 source line<\/summary>/);
+  const calculationStart = html.indexOf('<details class="doe-calculation-details">');
+  assert.ok(html.indexOf('<dl class="p4-doe-worksheet-summary">') < calculationStart);
+  assert.ok(html.indexOf('Confirm course evidence') < calculationStart);
+  assert.ok(html.indexOf('Source requires review') < calculationStart);
+  assert.doesNotMatch(html, /<details class="doe-calculation-details"[^>]*\bopen\b/);
 });
 
 test('worksheet presents the eight MASTER fields from independent API values and selected year', async () => {

@@ -78,6 +78,48 @@ test('Lookup renders the Excel item titles and server teaching reserve rows in w
   assert.ok(html.indexOf('Total (Without Trainees)') < html.indexOf('Trainees &amp; Supervision'));
 });
 
+test('Excel breakdown folds each business group independently while retaining visible teaching and trainee totals',()=>{
+  const html=worksheetView().renderLookupBreakdown({academicYear:'2026-27',status:'calculated',
+    lines:[teaching('LEC','Lecture',2,.6)],reserve:{initialAssignedTeachingReserve:5,initialTraineeReserve:5},
+    totals:{rawSupervisionDoe:0,appliedSupervisionDoe:0,assignedTeachingDoe:.6}});
+  const groups=[...html.matchAll(/<details class="doe-excel-group"><summary>(.*?)<\/summary>([\s\S]*?)<\/details>/g)];
+  assert.equal(groups.length,8);
+  assert.deepEqual(groups.map(group=>group[1]),[
+    'Lectures &amp; Labs · 1 source line','Course Coordination · 0 source lines',
+    'DVM HICC Course Development · 0 source lines','VISC Coordination · 0 source lines',
+    'Clinical Rotations · 0 source lines','Other · 0 source lines','Approved Manual DOE · 0 source lines',
+    'Trainees &amp; Supervision · 0 source lines'
+  ]);
+  assert.match(groups[0][2],/<td>Lectures<\/td><td>2 hrs<\/td><td>0\.60%<\/td>/);
+  const visible=html.replace(/<details class="doe-excel-group">[\s\S]*?<\/details>/g,'');
+  for(const label of ['Assigned Teaching Reserve','Total (Without Trainees)','Training Actual','Training Reserve','Applied Trainee DOE','Total + Trainees'])assert.ok(visible.includes(label),label);
+});
+
+test('trainee group count reflects one source snapshot rather than seven expanded credit rows',()=>{
+  const html=worksheetView().renderLookupBreakdown({academicYear:'2026-27',status:'calculated',lines:[{
+    sourceEntityType:'supervision_source_snapshot',category:'supervision',resultDoe:3,status:'source_snapshot',
+    facts:{sourceRef:{columns:'D,F,H,K,N,P,R'},counts:[1,0,0,0,1,0,0],categoryCredits:[1,0,0,0,2,0,0]}
+  }],totals:{rawSupervisionDoe:3,appliedSupervisionDoe:3}});
+  assert.match(html,/<summary>Trainees &amp; Supervision · 1 source line<\/summary>/);
+});
+
+test('View source opens closed calculation ancestors and focuses the exact provenance row',async()=>{
+  const worksheet={facultyId:'faculty-1',academicYear:'2026-27',lines:[{...other('role','HICC',null),lineId:'role-1'}],totals:{}};
+  const context={window:{}};
+  vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(),'faculty-admin-doe-worksheet.js'),'utf8'),context);
+  const view=context.window.UCVM_FACULTY_DOE_WORKSHEET.create({api:{doeWorksheet:async()=>worksheet},escapeHtml:v=>String(v??''),formatDoe:v=>v===null?'Needs Review':v+'%',finiteDoe:v=>v==null?null:Number(v),getFaculty:()=>[],getAcademicYear:()=> '2026-27',editAction:()=>'',onView:()=>{}});
+  const anchor=view.buildSourceIssues(worksheet)[0].anchor;
+  const outer={open:false,parentElement:null}, inner={open:false,parentElement:{closest:()=>outer}};
+  let focused=false,scrolled=false,prevented=false,handler;
+  const row={closest:()=>inner,focus(){focused=true;},scrollIntoView(){scrolled=true;}};
+  const panel={isConnected:true,innerHTML:'',addEventListener(type,fn){if(type==='click')handler=fn;},querySelector(selector){assert.equal(selector,'#'+anchor);return row;}};
+  await view.loadDetail('faculty-1','2026-27',panel,()=>true);
+  assert.equal(typeof handler,'function');
+  handler({target:{closest:()=>({getAttribute:()=> '#'+anchor})},preventDefault(){prevented=true;}});
+  assert.equal(inner.open,true);assert.equal(outer.open,true);
+  assert.equal(focused,true);assert.equal(scrolled,true);assert.equal(prevented,true);
+});
+
 test('Lookup displays seven source-confirmed trainee rows without adding the snapshot twice',()=>{
   const view=worksheetView();
   const line={sourceEntityType:'supervision_source_snapshot',category:'supervision',resultDoe:17.5,status:'source_snapshot',

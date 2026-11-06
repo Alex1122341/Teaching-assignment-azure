@@ -47,7 +47,15 @@ function createSqlSessionRepository(db) {
             CONVERT(varchar(8), c.StartTime, 108) AS startTime,
             CONVERT(varchar(8), c.EndTime, 108) AS endTime,
             c.Room AS room,
-            COALESCE((SELECT STRING_AGG(CONVERT(nvarchar(max), COALESCE(NULLIF(${facultyDisplayNameSql()},N''),LTRIM(RTRIM(REPLACE(sn.SourceFacultyName,N',',N' '))))), N'; ') WITHIN GROUP (ORDER BY sn.SessionAssignmentId) FROM paws.SessionAssignment sn LEFT JOIN paws.Faculty f ON f.FacultyId = sn.FacultyId WHERE sn.SessionId = c.SessionId), REPLACE(c.InstructorNames,N',',N' ')) AS instructorNames,
+            COALESCE(NULLIF(CONCAT_WS(N'; ',(SELECT STRING_AGG(CONVERT(nvarchar(max),
+              COALESCE(NULLIF(${facultyDisplayNameSql()},N''),LTRIM(RTRIM(REPLACE(sn.SourceFacultyName,N',',N' '))))), N'; ')
+              WITHIN GROUP (ORDER BY sn.SessionAssignmentId) FROM paws.SessionAssignment sn
+              LEFT JOIN paws.Faculty f ON f.FacultyId = sn.FacultyId
+              WHERE sn.SessionId=c.SessionId AND NOT EXISTS(SELECT 1 FROM paws.SessionalAssignment matched WHERE matched.SessionAssignmentId=sn.SessionAssignmentId)),
+              (SELECT STRING_AGG(CONVERT(nvarchar(max),CONCAT(contributor.ContributorName,
+                CASE WHEN contributor.ContributorLabel=N'Sessional' THEN N' (Sessional)' ELSE CONCAT(N' (Sessional · ',contributor.ContributorLabel,N')') END)),N'; ')
+                WITHIN GROUP(ORDER BY contributor.ContributorName)
+                FROM paws.SessionalAssignment contributor WHERE contributor.SessionId=c.SessionId)),N''), REPLACE(c.InstructorNames,N',',N' ')) AS instructorNames,
             ${assignmentProjection}
          FROM paws.vCalendarSession c${where}
          ORDER BY c.SessionDate, c.StartTime, c.SessionId`,

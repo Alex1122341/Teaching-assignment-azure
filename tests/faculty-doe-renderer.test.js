@@ -37,6 +37,14 @@ test('DOE rule renderer displays policy provenance and preserves year-stage valu
   assert.match(html, /2026-27/);
   assert.match(html, />5%<\/td>/);
   assert.match(html, /stage-bound/);
+  assert.match(html, /<details class="section wide doe-rule-book"><summary class="section-title">DOE Rule Reference · 2026-27 · 1 rule<\/summary>/);
+  assert.doesNotMatch(html, /<details[^>]*\bopen\b/);
+});
+
+test('DOE rule reference shows the selected year and zero count when empty', () => {
+  const html = makeRenderer().renderDoeRuleBook({ academicYear: '2028-29', rules: [] });
+  assert.match(html, /<summary class="section-title">DOE Rule Reference · 2028-29 · 0 rules<\/summary>/);
+  assert.match(html, /No DOE rule references for this year/);
 });
 
 test('DOE summary separates assigned teaching from unresolved role inputs and shows calculator evidence', () => {

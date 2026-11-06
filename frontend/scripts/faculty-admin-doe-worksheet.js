@@ -249,13 +249,23 @@
       const target = worksheet.target || {}, totals = worksheet.totals || {}, reserve = worksheet.reserve || {};
       const missingData = (worksheet.errors || []).some(error => ['SUPERVISION_DATA_UNAVAILABLE', 'DOE_TARGET_UNAVAILABLE', 'RESERVE_POLICY_INVALID'].includes(error.code));
       const statusLabel = worksheet.status === 'calculated' ? (worksheet.calculationBasis === 'recorded_sources' ? 'Calculated from recorded sources' : 'Calculated') : worksheet.status === 'not_found' ? 'Not found' : missingData ? 'Awaiting data / policy' : 'Needs Review';
+      const percent = value => finite(value) === null ? 'None' : formatDoe(finite(value));
+      const year = worksheet.academicYear || getAcademicYear() || 'Academic year unavailable';
+      const remaining = finite(totals.remainingDoe);
+      const displayedRemaining = remaining === null ? null : Number(remaining.toFixed(2));
+      const balanceTone = displayedRemaining === null ? 'unknown' : displayedRemaining === 0 ? 'at' : displayedRemaining > 0 ? 'remaining' : 'over';
+      const balanceLabel = displayedRemaining === null ? 'None' : displayedRemaining === 0 ? 'At expected' : `${formatDoe(Math.abs(displayedRemaining))} ${displayedRemaining > 0 ? 'Remaining' : 'Over'}`;
       const cards = [
-        ['Contract Teaching target', target.contractTeachingDoe], ['Effective target', target.effectiveTargetDoe],
-        ['Scheduled / assigned teaching', totals.scheduledTeachingDoe], ['Role DOE', totals.roleDoe],
-        ['Raw supervision DOE', totals.rawSupervisionDoe], ['Applied supervision DOE', totals.appliedSupervisionDoe],
-        ['Other approved adjustments', totals.adjustmentDoe], ['Total assigned teaching DOE', totals.assignedTeachingDoe],
-        ['Remaining / Overage', totals.remainingDoe]
-      ].map(([label, value]) => `<div class="p4-doe-worksheet-card"><span>${esc(label)}</span><strong>${esc(finiteDoe(value) === null && missingData ? 'Pending data / policy' : formatDoe(value))}</strong></div>`).join('');
+        ['Faculty Name', showFaculty(worksheet.displayName).trim() || 'None', 'name'],
+        ['Contracted Teaching (%)', percent(target.contractTeachingDoe), 'contract'],
+        ['Contracted Clinical Teaching (%)', percent(target.contractClinicalTeachingDoe), 'contract'],
+        [`Expected ${year} Teaching (%)`, percent(target.effectiveTargetDoe), 'expected'],
+        ['Assigned Teaching (%)', percent(totals.assignedTeachingDoe), 'assigned'],
+        ['% Difference (Expected - Assigned)', percent(totals.remainingDoe), `balance-${balanceTone}`],
+        ['Potential Grad Teaching', percent(target.potentialGradTeachingDoe), 'optional'],
+        ['Adjustment', percent(totals.adjustmentDoe), 'optional']
+      ].map(([label, value, tone]) => `<div class="p4-doe-worksheet-card doe-master-${tone}"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');
+      const lineCount = (worksheet.lines || []).length;
       const provenance = (worksheet.lines || []).map((line,index) => {
         const reference = line.reference || {};
         const source = [line.ruleKey, reference.title, reference.section, reference.table, reference.page ? `p. ${reference.page}` : '', line.calculationId].filter(Boolean).join(' · ');
@@ -267,7 +277,8 @@
       const targetPolicy = worksheet.targetPolicyVersionLabel || target.policyVersionId;
       const policyText = worksheet.policyVersionId ? `Calculation policy ${worksheet.policyVersionId}` : worksheet.workloadSourceReference ? `Workload policy ${worksheet.workloadSourceReference}` : 'Annual calculation policy not recorded';
       const calculationText = worksheet.lastCalculatedAt ? `latest calculation evidence ${worksheet.lastCalculatedAt}` : 'No annual calculation record; line values retain their recorded source';
-      return `<div class="p4-doe-worksheet"><div class="section-title">Faculty DOE Worksheet · ${esc(worksheet.academicYear || 'Academic Year unavailable')}</div><p class="aux-note">Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</p><div class="p4-doe-worksheet-summary">${cards}</div>${reserveSummary}${renderSourceIssues(worksheet)}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div>${renderLookupBreakdown(worksheet)}</div>`;
+      const balanceSummary = `<div class="doe-master-balance doe-master-balance-${balanceTone}">Teaching balance: <strong>${esc(balanceLabel)}</strong> · ${lineCount} source ${lineCount === 1 ? 'line' : 'lines'} · Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</div>`;
+      return `<div class="p4-doe-worksheet"><div class="section-title">Faculty DOE Worksheet · ${esc(year)}</div><dl class="p4-doe-worksheet-summary">${cards}</dl>${balanceSummary}<p class="aux-note">Expected teaching minus assigned teaching determines the difference. None means no value is recorded; a recorded zero is shown as 0.00%.</p>${reserveSummary}${renderSourceIssues(worksheet)}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div>${renderLookupBreakdown(worksheet)}</div>`;
     }
 
     function finite(value) { return value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value); }

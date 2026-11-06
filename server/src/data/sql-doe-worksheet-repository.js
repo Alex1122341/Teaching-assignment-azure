@@ -45,7 +45,7 @@ function createSqlDoeWorksheetRepository(db) {
           WHERE (@facultyId=N'' OR f.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))
           ORDER BY f.DisplayName, f.FacultyId`, params),
       db.query(
-        `SELECT t.FacultyId AS facultyId, t.ContractTeachingDoe AS contractTeachingDoe,
+        `SELECT COALESCE(t.FacultyId,summary.FacultyId) AS facultyId, t.ContractTeachingDoe AS contractTeachingDoe,
                 t.OverrideDoe AS overrideDoe, t.OverrideReason AS overrideReason,
                 t.OverrideNotes AS overrideNotes, t.EffectiveTargetDoe AS effectiveTargetDoe,
                 t.Source AS source, t.PolicyVersionId AS policyVersionId, v.VersionLabel AS targetPolicyVersionLabel,
@@ -53,10 +53,10 @@ function createSqlDoeWorksheetRepository(db) {
                 summary.PotentialGradTeachingDoe AS potentialGradTeachingDoe,
                 summary.SourceReference AS summarySourceReference
            FROM paws.DoeFacultyTarget AS t
+           FULL OUTER JOIN paws.DoeFacultySummarySource AS summary ON summary.FacultyId=t.FacultyId AND summary.AcademicYear=t.AcademicYear AND t.Active=1
            LEFT JOIN paws.DoePolicyVersion AS v ON v.PolicyVersionId=t.PolicyVersionId
-           LEFT JOIN paws.DoeFacultySummarySource AS summary ON summary.FacultyId=t.FacultyId AND summary.AcademicYear=t.AcademicYear
-          WHERE t.AcademicYear=@academicYear AND t.Active=1
-            AND (@facultyId=N'' OR t.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))`, params),
+          WHERE COALESCE(summary.AcademicYear,t.AcademicYear)=@academicYear AND (t.Active=1 OR summary.FacultyId IS NOT NULL)
+            AND (@facultyId=N'' OR COALESCE(t.FacultyId,summary.FacultyId)=TRY_CONVERT(uniqueidentifier,@facultyId))`, params),
       db.query(
         `SELECT PolicyVersionId AS policyVersionId, AcademicYear AS academicYear, Status AS status,
                 Revision AS revision, VersionLabel AS versionLabel

@@ -10,6 +10,8 @@
   const norm=value=>String(value??'').trim().toLowerCase();
   const unconfirmedMessage='Save unconfirmed. Check the AFC list before reloading or submitting again.';
   const doeCategories = ['teaching', 'service', 'research'];
+  const calgaryToday = () => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  let leaveAsOfDate = '';
   const yearsForLeave = (start='', end='') => {
     const startYear = Number(start.slice(0,4)) - (start.slice(5,7) < '05' ? 1 : 0);
     const endYear = Number(end.slice(0,4)) - (end.slice(5,7) < '05' ? 1 : 0);
@@ -18,9 +20,9 @@
       ? Array.from({ length:endYear-startYear+1 }, (_, i) => `${startYear+i}-${String((startYear+i+1)%100).padStart(2,'0')}`) : [];
   };
   const amount = value => value == null ? 'Not recorded' : value;
-  const allocationInput = (year, values={}, source={}) => `<fieldset data-leave-year="${esc(year)}"><legend>${esc(year)}</legend>
+  const allocationInput = (year, values={}, source={}) => `<fieldset data-leave-year="${esc(year)}"><legend>${esc(year)}</legend><div class="field-grid">
     ${doeCategories.map(category => `<label class="field"><span class="field-label">${category[0].toUpperCase()+category.slice(1)} DOE · contract ${esc(amount(source.doe?.[category]))}</span>
-    <input class="input" type="number" step="0.0001" min="0" data-leave-category="${category}" value="${esc(values[category] ?? '')}"></label>`).join('')}</fieldset>`;
+    <input class="input" type="number" step="0.0001" min="0" data-leave-category="${category}" value="${esc(values[category] ?? '')}"></label>`).join('')}</div></fieldset>`;
   function readDeduction(container) {
     return { fteDeduction:container?.querySelector('[data-leave-fte]')?.value ?? '',
       allocationsByYear:Object.fromEntries(Array.from(container?.querySelectorAll('[data-leave-year]') || [], group =>
@@ -30,6 +32,7 @@
   function createLeaveFields(api, $, getUser) {
     const form = $('afc-record-form'), host = $('afc-special-deduction');
     let generation = 0, lastFaculty = '';
+    const edited = new Set();
     const active = () => api.afcSpecialLeaveEnabled?.() === true && $('afc-reason')?.value === 'special';
     async function refresh() {
       if (!host) return;
@@ -37,18 +40,28 @@
       const available = active() && $('afc-special-availability')?.value === 'available';
       $('afc-special-options')?.classList.toggle('hidden', !active());
       host.classList.toggle('hidden', !available);
-      if (!available) return;
+      if (!available) { if ($('afc-special-availability')?.value === 'unavailable') edited.clear(); return; }
       const facultyId = $('afc-faculty')?.value;
       const years = yearsForLeave(text($('afc-start-date')?.value), text($('afc-end-date')?.value));
       const previous = facultyId === lastFaculty ? readDeduction(host).allocationsByYear : {};
-      if (facultyId !== lastFaculty && host.querySelector('[data-leave-fte]')) host.querySelector('[data-leave-fte]').value = '';
+      if (facultyId !== lastFaculty) {
+        edited.clear();
+        const field = host.querySelector('[data-leave-fte]');
+        if (field) field.value = '';
+      }
       lastFaculty = facultyId;
       const sources = $('afc-special-years');
-      if (!facultyId || !years.length) { sources.innerHTML = '<p class="aux-note">Select a faculty member and valid leave dates.</p>'; return; }
+      if (!facultyId) { sources.textContent = 'Select a faculty member and valid leave dates.'; return; }
       sources.textContent = 'Loading recorded contract FTE and DOE…';
       try {
-        const values = await Promise.all(years.map(year => api.specialLeaveSource(facultyId, year)));
+        const today = calgaryToday();
+        const requested = years.length ? years : yearsForLeave(today,today);
+        const values = await Promise.all(requested.map(year => api.specialLeaveSource(facultyId, year)));
         if (request !== generation || getUser?.()?.uid !== uid) return;
+        if (!years.length) {
+          sources.textContent = 'Contract FTE ' + amount(values[0]?.fte) + ' · Enter valid leave dates to see the yearly DOE allocations.';
+          return;
+        }
         const missing = values.some(source => source.fte == null || doeCategories.some(category => source.doe?.[category] == null));
         sources.innerHTML = `<p class="aux-note">Contract FTE ${esc(amount(values[0]?.fte))} · DOE deductions must add up to FTE deduction × 100.${missing ? ' Missing source data leaves the deduction pending for administrator review.' : ''}</p>` +
           years.map((year, index) => allocationInput(year, previous[year] || previous[years[index-1]], values[index])).join('');
@@ -63,10 +76,12 @@
       const field = event.target;
       const group = field.closest?.('[data-leave-year]');
       if (!group || !field.dataset.leaveCategory) return;
+      edited.add(group.dataset.leaveYear + ':' + field.dataset.leaveCategory);
       const following = Array.from(host.querySelectorAll('[data-leave-year]'));
       for (const other of following.slice(following.indexOf(group)+1)) {
         const input = other.querySelector('[data-leave-category="'+field.dataset.leaveCategory+'"]');
-        if (input.value === '') input.value = field.value;
+        if (edited.has(other.dataset.leaveYear + ':' + field.dataset.leaveCategory)) break;
+        input.value = field.value;
       }
     });
     return {
@@ -171,7 +186,7 @@
     const panel = date.closest('[data-leave-faculty]');
     const host = panel?.querySelector('[data-leave-summary]');
     if (!host || !date.value) return;
-    const selected = date.value;
+    const selected = leaveAsOfDate = date.value;
     const request = {};
     host.leaveRequest = request;
     host.textContent = 'Loading effective FTE and DOE…';
@@ -199,7 +214,7 @@
   function specialLeaveProfile(facultyId) {
     const api = typeof window !== 'undefined' && window.UCVM_PAWS_DATA;
     if (!facultyId || api?.afcSpecialLeaveEnabled?.() !== true) return '';
-    const today = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Edmonton',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    const today = leaveAsOfDate || calgaryToday();
     setTimeout(() => {
       const date = document.querySelector('[data-leave-as-of]');
       if (date?.closest('[data-leave-faculty]')?.dataset.leaveFaculty === facultyId) showEffectiveLeave(api,date);

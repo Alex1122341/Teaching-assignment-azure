@@ -51,6 +51,17 @@ function createSqlAfcSpecialLeaveRepository(db, writeAfc) {
     return rows.map(leaveDto);
   }
 
+  async function persist(record, input, deduction) {
+    const [row] = await db.query(`EXEC paws_api.SaveAfcSpecialLeave
+      @AfcRecordId=@id,@FacultyId=@facultyId,@ExpectedVersion=@versionToken,
+      @ActorFirebaseUid=@actorFirebaseUid,@RequestId=@requestId,@DeductionJson=@deductionJson`, {
+      id: record.id, facultyId: record.facultyId, versionToken: record.versionToken,
+      actorFirebaseUid: input.actorFirebaseUid, requestId: input.requestId || randomUUID(),
+      deductionJson: JSON.stringify(deduction)
+    });
+    if (!row) throw Error('Special Leave did not return a readback.');
+  }
+
   async function save(record, input) {
     const years = policy.yearsForRange(record.startDate, record.endDate);
     const details = policy.parseDeduction(input.specialLeave, years);
@@ -67,17 +78,23 @@ function createSqlAfcSpecialLeaveRepository(db, writeAfc) {
     }
     const deduction = { ...details, confirmedYears, sourceFingerprintByYear };
     const previous = (await overlapping(record.facultyId, record.startDate, record.endDate)).filter(row => row.id !== record.id);
-    deduction.suspendedIntervals = policy.heldIntervals({
-      ...record, ...deduction, reasonCode: 'special', availability: 'available', approved: true
-    }, previous, sourceByYear);
-    const [row] = await db.query(`EXEC paws_api.SaveAfcSpecialLeave
-      @AfcRecordId=@id,@FacultyId=@facultyId,@ExpectedVersion=@versionToken,
-      @ActorFirebaseUid=@actorFirebaseUid,@RequestId=@requestId,@DeductionJson=@deductionJson`, {
-      id: record.id, facultyId: record.facultyId, versionToken: record.versionToken,
-      actorFirebaseUid: input.actorFirebaseUid, requestId: input.requestId || randomUUID(),
-      deductionJson: JSON.stringify(deduction)
-    });
-    if (!row) throw Error('Special Leave did not return a readback.');
+    const reviewed = { ...record, ...deduction, reasonCode: 'special', availability: 'available', approved: true };
+    reviewed.suspendedIntervals = deduction.suspendedIntervals = policy.heldIntervals(reviewed, previous, sourceByYear);
+    await persist(record, input, deduction);
+    // An earlier approval can increase its deduction on review. Keep any newly
+    // blocked dates on later approvals so withdrawing the earlier leave cannot
+    // silently resume a deduction the administrator has yet to reconfirm.
+    previous.sort(policy.approvalOrder);
+    for (const later of previous.filter(item => policy.approvalOrder(item, reviewed) > 0)) {
+      const within = { ...later, startDate: later.startDate > reviewed.startDate ? later.startDate : reviewed.startDate,
+        endDate: later.endDate < reviewed.endDate ? later.endDate : reviewed.endDate };
+      const other = [...previous.filter(item => item.id !== later.id), reviewed];
+      const holds = policy.heldIntervals(within, other, sourceByYear);
+      if (holds.every(span => (later.suspendedIntervals || []).some(held => held.startDate <= span.startDate && held.endDate >= span.endDate))) continue;
+      later.suspendedIntervals = policy.mergeIntervals([...(later.suspendedIntervals || []), ...holds]);
+      const { fteDeduction, allocationsByYear, confirmedYears, sourceFingerprintByYear, suspendedIntervals } = later;
+      await persist(later, input, { fteDeduction, allocationsByYear, confirmedYears, sourceFingerprintByYear, suspendedIntervals });
+    }
     return deduction;
   }
 

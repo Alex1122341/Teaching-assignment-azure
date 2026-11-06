@@ -36,7 +36,7 @@ test('Calendar default promotion preserves all127 API files and three package/bu
  assert.deepEqual(after,before);
  assert.equal(after.length,127);
  assert.deepEqual(changed([...after,...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES]),[]);
- assert.equal(api.verifyFreeze({root}).protected,136);
+ assert.equal(api.verifyFreeze({root}).protected,138);
  assert.equal(api.verifyFreeze({root}).ok,true);
  assert.equal(git('diff','--name-only',previous,product,'--','database','firestore.rules','firestore.indexes.json','package.json','package-lock.json','tools/static-assets.json'), '');
 });

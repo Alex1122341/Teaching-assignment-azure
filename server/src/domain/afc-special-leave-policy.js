@@ -40,6 +40,9 @@
   }
   const during=(date,leave)=>validDate(date)&&leave?.active!==false&&leave?.startDate<=date&&leave?.endDate>=date;
   const specialAvailable=l=>l?.reasonCode==='special'&&l?.availability==='available';
+  const approvalOrder = (a,b) => String(a.approvedAt || a.createdAtUtc || '').localeCompare(String(b.approvedAt || b.createdAtUtc || '')) ||
+    (Number(a.approvalOrder || 0) - Number(b.approvalOrder || 0)) || String(a.id || a.afcRecordId || '').localeCompare(String(b.id || b.afcRecordId || ''));
+  const dayOffset = (date, offset) => new Date(Date.parse(date + 'T00:00:00Z') + offset * 86400000).toISOString().slice(0, 10);
   function availabilityAt(date,leaves){
     const active=(Array.isArray(leaves)?leaves:[]).filter(l=>during(date,l));
     if(active.some(l=>!specialAvailable(l)))return'unavailable';
@@ -49,8 +52,7 @@
     const year=academicYearForDate(date),originalFte=num(source?.fte),baseDoe=Object.fromEntries(CATEGORIES.map(k=>[k,num(source?.doe?.[k])]));
     const effectiveDoe={...baseDoe},applied=[],pending=[],flags=[];
     let effectiveFte=originalFte;
-    const ordered=leaves.filter(l=>during(date,l)&&specialAvailable(l)&&l.approved===true)
-      .sort((a,b)=>String(a.approvedAt||a.createdAtUtc||'').localeCompare(String(b.approvedAt||b.createdAtUtc||''))||(Number(a.approvalOrder||0)-Number(b.approvalOrder||0))||String(a.id||a.afcRecordId||'').localeCompare(String(b.id||b.afcRecordId||'')));
+    const ordered=leaves.filter(l=>during(date,l)&&specialAvailable(l)&&l.approved===true).sort(approvalOrder);
     for(const leave of ordered){
       const allocation=leave.allocationsByYear?.[year],deduction=num(leave.fteDeduction);
       const result=validateAllocation(deduction,allocation,source);
@@ -104,7 +106,6 @@
     return { fteDeduction, allocationsByYear };
   }
   function heldIntervals(leave, existing, sources) {
-    const dayOffset = (date, offset) => new Date(Date.parse(date + 'T00:00:00Z') + offset * 86400000).toISOString().slice(0, 10);
     const beyond = dayOffset(leave.endDate, 1);
     const bounds = new Set([leave.startDate, beyond]);
     for (const item of existing) {
@@ -117,10 +118,19 @@
     }
     for (const year of yearsForRange(leave.startDate, leave.endDate).slice(1)) bounds.add(year.slice(0, 4) + '-05-01');
     const sorted = [...bounds].sort();
-    return sorted.slice(0, -1).flatMap((date, i) => {
+    return mergeIntervals(sorted.slice(0, -1).flatMap((date, i) => {
       const view = evaluate({ date, source: sources[academicYearForDate(date)], leaves: [...existing, leave] });
       return view.pending.some(item => item.id === leave.id && item.status === 'Adjustment Required')
         ? [{ startDate: date, endDate: dayOffset(sorted[i + 1], -1) }] : [];
-    });
+    }));
   }
-module.exports = Object.freeze({ CATEGORIES, academicYearForDate, yearsForRange, validateAllocation, availabilityAt, evaluate, parseDeduction, heldIntervals, validDate, invalidDeduction });
+  function mergeIntervals(intervals) {
+    const result = [];
+    for (const span of intervals.slice().sort((a,b) => a.startDate.localeCompare(b.startDate))) {
+      const previous = result.at(-1);
+      if (!previous || dayOffset(previous.endDate, 1) < span.startDate) result.push({ ...span });
+      else if (previous.endDate < span.endDate) previous.endDate = span.endDate;
+    }
+    return result;
+  }
+module.exports = Object.freeze({ CATEGORIES, academicYearForDate, yearsForRange, validateAllocation, availabilityAt, evaluate, parseDeduction, heldIntervals, mergeIntervals, approvalOrder, validDate, invalidDeduction });

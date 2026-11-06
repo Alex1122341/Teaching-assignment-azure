@@ -10,7 +10,7 @@
   const norm=value=>String(value??'').trim().toLowerCase();
   const unconfirmedMessage='Save unconfirmed. Check the AFC list before reloading or submitting again.';
   const doeCategories = ['teaching', 'service', 'research'];
-  const yearsForLeave = (start, end) => {
+  const yearsForLeave = (start='', end='') => {
     const startYear = Number(start.slice(0,4)) - (start.slice(5,7) < '05' ? 1 : 0);
     const endYear = Number(end.slice(0,4)) - (end.slice(5,7) < '05' ? 1 : 0);
     return /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end) && start <= end &&
@@ -185,6 +185,13 @@
       const flags = data.flags.map(flag => flag==='FTE_DOE_MISMATCH' ? 'Contract FTE / DOE mismatch' : flag);
       host.innerHTML = `<p class="aux-note">${esc(data.academicYear)} · ${data.availability==='available'?'Available':'Unavailable'}${flags.length?' · '+flags.map(esc).join(' · '):''}</p>
         <div class="table-wrap"><table class="data-table"><thead><tr><th>Category</th><th>Original</th><th>Deduction</th><th>Effective</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      if (data.applied?.length && data.effectiveDoe.teaching != null) {
+        const worksheet = await api.doeWorksheet?.({ facultyId:panel.dataset.leaveFaculty, academicYear:data.academicYear }).catch(() => null);
+        const assigned = worksheet?.totals?.assignedTeachingDoe;
+        if (current() && assigned != null && assigned > data.effectiveDoe.teaching) {
+          host.insertAdjacentHTML('beforeend','<p class="aux-note">Assigned Teaching DOE exceeds the effective teaching allocation for this date.</p>');
+        }
+      }
     } catch {
       if (current()) host.textContent = 'Effective FTE and DOE could not be loaded.';
     }

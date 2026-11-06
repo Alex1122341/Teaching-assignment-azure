@@ -71,8 +71,8 @@ BEGIN
  UPDATE paws.AfcManualRecord SET Notes=Notes WHERE AfcRecordId=@AfcRecordId;
  INSERT paws.AuditEvent(AuditEventId,EventType,EntityType,EntityId,ActorFirebaseUid,ActorName,OccurredAtUtc,BeforeJson,AfterJson,MetadataJson,RequestId)
   VALUES(NEWID(),N'afc_special_leave_deduction_confirmed',N'AfcRecord',CONVERT(nvarchar(36),@AfcRecordId),@ActorFirebaseUid,@ActorName,
-   SYSUTCDATETIME(),JSON_MODIFY(JSON_MODIFY(@Before,'$.startDate',@StartDate),'$.endDate',@EndDate),
-   JSON_MODIFY(JSON_MODIFY(@DeductionJson,'$.startDate',@StartDate),'$.endDate',@EndDate),
+   SYSUTCDATETIME(),JSON_MODIFY(JSON_MODIFY(@Before,'$.startDate',CONVERT(varchar(10),@StartDate,23)),'$.endDate',CONVERT(varchar(10),@EndDate,23)),
+   JSON_MODIFY(JSON_MODIFY(@DeductionJson,'$.startDate',CONVERT(varchar(10),@StartDate,23)),'$.endDate',CONVERT(varchar(10),@EndDate,23)),
    (SELECT @FacultyId AS facultyId,@StartDate AS startDate,@EndDate AS endDate FOR JSON PATH,WITHOUT_ARRAY_WRAPPER),@RequestId);
  SELECT * FROM paws.vAfcSpecialLeaveAdmin WHERE AfcRecordId=@AfcRecordId;
 END;
@@ -222,8 +222,6 @@ WITH assigned AS (
  SELECT AfcRecordId,FacultyId,StartDate,EndDate,CONVERT(varchar(16),CONVERT(binary(8),AfcVersion),2) SourceVersion,N'import' SourceKind FROM paws.AfcRecord WHERE Active=1
  UNION ALL
  SELECT AfcRecordId,FacultyId,StartDate,EndDate,CONVERT(varchar(16),CONVERT(binary(8),AfcVersion),2),N'manual' FROM paws.AfcManualRecord af WHERE af.Active=1 AND NOT EXISTS(SELECT 1 FROM paws.AfcSpecialLeave sl WHERE sl.AfcRecordId=af.AfcRecordId)
- UNION ALL
- SELECT AfcRequestId,FacultyId,StartDate,EndDate,CONVERT(varchar(16),CONVERT(binary(8),AfcVersion),2),N'request' FROM paws.AfcRequest WHERE Status=N'approved'
 ), afc AS (
  SELECT a.FacultyId,s.SessionId,CAST(NULL AS uniqueidentifier) RelatedSessionId,N'afc_unavailable' IssueType,N'Conflict' Severity,
  CONVERT(nvarchar(max),CONCAT(CONVERT(varchar(16),CONVERT(binary(8),s.SchedulingVersion),2),N'|',a.AssignmentVersions,N'|',STRING_AGG(CONVERT(nvarchar(max),CONCAT(x.SourceKind,N':',x.AfcRecordId,N':',x.SourceVersion)),N'|') WITHIN GROUP(ORDER BY x.SourceKind,x.AfcRecordId))) Evidence

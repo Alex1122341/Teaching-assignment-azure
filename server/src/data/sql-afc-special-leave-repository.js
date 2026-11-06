@@ -10,8 +10,11 @@ function leaveDto(row) {
   const details = JSON.parse(row.deductionJson);
   const startDate = dateText(row.startDate), endDate = dateText(row.endDate);
   if (startDate !== dateText(row.reviewedStartDate) || endDate !== dateText(row.reviewedEndDate)) {
-    // Date editing preserves the AFC and its PDF, but an updated range must be reviewed.
-    details.confirmedYears = Object.fromEntries(policy.yearsForRange(startDate, endDate).map(year => [year, false]));
+    // The review remains valid on the unchanged portion. New dates need approval.
+    details.suspendedIntervals = policy.mergeIntervals([
+      ...(details.suspendedIntervals || []),
+      ...policy.unreviewedDates(startDate, endDate, dateText(row.reviewedStartDate), dateText(row.reviewedEndDate))
+    ]);
   }
   return {
     ...details, id: row.afcRecordId, facultyId: row.facultyId, versionToken: row.versionToken,
@@ -63,7 +66,9 @@ function createSqlAfcSpecialLeaveRepository(db, writeAfc) {
   }
 
   async function save(record, input) {
-    const years = policy.yearsForRange(record.startDate, record.endDate);
+    let years;
+    try { years = policy.yearsForRange(record.startDate, record.endDate); }
+    catch (error) { throw policy.invalidDeduction(error.message); }
     const details = policy.parseDeduction(input.specialLeave, years);
     const sourceByYear = {};
     const confirmedYears = {}, sourceFingerprintByYear = {};

@@ -59,3 +59,10 @@ test('a previously blocked overlap does not auto-resume when the other leave dis
  assert.equal(policy.evaluate({date:'2026-11-16',source,leaves:[a]}).flags.includes('Ready to Apply'),true);
  assert.equal(policy.evaluate({date:'2026-11-25',source,leaves:[a]}).effectiveFte,.75);
 });
+
+test('a date edit reviews only new dates while keeping the previously approved intersection',()=>{
+ assert.deepEqual(policy.unreviewedDates('2026-11-01','2026-11-30','2026-11-05','2026-11-20'),[
+  {startDate:'2026-11-01',endDate:'2026-11-04'},{startDate:'2026-11-21',endDate:'2026-11-30'}
+ ]);
+ assert.deepEqual(policy.unreviewedDates('2026-11-07','2026-11-18','2026-11-05','2026-11-20'),[]);
+});

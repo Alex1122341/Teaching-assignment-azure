@@ -133,4 +133,11 @@
     }
     return result;
   }
-module.exports = Object.freeze({ CATEGORIES, academicYearForDate, yearsForRange, validateAllocation, availabilityAt, evaluate, parseDeduction, heldIntervals, mergeIntervals, approvalOrder, validDate, invalidDeduction });
+  function unreviewedDates(startDate, endDate, reviewedStart, reviewedEnd) {
+    if (endDate < reviewedStart || startDate > reviewedEnd) return [{ startDate, endDate }];
+    return [
+      ...(startDate < reviewedStart ? [{ startDate, endDate:dayOffset(reviewedStart,-1) }] : []),
+      ...(endDate > reviewedEnd ? [{ startDate:dayOffset(reviewedEnd,1), endDate }] : [])
+    ];
+  }
+module.exports = Object.freeze({ CATEGORIES, academicYearForDate, yearsForRange, validateAllocation, availabilityAt, evaluate, parseDeduction, heldIntervals, mergeIntervals, unreviewedDates, approvalOrder, validDate, invalidDeduction });

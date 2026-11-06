@@ -39,12 +39,10 @@ const input = { facultyId, startDate:'2098-06-01', endDate:'2098-06-30', reasonC
     IF IS_ROLEMEMBER(N'paws_runtime_read',N'paws-calendar-test-runtime')<>1
       ALTER ROLE paws_runtime_read ADD MEMBER [paws-calendar-test-runtime];
     IF IS_ROLEMEMBER(N'paws_runtime_afc_single_write',N'paws-calendar-test-runtime')<>1
-      ALTER ROLE paws_runtime_afc_single_write ADD MEMBER [paws-calendar-test-runtime];
-    IF IS_ROLEMEMBER(N'paws_runtime_afc_edit_write',N'paws-calendar-test-runtime')<>1
-      ALTER ROLE paws_runtime_afc_edit_write ADD MEMBER [paws-calendar-test-runtime];`,{facultyId,actor});
+      ALTER ROLE paws_runtime_afc_single_write ADD MEMBER [paws-calendar-test-runtime];`,{facultyId,actor});
   const api = createDashboardApi({ verifyToken:async()=>({uid:actor}),
     findUser:async()=>({active:true,baseRole:'owner',displayName:'Synthetic Admin'}),
-    repository:repo,writeRepository:{...write,...leave},writeGates:{afcSingle:true,afcEdit:true} });
+    repository:repo,writeRepository:{...write,...leave},writeGates:{afcSingle:true,afcEdit:false} });
   const result = await api.createAfcRecord('test',input);
   assert.equal(result.status,201,JSON.stringify(result.body));
   const id = result.body.afcRecord.afcRecordId;

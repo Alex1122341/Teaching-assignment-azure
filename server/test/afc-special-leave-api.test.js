@@ -19,7 +19,7 @@ function harness(role='owner', afcSingle=true) {
   };
   const api=createDashboardApi({ verifyToken:async()=>({uid:'authenticated'}),
     findUser:async()=>({active:true,baseRole:role,facultyId,displayName:'Synthetic Actor'}),
-    repository,writeGates:{afcSingle,afcEdit:true} });
+    repository,writeGates:{afcSingle,afcEdit:false} });
   return {api,calls,app:createDashboardFunctions({api})};
 }
 test('administrator routes Available Special Leave to the atomic repository and retains legacy behavior',async()=>{
@@ -50,4 +50,5 @@ test('private source, evaluation and Apply are admin-only and require fresh AFC 
     assert.equal(calls.length,role==='owner'?3:0);
   }
   assert.equal((await harness('owner',false).api.createAfcRecord('token',input)).status,503);
+  assert.equal((await harness('owner',false).api.applyAfcSpecialLeave('token',facultyId,{expectedVersion:'0102030405060708',specialLeave:deduction})).status,503);
 });

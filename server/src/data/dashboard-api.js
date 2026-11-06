@@ -704,7 +704,7 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
     async applyAfcSpecialLeave(token, afcRecordId, payload) {
       return guarded(token, async (scope, decoded) => {
         if (!scope.administrator) return error(403,'ROLE_DENIED','Administrator permission is required.');
-        if (writeGates.afcEdit !== true || !writeRepository.applySpecialLeave) return writeDisabled();
+        if (writeGates.afcSingle !== true || !writeRepository.applySpecialLeave) return writeDisabled();
         if (!validUuid(afcRecordId) || !/^[a-f0-9]{16}$/i.test(payload?.expectedVersion || ''))
           return error(400,'INVALID_AFC_VERSION','Refresh the AFC record before applying a deduction.');
         try {

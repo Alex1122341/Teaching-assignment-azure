@@ -80,7 +80,7 @@ GO
 GRANT SELECT ON OBJECT::paws.vAfcSpecialLeaveAdmin TO [paws_runtime_read];
 GRANT SELECT ON OBJECT::paws.DoeFacultyAllocation (UpdatedAtUtc) TO [paws_runtime_read];
 GRANT SELECT ON OBJECT::paws.Faculty (UpdatedAtUtc) TO [paws_runtime_read];
-GRANT EXECUTE ON OBJECT::paws_api.SaveAfcSpecialLeave TO [paws_runtime_afc_single_write], [paws_runtime_afc_edit_write];
+GRANT EXECUTE ON OBJECT::paws_api.SaveAfcSpecialLeave TO [paws_runtime_afc_single_write];
 GO
 
 /* Carry Available semantics through the existing scheduling checks. */

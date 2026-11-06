@@ -154,7 +154,7 @@
     }
     return {submit,isUnconfirmed:()=>unconfirmed};
   }
-  function renderRows(rows,{facultyName,canCancel:allowed=false,canEdit:editAllowed=false,editingKey='',busy=()=>false,renderPdf=()=>'<span class="muted">N/A</span>'}={}) {
+  function renderRows(rows,{facultyName,canCancel:allowed=false,canEdit:editAllowed=false,canApply:applyAllowed=false,editingKey='',busy=()=>false,renderPdf=()=>'<span class="muted">N/A</span>'}={}) {
     return rows.map(row => {
       const key = `${row.sourceKind}:${row.afcRecordId}`;
       const editable = row.active !== false && /^[0-9a-f]{16}$/i.test(row.versionToken || '');
@@ -162,7 +162,7 @@
       const canEdit = editAllowed && editable;
       const leave = row.specialLeave;
       const leaveKey = 'leave:' + key;
-      const canApply = canEdit && row.availability === 'available' && !!leave;
+      const canApply = applyAllowed && editable && row.availability === 'available' && !!leave;
       const buttons = [
         canEdit ? `<button class="btn" type="button" data-afc-edit="${esc(key)}" ${busy(key) ? 'disabled' : ''}>Edit dates</button>` : '',
         canApply ? `<button class="btn" type="button" data-afc-edit="${esc(leaveKey)}" ${busy(key) ? 'disabled' : ''}>Edit / Apply DOE</button>` : '',
@@ -246,11 +246,19 @@
     let editingKey='';
     const findRow=key=>getRecords().find(record => `${record.sourceKind}:${record.afcRecordId}` === key);
     const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&new Date(value+'T12:00:00Z').toISOString().slice(0,10)===value;
-    function startEdit(key){ if(!canEdit()||afcCancelInFlight.has(key.replace(/^leave:/,'')))return; const row=findRow(key.replace(/^leave:/,'')); if(!row||row.active===false)return; editingKey=key; render(); }
+    const canApply = () => api.afcSpecialLeaveEnabled?.() === true;
+    function startEdit(key) {
+      const applying = key.startsWith('leave:'), rowKey = applying ? key.slice(6) : key;
+      if (!(applying ? canApply() : canEdit()) || afcCancelInFlight.has(rowKey)) return;
+      const row = findRow(rowKey);
+      if (!row || row.active === false || (applying && !row.specialLeave)) return;
+      editingKey = key;
+      render();
+    }
     function cancelEdit(){ editingKey=''; render(); }
     async function applyLeave(key, container) {
       const row = findRow(key);
-      if (!canEdit() || !row?.specialLeave || !container || afcCancelInFlight.has(key)) return;
+      if (!canApply() || !row?.specialLeave || !container || afcCancelInFlight.has(key)) return;
       const specialLeave = readDeduction(container);
       afcCancelInFlight.add(key);
       render();
@@ -314,7 +322,7 @@
       saveDates(save.dataset.afcEditSave,row?.querySelector?.('[data-afc-edit-start]')?.value||'',row?.querySelector?.('[data-afc-edit-end]')?.value||'');
       return true;
     }
-    return {cancel,startEdit,cancelEdit,saveDates,handleEditClick,canEdit,editingKey:()=>editingKey,isBusy:key=>afcCancelInFlight.has(key)};
+    return {cancel,startEdit,cancelEdit,saveDates,handleEditClick,canEdit,canApply,editingKey:()=>editingKey,isBusy:key=>afcCancelInFlight.has(key)};
   }
   function facultyLabel(row, rows, facultyName) {
     const label = text(facultyName(row, 'Name unavailable'));

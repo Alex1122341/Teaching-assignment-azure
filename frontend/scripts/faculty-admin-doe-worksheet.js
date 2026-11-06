@@ -8,6 +8,7 @@
     let worksheets = null;
     let reviewPopover = null, reviewTrigger = null, reviewRequest = 0;
     const reviewDetails = new Map();
+    const sourcePanels = new WeakSet();
     const esc = escapeHtml;
     const showFaculty = value => typeof window === 'object' && window.PAWS_FACULTY_NAME ? window.PAWS_FACULTY_NAME.format(value) : String(value || '');
     const referenceBubble = (text, label = 'Reference') => `<details class="reference-bubble"><summary aria-label="${esc(label)} details"><span aria-hidden="true">ⓘ</span> ${esc(label)}</summary><div class="reference-bubble-content">${esc(text || 'Source not recorded')}</div></details>`;
@@ -223,6 +224,12 @@
     const label=item.key==='visc'&&worksheet.academicYear!=='2026-27'?'VISC Subjects':item.label;
     return `<tr><td>${esc(label)}</td><td>${esc(quantity(item))}</td><td>${item.rows===0?'—':item.needsReview?'Needs Review':esc(pct(item.amount))}</td></tr>`;
   }).join('')}</tbody>`;
+  const table=body=>`<div class="table-wrap"><table class="data-table doe-excel-summary-table"><thead><tr><th>Item</th><th>Quantity</th><th>DOE (%)</th></tr></thead>${body}</table></div>`;
+  const groupDetails=group=>{
+    const keys=new Set(group.items.map(item=>item.key));
+    const count=(worksheet.lines||[]).filter(line=>!(line.applicable===false&&finite(line.resultDoe)===null)&&keys.has(categoryForLine(line))).length;
+    return `<details class="doe-excel-group"><summary>${esc(group.title)} · ${count} source ${count===1?'line':'lines'}</summary>${table(groupRows(group))}</details>`;
+  };
   const subtotalRow=(label,value)=>`<tr><th>${esc(label)}</th><td></td><td>${esc(value)}</td></tr>`;
   const reserveBalance=breakdown.assignedTeachingReserveWithBalance;
   const teachingTotals=[
@@ -243,19 +250,29 @@
     breakdown.without===null?'Total (Without Trainees) cannot be finalized until every applicable Teaching source is classified and resolved.':'',
     breakdown.status!=='calculated'?'The source Worksheet is not fully calculated; use its Needs Review details above.':''
   ].filter(Boolean);
-  return `<section class="doe-excel-summary"><h3>Assigned Teaching DOE · Excel-style Breakdown</h3><p class="aux-note">Source: current Faculty DOE Worksheet · ${esc(worksheet.academicYear||'Academic year unavailable')}. Each quantity comes from the linked assignment; no missing quantity is back-calculated from DOE.</p><div class="table-wrap"><table class="data-table doe-excel-summary-table"><thead><tr><th>Item</th><th>Quantity</th><th>DOE (%)</th></tr></thead>${breakdown.groups.slice(0,-1).map(groupRows).join('')}<tbody class="doe-excel-totals">${teachingTotals}</tbody>${groupRows(breakdown.groups.at(-1))}<tbody class="doe-excel-totals">${traineeTotals}</tbody></table></div>${warnings.length?`<div class="warn-box">${warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</div>`:''}<p class="aux-note">Current saved Worksheet Total Assigned: ${esc(pct(breakdown.legacyTotal))}. This may differ from the classified Teaching subtotal until all legacy and manual sources have an approved Teaching/Non-Teaching classification.</p></section>`;
+  return `<section class="doe-excel-summary"><h3>Assigned Teaching DOE · Excel-style Breakdown</h3><p class="aux-note">Source: current Faculty DOE Worksheet · ${esc(worksheet.academicYear||'Academic year unavailable')}. Each quantity comes from the linked assignment; no missing quantity is back-calculated from DOE.</p>${breakdown.groups.slice(0,-1).map(groupDetails).join('')}${table(`<tbody class="doe-excel-totals">${teachingTotals}</tbody>`)}${groupDetails(breakdown.groups.at(-1))}${table(`<tbody class="doe-excel-totals">${traineeTotals}</tbody>`)}${warnings.length?`<div class="warn-box">${warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</div>`:''}<p class="aux-note">Current saved Worksheet Total Assigned: ${esc(pct(breakdown.legacyTotal))}. This may differ from the classified Teaching subtotal until all legacy and manual sources have an approved Teaching/Non-Teaching classification.</p></section>`;
 }
-    function renderWorksheet(worksheet) {
+    function renderWorksheet(worksheet, { embedded = false } = {}) {
       const target = worksheet.target || {}, totals = worksheet.totals || {}, reserve = worksheet.reserve || {};
       const missingData = (worksheet.errors || []).some(error => ['SUPERVISION_DATA_UNAVAILABLE', 'DOE_TARGET_UNAVAILABLE', 'RESERVE_POLICY_INVALID'].includes(error.code));
       const statusLabel = worksheet.status === 'calculated' ? (worksheet.calculationBasis === 'recorded_sources' ? 'Calculated from recorded sources' : 'Calculated') : worksheet.status === 'not_found' ? 'Not found' : missingData ? 'Awaiting data / policy' : 'Needs Review';
+      const percent = value => finite(value) === null ? 'None' : formatDoe(finite(value));
+      const year = worksheet.academicYear || getAcademicYear() || 'Academic year unavailable';
+      const remaining = finite(totals.remainingDoe);
+      const displayedRemaining = remaining === null ? null : Number(remaining.toFixed(2));
+      const balanceTone = displayedRemaining === null ? 'unknown' : displayedRemaining === 0 ? 'at' : displayedRemaining > 0 ? 'remaining' : 'over';
+      const balanceLabel = displayedRemaining === null ? 'None' : displayedRemaining === 0 ? 'At expected' : `${formatDoe(Math.abs(displayedRemaining))} ${displayedRemaining > 0 ? 'Remaining' : 'Over'}`;
       const cards = [
-        ['Contract Teaching target', target.contractTeachingDoe], ['Effective target', target.effectiveTargetDoe],
-        ['Scheduled / assigned teaching', totals.scheduledTeachingDoe], ['Role DOE', totals.roleDoe],
-        ['Raw supervision DOE', totals.rawSupervisionDoe], ['Applied supervision DOE', totals.appliedSupervisionDoe],
-        ['Other approved adjustments', totals.adjustmentDoe], ['Total assigned teaching DOE', totals.assignedTeachingDoe],
-        ['Remaining / Overage', totals.remainingDoe]
-      ].map(([label, value]) => `<div class="p4-doe-worksheet-card"><span>${esc(label)}</span><strong>${esc(finiteDoe(value) === null && missingData ? 'Pending data / policy' : formatDoe(value))}</strong></div>`).join('');
+        ['Faculty Name', showFaculty(worksheet.preferredFirstName || worksheet.preferredLastName ? worksheet : worksheet.displayName).trim() || 'None', 'name'],
+        ['Contracted Teaching (%)', percent(target.contractTeachingDoe), 'contract'],
+        ['Contracted Clinical Teaching (%)', percent(target.contractClinicalTeachingDoe), 'contract'],
+        [`Expected ${year} Teaching (%)`, percent(target.effectiveTargetDoe), 'expected'],
+        ['Assigned Teaching (%)', percent(totals.assignedTeachingDoe), 'assigned'],
+        ['% Difference (Expected - Assigned)', percent(totals.remainingDoe), `balance-${balanceTone}`],
+        ['Potential Grad Teaching', percent(target.potentialGradTeachingDoe), 'optional'],
+        ['Adjustment', percent(totals.adjustmentDoe), 'optional']
+      ].map(([label, value, tone]) => `<div class="p4-doe-worksheet-card doe-master-${tone}"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');
+      const lineCount = (worksheet.lines || []).length;
       const provenance = (worksheet.lines || []).map((line,index) => {
         const reference = line.reference || {};
         const source = [line.ruleKey, reference.title, reference.section, reference.table, reference.page ? `p. ${reference.page}` : '', line.calculationId].filter(Boolean).join(' · ');
@@ -267,7 +284,8 @@
       const targetPolicy = worksheet.targetPolicyVersionLabel || target.policyVersionId;
       const policyText = worksheet.policyVersionId ? `Calculation policy ${worksheet.policyVersionId}` : worksheet.workloadSourceReference ? `Workload policy ${worksheet.workloadSourceReference}` : 'Annual calculation policy not recorded';
       const calculationText = worksheet.lastCalculatedAt ? `latest calculation evidence ${worksheet.lastCalculatedAt}` : 'No annual calculation record; line values retain their recorded source';
-      return `<div class="p4-doe-worksheet"><div class="section-title">Faculty DOE Worksheet · ${esc(worksheet.academicYear || 'Academic Year unavailable')}</div><p class="aux-note">Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</p><div class="p4-doe-worksheet-summary">${cards}</div>${reserveSummary}${renderSourceIssues(worksheet)}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div>${renderLookupBreakdown(worksheet)}</div>`;
+      const balanceSummary = `<div class="doe-master-balance doe-master-balance-${balanceTone}">Teaching balance: <strong>${esc(balanceLabel)}</strong> · ${lineCount} source ${lineCount === 1 ? 'line' : 'lines'} · Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</div>`;
+      return `<div class="p4-doe-worksheet${embedded ? ' doe-worksheet-embedded' : ''}">${embedded ? '' : `<div class="section-title">Faculty DOE Worksheet · ${esc(year)}</div>`}<dl class="p4-doe-worksheet-summary">${cards}</dl>${balanceSummary}<p class="aux-note">Expected teaching minus assigned teaching determines the difference. None means no value is recorded; a recorded zero is shown as 0.00%.</p>${reserveSummary}${renderSourceIssues(worksheet)}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<details class="doe-calculation-details"><summary>Calculation details · ${lineCount} source ${lineCount === 1 ? 'line' : 'lines'}</summary><div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div></details>${renderLookupBreakdown(worksheet)}</div>`;
     }
 
     function finite(value) { return value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value); }
@@ -378,13 +396,29 @@
       reviewPopover.querySelector('.doe-review-body').setAttribute('aria-busy', 'false');
       positionReview();
     }
-    async function loadDetail(facultyId, academicYear, panel, isStillSelected) {
+    function bindSourceLinks(panel) {
+      if (!panel.addEventListener || sourcePanels.has(panel)) return;
+      sourcePanels.add(panel);
+      panel.addEventListener('click', event => {
+        const link = event.target?.closest?.('a[href^="#doe-source-"]');
+        const anchor = link?.getAttribute('href')?.slice(1);
+        if (!anchor || !/^doe-source-[a-z0-9_-]+$/.test(anchor)) return;
+        const row = panel.querySelector('#'+anchor);
+        if (!row) return;
+        for (let detail = row.closest('details'); detail; detail = detail.parentElement?.closest('details')) detail.open = true;
+        event.preventDefault();
+        row.focus({ preventScroll: true });
+        row.scrollIntoView({ block: 'nearest' });
+      });
+    }
+    async function loadDetail(facultyId, academicYear, panel, isStillSelected, options) {
       if (!panel) return;
       if (!academicYear) { panel.innerHTML = '<div class="warn-box">Academic year is unavailable; the server Worksheet cannot be loaded.</div>'; return; }
       try {
         const worksheet = await api.doeWorksheet({ facultyId, academicYear });
         if (!panel.isConnected || !isStillSelected()) return;
-        panel.innerHTML = renderWorksheet(worksheet);
+        panel.innerHTML = renderWorksheet(worksheet, options);
+        bindSourceLinks(panel);
       } catch (error) {
         if (panel.isConnected) panel.innerHTML = `<div class="warn-box" role="alert">DOE Worksheet could not be loaded: ${esc(error.message || 'DOE service unavailable.')}</div>`;
       }

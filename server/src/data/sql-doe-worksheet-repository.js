@@ -39,19 +39,24 @@ function createSqlDoeWorksheetRepository(db) {
     const params = { academicYear, facultyId: text(facultyId), limit: 501 };
     const [facultyRows, targetRows, policyRows, reserveRows, assignmentRows, sessionRows, legacyRoleRows, supervisionSourceRows, manualRows] = await Promise.all([
       db.query(
-        `SELECT TOP (@limit) f.FacultyId AS facultyId, f.DisplayName AS displayName, f.Stream AS stream, f.Active AS facultyActive
+        `SELECT TOP (@limit) f.FacultyId AS facultyId, f.DisplayName AS displayName,
+                f.PreferredFirstName AS preferredFirstName, f.PreferredLastName AS preferredLastName, f.Stream AS stream, f.Active AS facultyActive
            FROM paws.Faculty AS f
           WHERE (@facultyId=N'' OR f.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))
           ORDER BY f.DisplayName, f.FacultyId`, params),
       db.query(
-        `SELECT t.FacultyId AS facultyId, t.ContractTeachingDoe AS contractTeachingDoe,
+        `SELECT COALESCE(t.FacultyId,summary.FacultyId) AS facultyId, t.ContractTeachingDoe AS contractTeachingDoe,
                 t.OverrideDoe AS overrideDoe, t.OverrideReason AS overrideReason,
                 t.OverrideNotes AS overrideNotes, t.EffectiveTargetDoe AS effectiveTargetDoe,
-                t.Source AS source, t.PolicyVersionId AS policyVersionId, v.VersionLabel AS targetPolicyVersionLabel
+                t.Source AS source, t.PolicyVersionId AS policyVersionId, v.VersionLabel AS targetPolicyVersionLabel,
+                summary.ContractClinicalTeachingDoe AS contractClinicalTeachingDoe,
+                summary.PotentialGradTeachingDoe AS potentialGradTeachingDoe,
+                summary.SourceReference AS summarySourceReference
            FROM paws.DoeFacultyTarget AS t
+           FULL OUTER JOIN paws.DoeFacultySummarySource AS summary ON summary.FacultyId=t.FacultyId AND summary.AcademicYear=t.AcademicYear AND t.Active=1
            LEFT JOIN paws.DoePolicyVersion AS v ON v.PolicyVersionId=t.PolicyVersionId
-          WHERE t.AcademicYear=@academicYear AND t.Active=1
-            AND (@facultyId=N'' OR t.FacultyId=TRY_CONVERT(uniqueidentifier,@facultyId))`, params),
+          WHERE COALESCE(summary.AcademicYear,t.AcademicYear)=@academicYear AND (t.Active=1 OR summary.FacultyId IS NOT NULL)
+            AND (@facultyId=N'' OR COALESCE(t.FacultyId,summary.FacultyId)=TRY_CONVERT(uniqueidentifier,@facultyId))`, params),
       db.query(
         `SELECT PolicyVersionId AS policyVersionId, AcademicYear AS academicYear, Status AS status,
                 Revision AS revision, VersionLabel AS versionLabel
@@ -243,6 +248,7 @@ function createSqlDoeWorksheetRepository(db) {
         : lines.some(line => line.policyVersionId && !policy?.policyVersionId) ? 'missing_version' : 'consistent';
       return {
         facultyId: text(row.facultyId), displayName: text(row.displayName), stream: text(row.stream), facultyActive: bool(row.facultyActive),
+        preferredFirstName: text(row.preferredFirstName), preferredLastName: text(row.preferredLastName),
         academicYear, policyStatus,
         // Target snapshot provenance is not an annual calculation policy.
         targetPolicyVersionLabel: text(targetRow?.targetPolicyVersionLabel),
@@ -250,10 +256,13 @@ function createSqlDoeWorksheetRepository(db) {
         supervisionDataAvailable: lines.some(line => ['supervision', 'trainee_supervision'].includes(text(line.category).toLowerCase())),
         target: targetRow ? {
           contractTeachingDoe: number(targetRow.contractTeachingDoe), overrideDoe: number(targetRow.overrideDoe),
+          contractClinicalTeachingDoe: number(targetRow.contractClinicalTeachingDoe),
+          potentialGradTeachingDoe: number(targetRow.potentialGradTeachingDoe),
+          summarySourceReference: text(targetRow.summarySourceReference),
           overrideReason: text(targetRow.overrideReason), overrideNotes: text(targetRow.overrideNotes),
           effectiveTargetDoe: number(targetRow.effectiveTargetDoe), source: text(targetRow.source),
           policyVersionId: text(targetRow.policyVersionId)
-        } : { contractTeachingDoe: null, overrideDoe: null, effectiveTargetDoe: null },
+        } : { contractTeachingDoe: null, contractClinicalTeachingDoe: null, potentialGradTeachingDoe: null, summarySourceReference: '', overrideDoe: null, effectiveTargetDoe: null },
         reservePolicy: { ...reservePolicy }, lines
       };
     });

@@ -14,6 +14,9 @@
     if (!name || unchanged.test(name) || /^[^\s@]+@[^\s@]+$/.test(name) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{23}$/i.test(name)) return name;
     // Already "Last, First": normalize spacing and do not reverse twice.
     if (name.includes(',')) return name.replace(/\s*,\s*/g, ', ');
+    // A contributor subtype describes the person; it must never become part of their surname.
+    const contributor = name.match(/^(.*?)(\s+\(Sessional(?:\s*·[\s\S]*)?\))$/);
+    if (contributor) return formatText(contributor[1]) + contributor[2];
     const suffix = name.match(/^(.*?)(\s+\([^()]{1,40}\))$/);
     const stem = suffix ? suffix[1] : name, parts = stem.split(/\s+/);
     if (parts.length < 2) return name;

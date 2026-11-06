@@ -9,7 +9,7 @@
       if (!rows.length) return '';
       return `<div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(header => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells => `<tr>${cells.map((cell, index) => `<td>${/source|reference/i.test(headers[index]) ? referenceBubble(display(cell)) : esc(display(cell))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
     }
-    function renderContractDoe(contractDoe, faculty = {}) {
+    function renderContractDoe(contractDoe, faculty = {}, { embedded = false } = {}) {
       const data = contractDoe && typeof contractDoe === 'object' ? contractDoe : {};
       const categoryLabels = {
         scholarly_activity: 'Scholarly Activity', ppvm_cost_share: 'PPVM Cost Share',
@@ -31,7 +31,9 @@
       const sourceLine = `Source: ${source}${data.sourceReference ? ` · ${data.sourceReference}` : ''}`;
       const totalLine = total === null ? 'DOE unavailable' : formatDoe(total);
       const fteReference = faculty?.fteSourceReference ? `FTE source: ${faculty.fteSourceReference}` : 'FTE source: not recorded';
-      return `<section class="section wide contract-doe-allocation"><div class="section-title">Workload / Contract · ${esc(data.academicYear || 'Academic year unavailable')}</div><div class="doe-profile-source"><strong>FTE:</strong> ${fte === null ? 'Unavailable' : esc(fte.toFixed(2))} ${referenceBubble(fteReference,'FTE source')} ${referenceBubble(sourceLine,'Contract DOE source')}</div><div class="table-wrap"><table class="data-table"><tbody>${rows.join('')}<tr class="contract-doe-total"><th scope="row">Total Contract DOE</th><td>${esc(totalLine)}</td></tr></tbody></table></div>${teaching === null ? '<div class="doe-note warn-box">Teaching contract target is unavailable; displayed total includes only supplied allocations.</div>' : ''}</section>`;
+      const body = `<div class="doe-profile-source"><strong>FTE:</strong> ${fte === null ? 'Unavailable' : esc(fte.toFixed(2))} ${referenceBubble(fteReference,'FTE source')} ${referenceBubble(sourceLine,'Contract DOE source')}</div><div class="table-wrap"><table class="data-table"><tbody>${rows.join('')}<tr class="contract-doe-total"><th scope="row">Total Contract DOE</th><td>${esc(totalLine)}</td></tr></tbody></table></div>${teaching === null ? '<div class="doe-note warn-box">Teaching contract target is unavailable; displayed total includes only supplied allocations.</div>' : ''}`;
+      if (embedded) return `<details class="contract-doe-allocation doe-contract-details"><summary>Contract allocations · ${esc(data.academicYear || 'Academic year unavailable')} · ${supplied.length} ${supplied.length === 1 ? 'allocation' : 'allocations'}</summary>${body}</details>`;
+      return `<section class="section wide contract-doe-allocation"><div class="section-title">Workload / Contract · ${esc(data.academicYear || 'Academic year unavailable')}</div>${body}</section>`;
     }
 
     function renderDoeRuleBook(ruleBook) {
@@ -40,7 +42,7 @@
       const rows = rules.map(rule => `<tr><td>${esc(rule.category || '—')}</td><td>${esc(rule.ruleLabel || '—')}</td><td>${esc(rule.academicYearOrStage || 'All applicable years')}</td><td>${esc(rule.rateOrTierPct || 'Reference only')}</td><td>${esc(rule.basis || '—')}</td><td>${esc(rule.requiredInput || '—')}</td><td>${esc(rule.calculationOrNote || '—')}</td></tr>`).join('');
       const source = data.sourceReference || 'UCVM Workload Guidelines', version = data.policyVersionLabel || 'No active policy version';
       const body = rows ? `<div class="table-wrap"><table class="data-table doe-rule-reference-table"><thead><tr><th>Category</th><th>Rule</th><th>Year / Stage</th><th>Value / Tier</th><th>Basis</th><th>Required input</th><th>Application / limits</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty">No DOE rule references for this year.</div>';
-      return `<section class="section wide doe-rule-book"><div class="section-title">DOE Rule Reference · ${esc(data.academicYear || 'Academic year unavailable')}</div><div class="doe-profile-source">${referenceBubble('Policy: '+version+' · Source: '+source,'Policy & source')}</div>${body}<div class="doe-note">do not infer individual Research, PPVM, Service/Admin or supervision DOE.</div></section>`;
+      return `<details class="section wide doe-rule-book"><summary class="section-title">DOE Rule Reference · ${esc(data.academicYear || 'Academic year unavailable')} · ${rules.length} ${rules.length === 1 ? 'rule' : 'rules'}</summary><div class="doe-profile-source">${referenceBubble('Policy: '+version+' · Source: '+source,'Policy & source')}</div>${body}<div class="doe-note">do not infer individual Research, PPVM, Service/Admin or supervision DOE.</div></details>`;
     }
 
     function doeEvidenceStatus(summary) {
@@ -143,7 +145,23 @@
       return `<section class="section wide"><div class="section-title">Teaching / Courses</div>${body}</section>`;
     }
 
-    return Object.freeze({ renderContractDoe, renderDoeRuleBook, renderDoeSummary, renderTeachingCourses, referenceBubble, apiTable });
+    function renderWorkload(data, academicYear) {
+      return `<section class="section wide doe-workload-contract"><div class="section-title">Workload / Contract · ${esc(academicYear || 'Academic year unavailable')}</div><div id="faculty-doe-worksheet"><div class="empty">Loading authoritative DOE Worksheet…</div></div>${renderContractDoe(data.contractDoe, data.faculty, { embedded: true })}${renderDoeRuleBook(data.doeRuleBook)}</section>`;
+    }
+
+    function renderFacultyBadges(faculty, assignments) {
+      const contributors = new Set();
+      for (const row of assignments) {
+        if (row.contributorCategory !== 'Sessional') continue;
+        const subtype = row.contributorLabel;
+        contributors.add(subtype && subtype !== 'Sessional' ? `Sessional · ${subtype}` : 'Sessional');
+      }
+      const fte = faculty.fte == null || faculty.fte === '' ? '' : `FTE ${faculty.fte}`;
+      return [faculty.rank, fte, faculty.stream, faculty.recordType, ...contributors]
+        .filter(Boolean).map(label => `<span class="badge">${esc(label)}</span>`).join('');
+    }
+
+    return Object.freeze({ renderContractDoe, renderDoeRuleBook, renderDoeSummary, renderTeachingCourses, renderWorkload, renderFacultyBadges, referenceBubble, apiTable });
   }
 
   window.UCVM_FACULTY_DOE_RENDERER = Object.freeze({ create });

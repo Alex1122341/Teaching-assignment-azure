@@ -30,6 +30,14 @@ test('DOE profile renderer keeps FTE separate from exact contract allocation val
   assert.match(html, />Total Contract DOE<\/th><td>2\.50%/);
 });
 
+test('embedded contract allocations remain available in one default-closed detail with no competing section title',()=>{
+  const html=makeRenderer().renderContractDoe({academicYear:'2026-27',teachingDoe:20,allocations:[{categoryCode:'research',allocationDoe:30}]},{fte:1},{embedded:true});
+  assert.match(html, /^<details class="contract-doe-allocation doe-contract-details"><summary>Contract allocations · 2026-27 · 2 allocations<\/summary>/);
+  assert.doesNotMatch(html, /<section|Workload \/ Contract|<details[^>]*\bopen\b/);
+  assert.match(html, /Total Contract DOE<\/th><td>50\.00%/);
+  assert.match(html, /FTE:<\/strong> 1\.00/);
+});
+
 test('DOE rule renderer displays policy provenance and preserves year-stage values', () => {
   const renderer = makeRenderer();
   const html = renderer.renderDoeRuleBook({ academicYear: '2026-27', policyVersionLabel: 'UCVM 2026-27 v1', sourceReference: 'UCVM Workload Guidelines', rules: [{ category: 'VISC', ruleLabel: 'Subject development', academicYearOrStage: '2026-27', rateOrTierPct: '5%', basis: 'per subject', requiredInput: 'confirmed VISC subject', calculationOrNote: 'stage-bound' }] });
@@ -37,6 +45,14 @@ test('DOE rule renderer displays policy provenance and preserves year-stage valu
   assert.match(html, /2026-27/);
   assert.match(html, />5%<\/td>/);
   assert.match(html, /stage-bound/);
+  assert.match(html, /<details class="section wide doe-rule-book"><summary class="section-title">DOE Rule Reference · 2026-27 · 1 rule<\/summary>/);
+  assert.doesNotMatch(html, /<details[^>]*\bopen\b/);
+});
+
+test('DOE rule reference shows the selected year and zero count when empty', () => {
+  const html = makeRenderer().renderDoeRuleBook({ academicYear: '2028-29', rules: [] });
+  assert.match(html, /<summary class="section-title">DOE Rule Reference · 2028-29 · 0 rules<\/summary>/);
+  assert.match(html, /No DOE rule references for this year/);
 });
 
 test('DOE summary separates assigned teaching from unresolved role inputs and shows calculator evidence', () => {

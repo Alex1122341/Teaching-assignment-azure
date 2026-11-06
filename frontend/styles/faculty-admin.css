@@ -175,6 +175,33 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .p4-doe-worksheet-lines tr[id]{scroll-margin-block:110px}
 .p4-doe-worksheet-lines tr[id]:target,.p4-doe-worksheet-lines tr[id]:focus{outline:2px solid #2563eb;outline-offset:-2px;background:#eff6ff}
 
+/* MASTER DOE Simplified summary; source evidence remains below. */
+.p4-doe-worksheet-summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+.p4-doe-worksheet-summary .p4-doe-worksheet-card{min-width:0;padding:10px 12px;border-top:3px solid var(--border2);border-radius:4px}
+.p4-doe-worksheet-card dt{font-size:12px;font-weight:650;color:var(--text2);line-height:1.4}
+.p4-doe-worksheet-card dd{margin:6px 0 0;font-size:18px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.p4-doe-worksheet-card.doe-master-name dd{font-size:16px}
+.p4-doe-worksheet-card.doe-master-expected{border-top-color:var(--navy)}
+.p4-doe-worksheet-card.doe-master-assigned{border-top-color:var(--uc-gold)}
+.p4-doe-worksheet-card.doe-master-balance-remaining{border-top-color:var(--amber)}
+.p4-doe-worksheet-card.doe-master-balance-over{border-top-color:var(--red)}
+.p4-doe-worksheet-card.doe-master-balance-at{border-top-color:var(--green)}
+.doe-master-balance{padding:8px 10px;margin:8px 0;border-left:3px solid var(--border2);background:var(--surface2);font-size:12px;line-height:1.6;color:var(--text2)}
+.doe-master-balance-remaining{border-left-color:var(--amber)}
+.doe-master-balance-over{border-left-color:var(--red)}
+.doe-master-balance-at{border-left-color:var(--green)}
+.doe-rule-book>summary.section-title{display:list-item;cursor:pointer;margin:0;list-style-position:inside;font-size:13px;text-transform:none;letter-spacing:0;line-height:1.5}
+.doe-rule-book>summary:focus-visible{outline:2px solid var(--workspace-focus,#2563eb);outline-offset:-3px}
+@media(max-width:1050px){.p4-doe-worksheet-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.p4-doe-worksheet-summary{grid-template-columns:minmax(0,1fr)}}
+.doe-worksheet-embedded{margin:0;border:0;border-radius:0;padding:12px}
+.doe-contract-details,.doe-calculation-details,.doe-excel-group{margin:8px 0;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:var(--surface)}
+.doe-contract-details>summary,.doe-calculation-details>summary,.doe-excel-group>summary{padding:9px 12px;background:var(--surface2);font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;line-height:1.5}
+.doe-contract-details>summary:focus-visible,.doe-calculation-details>summary:focus-visible,.doe-excel-group>summary:focus-visible{outline:2px solid var(--workspace-focus,#2563eb);outline-offset:-3px}
+.doe-workload-contract>.doe-contract-details,.doe-workload-contract>.doe-rule-book{margin:0 12px 12px}
+.doe-workload-contract .doe-contract-details .data-table{min-width:0}
+.doe-excel-group .doe-excel-summary-table{margin:0}
+
 .afc-forms-card{margin:16px 0;padding:18px;border:1px solid #dce1e8;border-radius:5px;background:#fff}.afc-forms-card header p{max-width:78ch;color:#59657a;line-height:1.5}.afc-forms-card h3{margin:0 0 8px}.afc-forms-card h4{margin:20px 0 10px}.afc-form-preview{padding:12px;background:#f5f7fa;border-radius:4px;overflow-wrap:anywhere}.afc-form-preview .btn{margin-left:8px}.afc-forms-card .field-grid{margin-top:14px}.afc-forms-card input[type=file]{max-width:100%}
 .ccc-preview-table{max-height:360px;overflow:auto;margin:10px 0 18px}.ccc-preview-table th{position:sticky;top:0;background:#f5f7fa}.ccc-confirm{display:flex;align-items:flex-start;gap:10px;line-height:1.5;margin:18px 0}.ccc-confirm input{flex-shrink:0;margin-top:4px}#ccc-replacement .aux-note{overflow-wrap:anywhere}#ccc-replacement details{margin:12px 0}#ccc-replacement summary{cursor:pointer;font-weight:600}
 

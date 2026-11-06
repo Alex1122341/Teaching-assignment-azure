@@ -44,6 +44,8 @@
     "paws.TeachingAssignmentPublishedInstructor"
   ],
   "p4ReadObjects": [
+    "paws.SessionalAssignment",
+    "paws.DoeFacultySummarySource",
     "paws.DoePolicyRule",
     "paws.DoeRuleSelector",
     "paws.DoeRuleParameter",

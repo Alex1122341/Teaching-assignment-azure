@@ -37,7 +37,7 @@ function renderRuleBook(ruleBook) {
 
 test('Faculty page distinguishes contract target allocations from assigned and role DOE, preserving zeros and omitting blank categories', () => {
   const source = fs.readFileSync(repositoryPath(root, 'faculty-admin.js'), 'utf8');
-  assert.match(source, /renderContractDoe\(data\.contractDoe/);
+  assert.match(source, /renderWorkload\(data, academicYear\)/);
   const html = render({
     academicYear: '2026-27', teachingDoe: 0, source: 'DOE snapshot', policyVersionLabel: 'Faculty Master List DOE snapshot 2026-10-04',
     sourceReference: 'Faculty Master List.xlsx / DOE Summary',

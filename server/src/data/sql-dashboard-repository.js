@@ -700,9 +700,12 @@ function createSqlDashboardRepository(db) {
                sa.DoeQuantity AS doeQuantity,
                sa.DoeUnit AS doeUnit,
                sa.DoeCredit AS doeCredit,
-               sa.DoeStatus AS doeStatus
+               sa.DoeStatus AS doeStatus,
+               sessional.ContributorLabel AS sessionalLabel
            FROM paws.SessionAssignment sa
            INNER JOIN paws.vCalendarSession c ON c.SessionId = sa.SessionId
+           OUTER APPLY (SELECT STRING_AGG(CONVERT(nvarchar(max),ContributorLabel),N' / ') AS ContributorLabel
+             FROM paws.SessionalAssignment WHERE SessionAssignmentId=sa.SessionAssignmentId) sessional
            WHERE sa.FacultyId = @facultyId
              AND c.AcademicYear = @academicYear
            ORDER BY c.SessionDate, c.StartTime, c.SessionId, sa.SessionAssignmentId`,
@@ -804,7 +807,9 @@ function createSqlDashboardRepository(db) {
           doeQuantity: toNumber(row.doeQuantity),
           doeUnit: toText(row.doeUnit),
           doeCredit: toNumber(row.doeCredit),
-          doeStatus: toText(row.doeStatus)
+          doeStatus: toText(row.doeStatus),
+          contributorCategory: row.sessionalLabel ? 'Sessional' : null,
+          contributorLabel: toText(row.sessionalLabel)
         };
         const doe = resolveTeachingDoe(assignment);
         return {

@@ -53,7 +53,7 @@ function createSqlDoeWorksheetRepository(db) {
                 summary.PotentialGradTeachingDoe AS potentialGradTeachingDoe,
                 summary.SourceReference AS summarySourceReference
            FROM paws.DoeFacultyTarget AS t
-           FULL OUTER JOIN paws.DoeFacultySummarySource AS summary ON summary.FacultyId=t.FacultyId AND summary.AcademicYear=t.AcademicYear AND t.Active=1
+           FULL OUTER JOIN paws.vFacultyDoeSummaryInputs AS summary ON summary.FacultyId=t.FacultyId AND summary.AcademicYear=t.AcademicYear AND t.Active=1
            LEFT JOIN paws.DoePolicyVersion AS v ON v.PolicyVersionId=t.PolicyVersionId
           WHERE COALESCE(summary.AcademicYear,t.AcademicYear)=@academicYear AND (t.Active=1 OR summary.FacultyId IS NOT NULL)
             AND (@facultyId=N'' OR COALESCE(t.FacultyId,summary.FacultyId)=TRY_CONVERT(uniqueidentifier,@facultyId))`, params),

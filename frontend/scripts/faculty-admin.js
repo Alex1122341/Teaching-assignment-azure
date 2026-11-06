@@ -619,6 +619,9 @@
   })();
   const facultyManagement = window.UCVM_FACULTY_ADMIN_MANAGEMENT.create({
     canWrite: () => !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled,
+    canWriteDoe: () => UCVM_PAWS_DATA.doeAdminWriteEnabled?.() === true,
+    getAcademicYear: currentAcademicYear,
+    getDoeWorksheet: input => UCVM_PAWS_DATA.doeWorksheet(input),
     getFaculty: () => faculty,
     getSelectedDetail: () => selectedDetail,
     getFacultyDetail: facultyId => UCVM_PAWS_DATA.dashboardFacultyById(facultyId),
@@ -629,7 +632,7 @@
       else if (requestedStatus==='inactive'&&facultyStatus==='active') facultyStatus='inactive';
       else if(requestedStatus==='active'&&facultyStatus!=='active') facultyStatus='active';
       if ($('faculty-status-filter')) $('faculty-status-filter').value = facultyStatus;
-      selectedId = id; invalidateFacultyDetails(); await loadAdminDashboard(); await selectFacultyDetail(id);
+      selectedId = id; doeWorksheetView?.invalidate(); invalidateFacultyDetails(); await loadAdminDashboard(); await selectFacultyDetail(id);
     }
   });
   doeWorksheetView = window.UCVM_FACULTY_DOE_WORKSHEET.create({

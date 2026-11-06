@@ -22,7 +22,7 @@ const { randomUUID } = require('node:crypto');
 // 403 FACULTY_LINK_REQUIRED before any SQL read happens. Scope is enforced by a
 // server-side predicate, never by hiding fields in the UI.
 
-const { InvalidAcademicYearError, resolveAcademicYear } = require('./academic-year');
+const { InvalidAcademicYearError, canonicalAcademicYear, resolveAcademicYear } = require('./academic-year');
 const { writeDisabled } = require('./write-gates');
 const { ADMINISTRATOR_ROLES, SELF_SERVICE_ROLES, isAdministratorRole, normalizeBaseRole } = require('../auth/role-policy');
 
@@ -95,9 +95,29 @@ function strictUtcVersion(value) {
   return raw;
 }
 
+function validateTeachingDoe(input) {
+  const limits = { contractTeachingDoe: 100, contractClinicalTeachingDoe: 100, potentialGradTeachingDoe: 999999.999999 };
+  const invalid = () => ({ error: error(400, 'INVALID_FACULTY_DOE', 'Enter valid teaching DOE percentages and a valid academic year.') });
+  if (!input || typeof input !== 'object' || Array.isArray(input) ||
+      Object.keys(input).some(key => !['academicYear', 'before', 'values'].includes(key))) return invalid();
+  let academicYear;
+  try { academicYear = canonicalAcademicYear(input.academicYear); }
+  catch { return invalid(); }
+  for (const fields of [input.before, input.values]) {
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields) ||
+        Object.keys(fields).length !== Object.keys(limits).length) return invalid();
+    for (const [key, max] of Object.entries(limits)) {
+      const value = fields[key];
+      if (value !== null && (typeof value !== 'number' || !Number.isFinite(value) ||
+          value < 0 || value > max || Number(value.toFixed(6)) !== value)) return invalid();
+    }
+  }
+  return { value: { academicYear, before: input.before, values: input.values } };
+}
+
 function validateFacultyUpdate(payload, facultyId) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { error: error(400, 'INVALID_JSON', 'Faculty update JSON must be an object.') };
-  const allowed = new Set(['expectedUpdatedAtUtc', 'expectedProfileVersion', 'preferredFirstName', 'preferredLastName', 'displayName', 'ucid', 'email', 'recordType', 'stream', 'rank', 'fte', 'reportsToFacultyId', 'activationDate', 'professionalProfile']);
+  const allowed = new Set(['expectedUpdatedAtUtc', 'expectedProfileVersion', 'preferredFirstName', 'preferredLastName', 'displayName', 'ucid', 'email', 'recordType', 'stream', 'rank', 'fte', 'reportsToFacultyId', 'activationDate', 'professionalProfile', 'teachingDoe']);
   if (Object.keys(payload).some(key => !allowed.has(key))) return { error: error(400, 'INVALID_FACULTY_FIELDS', 'Faculty update contains unsupported fields.') };
   const expectedUpdatedAtUtc = strictUtcVersion(payload.expectedUpdatedAtUtc);
   if (!expectedUpdatedAtUtc) {
@@ -154,8 +174,11 @@ function validateFacultyUpdate(payload, facultyId) {
     ? null : strictDate(payload.activationDate);
   if (payload.activationDate !== undefined && payload.activationDate !== null && payload.activationDate !== '' && !activationDate)
     return { error: error(400, 'INVALID_FACULTY_ACTIVATION_DATE', 'Activation date must be a real YYYY-MM-DD date.') };
+  const doe = Object.hasOwn(payload, 'teachingDoe') ? validateTeachingDoe(payload.teachingDoe) : {};
+  if (doe.error) return doe;
   return { value: { expectedUpdatedAtUtc, expectedProfileVersion, ...faculty,
     ...(Object.prototype.hasOwnProperty.call(payload, 'activationDate') ? { activationDate } : {}),
+    ...(doe.value ? { teachingDoe: doe.value } : {}),
     professionalProfile } };
 }
 
@@ -169,12 +192,16 @@ function validateFacultyCreate(payload) {
   }, fakeId);
   if (validated.error) return validated;
   const { expectedUpdatedAtUtc, expectedProfileVersion, ...value } = validated.value;
+  if (value.teachingDoe && Object.values(value.teachingDoe.before).some(previous => previous !== null))
+    return { error: error(400, 'INVALID_FACULTY_DOE', 'New Faculty records have no existing DOE values.') };
   if (!value.ucid && !value.email)
     return { error: error(400, 'INVALID_FACULTY_FIELDS', 'A UCID or email is required to prevent duplicate Faculty identities.') };
   return { value };
 }
 
 function facultyWriteFailure(caught) {
+  if (Number(caught && caught.number) === 56703) return error(409, 'FACULTY_DOE_CONFLICT', 'Teaching DOE changed after you opened this record. Reload before saving.');
+  if (Number(caught && caught.number) === 56702) return error(400, 'INVALID_FACULTY_DOE', 'Teaching DOE failed SQL validation.');
   if ((caught && caught.code === 'FACULTY_REVISION_CONFLICT') || Number(caught && caught.number) === 52305) return error(409, 'FACULTY_REVISION_CONFLICT', 'This Faculty record changed after you opened it. Reload it before saving.');
   if ((caught && caught.code === 'FACULTY_IDENTITY_CONFLICT') || Number(caught && caught.number) === 52304) return error(409, 'FACULTY_IDENTITY_CONFLICT', 'This UCID or email already belongs to a Faculty record, possibly an inactive one. Find and restore that record instead.');
   if ([2601, 2627].includes(Number(caught && caught.number))) return error(409, 'FACULTY_IDENTITY_CONFLICT', 'This UCID or email already belongs to a Faculty record, possibly an inactive one. Find and restore that record instead.');
@@ -513,6 +540,7 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
         if (writeGates.facultyAdmin !== true) return writeDisabled();
         const validated = validateFacultyCreate(payload);
         if (validated.error) return validated.error;
+        if (validated.value.teachingDoe && writeGates.doeAdmin !== true) return writeDisabled();
         try {
           const faculty = await writeRepository.createFaculty({
             actorFirebaseUid: text(decoded && decoded.uid), ...validated.value
@@ -529,6 +557,7 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
         if (!validUuid(facultyId)) return error(400, 'INVALID_FACULTY_ID', 'Faculty id is not a valid identifier.');
         const validated = validateFacultyUpdate(payload, facultyId);
         if (validated.error) return validated.error;
+        if (validated.value.teachingDoe && writeGates.doeAdmin !== true) return writeDisabled();
         try {
           const faculty = await writeRepository.updateFaculty({
             facultyId,

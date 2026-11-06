@@ -23,12 +23,12 @@ async function render(worksheet, options) {
 
 function summaryEntries(html) {
   const summary = html.match(/<dl class="p4-doe-worksheet-summary">([\s\S]*?)<\/dl>/)?.[1] || '';
-  return [...summary.matchAll(/<dt>(.*?)<\/dt><dd>(.*?)<\/dd>/g)].map(match => [match[1], match[2]]);
+  return [...summary.matchAll(/<dt>(.*?)<\/dt><dd>([^<]*)(?:<small[^>]*>[^<]*<\/small>)?<\/dd>/g)].map(match => [match[1], match[2]]);
 }
 
 test('MASTER summary leaves the faculty name to the profile header',async()=>{
  const html=await render({displayName:'Douglas, Morck',preferredFirstName:'Douglas',preferredLastName:'Morck',academicYear:'2026-27',target:{},totals:{},lines:[]});
- assert.equal(summaryEntries(html).length, 7);
+ assert.equal(summaryEntries(html).length, 6);
  assert.doesNotMatch(html, /Faculty Name|Morck, Douglas|Douglas, Morck/);
 });
 
@@ -58,8 +58,9 @@ test('worksheet presents only the MASTER teaching summary fields for the selecte
     ['Contracted Teaching (%)', '30.00%'],
     ['Contracted Clinical Teaching (%)', '12.00%'], ['Expected 2027-28 Teaching (%)', '24.00%'],
     ['Assigned Teaching (%)', '19.00%'], ['Remaining', '5.00%'],
-    ['Potential Grad Teaching', '4.00%'], ['Adjustment', '1.50%']
+    ['Adjustment', '1.50%']
   ]);
+  assert.match(html, /<dt>Assigned Teaching \(%\)<\/dt><dd>19\.00%<small class="doe-summary-reference">\(Potential Grad Teaching: 4\.00%\)<\/small><\/dd>/);
   assert.match(html, /Teaching balance: <strong>5\.00% Remaining<\/strong> · 1 source line/);
   assert.match(html, /Evidence &lt;course&gt;/);
   assert.match(html, /Retained source/);
@@ -75,8 +76,9 @@ test('missing MASTER values remain None while real zeros remain numeric', async 
   assert.deepEqual(summaryEntries(html), [
     ['Contracted Teaching (%)', 'None'], ['Contracted Clinical Teaching (%)', '0.00%'],
     ['Expected 2026-27 Teaching (%)', 'None'], ['Assigned Teaching (%)', '0.00%'],
-    ['Remaining', 'None'], ['Potential Grad Teaching', 'None'], ['Adjustment', '0.00%']
+    ['Remaining', 'None'], ['Adjustment', '0.00%']
   ]);
+  assert.doesNotMatch(html, /Potential Grad Teaching/);
   assert.match(html, /Teaching balance: <strong>None<\/strong>/);
   assert.match(html, /Awaiting data \/ policy/);
 });

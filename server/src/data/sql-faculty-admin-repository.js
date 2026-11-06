@@ -40,6 +40,15 @@ function createSqlFacultyAdminRepository(db) {
     BoardCertificationCount: input.professionalProfile.boardCertificationCount,
     AbvmaLicenseNumber: input.professionalProfile.abvmaLicenseNumber, AbvmaMemberType: input.professionalProfile.abvmaMemberType
   });
+  const saveTeachingDoe = (facultyId, input) => run('SetFacultyTeachingDoeInputs', {
+    FacultyId: facultyId, AcademicYear: input.teachingDoe.academicYear,
+    ActorFirebaseUid: input.actorFirebaseUid, BeforeJson: JSON.stringify(input.teachingDoe.before),
+    ValuesJson: JSON.stringify(input.teachingDoe.values)
+  });
+  const atomic = callback => {
+    if (typeof db.transaction !== 'function') throw new Error('Atomic Faculty update requires a SQL transaction.');
+    return db.transaction(callback);
+  };
   return Object.freeze({
     async updateRolePeriods(input) {
       const rows = await run('SetRoleAppointmentPeriods', {RoleAssignmentId:input.roleAssignmentId,ExpectedVersion:input.expectedVersion,PeriodsJson:JSON.stringify(input.periods),ActorFirebaseUid:input.actorFirebaseUid});
@@ -51,27 +60,32 @@ function createSqlFacultyAdminRepository(db) {
       delete params.ExpectedUpdatedAtUtc;
       delete params.ExpectedProfileVersion;
       params.ActivationDate = input.activationDate ?? null;
-      const rows = await run('CreateFaculty', params);
-      return facultyDto(rows[0]);
+      const create = async () => {
+        const [row] = await run('CreateFaculty', params);
+        if (input.teachingDoe) {
+          if (!row?.facultyId) throw new Error('Faculty creation returned no identifier.');
+          await saveTeachingDoe(row.facultyId, input);
+        }
+        return facultyDto(row);
+      };
+      return input.teachingDoe ? atomic(create) : create();
     },
     async updateFaculty(input) {
-      if (!Object.prototype.hasOwnProperty.call(input, 'activationDate')) {
-        const rows = await run('UpdateFaculty', paramsForUpdate(input));
-        return facultyDto(rows[0]);
-      }
-      if (typeof db.transaction !== 'function')
-        throw new Error('Atomic Faculty profile/activation update requires a SQL transaction.');
-      return db.transaction(async () => {
-        const rows = await run('UpdateFaculty', paramsForUpdate(input));
-        if (!rows[0]) return null;
-        const after = await run('SetFacultyActivation', {
-          FacultyId: input.facultyId,
-          ExpectedUpdatedAtUtc: rows[0].updatedAtUtc,
-          ActivationDate: input.activationDate ?? null,
-          ActorFirebaseUid: input.actorFirebaseUid
-        });
-        return facultyDto(after[0]);
-      });
+      const changesActivation = Object.hasOwn(input, 'activationDate');
+      const update = async () => {
+        let [row] = await run('UpdateFaculty', paramsForUpdate(input));
+        if (!row) return null;
+        if (changesActivation) {
+          [row] = await run('SetFacultyActivation', {
+            FacultyId: input.facultyId, ExpectedUpdatedAtUtc: row.updatedAtUtc,
+            ActivationDate: input.activationDate ?? null, ActorFirebaseUid: input.actorFirebaseUid
+          });
+          if (!row) throw new Error('Faculty activation returned no record.');
+        }
+        if (input.teachingDoe) await saveTeachingDoe(input.facultyId, input);
+        return facultyDto(row);
+      };
+      return changesActivation || input.teachingDoe ? atomic(update) : update();
     },
     async deactivateFaculty(input) {
       const rows = await run('DeactivateFaculty', {

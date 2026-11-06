@@ -4,9 +4,16 @@
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
   const bind = (node,event,handler) => { if(!node)return; if(typeof node.addEventListener==='function')node.addEventListener(event,handler); else node[`on${event}`]=handler; };
-  function create({ canWrite, getFaculty, getSelectedDetail, getFacultyDetail, onChanged, onEditOpen, notify }) {
+  const DOE_FIELDS = [
+    ['contractTeachingDoe', 'Contracted Teaching (%)', 100],
+    ['contractClinicalTeachingDoe', 'Contracted Clinical Teaching (%)', 100],
+    ['potentialGradTeachingDoe', 'Potential Grad Teaching (%)', 999999.999999]
+  ];
+  function create({ canWrite, getFaculty, getSelectedDetail, getFacultyDetail, onChanged, onEditOpen, notify,
+    canWriteDoe = () => false, getAcademicYear, getDoeWorksheet }) {
     let editSequence = 0;
     let saving = false;
+    let doeInput = null;
     function actions(f) {
       if (!canWrite() || !f?.facultyId || !f.updatedAtUtc) return '';
       return `<div class="faculty-admin-actions"><button type="button" class="btn btn-primary" data-faculty-edit="1">Edit Faculty</button>${(f.administrativeActive === undefined ? f.active === false : f.administrativeActive === false) ? '<button type="button" class="btn" data-faculty-restore="1">Restore Faculty</button>' : '<button type="button" class="btn" data-faculty-deactivate="1">Deactivate Faculty</button>'}</div>`;
@@ -17,12 +24,13 @@
       return `<div class="faculty-link-warning" role="note"><strong>Linked records remain attached:</strong> ${count('activeUserProfileCount')} active login(s), ${count('currentTeachingSessionCount')} future teaching session(s), ${count('currentRoleCount')} current role(s), and ${count('currentTeachingResponsibilityCount')} current teaching responsibility assignment(s). Deactivation will not delete these records or disable linked accounts.</div>`;
     }
     function control(name, label, value, options = {}) {
-      const attrs = `${options.max ? ` maxlength="${options.max}"` : ''}${options.step ? ` step="${options.step}"` : ''}`;
+      const attrs = `${options.max ? ` maxlength="${options.max}"` : ''}${options.step ? ` step="${options.step}"` : ''}${options.numberMax ? ` min="0" max="${options.numberMax}"` : ''}`;
       return `<label class="field ${options.full || options.max >= 4000 ? 'full' : ''}"><span class="field-label">${esc(label)}</span>${options.max >= 4000 ? `<textarea class="textarea" rows="3" name="${esc(name)}"${attrs}>${esc(value ?? '')}</textarea>` : `<input class="input" name="${esc(name)}" type="${options.type || 'text'}" value="${esc(value ?? '')}"${attrs}>`}</label>`;
     }
     function open(f = {}, profile = {}, detail = {}) {
       if (saving || !canWrite() || (f?.facultyId && !f.updatedAtUtc)) return;
-      ++editSequence;
+      const sequence = ++editSequence;
+      doeInput = null;
       const creating = !f?.facultyId;
       f = { recordType: 'faculty', ...f };
       const p = profile || {}, roster = getFaculty();
@@ -58,6 +66,29 @@
         : 'Update the canonical Faculty record and professional profile.';
       $('faculty-record-status').textContent = ''; $('faculty-record-save').disabled = false;
       if (!$('faculty-record-editor').open) $('faculty-record-editor').showModal();
+      if (canWriteDoe()) {
+        const year = getAcademicYear();
+        form.querySelector('#faculty-record-fields').insertAdjacentHTML('beforeend', group(`Teaching DOE · ${esc(year)}`, [
+          '<div class="field full" data-faculty-doe-fields>Loading teaching DOE…</div>'
+        ]));
+        const container = form.querySelector('[data-faculty-doe-fields]');
+        const renderDoeInputs = target => {
+          if (sequence !== editSequence || !container.isConnected) return;
+          const before = Object.fromEntries(DOE_FIELDS.map(([key]) => [key, target[key] ?? null]));
+          container.className = 'field-grid full';
+          container.innerHTML = DOE_FIELDS.map(([key, label, max]) =>
+            control(key, label, before[key], { type: 'number', step: '0.000001', numberMax: max })
+          ).join('') + '<p class="aux-note full">Blank means no value is recorded. Potential Grad Teaching is for reference.</p>';
+          doeInput = { academicYear: year, before };
+        };
+        if (creating) renderDoeInputs({});
+        else getDoeWorksheet({ facultyId: f.facultyId, academicYear: year }).then(worksheet => {
+          if (worksheet?.academicYear !== year || !worksheet.target) throw new Error('DOE inputs unavailable');
+          renderDoeInputs(worksheet.target);
+        }).catch(() => {
+          if (sequence === editSequence) container.textContent = 'Teaching DOE could not be loaded. Reopen Edit Faculty to try again.';
+        });
+      }
       if (!creating && typeof onEditOpen === 'function') onEditOpen(form, f, p, detail);
     }
     async function editById(facultyId) {
@@ -74,7 +105,10 @@
       const value = name => form.elements.namedItem(name)?.value ?? '';
       const str = name => String(value(name)).trim() || null;
       const num = name => String(value(name)).trim() === '' ? null : Number(value(name));
+      const doeValues = doeInput && Object.fromEntries(DOE_FIELDS.map(([key]) => [key, num(key)]));
+      const changedDoe = doeValues && DOE_FIELDS.some(([key]) => doeValues[key] !== doeInput.before[key]);
       return {
+        ...(changedDoe ? { teachingDoe: { ...doeInput, values: doeValues } } : {}),
         expectedUpdatedAtUtc: form.dataset.expectedUpdatedAtUtc,
         expectedProfileVersion: form.dataset.expectedProfileVersion || null,
         preferredFirstName: str('preferredFirstName'), preferredLastName: str('preferredLastName'), displayName: String(value('displayName')).trim(),

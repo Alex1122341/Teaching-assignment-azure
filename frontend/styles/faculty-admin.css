@@ -176,10 +176,11 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .p4-doe-worksheet-lines tr[id]:target,.p4-doe-worksheet-lines tr[id]:focus{outline:2px solid #2563eb;outline-offset:-2px;background:#eff6ff}
 
 /* MASTER DOE Simplified summary; source evidence remains below. */
-.p4-doe-worksheet-summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0;--doe-fill:#dbeafe;--doe-accent:#2563eb}
+.p4-doe-worksheet-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0;--doe-fill:#dbeafe;--doe-accent:#2563eb}
 .p4-doe-worksheet-summary .p4-doe-worksheet-card{min-width:0;padding:10px 12px;border-top:4px solid var(--doe-accent);border-radius:4px;background:var(--doe-fill)}
 .p4-doe-worksheet-card dt{font-size:12px;font-weight:650;color:var(--text2);line-height:1.4}
 .p4-doe-worksheet-card dd{margin:6px 0 0;font-size:18px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.doe-summary-reference{display:block;margin-top:4px;font-size:12px;font-weight:500;color:var(--text2)}
 .doe-master-remaining-positive{--doe-fill:#dcfce7;--doe-accent:#15803d}
 .doe-master-remaining-near{--doe-fill:#fef3c7;--doe-accent:#b45309}
 .doe-master-remaining-negative{--doe-fill:#ffe4e6;--doe-accent:#be123c}
@@ -190,7 +191,6 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .doe-master-balance{padding:8px 10px;margin:8px 0;border-left:4px solid var(--border2);background:var(--surface2);font-size:12px;line-height:1.6;color:var(--text2)}
 .doe-rule-book>summary.section-title{display:list-item;cursor:pointer;margin:0;list-style-position:inside;font-size:13px;text-transform:none;letter-spacing:0;line-height:1.5}
 .doe-rule-book>summary:focus-visible{outline:2px solid var(--workspace-focus,#2563eb);outline-offset:-3px}
-@media(min-width:1051px){.doe-master-remaining{grid-column:span 2}}
 @media(max-width:1050px){.p4-doe-worksheet-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.p4-doe-worksheet-summary{grid-template-columns:minmax(0,1fr)}}
 .doe-worksheet-embedded{margin:0;border:0;border-radius:0;padding:12px}

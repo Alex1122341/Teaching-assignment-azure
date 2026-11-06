@@ -28,7 +28,7 @@ const req = (path, method = 'GET', body) => ({
   headers: { get: name => name.toLowerCase() === 'authorization' ? 'Bearer verified' : null },
   json: async () => body
 });
-function harness(role = 'adfa_regular', writeEnabled = true) {
+function harness(role = 'adfa_regular', writeEnabled = true, doeAdmin = false) {
   const calls = [], row = { facultyId: FACULTY_ID, displayName: 'Future Hire', activationDate: '2027-06-01', administrativeActive: true, active: false, updatedAtUtc: UPDATED };
   const source = {
     faculty: async () => [],
@@ -39,10 +39,35 @@ function harness(role = 'adfa_regular', writeEnabled = true) {
   const api = createDashboardApi({
     verifyToken: async () => ({ uid: 'verified-uid' }),
     findUser: async () => ({ active: true, mustChangePassword: false, baseRole: role, displayName: 'Admin' }),
-    repository: source, writeRepository: source, writeGates: { facultyAdmin: writeEnabled }
+    repository: source, writeRepository: source, writeGates: { facultyAdmin: writeEnabled, doeAdmin }
   });
   return { api, app: createDashboardFunctions({ api }), calls };
 }
+
+test('faculty creation and editing accept year-specific DOE inputs only for administrators with both gates', async () => {
+  const before = { contractTeachingDoe: null, contractClinicalTeachingDoe: null, potentialGradTeachingDoe: null };
+  const values = { ...before, contractTeachingDoe: 32.5, contractClinicalTeachingDoe: 0, potentialGradTeachingDoe: 3.5 };
+  const teachingDoe = { academicYear: '2027-2028', before, values };
+  const { expectedUpdatedAtUtc, expectedProfileVersion, ...newRecord } = record();
+  const admin = harness('adfa_regular', true, true);
+  assert.equal((await admin.api.createFaculty('verified', { ...newRecord, teachingDoe })).status, 201);
+  assert.equal((await admin.api.updateFaculty('verified', FACULTY_ID, { ...record(), teachingDoe })).status, 200);
+  assert.deepEqual(admin.calls.map(([, input]) => input.teachingDoe), [
+    { ...teachingDoe, academicYear: '2027-28' }, { ...teachingDoe, academicYear: '2027-28' }
+  ]);
+  for (const [denied, status] of [
+    [harness('faculty', true, true), 403], [harness('admin', false, true), 503], [harness('admin', true, false), 503]
+  ]) {
+    assert.equal((await denied.api.createFaculty('verified', { ...newRecord, teachingDoe })).status, status);
+    assert.equal((await denied.api.updateFaculty('verified', FACULTY_ID, { ...record(), teachingDoe })).status, status);
+    assert.equal(denied.calls.length, 0);
+  }
+  assert.equal((await admin.api.createFaculty('verified', { ...newRecord, teachingDoe: { ...teachingDoe, before: values } })).status, 400);
+  assert.equal((await admin.api.updateFaculty('verified', FACULTY_ID, { ...record(),
+    teachingDoe: { ...teachingDoe, values: { ...values, contractClinicalTeachingDoe: 110 } }
+  })).status, 400);
+  assert.equal(admin.calls.length, 2);
+});
 
 test('admin may create a pre-hire faculty record with a future activation date', async () => {
   const { app, calls } = harness();

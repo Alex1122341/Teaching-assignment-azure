@@ -251,30 +251,25 @@
     + `<tbody class="doe-excel-totals">${traineeTotals}</tbody>`;
   return `<details class="doe-excel-summary"><summary>Assigned Teaching DOE · Excel-style Breakdown</summary><p class="aux-note">Source: current Faculty DOE Worksheet · ${esc(worksheet.academicYear||'Academic year unavailable')}. Each quantity comes from the linked assignment; no missing quantity is back-calculated from DOE.</p>${table(breakdownRows)}${warnings.length?`<div class="warn-box">${warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</div>`:''}<p class="aux-note">Current saved Worksheet Total Assigned: ${esc(pct(breakdown.legacyTotal))}. This may differ from the classified Teaching subtotal until all legacy and manual sources have an approved Teaching/Non-Teaching classification.</p></details>`;
 }
-    function renderWorksheet(worksheet, { embedded = false, contractDoe } = {}) {
+    function renderWorksheet(worksheet, { embedded = false } = {}) {
       const target = worksheet.target || {}, totals = worksheet.totals || {}, reserve = worksheet.reserve || {};
       const missingData = (worksheet.errors || []).some(error => ['SUPERVISION_DATA_UNAVAILABLE', 'DOE_TARGET_UNAVAILABLE', 'RESERVE_POLICY_INVALID'].includes(error.code));
       const statusLabel = worksheet.status === 'calculated' ? (worksheet.calculationBasis === 'recorded_sources' ? 'Calculated from recorded sources' : 'Calculated') : worksheet.status === 'not_found' ? 'Not found' : missingData ? 'Awaiting data / policy' : 'Needs Review';
       const percent = value => finite(value) === null ? 'None' : formatDoe(finite(value));
       const year = worksheet.academicYear || getAcademicYear() || 'Academic year unavailable';
-      const allocations = contractDoe?.academicYear === year && Array.isArray(contractDoe.allocations)
-        ? contractDoe.allocations : [];
-      const contractAllocation = category => allocations.find(row => row?.categoryCode === category)?.allocationDoe;
       const remaining = finite(totals.remainingDoe);
       const displayedRemaining = remaining === null ? null : Number(remaining.toFixed(2));
-      const balanceTone = displayedRemaining === null ? 'unknown' : displayedRemaining === 0 ? 'at' : displayedRemaining > 0 ? 'remaining' : 'over';
+      const balanceTone = displayedRemaining === null ? 'unknown' : displayedRemaining > 1 ? 'positive' : displayedRemaining < -1 ? 'negative' : 'near';
       const balanceLabel = displayedRemaining === null ? 'None' : displayedRemaining === 0 ? 'At expected' : `${formatDoe(Math.abs(displayedRemaining))} ${displayedRemaining > 0 ? 'Remaining' : 'Over'}`;
       const cards = [
-        ['Contracted Teaching (%)', percent(target.contractTeachingDoe), 'contract'],
-        ['Contracted Clinical Teaching (%)', percent(target.contractClinicalTeachingDoe), 'contract'],
-        ['Contract Admin (%)', percent(contractAllocation('contract_admin')), 'contract'],
-        [`Expected ${year} Teaching (%)`, percent(target.effectiveTargetDoe), 'expected'],
-        ['Assigned Teaching (%)', percent(totals.assignedTeachingDoe), 'assigned'],
-        ['% Difference (Expected - Assigned)', percent(totals.remainingDoe), `balance-${balanceTone}`],
-        ['Service / Admin (%)', percent(contractAllocation('service_admin')), 'service'],
-        ['Potential Grad Teaching', percent(target.potentialGradTeachingDoe), 'planning'],
-        ['Adjustment', percent(totals.adjustmentDoe), 'adjustment']
-      ].map(([label, value, tone]) => `<div class="p4-doe-worksheet-card doe-master-${tone}"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');
+        ['Contracted Teaching (%)', percent(target.contractTeachingDoe)],
+        ['Contracted Clinical Teaching (%)', percent(target.contractClinicalTeachingDoe)],
+        [`Expected ${year} Teaching (%)`, percent(target.effectiveTargetDoe)],
+        ['Assigned Teaching (%)', percent(totals.assignedTeachingDoe)],
+        ['Remaining', percent(displayedRemaining), ` doe-master-remaining doe-master-remaining-${balanceTone}`],
+        ['Potential Grad Teaching', percent(target.potentialGradTeachingDoe)],
+        ['Adjustment', percent(totals.adjustmentDoe)]
+      ].map(([label, value, classes = '']) => `<div class="p4-doe-worksheet-card${classes}"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');
       const lineCount = (worksheet.lines || []).length;
       const provenance = (worksheet.lines || []).map((line,index) => {
         const reference = line.reference || {};
@@ -287,8 +282,8 @@
       const targetPolicy = worksheet.targetPolicyVersionLabel || target.policyVersionId;
       const policyText = worksheet.policyVersionId ? `Calculation policy ${worksheet.policyVersionId}` : worksheet.workloadSourceReference ? `Workload policy ${worksheet.workloadSourceReference}` : 'Annual calculation policy not recorded';
       const calculationText = worksheet.lastCalculatedAt ? `latest calculation evidence ${worksheet.lastCalculatedAt}` : 'No annual calculation record; line values retain their recorded source';
-      const balanceSummary = `<div class="doe-master-balance doe-master-balance-${balanceTone}">Teaching balance: <strong>${esc(balanceLabel)}</strong> · ${lineCount} source ${lineCount === 1 ? 'line' : 'lines'} · Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</div>`;
-      return `<div class="p4-doe-worksheet${embedded ? ' doe-worksheet-embedded' : ''}">${embedded ? '' : `<div class="section-title">Faculty DOE Worksheet · ${esc(year)}</div>`}<dl class="p4-doe-worksheet-summary">${cards}</dl>${balanceSummary}<p class="aux-note">Expected teaching minus assigned teaching determines the difference. None means no value is recorded; a recorded zero is shown as 0.00%.</p>${reserveSummary}${renderSourceIssues(worksheet)}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<details class="doe-calculation-details"><summary>Calculation details · ${lineCount} source ${lineCount === 1 ? 'line' : 'lines'}</summary><div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div></details>${renderLookupBreakdown(worksheet)}</div>`;
+      const balanceSummary = `<div class="doe-master-balance">Teaching balance: <strong>${esc(balanceLabel)}</strong> · ${lineCount} source ${lineCount === 1 ? 'line' : 'lines'} · Calculation status: <strong>${esc(statusLabel)}</strong> ${referenceBubble(policyText + (targetPolicy ? ' · Target source '+targetPolicy : '') + ' · '+calculationText, 'Calculation source')}</div>`;
+      return `<div class="p4-doe-worksheet${embedded ? ' doe-worksheet-embedded' : ''}">${embedded ? '' : `<div class="section-title">Faculty DOE Worksheet · ${esc(year)}</div>`}<dl class="p4-doe-worksheet-summary">${cards}</dl>${balanceSummary}<p class="aux-note">Remaining is expected teaching minus assigned teaching. None means no value is recorded; a recorded zero is shown as 0.00%.</p>${reserveSummary}${renderSourceIssues(worksheet)}${issues ? `<ul class="warn-box">${issues}</ul>` : ''}<details class="doe-calculation-details"><summary>Calculation details · ${lineCount} source ${lineCount === 1 ? 'line' : 'lines'}</summary><div class="table-wrap p4-doe-worksheet-lines"><table class="data-table"><thead><tr><th>Category</th><th>Activity</th><th>Course / Subject / Scope</th><th>DOE</th><th>Status</th><th>Rule / Calculation / Reference provenance</th></tr></thead><tbody>${provenance || '<tr><td colspan="6" class="empty">No DOE calculation lines recorded for this year.</td></tr>'}</tbody></table></div></details>${renderLookupBreakdown(worksheet)}</div>`;
     }
 
     function finite(value) { return value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value); }

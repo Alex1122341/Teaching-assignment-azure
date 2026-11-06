@@ -28,7 +28,7 @@ function summaryEntries(html) {
 
 test('MASTER summary leaves the faculty name to the profile header',async()=>{
  const html=await render({displayName:'Douglas, Morck',preferredFirstName:'Douglas',preferredLastName:'Morck',academicYear:'2026-27',target:{},totals:{},lines:[]});
- assert.equal(summaryEntries(html).length, 9);
+ assert.equal(summaryEntries(html).length, 7);
  assert.doesNotMatch(html, /Faculty Name|Morck, Douglas|Douglas, Morck/);
 });
 
@@ -45,7 +45,7 @@ test('embedded worksheet presents summary first and keeps errors visible above c
   assert.doesNotMatch(html, /<details class="doe-calculation-details"[^>]*\bopen\b/);
 });
 
-test('worksheet presents the MASTER teaching fields and contract allocations from independent API values and selected year', async () => {
+test('worksheet presents only the MASTER teaching summary fields for the selected year', async () => {
   const worksheet = { facultyId: 'faculty-1', displayName: 'de la Cruz, Mary Jane', academicYear: '2027-28', status: 'calculated',
     target: { contractTeachingDoe: 30, contractClinicalTeachingDoe: 12, effectiveTargetDoe: 24, potentialGradTeachingDoe: 4 },
     totals: { assignedTeachingDoe: 19, remainingDoe: 5, adjustmentDoe: 1.5, scheduledTeachingDoe: 99, roleDoe: 88 },
@@ -56,9 +56,9 @@ test('worksheet presents the MASTER teaching fields and contract allocations fro
   ] } });
   assert.deepEqual(summaryEntries(html), [
     ['Contracted Teaching (%)', '30.00%'],
-    ['Contracted Clinical Teaching (%)', '12.00%'], ['Contract Admin (%)', '0.00%'], ['Expected 2027-28 Teaching (%)', '24.00%'],
-    ['Assigned Teaching (%)', '19.00%'], ['% Difference (Expected - Assigned)', '5.00%'],
-    ['Service / Admin (%)', '18.00%'], ['Potential Grad Teaching', '4.00%'], ['Adjustment', '1.50%']
+    ['Contracted Clinical Teaching (%)', '12.00%'], ['Expected 2027-28 Teaching (%)', '24.00%'],
+    ['Assigned Teaching (%)', '19.00%'], ['Remaining', '5.00%'],
+    ['Potential Grad Teaching', '4.00%'], ['Adjustment', '1.50%']
   ]);
   assert.match(html, /Teaching balance: <strong>5\.00% Remaining<\/strong> · 1 source line/);
   assert.match(html, /Evidence &lt;course&gt;/);
@@ -71,21 +71,29 @@ test('worksheet presents the MASTER teaching fields and contract allocations fro
 test('missing MASTER values remain None while real zeros remain numeric', async () => {
   const html = await render({ academicYear: '2026-27', status: 'needs_review',
     target: { contractTeachingDoe: null, contractClinicalTeachingDoe: 0, effectiveTargetDoe: undefined, potentialGradTeachingDoe: '' },
-    totals: { assignedTeachingDoe: 0, remainingDoe: null, adjustmentDoe: 0 }, errors: [{ code: 'DOE_TARGET_UNAVAILABLE' }] }, { contractDoe: { academicYear: '2025-26', allocations: [{ categoryCode: 'service_admin', allocationDoe: 12 }] } });
+    totals: { assignedTeachingDoe: 0, remainingDoe: null, adjustmentDoe: 0 }, errors: [{ code: 'DOE_TARGET_UNAVAILABLE' }] });
   assert.deepEqual(summaryEntries(html), [
-    ['Contracted Teaching (%)', 'None'], ['Contracted Clinical Teaching (%)', '0.00%'], ['Contract Admin (%)', 'None'],
+    ['Contracted Teaching (%)', 'None'], ['Contracted Clinical Teaching (%)', '0.00%'],
     ['Expected 2026-27 Teaching (%)', 'None'], ['Assigned Teaching (%)', '0.00%'],
-    ['% Difference (Expected - Assigned)', 'None'], ['Service / Admin (%)', 'None'], ['Potential Grad Teaching', 'None'], ['Adjustment', '0.00%']
+    ['Remaining', 'None'], ['Potential Grad Teaching', 'None'], ['Adjustment', '0.00%']
   ]);
   assert.match(html, /Teaching balance: <strong>None<\/strong>/);
   assert.match(html, /Awaiting data \/ policy/);
 });
 
-test('balance uses supplied difference, signed values and words for all three states', async () => {
-  for (const [remainingDoe, expectedValue, label, tone] of [[5, '5.00%', '5.00% Remaining', 'remaining'], [-2, '-2.00%', '2.00% Over', 'over'], [0, '0.00%', 'At expected', 'at']]) {
+test('Remaining changes tone outside the inclusive one percentage point band', async () => {
+  for (const [remainingDoe, expectedValue, label, tone] of [
+    [1.01, '1.01%', '1.01% Remaining', 'positive'],
+    [1, '1.00%', '1.00% Remaining', 'near'],
+    [0, '0.00%', 'At expected', 'near'],
+    [-1, '-1.00%', '1.00% Over', 'near'],
+    [-1.01, '-1.01%', '1.01% Over', 'negative'],
+    [null, 'None', 'None', 'unknown']
+  ]) {
     const html = await render({ academicYear: '2026-27', status: 'calculated', target: { effectiveTargetDoe: 50 }, totals: { assignedTeachingDoe: 1, remainingDoe } });
-    assert.equal(summaryEntries(html).find(([label]) => label.startsWith('% Difference'))[1], expectedValue);
+    assert.equal(summaryEntries(html).find(([label]) => label === 'Remaining')[1], expectedValue);
     assert.ok(html.includes(`Teaching balance: <strong>${label}</strong>`));
-    assert.ok(html.includes(`doe-master-balance-${tone}`));
+    assert.ok(html.includes(`doe-master-remaining-${tone}"><dt>Remaining</dt>`));
+    assert.equal((html.match(/doe-master-remaining-/g) || []).length, 1);
   }
 });

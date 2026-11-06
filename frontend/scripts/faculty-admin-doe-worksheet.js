@@ -225,11 +225,6 @@
     return `<tr><td>${esc(label)}</td><td>${esc(quantity(item))}</td><td>${item.rows===0?'—':item.needsReview?'Needs Review':esc(pct(item.amount))}</td></tr>`;
   }).join('')}</tbody>`;
   const table=body=>`<div class="table-wrap"><table class="data-table doe-excel-summary-table"><thead><tr><th>Item</th><th>Quantity</th><th>DOE (%)</th></tr></thead>${body}</table></div>`;
-  const groupDetails=group=>{
-    const keys=new Set(group.items.map(item=>item.key));
-    const count=(worksheet.lines||[]).filter(line=>!(line.applicable===false&&finite(line.resultDoe)===null)&&keys.has(categoryForLine(line))).length;
-    return `<details class="doe-excel-group"><summary>${esc(group.title)} · ${count} source ${count===1?'line':'lines'}</summary>${table(groupRows(group))}</details>`;
-  };
   const subtotalRow=(label,value)=>`<tr><th>${esc(label)}</th><td></td><td>${esc(value)}</td></tr>`;
   const reserveBalance=breakdown.assignedTeachingReserveWithBalance;
   const teachingTotals=[
@@ -250,7 +245,11 @@
     breakdown.without===null?'Total (Without Trainees) cannot be finalized until every applicable Teaching source is classified and resolved.':'',
     breakdown.status!=='calculated'?'The source Worksheet is not fully calculated; use its Needs Review details above.':''
   ].filter(Boolean);
-  return `<section class="doe-excel-summary"><h3>Assigned Teaching DOE · Excel-style Breakdown</h3><p class="aux-note">Source: current Faculty DOE Worksheet · ${esc(worksheet.academicYear||'Academic year unavailable')}. Each quantity comes from the linked assignment; no missing quantity is back-calculated from DOE.</p>${breakdown.groups.slice(0,-1).map(groupDetails).join('')}${table(`<tbody class="doe-excel-totals">${teachingTotals}</tbody>`)}${groupDetails(breakdown.groups.at(-1))}${table(`<tbody class="doe-excel-totals">${traineeTotals}</tbody>`)}${warnings.length?`<div class="warn-box">${warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</div>`:''}<p class="aux-note">Current saved Worksheet Total Assigned: ${esc(pct(breakdown.legacyTotal))}. This may differ from the classified Teaching subtotal until all legacy and manual sources have an approved Teaching/Non-Teaching classification.</p></section>`;
+  const breakdownRows = breakdown.groups.slice(0, -1).map(groupRows).join('')
+    + `<tbody class="doe-excel-totals">${teachingTotals}</tbody>`
+    + groupRows(breakdown.groups.at(-1))
+    + `<tbody class="doe-excel-totals">${traineeTotals}</tbody>`;
+  return `<details class="doe-excel-summary"><summary>Assigned Teaching DOE · Excel-style Breakdown</summary><p class="aux-note">Source: current Faculty DOE Worksheet · ${esc(worksheet.academicYear||'Academic year unavailable')}. Each quantity comes from the linked assignment; no missing quantity is back-calculated from DOE.</p>${table(breakdownRows)}${warnings.length?`<div class="warn-box">${warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</div>`:''}<p class="aux-note">Current saved Worksheet Total Assigned: ${esc(pct(breakdown.legacyTotal))}. This may differ from the classified Teaching subtotal until all legacy and manual sources have an approved Teaching/Non-Teaching classification.</p></details>`;
 }
     function renderWorksheet(worksheet, { embedded = false } = {}) {
       const target = worksheet.target || {}, totals = worksheet.totals || {}, reserve = worksheet.reserve || {};
@@ -263,14 +262,13 @@
       const balanceTone = displayedRemaining === null ? 'unknown' : displayedRemaining === 0 ? 'at' : displayedRemaining > 0 ? 'remaining' : 'over';
       const balanceLabel = displayedRemaining === null ? 'None' : displayedRemaining === 0 ? 'At expected' : `${formatDoe(Math.abs(displayedRemaining))} ${displayedRemaining > 0 ? 'Remaining' : 'Over'}`;
       const cards = [
-        ['Faculty Name', showFaculty(worksheet.preferredFirstName || worksheet.preferredLastName ? worksheet : worksheet.displayName).trim() || 'None', 'name'],
         ['Contracted Teaching (%)', percent(target.contractTeachingDoe), 'contract'],
         ['Contracted Clinical Teaching (%)', percent(target.contractClinicalTeachingDoe), 'contract'],
         [`Expected ${year} Teaching (%)`, percent(target.effectiveTargetDoe), 'expected'],
         ['Assigned Teaching (%)', percent(totals.assignedTeachingDoe), 'assigned'],
         ['% Difference (Expected - Assigned)', percent(totals.remainingDoe), `balance-${balanceTone}`],
-        ['Potential Grad Teaching', percent(target.potentialGradTeachingDoe), 'optional'],
-        ['Adjustment', percent(totals.adjustmentDoe), 'optional']
+        ['Potential Grad Teaching', percent(target.potentialGradTeachingDoe), 'planning'],
+        ['Adjustment', percent(totals.adjustmentDoe), 'adjustment']
       ].map(([label, value, tone]) => `<div class="p4-doe-worksheet-card doe-master-${tone}"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');
       const lineCount = (worksheet.lines || []).length;
       const provenance = (worksheet.lines || []).map((line,index) => {

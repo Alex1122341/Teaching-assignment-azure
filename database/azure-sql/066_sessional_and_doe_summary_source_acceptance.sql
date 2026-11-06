@@ -24,4 +24,18 @@ IF NOT EXISTS(SELECT 1 FROM paws.DoeFacultySummarySource WHERE FacultyId=@Facult
  AND ContractClinicalTeachingDoe=0 AND PotentialGradTeachingDoe IS NULL)
  THROW 56684,'Zero and absent source values must remain distinct.',1;
 ROLLBACK TRANSACTION;
+DECLARE @OtherSession uniqueidentifier=(SELECT TOP(1) SessionId FROM paws.Session WHERE SessionId<>(SELECT SessionId FROM paws.SessionAssignment WHERE SessionAssignmentId=@Assignment)),
+ @Rejected bit=0;
+BEGIN TRY
+ BEGIN TRANSACTION;
+ INSERT paws.SessionalAssignment(SessionId,SessionAssignmentId,ContributorName,SourceSha256,SourceSheet,SourceRow)
+ VALUES(@OtherSession,@Assignment,N'[ACCEPTANCE] Mismatched link',REPLICATE('c',64),N'[ACCEPTANCE]',1);
+ ROLLBACK TRANSACTION;
+END TRY
+BEGIN CATCH
+ IF XACT_STATE()<>0 ROLLBACK TRANSACTION;
+ IF ERROR_NUMBER()<>547 THROW;
+ SET @Rejected=1;
+END CATCH;
+IF @Rejected=0 THROW 56685,'Cross-session assignment link was accepted.',1;
 SELECT N'passed; additive fixtures rolled back' Result;

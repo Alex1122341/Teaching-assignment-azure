@@ -8,6 +8,8 @@ IF OBJECT_ID(N'paws.SessionAssignment',N'U') IS NULL
  OR DATABASE_PRINCIPAL_ID(N'paws_runtime_read') IS NULL
  THROW 56601,'Canonical assignment, DOE target and runtime read schema required.',1;
 BEGIN TRANSACTION;
+IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID(N'paws.SessionAssignment') AND name=N'UX_SessionAssignment_SessionAndAssignment')
+ CREATE UNIQUE INDEX UX_SessionAssignment_SessionAndAssignment ON paws.SessionAssignment(SessionId,SessionAssignmentId);
 IF OBJECT_ID(N'paws.SessionalAssignment',N'U') IS NULL
  CREATE TABLE paws.SessionalAssignment(
   SessionId uniqueidentifier NOT NULL,
@@ -20,7 +22,7 @@ IF OBJECT_ID(N'paws.SessionalAssignment',N'U') IS NULL
   RecordedAtUtc datetime2(7) NOT NULL CONSTRAINT DF_SessionalAssignment_Recorded DEFAULT SYSUTCDATETIME(),
   CONSTRAINT PK_SessionalAssignment PRIMARY KEY(SessionId,ContributorName),
   CONSTRAINT FK_SessionalAssignment_Session FOREIGN KEY(SessionId) REFERENCES paws.Session(SessionId),
-  CONSTRAINT FK_SessionalAssignment_Assignment FOREIGN KEY(SessionAssignmentId) REFERENCES paws.SessionAssignment(SessionAssignmentId),
+  CONSTRAINT FK_SessionalAssignment_Assignment FOREIGN KEY(SessionId,SessionAssignmentId) REFERENCES paws.SessionAssignment(SessionId,SessionAssignmentId),
   CONSTRAINT CK_SessionalAssignment_Name CHECK(LEN(LTRIM(RTRIM(ContributorName)))>0),
   CONSTRAINT CK_SessionalAssignment_Label CHECK(LEN(LTRIM(RTRIM(ContributorLabel)))>0),
   CONSTRAINT CK_SessionalAssignment_Source CHECK(SourceRow>0 AND LEN(SourceSha256)=64 AND SourceSha256 NOT LIKE '%[^0-9a-fA-F]%')

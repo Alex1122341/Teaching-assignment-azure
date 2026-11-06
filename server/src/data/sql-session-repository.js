@@ -51,7 +51,7 @@ function createSqlSessionRepository(db) {
               COALESCE(NULLIF(${facultyDisplayNameSql()},N''),LTRIM(RTRIM(REPLACE(sn.SourceFacultyName,N',',N' '))))), N'; ')
               WITHIN GROUP (ORDER BY sn.SessionAssignmentId) FROM paws.SessionAssignment sn
               LEFT JOIN paws.Faculty f ON f.FacultyId = sn.FacultyId
-              WHERE sn.SessionId=c.SessionId AND NOT EXISTS(SELECT 1 FROM paws.SessionalAssignment matched WHERE matched.SessionAssignmentId=sn.SessionAssignmentId)),
+              WHERE sn.SessionId=c.SessionId AND NOT EXISTS(SELECT 1 FROM paws.SessionalAssignment matched WHERE matched.SessionId=sn.SessionId AND matched.SessionAssignmentId=sn.SessionAssignmentId)),
               (SELECT STRING_AGG(CONVERT(nvarchar(max),CONCAT(contributor.ContributorName,
                 CASE WHEN contributor.ContributorLabel=N'Sessional' THEN N' (Sessional)' ELSE CONCAT(N' (Sessional · ',contributor.ContributorLabel,N')') END)),N'; ')
                 WITHIN GROUP(ORDER BY contributor.ContributorName)

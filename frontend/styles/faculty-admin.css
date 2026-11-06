@@ -176,13 +176,14 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .p4-doe-worksheet-lines tr[id]:target,.p4-doe-worksheet-lines tr[id]:focus{outline:2px solid #2563eb;outline-offset:-2px;background:#eff6ff}
 
 /* MASTER DOE Simplified summary; source evidence remains below. */
-.p4-doe-worksheet-summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+.p4-doe-worksheet-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
 .p4-doe-worksheet-summary .p4-doe-worksheet-card{min-width:0;padding:10px 12px;border-top:4px solid var(--doe-accent,var(--border2));border-radius:4px;background:var(--doe-fill,var(--surface2))}
 .p4-doe-worksheet-card dt{font-size:12px;font-weight:650;color:var(--text2);line-height:1.4}
 .p4-doe-worksheet-card dd{margin:6px 0 0;font-size:18px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .doe-master-contract{--doe-fill:#dbeafe;--doe-accent:#2563eb}
 .doe-master-expected{--doe-fill:#e0e7ff;--doe-accent:#4338ca}
 .doe-master-assigned{--doe-fill:#ccfbf1;--doe-accent:#0f766e}
+.doe-master-service{--doe-fill:#fce7f3;--doe-accent:#be185d}
 .doe-master-planning{--doe-fill:#f3e8ff;--doe-accent:#7e22ce}
 .doe-master-adjustment{--doe-fill:#e2e8f0;--doe-accent:#64748b}
 .doe-master-balance-remaining{--doe-fill:#fef3c7;--doe-accent:#b45309}
@@ -191,13 +192,13 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .dark .doe-master-contract{--doe-fill:#1e3a5f;--doe-accent:#60a5fa}
 .dark .doe-master-expected{--doe-fill:#302b61;--doe-accent:#a5b4fc}
 .dark .doe-master-assigned{--doe-fill:#134641;--doe-accent:#5eead4}
+.dark .doe-master-service{--doe-fill:#532744;--doe-accent:#f9a8d4}
 .dark .doe-master-planning{--doe-fill:#442d5a;--doe-accent:#d8b4fe}
 .dark .doe-master-adjustment{--doe-fill:#334155;--doe-accent:#94a3b8}
 .dark .doe-master-balance-remaining{--doe-fill:#503818;--doe-accent:#fbbf24}
 .dark .doe-master-balance-over{--doe-fill:#532734;--doe-accent:#fda4af}
 .dark .doe-master-balance-at{--doe-fill:#1b452e;--doe-accent:#86efac}
 .doe-master-balance{padding:8px 10px;margin:8px 0;border-left:4px solid var(--doe-accent,var(--border2));background:var(--doe-fill,var(--surface2));font-size:12px;line-height:1.6;color:var(--text2)}
-@media(min-width:1051px){.p4-doe-worksheet-card:nth-child(5){grid-column:span 2}}
 .doe-rule-book>summary.section-title{display:list-item;cursor:pointer;margin:0;list-style-position:inside;font-size:13px;text-transform:none;letter-spacing:0;line-height:1.5}
 .doe-rule-book>summary:focus-visible{outline:2px solid var(--workspace-focus,#2563eb);outline-offset:-3px}
 @media(max-width:1050px){.p4-doe-worksheet-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}

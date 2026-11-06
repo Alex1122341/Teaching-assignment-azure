@@ -251,12 +251,15 @@
     + `<tbody class="doe-excel-totals">${traineeTotals}</tbody>`;
   return `<details class="doe-excel-summary"><summary>Assigned Teaching DOE · Excel-style Breakdown</summary><p class="aux-note">Source: current Faculty DOE Worksheet · ${esc(worksheet.academicYear||'Academic year unavailable')}. Each quantity comes from the linked assignment; no missing quantity is back-calculated from DOE.</p>${table(breakdownRows)}${warnings.length?`<div class="warn-box">${warnings.map(w=>`<p>${esc(w)}</p>`).join('')}</div>`:''}<p class="aux-note">Current saved Worksheet Total Assigned: ${esc(pct(breakdown.legacyTotal))}. This may differ from the classified Teaching subtotal until all legacy and manual sources have an approved Teaching/Non-Teaching classification.</p></details>`;
 }
-    function renderWorksheet(worksheet, { embedded = false } = {}) {
+    function renderWorksheet(worksheet, { embedded = false, contractDoe } = {}) {
       const target = worksheet.target || {}, totals = worksheet.totals || {}, reserve = worksheet.reserve || {};
       const missingData = (worksheet.errors || []).some(error => ['SUPERVISION_DATA_UNAVAILABLE', 'DOE_TARGET_UNAVAILABLE', 'RESERVE_POLICY_INVALID'].includes(error.code));
       const statusLabel = worksheet.status === 'calculated' ? (worksheet.calculationBasis === 'recorded_sources' ? 'Calculated from recorded sources' : 'Calculated') : worksheet.status === 'not_found' ? 'Not found' : missingData ? 'Awaiting data / policy' : 'Needs Review';
       const percent = value => finite(value) === null ? 'None' : formatDoe(finite(value));
       const year = worksheet.academicYear || getAcademicYear() || 'Academic year unavailable';
+      const allocations = contractDoe?.academicYear === year && Array.isArray(contractDoe.allocations)
+        ? contractDoe.allocations : [];
+      const contractAllocation = category => allocations.find(row => row?.categoryCode === category)?.allocationDoe;
       const remaining = finite(totals.remainingDoe);
       const displayedRemaining = remaining === null ? null : Number(remaining.toFixed(2));
       const balanceTone = displayedRemaining === null ? 'unknown' : displayedRemaining === 0 ? 'at' : displayedRemaining > 0 ? 'remaining' : 'over';
@@ -264,9 +267,11 @@
       const cards = [
         ['Contracted Teaching (%)', percent(target.contractTeachingDoe), 'contract'],
         ['Contracted Clinical Teaching (%)', percent(target.contractClinicalTeachingDoe), 'contract'],
+        ['Contract Admin (%)', percent(contractAllocation('contract_admin')), 'contract'],
         [`Expected ${year} Teaching (%)`, percent(target.effectiveTargetDoe), 'expected'],
         ['Assigned Teaching (%)', percent(totals.assignedTeachingDoe), 'assigned'],
         ['% Difference (Expected - Assigned)', percent(totals.remainingDoe), `balance-${balanceTone}`],
+        ['Service / Admin (%)', percent(contractAllocation('service_admin')), 'service'],
         ['Potential Grad Teaching', percent(target.potentialGradTeachingDoe), 'planning'],
         ['Adjustment', percent(totals.adjustmentDoe), 'adjustment']
       ].map(([label, value, tone]) => `<div class="p4-doe-worksheet-card doe-master-${tone}"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');

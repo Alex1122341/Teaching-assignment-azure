@@ -443,7 +443,7 @@
     const specialtyHtml = specialty.length ? `<div class="specialty-box"><strong>Specialty / focus:</strong> ${specialty.map(esc).join(' · ')}</div>` : '';
     const joints = (Array.isArray(data.jointAppointments) ? data.jointAppointments : []).map((joint, index) => section(`Joint appointment ${index + 1}`, field('Home faculty', joint.homeFaculty) + field('Joint faculty', joint.jointFaculty) + field('FTE UCVM', joint.fteUcvm) + field('FTE other faculty', joint.fteOtherFaculty) + field('Expiry date', joint.expiryDate) + field('Notes', joint.notes, true))).join('');
     const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Status', 'Effective periods', 'Mapped DOE', 'Override DOE', 'Calculated DOE', 'Effective DOE', 'Source', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, window.PAWS_ROLE_PERIODS.status(role).label, window.PAWS_ROLE_PERIODS.summary(role), formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.calculated), formatDoe(effective.effective), effective.source || role.doeSource, role.doeOverrideReason, role.specialNotes]; })));
-    const afcHtml = renderFacultyAfc(data.afcRecords);
+    const afcHtml = renderFacultyAfc(data.afcRecords,facultyRecord.facultyId);
     const scope = section('Identity / appointment metadata', field('Academic year', data.academicYear) + field('Teaching assignments', data.sessionCount) + field('Assignments needing time review', data.checkNeededCount), true);
     const canManage = !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled;
     const linked = data.linkedRecords || {};
@@ -456,7 +456,7 @@
     const archiveHost=$('faculty-afc-originals');if(archiveHost){facultyArchive=window.PAWS_AFC_FORMS?.createArchiveController({api:UCVM_PAWS_DATA,host:archiveHost,getUser:()=>currentUser,getFacultyId:()=>selectedId===facultyRecord.facultyId?facultyRecord.facultyId:''});facultyArchive?.load();}
   }
 
-  function renderFacultyAfc(records) { return window.UCVM_AFC_RECORDS.profileAfc(records,{selfMode,renderPdf:window.PAWS_AFC_FORMS?.documentAction}); }
+  function renderFacultyAfc(records,facultyId) { return window.UCVM_AFC_RECORDS.profileAfc(records,{selfMode,facultyId,renderPdf:window.PAWS_AFC_FORMS?.documentAction}); }
 
   function currentAcademicYear() { return text(dashboardSummary?.academicYear || ''); }
   function otherWorkAcademicYear() { return currentAcademicYear() || text(selectedDetail?.academicYear); }

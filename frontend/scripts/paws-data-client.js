@@ -270,13 +270,14 @@
       afcBatchWriteEnabled:()=> writeCapabilities.afcBatch===true,
       afcCancelWriteEnabled:()=> writeCapabilities.afcCancel===true,
       afcEditWriteEnabled:()=> writeCapabilities.afcEdit===true,
+      afcSpecialLeaveEnabled:()=> writeCapabilities.afcSpecialLeave===true,
       async refreshAfcRecordWriteCapabilities(){
         try {
           const body=await request('/api/v1/dashboard/afc-records/write-capabilities');
           const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
-          writeCapabilities=Object.freeze({...writeCapabilities,afcSingle:value.afcSingle===true,afcBatch:value.afcBatch===true,afcCancel:value.afcCancel===true,afcEdit:value.afcEdit===true});
+          writeCapabilities=Object.freeze({...writeCapabilities,afcSingle:value.afcSingle===true,afcBatch:value.afcBatch===true,afcCancel:value.afcCancel===true,afcEdit:value.afcEdit===true,afcSpecialLeave:value.afcSpecialLeave===true});
         } catch (_) {
-          writeCapabilities=Object.freeze({...writeCapabilities,afcSingle:false,afcBatch:false,afcCancel:false,afcEdit:false});
+          writeCapabilities=Object.freeze({...writeCapabilities,afcSingle:false,afcBatch:false,afcCancel:false,afcEdit:false,afcSpecialLeave:false});
         }
         return {afcSingle:writeCapabilities.afcSingle,afcBatch:writeCapabilities.afcBatch,afcCancel:writeCapabilities.afcCancel,afcEdit:writeCapabilities.afcEdit};
       },
@@ -601,6 +602,17 @@
       getCccReplacement(id){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id)));},
       previewCccReplacement(id,input={}){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id))+'/preview',{method:'POST',body:pickFields(input,['expectedVersion'])});},
       commitCccReplacement(id,input={}){return request('/api/v1/ccc-replacements/'+encodeURIComponent(String(id))+'/commit',{method:'POST',body:pickFields(input,['academicYear','dataset','expectedVersion','manifestSha256','sourceSha256','idempotencyKey','confirm','completeDataset'])});},
+      async specialLeaveSource(facultyId, academicYear) {
+        const body = await request('/api/v1/dashboard/faculty/'+encodeURIComponent(facultyId)+'/special-leave/source?'+new URLSearchParams({academicYear}));
+        return body.source;
+      },
+      async specialLeaveEvaluation(facultyId, date) {
+        const body = await request('/api/v1/dashboard/faculty/'+encodeURIComponent(facultyId)+'/special-leave/evaluation?'+new URLSearchParams({date}));
+        return body.evaluation;
+      },
+      async updateDashboardAfcSpecialLeave(afcRecordId, payload) {
+        return request('/api/v1/dashboard/afc-records/'+encodeURIComponent(afcRecordId)+'/special-leave',{method:'POST',body:payload});
+      },
       async dashboardAfcRecords({search=null,reason=null,active=null,limit=null}={}){
         const query=new URLSearchParams();
         if(String(search??'').trim())query.set('search',String(search));
@@ -619,6 +631,7 @@
           endDate:String(input.endDate??'').trim(),
           reasonCode:String(input.reasonCode??'').trim(),
           notes:input.notes===undefined||input.notes===null?'':String(input.notes),
+          ...(input.availability === 'available' ? {availability:'available',specialLeave:input.specialLeave} : {}),
           ...(input.documentId?{documentId:String(input.documentId).trim()}:{})
         }});
         return body.afcRecord&&typeof body.afcRecord==='object'?body.afcRecord:{};

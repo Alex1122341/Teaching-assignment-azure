@@ -6,7 +6,7 @@ const {calgaryAcademicYear,validYear,yearOfDate,overlapsYear}=require('./history
 const PUBLIC_EVENTS=new Set(['session_updated','session_created','session_assignments_replaced','swap_applied','session_deleted']);
 const LOOKUP_EVENTS=new Set(['FacultyUpdated','FacultyDeactivated','FacultyRestored','role_periods_updated']);
 const TRAINEE_EVENTS=new Set(['trainee_source_refreshed','trainee_source_recovered']);
-const AFC_EVENTS=new Set(['afc_form_uploaded','afc_form_linked','afc_record_created','afc_record_cancelled','afc_dates_changed','afc_date_change_requested','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
+const AFC_EVENTS=new Set(['afc_form_uploaded','afc_form_linked','afc_record_created','afc_record_cancelled','afc_special_leave_deduction_confirmed','afc_dates_changed','afc_date_change_requested','afc_request_submitted','afc_request_withdrawn','afc_request_recommended','afc_request_approved','afc_request_rejected']);
 const DOE_ACTIONS=new Set(['draft_created','draft_updated','working_draft_created','published','archived']);
 const PRIVATE_DOE_ENTITIES=new Set(['doe_assignment','faculty_doe_target','manual_doe_assignment']);
 const WORK_EVENTS=new Set(['calendar_activity_import_committed','calendar_activity_import_recovered','calendar_activity_time_resolved','ccc_activity_added','ccc_activity_removed']);
@@ -84,7 +84,7 @@ function projectHistoryEvent(event,auth){
   const owner=type.startsWith('Faculty')?id(event.entityId):id(get(context,'facultyId'));
   if(!auth.admin&&(!auth.facultyId||owner!==id(auth.facultyId)))return [];domain='Lookup';
  }else if(AFC_EVENTS.has(type)){
-  if(type==='afc_form_uploaded'&&!auth.admin)return [];
+  if((type==='afc_form_uploaded'||type==='afc_special_leave_deduction_confirmed')&&!auth.admin)return [];
   const owner=id(get(before,'facultyId')||get(after,'facultyId')||get(context,'facultyId')||get(parse(event.metadataJson),'facultyId'));
   if(!auth.admin&&(!auth.facultyId||owner!==id(auth.facultyId)))return [];domain='AFC';
  }else if(event.source==='doe'&&PRIVATE_DOE_ENTITIES.has(event.entityType)){
@@ -150,6 +150,13 @@ function projectHistoryEvent(event,auth){
   else{
    for(const [key,label] of Object.entries(FACULTY_FIELDS))add(label,get(before,key),get(after,key));
    for(const key of PROFILE_FIELDS)add(key,get(get(before,'professionalProfile'),key)??get(before,key),get(get(after,'professionalProfile'),key)??get(after,key));
+  }
+ }else if(type==='afc_special_leave_deduction_confirmed'){
+  add('FTE deduction',get(before,'fteDeduction'),get(after,'fteDeduction'));
+  const oldYears=get(before,'allocationsByYear')||{},newYears=get(after,'allocationsByYear')||{};
+  for(const year of unique([...Object.keys(oldYears),...Object.keys(newYears)]).filter(validYear)){
+   for(const key of ['teaching','service','research'])add(`${year} · ${key} DOE deduction`,get(oldYears[year],key),get(newYears[year],key));
+   add(`${year} · Deduction reviewed`,get(get(before,'confirmedYears'),year),get(get(after,'confirmedYears'),year));
   }
  }else if(type==='afc_form_uploaded'||type==='afc_form_linked'){for(const [key,label]of Object.entries({fileName:'Archived PDF',pageCount:'Pages',byteLength:'Bytes'}))add(label,undefined,get(after,key));}
  else if(domain==='AFC')for(const [key,label] of Object.entries(AFC_FIELDS))add(label,get(before,key),get(after,key));

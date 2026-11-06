@@ -24,6 +24,7 @@ const { randomUUID } = require('node:crypto');
 
 const { InvalidAcademicYearError, canonicalAcademicYear, resolveAcademicYear } = require('./academic-year');
 const { writeDisabled } = require('./write-gates');
+const specialLeavePolicy = require('../domain/afc-special-leave-policy');
 const { ADMINISTRATOR_ROLES, SELF_SERVICE_ROLES, isAdministratorRole, normalizeBaseRole } = require('../auth/role-policy');
 
 const ADMIN_ROLES = ADMINISTRATOR_ROLES;
@@ -239,7 +240,18 @@ function validateAfcInput(payload) {
   if ((reasonCode === 'special' || reasonCode === 'other') && !notes) {
     return error(400, 'NOTES_REQUIRED', 'Notes are required for Special and Other.');
   }
-  return { facultyId, startDate, endDate, reasonCode, notes: notes || null,...(payload.documentId?{documentId:payload.documentId}:{}) };
+  const availability = payload.availability ?? 'unavailable';
+  if (!['available','unavailable'].includes(availability) || (availability === 'available' && reasonCode !== 'special') ||
+      (availability === 'unavailable' && payload.specialLeave !== undefined)) {
+    return error(400, 'INVALID_AVAILABILITY', 'Deduction and Available status are limited to Special Leave.');
+  }
+  let specialLeave;
+  if (availability === 'available') {
+    try { specialLeave = specialLeavePolicy.parseDeduction(payload.specialLeave, specialLeavePolicy.yearsForRange(startDate, endDate)); }
+    catch (caught) { return error(400, 'INVALID_DEDUCTION', caught.message); }
+  }
+  return { facultyId, startDate, endDate, reasonCode, notes: notes || null,
+    ...(specialLeave ? { specialLeave } : {}), ...(payload.documentId ? { documentId:payload.documentId } : {}) };
 }
 
 function validateAfcBatchInput(payload) {
@@ -304,12 +316,14 @@ function normalizeAfcRecord(row = {}) {
     legacyPurpose: row.legacyPurpose === null || row.legacyPurpose === undefined ? null : text(row.legacyPurpose),
     active: row.active !== false && row.active !== 0,
     sourceKind: text(row.sourceKind) || 'manual',
-    recordKey: text(row.recordKey), versionToken: text(row.versionToken),documentId:row.documentId||null
+    recordKey: text(row.recordKey), versionToken: text(row.versionToken),documentId:row.documentId||null,
+    ...(row.availability === 'available' && row.specialLeave ? { availability: 'available', specialLeave: row.specialLeave } : {})
   };
 }
 
 function mapAfcWriteError(caught) {
   const number = Number(caught && caught.number);
+  if (number === 51213) return error(422,'INVALID_DEDUCTION',caught.message || 'Invalid Special Leave deduction.');
   if(number===55001)return error(403,'ROLE_DENIED','Current administrator permission is required.');
   if(number===55003)return error(409,'DOCUMENT_BINDING_CONFLICT','The archived PDF cannot be linked to this AFC record. Review its faculty and existing record binding.');
   const known = {
@@ -401,7 +415,8 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
     async afcRecordWriteCapabilities(token) {
       return guarded(token, scope => {
         if (!scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot manage AFC records.');
-        return result(200, { writeCapabilities: { afcSingle: writeGates.afcSingle === true, afcBatch: writeGates.afcBatch === true, afcCancel: writeGates.afcCancel === true, afcEdit: writeGates.afcEdit === true } });
+        return result(200, { writeCapabilities: { afcSingle: writeGates.afcSingle === true, afcBatch: writeGates.afcBatch === true, afcCancel: writeGates.afcCancel === true, afcEdit: writeGates.afcEdit === true,
+          ...(writeRepository.createAvailableSpecialLeave ? { afcSpecialLeave: writeGates.afcSingle === true } : {}) } });
       });
     },
     async cancelAfcRecord(token, afcRecordId, payload = {}) {
@@ -668,6 +683,43 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
           .then(records => result(200, { afcRecords: records.map(normalizeAfcRecord), count: records.length }));
       });
     },
+    async afcSpecialLeaveSource(token, facultyId, year) {
+      return guarded(token, async scope => {
+        if (!scope.administrator) return error(403,'ROLE_DENIED','Administrator permission is required.');
+        if (!validUuid(facultyId) || !year) return error(400,'INVALID_AFC_SOURCE','Select a faculty member and academic year.');
+        const resolved = resolveYear(year);
+        if (resolved.error) return resolved.error;
+        const source = await writeRepository.specialLeaveSource(facultyId, resolved.year);
+        return result(200, { source });
+      });
+    },
+    async afcSpecialLeaveOnDate(token, facultyId, date) {
+      return guarded(token, async scope => {
+        if (!scope.administrator) return error(403,'ROLE_DENIED','Administrator permission is required.');
+        if (!validUuid(facultyId) || !specialLeavePolicy.validDate(date))
+          return error(400,'INVALID_AFC_SOURCE','Select a faculty member and calendar date.');
+        return result(200, { evaluation: await writeRepository.specialLeaveOnDate(facultyId, date) });
+      });
+    },
+    async applyAfcSpecialLeave(token, afcRecordId, payload) {
+      return guarded(token, async (scope, decoded) => {
+        if (!scope.administrator) return error(403,'ROLE_DENIED','Administrator permission is required.');
+        if (writeGates.afcEdit !== true || !writeRepository.applySpecialLeave) return writeDisabled();
+        if (!validUuid(afcRecordId) || !/^[a-f0-9]{16}$/i.test(payload?.expectedVersion || ''))
+          return error(400,'INVALID_AFC_VERSION','Refresh the AFC record before applying a deduction.');
+        try {
+          const row = await writeRepository.applySpecialLeave({ afcRecordId, expectedVersion: payload.expectedVersion,
+            specialLeave: payload.specialLeave, actorFirebaseUid: decoded.uid });
+          return result(200, { afcRecord: row });
+        } catch (caught) {
+          const number = Number(caught?.number);
+          if (number === 56402) return error(403,'ROLE_DENIED','Administrator permission is required.');
+          if (number === 56403) return error(404,'AFC_RECORD_NOT_FOUND','Active Special Leave was not found.');
+          if (number === 56404) return error(409,'AFC_RECORD_CHANGED','This AFC record changed. Reload and try again.');
+          return mapAfcWriteError(caught);
+        }
+      });
+    },
 
     // POST /api/v1/dashboard/afc-records — administrators only. Identity and
     // request IDs are deliberately generated after server-side authorization.
@@ -679,8 +731,10 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
       const input = validateAfcInput(payload);
       if (input.status) return input;
       if(input.documentId&&writeGates.afcFormUpload!==true)return writeDisabled();
+      if (input.specialLeave && !writeRepository.createAvailableSpecialLeave) return writeDisabled();
       try {
-        const row = await writeRepository.createAfcRecord({
+        const command = input.specialLeave ? 'createAvailableSpecialLeave' : 'createAfcRecord';
+        const row = await writeRepository[command]({
           ...input,
           afcRecordId: randomUUID(),
           requestId: randomUUID(),

@@ -185,6 +185,12 @@
   "afcRecordDocumentReadObjects": [
     "paws.vAfcRecordOriginal"
   ],
+  "afcSpecialLeaveReadObjects": [
+    "paws.vAfcSpecialLeaveAdmin"
+  ],
+  "afcSpecialLeaveWriteProcedures": [
+    "paws_api.SaveAfcSpecialLeave"
+  ],
   "afcRecordDocumentProcedures": [
     "paws_api.CreateAfcRecordWithDocument"
   ],

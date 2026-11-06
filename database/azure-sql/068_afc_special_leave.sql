@@ -10,6 +10,8 @@ IF OBJECT_ID(N'paws_api.UpdateAfcDates',N'P') IS NULL
  OR OBJECT_ID(N'paws_api.ListFacultyAvailability',N'P') IS NULL
  THROW 56800,'Apply the existing AFC and scheduling migrations first.',1;
 BEGIN TRANSACTION;
+IF DATABASE_PRINCIPAL_ID(N'paws_runtime_afc_single_write') IS NULL
+ EXEC(N'CREATE ROLE [paws_runtime_afc_single_write] AUTHORIZATION [dbo];');
 IF OBJECT_ID(N'paws.CK_DoeFacultyAllocation_CategoryCode',N'C') IS NULL
  THROW 56800,'The contract DOE allocation category check is required.',1;
 ALTER TABLE paws.DoeFacultyAllocation DROP CONSTRAINT CK_DoeFacultyAllocation_CategoryCode;

@@ -255,5 +255,13 @@ function lookupMetricsText(facultyId,metrics,today=campusToday()) {
   return count+' upcoming AFC'+leave+' · Remaining DOE: '+remaining;
 }
 
-  return { groupTeachingAssignments, teachingDoeEvidence, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear, campusToday, lookupUpcomingAfc, lookupRemainingDoe, fetchLookupMetrics, lookupMetricsText };
+  function sortLookupFaculty(rows) {
+    const collator = new Intl.Collator('en-CA', { sensitivity: 'base' });
+    const lastName = row => row.preferredLastName || String(row.preferredFullName || '').split(',')[0];
+    return rows.slice().sort((a, b) =>
+      collator.compare(lastName(a), lastName(b)) ||
+      collator.compare(a.preferredFullName || '', b.preferredFullName || '') ||
+      String(a.facultyId).localeCompare(String(b.facultyId)));
+  }
+  return { groupTeachingAssignments, teachingDoeEvidence, effectiveRoleDoe, summarizeDoe, formatDoe, normalizeCurriculumYear, campusToday, lookupUpcomingAfc, lookupRemainingDoe, fetchLookupMetrics, lookupMetricsText, sortLookupFaculty };
 });

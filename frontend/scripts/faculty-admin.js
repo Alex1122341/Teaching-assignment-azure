@@ -587,7 +587,7 @@
   function unique(key) { return [...new Set(faculty.map(row => text(row[key])).filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
   function fillSelect(id, values, label) { const element = $(id); if (!element) return; const old = element.value; element.innerHTML = `<option value="">${esc(label)}</option>` + values.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join(''); if (values.includes(old)) element.value = old; }
   function searchBlob(row) { return [row.displayName, row.preferredFullName, row.preferredFirstName, row.preferredLastName, row.ucid, row.email, row.rank, row.stream, row.teachingArea, row.professionalCategory, row.reportsToName].filter(present).join(' ').toLowerCase(); }
-  function filteredLookup() { const query = norm($('lookup-search')?.value), rank = $('filter-rank')?.value || ''; return faculty.filter(row => (!query || searchBlob(row).includes(query)) && (!rank || row.rank === rank)); }
+  function filteredLookup() { const query = norm($('lookup-search')?.value), rank = $('filter-rank')?.value || ''; return VIEW.sortLookupFaculty(faculty.filter(row => (!query || searchBlob(row).includes(query)) && (!rank || row.rank === rank))); }
   function showToast(message, isError = false) { const node = $('toast'); if (!node) return; node.textContent = String(message || ''); node.classList.toggle('error', isError); node.classList.add('show'); window.setTimeout(() => node.classList.remove('show'), 4500); }
   const facultyDoeEdit = window.UCVM_FACULTY_DOE_EDIT?.create({
     api: UCVM_PAWS_DATA,

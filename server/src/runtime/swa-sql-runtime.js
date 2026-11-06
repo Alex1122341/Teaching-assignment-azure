@@ -5,6 +5,7 @@ const { createSqlUserRepository } = require('../data/sql-user-repository');
 const { createSqlSessionRepository } = require('../data/sql-session-repository');
 const { createSqlDashboardRepository } = require('../data/sql-dashboard-repository');
 const { createSqlFacultyAdminRepository } = require('../data/sql-faculty-admin-repository');
+const { createSqlAfcSpecialLeaveRepository } = require('../data/sql-afc-special-leave-repository');
 const { createSqlDoeTargetRepository } = require('../data/sql-doe-target-repository');
 const { createSqlAfcWriteRepository } = require('../data/sql-afc-write-repository');
 const { createSqlAfcRequestRepository } = require('../data/sql-afc-request-repository');
@@ -103,6 +104,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     ...createSqlDoeTargetRepository(db)
   };
   const afcWrite = createSqlAfcWriteRepository(db);
+  const specialLeave = createSqlAfcSpecialLeaveRepository(db, afcWrite.createAfcRecord);
   const facultyAdminWrite = createSqlFacultyAdminRepository(db);
   const writeGates = createWriteGates(env);
   const realVerify = createFirebaseSqlAuth({
@@ -144,7 +146,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
   }) });
   const dashboardRoutes = createDashboardFunctions({
     traineeApi:createTraineeApi({verifyToken:verify,findUser:users.findByUid,repository:createSqlTraineeRepository(db)}),
-    api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: { ...afcWrite, ...facultyAdminWrite }, writeGates })
+    api: createDashboardApi({ verifyToken: verify, findUser: users.findByUid, repository: dashboard, writeRepository: { ...afcWrite, ...specialLeave, ...facultyAdminWrite }, writeGates })
   });
   const afcRequestApi = createAfcRequestApi({
     verifyToken: verify,

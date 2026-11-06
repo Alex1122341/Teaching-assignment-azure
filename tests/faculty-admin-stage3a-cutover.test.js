@@ -404,7 +404,7 @@ test('the initial admin load performs zero detail requests', async () => {
 
 test('selecting one faculty issues exactly one detail request and renders the API detail', async () => {
   const h = await driveAdmin();
-  assert.deepEqual(h.rowIds(), ['f-1', 'f-2', 'f-3']);
+  assert.deepEqual(h.rowIds(), ['f-1', 'f-3', 'f-2']);
   await h.clickRow('f-2');
   assert.deepEqual(h.calls.filter(c => c.startsWith('dashboardFacultyById')), ['dashboardFacultyById:f-2'], 'exactly one detail request');
 
@@ -541,7 +541,7 @@ test('a detail 404 preserves the roster and reports not found', async () => {
   assert.match(roster, /Two, Bo/);
   assert.match(roster, /Three, Cy/);
   assert.equal(h.byId('result-count').textContent, ROSTER.length, 'the roster must survive a failed detail load');
-  assert.deepEqual(h.rowIds(), ['f-1', 'f-2', 'f-3']);
+  assert.deepEqual(h.rowIds(), ['f-1', 'f-3', 'f-2']);
   assert.match(h.byId('profile-pane').innerHTML, /not found/i);
   assert.deepEqual(h.reads, []);
 });

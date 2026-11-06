@@ -25,7 +25,7 @@ test('multiple teaching roles retain every earlier API input and protect the six
  const before=api.baselineRuntimeFiles({root,baselineCommit:previous}),after=api.baselineRuntimeFiles({root,baselineCommit:product});
  assert.equal(before.length,127);assert.equal(after.length,133);assert.deepEqual(before.filter(file=>!after.includes(file)),[]);
  assert.equal(after.filter(file=>!before.includes(file)).length,6);
- assert.equal(api.verifyFreeze({root}).protected,136);assert.equal(api.verifyFreeze({root}).ok,true);
+ assert.equal(api.verifyFreeze({root}).protected,138);assert.equal(api.verifyFreeze({root}).ok,true);
  for(const file of [...api.BUILD_DEFINITION_FILES,...api.REPOSITORY_INPUT_FILES])assert.ok(api.bytesMatch(api.readBaselineFile({root,baselineCommit:previous,file}),api.readBaselineFile({root,baselineCommit:product,file})),file);
  assert.equal(git('diff','--name-only',previous,product,'--','package.json','package-lock.json','firestore.indexes.json','tools/static-assets.json'),'');
 });

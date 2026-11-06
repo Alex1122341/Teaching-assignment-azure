@@ -41,6 +41,23 @@ function createDashboardFunctions({ api,traineeApi }) {
 
       const isAfcRecords = pathname === '/api/v1/dashboard/afc-records';
       const isAfcBatch = pathname === '/api/v1/dashboard/afc-records/batch';
+      const leaveRead = /^\/api\/v1\/dashboard\/faculty\/([^/]+)\/special-leave\/(source|evaluation)$/.exec(pathname);
+      const leaveApply = /^\/api\/v1\/dashboard\/afc-records\/([^/]+)\/special-leave$/.exec(pathname);
+      if (leaveRead || leaveApply) {
+        const headers = { 'Cache-Control': 'private, no-store' };
+        const method = leaveRead ? 'GET' : 'POST';
+        if (request.method !== method) return { status:405, headers:{...headers,Allow:method}, jsonBody:{error:{code:'METHOD_NOT_ALLOWED',message:method+' required.'}} };
+        let id, payload;
+        try {
+          id = decodeURIComponent((leaveRead || leaveApply)[1]);
+          if (leaveApply) payload = typeof request.json === 'function' ? await request.json() : request.body;
+        } catch { return { status:400, headers, jsonBody:{error:{code:'INVALID_JSON',message:'Invalid record or request.'}} }; }
+        const token = bearer(request);
+        const response = leaveApply ? await api.applyAfcSpecialLeave(token, id, payload)
+          : leaveRead[2] === 'source' ? await api.afcSpecialLeaveSource(token, id, url.searchParams.get('academicYear'))
+            : await api.afcSpecialLeaveOnDate(token, id, url.searchParams.get('date'));
+        return { status:response.status, headers, jsonBody:response.body };
+      }
       const afcCancel = /^\/api\/v1\/dashboard\/afc-records\/([^/]+)\/cancel$/.exec(pathname);
       if (afcCancel) {
         if (request.method !== 'POST') return { status: 405, headers: { Allow: 'POST' }, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'POST required.' } } };

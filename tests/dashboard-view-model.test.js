@@ -7,8 +7,21 @@ const {
   teachingDoeEvidence,
   effectiveRoleDoe,
   summarizeDoe,
-  formatDoe
+  formatDoe,
+  sortLookupFaculty
 } = require('../frontend/scripts/dashboard-view-model.js');
+
+test('Lookup sorts surname-first, then given name, without modifying the roster', () => {
+  const roster = [
+    { facultyId: 'z', preferredLastName: 'Zantingh', preferredFullName: 'Zantingh, Alanna' },
+    { facultyId: 'e2', preferredLastName: 'Éllis', preferredFullName: 'Éllis, Xavier' },
+    { facultyId: 'e1', preferredLastName: 'Ellis', preferredFullName: 'Ellis, Alexandre' },
+    { facultyId: 'd', preferredFullName: 'de la Cruz, Mary Jane' },
+    { facultyId: 'b', preferredFullName: 'Butters, Alyssa' }
+  ];
+  assert.deepEqual(sortLookupFaculty(roster).map(person => person.facultyId), ['b', 'd', 'e1', 'e2', 'z']);
+  assert.equal(roster[0].facultyId, 'z');
+});
 
 test('groups assignments by curriculum year then course and sorts sessions deterministically', () => {
   const groups = groupTeachingAssignments([

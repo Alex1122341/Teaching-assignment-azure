@@ -16,5 +16,5 @@ test('combined DOE and UX-07 main has immutable freeze, correct ancestry and no 
  assert.equal(git('diff','--name-only',main,product,'--','database'),'');
  assert.deepEqual(git('diff','--name-only',main,product,'--','frontend').split('\n'),['frontend/scripts/faculty-admin-doe-rulebook.js','frontend/scripts/faculty-admin-doe-worksheet.js','frontend/styles/faculty-admin.css']);
  assert.equal(freeze.protectedPaths({root}).length,96);assert.equal(freeze.verifyFreeze({root}).ok,true);
- assert.equal(api.currentRuntimeFiles({root}).length,133);assert.equal(api.verifyFreeze({root}).protected,136);assert.equal(api.verifyFreeze({root}).ok,true);
+ assert.equal(api.currentRuntimeFiles({root}).length,135);assert.equal(api.verifyFreeze({root}).protected,138);assert.equal(api.verifyFreeze({root}).ok,true);
 });

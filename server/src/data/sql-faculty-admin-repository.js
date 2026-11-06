@@ -1,5 +1,6 @@
 'use strict';
 
+const { DEFAULT_ACADEMIC_YEAR } = require('./academic-year');
 const PROFILE_FIELDS = Object.freeze([
   'teachingArea', 'professionalCategory', 'serviceDate', 'priorYearsExperience', 'dvmEarnedDate', 'dvmType',
   'mastersEarnedDate', 'mastersArea', 'phdEarnedDate', 'phdArea', 'boardCertifiedDate', 'boardCertification',
@@ -45,6 +46,22 @@ function createSqlFacultyAdminRepository(db) {
     ActorFirebaseUid: input.actorFirebaseUid, BeforeJson: JSON.stringify(input.teachingDoe.before),
     ValuesJson: JSON.stringify(input.teachingDoe.values)
   });
+  async function saveContract(facultyId, input, changedFte = false) {
+    if (input.teachingDoe) await saveTeachingDoe(facultyId, input);
+    if (input.contractAllocations) {
+      const { academicYear,before,values } = input.contractAllocations;
+      await run('SetFacultyContractAllocations', {
+        FacultyId:facultyId, AcademicYear:academicYear, ActorFirebaseUid:input.actorFirebaseUid,
+        BeforeJson:JSON.stringify(before), ValuesJson:JSON.stringify(values)
+      });
+    } else {
+      const doe = input.teachingDoe;
+      const changedTeaching = doe && doe.before.contractTeachingDoe !== doe.values.contractTeachingDoe;
+      if (changedFte || changedTeaching) {
+        await run('CheckFacultyContractDoeCap',{ FacultyId:facultyId, AcademicYear:doe?.academicYear || DEFAULT_ACADEMIC_YEAR });
+      }
+    }
+  }
   const atomic = callback => {
     if (typeof db.transaction !== 'function') throw new Error('Atomic Faculty update requires a SQL transaction.');
     return db.transaction(callback);
@@ -62,17 +79,19 @@ function createSqlFacultyAdminRepository(db) {
       params.ActivationDate = input.activationDate ?? null;
       const create = async () => {
         const [row] = await run('CreateFaculty', params);
-        if (input.teachingDoe) {
+        if (input.teachingDoe || input.contractAllocations) {
           if (!row?.facultyId) throw new Error('Faculty creation returned no identifier.');
-          await saveTeachingDoe(row.facultyId, input);
+          await saveContract(row.facultyId, input);
         }
         return facultyDto(row);
       };
-      return input.teachingDoe ? atomic(create) : create();
+      return input.teachingDoe || input.contractAllocations ? atomic(create) : create();
     },
     async updateFaculty(input) {
       const changesActivation = Object.hasOwn(input, 'activationDate');
       const update = async () => {
+        const previousFte = input.contractAllocations ? null
+          : (await db.query('SELECT Fte AS fte FROM paws.Faculty WHERE FacultyId=@facultyId',{facultyId:input.facultyId}))[0];
         let [row] = await run('UpdateFaculty', paramsForUpdate(input));
         if (!row) return null;
         if (changesActivation) {
@@ -82,10 +101,10 @@ function createSqlFacultyAdminRepository(db) {
           });
           if (!row) throw new Error('Faculty activation returned no record.');
         }
-        if (input.teachingDoe) await saveTeachingDoe(input.facultyId, input);
+        await saveContract(input.facultyId, input, Boolean(previousFte && (previousFte.fte ?? null) !== (row.fte ?? null)));
         return facultyDto(row);
       };
-      return changesActivation || input.teachingDoe ? atomic(update) : update();
+      return atomic(update);
     },
     async deactivateFaculty(input) {
       const rows = await run('DeactivateFaculty', {

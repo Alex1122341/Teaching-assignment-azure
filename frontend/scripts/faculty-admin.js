@@ -347,7 +347,7 @@
       const haystack = norm([row.facultyName, row.facultyId, row.notes, row.legacyPurpose, row.reason, row.reasonCode].filter(present).join(' '));
       return (!query || haystack.includes(query)) && (!reason || row.reasonCode === reason || (!row.reasonCode && norm(row.reason) === norm(AFC_REASON_LABELS[reason]))) && (!active || String(row.active !== false) === active) && (!source || norm(row.sourceKind || 'manual') === source);
     });
-    body.innerHTML = window.UCVM_AFC_RECORDS.renderRows(rows, { facultyName, canCancel: !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true, canEdit: afcActions.canEdit(), editingKey: afcActions.editingKey(), busy: afcActions.isBusy,renderPdf:window.PAWS_AFC_FORMS?.documentAction });
+    body.innerHTML = window.UCVM_AFC_RECORDS.renderRows(rows, { facultyName, canCancel: !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true, canEdit: afcActions.canEdit(), canApply: afcActions.canApply(), editingKey: afcActions.editingKey(), busy: afcActions.isBusy,renderPdf:window.PAWS_AFC_FORMS?.documentAction });
     document.querySelectorAll('[data-afc-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.afcPerson)));
   }
 
@@ -443,7 +443,7 @@
     const specialtyHtml = specialty.length ? `<div class="specialty-box"><strong>Specialty / focus:</strong> ${specialty.map(esc).join(' · ')}</div>` : '';
     const joints = (Array.isArray(data.jointAppointments) ? data.jointAppointments : []).map((joint, index) => section(`Joint appointment ${index + 1}`, field('Home faculty', joint.homeFaculty) + field('Joint faculty', joint.jointFaculty) + field('FTE UCVM', joint.fteUcvm) + field('FTE other faculty', joint.fteOtherFaculty) + field('Expiry date', joint.expiryDate) + field('Notes', joint.notes, true))).join('');
     const rolesHtml = apiSection('Roles & Appointments', apiTable(['Role Type', 'Assignment', 'Course Name', 'Details', 'Status', 'Effective periods', 'Mapped DOE', 'Override DOE', 'Calculated DOE', 'Effective DOE', 'Source', 'Override Reason', 'Special Notes'], roles.map(role => { const effective = effectiveRoleDoe(role); return [role.roleType, role.courseOrSubjectOrRotation, role.courseName, role.details, window.PAWS_ROLE_PERIODS.status(role).label, window.PAWS_ROLE_PERIODS.summary(role), formatDoe(effective.mapped), formatDoe(effective.override), formatDoe(effective.calculated), formatDoe(effective.effective), effective.source || role.doeSource, role.doeOverrideReason, role.specialNotes]; })));
-    const afcHtml = renderFacultyAfc(data.afcRecords);
+    const afcHtml = renderFacultyAfc(data.afcRecords,facultyRecord.facultyId);
     const scope = section('Identity / appointment metadata', field('Academic year', data.academicYear) + field('Teaching assignments', data.sessionCount) + field('Assignments needing time review', data.checkNeededCount), true);
     const canManage = !selfMode && dashboardAdmin(currentUser) && facultyAdminWriteEnabled;
     const linked = data.linkedRecords || {};
@@ -456,7 +456,7 @@
     const archiveHost=$('faculty-afc-originals');if(archiveHost){facultyArchive=window.PAWS_AFC_FORMS?.createArchiveController({api:UCVM_PAWS_DATA,host:archiveHost,getUser:()=>currentUser,getFacultyId:()=>selectedId===facultyRecord.facultyId?facultyRecord.facultyId:''});facultyArchive?.load();}
   }
 
-  function renderFacultyAfc(records) { return window.UCVM_AFC_RECORDS.profileAfc(records,{selfMode,renderPdf:window.PAWS_AFC_FORMS?.documentAction}); }
+  function renderFacultyAfc(records,facultyId) { return window.UCVM_AFC_RECORDS.profileAfc(records,{selfMode,facultyId,renderPdf:window.PAWS_AFC_FORMS?.documentAction}); }
 
   function currentAcademicYear() { return text(dashboardSummary?.academicYear || ''); }
   function otherWorkAcademicYear() { return currentAcademicYear() || text(selectedDetail?.academicYear); }
@@ -587,7 +587,7 @@
   function unique(key) { return [...new Set(faculty.map(row => text(row[key])).filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
   function fillSelect(id, values, label) { const element = $(id); if (!element) return; const old = element.value; element.innerHTML = `<option value="">${esc(label)}</option>` + values.map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join(''); if (values.includes(old)) element.value = old; }
   function searchBlob(row) { return [row.displayName, row.preferredFullName, row.preferredFirstName, row.preferredLastName, row.ucid, row.email, row.rank, row.stream, row.teachingArea, row.professionalCategory, row.reportsToName].filter(present).join(' ').toLowerCase(); }
-  function filteredLookup() { const query = norm($('lookup-search')?.value), rank = $('filter-rank')?.value || ''; return faculty.filter(row => (!query || searchBlob(row).includes(query)) && (!rank || row.rank === rank)); }
+  function filteredLookup() { const query = norm($('lookup-search')?.value), rank = $('filter-rank')?.value || ''; return VIEW.sortLookupFaculty(faculty.filter(row => (!query || searchBlob(row).includes(query)) && (!rank || row.rank === rank))); }
   function showToast(message, isError = false) { const node = $('toast'); if (!node) return; node.textContent = String(message || ''); node.classList.toggle('error', isError); node.classList.add('show'); window.setTimeout(() => node.classList.remove('show'), 4500); }
   const facultyDoeEdit = window.UCVM_FACULTY_DOE_EDIT?.create({
     api: UCVM_PAWS_DATA,
@@ -624,7 +624,7 @@
     getDoeWorksheet: input => UCVM_PAWS_DATA.doeWorksheet(input),
     getFaculty: () => faculty,
     getSelectedDetail: () => selectedDetail,
-    getFacultyDetail: facultyId => UCVM_PAWS_DATA.dashboardFacultyById(facultyId),
+    getFacultyDetail: UCVM_PAWS_DATA.dashboardFacultyById,
     onEditOpen: (form, f, p, detail) => { rolePeriodsEditor.remember(detail); facultyDoeEdit?.mount(form, f); const roles = rolePeriodsEditor.rolesFor(f.facultyId); form.querySelector('#faculty-record-fields')?.insertAdjacentHTML('beforeend', '<section class="form-section"><h3>Roles &amp; Appointments · effective periods</h3>' + roles.map(r => '<p>' + esc(r.roleType) + ' · ' + esc(r.courseOrSubjectOrRotation) + ' · ' + esc(window.PAWS_ROLE_PERIODS.status(r).label) + ' ' + rolePeriodsEditor.action(r) + '</p>').join('') + '</section>'); },
     notify: showToast,
     onChanged: async (id, requestedStatus) => {

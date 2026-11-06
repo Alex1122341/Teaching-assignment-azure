@@ -24,6 +24,7 @@ const { randomUUID } = require('node:crypto');
 
 const { InvalidAcademicYearError, canonicalAcademicYear, resolveAcademicYear } = require('./academic-year');
 const { writeDisabled } = require('./write-gates');
+const specialLeavePolicy = require('../domain/afc-special-leave-policy');
 const { ADMINISTRATOR_ROLES, SELF_SERVICE_ROLES, isAdministratorRole, normalizeBaseRole } = require('../auth/role-policy');
 
 const ADMIN_ROLES = ADMINISTRATOR_ROLES;
@@ -115,9 +116,30 @@ function validateTeachingDoe(input) {
   return { value: { academicYear, before: input.before, values: input.values } };
 }
 
+const CONTRACT_ALLOCATION_CODES = ['scholarly_activity','ppvm_cost_share','clinical_unsorted','clinical_teaching',
+  'clinical_activity_ppvm','research','service','contract_admin','service_admin','other','onboarding'];
+function validateContractAllocations(input) {
+  const invalid = () => ({ error: error(400,'INVALID_CONTRACT_ALLOCATIONS','Enter valid contract percentages for the selected academic year.') });
+  if (!input || typeof input !== 'object' || Array.isArray(input) ||
+      Object.keys(input).some(key => !['academicYear','before','values'].includes(key))) return invalid();
+  let academicYear;
+  try { academicYear = canonicalAcademicYear(input.academicYear); }
+  catch { return invalid(); }
+  for (const snapshot of [input.before,input.values]) {
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot) ||
+      Object.keys(snapshot).length !== CONTRACT_ALLOCATION_CODES.length) return invalid();
+    for (const code of CONTRACT_ALLOCATION_CODES) {
+      const value = snapshot[code];
+      if (value !== null && (typeof value !== 'number' || !Number.isFinite(value) ||
+        value < 0 || value > 100 || Number(value.toFixed(6)) !== value)) return invalid();
+    }
+  }
+  return { value: { academicYear,before:input.before,values:input.values } };
+}
+
 function validateFacultyUpdate(payload, facultyId) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { error: error(400, 'INVALID_JSON', 'Faculty update JSON must be an object.') };
-  const allowed = new Set(['expectedUpdatedAtUtc', 'expectedProfileVersion', 'preferredFirstName', 'preferredLastName', 'displayName', 'ucid', 'email', 'recordType', 'stream', 'rank', 'fte', 'reportsToFacultyId', 'activationDate', 'professionalProfile', 'teachingDoe']);
+  const allowed = new Set(['expectedUpdatedAtUtc', 'expectedProfileVersion', 'preferredFirstName', 'preferredLastName', 'displayName', 'ucid', 'email', 'recordType', 'stream', 'rank', 'fte', 'reportsToFacultyId', 'activationDate', 'professionalProfile', 'teachingDoe','contractAllocations']);
   if (Object.keys(payload).some(key => !allowed.has(key))) return { error: error(400, 'INVALID_FACULTY_FIELDS', 'Faculty update contains unsupported fields.') };
   const expectedUpdatedAtUtc = strictUtcVersion(payload.expectedUpdatedAtUtc);
   if (!expectedUpdatedAtUtc) {
@@ -176,9 +198,14 @@ function validateFacultyUpdate(payload, facultyId) {
     return { error: error(400, 'INVALID_FACULTY_ACTIVATION_DATE', 'Activation date must be a real YYYY-MM-DD date.') };
   const doe = Object.hasOwn(payload, 'teachingDoe') ? validateTeachingDoe(payload.teachingDoe) : {};
   if (doe.error) return doe;
+  const contract = Object.hasOwn(payload, 'contractAllocations') ? validateContractAllocations(payload.contractAllocations) : {};
+  if (contract.error) return contract;
+  if (contract.value && doe.value && contract.value.academicYear !== doe.value.academicYear)
+    return { error: error(400,'INVALID_CONTRACT_ALLOCATIONS','Teaching and contract allocations must use the same academic year.') };
   return { value: { expectedUpdatedAtUtc, expectedProfileVersion, ...faculty,
     ...(Object.prototype.hasOwnProperty.call(payload, 'activationDate') ? { activationDate } : {}),
     ...(doe.value ? { teachingDoe: doe.value } : {}),
+    ...(contract.value ? { contractAllocations: contract.value } : {}),
     professionalProfile } };
 }
 
@@ -194,12 +221,18 @@ function validateFacultyCreate(payload) {
   const { expectedUpdatedAtUtc, expectedProfileVersion, ...value } = validated.value;
   if (value.teachingDoe && Object.values(value.teachingDoe.before).some(previous => previous !== null))
     return { error: error(400, 'INVALID_FACULTY_DOE', 'New Faculty records have no existing DOE values.') };
+  if (value.contractAllocations && Object.values(value.contractAllocations.before).some(previous => previous !== null))
+    return { error: error(400,'INVALID_CONTRACT_ALLOCATIONS','New Faculty records have no existing contract allocations.') };
   if (!value.ucid && !value.email)
     return { error: error(400, 'INVALID_FACULTY_FIELDS', 'A UCID or email is required to prevent duplicate Faculty identities.') };
   return { value };
 }
 
 function facultyWriteFailure(caught) {
+  if (Number(caught?.number) === 56901) return error(400,'CONTRACT_FTE_MISMATCH','Total Contract DOE must equal FTE × 100. Review FTE and the contract allocations.');
+  if (Number(caught?.number) === 56902) return error(409,'CONTRACT_ALLOCATION_CONFLICT','Contract allocations changed. Reopen Edit Faculty and review the current amounts.');
+  if (Number(caught?.number) === 56903) return error(409,'CONTRACT_POLICY_MISSING','An active DOE policy for this academic year is required to add a contract allocation.');
+  if (Number(caught?.number) === 56904) return error(400,'INVALID_CONTRACT_ALLOCATIONS','Contract allocations failed SQL validation.');
   if (Number(caught && caught.number) === 56703) return error(409, 'FACULTY_DOE_CONFLICT', 'Teaching DOE changed after you opened this record. Reload before saving.');
   if (Number(caught && caught.number) === 56702) return error(400, 'INVALID_FACULTY_DOE', 'Teaching DOE failed SQL validation.');
   if ((caught && caught.code === 'FACULTY_REVISION_CONFLICT') || Number(caught && caught.number) === 52305) return error(409, 'FACULTY_REVISION_CONFLICT', 'This Faculty record changed after you opened it. Reload it before saving.');
@@ -239,7 +272,18 @@ function validateAfcInput(payload) {
   if ((reasonCode === 'special' || reasonCode === 'other') && !notes) {
     return error(400, 'NOTES_REQUIRED', 'Notes are required for Special and Other.');
   }
-  return { facultyId, startDate, endDate, reasonCode, notes: notes || null,...(payload.documentId?{documentId:payload.documentId}:{}) };
+  const availability = payload.availability ?? 'unavailable';
+  if (!['available','unavailable'].includes(availability) || (availability === 'available' && reasonCode !== 'special') ||
+      (availability === 'unavailable' && payload.specialLeave !== undefined)) {
+    return error(400, 'INVALID_AVAILABILITY', 'Deduction and Available status are limited to Special Leave.');
+  }
+  let specialLeave;
+  if (availability === 'available') {
+    try { specialLeave = specialLeavePolicy.parseDeduction(payload.specialLeave, specialLeavePolicy.yearsForRange(startDate, endDate)); }
+    catch (caught) { return error(400, 'INVALID_DEDUCTION', caught.message); }
+  }
+  return { facultyId, startDate, endDate, reasonCode, notes: notes || null,
+    ...(specialLeave ? { specialLeave } : {}), ...(payload.documentId ? { documentId:payload.documentId } : {}) };
 }
 
 function validateAfcBatchInput(payload) {
@@ -304,12 +348,14 @@ function normalizeAfcRecord(row = {}) {
     legacyPurpose: row.legacyPurpose === null || row.legacyPurpose === undefined ? null : text(row.legacyPurpose),
     active: row.active !== false && row.active !== 0,
     sourceKind: text(row.sourceKind) || 'manual',
-    recordKey: text(row.recordKey), versionToken: text(row.versionToken),documentId:row.documentId||null
+    recordKey: text(row.recordKey), versionToken: text(row.versionToken),documentId:row.documentId||null,
+    ...(row.availability === 'available' && row.specialLeave ? { availability: 'available', specialLeave: row.specialLeave } : {})
   };
 }
 
 function mapAfcWriteError(caught) {
   const number = Number(caught && caught.number);
+  if (number === 51213) return error(422,'INVALID_DEDUCTION',caught.message || 'Invalid Special Leave deduction.');
   if(number===55001)return error(403,'ROLE_DENIED','Current administrator permission is required.');
   if(number===55003)return error(409,'DOCUMENT_BINDING_CONFLICT','The archived PDF cannot be linked to this AFC record. Review its faculty and existing record binding.');
   const known = {
@@ -401,7 +447,8 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
     async afcRecordWriteCapabilities(token) {
       return guarded(token, scope => {
         if (!scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot manage AFC records.');
-        return result(200, { writeCapabilities: { afcSingle: writeGates.afcSingle === true, afcBatch: writeGates.afcBatch === true, afcCancel: writeGates.afcCancel === true, afcEdit: writeGates.afcEdit === true } });
+        return result(200, { writeCapabilities: { afcSingle: writeGates.afcSingle === true, afcBatch: writeGates.afcBatch === true, afcCancel: writeGates.afcCancel === true, afcEdit: writeGates.afcEdit === true,
+          ...(writeRepository.createAvailableSpecialLeave ? { afcSpecialLeave: writeGates.afcSingle === true } : {}) } });
       });
     },
     async cancelAfcRecord(token, afcRecordId, payload = {}) {
@@ -540,7 +587,7 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
         if (writeGates.facultyAdmin !== true) return writeDisabled();
         const validated = validateFacultyCreate(payload);
         if (validated.error) return validated.error;
-        if (validated.value.teachingDoe && writeGates.doeAdmin !== true) return writeDisabled();
+        if ((validated.value.teachingDoe || validated.value.contractAllocations) && writeGates.doeAdmin !== true) return writeDisabled();
         try {
           const faculty = await writeRepository.createFaculty({
             actorFirebaseUid: text(decoded && decoded.uid), ...validated.value
@@ -557,7 +604,7 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
         if (!validUuid(facultyId)) return error(400, 'INVALID_FACULTY_ID', 'Faculty id is not a valid identifier.');
         const validated = validateFacultyUpdate(payload, facultyId);
         if (validated.error) return validated.error;
-        if (validated.value.teachingDoe && writeGates.doeAdmin !== true) return writeDisabled();
+        if ((validated.value.teachingDoe || validated.value.contractAllocations) && writeGates.doeAdmin !== true) return writeDisabled();
         try {
           const faculty = await writeRepository.updateFaculty({
             facultyId,
@@ -668,6 +715,43 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
           .then(records => result(200, { afcRecords: records.map(normalizeAfcRecord), count: records.length }));
       });
     },
+    async afcSpecialLeaveSource(token, facultyId, year) {
+      return guarded(token, async scope => {
+        if (!scope.administrator) return error(403,'ROLE_DENIED','Administrator permission is required.');
+        if (!validUuid(facultyId) || !year) return error(400,'INVALID_AFC_SOURCE','Select a faculty member and academic year.');
+        const resolved = resolveYear(year);
+        if (resolved.error) return resolved.error;
+        const source = await writeRepository.specialLeaveSource(facultyId, resolved.year);
+        return result(200, { source });
+      });
+    },
+    async afcSpecialLeaveOnDate(token, facultyId, date) {
+      return guarded(token, async scope => {
+        if (!scope.administrator) return error(403,'ROLE_DENIED','Administrator permission is required.');
+        if (!validUuid(facultyId) || !specialLeavePolicy.validDate(date))
+          return error(400,'INVALID_AFC_SOURCE','Select a faculty member and calendar date.');
+        return result(200, { evaluation: await writeRepository.specialLeaveOnDate(facultyId, date) });
+      });
+    },
+    async applyAfcSpecialLeave(token, afcRecordId, payload) {
+      return guarded(token, async (scope, decoded) => {
+        if (!scope.administrator) return error(403,'ROLE_DENIED','Administrator permission is required.');
+        if (writeGates.afcSingle !== true || !writeRepository.applySpecialLeave) return writeDisabled();
+        if (!validUuid(afcRecordId) || !/^[a-f0-9]{16}$/i.test(payload?.expectedVersion || ''))
+          return error(400,'INVALID_AFC_VERSION','Refresh the AFC record before applying a deduction.');
+        try {
+          const row = await writeRepository.applySpecialLeave({ afcRecordId, expectedVersion: payload.expectedVersion,
+            specialLeave: payload.specialLeave, actorFirebaseUid: decoded.uid });
+          return result(200, { afcRecord: row });
+        } catch (caught) {
+          const number = Number(caught?.number);
+          if (number === 56402) return error(403,'ROLE_DENIED','Administrator permission is required.');
+          if (number === 56403) return error(404,'AFC_RECORD_NOT_FOUND','Active Special Leave was not found.');
+          if (number === 56404) return error(409,'AFC_RECORD_CHANGED','This AFC record changed. Reload and try again.');
+          return mapAfcWriteError(caught);
+        }
+      });
+    },
 
     // POST /api/v1/dashboard/afc-records — administrators only. Identity and
     // request IDs are deliberately generated after server-side authorization.
@@ -679,8 +763,10 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
       const input = validateAfcInput(payload);
       if (input.status) return input;
       if(input.documentId&&writeGates.afcFormUpload!==true)return writeDisabled();
+      if (input.specialLeave && !writeRepository.createAvailableSpecialLeave) return writeDisabled();
       try {
-        const row = await writeRepository.createAfcRecord({
+        const command = input.specialLeave ? 'createAvailableSpecialLeave' : 'createAfcRecord';
+        const row = await writeRepository[command]({
           ...input,
           afcRecordId: randomUUID(),
           requestId: randomUUID(),

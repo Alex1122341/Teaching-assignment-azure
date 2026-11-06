@@ -39,13 +39,14 @@ test('editing appointment + date is serialized inside one SQL transaction',async
  const calls=[];
  const db={query:async(q,params)=>{
   calls.push([q,params]);
+  if(q.startsWith('SELECT Fte'))return[{fte:1}];
   if(q.includes('UpdateFaculty'))return[{updatedAtUtc:'2026-10-31T15:30:00.000Z',facultyId:fields.facultyId}];
-  if(q.includes('SetFacultyActivation'))return[{facultyId:fields.facultyId,activationDate:'2027-06-01',administrativeActive:true,active:false}];
+  if(q.includes('SetFacultyActivation'))return[{facultyId:fields.facultyId,fte:1,activationDate:'2027-06-01',administrativeActive:true,active:false}];
   throw Error('unexpected procedure');
  }, transaction:async action=>{calls.push(['BEGIN']);const result=await action();calls.push(['COMMIT']);return result;}};
  const value=await createSqlFacultyAdminRepository(db).updateFaculty(fields);
- assert.deepEqual(calls.map(c=>c[0].startsWith('EXEC')?c[0].split('paws_api.')[1].split('\n')[0]:c[0]),['BEGIN','UpdateFaculty','SetFacultyActivation','COMMIT']);
- assert.equal(calls[2][1].ExpectedUpdatedAtUtc,'2026-10-31T15:30:00.000Z');
+ assert.deepEqual(calls.map(c=>c[0].startsWith('EXEC')?c[0].split('paws_api.')[1].split('\n')[0]:c[0].split(' FROM')[0]),['BEGIN','SELECT Fte AS fte','UpdateFaculty','SetFacultyActivation','COMMIT']);
+ assert.equal(calls[3][1].ExpectedUpdatedAtUtc,'2026-10-31T15:30:00.000Z');
  assert.equal(value.activationDate,'2027-06-01');
  assert.equal(value.active,false);
 });
@@ -62,6 +63,7 @@ test('a failure writing DOE rolls back Faculty creation or editing as one save',
   const calls = [];
   const db = {
    query: async (query, params) => {
+    if (query.startsWith('SELECT Fte')) { calls.push('ReadFte'); return [{fte:1}]; }
     const command = query.match(/EXEC paws_api\.(\w+)/)[1];
     calls.push(command);
     if (command === 'SetFacultyTeachingDoeInputs') {
@@ -80,6 +82,6 @@ test('a failure writing DOE rolls back Faculty creation or editing as one save',
   await assert.rejects(() => createSqlFacultyAdminRepository(db)[operation]({ ...fields, teachingDoe }), /stale DOE/);
   assert.deepEqual(calls, operation === 'createFaculty'
    ? ['BEGIN', 'CreateFaculty', 'SetFacultyTeachingDoeInputs', 'ROLLBACK']
-   : ['BEGIN', 'UpdateFaculty', 'SetFacultyActivation', 'SetFacultyTeachingDoeInputs', 'ROLLBACK']);
+   : ['BEGIN', 'ReadFte', 'UpdateFaculty', 'SetFacultyActivation', 'SetFacultyTeachingDoeInputs', 'ROLLBACK']);
  }
 });

@@ -1,4 +1,5 @@
 'use strict';
+const { leaveDto } = require('./sql-afc-special-leave-repository');
 
 const { facultyDisplayNameSql } = require('./faculty-display-name');
 
@@ -515,16 +516,20 @@ function createSqlDashboardRepository(db) {
              u.CreatedByName AS createdByName,
              u.RecordKey AS recordKey,
               u.VersionToken AS versionToken,
-              original.DocumentId AS documentId
+              original.DocumentId AS documentId,
+              sl.ApprovedAt AS approvedAt,sl.ReviewedStartDate AS reviewedStartDate,
+              sl.ReviewedEndDate AS reviewedEndDate,sl.DeductionJson AS deductionJson
          FROM paws.vAfcRecordUnified u
          INNER JOIN paws.Faculty f ON f.FacultyId = u.FacultyId
          LEFT JOIN paws.vAfcRecordOriginal original ON u.SourceKind=N'manual' AND original.AfcRecordId=u.AfcRecordId AND original.FacultyId=u.FacultyId
+         LEFT JOIN paws.vAfcSpecialLeaveAdmin sl ON u.SourceKind=N'manual' AND sl.AfcRecordId=u.AfcRecordId
          ${whereClause}
          ORDER BY u.StartDate DESC, f.DisplayName, u.AfcRecordId`,
         params
       );
       return rows.map(row => ({
         afcRecordId: row.afcRecordId,
+        ...(row.deductionJson ? { availability:'available', specialLeave: leaveDto(row) } : {}),
         facultyId: row.facultyId,
         facultyName: toText(row.facultyName),
         startDate: toText(row.startDate),

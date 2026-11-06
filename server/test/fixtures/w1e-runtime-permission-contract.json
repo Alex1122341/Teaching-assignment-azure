@@ -116,6 +116,10 @@
   "facultyDoeWriteProcedures": [
     "paws_api.SetFacultyTeachingDoeInputs"
   ],
+  "facultyContractWriteProcedures": [
+    "paws_api.CheckFacultyContractDoeCap",
+    "paws_api.SetFacultyContractAllocations"
+  ],
   "manualReadObjects": [
     "paws.Course",
     "paws.ManualDoeAssignment"
@@ -184,6 +188,12 @@
   ],
   "afcRecordDocumentReadObjects": [
     "paws.vAfcRecordOriginal"
+  ],
+  "afcSpecialLeaveReadObjects": [
+    "paws.vAfcSpecialLeaveAdmin"
+  ],
+  "afcSpecialLeaveWriteProcedures": [
+    "paws_api.SaveAfcSpecialLeave"
   ],
   "afcRecordDocumentProcedures": [
     "paws_api.CreateAfcRecordWithDocument"

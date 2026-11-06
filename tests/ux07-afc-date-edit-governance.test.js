@@ -25,7 +25,7 @@ test('historical UX-07 promotion pins the AFC date edit product with exact stati
  assert.deepEqual(api.baselineRuntimeFiles({root,baselineCommit:product}),api.baselineRuntimeFiles({root,baselineCommit:previous}));
  assert.equal(git('diff','--name-only',previous,product,'--','tools/static-assets.json','package.json','package-lock.json','server/package.json','server/package-lock.json','deploy/aca/Dockerfile','firestore.rules','firestore.indexes.json'),'');
  const historicalStatic={root,baselineCommit:product,readWorking:({file})=>freeze.readBaselineFile({root,baselineCommit:product,file})};
- const historicalApi={root,baselineCommit:product,readWorking:({file})=>api.readBaselineFile({root,baselineCommit:product,file})};
+ const historicalApi={root,baselineCommit:product,files:api.baselineRuntimeFiles({root,baselineCommit:product}),readWorking:({file})=>api.readBaselineFile({root,baselineCommit:product,file})};
  assert.equal(freeze.protectedPaths(historicalStatic).length,96);assert.equal(freeze.verifyFreeze(historicalStatic).ok,true);
  assert.equal(api.baselineRuntimeFiles({root,baselineCommit:product}).length,133);assert.equal(api.verifyFreeze(historicalApi).protected,136);assert.equal(api.verifyFreeze(historicalApi).ok,true);
 });

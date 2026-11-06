@@ -9,6 +9,11 @@
     ['contractClinicalTeachingDoe', 'Contracted Clinical Teaching (%)', 100],
     ['potentialGradTeachingDoe', 'Potential Grad Teaching (%)', 999999.999999]
   ];
+  const contractCategories = Object.entries(window.UCVM_FACULTY_DOE_RENDERER?.contractCategories || {});
+  const numberField = (form, key) => {
+    const value = form.elements.namedItem(key)?.value ?? '';
+    return value.trim() === '' ? null : Number(value);
+  };
   function create({ canWrite, getFaculty, getSelectedDetail, getFacultyDetail, onChanged, onEditOpen, notify,
     canWriteDoe = () => false, getAcademicYear, getDoeWorksheet }) {
     let editSequence = 0;
@@ -39,7 +44,7 @@
         ['displayName','Stored display name',f.storedDisplayName ?? f.displayName,260],['ucid','UCID',f.ucid,64],['email','Email',f.email,256],
         ['recordType','Record type',f.recordType,32],['stream','Stream',f.stream,128],['rank','Rank',f.rank,128]
       ].map(([key,label,value,max]) => [key, control(key,label,value,{max})]));
-      fields.set('fte',control('fte','FTE',f.fte,{type:'number',step:'0.0001'}));
+      fields.set('fte',control('fte','FTE',f.fte,{type:'number',step:'0.0001',numberMax:9.9999}));
       fields.set('activationDate',control('activationDate','Faculty active from (YYYY-MM-DD)',f.activationDate,{type:'date'}));
       fields.set('reportsToFacultyId',`<label class="field"><span class="field-label">Reports to</span><select class="select" name="reportsToFacultyId"><option value="">No supervisor</option>${roster.filter(r => r.facultyId !== f.facultyId).map(r => `<option value="${esc(r.facultyId)}" ${r.facultyId === f.reportsToFacultyId ? 'selected' : ''}>${esc(facultyName(r, r.facultyId))}${r.active === false ? ' · inactive' : ''}</option>`).join('')}${f.reportsToFacultyId && !roster.some(r => r.facultyId === f.reportsToFacultyId) ? `<option selected value="${esc(f.reportsToFacultyId)}">${esc(f.reportsToFacultyId)} · current linked record</option>` : ''}</select></label>`);
       const profileFields = [
@@ -52,10 +57,15 @@
       profileFields.forEach(([key,label,max,type,step]) => fields.set(key,control(key,label,p[key],{max,type,step})));
       const group = (title, content) => `<section class="form-section"><h3 class="form-section-title">${title}</h3><div class="field-grid">${content.join('')}</div></section>`;
       const identityKeys = ['preferredFirstName','preferredLastName','displayName','ucid','email','reportsToFacultyId'];
-      const appointmentKeys = ['recordType','stream','rank','fte','activationDate','serviceDate','priorYearsExperience'];
+      const appointmentKeys = ['recordType','stream','rank','activationDate','serviceDate','priorYearsExperience'];
       const specialtyKeys = profileFields.map(([key]) => key).filter(key => !appointmentKeys.includes(key));
       const controls = keys => keys.map(key => fields.get(key));
-      $('faculty-record-fields').innerHTML = group('Identity & contact', [`<div class="field full"><span class="field-label">Faculty ID (immutable)</span><div class="field-value">${creating ? 'Assigned when saved' : esc(f.facultyId)}</div></div>`, ...controls(identityKeys)]) + group('Appointment', controls(appointmentKeys)) + group('Specialty & education', controls(specialtyKeys));
+      const year = getAcademicYear?.();
+      const workload = group(year ? `FTE &amp; Contract DOE · ${esc(year)}` : 'FTE &amp; Contract DOE', [
+        fields.get('fte'),
+        ...(canWriteDoe() && year ? ['<div class="field full" data-faculty-doe-fields>Loading contract DOE…</div>'] : [])
+      ]);
+      $('faculty-record-fields').innerHTML = group('Identity & contact', [`<div class="field full"><span class="field-label">Faculty ID (immutable)</span><div class="field-value">${creating ? 'Assigned when saved' : esc(f.facultyId)}</div></div>`, ...controls(identityKeys)]) + group('Appointment', controls(appointmentKeys)) + workload + group('Specialty & education', controls(specialtyKeys));
       $('faculty-record-title').textContent = creating ? 'Add New Faculty' : `Edit Faculty · ${facultyName(f, f.facultyId)}`;
       const form = $('faculty-record-form');
       form.dataset.facultyId = creating ? '' : f.facultyId;
@@ -66,30 +76,44 @@
         : 'Update the canonical Faculty record and professional profile.';
       $('faculty-record-status').textContent = ''; $('faculty-record-save').disabled = false;
       if (!$('faculty-record-editor').open) $('faculty-record-editor').showModal();
-      if (canWriteDoe()) {
-        const year = getAcademicYear();
-        form.querySelector('#faculty-record-fields').insertAdjacentHTML('beforeend', group(`Teaching DOE · ${esc(year)}`, [
-          '<div class="field full" data-faculty-doe-fields>Loading teaching DOE…</div>'
-        ]));
-        const container = form.querySelector('[data-faculty-doe-fields]');
-        const renderDoeInputs = target => {
+      const container = form.querySelector?.('[data-faculty-doe-fields]');
+      if (container) {
+        const renderDoeInputs = (target, contract) => {
           if (sequence !== editSequence || !container.isConnected) return;
           const before = Object.fromEntries(DOE_FIELDS.map(([key]) => [key, target[key] ?? null]));
+          const allocations = Object.fromEntries(contractCategories.map(([key]) =>
+            [key, contract.allocations?.find(row => row.categoryCode === key)?.allocationDoe ?? null]));
+          const [teaching, ...references] = DOE_FIELDS;
+          const teachingField = ([key, label, max]) => control(key,label,before[key],{type:'number',step:'0.000001',numberMax:max});
           container.className = 'field-grid full';
-          container.innerHTML = DOE_FIELDS.map(([key, label, max]) =>
-            control(key, label, before[key], { type: 'number', step: '0.000001', numberMax: max })
-          ).join('') + '<p class="aux-note full">Blank means no value is recorded. Potential Grad Teaching is for reference.</p>';
-          doeInput = { academicYear: year, before };
+          container.innerHTML = teachingField(teaching) + contractCategories.map(([key,label]) =>
+            control('allocation_'+key,label+' (%)',allocations[key],{type:'number',step:'0.000001',numberMax:100})
+          ).join('') + '<output class="aux-note full" data-contract-total aria-live="polite"></output>' +
+            references.map(teachingField).join('') +
+            '<p class="aux-note full">Contract allocations must total FTE × 100. Contracted Clinical Teaching and Potential Grad Teaching are separate reference fields.</p>';
+          doeInput = { academicYear: year, before, allocations, fte: f.fte ?? null };
+          showContractTotal(form);
         };
-        if (creating) renderDoeInputs({});
-        else getDoeWorksheet({ facultyId: f.facultyId, academicYear: year }).then(worksheet => {
-          if (worksheet?.academicYear !== year || !worksheet.target) throw new Error('DOE inputs unavailable');
-          renderDoeInputs(worksheet.target);
+        if (creating) renderDoeInputs({}, {});
+        else Promise.all([
+          getDoeWorksheet({ facultyId: f.facultyId, academicYear: year }),
+          detail.contractDoe?.academicYear === year ? detail : getFacultyDetail(f.facultyId,{academicYear:year})
+        ]).then(([worksheet, record]) => {
+          if (worksheet?.academicYear !== year || !worksheet.target || record?.contractDoe?.academicYear !== year) throw new Error('DOE inputs unavailable');
+          renderDoeInputs(worksheet.target,record.contractDoe);
         }).catch(() => {
           if (sequence === editSequence) container.textContent = 'Teaching DOE could not be loaded. Reopen Edit Faculty to try again.';
         });
       }
       if (!creating && typeof onEditOpen === 'function') onEditOpen(form, f, p, detail);
+    }
+    function showContractTotal(form) {
+      const node = form.querySelector('[data-contract-total]');
+      if (!node) return;
+      const values = ['contractTeachingDoe',...contractCategories.map(([key])=>'allocation_'+key)].map(key=>numberField(form,key));
+      const fte = numberField(form,'fte');
+      const total = values.reduce((sum,n)=>sum+(n ?? 0),0);
+      node.textContent = `Total Contract DOE ${values.every(n=>n===null) ? 'None' : total.toFixed(2)+'%'} · FTE allocation ${fte===null ? 'None' : (fte*100).toFixed(2)+'%'}`;
     }
     async function editById(facultyId) {
       if (!canWrite() || !facultyId || typeof getFacultyDetail !== 'function') return;
@@ -107,13 +131,18 @@
       const num = name => String(value(name)).trim() === '' ? null : Number(value(name));
       const doeValues = doeInput && Object.fromEntries(DOE_FIELDS.map(([key]) => [key, num(key)]));
       const changedDoe = doeValues && DOE_FIELDS.some(([key]) => doeValues[key] !== doeInput.before[key]);
+      const fte = num('fte');
+      const allocations = doeInput && Object.fromEntries(contractCategories.map(([key]) => [key,num('allocation_'+key)]));
+      const changedContract = allocations && (fte !== doeInput.fte || doeValues.contractTeachingDoe !== doeInput.before.contractTeachingDoe ||
+        contractCategories.some(([key]) => allocations[key] !== doeInput.allocations[key]));
       return {
-        ...(changedDoe ? { teachingDoe: { ...doeInput, values: doeValues } } : {}),
+        ...(changedDoe ? { teachingDoe: { academicYear:doeInput.academicYear, before:doeInput.before, values: doeValues } } : {}),
+        ...(changedContract ? { contractAllocations: { academicYear:doeInput.academicYear,before:doeInput.allocations,values:allocations } } : {}),
         expectedUpdatedAtUtc: form.dataset.expectedUpdatedAtUtc,
         expectedProfileVersion: form.dataset.expectedProfileVersion || null,
         preferredFirstName: str('preferredFirstName'), preferredLastName: str('preferredLastName'), displayName: String(value('displayName')).trim(),
         ucid: str('ucid'), email: str('email'), recordType: String(value('recordType')).trim(), stream: str('stream'), rank: str('rank'),
-        fte: num('fte'), reportsToFacultyId: str('reportsToFacultyId'), activationDate: str('activationDate'), professionalProfile: {
+        fte, reportsToFacultyId: str('reportsToFacultyId'), activationDate: str('activationDate'), professionalProfile: {
           teachingArea: str('teachingArea'), professionalCategory: str('professionalCategory'), serviceDate: str('serviceDate'),
           priorYearsExperience: num('priorYearsExperience'), dvmEarnedDate: str('dvmEarnedDate'), dvmType: str('dvmType'),
           mastersEarnedDate: str('mastersEarnedDate'), mastersArea: str('mastersArea'), phdEarnedDate: str('phdEarnedDate'), phdArea: str('phdArea'),
@@ -171,6 +200,7 @@
         bind($('faculty-record-close'),'click',close);
         bind($('faculty-record-editor'),'cancel',event => { if (saving) event.preventDefault(); else ++editSequence; });
         bind($('faculty-record-form'),'submit',submit);
+        bind($('faculty-record-form'),'input',event=>showContractTotal(event.currentTarget));
         bind($('faculty-create-btn'),'click',() => open({}, {}, {}));
         bind(document,'click',event => {
           const action = event.target?.closest?.('[data-faculty-edit-id]');

@@ -150,6 +150,9 @@ function projectHistoryEvent(event,auth){
   else{
    for(const [key,label] of Object.entries(FACULTY_FIELDS))add(label,get(before,key),get(after,key));
    for(const key of PROFILE_FIELDS)add(key,get(get(before,'professionalProfile'),key)??get(before,key),get(get(after,'professionalProfile'),key)??get(after,key));
+   for(const key of ['scholarly_activity','ppvm_cost_share','clinical_unsorted','clinical_teaching','clinical_activity_ppvm','research','service','contract_admin','service_admin','other','onboarding']){
+    add('Contract DOE · '+key.replace(/_/g,' '),get(get(before,'contractAllocations'),key),get(get(after,'contractAllocations'),key));
+   }
   }
  }else if(type==='afc_special_leave_deduction_confirmed'){
   add('FTE deduction',get(before,'fteDeduction'),get(after,'fteDeduction'));

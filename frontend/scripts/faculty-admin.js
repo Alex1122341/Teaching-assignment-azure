@@ -624,7 +624,7 @@
     getDoeWorksheet: input => UCVM_PAWS_DATA.doeWorksheet(input),
     getFaculty: () => faculty,
     getSelectedDetail: () => selectedDetail,
-    getFacultyDetail: facultyId => UCVM_PAWS_DATA.dashboardFacultyById(facultyId),
+    getFacultyDetail: UCVM_PAWS_DATA.dashboardFacultyById,
     onEditOpen: (form, f, p, detail) => { rolePeriodsEditor.remember(detail); facultyDoeEdit?.mount(form, f); const roles = rolePeriodsEditor.rolesFor(f.facultyId); form.querySelector('#faculty-record-fields')?.insertAdjacentHTML('beforeend', '<section class="form-section"><h3>Roles &amp; Appointments · effective periods</h3>' + roles.map(r => '<p>' + esc(r.roleType) + ' · ' + esc(r.courseOrSubjectOrRotation) + ' · ' + esc(window.PAWS_ROLE_PERIODS.status(r).label) + ' ' + rolePeriodsEditor.action(r) + '</p>').join('') + '</section>'); },
     notify: showToast,
     onChanged: async (id, requestedStatus) => {

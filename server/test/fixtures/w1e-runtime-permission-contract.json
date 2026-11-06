@@ -116,6 +116,10 @@
   "facultyDoeWriteProcedures": [
     "paws_api.SetFacultyTeachingDoeInputs"
   ],
+  "facultyContractWriteProcedures": [
+    "paws_api.CheckFacultyContractDoeCap",
+    "paws_api.SetFacultyContractAllocations"
+  ],
   "manualReadObjects": [
     "paws.Course",
     "paws.ManualDoeAssignment"

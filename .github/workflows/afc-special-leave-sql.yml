@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'database/azure-sql/068_*'
+      - 'database/azure-sql/069_*'
       - 'server/src/data/sql-afc-special-leave-repository.js'
       - 'tools/test-afc-special-leave-integration.cjs'
       - '.github/workflows/afc-special-leave-sql.yml'
@@ -10,6 +11,7 @@ on:
     branches: [main]
     paths:
       - 'database/azure-sql/068_*'
+      - 'database/azure-sql/069_*'
       - 'server/src/data/sql-afc-special-leave-repository.js'
       - 'tools/test-afc-special-leave-integration.cjs'
       - '.github/workflows/afc-special-leave-sql.yml'
@@ -54,6 +56,12 @@ jobs:
           if(($output -join "`n") -notmatch 'AFC_SPECIAL_LEAVE_068_ACCEPTANCE_OK'){throw 'Missing Special Leave acceptance marker.'}
           node tools/test-afc-special-leave-integration.cjs
           if($LASTEXITCODE -ne 0){throw 'Node and SQL Special Leave integration failed.'}
+          foreach($file in @('065_faculty_future_activation','066_sessional_and_doe_summary_source','067_faculty_teaching_doe_inputs','069_faculty_contract_allocations')){
+            Invoke-TestSql (Get-Content -LiteralPath "database/azure-sql/$file.sql" -Raw) 'VetMed-Ops'
+          }
+          $contract=@(Invoke-TestSql (Get-Content -LiteralPath 'database/azure-sql/069_faculty_contract_allocations_acceptance.sql' -Raw) 'VetMed-Ops')
+          $contract
+          if(($contract -join "`n") -notmatch 'FACULTY_CONTRACT_069_ACCEPTANCE_OK'){throw 'Missing contract DOE acceptance marker.'}
       - name: Stop labeled disposable SQL
         if: always()
         shell: pwsh

@@ -26,12 +26,12 @@ test('W1E permission contract covers every SQL repository object and stored proc
   // helper, so recover its statically declared procedure names as well.
   procedures.push(...[...sources.matchAll(/\bexec\(\s*'([A-Za-z0-9_]+)'/g)]
     .map(match => `paws_api.${match[1]}`));
-  procedures.push(...[...sources.matchAll(/\brun\(\s*'(SetRoleAppointmentPeriods|SetFacultyTeachingDoeInputs)'/g)]
+  procedures.push(...[...sources.matchAll(/\brun\(\s*'(SetRoleAppointmentPeriods|SetFacultyTeachingDoeInputs|SetFacultyContractAllocations|CheckFacultyContractDoeCap)'/g)]
     .map(match => `paws_api.${match[1]}`));
   const expectedObjects = [
     ...contract.leadershipAccessProcedures, ...contract.teachingAccessReadFunctions, ...contract.accessWriteProcedures, ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
     ...contract.readProcedures, ...contract.p2ReadProcedures,
-    ...contract.facultyDoeWriteProcedures, ...contract.afcSpecialLeaveWriteProcedures,
+    ...contract.facultyDoeWriteProcedures, ...contract.facultyContractWriteProcedures, ...contract.afcSpecialLeaveWriteProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
     ...contract.calendarReadProcedures, ...contract.cccScheduleReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),

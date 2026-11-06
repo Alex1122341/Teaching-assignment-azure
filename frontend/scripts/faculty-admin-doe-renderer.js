@@ -1,5 +1,11 @@
 (() => {
   'use strict';
+  const contractCategories = Object.freeze({
+    scholarly_activity: 'Scholarly Activity', ppvm_cost_share: 'PPVM Cost Share',
+    clinical_unsorted: 'Clinical - To Be Sorted', clinical_teaching: 'Clinical Teaching',
+    clinical_activity_ppvm: 'Clinical Activity / PPVM', research: 'Research', service: 'Service',
+    contract_admin: 'Contract Admin', service_admin: 'Service / Admin', other: 'Other', onboarding: 'Onboarding'
+  });
 
   function create({ esc, number, formatDoe, display, effectiveRoleDoe, groupTeachingAssignments }) {
     function referenceBubble(text, label = 'Source') {
@@ -11,16 +17,10 @@
     }
     function renderContractDoe(contractDoe, faculty = {}, { embedded = false } = {}) {
       const data = contractDoe && typeof contractDoe === 'object' ? contractDoe : {};
-      const categoryLabels = {
-        scholarly_activity: 'Scholarly Activity', ppvm_cost_share: 'PPVM Cost Share',
-        clinical_unsorted: 'Clinical - To Be Sorted', clinical_teaching: 'Clinical Teaching',
-        clinical_activity_ppvm: 'Clinical Activity / PPVM', research: 'Research',
-        contract_admin: 'Contract Admin', service_admin: 'Service / Admin', other: 'Other', onboarding: 'Onboarding'
-      };
       const teaching = number(data.teachingDoe), fte = number(faculty?.fte), supplied = [];
       const rows = [`<tr><th scope="row">Teaching</th><td>${teaching === null ? 'Teaching DOE unavailable' : formatDoe(teaching)}</td></tr>`];
       if (teaching !== null) supplied.push(teaching);
-      for (const [categoryCode, label] of Object.entries(categoryLabels)) {
+      for (const [categoryCode, label] of Object.entries(contractCategories)) {
         const allocation = (Array.isArray(data.allocations) ? data.allocations : []).find(item => item && item.categoryCode === categoryCode);
         const value = allocation ? number(allocation.allocationDoe) : null;
         if (value === null) continue;
@@ -164,5 +164,5 @@
     return Object.freeze({ renderContractDoe, renderDoeRuleBook, renderDoeSummary, renderTeachingCourses, renderWorkload, renderFacultyBadges, referenceBubble, apiTable });
   }
 
-  window.UCVM_FACULTY_DOE_RENDERER = Object.freeze({ create });
+  window.UCVM_FACULTY_DOE_RENDERER = Object.freeze({ create, contractCategories });
 })();

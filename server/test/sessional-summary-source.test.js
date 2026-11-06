@@ -16,8 +16,7 @@ test('Worksheet carries separate MASTER clinical and potential graduate figures 
  assert.equal(source.target.potentialGradTeachingDoe,14.3);
  assert.equal(source.target.effectiveTargetDoe,15);
  assert.equal(source.lines.length,0);
- assert.match(calls.find(s=>s.includes('FROM paws.DoeFacultyTarget')),/DoeFacultySummarySource/);
- assert.match(calls.find(s=>s.includes('FROM paws.DoeFacultyTarget')),/FULL OUTER JOIN paws\.DoeFacultySummarySource/);
+ assert.match(calls.find(s=>s.includes('FROM paws.DoeFacultyTarget')),/FULL OUTER JOIN paws\.vFacultyDoeSummaryInputs/);
 });
 
 test('Missing MASTER summary values stay null rather than being supplied by unrelated allocations',async()=>{

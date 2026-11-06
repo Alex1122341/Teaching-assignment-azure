@@ -9,7 +9,8 @@ const root = path.resolve(__dirname, '../..');
 const contract = require('./fixtures/w1e-runtime-permission-contract.json');
 const migration = fs.readFileSync(path.join(root, 'database/azure-sql/017_w1e_runtime_least_privilege.sql'), 'utf8');
 const p2Migration = fs.readFileSync(path.join(root, 'database/azure-sql/022_teaching_assignment_workflow_permissions.sql'), 'utf8');
-const p4Migration = fs.readFileSync(path.join(root, 'database/azure-sql/027_doe_runtime_permissions.sql'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'database/azure-sql/028_doe_supervision_source.sql'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'database/azure-sql/066_sessional_and_doe_summary_source.sql'), 'utf8');
+const facultyDoeMigration = fs.readFileSync(path.join(root, 'database/azure-sql/067_faculty_teaching_doe_inputs.sql'), 'utf8');
+const p4Migration = fs.readFileSync(path.join(root, 'database/azure-sql/027_doe_runtime_permissions.sql'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'database/azure-sql/028_doe_supervision_source.sql'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'database/azure-sql/066_sessional_and_doe_summary_source.sql'), 'utf8') + '\n' + facultyDoeMigration;
 
 test('W1E permission contract covers every SQL repository object and stored procedure', () => {
   const repositoryDir = path.join(root, 'server/src/data');
@@ -25,11 +26,12 @@ test('W1E permission contract covers every SQL repository object and stored proc
   // helper, so recover its statically declared procedure names as well.
   procedures.push(...[...sources.matchAll(/\bexec\(\s*'([A-Za-z0-9_]+)'/g)]
     .map(match => `paws_api.${match[1]}`));
-  procedures.push(...[...sources.matchAll(/\brun\(\s*'(SetRoleAppointmentPeriods)'/g)]
+  procedures.push(...[...sources.matchAll(/\brun\(\s*'(SetRoleAppointmentPeriods|SetFacultyTeachingDoeInputs)'/g)]
     .map(match => `paws_api.${match[1]}`));
   const expectedObjects = [
     ...contract.leadershipAccessProcedures, ...contract.teachingAccessReadFunctions, ...contract.accessWriteProcedures, ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
     ...contract.readProcedures, ...contract.p2ReadProcedures,
+    ...contract.facultyDoeWriteProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
     ...Object.values(contract.afcCancelWriteSets).flat(), ...contract.outsideW1eWriteProcedures, ...contract.swapReadProcedures, ...Object.values(contract.swapWriteSets).flat(),
     ...contract.calendarReadProcedures, ...contract.cccScheduleReadProcedures, ...Object.values(contract.calendarWriteSets).flat(),
@@ -38,6 +40,11 @@ test('W1E permission contract covers every SQL repository object and stored proc
   ];
   assert.deepEqual([...new Set(objects)].sort(), [...new Set([...contract.teachingAccessReadFunctions,...contract.accessReadObjects,...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects,...contract.afcRecordDocumentReadObjects,...contract.masterRefreshReadObjects])].sort());
   assert.deepEqual([...new Set(procedures)].sort(), [...new Set(expectedObjects.filter(name => name.startsWith('paws_api.')))].sort());
+});
+
+test('Faculty DOE migration grants only the combined view and authorized write procedure', () => {
+  assert.deepEqual([...facultyDoeMigration.matchAll(/GRANT EXECUTE ON OBJECT::([\w.]+) TO \[paws_runtime_faculty_admin_write\]/g)].map(m => m[1]), contract.facultyDoeWriteProcedures);
+  assert.doesNotMatch(facultyDoeMigration, /ALTER\s+ROLE[^;]+ADD\s+MEMBER|GRANT\s+(?:INSERT|UPDATE|DELETE)\s+ON|GRANT\s+SELECT[^;]*FacultyDoeSummaryEdit/i);
 });
 
 test('account access has one dedicated unbound role and one atomic command with no raw profile grants',()=>{

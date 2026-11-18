@@ -1,5 +1,9 @@
 # PAWS Beta — Verified Source Checkpoint
 
+## 2026-11-18 Beta release checkpoint
+
+PR #165 merged as `869f2884a6432f9c860eb2f09a89ab3ccc896e38`. All three main push workflows passed, including the Beta build (run 44326046312) and the SQL acceptance. The Firebase site and the University host verified the active API at `https://barrel-jean-arabia-sought.trycloudflare.com`. The previous repository origin failed preflight. This release pins the published origin to product `0e4f3fc2e2a8d94fcfec999387114fc866c82e34` and retains the existing API source.
+
 **Date:** 2026-11-01. **Scope:** connected GitHub repository/PR/CI metadata, **not** live University SQL, API, browser, Firebase or private MASTER reconciliation.
 
 ## Repository and tracks

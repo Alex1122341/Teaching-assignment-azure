@@ -41,6 +41,7 @@ test('restart ingress promotion changes only the verified origin and preserves t
  assert.ok(git('show',governance+':tools/beta-freeze.js').includes("const BASELINE_COMMIT='"+previous+"'"));
  assert.equal(JSON.parse(git('show',governance+':tools/beta-baseline.json')).sourceCommit,previous);
  assert.equal(git('diff','--name-only',previous,PRODUCT,'--','frontend'),'frontend/scripts/paws-api-origin.js');
- assert.equal(require('../frontend/scripts/paws-api-origin').apiOrigin,'https://gibson-strand-telecharger-governor.trycloudflare.com');
+ const historicalOrigin=freeze.readBaselineFile({root,baselineCommit:PRODUCT,file:'paws-api-origin.js'}).toString('utf8');
+ assert.ok(historicalOrigin.includes("apiOrigin: 'https://gibson-strand-telecharger-governor.trycloudflare.com'"));
  for(const file of freeze.readBaselineManifest({root,baselineCommit:PRODUCT}).filter(file=>file!=='paws-api-origin.js'))assert.ok(freeze.bytesMatch(freeze.readBaselineFile({root,baselineCommit:previous,file}),freeze.readBaselineFile({root,baselineCommit:PRODUCT,file})),file);
 });

@@ -76,8 +76,11 @@ const input = { facultyId, startDate:'2098-06-01', endDate:'2098-06-30', reasonC
 
   const migrationText = file => readFileSync(path.join(__dirname,'../database/azure-sql',file),'utf8')
     .replace(/^:ON ERROR EXIT[ \t]*\r?$/im,'');
+  // The driver transaction owns the connection across SQLCMD batches.
+  const migration = migrationText('070_workflow_regressions.sql')
+    .replace(/^(?:BEGIN|COMMIT) TRANSACTION;\r?$/gm,'');
   await connection.transaction(async () => {
-    for (const batch of migrationText('070_workflow_regressions.sql').split(/^GO[ \t]*\r?$/im).filter(batch => batch.trim())) {
+    for (const batch of migration.split(/^GO[ \t]*\r?$/im).filter(batch => batch.trim())) {
       await connection.query(batch);
     }
   });

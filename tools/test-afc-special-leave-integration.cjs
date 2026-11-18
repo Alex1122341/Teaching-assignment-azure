@@ -81,7 +81,8 @@ const input = { facultyId, startDate:'2098-06-01', endDate:'2098-06-30', reasonC
     .replace(/^(?:BEGIN|COMMIT) TRANSACTION;\r?$/gm,'');
   await connection.transaction(async () => {
     for (const batch of migration.split(/^GO[ \t]*\r?$/im).filter(batch => batch.trim())) {
-      await connection.query(batch);
+      // The runtime prepends session context. Execute DDL in its own SQL batch.
+      await connection.query('EXEC sys.sp_executesql @migrationBatch;', {migrationBatch:batch});
     }
   });
   await query('SELECT TOP (0) RejectionReason FROM paws.AfcRequest;');

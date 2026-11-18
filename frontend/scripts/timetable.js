@@ -88,12 +88,15 @@
     if (!perf) return;
     try { perf.fail({ kind: kind || 'unknown' }); } catch (error) { console.warn('[login performance]', error); }
   }
-  function setLoginProgress(message, active = true) {
-    for (const id of ['email-login-status', 'phone-login-status', 'phone-code-status']) {
+  function setLoginProgress(message, active = true, phase = 'identity') {
+    for (const id of ['gate-status', 'email-login-status', 'phone-login-status', 'phone-code-status']) {
       const status = $(id);
       if (!status) continue;
-      status.textContent = message || '';
+      const label = !active && id === 'gate-status' ? status.dataset.lockMessage : message;
+      if (status.textContent !== (label || '')) status.textContent = label || '';
       status.dataset.active = active ? 'true' : 'false';
+      if (active) status.dataset.phase = phase;
+      else delete status.dataset.phase;
     }
   }
   function settleInteractiveLogin(success) {
@@ -155,7 +158,10 @@
   function setAppLocked(locked, status) {
     document.body.classList.toggle('auth-locked', !!locked);
     const gateStatus = $('gate-status');
-    if (gateStatus && status) gateStatus.textContent = status;
+    if (gateStatus && status) {
+      gateStatus.dataset.lockMessage = status;
+      gateStatus.textContent = status;
+    }
   }
 
   // BETA-R4D-12B2A1 — bounded recovery affordance. Shows a single "Retry access"
@@ -2107,7 +2113,7 @@
         try {
           text.textContent = 'Checking SQL access profile...';
           setAppLocked(true, 'Checking your timetable access...');
-          setLoginProgress('Verifying PAWS access...', true);
+          setLoginProgress('Verifying PAWS access...', true, 'access');
           markLoginStage('T3');
           const profile = await getRoleProfile(user);
           markLoginStage('T4');
@@ -2118,12 +2124,13 @@
             const accessFailureKind=profile.mustChangePassword===true?'password-change-required':(window.__ucvmSessionGuard?.blocked?'session-guard':'access-routing');
             failLoginPerformance(accessFailureKind);
             settleInteractiveLogin(false);
+            setAppLocked(true, profile.mustChangePassword ? 'Password change required.' : 'Check your session notice to continue.');
             setLoginProgress('', false);
             return;
           }
           window.UCVMSessionGuard?.clearNotice?.(window.sessionStorage, window.document);
           profile.facultyId=sqlFacultyId;
-          setLoginProgress('Loading your timetable...', true);
+          setLoginProgress('Loading your timetable...', true, 'timetable');
           const name = window.PAWS_FACULTY_NAME.format(profile.name || user.displayName || (email ? email.split('@')[0] : phone) || 'UCVM User');
           sessions = [];
           invalidateAllSessions();
@@ -2173,7 +2180,7 @@
           if(shouldAutoRetryAccess(preliminaryOutcome,recoveryAttempt,sameUser)){
             text.textContent='Retrying SQL access profile...';
             setAppLocked(true,'Still connecting to PAWS...');
-            setLoginProgress('Retrying PAWS access...',true);
+            setLoginProgress('Retrying PAWS access...', true, 'access');
             await waitForAccessRetry();
             const retrySameUser=Boolean(auth?.currentUser && auth.currentUser.uid===user.uid);
             if(!retrySameUser)return;
@@ -2221,12 +2228,13 @@
           updateAuthUI();
           showSignedOutGate();
           setAppLocked(true, 'Sign in required to view the timetable.');
+          setLoginProgress('', false);
           return;
         }
 
         ensureRestoredLoginPerformance();
         markLoginStage('T2');
-        setLoginProgress('Verifying PAWS access...', true);
+        setLoginProgress('Verifying PAWS access...', true, 'access');
 
         const email = String(user.email || '').trim().toLowerCase();
         const phone = String(user.phoneNumber || '').trim();
@@ -2278,6 +2286,7 @@
       dot.style.background = 'var(--danger)';
       text.textContent = 'Firebase Auth unavailable';
       setAppLocked(true, 'Firebase Authentication is unavailable. Check your connection or setup.');
+      setLoginProgress('', false);
       console.error('[Firebase init]', err);
     }
   }
@@ -2319,7 +2328,7 @@
         <div class="login-cheatsheet">Use the email address registered by the ADFAD Owner. New faculty accounts must change their temporary password after signing in.</div>
         <div class="form-field"><label class="form-label">Email</label><input class="form-input" id="login-email" name="email" type="email" placeholder="name@ucalgary.ca" autocomplete="username" required></div>
         <div class="form-field"><label class="form-label">Password</label><input class="form-input" id="login-password" name="password" type="password" autocomplete="current-password" required></div>
-        <p id="email-login-status" class="form-hint" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
+        <p id="email-login-status" class="form-hint login-status" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
       </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="email-back">Back</button><button class="btn btn-primary" id="email-login-submit" type="submit">Sign in with Email</button></div></form>`);
     $('email-back').onclick = () => { if (!emailLoginInFlight) openLoginModal(); };
     $('email-login-form').onsubmit = async e => {
@@ -2371,7 +2380,7 @@
         <div class="login-cheatsheet"><strong>Firebase setup:</strong> Authentication > Sign-in method > enable <strong>Phone</strong>.<br>Canadian numbers can be entered as <code>4035551234</code> or <code>+14035551234</code>. For repeated testing, Firebase test phone numbers are recommended.</div>
         <div class="form-field"><label class="form-label">Phone number</label><input class="form-input" id="login-phone" type="tel" placeholder="+14035551234" autocomplete="tel" required></div>
         <div class="form-field"><label class="form-label">reCAPTCHA</label><div id="recaptcha-container" style="min-height:78px;padding-top:4px"></div></div>
-        <p id="phone-login-status" class="form-hint" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
+        <p id="phone-login-status" class="form-hint login-status" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
       </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="phone-back">Back</button><button class="btn btn-primary" id="phone-send-submit" type="submit">Send SMS Code</button></div></form>`);
     $('phone-back').onclick = () => { if (!phoneSendInFlight) openLoginModal(); };
     try {
@@ -2427,7 +2436,7 @@
       <div class="modal-header"><div class="modal-title">Enter SMS Code</div><div class="modal-subtitle">Verification code sent to ${escapeHtml(phone)}.</div></div>
       <form id="phone-code-form"><div class="modal-body">
         <div class="form-field"><label class="form-label">6-digit verification code</label><input class="form-input" id="phone-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" required></div>
-        <p id="phone-code-status" class="form-hint" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
+        <p id="phone-code-status" class="form-hint login-status" role="status" aria-live="polite" style="min-height:20px;margin-top:10px"></p>
       </div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="code-back">Use another number</button><button class="btn btn-primary" id="phone-verify-submit" type="submit">Verify & Sign In</button></div></form>`);
     $('code-back').onclick = () => { if (!phoneVerifyInFlight) openPhoneLoginModal(); };
     $('phone-code-form').onsubmit = async e => {
@@ -2717,10 +2726,16 @@
     const m = $('modal');
     m.innerHTML = `<div class="modal-backdrop"></div><div class="modal-box"><div class="modal-strip"></div><button class="modal-close" id="modal-x">x</button>${content}</div>`;
     m.classList.add('open');
+    $('auth-gate').inert = true;
     m.querySelector('.modal-backdrop').onclick = closeModal;
     $('modal-x').onclick = closeModal;
   }
-  function closeModal() { clearRecaptcha(); $('modal').classList.remove('open'); $('modal').innerHTML = ''; }
+  function closeModal() {
+    clearRecaptcha();
+    $('modal').classList.remove('open');
+    $('modal').innerHTML = '';
+    $('auth-gate').inert = false;
+  }
   function toast(message, error=false) {
     const t = $('toast'); t.textContent = message; t.classList.toggle('error', error); t.classList.add('show');
     clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.remove('show'), error ? 6500 : 2800);

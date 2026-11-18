@@ -1,6 +1,6 @@
 (function(root,factory){
  'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;
- if(!root?.document||!root.UCVM||!root.UCVM_PAWS_DATA)return;
+ if(!root?.document||!root.UCVM||!root.UCVM_PAWS_DATA||!root.firebase?.auth||!root.firebase?.firestore)return;
  const page=(root.location.pathname.split('/').pop()||'index.html').toLowerCase();if(page!=='index.html')return;
  const doc=root.document,banner=doc.querySelector('.test-banner'),label=doc.getElementById('ui-banner-label'),message=doc.getElementById('ui-banner-message');if(!banner||!label||!message)return;
  const {auth}=root.UCVM.init(),esc=root.UCVM.esc;let state={messages:[],loading:false,canPublish:false,error:null},opened=false;
@@ -23,16 +23,22 @@
  function createInformationCenter({api,onChange}){
   let revision=0,state={messages:[],version:null,canPublish:false,loading:false,error:null};
   const emit=()=>onChange({...state,messages:state.messages.slice()});
+  function loadedState(data){
+   if(!Array.isArray(data?.messages)||data.messages.some(message=>!message||typeof message!=='object')){
+    throw Error('Updates could not be verified. Refresh to retry.');
+   }
+   return {messages:data.messages,version:data.version,canPublish:data.canPublish===true,loading:false,error:null};
+  }
   function clear(){revision++;state={messages:[],version:null,canPublish:false,loading:false,error:null};emit();}
   async function load(){
    const current=++revision;state={messages:[],version:null,canPublish:false,loading:true,error:null};emit();
-   try{const data=await api.announcements();if(current!==revision)return;state={messages:data.messages,version:data.version,canPublish:data.canPublish===true,loading:false,error:null};}
+   try{const data=await api.announcements();if(current!==revision)return;state=loadedState(data);}
    catch(error){if(current!==revision)return;state={messages:[],version:null,canPublish:false,loading:false,error:error.message||'Updates could not be loaded.'};}emit();
   }
   async function publish({title,body}){
    if(state.loading||!state.canPublish||!state.version)throw Error('Reload and verify publication access before publishing.');
    const current=++revision,expectedVersion=state.version;state={...state,canPublish:false,loading:true,error:null};emit();
-   try{const data=await api.publishAnnouncement({expectedVersion,title,body});if(current!==revision)return;state={messages:data.messages,version:data.version,canPublish:data.canPublish===true,loading:false,error:null};emit();}
+   try{const data=await api.publishAnnouncement({expectedVersion,title,body});if(current!==revision)return;state=loadedState(data);emit();}
    catch(error){if(current===revision){state={...state,loading:false,canPublish:false,error:error.message||'Publication could not be confirmed. Reload before retrying.'};emit();}throw error;}
   }
   return Object.freeze({load,publish,clear});

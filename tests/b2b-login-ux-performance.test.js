@@ -100,6 +100,35 @@ test('24. diagnostics source has no persistent browser storage or telemetry back
 });
 
 // Email UX / single flight.
+test('the login gate and open form follow the same phase and return to their own messages when idle',()=>{
+  const gate={dataset:{},textContent:''};
+  const form={dataset:{},textContent:''};
+  const context=vm.createContext({
+    $:id=>({'gate-status':gate,'email-login-status':form})[id],
+    document:{body:{classList:{toggle(){}}}}
+  });
+  vm.runInContext(sourceFunction('timetable.js','setLoginProgress')+'\n'+sourceFunction('timetable.js','setAppLocked'),context);
+  context.setAppLocked(true,'Sign in required.');
+  for(const [phase,label] of [['identity','Signing in...'],['access','Verifying PAWS access...'],['timetable','Loading your timetable...']]){
+    context.setLoginProgress(label,true,phase);
+    for(const status of [gate,form]){
+      assert.equal(status.dataset.phase,phase);
+      assert.equal(status.textContent,label);
+    }
+  }
+  context.setAppLocked(true,'Retry access.');
+  context.setLoginProgress('An error occurred.',false);
+  assert.equal(gate.dataset.phase,undefined);
+  assert.equal(form.dataset.phase,undefined);
+  assert.equal(gate.textContent,'Retry access.');
+  assert.equal(form.textContent,'An error occurred.');
+  context.setLoginProgress('Trying again...',true);
+  assert.equal(gate.dataset.phase,'identity');
+  context.setAppLocked(false);
+  context.setLoginProgress('',false);
+  assert.equal(form.dataset.phase,undefined);
+});
+
 test('1. Email login has an explicit single-flight guard',()=>{
   assert.match(timetable(),/let emailLoginInFlight\s*=\s*false/);
 });
@@ -569,4 +598,15 @@ test('REVIEW-9 completed interactive attempt contains T7 and late duplicate cann
   const before=JSON.stringify(completed.durations);
   assert.equal(t.mark('T7'),7);
   assert.equal(JSON.stringify(t.snapshot().durations),before);
+});
+
+test('optional timetable panels defer to the login gate when Firebase is unavailable',()=>{
+  const document={querySelector:()=>({}),getElementById:()=>({})};
+  for(const file of ['information-center.js','availability-lookup.js']){
+    for(const firebase of [undefined,{}, {auth:()=>({})}, {firestore:()=>({})}]){
+      const window={document,location:{pathname:'/index.html'},UCVM_PAWS_DATA:{},firebase,
+        UCVM:{init(){assert.fail('An optional panel tried to initialize incomplete authentication.');}}};
+      assert.doesNotThrow(()=>vm.runInNewContext(read(file),{window}));
+    }
+  }
 });

@@ -17,3 +17,15 @@ test('failed load and ambiguous publish keep an explicit error and require reloa
  const broken=harness({announcements:async()=>{throw Error('Offline');}});await broken.controller.load();assert.equal(broken.states.at(-1).error,'Offline');assert.deepEqual(broken.states.at(-1).messages,[]);
  let writes=0;const owner=harness({announcements:async()=>({version:'1.000000001',messages:[],canPublish:true}),publishAnnouncement:async()=>{writes++;throw Error('Outcome unknown. Reload.');}});await owner.controller.load();await assert.rejects(owner.controller.publish({title:'New',body:'Message'}),/Outcome unknown/);assert.equal(owner.states.at(-1).canPublish,false);await assert.rejects(owner.controller.publish({title:'Retry',body:'Message'}),/publish/i);assert.equal(writes,1);
 });
+test('incomplete announcement responses show a recoverable error and disable publishing',async()=>{
+ const malformed={version:'1',canPublish:true};
+ const reader=harness({announcements:async()=>malformed});
+ await reader.controller.load();
+ assert.match(reader.states.at(-1).error,/refresh/i);
+ assert.deepEqual(reader.states.at(-1).messages,[]);
+ assert.equal(reader.states.at(-1).canPublish,false);
+ const writer=harness({announcements:async()=>({...malformed,messages:[]}),publishAnnouncement:async()=>malformed});
+ await writer.controller.load();
+ await assert.rejects(writer.controller.publish({title:'Update',body:'Details'}),/refresh/i);
+ assert.equal(writer.states.at(-1).canPublish,false);
+});

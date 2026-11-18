@@ -1,5 +1,5 @@
 (function(root){
- 'use strict';if(!root?.document||!root.UCVM||!root.UCVM_PAWS_DATA)return;
+ 'use strict';if(!root?.document||!root.UCVM||!root.UCVM_PAWS_DATA||!root.firebase?.auth||!root.firebase?.firestore)return;
  const doc=root.document;if((root.location.pathname.split('/').pop()||'index.html')!=='index.html')return;
  const {auth}=root.UCVM.init(),esc=root.UCVM.esc;let profile=null,generation=0,view=null;
  const authorized=()=>auth.currentUser&&profile?.active===true&&root.UCVM.admin(profile);

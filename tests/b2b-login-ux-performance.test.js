@@ -599,3 +599,14 @@ test('REVIEW-9 completed interactive attempt contains T7 and late duplicate cann
   assert.equal(t.mark('T7'),7);
   assert.equal(JSON.stringify(t.snapshot().durations),before);
 });
+
+test('optional timetable panels defer to the login gate when Firebase is unavailable',()=>{
+  const document={querySelector:()=>({}),getElementById:()=>({})};
+  for(const file of ['information-center.js','availability-lookup.js']){
+    for(const firebase of [undefined,{}, {auth:()=>({})}, {firestore:()=>({})}]){
+      const window={document,location:{pathname:'/index.html'},UCVM_PAWS_DATA:{},firebase,
+        UCVM:{init(){assert.fail('An optional panel tried to initialize incomplete authentication.');}}};
+      assert.doesNotThrow(()=>vm.runInNewContext(read(file),{window}));
+    }
+  }
+});

@@ -2,6 +2,8 @@
 
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
+const { readFileSync } = require('node:fs');
+const path = require('node:path');
 const sql = require('../server/node_modules/mssql');
 const { createSqlConnection } = require('../server/src/data/sql-connection');
 const { createSqlAfcWriteRepository } = require('../server/src/data/sql-afc-write-repository');
@@ -65,5 +67,21 @@ const input = { facultyId, startDate:'2098-06-01', endDate:'2098-06-30', reasonC
   assert.equal(current.effectiveFte,.75);
   assert.deepEqual(current.effectiveDoe,{teaching:25,service:25,research:25});
   assert.equal((await api.afcSpecialLeaveOnDate('test',facultyId,'2098-07-01')).body.evaluation.effectiveFte,1);
+  await connection.query('UPDATE paws.Faculty SET Email=@email, UpdatedAtUtc=DATEADD(second,1,UpdatedAtUtc) WHERE FacultyId=@facultyId',
+    {facultyId,email:'synthetic-updated@example.invalid'});
+  assert.equal((await api.afcSpecialLeaveOnDate('test',facultyId,'2098-06-15')).body.evaluation.effectiveFte,.75);
+  await connection.query('UPDATE paws.Faculty SET Fte=.9, UpdatedAtUtc=DATEADD(second,1,UpdatedAtUtc) WHERE FacultyId=@facultyId',{facultyId});
+  assert.equal((await api.afcSpecialLeaveOnDate('test',facultyId,'2098-06-15')).body.evaluation.effectiveFte,.9);
   console.log('AFC_SPECIAL_LEAVE_068_REAL_REPOSITORY_OK');
+
+  const migrationText = file => readFileSync(path.join(__dirname,'../database/azure-sql',file),'utf8')
+    .replace(/^:ON ERROR EXIT[ \t]*\r?$/im,'');
+  await connection.transaction(async () => {
+    for (const batch of migrationText('070_workflow_regressions.sql').split(/^GO[ \t]*\r?$/im).filter(batch => batch.trim())) {
+      await connection.query(batch);
+    }
+  });
+  await query('SELECT TOP (0) RejectionReason FROM paws.AfcRequest;');
+  await connection.query(migrationText('070_workflow_regressions_acceptance.sql'));
+  console.log('WORKFLOW_070_PUBLICATION_AND_AFC_READ_ACCEPTANCE_OK');
 })().catch(error=>{console.error(error.message);process.exitCode=1;}).finally(()=>connection.close());

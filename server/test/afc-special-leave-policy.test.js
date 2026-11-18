@@ -66,3 +66,13 @@ test('a date edit reviews only new dates while keeping the previously approved i
  ]);
  assert.deepEqual(policy.unreviewedDates('2026-11-07','2026-11-18','2026-11-05','2026-11-20'),[]);
 });
+
+test('legacy Special Leave evidence ignores profile-only updates and still detects contract changes', () => {
+  const recorded = {...source, revision:['profile-a', 'teaching-a', 'service-a', 'research-a']};
+  const leaves = [leaf({sourceFingerprintByYear:{'2026-27':JSON.stringify(recorded)}})];
+  const evaluate = input => policy.evaluate({date:'2026-11-10', source:input, leaves});
+  assert.equal(evaluate({...source, revision:['profile-b','teaching-a','service-a','research-a']}).effectiveFte, .75);
+  assert.equal(evaluate({...recorded, fte:.9}).effectiveFte, .9);
+  assert.equal(evaluate({...recorded, doe:{...source.doe, service:32}}).effectiveFte, 1);
+  assert.equal(evaluate({...source, revision:['profile-b','teaching-a','service-b','research-a']}).effectiveFte, 1);
+});

@@ -8,6 +8,9 @@ const YEAR = /^[1-9]\d{3}-(\d{2})$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ok = (body={}) => ({status:200,body});
 const fail = (status,code,message) => ({status,body:{error:{code,message}}});
+const invalidOptionalText = (value, maxLength) =>
+  value != null && (typeof value !== 'string' || value.length > maxLength);
+const optionalText = value => value?.trim() || null;
 const roleOf = user => normalizeBaseRole(user?.baseRole) || String(user?.baseRole || '').trim().toLowerCase();
 const binding=a=>JSON.stringify([a.uid,a.role,a.user.active,a.user.mustChangePassword,a.user.facultyId||null,a.user.version||null,a.user.teachingAccess?.scopeVersion||null]);
 
@@ -105,16 +108,16 @@ function createTeachingAssignmentApi({verifyToken,findUser,repository,writeGates
     async saveDraft(token,payload) {
       const a=await actor(token); if (a.response) return a.response;
       if (!enabled('taDraft')) return writeDisabled();
-      if (!onlyKeys(payload,new Set(['packageId','expectedWorkingRevision','sessions','revisionNote'])) || !UUID.test(String(payload.packageId || '')) || !Number.isInteger(payload.expectedWorkingRevision) || payload.expectedWorkingRevision<0 || !Array.isArray(payload.sessions) || payload.sessions.length>200 || (payload.revisionNote!==undefined && (typeof payload.revisionNote!=='string' || payload.revisionNote.length>1000))) return fail(400,'INVALID_DRAFT','The draft request contains invalid or unsupported fields.');
+      if (!onlyKeys(payload,new Set(['packageId','expectedWorkingRevision','sessions','revisionNote'])) || !UUID.test(String(payload.packageId || '')) || !Number.isInteger(payload.expectedWorkingRevision) || payload.expectedWorkingRevision<0 || !Array.isArray(payload.sessions) || payload.sessions.length>200 || invalidOptionalText(payload.revisionNote,1000)) return fail(400,'INVALID_DRAFT','The draft request contains invalid or unsupported fields.');
       if (!a.teachingRoles.includes('hicc')) return fail(403,'HICC_REQUIRED','Only the current HICC assignee can edit this package.');
-      return invokeAuthorized(token,a,'saveDraft',{packageId:payload.packageId,expectedWorkingRevision:payload.expectedWorkingRevision,sessions:payload.sessions,revisionNote:payload.revisionNote || null,actorFirebaseUid:a.uid});
+      return invokeAuthorized(token,a,'saveDraft',{packageId:payload.packageId,expectedWorkingRevision:payload.expectedWorkingRevision,sessions:payload.sessions,revisionNote:optionalText(payload.revisionNote),actorFirebaseUid:a.uid});
     },
     async addContribution(token,packageId,payload) {
       const a=await actor(token); if (a.response) return a.response;
       if (!enabled('taDraft')) return writeDisabled();
-      if (!UUID.test(String(packageId || '')) || !onlyKeys(payload,new Set(['revisionNumber','sessionId','candidateKey','suggestedDisplayName','note'])) || !Number.isInteger(payload.revisionNumber) || payload.revisionNumber<1 || !UUID.test(String(payload.sessionId || '')) || typeof payload.candidateKey!=='string' || !payload.candidateKey.trim() || payload.candidateKey.length>128 || typeof payload.suggestedDisplayName!=='string' || !payload.suggestedDisplayName.trim() || payload.suggestedDisplayName.length>260 || (payload.note!==undefined && (typeof payload.note!=='string' || payload.note.length>1000))) return fail(400,'INVALID_CONTRIBUTION','An opaque candidate and bounded display suggestion are required.');
+      if (!UUID.test(String(packageId || '')) || !onlyKeys(payload,new Set(['revisionNumber','sessionId','candidateKey','suggestedDisplayName','note'])) || !Number.isInteger(payload.revisionNumber) || payload.revisionNumber<1 || !UUID.test(String(payload.sessionId || '')) || typeof payload.candidateKey!=='string' || !payload.candidateKey.trim() || payload.candidateKey.length>128 || typeof payload.suggestedDisplayName!=='string' || !payload.suggestedDisplayName.trim() || payload.suggestedDisplayName.length>260 || invalidOptionalText(payload.note,1000)) return fail(400,'INVALID_CONTRIBUTION','An opaque candidate and bounded display suggestion are required.');
       if (!['adc','lab'].includes(a.role)&&!a.teachingRoles.includes('hicc')) return fail(403,'CONTRIBUTOR_REQUIRED','Only an approved contribution actor can add a suggestion.');
-      return invokeAuthorized(token,a,'addContribution',{packageId,revisionNumber:payload.revisionNumber,sessionId:payload.sessionId,candidateKey:payload.candidateKey.trim(),suggestedDisplayName:payload.suggestedDisplayName.trim(),suggestedByOffice:['adc','lab'].includes(a.role)?a.role:'hicc',note:payload.note || null,actorFirebaseUid:a.uid});
+      return invokeAuthorized(token,a,'addContribution',{packageId,revisionNumber:payload.revisionNumber,sessionId:payload.sessionId,candidateKey:payload.candidateKey.trim(),suggestedDisplayName:payload.suggestedDisplayName.trim(),suggestedByOffice:['adc','lab'].includes(a.role)?a.role:'hicc',note:optionalText(payload.note),actorFirebaseUid:a.uid});
     },
     async submit(token,packageId,payload) {
       const a=await actor(token); if (a.response) return a.response;
@@ -126,9 +129,9 @@ function createTeachingAssignmentApi({verifyToken,findUser,repository,writeGates
     async review(token,packageId,payload) {
       const a=await actor(token); if (a.response) return a.response;
       if (!enabled('taReview')) return writeDisabled();
-      if (!UUID.test(String(packageId || '')) || !onlyKeys(payload,new Set(['revisionNumber','decision','comment'])) || !Number.isInteger(payload.revisionNumber) || payload.revisionNumber<1 || !['approved','push_back'].includes(payload.decision) || (payload.comment!==undefined && (typeof payload.comment!=='string' || payload.comment.length>2000)) || (payload.decision==='push_back' && !String(payload.comment || '').trim())) return fail(400,'INVALID_REVIEW','A review decision and (for push-back) a reason are required.');
+      if (!UUID.test(String(packageId || '')) || !onlyKeys(payload,new Set(['revisionNumber','decision','comment'])) || !Number.isInteger(payload.revisionNumber) || payload.revisionNumber<1 || !['approved','push_back'].includes(payload.decision) || invalidOptionalText(payload.comment,2000) || (payload.decision==='push_back' && !String(payload.comment || '').trim())) return fail(400,'INVALID_REVIEW','A review decision and (for push-back) a reason are required.');
       if (!a.teachingRoles.includes('visc')) return fail(403,'VISC_REQUIRED','Only a current VISC group lead can review this package.');
-      return invokeAuthorized(token,a,'review',{packageId,revisionNumber:payload.revisionNumber,decision:payload.decision,comment:payload.comment || null,actorFirebaseUid:a.uid});
+      return invokeAuthorized(token,a,'review',{packageId,revisionNumber:payload.revisionNumber,decision:payload.decision,comment:optionalText(payload.comment),actorFirebaseUid:a.uid});
     },
     async finalSubmit(token,packageId,payload) {
       const a=await actor(token); if (a.response) return a.response;
@@ -140,16 +143,16 @@ function createTeachingAssignmentApi({verifyToken,findUser,repository,writeGates
     async saveFinalization(token,packageId,payload) {
       const a=await actor(token); if (a.response) return a.response;
       if (!enabled('taFinal')) return writeDisabled();
-      if (!UUID.test(String(packageId || '')) || !onlyKeys(payload,new Set(['expectedWorkingRevision','assignments','finalNote'])) || !Number.isInteger(payload.expectedWorkingRevision) || payload.expectedWorkingRevision<1 || !Array.isArray(payload.assignments) || payload.assignments.length>200 || (payload.finalNote!==undefined && (typeof payload.finalNote!=='string' || payload.finalNote.length>2000))) return fail(400,'INVALID_FINAL_ASSIGNMENT','The final assignment request is invalid.');
+      if (!UUID.test(String(packageId || '')) || !onlyKeys(payload,new Set(['expectedWorkingRevision','assignments','finalNote'])) || !Number.isInteger(payload.expectedWorkingRevision) || payload.expectedWorkingRevision<1 || !Array.isArray(payload.assignments) || payload.assignments.length>200 || invalidOptionalText(payload.finalNote,2000)) return fail(400,'INVALID_FINAL_ASSIGNMENT','The final assignment request is invalid.');
       if (!ADMIN.has(a.role)) return fail(403,'ADFAD_REQUIRED','An ADFAD administrator is required for final assignment.');
-      return invokeAuthorized(token,a,'saveFinalization',{packageId,expectedWorkingRevision:payload.expectedWorkingRevision,assignments:payload.assignments,finalNote:payload.finalNote || null,actorFirebaseUid:a.uid});
+      return invokeAuthorized(token,a,'saveFinalization',{packageId,expectedWorkingRevision:payload.expectedWorkingRevision,assignments:payload.assignments,finalNote:optionalText(payload.finalNote),actorFirebaseUid:a.uid});
     },
     async publish(token,payload) {
       const a=await actor(token); if (a.response) return a.response;
       if (!enabled('taPublish')) return writeDisabled();
-      if (!onlyKeys(payload,new Set(['academicYear','publicationNote'])) || !validYear(payload.academicYear) || (payload.publicationNote!==undefined && (typeof payload.publicationNote!=='string' || payload.publicationNote.length>2000))) return fail(400,'INVALID_PUBLICATION','A valid academic year is required.');
+      if (!onlyKeys(payload,new Set(['academicYear','publicationNote'])) || !validYear(payload.academicYear) || invalidOptionalText(payload.publicationNote,2000)) return fail(400,'INVALID_PUBLICATION','A valid academic year is required.');
       if (!ADMIN.has(a.role)) return fail(403,'ADFAD_REQUIRED','An ADFAD administrator is required to publish.');
-      return invokeAuthorized(token,a,'publish',{academicYear:payload.academicYear,publicationNote:payload.publicationNote || null,actorFirebaseUid:a.uid});
+      return invokeAuthorized(token,a,'publish',{academicYear:payload.academicYear,publicationNote:optionalText(payload.publicationNote),actorFirebaseUid:a.uid});
     }
   });
 }

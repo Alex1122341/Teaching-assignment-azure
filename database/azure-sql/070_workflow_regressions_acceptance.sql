@@ -17,12 +17,12 @@ VALUES(@Lead,N'faculty',N'Teacher, Alex',1,@Batch),(@CoLead,N'faculty',N'Teacher
 INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,Active,MustChangePassword)
 VALUES(@Actor,N'developer070@example.invalid',N'Developer, Case',N'developer',1,0);
 INSERT paws.TeachingResponsibility(ResponsibilityId,Kind,Label,Active)
-VALUES(N'workflow070-hicc',N'hicc',N'Synthetic HICC',1),(N'workflow070-visc',N'visc',N'Synthetic VISC',1);
+VALUES(N'workflow070hicc',N'hicc',N'Synthetic HICC',1),(N'workflow070visc',N'visc',N'Synthetic VISC',1);
 INSERT paws.TeachingAssignmentGroup(GroupId,Name,LeaderViscResponsibilityId,Active)
-VALUES(N'workflow070-area',N'Synthetic area',N'workflow070-visc',1);
-INSERT paws.TeachingAssignmentGroupHicc(GroupId,HiccResponsibilityId) VALUES(N'workflow070-area',N'workflow070-hicc');
+VALUES(N'workflow070area',N'Synthetic area',N'workflow070visc',1);
+INSERT paws.TeachingAssignmentGroupHicc(GroupId,HiccResponsibilityId) VALUES(N'workflow070area',N'workflow070hicc');
 INSERT paws.TeachingAssignmentPackage(TeachingAssignmentPackageId,PackageIdentity,AcademicYear,GroupId,HiccResponsibilityId,Status,WorkingRevision)
-VALUES(@Package,N'ta-package-v1__2088-89__workflow070-area__workflow070-hicc',@Year,N'workflow070-area',N'workflow070-hicc',N'adfad_finalized',1);
+VALUES(@Package,N'ta-package-v1__2088-89__workflow070area__workflow070hicc',@Year,N'workflow070area',N'workflow070hicc',N'adfad_finalized',1);
 INSERT paws.Session(SessionId,AcademicYear,CourseCode,Topic,SessionType,SessionDate,StartTime,EndTime,SourceImportBatchId)
 VALUES(@Session,@Year,N'070SYNTHETIC',N'Co-taught session',N'LEC','2088-10-01','09:00','10:00',@Batch);
 INSERT paws.TeachingAssignmentRevision(RevisionId,TeachingAssignmentPackageId,RevisionNumber,CreatedByFirebaseUid,CreatedByName,CreatedAtUtc)

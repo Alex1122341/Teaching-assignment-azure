@@ -1,6 +1,6 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.PAWS_TEACHING_CAPABILITIES=api;})(typeof window==='undefined'?null:window,function(){
  'use strict';
- function hasQueueAccess(profile,own){const role=String(profile?.role||profile?.baseRole||'').toLowerCase();return ['hicc','visc','owner','administrator','adfa_general','adfa_regular','admin'].includes(role)||['faculty','hicc','visc'].includes(role)&&own?.allowed===true&&/^[a-f0-9]{64}$/i.test(own.scopeVersion||'')&&own.effectiveRoles?.some(value=>value==='hicc'||value==='visc')===true;}
+ function hasQueueAccess(profile,own){const role=String(profile?.role||profile?.baseRole||'').toLowerCase();return ['developer','hicc','visc','owner','administrator','adfa_general','adfa_regular','admin'].includes(role)||['faculty','hicc','visc'].includes(role)&&own?.allowed===true&&/^[a-f0-9]{64}$/i.test(own.scopeVersion||'')&&own.effectiveRoles?.some(value=>value==='hicc'||value==='visc')===true;}
  function packageActions(pkg,gates){const caps=pkg?.capabilities||{},status=pkg?.status,canEdit=caps.canDraft===true&&['draft','changes_requested'].includes(status)&&gates.taDraft===true;return {isHicc:caps.canActAsHicc===true,canEdit,canSubmit:canEdit&&caps.canSubmit===true,canReview:caps.canReview===true&&status==='visc_review'&&gates.taReview===true,canFinalSubmit:caps.canFinalSubmit===true&&status==='visc_approved'&&gates.taDraft===true};}
  return {hasQueueAccess,packageActions};
 });
@@ -14,7 +14,7 @@
   const displayFaculty = value => window.PAWS_FACULTY_NAME.format(value);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const adminRoles = new Set(['owner','administrator','adfa_general','adfa_regular','admin']);
+  const adminRoles = new Set(['developer','owner','administrator','adfa_general','adfa_regular','admin']);
   const queueAccess=()=>window.PAWS_TEACHING_CAPABILITIES.hasQueueAccess(profile,ownAccess);
   let ownAccess=null;
   let profile = null, packages = [], selectedId = '', selectedPackage = null, capabilities = {}, facultyOptions = [], facultyEvidence = new Map();
@@ -26,6 +26,7 @@
   }
   function role() { return String(profile?.role || profile?.baseRole || '').trim().toLowerCase(); }
   function isAdmin() { return adminRoles.has(role()); }
+  function isContributionOffice() { return ['adc','lab'].includes(role()); }
   function setStatus(text, error = false) {
     const node = $('toast'); node.textContent = text; node.classList.toggle('error', error); node.classList.add('show');
     window.clearTimeout(setStatus.timer); setStatus.timer = window.setTimeout(() => node.classList.remove('show'), 4200);
@@ -87,6 +88,7 @@
     const canFinalize = isAdmin() && status === 'submitted_to_adfad' && capabilities.taFinal === true;
     const reviewList = (pkg.reviews || []).map(review => `<li><strong>${esc(review.decision === 'push_back' ? 'Changes requested' : review.decision)}</strong><span>${esc(displayFaculty(review.actorName || 'Reviewer'))} · ${dateText(review.createdAtUtc)} · revision ${esc(review.revisionNumber)}</span>${review.comment ? `<p>${esc(review.comment)}</p>` : ''}</li>`).join('') || '<li class="muted">No review decisions yet.</li>';
     const contributionList = (pkg.contributions || []).map(item => `<li><strong>Suggestion · ${esc(displayFaculty(item.suggestedDisplayName))}</strong><span>${esc(item.suggestedByOffice)} · ${dateText(item.createdAtUtc)} · revision ${esc(item.revisionNumber)}</span>${item.note ? `<p>${esc(item.note)}</p>` : ''}</li>`).join('') || '<li class="muted">No suggestions recorded.</li>';
+    const finalization = pkg.finalization?.[0];
     const finalRows = (pkg.finalization || []).filter(row => row.sessionId).map(row => ({ sessionId:row.sessionId, courseCode:'Final assignment', topic:'', sessionDate:'', assignments:[{facultyId:row.facultyId,facultyName:row.facultyName,teachingRole:row.teachingRole}] }));
     const sourceSessions = (working.sessions || []).map(session => ({...session}));
     const finalEditable = sourceSessions.map(session => ({...session, assignments:(finalRows.find(row => row.sessionId === session.sessionId)?.assignments || session.assignments || [])}));
@@ -96,7 +98,7 @@
       <section class="detail-section"><div class="section-heading"><div><h3>Working proposal</h3><p>Revision ${esc(working.revisionNumber)} · changes here are not published.</p></div></div>${renderSessionRows(working.sessions || [],{editable:canEdit,purpose:'draft'})}${canEdit ? `<label class="note-field">Revision note<input id="revision-note" maxlength="1000" placeholder="What changed in this revision?"></label><div class="action-row">${actionButton('save-draft','Save working revision')}${canSubmit ? actionButton('submit','Submit to VISC') : ''}</div>` : ''}</section>
       <section class="detail-section"><div class="section-heading"><div><h3>VISC review history</h3><p>Decisions stay attached to the revision reviewed.</p></div></div><ul class="history-list">${reviewList}</ul>${canReview ? `<label class="note-field">Review comment<textarea id="review-comment" rows="3" maxlength="2000" placeholder="Required when requesting changes"></textarea></label><div class="action-row">${actionButton('push-back','Request changes')}${actionButton('approve','Approve revision')}</div>` : ''}${canFinalSubmit ? `<div class="notice success">Revision ${esc(pkg.approvedRevision)} is approved. HICC must explicitly final-submit it to ADFAD.</div><div class="action-row">${actionButton('final-submit','Final submit to ADFAD')}</div>` : ''}</section>
       <section class="detail-section"><div class="section-heading"><div><h3>Contribution suggestions</h3><p>Suggestions are informational and never become assignments automatically.</p></div></div><ul class="history-list">${contributionList}</ul>${isHicc && capabilities.taDraft && working.sessions?.length ? `<form class="inline-contribution" data-hicc-contribution="${esc(pkg.packageId)}" data-revision="${esc(pkg.workingRevision)}"><label>Session<select name="sessionId" required>${working.sessions.map(session=>`<option value="${esc(session.sessionId)}">${esc(session.courseCode)} · ${esc(session.topic || session.courseName || 'Session')}</option>`).join('')}</select></label><div class="contribution-form-row"><label>Opaque candidate key<input name="candidateKey" maxlength="128" required></label><label>Suggested display name<input name="suggestedDisplayName" maxlength="260" required></label></div><label>Note<textarea name="note" rows="2" maxlength="1000"></textarea></label><button class="button" type="submit">Add suggestion</button></form>` : ''}</section>
-      <section class="detail-section"><div class="section-heading"><div><h3>ADFAD final assignment</h3><p>Authoritative assignment is separate from the HICC proposal and VISC decision.</p></div></div>${canFinalize ? `<p class="notice">Use exact canonical Faculty IDs. This action creates a new immutable finalization version.</p>${renderSessionRows(finalEditable,{editable:true,purpose:'final'})}<label class="note-field">Final note<textarea id="final-note" rows="3" maxlength="2000" placeholder="Decision context (optional)"></textarea></label><div class="action-row">${actionButton('save-final','Save final assignment')}</div>` : finalRows.length ? `<p class="version-label">Finalization version ${esc((pkg.finalization || [])[0]?.versionNumber || '')} · ${esc(displayFaculty((pkg.finalization || [])[0]?.actorName || ''))}</p>${renderSessionRows(finalRows,{purpose:'final'})}` : '<p class="muted">No ADFAD final assignment has been saved.</p>'}</section>
+      <section class="detail-section"><div class="section-heading"><div><h3>ADFAD final assignment</h3><p>Authoritative assignment is separate from the HICC proposal and VISC decision.</p></div></div>${canFinalize ? `<p class="notice">Use exact canonical Faculty IDs. This action creates a new immutable finalization version.</p>${renderSessionRows(finalEditable,{editable:true,purpose:'final'})}<label class="note-field">Final note<textarea id="final-note" rows="3" maxlength="2000" placeholder="Decision context (optional)"></textarea></label><div class="action-row">${actionButton('save-final','Save final assignment')}</div>` : finalization ? `<p class="version-label">Finalization version ${esc(finalization.versionNumber)} · ${esc(displayFaculty(finalization.actorName || ''))}</p>${finalization.finalNote ? `<p class="session-topic"><strong>Final note</strong> · ${esc(finalization.finalNote)}</p>` : ''}${finalRows.length ? renderSessionRows(finalRows,{purpose:'final'}) : '<p class="muted">No instructors were assigned.</p>'}` : '<p class="muted">No ADFAD final assignment has been saved.</p>'}</section>
       <section class="detail-section"><div class="section-heading"><div><h3>Published state</h3><p>A later working or final change does not alter an existing release.</p></div></div><p class="muted">${status === 'adfad_finalized' ? (capabilities.taPublish ? 'This package is finalized and can be included when the academic year is published.' : 'Finalized; publication is currently disabled.') : 'This package has not reached final assignment.'}</p></section>
       <section class="detail-section"><div class="section-heading"><div><h3>Activity history</h3><p>Server audit events for this package.</p></div></div><div id="package-activity" class="activity-list"><span class="muted">Loading audit history…</span></div></section>
       ${isAdmin() && facultyOptions.length ? `<details class="faculty-reference"><summary>Canonical Faculty picker reference</summary><p>Use a canonical Faculty ID. Pending-start Faculty may only be assigned to sessions on or after their official start date; the University SQL API enforces this.</p><ul>${facultyOptions.slice(0,200).map(f=>`<li><button type="button" class="link-button" data-copy-faculty="${esc(f.facultyId)}">${esc(displayFaculty(f.displayName || f.name || f.facultyId))} · ${esc(f.facultyId)}</button></li>`).join('')}</ul></details>` : ''}`;
@@ -159,7 +161,8 @@
   function apiError(error) { return error?.message || 'The University API could not complete this request. Refresh and try again.'; }
   async function selectView(view) {
     if (view === 'queue' && !queueAccess()) view = 'published';
-    if (view === 'contributions' && !['adc','lab'].includes(role())) view = 'published';
+    if (isContributionOffice()) view = 'contributions';
+    else if (view === 'contributions') view = 'published';
     if (['publish','releases'].includes(view) && !isAdmin()) view = 'published';
     activeView = view;
     document.querySelectorAll('.view-tab').forEach(button => button.classList.toggle('active',button.dataset.view === view));
@@ -223,8 +226,19 @@
     try {
       if (action === 'save-draft' || action === 'submit') {
         const sessions = parseEditors('draft'), invalid = validateAssignments(sessions); if (invalid) throw new Error(invalid);
-        if (action === 'save-draft') await UCVM_PAWS_DATA.saveTeachingAssignmentDraft(pkg.packageId,{expectedWorkingRevision:expected,sessions,revisionNote:$('revision-note')?.value || null});
-        else await UCVM_PAWS_DATA.submitTeachingAssignment(pkg.packageId,expected);
+        const revisionNote = $('revision-note')?.value.trim() || null;
+        if (action === 'save-draft') {
+          await UCVM_PAWS_DATA.saveTeachingAssignmentDraft(pkg.packageId,{expectedWorkingRevision:expected,sessions,revisionNote});
+        } else {
+          const savedSessions = currentWorking().sessions || [];
+          const changed = sessions.length !== savedSessions.length || sessions.some((session, index) => {
+            const saved = savedSessions[index];
+            return saved?.sessionId !== session.sessionId ||
+              assignmentsAsText(parseAssignments(assignmentsAsText(saved.assignments))) !== assignmentsAsText(session.assignments);
+          });
+          if (changed || revisionNote) throw new Error('Save the working revision before submitting these changes to VISC.');
+          await UCVM_PAWS_DATA.submitTeachingAssignment(pkg.packageId,expected);
+        }
       } else if (action === 'approve' || action === 'push-back') {
         const comment = $('review-comment')?.value || '';
         if (action === 'push-back' && !comment.trim()) throw new Error('Add a reason before requesting changes.');
@@ -291,15 +305,15 @@
       const nextOwnAccess=await UCVM_PAWS_DATA.effectiveAccess();
       if(generation!==authGeneration || auth.currentUser?.uid!==user.uid)return;
       ownAccess=nextOwnAccess;
-      if (!queueAccess() && role() !== 'faculty') { showGate('This account can’t access Teaching Assignments.'); return; }
+      if (!window.PAWS_FACULTY_ROUTE_ACCESS.canOpenTeachingAssignments(profile)) { showGate('This account can’t access Teaching Assignments.'); return; }
       $('identity-chip').textContent = `${displayFaculty(profile.displayName || profile.name || user.displayName || user.email || 'PAWS user')} · ${role()}`;
       document.querySelectorAll('.admin-only').forEach(button => button.classList.toggle('hidden',!isAdmin()));
-      document.querySelectorAll('.contributor-only').forEach(button => button.classList.toggle('hidden',!['adc','lab'].includes(role())));
+      document.querySelectorAll('.contributor-only').forEach(button => button.classList.toggle('hidden',!isContributionOffice()));
       document.querySelector('[data-view="queue"]').classList.toggle('hidden',!queueAccess());
-      $('contribution-tab').classList.toggle('hidden',!['adc','lab'].includes(role()));
+      document.querySelector('[data-view="published"]').classList.toggle('hidden',isContributionOffice());
       unlock(); $('academic-year').value = academicYearNow(); bind(); await Promise.all([loadCapabilities(),loadFacultyReference()]);
       if(generation!==authGeneration || auth.currentUser?.uid!==user.uid)return;
-      await selectView(queueAccess() ? 'queue' : ['adc','lab'].includes(role()) ? 'contributions' : 'published');
+      await selectView(queueAccess() ? 'queue' : 'published');
     } catch (error) { if(generation!==authGeneration)return; console.error(error); showGate(apiError(error)); }
   }
   try {

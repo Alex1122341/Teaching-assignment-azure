@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
 const sourceFunction=require('../test-support/source-function');
 const teachingCapabilities=require('../frontend/scripts/teaching-assignments');
+const routeAccess=require('../frontend/scripts/faculty-route-access');
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
 function harness(page,options={}){
  const events=[],requests=[],nodes=new Map(),node=id=>{if(!nodes.has(id))nodes.set(id,{value:'2026-27',classList:{add(){},remove(){},toggle(){}},textContent:'',innerHTML:''});return nodes.get(id);};
@@ -9,7 +10,7 @@ function harness(page,options={}){
  const auth={currentUser:null,setPersistence:()=>Promise.resolve(),onAuthStateChanged:f=>{handler=f;}};
  const firebase={apps:[{}],auth:()=>auth};firebase.auth.Auth={Persistence:{LOCAL:'local'}};
  const ctx={console:{error(){}},performance:{now:()=>0},firebase,FIREBASE_CONFIG:{},auth,authGeneration:0,currentUser:null,profile:null,
-  $,document:{body:{classList:{add(){},remove(){}}},querySelector:()=>node('query'),querySelectorAll:()=>[]},window:options.window||{},location:{replace:()=>events.push('redirect')},
+  $,document:{body:{classList:{add(){},remove(){}}},querySelector:()=>node('query'),querySelectorAll:()=>[]},window:{PAWS_FACULTY_ROUTE_ACCESS:routeAccess,...options.window},location:{replace:()=>events.push('redirect')},
   officeWorkspace:{sync:p=>events.push(p?.role||'LOCK')},traineesEntry:null,otherWorkTab:null,afcForms:null,facultyArchive:null,cccReplace:null,workView:null,workImport:null,
   UCVM_PAWS_DATA:{currentUser:()=>{const r=deferred();requests.push(r);return r.promise;},effectiveAccess:options.effectiveAccess||(async()=>({allowed:true,status:'ready',academicYear:'2026-27',role:ctx.profile?.role,scopeVersion:null,effectiveRoles:[ctx.profile?.role]}))},
   bindUI(){},cameFromTimetable:()=>false,lock:()=>events.push('LOCK'),unlock:()=>events.push(ctx.profile?.role||'LOCK'),
@@ -19,7 +20,7 @@ function harness(page,options={}){
   academicYearNow:()=> '2026-27',bind(){},loadCapabilities:async()=>{},loadFacultyReference:async()=>{},selectView:async()=>events.push('VIEW'),apiError:()=>'',
   packages:[],selectedId:'',selectedPackage:null,capabilities:{},facultyOptions:[],facultyEvidence:new Map(),aggregateCache:{},invalidateFacultyDetails(){},resetAuthData(){}};
  function $(id){return node(id);}
- if(page==='assignments')vm.runInNewContext(sourceFunction('teaching-assignments.js','showGate')+'\n'+sourceFunction('teaching-assignments.js','unlock')+'\n'+sourceFunction('teaching-assignments.js','start'),ctx);
+ if(page==='assignments')vm.runInNewContext(sourceFunction('teaching-assignments.js','isContributionOffice')+'\n'+sourceFunction('teaching-assignments.js','showGate')+'\n'+sourceFunction('teaching-assignments.js','unlock')+'\n'+sourceFunction('teaching-assignments.js','start'),ctx);
  else {vm.runInNewContext(sourceFunction('faculty-admin.js','init')+'\ninit();',ctx);ctx.start=handler;}
  return {ctx,events,requests,node,run(user){auth.currentUser=user;return ctx.start(user);}};
 }

@@ -13,9 +13,8 @@ window.UCVM=(()=>{
  // at this explicit capability boundary even though legacy UCVM.admin() still knows it.
  const DASHBOARD_ROLES=['developer','adfa_general','adfa_regular','faculty','hicc','visc'];
  function canOpenFacultyDashboard(p){const shared=typeof window!=='undefined'&&window.PAWS_FACULTY_ROUTE_ACCESS;return shared?shared.canOpenFacultyDashboard(p):DASHBOARD_ROLES.includes(role(p?.role));}
- // Match Teaching Assignments' existing admission, including its legacy aliases.
- // Navigation does not add developer/other-office/contributor access to that route.
- function canOpenTeachingAssignments(p){const shared=typeof window!=='undefined'&&window.PAWS_FACULTY_ROUTE_ACCESS;return shared?shared.canOpenTeachingAssignments(p):['owner','administrator','admin','adfa_general','adfa_regular','hicc','visc','faculty'].includes(rawRole(p?.role||p?.baseRole).trim());}
+ // Match the Teaching Assignments route and its office contribution access.
+ function canOpenTeachingAssignments(p){const shared=typeof window!=='undefined'&&window.PAWS_FACULTY_ROUTE_ACCESS;return shared?shared.canOpenTeachingAssignments(p):['developer','owner','administrator','admin','adfa_general','adfa_regular','hicc','visc','faculty','adc','lab'].includes(rawRole(p?.role||p?.baseRole).trim());}
  const historyAll=p=>['developer','adfa_general','adfa_regular'].includes(role(p?.role));
  const label=r=>({developer:'Developer',owner:'ADFAD Owner',adfa_general:'ADFAD Owner',administrator:'ADFAD Admin',adfa_regular:'ADFAD Admin',admin:'ADFAD Admin',other_office:'Other Office',hicc:'HICC',visc:'VISC',faculty:'Faculty',editor:'Faculty',viewer:'Faculty'}[rawRole(r)]||rawRole(r));
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

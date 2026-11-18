@@ -211,6 +211,7 @@ test('SQL AFC request repository exposes only scoped list and exact stored-proce
 
   assert.equal(calls.length, 3);
   assert.match(calls[0].sql, /FROM paws\.AfcRequest/);
+  assert.match(calls[0].sql, /ar\.RejectionReason AS rejectionReason/);
   assert.match(calls[0].sql, /RequesterFirebaseUid = @actorFirebaseUid/);
   assert.match(calls[0].sql, /ReportToFirebaseUid = @actorFirebaseUid/);
   assert.equal(calls[0].params.administrator, 0);
@@ -242,4 +243,23 @@ test('malformed Firebase verifier result fails closed before profile lookup', as
 test('non-null Reports-To Faculty with no active eligible account is not routed around to Admin', () => {
   assert.match(migration, /IF\s+@ReportsToFacultyId\s+IS\s+NOT\s+NULL[\s\S]*?@ReportToMatches\s*=\s*0[\s\S]*?THROW\s+51509/i);
   assert.match(migration, /ReportToFirebaseUid|ReportToAccount/i);
+});
+
+test('the AFC request list retains a saved rejection reason within the scoped response', async () => {
+  const api = createAfcRequestApi({
+    verifyToken: async () => ({uid:'uid-faculty'}),
+    findUser: async () => ({active:true, baseRole:'faculty', facultyId:'faculty-1'}),
+    repository: {
+      async listRequests(scope) {
+        assert.deepEqual(scope, {actorFirebaseUid:'uid-faculty', administrator:false});
+        return [
+          {afcRequestId:REQUEST_ID, status:'rejected', rejectionReason:'Overlap with scheduled teaching'},
+          {status:'approved', rejectionReason:'Superseded decision'}
+        ];
+      }
+    }
+  });
+  const {status, body} = await api.list('token');
+  assert.equal(status, 200);
+  assert.deepEqual(body.afcRequests.map(row => row.rejectionReason), ['Overlap with scheduled teaching', null]);
 });

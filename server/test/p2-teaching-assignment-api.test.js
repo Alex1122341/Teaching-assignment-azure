@@ -104,3 +104,32 @@ test('ADC/LAB contribution targets are role-gated and do not grant review-packag
   assert.equal((await createApi({role:'faculty'}).api.contributionTargets('uid',{academicYear:'2026-27'})).status,403);
   assert.equal((await createApi({role:'adc'}).api.contributionTargets('uid',{academicYear:'2026-28'})).status,400);
 });
+
+test('the browser can omit each optional note while push-back still requires a reason', async () => {
+  const browserCases = [
+    ['hicc', 'saveDraft', [{packageId, expectedWorkingRevision:0, sessions:[]}], 'revisionNote'],
+    ['adc', 'addContribution', [packageId, {revisionNumber:1, sessionId:packageId, candidateKey:'candidate', suggestedDisplayName:'Example'}], 'note'],
+    ['visc', 'review', [packageId, {revisionNumber:1, decision:'approved'}], 'comment'],
+    ['administrator', 'saveFinalization', [packageId, {expectedWorkingRevision:1, assignments:[]}], 'finalNote'],
+    ['administrator', 'publish', [{academicYear:'2026-27'}], 'publicationNote']
+  ];
+  for (const [role, action, args, field] of browserCases) {
+    const {api, calls} = createApi({role});
+    const payload = args.at(-1);
+    for (const value of [null, '', '   ']) {
+      assert.equal((await api[action]('uid', ...args.slice(0,-1), {...payload,[field]:value})).status, 200, action);
+      assert.equal(calls.at(-1)[1][field], null);
+    }
+    const callsBeforeInvalid = calls.length;
+    for (const value of [false, 'X'.repeat(2001)]) {
+      assert.equal((await api[action]('uid', ...args.slice(0,-1), {...payload,[field]:value})).status, 400, action);
+    }
+    assert.equal(calls.length, callsBeforeInvalid);
+  }
+
+  const {api, calls} = createApi({role:'visc'});
+  for (const comment of [undefined, null, '   ']) {
+    assert.equal((await api.review('uid', packageId, {revisionNumber:1, decision:'push_back', comment})).status, 400);
+  }
+  assert.equal(calls.length, 0);
+});

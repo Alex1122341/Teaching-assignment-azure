@@ -12,10 +12,10 @@ function office(page='faculty',width=1024,{reuseAssignment=false}={}){
  return {...h,api,officeNodes:nodes,originalAssignment,nav:h.created.find(n=>n.className==='paws-navigation'),menu:h.created.find(n=>n.className==='paws-navigation-toggle')};
 }
 
-test('shared Assignments navigation admission exactly matches existing route roles',()=>{
+test('shared Assignments navigation admission admits contribution offices and Developer',()=>{
  const a=access();
- for(const role of ['owner','administrator','admin','adfa_general','adfa_regular','hicc','visc','faculty'])assert.equal(a.canOpenTeachingAssignments({role}),true,role);
- for(const role of ['developer','other_office','editor','viewer','adc','lab','unknown',''])assert.equal(a.canOpenTeachingAssignments({role}),false,role);
+ for(const role of ['owner','administrator','admin','adfa_general','adfa_regular','hicc','visc','faculty','developer','adc','lab'])assert.equal(a.canOpenTeachingAssignments({role}),true,role);
+ for(const role of ['other_office','editor','viewer','unknown',''])assert.equal(a.canOpenTeachingAssignments({role}),false,role);
  assert.equal(a.canOpenTeachingAssignments(null),false);assert.equal(a.canOpenTeachingAssignments({baseRole:'faculty'}),true);
 });
 
@@ -29,7 +29,7 @@ test('shared access import installs no Calendar observer on office routes and re
 
 test('pure route capability projection exactly matches shared compatibility helpers and performs no I/O',()=>{
  const pure=require('../frontend/scripts/faculty-route-access'),legacy=access();
- for(const role of ['owner','administrator','admin','adfa_general','adfa_regular','faculty','hicc','visc','developer','editor','viewer','other_office','unknown','']){
+ for(const role of ['owner','administrator','admin','adfa_general','adfa_regular','faculty','hicc','visc','developer','adc','lab','editor','viewer','other_office','unknown','']){
   for(const name of ['canOpenFacultyDashboard','canOpenTeachingAssignments'])assert.equal(pure[name]({role}),legacy[name]({role}),name+' '+role);
  }
  assert.doesNotMatch(fs.readFileSync(path.join(root,'frontend/scripts/faculty-route-access.js'),'utf8'),/fetch\(|firestore|document|localStorage|sessionStorage|firebase/);
@@ -48,7 +48,7 @@ test('office shell moves original actions once, labels current route and never w
 test('office lock and profile switch clear global visibility and restore drawer background',()=>{
  const h=office();h.api.sync({active:true,role:'adfa_general'});h.menu.onclick();assert.equal(h.main.inert,true);
  h.api.sync(null);assert.equal(h.nav.hidden,true);assert.equal(h.menu.disabled,true);assert.equal(h.main.inert,false);
- h.api.sync({active:true,role:'developer'});const assignments=h.created.find(n=>n.href==='teaching-assignments.html');assert.equal(assignments.hidden,true);
+ h.api.sync({active:true,role:'other_office'});const assignments=h.created.find(n=>n.href==='teaching-assignments.html');assert.equal(assignments.hidden,true);
  h.api.sync({active:true,role:'faculty'});assert.equal(assignments.hidden,false);
  h.api.sync({active:false,role:'adfa_general'});assert.equal(h.nav.hidden,true);
  h.api.sync({active:true,role:'faculty',mustChangePassword:true});assert.equal(h.nav.hidden,true);

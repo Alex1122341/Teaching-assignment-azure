@@ -48,16 +48,34 @@
     if(active.some(l=>!specialAvailable(l)))return'unavailable';
     return 'available';
   }
+  function sourceFingerprint(source) {
+    // Legacy fingerprints included the whole faculty row timestamp before the three contract revisions.
+    const revision = source?.revision?.slice(-CATEGORIES.length);
+    return JSON.stringify({
+      fte: num(source?.fte),
+      doe: Object.fromEntries(CATEGORIES.map(key => [key, num(source?.doe?.[key])])),
+      revision
+    });
+  }
+  function sourceHasChanged(savedFingerprint, currentFingerprint) {
+    if (savedFingerprint === undefined) return false;
+    try {
+      return sourceFingerprint(JSON.parse(savedFingerprint)) !== currentFingerprint;
+    } catch {
+      return true;
+    }
+  }
   function evaluate({date,source,leaves=[]}={}){
     const year=academicYearForDate(date),originalFte=num(source?.fte),baseDoe=Object.fromEntries(CATEGORIES.map(k=>[k,num(source?.doe?.[k])]));
     const effectiveDoe={...baseDoe},applied=[],pending=[],flags=[];
     let effectiveFte=originalFte;
+    const currentFingerprint = sourceFingerprint(source);
     const ordered=leaves.filter(l=>during(date,l)&&specialAvailable(l)&&l.approved===true).sort(approvalOrder);
     for(const leave of ordered){
       const allocation=leave.allocationsByYear?.[year],deduction=num(leave.fteDeduction);
       const result=validateAllocation(deduction,allocation,source);
       const missing=result.errors.some(x=>x.includes('SOURCE_MISSING')||x==='DOE_ALLOCATION_REQUIRED');
-      const sourceChanged=leave.sourceFingerprintByYear?.[year]!==undefined&&leave.sourceFingerprintByYear?.[year]!==JSON.stringify(source);
+      const sourceChanged = sourceHasChanged(leave.sourceFingerprintByYear?.[year], currentFingerprint);
       const heldOnDate=Array.isArray(leave.suspendedIntervals)&&leave.suspendedIntervals.some(span=>span.startDate<=date&&span.endDate>=date);
       const requestedHold=leave.confirmedYears?.[year]===false||leave.suspendedYears?.[year]===true||sourceChanged||heldOnDate;
       const exceedingAggregate=originalFte!==null&&deduction!==null&&effectiveFte!==null&&deduction>effectiveFte+0.000001||CATEGORIES.some(k=>num(allocation?.[k])!==null&&effectiveDoe[k]!==null&&allocation[k]>effectiveDoe[k]+0.000001);
@@ -140,4 +158,4 @@
       ...(endDate > reviewedEnd ? [{ startDate:dayOffset(reviewedEnd,1), endDate }] : [])
     ];
   }
-module.exports = Object.freeze({ CATEGORIES, academicYearForDate, yearsForRange, validateAllocation, availabilityAt, evaluate, parseDeduction, heldIntervals, mergeIntervals, unreviewedDates, approvalOrder, validDate, invalidDeduction });
+module.exports = Object.freeze({ CATEGORIES, academicYearForDate, yearsForRange, validateAllocation, availabilityAt, evaluate, parseDeduction, heldIntervals, mergeIntervals, unreviewedDates, approvalOrder, validDate, invalidDeduction, sourceFingerprint });

@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "ca354c658b3f23cee29828f3b1035148c2ec7498",
+  "sourceCommit": "f73642f75d415dbdbe2b4a8af762703c9ac672ba",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "faculty-reports.js": "ad4f070c3aa319ec20dd9139cec4d6fcfcf23f4350b73a84d0c8b8648aa238c9",
@@ -26,7 +26,7 @@
     "derived-index-health.js": "2b73be0fbda68e91c06971bc848f7ca0a3d9407363e295cc6cf3d41c8846b3f6",
     "index-maintenance.js": "5c642608b123abf95d6a7a912c92fdf0fc56c45b980d724458f5b2c448789109",
     "faculty-access.css": "1646f1fcb60614b00b4c1b89eb820aee67ae1be8c8260b80dc73f7fb58bef2df",
-    "faculty-access.js": "78d5f379170b93c48fd80f173971fee182bd49ae6a35282e2b26edc4a1483d19",
+    "faculty-access.js": "e4d4bff4d26b914a854338009171f9f1a18b4256991e5a25b5b4bee27045cb95",
     "faculty-account-planner.js": "0cc4130e1ddeaec7419698ea65ca0d9800839a93156031f994cb73fb38ff1bf1",
     "faculty-doe.js": "9eed9943a21bf57bedbaf1020230e1e69ec25ca05117f8d0201c50f68afcf4c1",
     "faculty-admin-enhancements.js": "dd3786a53c3c21a3aff23e03d01d66541a7bdb063773ea356da41a8015638f76",
@@ -46,7 +46,7 @@
     "faculty-admin-doe-rulebook.css": "075002b903a9ffa0afc19a4d0571e0f0c6570d23d7fada797ef689f794cb1916",
     "teaching-assignments.css": "54b0774aa7dd55add0b8c6876c148eb94b20a747a7e50506ebc2587d56d51f66",
     "teaching-assignments.html": "4de5fdb8fd40a813499c490e0a5b717654be0323ff95eb41dadfebc5fb39b07b",
-    "teaching-assignments.js": "26fc5c79974899efe82f36057e05d4554168ee3acd08ba0deb2ddb3c19ac5777",
+    "teaching-assignments.js": "fd9e011d7dff4471450dd494a17336c7de2aad39948d463b209cda34c8e866e2",
     "dashboard-view-model.js": "c9204b4db494f916553b268d6abf831ec5fb8f9dc1fabcbfe7133460182dccbc",
     "faculty-swap-handoff.js": "1b68dcf3e287c97097640051a26634b95d321c89e392600a9e97bc45c97d3ce7",
     "faculty-swap-safe.js": "558c3150444f2a9ad66ac54437618297f6e45632d0375d502816e3eda331649c",
@@ -65,7 +65,7 @@
     "scheduling-core.js": "d8e1321c42aa63c617668d86787d562fc1ba347ba8f5001c9671faf6b3e8ae3a",
     "timetable.css": "5f1a56001721a5c3c74892e6e54fff6c4462159c08fda8069915a50687005495",
     "timetable-selection.js": "a2f2ace6ddfcb9e5d1777c91bd01752f1365c703dc86a745c84becd3992d7afa",
-    "timetable.js": "84c1a5d518cd7925dd71fac84eab9d7866af78e55d4876893cee7e70375ece38",
+    "timetable.js": "09e2c7fc3369e1b8ec2297e845a98fa260aaf7bef895592d34ef872f983e3212",
     "user-management.html": "520a60ad2b33fafbc85f16cd1de9bd3adffda96f1030674ae76bed2712826292",
     "user-management.css": "200ab53fe4350f6a86fb9951e794551b3208ce55aa2dee436ef9dd5a4b24fde4",
     "user-management.js": "655c33198882341390f815a26671eaec163b85068153c62676d6d06d32b66d3f",
@@ -97,6 +97,6 @@
     "schedule-filter-view.js": "6de99015160ba58243bca6c076550fa4c3357f46581709f03464c95229d43415",
     "workspace-navigation.js": "f43ecdd705cadbb5dd6d83d2030fee9342e63f3d56f098556da95146381eb3b0",
     "office-workspace.js": "c42ebc68d3420d62b5205f1cf7f1d2f69f4d4a5816112ab75f8e80dca88ace7f",
-    "faculty-route-access.js": "ea75bbba28be1c4dbe2d05d014e5085102970dd0916f2bfc6e3533b3bec40928"
+    "faculty-route-access.js": "3e0e361cd02f29f40b4e8452119a40c82a3f644d6c54707502cc270f7c184197"
   }
 }

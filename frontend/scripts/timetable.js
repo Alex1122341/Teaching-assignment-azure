@@ -1053,7 +1053,7 @@
       if (UCVM.canOpenFacultyDashboard(currentUser)) window.location.href = 'faculty-admin.html';
     });
     $('teaching-assignments-btn').addEventListener('click', () => {
-      if (currentUser && ['faculty','hicc','visc','developer','owner','administrator','adfa_general','adfa_regular','admin'].includes(String(currentUser.role || '').trim().toLowerCase())) window.location.href = 'teaching-assignments.html';
+      if (window.UCVM.canOpenTeachingAssignments(currentUser)) window.location.href = 'teaching-assignments.html';
     });
     $('my-timetable-btn').addEventListener('click', () => { myTimetableOnly = !myTimetableOnly; $('my-timetable-btn').textContent = myTimetableOnly ? 'Show All Timetable' : 'My Timetable'; render(); });
     // HICC–CC / VISC directory for the academic year the Teaching Schedule is showing.
@@ -2538,7 +2538,7 @@
     $('swap-inbox-btn').onclick=()=>window.PAWS_SWAP?.openQueue();
     window.PAWS_SWAP?.syncUser();
     window.PAWS_TASKS?.refresh();
-    $('teaching-assignments-btn').classList.toggle('hidden', !currentUser || !['faculty','hicc','visc','developer','owner','administrator','adfa_general','adfa_regular','admin'].includes(String(currentUser.role || '').trim().toLowerCase()));
+    $('teaching-assignments-btn').classList.toggle('hidden', !window.UCVM.canOpenTeachingAssignments(currentUser));
     $('cal-admin-menu').classList.toggle('hidden',!showAdminTools);
     for(const id of ['my-teaching-btn','afc-request-btn','my-change-history-btn','cal-changes-btn'])$(id).classList.toggle('hidden',!currentUser);
     $('publish-firestore-schedule').classList.add('hidden');

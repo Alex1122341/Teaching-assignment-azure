@@ -26,7 +26,6 @@ function leaveDto(row) {
 function createSqlAfcSpecialLeaveRepository(db, writeAfc) {
   async function sources(facultyId, academicYear) {
     const [row] = await db.query(`SELECT f.Fte AS fte,t.ContractTeachingDoe teaching,a.service,a.research,
-         CONVERT(varchar(33),f.UpdatedAtUtc,126) facultyVersion,
          CONVERT(varchar(33),t.UpdatedAtUtc,126) teachingVersion,a.serviceVersion,a.researchVersion
        FROM paws.Faculty f
        LEFT JOIN paws.DoeFacultyTarget t ON t.FacultyId=f.FacultyId AND t.AcademicYear=@academicYear AND t.Active=1
@@ -41,7 +40,7 @@ function createSqlAfcSpecialLeaveRepository(db, writeAfc) {
        WHERE f.FacultyId=@facultyId`, { facultyId, academicYear });
     if (!row) throw Object.assign(Error('Faculty record was not found.'), { number: 51210 });
     return { fte: numeric(row.fte), doe: Object.fromEntries(policy.CATEGORIES.map(key => [key, numeric(row[key])])),
-      revision: [row.facultyVersion, row.teachingVersion, row.serviceVersion, row.researchVersion] };
+      revision: [row.teachingVersion, row.serviceVersion, row.researchVersion] };
   }
 
   async function overlapping(facultyId, startDate, endDate) {
@@ -79,7 +78,7 @@ function createSqlAfcSpecialLeaveRepository(db, writeAfc) {
       if (check.errors.some(code => !code.includes('SOURCE_MISSING')))
         throw policy.invalidDeduction('Deduction exceeds a recorded FTE or DOE allocation for ' + year + '.');
       confirmedYears[year] = check.valid;
-      sourceFingerprintByYear[year] = JSON.stringify(source);
+      sourceFingerprintByYear[year] = policy.sourceFingerprint(source);
     }
     const deduction = { ...details, confirmedYears, sourceFingerprintByYear };
     const previous = (await overlapping(record.facultyId, record.startDate, record.endDate)).filter(row => row.id !== record.id);

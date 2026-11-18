@@ -8,7 +8,7 @@
 
   return Object.freeze({
     // TEMPORARY BETA INGRESS. Replace this single origin when institutional ingress is approved.
-    apiOrigin: 'https://gibson-strand-telecharger-governor.trycloudflare.com',
+    apiOrigin: 'https://barrel-jean-arabia-sought.trycloudflare.com',
     releaseLabel: 'TEMPORARY BETA INGRESS'
   });
 });

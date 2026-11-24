@@ -19,7 +19,7 @@ const {execFileSync}=require('node:child_process');
 // AUTH-1, P3, P2, P1, W1M and earlier anchors remain immutable historical
 // evidence in governance tests.
 // The three trainee breakdown rows are display-only; the API calculation is unchanged.
-const BASELINE_COMMIT='f136ebcf3cb8e963e8c2359135e0d5bbefd1bced';
+const BASELINE_COMMIT='c50fc52ddee859b6f6c68338977b8cd09189de33';
 const MANIFEST_PATH='tools/static-assets.json';
 const { assetSourcePath, sourcePathAtCommit } = require('./build/frontend-paths');
 

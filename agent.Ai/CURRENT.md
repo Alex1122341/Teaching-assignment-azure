@@ -1,8 +1,10 @@
 # PAWS Beta — Verified Source Checkpoint
 
-## 2026-11-24 AFC multi-input release candidate
+## 2026-11-24 AFC multi-input
 
-[PR #168 handoff](updates/2026-11-24-afc-multi-input.md) covers direct entry and linking PDFs to saved records. Verify the main build and live release receipts before treating this candidate as deployed.
+[PR #168 handoff](updates/2026-11-24-afc-multi-input.md) covers direct entry and linking PDFs to saved records. The initial release merged as `20a5e893a6d446def353991d251c91307ab9a8a5` and published Firebase Hosting version `3409e8bb928b17c5` after SQL migration 071 and API cutover were verified.
+
+The follow-up adds the optional PDF picker to each Multi Input row and focuses the upload section after the save is confirmed. Keep the existing University API and SQL deployment for this static change. Check exact-main CI and the current Hosting release before reporting it live.
 
 ## 2026-11-18 Beta release checkpoint
 

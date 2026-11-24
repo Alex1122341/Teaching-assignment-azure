@@ -78,16 +78,10 @@ function exportTable(schedule, filter, sort) {
   const dateWindow = schedule.window.endDate ? schedule.window.startDate + ' to ' + schedule.window.endDate : 'From ' + schedule.window.startDate;
   const hours = schedule.window.startTime ? `${schedule.window.startTime}–${schedule.window.endTime}` : 'All Day';
   const headers = ['Faculty', 'Status', 'Conflict', 'Time', 'Overlapping records', 'Undated sessions', 'Undated appointments',
-    'Date window', 'Daily Calgary hours', 'Scope'];
-  const names = new Map();
-  for (const person of schedule.faculty) {
-    const key = person.name.toLowerCase();
-    names.set(key, (names.get(key) ?? 0) + 1);
-  }
+    'Date window', 'Daily Calgary hours', 'Scope', 'Faculty reference'];
   const values = filterSummaries(schedule, filter, sort).map(row => [
-    names.get(row.name.toLowerCase()) > 1 ? row.name + ' · Ref ' + row.reference : row.name,
-    statusLabels[row.status], row.conflict ?? '—', row.time, row.conflictCount, row.undatedSessions, row.undatedRoles,
-    dateWindow, hours, 'PAWS only. External calendar meetings are excluded.'
+    row.name, statusLabels[row.status], row.conflict ?? '—', row.time, row.conflictCount, row.undatedSessions, row.undatedRoles,
+    dateWindow, hours, 'PAWS only. External calendar meetings are excluded.', row.reference
   ].map(value => typeof value === 'number' ? value : safeText(value)));
   return { label: 'Availability Summary', headers, values,
     columns: headers.map((_, i) => ({ type: i >= 4 && i <= 6 ? 'number' : 'text' })) };
@@ -169,6 +163,7 @@ function createAvailabilityCoordination({ authorize, repository, clock = Date.no
           mode: mode === 'day' ? 'range' : mode, startDate, endDate: mode === 'day' ? startDate : endDate });
         if (!validDate(loaded.today) || clockSeconds(loaded.localTime) === null || typeof loaded.complete !== 'boolean' || !Array.isArray(loaded.clockChanges) ||
             !Array.isArray(loaded.unlinkedTeaching) || loaded.unlinkedTeaching.length > 500 ||
+            (!auth.admin && loaded.unlinkedTeaching.some(row => row.startTime !== null || row.endTime !== null)) ||
             !Array.isArray(loaded.events) || loaded.events.length > MAX_EVENTS) throw Error('Invalid availability source');
         const ids = selection === 'selected' ? new Set(facultyIds) : null;
         const faculty = projectFaculty(loaded.faculty, auth, { includeInactive, ids, coverage: true });

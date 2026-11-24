@@ -51,6 +51,9 @@ async function run() {
     const clockChange = await repository.bulk({ ...request, startDate: '2026-03-08', endDate: '2026-03-08',
       selection: 'selected', facultyIds: [facultyId] });
     assert.deepEqual(clockChange.clockChanges, [{ date: '2026-03-08', start: 7200, end: 10800 }]);
+    const fallClock = await repository.bulk({ ...request, startDate: '2026-11-01', endDate: '2026-11-01',
+      selection: 'selected', facultyIds: [facultyId] });
+    assert.deepEqual(fallClock.clockChanges, [{ date: '2026-11-01', start: 3600, end: 7200 }]);
     const openClock = await repository.bulk({ ...request, mode: 'from', startDate: '2026-03-08', endDate: null,
       selection: 'selected', facultyIds: [facultyId] });
     assert.ok(openClock.clockChanges.some(row => row.date === '2026-03-08' && row.start === 7200 && row.end === 10800));
@@ -68,6 +71,9 @@ async function run() {
     assert.ok(loaded.complete);
     assert.doesNotMatch(JSON.stringify(loaded), /PRIVATE|email|ucid|medical|ReasonCode|DeductionJson/i);
     assert.deepEqual(loaded.unlinkedTeaching, [{ date: '2027-01-04', startTime: '12:00:00', endTime: '13:00:00' }]);
+    const self = await repository.bulk({ ...request, actorFirebaseUid: 'availability-self',
+      selection: 'selected', facultyIds: [facultyId] });
+    assert.deepEqual(self.unlinkedTeaching, [{ date: '2027-01-04', startTime: null, endTime: null }]);
     assert.equal(new Set(loaded.events.map(row => row.facultyId + ':' + row.eventKey)).size, loaded.events.length);
 
     let sqlReads = 0;
@@ -121,6 +127,8 @@ async function run() {
     await book.xlsx.load(Buffer.from(exported.body.fileBase64, 'base64'));
     assert.equal(book.worksheets[0].rowCount, body.faculty.length + 1);
     assert.equal(book.worksheets[0].getCell('A1').value, 'Faculty');
+    assert.equal(book.worksheets[0].getCell('K1').value, 'Faculty reference');
+    assert.match(book.worksheets[0].getCell('K2').value, /^[A-F0-9]{10}$/);
     console.log(JSON.stringify({ acceptance: 'AVAILABILITY_BULK_SQL_OK', scaleFaculty: 150, dates: 31,
       scopeFaculty: body.faculty.length, sourceEvents: loaded.events.length, filteredEvents: events.length,
       sqlReadSamplesMs: sqlTimings, firstPageWithModelMs: queryMs, remainingPagesMs: pagesMs,

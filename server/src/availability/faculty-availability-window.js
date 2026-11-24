@@ -160,17 +160,19 @@ function buildSchedule({ faculty, rows, window, today, localTime, complete, cloc
   const dates = endDate ? Array.from({ length: daysBetween(startDate, endDate) + 1 }, (_, index) => offsetDate(startDate, index)) : [];
   const interval = { startDate, endDate, start: clockSeconds(window.startTime) ?? 0, end: clockSeconds(window.endTime) ?? DAY,
     today: window.mode === 'upcoming' ? today : null, now: clockSeconds(localTime) ?? 0 };
-  const unresolved = unresolvedCoverage(unlinkedTeaching, interval);
   const transitions = new Map();
   for (const { date, start, end } of clockChanges) {
     if (!validDate(date) || date < startDate || (endDate && date > endDate) || !Number.isInteger(start) ||
         !Number.isInteger(end) || start < 0 || end > DAY || start >= end || transitions.has(date)) {
       throw Error('Invalid Calgary clock-change coverage');
     }
-    if (overlaps(start, end, interval.start, interval.end)) {
-      transitions.set(date, { start: Math.max(start, interval.start), end: Math.min(end, interval.end) });
-    }
+    // During the repeated hour the earlier wall times may still lie ahead.
+    if (date === interval.today && interval.now >= start && interval.now < end) interval.now = start;
+    const lower = Math.max(start, interval.start, date === interval.today ? interval.now : 0);
+    const upper = Math.min(end, interval.end);
+    if (lower < upper) transitions.set(date, { start: lower, end: upper });
   }
+  const unresolved = unresolvedCoverage(unlinkedTeaching, interval);
   const facultyEvents = new Map(faculty.map(person => [person.facultyId, []]));
   const events = [], seen = new Map();
   for (const row of rows) {
@@ -206,7 +208,7 @@ function buildSchedule({ faculty, rows, window, today, localTime, complete, cloc
     byFaculty.set(person.facultyId, { incomplete, byDay });
     const days = dates.map(date => statusOf(byDay.get(date).map(segment => segment.status),
       incomplete || transitions.has(date) || unresolved.byDay.has(date)));
-    const status = statusOf([...conflicts.map(item => item.availability), ...days], incomplete || unresolved.byDay.size > 0);
+    const status = statusOf([...conflicts.map(item => item.availability), ...days], incomplete || unresolved.byDay.size > 0 || transitions.size > 0);
     const first = conflicts.find(event => event.availability === status);
     const segment = first?.segments.find(part => part.status === status);
     const time = !segment || segment.timing === 'unconfirmed' ? '—' : segment.timing === 'all_day' ? 'All Day' :

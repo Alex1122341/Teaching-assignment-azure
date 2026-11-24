@@ -160,8 +160,6 @@ BEGIN
     s.CourseCode COLLATE DATABASE_DEFAULT AS CourseCode,s.SessionId,CONVERT(uniqueidentifier,NULL) AS ActivityId
   FROM assigned a JOIN paws.vCalendarSession s ON s.SessionId=a.SessionId
   WHERE s.SessionDate BETWEEN @Floor AND @Ceiling
-   AND (@Mode<>N'upcoming' OR s.SessionDate>@Today OR s.StartTime IS NULL OR s.EndTime IS NULL
-        OR s.StartTime>=s.EndTime OR s.EndTime>@Clock)
   UNION ALL
   SELECT a.FacultyId,N'work',CONCAT(N'work:',CONVERT(nvarchar(36),a.ActivityId)),a.Category COLLATE DATABASE_DEFAULT,NULL,NULL,
     a.StartDate,a.EndDate,NULL,NULL,c.CourseCode COLLATE DATABASE_DEFAULT,NULL,a.ActivityId
@@ -170,8 +168,6 @@ BEGIN
   LEFT JOIN paws.Course c ON c.CourseId=a.CourseId
   WHERE a.StartDate<=@Ceiling AND a.EndDate>=@Floor
    AND a.StaffingKind<>N'unassigned'
-   AND (@Mode<>N'upcoming' OR a.EndDate>@Today OR NOT EXISTS(
-      SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId AND t.ActivityDate=@Today AND t.EndTime<=@Clock))
   UNION ALL
   SELECT a.FacultyId,N'afc',CONCAT(N'afc:',a.RecordKey) COLLATE DATABASE_DEFAULT,NULL,NULL,NULL,a.StartDate,a.EndDate,NULL,NULL,NULL,NULL,NULL
   FROM paws.vAfcRecordUnified a
@@ -214,17 +210,17 @@ BEGIN
  IF @@ROWCOUNT>20000 THROW 57205,'Daily availability evidence exceeds the query limit.',1;
  CREATE CLUSTERED INDEX IX_AvailabilityDayTimes ON #DayTimes(ActivityId,ActivityDate);
 
- -- An unresolved instructor link can affect anyone. Keep only anonymous
- -- time bounds so an affected interval cannot be certified as clear.
- SELECT TOP (501) s.SessionDate,s.StartTime,s.EndTime,s.SessionId
+ -- Retain today's evidence through projection so ambiguous clocks can be
+ -- handled before excluding elapsed records. Self-service sees date gaps only.
+ SELECT DISTINCT TOP (501) s.SessionDate,
+   CASE WHEN @Admin=1 THEN s.StartTime END AS EvidenceStart,
+   CASE WHEN @Admin=1 THEN s.EndTime END AS EvidenceEnd
  INTO #UnlinkedSessions
  FROM paws.vCalendarSession s
  WHERE (s.SessionDate IS NULL OR s.SessionDate BETWEEN @Floor AND @Ceiling)
    AND EXISTS(SELECT 1 FROM paws.SessionAssignment a WHERE a.SessionId=s.SessionId AND a.FacultyId IS NULL
       AND a.FacultyResolutionStatus IN(N'unresolved',N'ambiguous'))
-   AND (@Mode<>N'upcoming' OR s.SessionDate IS NULL OR s.SessionDate>@Today OR s.EndTime>@Clock
-     OR s.StartTime IS NULL OR s.EndTime IS NULL OR s.StartTime>=s.EndTime)
- ORDER BY s.SessionDate,s.StartTime,s.SessionId;
+ ORDER BY s.SessionDate,EvidenceStart,EvidenceEnd;
  IF @@ROWCOUNT>500 SET @Complete=0;
  DECLARE @ClockDates TABLE(ClockDate date PRIMARY KEY);
  DECLARE @ClockChanges nvarchar(max)=N'[]';
@@ -237,7 +233,10 @@ BEGIN
   INSERT @ClockDates
    SELECT StartDate FROM #Events WHERE Kind=N'teaching' AND StartTime IS NOT NULL AND EndTime IS NOT NULL
      AND StartDate BETWEEN '0001-01-02' AND '9999-12-30'
-   UNION SELECT ActivityDate FROM #DayTimes WHERE ActivityDate BETWEEN '0001-01-02' AND '9999-12-30';
+   UNION SELECT ActivityDate FROM #DayTimes WHERE ActivityDate BETWEEN '0001-01-02' AND '9999-12-30'
+   UNION SELECT SessionDate FROM #UnlinkedSessions WHERE EvidenceStart IS NOT NULL AND EvidenceEnd IS NOT NULL
+     AND SessionDate BETWEEN '0001-01-02' AND '9999-12-30'
+   UNION SELECT @Today WHERE @Mode=N'upcoming';
 
  -- Use the same Windows Calgary zone as @Today. Check only transition dates
  -- at hourly resolution, including timed evidence in the open-ended Agenda.
@@ -271,8 +270,8 @@ BEGIN
    JSON_QUERY(@ClockChanges) AS clockChanges,
    JSON_QUERY(COALESCE((
     SELECT TOP (500) CONVERT(char(10),SessionDate,23) AS [date],
-      CONVERT(char(8),StartTime,108) AS startTime,CONVERT(char(8),EndTime,108) AS endTime
-    FROM #UnlinkedSessions ORDER BY SessionDate,StartTime,SessionId FOR JSON PATH,INCLUDE_NULL_VALUES
+      CONVERT(char(8),EvidenceStart,108) AS startTime,CONVERT(char(8),EvidenceEnd,108) AS endTime
+    FROM #UnlinkedSessions ORDER BY SessionDate,EvidenceStart,EvidenceEnd FOR JSON PATH,INCLUDE_NULL_VALUES
    ),N'[]')) AS unlinkedTeaching,
    JSON_QUERY(COALESCE((SELECT f.FacultyId AS facultyId,f.PreferredFirstName AS preferredFirstName,
      f.PreferredLastName AS preferredLastName,f.DisplayName AS displayName,f.Active AS active,

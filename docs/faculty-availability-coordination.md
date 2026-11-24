@@ -6,7 +6,7 @@ The Faculty Dashboard already contains Availability and serves the single-facult
 
 | Source | Included in coordination | Coverage and limits |
 | --- | --- | --- |
-| Teaching | `vCalendarSession` joined to the selected Faculty's `SessionAssignment` | Duplicate assignments for the same Faculty and session collapse. Undated sessions make that person's coverage incomplete. Unresolved instructor links mark the affected interval unknown using anonymous time bounds. The schema provides one session date, so a reversed same-day clock is unknown. |
+| Teaching | `vCalendarSession` joined to the selected Faculty's `SessionAssignment` | Duplicate assignments for the same Faculty and session collapse. Undated sessions make that person's coverage incomplete. Unresolved instructor links mark anonymous intervals unknown for administrators and affected dates unknown for self-service. The schema provides one session date, so a reversed same-day clock is unknown. |
 | CCC, Rotation and other work | Committed `CalendarActivity` rows with `CalendarActivityDayTime` | Each dated activity uses its own verified time per day. A missing day remains unknown. Display defaults on Calendar do not become time evidence. Unassigned slots have no Faculty to check. |
 | AFC and approved leave | Active `vAfcRecordUnified` plus approved requests absent from that view | Unavailable leave blocks the day. Available Special Leave follows 068 and is excluded from the blocking projection. Withdrawn records and inactive source rows are excluded. |
 | Pending AFC | The two pending `AfcRequest` states | Tentative for the recorded date range. Rejected and withdrawn requests are excluded. |
@@ -37,7 +37,7 @@ Migration 072 installs `paws_api.ListFacultyAvailabilityBulk`. It collects sourc
 
 - The same ADFA/Developer base roles may read several permitted Faculty and choose whether to include inactive records. Faculty, HICC and VISC are scoped to their own linked Faculty. ADC and LAB access stays excluded.
 - Teaching topic, course and authenticated scheduling evidence are kept within that scope. Work details provide the shared activity category, course when recorded, original dates and verified time evidence. Free-text work labels and timing notes are omitted. AFC reasons, medical information, DOE, UCID and contact details stay out of the projection.
-- Names use the shared Last name, First name formatter. A display reference distinguishes duplicate names without revealing the Faculty ID in the picker, results or exports.
+- Names use the shared Last name, First name formatter. The picker and results show a display reference for duplicate names. Exports include a Faculty reference column for every row so the same person can be identified in a narrower export without revealing Faculty IDs.
 - Bounded calendar comparisons cover up to 31 inclusive days. Open-ended queries preserve the existing ongoing/upcoming behavior for Summary and Agenda. Use a bounded query for Timeline and common time.
 - Each query supports up to 500 Faculty, 15,000 records and 20,000 daily timing records. Individual searches can narrow a larger directory before querying availability. The API returns a partial state or asks the user to narrow the scope when it cannot return complete results. Partial pages cannot certify no conflicts or generate a complete export.
 - Snapshots expire after 10 minutes and may be evicted sooner by a new query for the same account, use by several concurrent accounts or an API restart. A new query reads SQL again. Other calendar systems are outside PAWS coverage.

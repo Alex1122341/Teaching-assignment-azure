@@ -131,6 +131,24 @@ test('the open-ended Agenda respects clock changes and excludes timed informatio
   assert.equal(schedule.events[0].availability, 'unknown');
 });
 
+test('Ongoing and Upcoming keeps the full repeated Calgary hour uncertain until it has elapsed', () => {
+  const fall = '2026-11-01';
+  const definition = { faculty: roster, rows: [
+    event(ids[0], 'repeated', { startDate: fall, endDate: fall, startTime: '01:10', endTime: '01:20' }),
+    event(ids[0], 'elapsed', { startDate: fall, endDate: fall, startTime: '00:10', endTime: '00:20' })
+  ], window: { ...day, mode: 'upcoming', startDate: null, endDate: null, startTime: null, endTime: null },
+  today: fall, complete: true, clockChanges: [{ date: fall, start: 3600, end: 7200 }],
+  unlinkedTeaching: [{ date: fall, startTime: '01:30', endTime: '01:40' }] };
+  const repeated = buildSchedule({ ...definition, localTime: '01:45' });
+  assert.deepEqual(repeated.events.map(row => [row.eventKey, row.availability]), [['repeated', 'unknown']]);
+  assert.deepEqual(repeated.unresolved.byDay.get(fall), [{ start: 5400, end: 6000 }]);
+  assert.ok(repeated.summaries.every(person => person.status === 'unknown'));
+  const elapsed = buildSchedule({ ...definition, localTime: '02:00' });
+  assert.equal(elapsed.events.length, 0);
+  assert.equal(elapsed.unresolved.byDay.size, 0);
+  assert.ok(elapsed.summaries.every(person => person.status === 'clear'));
+});
+
 function fixture() {
   let role = 'owner';
   let current = 10;
@@ -178,6 +196,8 @@ test('batch authorization, shared snapshot and full export preserve identity and
   assert.equal(exported.body.rowCount, 2);
   const csv = Buffer.from(exported.body.fileBase64, 'base64').toString('utf8');
   assert.match(csv, /B, Blake/);
+  assert.match(csv, /Faculty reference/);
+  for (const person of body.faculty.slice(1)) assert.ok(csv.includes(person.reference));
   assert.doesNotMatch(csv, /PRIVATE|A, Anne|11111111/);
   assert.equal((await h.api.export('other', { snapshot: body.snapshot, format: 'csv' })).status, 403);
   h.advance();

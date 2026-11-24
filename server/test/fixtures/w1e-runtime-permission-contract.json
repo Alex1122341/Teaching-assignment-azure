@@ -187,7 +187,8 @@
     "paws_api.GetAfcForm"
   ],
   "afcRecordDocumentReadObjects": [
-    "paws.vAfcRecordOriginal"
+    "paws.vAfcRecordOriginal",
+    "paws.vAfcBatchOriginalEligible"
   ],
   "afcSpecialLeaveReadObjects": [
     "paws.vAfcSpecialLeaveAdmin"

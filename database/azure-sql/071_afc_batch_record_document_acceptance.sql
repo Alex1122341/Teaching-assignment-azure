@@ -73,6 +73,9 @@ BEGIN TRY EXEC paws_api.LinkAfcBatchRecordDocument N'batchpdf-owner', @First, @F
     THROW 57190, 'A withdrawn batch row accepted an attachment.', 1; END TRY BEGIN CATCH IF ERROR_NUMBER()<>57102 THROW; END CATCH;
 IF EXISTS (SELECT 1 FROM paws.AfcRecordDocument WHERE AfcRecordId=@First OR DocumentId=@Doc2)
     THROW 57190, 'A rejected attachment changed another record.', 1;
+IF (SELECT COUNT(*) FROM paws.vAfcBatchOriginalEligible WHERE FacultyId=@Faculty)<>1
+    OR NOT EXISTS (SELECT 1 FROM paws.vAfcBatchOriginalEligible WHERE AfcRecordId=@Second)
+    THROW 57190, 'Eligibility should include only active saved multi-input rows.', 1;
 DECLARE @Read TABLE (responseJson nvarchar(max), pdfBytes varbinary(max));
 INSERT @Read EXEC paws_api.GetAfcForm @ActorFirebaseUid=N'batchpdf-self', @DocumentId=@Doc;
 IF NOT EXISTS (SELECT 1 FROM @Read WHERE pdfBytes=@Bytes)

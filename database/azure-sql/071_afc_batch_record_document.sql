@@ -11,6 +11,10 @@ IF DB_NAME() <> N'VetMed-Ops'
     THROW 57100, 'Install the AFC batch and original PDF archive prerequisites first.', 1;
 BEGIN TRANSACTION;
 GO
+CREATE OR ALTER VIEW paws.vAfcBatchOriginalEligible AS
+    SELECT AfcRecordId, FacultyId FROM paws.AfcManualRecord
+    WHERE Active = 1 AND BatchRequestId IS NOT NULL;
+GO
 CREATE OR ALTER PROCEDURE paws_api.LinkAfcBatchRecordDocument
     @ActorFirebaseUid nvarchar(128),
     @AfcRecordId uniqueidentifier,
@@ -80,5 +84,6 @@ BEGIN
 END;
 GO
 GRANT EXECUTE ON OBJECT::paws_api.LinkAfcBatchRecordDocument TO paws_runtime_afc_record_document;
+GRANT SELECT ON OBJECT::paws.vAfcBatchOriginalEligible TO paws_runtime_read;
 COMMIT TRANSACTION;
 GO

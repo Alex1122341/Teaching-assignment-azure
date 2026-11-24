@@ -2,5 +2,8 @@
 :ON ERROR EXIT
 SET XACT_ABORT ON;
 IF DB_NAME() <> N'VetMed-Ops' THROW 57100, 'Unexpected AFC database.', 1;
+BEGIN TRANSACTION;
 DROP PROCEDURE IF EXISTS paws_api.LinkAfcBatchRecordDocument;
+DROP VIEW IF EXISTS paws.vAfcBatchOriginalEligible;
+COMMIT TRANSACTION;
 GO

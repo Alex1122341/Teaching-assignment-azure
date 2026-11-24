@@ -64,7 +64,7 @@ function batchHarness(saveBatch) {
     $, on: (el, evt, cb) => { el.handlers[evt] = cb; }, esc: String, getUser: () => user, canWrite: () => !!user,
     resolveFaculty: name => [FACULTY, 'One, Ada'].includes(name) ? {facultyId: FACULTY} : null,
     facultyName: () => 'One, Ada', newId: () => REQUEST, saveBatch: async input => { saves.push(input); return saveBatch(input); },
-    showSaved: saved => shown.push(saved), refresh: async () => {}
+    showSaved: saved => shown.push(saved), refresh: async () => {}, validPdf: file => file?.type === 'application/pdf'
   });
   editor.bind(); editor.render();
   const fill = (key, value, rowIndex = 0) => {
@@ -75,11 +75,42 @@ function batchHarness(saveBatch) {
     fill('facultyEntry', 'One, Ada'); fill('startDate', '2027-02-03');
     fill('endDate', '2027-02-05'); fill('purpose', 'Field visit');
   };
-  return {editor, node, complete, fill, saves, shown, logout(){ user = null; editor.clear(); }};
+  const choosePdf = (file, rowIndex = 0) => {
+    const input = { files: [file], dataset: { afcDraftPdf: '', rowIndex }, closest: () => null };
+    node('rows').handlers.change({target:{closest: selector => selector === '[data-afc-draft-pdf]' ? input : null}});
+  };
+  return {editor, node, complete, fill, choosePdf, saves, shown, logout(){ user = null; editor.clear(); }};
 }
 function receipt(input, index, id, status = 'NEW') {
   return { ...input.rows[index], rowIndex:index, afcRecordId:id, status };
 }
+test('Multi Input exposes a PDF picker before saving and carries each file to its verified receipt only', async () => {
+  const other = '44444444-4444-4444-8444-444444444444';
+  const pdf = {name:'visit.pdf',type:'application/pdf'};
+  const h = batchHarness(input => ({requestId:input.requestId,rows:[receipt(input,1,other),receipt(input,0,RECORD)]}));
+  assert.match(h.node('rows').innerHTML, /type="file"[^>]*aria-label="Choose PDF for row 1"/);
+  h.complete();
+  h.choosePdf(pdf);
+  assert.match(h.node('rows').innerHTML, /visit\.pdf/);
+  h.node('paste').value = 'One, Ada\t2027/2/6\t2027/2/6\tConference';
+  h.node('import-paste').handlers.click();
+  assert.equal(h.saves.length,0);
+  await h.node('submit').handlers.click();
+  assert.deepEqual(Object.keys(h.saves[0].rows[0]), ['facultyId','startDate','endDate','purpose']);
+  assert.equal(h.shown[0][0].afcRecordId, RECORD);
+  assert.equal(h.shown[0][0].file, pdf);
+  assert.equal(h.shown[0][1].file, undefined);
+});
+
+test('editing the faculty field discards a PDF queued for a different person', async () => {
+  const h = batchHarness(input => ({requestId:input.requestId,rows:[receipt(input,0,RECORD)]}));
+  h.complete();
+  h.choosePdf({name:'private.pdf',type:'application/pdf'});
+  h.fill('facultyEntry','');
+  h.fill('facultyEntry','One, Ada');
+  await h.node('submit').handlers.click();
+  assert.equal(h.shown[0][0].file, undefined);
+});
 test('typed AFC can be saved directly, with optional Excel entries appended and blank rows ignored', async () => {
   const other = '44444444-4444-4444-8444-444444444444';
   const h = batchHarness(input => ({requestId: input.requestId, rows:[receipt(input, 1, other), receipt(input, 0, RECORD)]}));

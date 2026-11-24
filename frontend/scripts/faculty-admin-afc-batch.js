@@ -106,13 +106,13 @@
           receipt.startDate !== row.startDate || receipt.endDate !== row.endDate || receipt.purpose !== row.purpose) incomplete();
       ids.add(receipt.afcRecordId.toLowerCase());
       result.set(index, { afcRecordId: receipt.afcRecordId, facultyId: row.facultyId, facultyName: row.facultyName,
-        startDate: row.startDate, endDate: row.endDate, purpose: row.purpose });
+        startDate: row.startDate, endDate: row.endDate, purpose: row.purpose, ...(row.file ? { file: row.file } : {}) });
     }
     return draft.map((_, index) => result.get(index));
   }
 
   function createEditor({ $, on, esc, getUser, canWrite, resolveFaculty, facultyName, saveBatch, showSaved, refresh,
-    newId = () => crypto.randomUUID() }) {
+    validPdf = () => false, newId = () => crypto.randomUUID() }) {
     let rows = [blankRow()], attempt = null, busy = false, generation = 0;
     const node = suffix => $('afc-batch-' + suffix);
     const locked = () => busy || attempt !== null;
@@ -132,6 +132,14 @@
         if (control) control.disabled = locked() || (id === 'add-row' && rows.length >= 20);
       }
     }
+    function pdfControl(row, index) {
+      const disabled = locked() || !canWrite() || !row.facultyId;
+      return '<input type="file" accept=".pdf,application/pdf" data-afc-draft-pdf data-row-index="' + index +
+        '" aria-label="Choose PDF for row ' + (index + 1) + '"' + (disabled ? ' disabled' : '') + '>' +
+        (row.file ? '<div><span>' + esc(row.file.name) + '</span> <button type="button" class="btn btn-small" data-afc-remove-draft-pdf="' +
+          index + '"' + (disabled ? ' disabled' : '') + '>Remove PDF</button></div>' : '') +
+        '<div role="status">' + esc(row.pdfError || '') + '</div>';
+    }
     function render() {
       const body = node('rows');
       if (!body) return;
@@ -140,7 +148,8 @@
           '" aria-label="' + label + ' row ' + (index + 1) + '" value="' + esc(row[key]) + '" ' + attrs + (locked() ? ' disabled' : '') + '></td>';
         return '<tr>' + field('Faculty member', 'facultyEntry', 'list="afc-faculty-options" placeholder="Search active faculty…"') +
           field('Start date', 'startDate', 'type="date"') + field('End date', 'endDate', 'type="date"') +
-          field('Purpose', 'purpose', 'maxlength="1000"') + '<td data-afc-row-status aria-live="polite">' + esc(row.errors.join(' ')) +
+          field('Purpose', 'purpose', 'maxlength="1000"') + '<td data-afc-draft-pdf-cell>' + pdfControl(row, index) +
+          '</td><td data-afc-row-status aria-live="polite">' + esc(row.errors.join(' ')) +
           '</td><td><button class="btn" type="button" data-afc-batch-remove="' + index + '" aria-label="Remove row ' + (index + 1) +
           '"' + (locked() ? ' disabled' : '') + '>Remove</button></td></tr>';
       }).join('');
@@ -150,15 +159,36 @@
       if (locked()) return;
       const input = event.target?.closest?.('[data-afc-batch-field]');
       if (!input) return;
-      const row = rows[Number(input.dataset.rowIndex)], key = input.dataset.afcBatchField;
+      const index = Number(input.dataset.rowIndex);
+      const row = rows[index], key = input.dataset.afcBatchField;
       if (!row || !['facultyEntry', 'startDate', 'endDate', 'purpose'].includes(key)) return;
       row[key] = input.value;
-      if (key === 'facultyEntry') row.facultyId = resolveFaculty(input.value)?.facultyId || '';
+      if (key === 'facultyEntry') {
+        const id = resolveFaculty(input.value)?.facultyId || '';
+        if (id !== row.facultyId) {
+          row.facultyId = id;
+          row.file = null;
+          row.pdfError = '';
+          const pdfCell = input.closest('tr')?.querySelector('[data-afc-draft-pdf-cell]');
+          if (pdfCell) pdfCell.innerHTML = pdfControl(row, index);
+        }
+      }
       if (key === 'startDate' || key === 'endDate') row.dateErrors[key] = '';
       row.importError = ''; row.errors = [];
       const cell = input.closest('tr')?.querySelector?.('[data-afc-row-status]');
       if (cell) cell.textContent = '';
       status(''); controls();
+    }
+    function choosePdf(index, file, control) {
+      const row = rows[index];
+      if (!row?.facultyId || locked() || !canWrite()) return;
+      row.file = file && validPdf(file) ? file : null;
+      row.pdfError = file && !row.file ? 'Choose a PDF up to 2 MiB.' : '';
+      const cell = control.closest('td');
+      if (cell) {
+        cell.innerHTML = pdfControl(row, index);
+        cell.querySelector('[data-afc-draft-pdf]')?.focus();
+      } else render();
     }
     function append() {
       if (locked()) return;
@@ -179,7 +209,7 @@
       }
       return { requestId: newId(), draft: entered.map(row => ({
         facultyId: row.facultyId, startDate: row.startDate, endDate: row.endDate, purpose: row.purpose,
-        facultyName: facultyName(resolveFaculty(row.facultyId))
+        facultyName: facultyName(resolveFaculty(row.facultyId)), file: row.file
       })) };
     }
     async function save() {
@@ -215,8 +245,9 @@
       attempt = null;
       rows = [blankRow()];
       render(); status('Saved ' + receipts.length + ' record(s). Add a PDF to each saved record below.');
-      showSaved(receipts);
-      try { await refresh(); } catch (_) { if (same()) status('Records saved. Refresh the AFC list to see the latest changes.'); }
+      try { await showSaved(receipts); }
+      catch (_) { if (same()) status('Records saved. Use Attach PDF in the AFC records list.', true); }
+      try { if (same()) await refresh(); } catch (_) { /* The records were already confirmed. */ }
     }
     function clear() {
       ++generation; busy = false; attempt = null; rows = [blankRow()];
@@ -229,8 +260,15 @@
         rows.push(blankRow()); render();
         node('rows')?.querySelector?.('[data-afc-batch-field="facultyEntry"][data-row-index="' + (rows.length - 1) + '"]')?.focus();
       });
-      on(node('rows'), 'input', change); on(node('rows'), 'change', change);
+      on(node('rows'), 'input', change);
+      on(node('rows'), 'change', event => {
+        const picker = event.target?.closest?.('[data-afc-draft-pdf]');
+        if (picker) choosePdf(Number(picker.dataset.rowIndex), picker.files?.[0], picker);
+        else change(event);
+      });
       on(node('rows'), 'click', event => {
+        const removePdf = event.target?.closest?.('[data-afc-remove-draft-pdf]');
+        if (removePdf) { choosePdf(Number(removePdf.dataset.afcRemoveDraftPdf), null, removePdf); return; }
         const remove = event.target?.closest?.('[data-afc-batch-remove]');
         if (!remove || locked()) return;
         rows.splice(Number(remove.dataset.afcBatchRemove), 1);

@@ -39,9 +39,21 @@ function fixture(overrides={}) {
     ...overrides
   };
   const controller = createBatchPdfController({host,api,getUser:()=>({uid:active}),randomUUID:()=>recordB});
-  const show = () => controller.show([recordA,recordB].map(afcRecordId=>({afcRecordId,facultyId,facultyName:'Sample, Faculty',startDate:'2027-03-01',endDate:'2027-03-02',purpose:'Vacation'})));
+  const show = (files={}) => controller.show([recordA,recordB].map(afcRecordId=>({afcRecordId,facultyId,facultyName:'Sample, Faculty',startDate:'2027-03-01',endDate:'2027-03-02',purpose:'Vacation',file:files[afcRecordId]})));
   return {controller,show,uploads,links,rows,api,retry,switchAccount:()=>{active='user-b';}};
 }
+
+test('a preselected file can be uploaded from the confirmed receipt without reselecting it',async()=>{
+  const f = fixture();
+  await f.show({[recordB]:makeFile('preselected.pdf')});
+  assert.equal(f.uploads.length,0);
+  assert.match(f.rows[1][3].innerHTML,/preselected\.pdf/);
+  assert.match(f.rows[1][3].innerHTML,/>Upload PDF</);
+  assert.match(f.rows[0][3].innerHTML,/disabled>Upload PDF/);
+  await f.controller.attach(recordB);
+  assert.equal(f.uploads[0].fileName,'preselected.pdf');
+  assert.equal(f.links[0].afcRecordId,recordB);
+});
 
 test('the selected saved row gets its own PDF, even when another row has the same faculty and dates',async()=>{
   const f = fixture();

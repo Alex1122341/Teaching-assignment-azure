@@ -16,10 +16,11 @@ function createSqlFacultyAvailabilityRepository(db){
    if(!Array.isArray(result.items))throw Error('Invalid availability SQL response.');
    return result;
   },
-  async bulk({actorFirebaseUid,action,selection='selected',facultyIds=[],includeInactive=false,mode='upcoming',startDate=null,endDate=null}){
+  async bulk({actorFirebaseUid,action,selection='selected',facultyIds=[],includeInactive=false,mode='upcoming',startDate=null,endDate=null,
+   rosterSearch=null,rosterOffset=0}){
    const rows=await db.query(
-    'EXEC paws_api.ListFacultyAvailabilityBulk @ActorFirebaseUid=@actorFirebaseUid, @Action=@action, @Selection=@selection, @FacultyIdsJson=@facultyIdsJson, @IncludeInactive=@includeInactive, @Mode=@mode, @StartDate=@startDate, @EndDate=@endDate',
-    {actorFirebaseUid,action,selection,facultyIdsJson:JSON.stringify(facultyIds),includeInactive,mode,startDate,endDate}
+    'EXEC paws_api.ListFacultyAvailabilityBulk @ActorFirebaseUid=@actorFirebaseUid, @Action=@action, @Selection=@selection, @FacultyIdsJson=@facultyIdsJson, @IncludeInactive=@includeInactive, @Mode=@mode, @StartDate=@startDate, @EndDate=@endDate, @RosterSearch=@rosterSearch, @RosterOffset=@rosterOffset',
+    {actorFirebaseUid,action,selection,facultyIdsJson:JSON.stringify(facultyIds),includeInactive,mode,startDate,endDate,rosterSearch,rosterOffset}
    );
    return decodedResponse(rows);
   }

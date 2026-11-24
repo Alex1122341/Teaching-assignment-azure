@@ -27,7 +27,9 @@ CREATE PROCEDURE paws_api.ListFacultyAvailabilityBulk
  @IncludeInactive bit=0,
  @Mode nvarchar(12)=N'upcoming',
  @StartDate date=NULL,
- @EndDate date=NULL
+ @EndDate date=NULL,
+ @RosterSearch nvarchar(128)=NULL,
+ @RosterOffset int=0
 AS
 BEGIN
  SET NOCOUNT ON;
@@ -51,6 +53,8 @@ BEGIN
   OR (@Mode=N'from' AND (@StartDate IS NULL OR @EndDate IS NOT NULL))
   OR (@Mode=N'range' AND (@StartDate IS NULL OR @EndDate IS NULL OR @StartDate<'0001-01-02' OR @EndDate>'9999-12-30'
        OR DATEDIFF(day,@StartDate,@EndDate) NOT BETWEEN 0 AND 30))
+  OR @RosterOffset IS NULL OR @RosterOffset NOT BETWEEN 0 AND 100000 OR @RosterOffset%500<>0
+  OR (@Action<>N'roster' AND (@RosterSearch IS NOT NULL OR @RosterOffset<>0))
   THROW 55601,'Invalid Faculty Availability filters.',1;
  IF @Admin=0 AND (@IncludeInactive=1 OR @Selection=N'allActive')
   THROW 55603,'Only the linked Faculty availability may be read.',1;
@@ -71,6 +75,28 @@ BEGIN
  DECLARE @Today date=CONVERT(date,@Local),@Clock time(0)=CONVERT(time(0),@Local);
  DECLARE @Floor date=CASE WHEN @Mode=N'upcoming' THEN @Today ELSE @StartDate END;
  DECLARE @Ceiling date=COALESCE(@EndDate,CONVERT(date,'9999-12-31'));
+ IF @Action=N'roster'
+ BEGIN
+  SELECT f.FacultyId,f.PreferredFirstName,f.PreferredLastName,f.DisplayName,
+   CONVERT(bit,CASE WHEN f.Active=1 AND (f.ActivationDate IS NULL OR f.ActivationDate<=@Today) THEN 1 ELSE 0 END) AS Active
+  INTO #Roster
+  FROM paws.Faculty f
+  WHERE @Admin=1 OR f.FacultyId=@OwnFaculty;
+  DECLARE @ActiveTotal int=(SELECT COUNT(*) FROM #Roster WHERE Active=1),@RosterTotal int;
+  SELECT f.* INTO #Matches FROM #Roster f
+  WHERE (@IncludeInactive=1 OR f.Active=1) AND NOT EXISTS(
+   SELECT 1 FROM STRING_SPLIT(@RosterSearch,N' ') token WHERE token.value<>N''
+    AND CHARINDEX(token.value COLLATE Latin1_General_100_CI_AI,
+      CONCAT(f.PreferredLastName,N' ',f.PreferredFirstName,N' ',f.DisplayName) COLLATE Latin1_General_100_CI_AI)=0);
+  SET @RosterTotal=@@ROWCOUNT;
+  SELECT (SELECT JSON_QUERY(COALESCE((SELECT FacultyId AS facultyId,PreferredFirstName AS preferredFirstName,
+      PreferredLastName AS preferredLastName,DisplayName AS displayName,Active AS active
+      FROM #Matches ORDER BY FacultyId OFFSET @RosterOffset ROWS FETCH NEXT 500 ROWS ONLY FOR JSON PATH),N'[]')) AS faculty,
+      @ActiveTotal AS activeTotal,@RosterTotal AS total,
+      CASE WHEN @RosterTotal>@RosterOffset+500 THEN CONVERT(varchar(20),@RosterOffset+500) END AS nextCursor
+      FOR JSON PATH,WITHOUT_ARRAY_WRAPPER,INCLUDE_NULL_VALUES) AS responseJson;
+  RETURN;
+ END;
  SELECT TOP (501) f.FacultyId,f.PreferredFirstName,f.PreferredLastName,f.DisplayName,
    active.EffectiveActive AS Active
  INTO #Faculty
@@ -79,31 +105,19 @@ BEGIN
                                 THEN 1 ELSE 0 END) EffectiveActive) active
  WHERE (@Admin=1 OR f.FacultyId=@OwnFaculty)
    AND (@IncludeInactive=1 OR active.EffectiveActive=1)
-   AND (@Action=N'roster' OR @Selection=N'allActive' OR EXISTS(SELECT 1 FROM @Ids i WHERE i.FacultyId=f.FacultyId))
+   AND (@Selection=N'allActive' OR EXISTS(SELECT 1 FROM @Ids i WHERE i.FacultyId=f.FacultyId))
  ORDER BY f.FacultyId;
  IF (SELECT COUNT(*) FROM #Faculty)>500 THROW 57205,'Faculty selection exceeds the query limit.',1;
- IF @Action<>N'roster' AND @Selection=N'selected' AND (SELECT COUNT(*) FROM #Faculty)<>@IdCount
+ IF @Selection=N'selected' AND (SELECT COUNT(*) FROM #Faculty)<>@IdCount
   THROW 55604,'A selected Faculty is inactive or no longer exists.',1;
  IF @Action=N'check'
  BEGIN
   SELECT N'{"authorized":true}' AS responseJson;
   RETURN;
  END;
- IF @Action=N'roster'
- BEGIN
-  SELECT (SELECT JSON_QUERY(COALESCE((SELECT FacultyId AS facultyId,PreferredFirstName AS preferredFirstName,
-      PreferredLastName AS preferredLastName,DisplayName AS displayName,Active AS active
-      FROM #Faculty ORDER BY FacultyId FOR JSON PATH),N'[]')) AS faculty
-      FOR JSON PATH,WITHOUT_ARRAY_WRAPPER) AS responseJson;
-  RETURN;
- END;
 
  -- Source keys deduplicate repeat instructor assignments and the two approved AFC projections.
  CREATE UNIQUE CLUSTERED INDEX IX_FacultySelection ON #Faculty(FacultyId);
- ;WITH assigned AS (
-  SELECT DISTINCT a.FacultyId,a.SessionId
-  FROM paws.SessionAssignment a JOIN #Faculty f ON f.FacultyId=a.FacultyId
- ), appointments AS (
   SELECT r.FacultyId,r.RoleAssignmentId,r.RoleType,
     LEFT(COALESCE(NULLIF(r.CourseOrSubjectOrRotation,N''),r.CourseName),500) AS Detail,
     CASE WHEN p.RoleAssignmentId IS NULL THEN N'legacy' ELSE j.[key] END AS PeriodKey,
@@ -113,28 +127,45 @@ BEGIN
     CASE WHEN p.RoleAssignmentId IS NULL AND (r.EffectiveDate IS NULL OR r.ExpirationDate<=r.EffectiveDate) THEN 1
          WHEN p.RoleAssignmentId IS NOT NULL AND LEFT(LTRIM(p.PeriodsJson),1)<>N'[' THEN 1
          WHEN p.RoleAssignmentId IS NOT NULL AND j.[key] IS NULL THEN 0
-         WHEN p.RoleAssignmentId IS NOT NULL AND (j.type<>5 OR dates.StartDate IS NULL OR
-              (JSON_VALUE(period.PeriodJson,'$.endDate') IS NOT NULL AND (dates.EndDate IS NULL OR dates.EndDate<dates.StartDate))) THEN 1
+         WHEN p.RoleAssignmentId IS NOT NULL AND (j.type<>5 OR ISNULL(fields.StartCount,0)<>1 OR dates.StartDate IS NULL OR
+              DATALENGTH(fields.StartText)<>20 OR CONVERT(nvarchar(10),dates.StartDate,23)<>fields.StartText OR
+              ISNULL(fields.EndCount,0)>1 OR
+              (fields.EndType IS NOT NULL AND fields.EndType<>0 AND
+               (fields.EndType<>1 OR dates.EndDate IS NULL OR DATALENGTH(fields.EndText)<>20 OR
+                CONVERT(nvarchar(10),dates.EndDate,23)<>fields.EndText OR dates.EndDate<dates.StartDate))) THEN 1
          ELSE 0 END AS HasMissingDates
+  INTO #Appointments
   FROM paws.RoleAssignment r
   JOIN #Faculty f ON f.FacultyId=r.FacultyId
   LEFT JOIN paws.RoleAppointmentSchedule p ON p.RoleAssignmentId=r.RoleAssignmentId
   OUTER APPLY OPENJSON(p.PeriodsJson) j
-  CROSS APPLY (SELECT CASE WHEN j.type=5 THEN j.value ELSE N'{}' END AS PeriodJson) period
-  CROSS APPLY (SELECT TRY_CONVERT(date,JSON_VALUE(period.PeriodJson,'$.startDate'),23) AS StartDate,
-                      TRY_CONVERT(date,JSON_VALUE(period.PeriodJson,'$.endDate'),23) AS EndDate) dates
+  CROSS APPLY (
+   SELECT COUNT(CASE WHEN item.[key]=N'startDate' THEN 1 END) AS StartCount,
+     MAX(CASE WHEN item.[key]=N'startDate' AND item.type=1 THEN item.value END) AS StartText,
+     COUNT(CASE WHEN item.[key]=N'endDate' THEN 1 END) AS EndCount,
+     MAX(CASE WHEN item.[key]=N'endDate' THEN item.type END) AS EndType,
+     MAX(CASE WHEN item.[key]=N'endDate' AND item.type=1 THEN item.value END) AS EndText
+   FROM OPENJSON(CASE WHEN j.type=5 THEN j.value ELSE N'{}' END) item
+  ) fields
+  CROSS APPLY (SELECT TRY_CONVERT(date,fields.StartText,23) AS StartDate,
+                      TRY_CONVERT(date,fields.EndText,23) AS EndDate) dates;
+ ;WITH assigned AS (
+  SELECT DISTINCT a.FacultyId,a.SessionId
+  FROM paws.SessionAssignment a JOIN #Faculty f ON f.FacultyId=a.FacultyId
  ), events AS (
-  SELECT a.FacultyId,N'teaching' AS Kind,CONCAT(N'teaching:',CONVERT(nvarchar(36),s.SessionId)) AS EventKey,
-    s.SessionType AS [Type],CONVERT(nvarchar(520),NULL) AS Label,LEFT(NULLIF(s.Topic,N''),500) AS Detail,
+  SELECT a.FacultyId,N'teaching' AS Kind,CONCAT(N'teaching:',CONVERT(nvarchar(36),s.SessionId)) COLLATE DATABASE_DEFAULT AS EventKey,
+    s.SessionType COLLATE DATABASE_DEFAULT AS [Type],CONVERT(nvarchar(520),NULL) AS Label,
+    LEFT(NULLIF(s.Topic,N''),500) COLLATE DATABASE_DEFAULT AS Detail,
     s.SessionDate AS StartDate,s.SessionDate AS EndDate,s.StartTime,s.EndTime,
-    s.CourseCode,s.SessionId,CONVERT(uniqueidentifier,NULL) AS ActivityId
+    s.CourseCode COLLATE DATABASE_DEFAULT AS CourseCode,s.SessionId,CONVERT(uniqueidentifier,NULL) AS ActivityId
   FROM assigned a JOIN paws.vCalendarSession s ON s.SessionId=a.SessionId
   WHERE s.SessionDate BETWEEN @Floor AND @Ceiling
    AND (@Mode<>N'upcoming' OR s.SessionDate>@Today OR s.StartTime IS NULL OR s.EndTime IS NULL
         OR s.StartTime>=s.EndTime OR s.EndTime>@Clock)
   UNION ALL
-  SELECT a.FacultyId,N'work',CONCAT(N'work:',CONVERT(nvarchar(36),a.ActivityId)),a.Category,NULL,NULL,
-    a.StartDate,a.EndDate,NULL,NULL,c.CourseCode,NULL,a.ActivityId
+  SELECT a.FacultyId,N'work',CONCAT(N'work:',CONVERT(nvarchar(36),a.ActivityId)),a.Category COLLATE DATABASE_DEFAULT,
+    LEFT(NULLIF(LTRIM(RTRIM(a.OriginalLabel)),N''),520) COLLATE DATABASE_DEFAULT,NULL,
+    a.StartDate,a.EndDate,NULL,NULL,c.CourseCode COLLATE DATABASE_DEFAULT,NULL,a.ActivityId
   FROM paws.CalendarActivity a
   JOIN #Faculty f ON f.FacultyId=a.FacultyId
   LEFT JOIN paws.Course c ON c.CourseId=a.CourseId
@@ -143,7 +174,7 @@ BEGIN
    AND (@Mode<>N'upcoming' OR a.EndDate>@Today OR NOT EXISTS(
       SELECT 1 FROM paws.CalendarActivityDayTime t WHERE t.ActivityId=a.ActivityId AND t.ActivityDate=@Today AND t.EndTime<=@Clock))
   UNION ALL
-  SELECT a.FacultyId,N'afc',CONCAT(N'afc:',a.RecordKey),NULL,NULL,NULL,a.StartDate,a.EndDate,NULL,NULL,NULL,NULL,NULL
+  SELECT a.FacultyId,N'afc',CONCAT(N'afc:',a.RecordKey) COLLATE DATABASE_DEFAULT,NULL,NULL,NULL,a.StartDate,a.EndDate,NULL,NULL,NULL,NULL,NULL
   FROM paws.vAfcRecordUnified a
   JOIN #Faculty f ON f.FacultyId=a.FacultyId
   WHERE a.Active=1 AND a.StartDate<=@Ceiling AND a.EndDate>=@Floor
@@ -157,13 +188,15 @@ BEGIN
    AND (r.Status<>N'approved' OR NOT EXISTS(SELECT 1 FROM paws.vAfcRecordUnified a
           WHERE a.FacultyId=r.FacultyId AND a.Active=1 AND a.RecordKey=CONCAT(N'request:',CONVERT(nvarchar(36),r.AfcRequestId))))
   UNION ALL
-  SELECT a.FacultyId,N'role',CONCAT(N'role:',CONVERT(nvarchar(36),a.RoleAssignmentId),N':',a.PeriodKey),
-    NULL,COALESCE(NULLIF(a.RoleType,N''),N'Role / appointment'),a.Detail,a.StartDate,a.EndDate,NULL,NULL,NULL,NULL,NULL
-  FROM appointments a
+  SELECT a.FacultyId,N'role',CONCAT(N'role:',CONVERT(nvarchar(36),a.RoleAssignmentId),N':',a.PeriodKey) COLLATE DATABASE_DEFAULT,
+    NULL,COALESCE(NULLIF(a.RoleType,N''),N'Role / appointment') COLLATE DATABASE_DEFAULT,a.Detail COLLATE DATABASE_DEFAULT,
+    a.StartDate,a.EndDate,NULL,NULL,NULL,NULL,NULL
+  FROM #Appointments a
   WHERE a.HasMissingDates=0 AND a.StartDate<=@Ceiling AND (a.EndDate IS NULL OR a.EndDate>=@Floor)
   UNION ALL
   SELECT a.FacultyId,N'role',CONCAT(N'responsibility:',CONVERT(nvarchar(36),a.ResponsibilityAssigneeId)),
-    NULL,CONCAT(UPPER(r.Kind),N' responsibility'),r.Label,a.ActiveDate,DATEADD(day,-1,a.ExpirationDate),NULL,NULL,NULL,NULL,NULL
+    NULL,CONCAT(UPPER(r.Kind),N' responsibility') COLLATE DATABASE_DEFAULT,r.Label COLLATE DATABASE_DEFAULT,
+    a.ActiveDate,DATEADD(day,-1,a.ExpirationDate),NULL,NULL,NULL,NULL,NULL
   FROM paws.TeachingResponsibilityAssignee a
   JOIN #Faculty f ON f.FacultyId=a.FacultyId
   JOIN paws.TeachingResponsibility r ON r.ResponsibilityId=a.ResponsibilityId
@@ -175,6 +208,13 @@ BEGIN
  ORDER BY StartDate,StartTime,FacultyId,Kind,EventKey;
 
  DECLARE @Complete bit=CASE WHEN @@ROWCOUNT>15000 THEN 0 ELSE 1 END;
+ DECLARE @EvidenceCount int;
+ SELECT @EvidenceCount=COUNT(*) FROM (
+  SELECT TOP (20001) t.ActivityId FROM #Events e
+  JOIN paws.CalendarActivityDayTime t ON t.ActivityId=e.ActivityId
+  WHERE t.ActivityDate BETWEEN @Floor AND @Ceiling AND t.ActivityDate BETWEEN e.StartDate AND e.EndDate
+ ) bounded;
+ IF @EvidenceCount>20000 THROW 57205,'Daily availability evidence exceeds the query limit.',1;
  DECLARE @ClockChanges nvarchar(max)=N'[]';
  IF @Mode=N'range'
  BEGIN
@@ -210,18 +250,8 @@ BEGIN
     CROSS APPLY (SELECT COUNT(DISTINCT s.SessionId) AS Sessions
       FROM paws.SessionAssignment a JOIN paws.vCalendarSession s ON s.SessionId=a.SessionId
       WHERE a.FacultyId=f.FacultyId AND s.SessionDate IS NULL) undated
-    CROSS APPLY (SELECT COUNT(*) AS Appointments FROM paws.RoleAssignment r
-      LEFT JOIN paws.RoleAppointmentSchedule p ON p.RoleAssignmentId=r.RoleAssignmentId
-      WHERE r.FacultyId=f.FacultyId AND (
-       (p.RoleAssignmentId IS NULL AND (r.EffectiveDate IS NULL OR r.ExpirationDate<=r.EffectiveDate))
-       OR LEFT(LTRIM(p.PeriodsJson),1)<>N'['
-       OR EXISTS(SELECT 1 FROM OPENJSON(p.PeriodsJson) j
-          CROSS APPLY (SELECT CASE WHEN j.type=5 THEN j.value ELSE N'{}' END AS PeriodJson) period
-          CROSS APPLY (SELECT TRY_CONVERT(date,JSON_VALUE(period.PeriodJson,'$.startDate'),23) AS StartDate,
-                      TRY_CONVERT(date,JSON_VALUE(period.PeriodJson,'$.endDate'),23) AS EndDate) dates
-          WHERE j.type<>5 OR dates.StartDate IS NULL OR
-           (JSON_VALUE(period.PeriodJson,'$.endDate') IS NOT NULL AND (dates.EndDate IS NULL OR dates.EndDate<dates.StartDate)))
-     )) roles
+    CROSS APPLY (SELECT COUNT(DISTINCT a.RoleAssignmentId) AS Appointments
+      FROM #Appointments a WHERE a.FacultyId=f.FacultyId AND a.HasMissingDates=1) roles
     ORDER BY f.FacultyId FOR JSON PATH),N'[]')) AS faculty,
    JSON_QUERY(COALESCE((SELECT TOP (15000) e.FacultyId AS facultyId,e.Kind AS kind,e.EventKey AS eventKey,
         e.[Type] AS [type],e.Label AS label,e.Detail AS detail,

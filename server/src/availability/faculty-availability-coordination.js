@@ -116,23 +116,35 @@ function createAvailabilityCoordination({ authorize, repository, clock = Date.no
     try {
       const ids = item.schedule.faculty.map(row => row.facultyId);
       const checked = await repository.bulk({ actorFirebaseUid: auth.uid,
-        action: ids.length ? 'check' : 'roster', selection: 'selected', facultyIds: ids, includeInactive: auth.admin });
+        action: ids.length ? 'check' : 'roster', selection: 'selected', facultyIds: ids, includeInactive: item.schedule.window.includeInactive });
       if (ids.length && checked.authorized !== true) return { response: denied() };
       if (snapshots.get(snapshot) !== item || item.expires <= clock()) return { response: expired() };
       return item;
-    } catch (error) { return { response: sqlError(error) }; }
+    } catch (error) {
+      const response = sqlError(error);
+      return { response: response.status === 404 ? expired() : response };
+    }
   }
 
   return {
     async roster(token, input) {
       const auth = await authorize(token);
       if (auth.response) return auth.response;
-      if (!closed(input, ['includeInactive']) || (input.includeInactive !== undefined && !['0', '1'].includes(input.includeInactive))) return invalid();
+      if (!closed(input, ['includeInactive', 'query', 'cursor']) || (input.includeInactive !== undefined && !['0', '1'].includes(input.includeInactive)) ||
+          (input.query !== undefined && (typeof input.query !== 'string' || input.query.length > 128))) return invalid();
       const includeInactive = input.includeInactive === '1';
+      const rosterSearch = input.query?.replace(/[\s,]+/g, ' ').trim() || null;
+      const rosterOffset = unsigned(input.cursor ?? '0');
+      if (!Number.isInteger(rosterOffset) || rosterOffset > 100000 || rosterOffset % MAX_FACULTY) return invalid();
       if (includeInactive && !auth.admin) return denied();
       try {
-        const rows = await repository.bulk({ action: 'roster', actorFirebaseUid: auth.uid, includeInactive });
-        return success({ faculty: projectFaculty(rows.faculty, auth, { includeInactive }), canSelectAll: auth.admin });
+        const rows = await repository.bulk({ action: 'roster', actorFirebaseUid: auth.uid, includeInactive, rosterSearch, rosterOffset });
+        const faculty = projectFaculty(rows.faculty, auth, { includeInactive });
+        if (![rows.activeTotal, rows.total].every(n => Number.isInteger(n) && n >= 0) ||
+            faculty.length !== Math.max(0, Math.min(MAX_FACULTY, rows.total - rosterOffset))) throw Error('Incomplete availability roster page');
+        const nextCursor = rows.total > rosterOffset + MAX_FACULTY ? String(rosterOffset + MAX_FACULTY) : null;
+        if (rows.nextCursor !== nextCursor) throw Error('Invalid availability roster cursor');
+        return success({ faculty, canSelectAll: auth.admin, activeTotal: rows.activeTotal, total: rows.total, nextCursor });
       } catch (error) { return sqlError(error); }
     },
 
@@ -163,6 +175,7 @@ function createAvailabilityCoordination({ authorize, repository, clock = Date.no
         const { snapshot, item } = retained;
         return success({ ...pageOf(snapshot, item, 0), faculty: schedule.faculty, summaries: schedule.summaries,
           dates: schedule.dates, window: schedule.window, complete: schedule.complete,
+          clockChanges: [...schedule.transitions].map(([date, time]) => ({ date, ...time })),
           expiresAt: new Date(item.expires).toISOString() });
       } catch (error) { return sqlError(error); }
       finally { querying.delete(auth.uid); }

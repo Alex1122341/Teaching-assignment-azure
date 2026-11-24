@@ -119,10 +119,12 @@ test('changing the selection or time invalidates delayed results and sign-out cl
   await h.choose(0, false);
   await h.choose(1);
   const current = h.submit();
-  h.pending[1].resolve(mockResult({ person: second, name: 'Fresh event' }));
-  await current;
+  assert.equal(h.pending.length, 1);
   h.pending[0].resolve(mockResult({ name: 'Stale event' }));
   await old;
+  await tick();
+  h.pending[1].resolve(mockResult({ person: second, name: 'Fresh event' }));
+  await current;
   await h.click({ avView: 'agenda' });
   assert.match(h.$('events').innerHTML, /Fresh event/);
   assert.doesNotMatch(h.$('events').innerHTML, /Stale event/);

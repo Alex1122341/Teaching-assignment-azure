@@ -9,6 +9,7 @@
     clear: 'No PAWS Conflict Found', ongoing: 'Ongoing Responsibility', informational: 'Informational' };
   const statusOrder = ['unavailable', 'busy', 'tentative', 'unknown', 'clear'];
   const sortNames = new Intl.Collator('en-CA', { sensitivity: 'base', numeric: true }).compare;
+  const searchText = text => text.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
   const dateName = new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
   const dayLabel = date => dateName.format(new Date(date + 'T12:00:00Z'));
   const badge = status => '<span class="availability-state" data-state="' + esc(status) + '">' + esc(statuses[status] || 'Unknown') + '</span>';
@@ -137,6 +138,7 @@
     const listen = (id, event, handler) => $(id).addEventListener(event, handler);
     const set = (id, value) => { $(id).textContent = value; };
     let roster = [], selected = new Set(), canSelectAll = false, allActive = false, rosterLoaded = false;
+    let activeTotal = 0, rosterPaged = false, rosterTimer = null, pendingRead = null;
     let generation = 0, rosterGeneration = 0, commonGeneration = 0, detailGeneration = 0;
     let result = null, lookup = null, view = 'summary', agendaPage = 0, timelineDay = '', candidates = [];
     let lastDetailTrigger = null, loading = false, exporting = false;
@@ -171,9 +173,9 @@
       set('status', message || (selected.size ? 'Filters changed. Search availability.' : 'Select Faculty and search.'));
     }
     function renderPicker() {
-      const words = $('faculty').value.toLowerCase().split(/[\s,]+/).filter(Boolean);
+      const words = searchText($('faculty').value).split(/[\s,]+/).filter(Boolean);
       $('faculty-options').innerHTML = roster.map((person, index) => ({ person, index }))
-        .filter(({ person }) => words.every(word => person.name.toLowerCase().includes(word)))
+        .filter(({ person }) => words.every(word => searchText(person.name).includes(word)))
         .map(({ person, index }) => check('data-av-pick="' + index + '"', esc(person.choice) + (person.active ? '' : ' <small>Inactive</small>'),
           selected.has(person.facultyId))).join('') || '<p class="aux-note">No matching Faculty.</p>';
     }
@@ -183,7 +185,8 @@
           esc(person.choice) + ' <span aria-hidden="true">×</span>', 'btn btn-small availability-chip') : '').join('');
       set('selected-count', selected.size + ' selected');
       $('all').hidden = $('inactive-label').hidden = !canSelectAll;
-      $('all').disabled = !roster.some(person => person.active);
+      $('all').disabled = activeTotal < 1 || activeTotal > 500;
+      $('all').title = activeTotal > 500 ? 'More than 500 active Faculty. Use name search to narrow the selection.' : '';
       $('clear').disabled = !selected.size;
       $('search').disabled = loading || !selected.size;
       renderPicker();
@@ -202,20 +205,31 @@
     }
     const sessionError = error => [401, 403].includes(error?.status) ||
       ['SESSION_REAUTH_REQUIRED', 'UNAUTHENTICATED', 'TOKEN_REFRESH_FAILED', 'ACCESS_CONTEXT_CHANGED'].includes(error?.code);
-    async function loadRoster(force = false) {
+    function cancelRoster() {
+      rosterGeneration++;
+      if (rosterTimer !== null) { root.clearTimeout(rosterTimer); rosterTimer = null; }
+    }
+    async function loadRoster(force = false, query = '') {
       if (rosterLoaded && !force) return;
-      const marker = ++rosterGeneration;
+      cancelRoster();
+      const marker = rosterGeneration;
+      const includeInactive = !getSelfMode() && $('inactive').checked;
       set('roster-status', 'Loading authorized Faculty…');
       $('retry-roster').hidden = true;
       try {
-        const data = await api.facultyAvailabilityRoster(!getSelfMode() && $('inactive').checked);
+        const data = await api.facultyAvailabilityRoster(includeInactive, query);
         if (marker !== rosterGeneration) return;
         canSelectAll = data.canSelectAll === true && !getSelfMode();
-        roster = withLabels(data.faculty);
+        activeTotal = data.activeTotal ?? data.faculty.filter(person => person.active).length;
+        if (!query) rosterPaged = Boolean(data.nextCursor);
+        const kept = roster.filter(person => selected.has(person.facultyId) && (includeInactive || person.active));
+        if (!query && !rosterPaged) kept.length = 0;
+        roster = withLabels([...new Map([...kept, ...data.faculty].map(person => [person.facultyId, person])).values()]);
         selected = new Set(roster.filter(person => (allActive && person.active) || selected.has(person.facultyId)).map(person => person.facultyId));
         if (!canSelectAll && roster.length === 1) selected.add(roster[0].facultyId);
         rosterLoaded = true;
-        set('roster-status', roster.length ? '' : 'No authorized Faculty match this scope.');
+        set('roster-status', data.nextCursor ? 'Showing the first 500 matches. Search by name to find other Faculty.' :
+          data.faculty.length ? '' : 'No authorized Faculty match this search.');
         renderSelection();
       } catch (error) {
         if (marker !== rosterGeneration) return;
@@ -279,7 +293,16 @@
       const marker = generation;
       let first, loaded = [];
       try {
-        first = await api.facultyAvailabilityQuery(query);
+        // Finish the prior bulk read before submitting the latest filters.
+        if (pendingRead) {
+          set('status', 'Finishing the previous read…');
+          await pendingRead.catch(() => {});
+          if (marker !== generation) return;
+        }
+        set('status', 'Checking PAWS commitments…');
+        const request = api.facultyAvailabilityQuery(query);
+        pendingRead = request;
+        try { first = await request; } finally { if (pendingRead === request) pendingRead = null; }
         if (marker !== generation) return;
         verifyPage(first, first, 0);
         if (!Array.isArray(first.faculty) || !Array.isArray(first.summaries) || !Array.isArray(first.dates) || !first.window ||
@@ -307,13 +330,15 @@
       }
     }
     function showResult(first, items, complete) {
-      result = { ...first, items, complete };
+      const labels = new Map(withLabels(first.faculty).map(person => [person.facultyId, person.choice]));
+      result = { ...first, items, complete, faculty: first.faculty.map(person => ({ ...person, choice: labels.get(person.facultyId) })) };
       lookup = indexResults(result);
       if (allActive && complete) {
         const active = new Set(result.faculty.map(person => person.facultyId));
         const inactive = $('inactive').checked ? roster.filter(person => !active.has(person.facultyId)).map(person => ({ ...person, active: false })) : [];
         roster = withLabels([...result.faculty, ...inactive]);
         selected = active;
+        activeTotal = active.size;
         renderSelection();
       }
       const { startDate, endDate, startTime, endTime } = result.window;
@@ -323,8 +348,8 @@
         'Partial results. Some records could not be checked. Narrow the dates or Faculty selection and search again.');
       $('result').hidden = false;
       timelineDay = result.dates[0] || '';
-      $('agenda-faculty').innerHTML = option('', 'All selected Faculty') + result.faculty.map((person, i) => option(i, person.name)).join('');
-      $('required').innerHTML = result.faculty.map((person, i) => check('data-av-required="' + i + '"', esc(person.name))).join('');
+      $('agenda-faculty').innerHTML = option('', 'All selected Faculty') + result.faculty.map((person, i) => option(i, person.choice)).join('');
+      $('required').innerHTML = result.faculty.map((person, i) => check('data-av-required="' + i + '"', esc(person.choice))).join('');
       set('required-title', 'Required Faculty');
       $('min-count').max = String(result.faculty.length);
       $('min-count').value = '1';
@@ -349,7 +374,7 @@
       const cleaned = rows.filter(row => filter === 'all' || (filter === 'conflicts' ? ['busy', 'unavailable', 'tentative'].includes(row.status) : row.status === filter)).sort((a, b) =>
         ($('sort').value === 'status' ? statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status) : 0) ||
         sortNames(a.person.name, b.person.name) || a.facultyId.localeCompare(b.facultyId));
-      const body = cleaned.map(row => '<tr><td><details data-av-person="' + row.index + '"><summary>' + esc(row.person.name) +
+      const body = cleaned.map(row => '<tr><td><details data-av-person="' + row.index + '"><summary>' + esc(row.person.choice) +
         (row.person.active ? '' : ' <small>Inactive</small>') + '</summary><div></div></details></td><td>' + badge(row.status) + '</td><td>' +
         esc(row.conflict || (coverage(row.person) ? 'Coverage needs review' : row.status === 'unknown' ? 'Time unconfirmed' : '—')) +
         (row.conflictCount > 1 ? ' <small>· ' + row.conflictCount + ' records</small>' : '') + '</td><td>' + esc(row.time) + '</td></tr>').join('');
@@ -374,7 +399,7 @@
       }
       if (result.dates.length > 1) {
         const headers = ['Faculty', ...result.dates.map(date => button('data-av-date="' + date + '"', esc(dayLabel(date)), 'btn btn-small'))];
-        const rows = result.summaries.map(row => '<tr><th scope="row">' + esc(lookup.people.get(row.facultyId).name) + '</th>' +
+        const rows = result.summaries.map(row => '<tr><th scope="row">' + esc(lookup.people.get(row.facultyId).choice) + '</th>' +
           row.days.map((status, i) => '<td>' + button('data-av-date="' + result.dates[i] + '"', badge(effectiveStatus(status)), 'availability-cell') + '</td>').join('') + '</tr>').join('');
         $('matrix').innerHTML = scroll(table(headers, rows), 'availability-sticky');
       }
@@ -390,6 +415,9 @@
       }
       ticks.push(end);
       const axis = ticks.map(tick => '<span style="--position:' + percent(tick - start) + '">' + clock(tick) + '</span>').join('');
+      const transition = (result.clockChanges || []).find(change => change.date === date);
+      const clockBand = transition ? '<span aria-hidden="true" class="availability-clock-band" style="--position:' +
+        percent(transition.start - start) + ';--span:' + percent(transition.end - transition.start) + '"></span>' : '';
       const tracks = result.summaries.map(row => {
         const person = lookup.people.get(row.facultyId), lanes = [], markers = [];
         const spans = (placements.get(person.facultyId) || []).slice().sort((a, b) => a.start - b.start || a.end - b.end);
@@ -407,11 +435,12 @@
             '" style="--position:' + percent(part.start - start) + ';--span:' + percent(part.end - part.start) + ';--lane:' + lane + '"',
             esc(event.type + ' · ' + time), 'availability-block');
         }).join('');
-        return '<tr><th scope="row">' + esc(person.name) + '<br>' + badge(effectiveStatus(row.days[i])) + '</th><td><div class="availability-track" style="--lanes:' +
-          Math.max(1, lanes.length) + '">' + blocks + '</div>' + (markers.length ? '<div class="availability-actions availability-unconfirmed">' +
+        return '<tr><th scope="row">' + esc(person.choice) + '<br>' + badge(effectiveStatus(row.days[i])) + '</th><td><div class="availability-track" style="--lanes:' +
+          Math.max(1, lanes.length) + '">' + clockBand + blocks + '</div>' + (markers.length ? '<div class="availability-actions availability-unconfirmed">' +
           markers.join('') + '</div>' : '') + '</td></tr>';
       }).join('');
       $('day').innerHTML = '<h3 tabindex="-1" id="availability-day-heading">' + esc(dayLabel(date) + ' · ' + date) + '</h3>' +
+        (transition ? '<p class="availability-warning">Calgary clock change · ' + clock(transition.start) + '–' + clock(transition.end) + ' · Unknown</p>' : '') +
         '<div class="availability-scroll availability-sticky availability-timeline-scroll" tabindex="0" aria-label="Daily Faculty timeline">' +
         table(['Faculty', '<div class="availability-axis">' + axis + '</div><span class="availability-axis-caption">Calgary time</span>'],
           tracks, 'data-availability-timeline') + '</div>';
@@ -422,7 +451,7 @@
       const items = result.items.filter(event => {
         if (facultyId && event.facultyId !== facultyId) return false;
         const type = event.type === 'CCC' ? 'ccc' : event.type === 'Rotation' ? 'rotation' : event.kind;
-        return kind === 'all' || type === kind;
+        return kind === 'all' || kind === event.kind || type === kind;
       });
       if (group === 'faculty') items.sort((a, b) =>
         sortNames(lookup.people.get(a.facultyId).name, lookup.people.get(b.facultyId).name) || a.facultyId.localeCompare(b.facultyId));
@@ -431,11 +460,11 @@
       let last = '';
       $('events').innerHTML = items.slice(start, start + pageSize).map(event => {
         const person = lookup.people.get(event.facultyId);
-        const date = event.segments[0]?.date || (event.startDate < result.window.startDate ? result.window.startDate : event.startDate);
+        const date = event.agendaDate || event.segments[0]?.date || event.startDate;
         const key = group === 'faculty' ? event.facultyId : date;
-        const heading = key === last ? '' : '<h3 class="availability-agenda-group">' + esc(group === 'faculty' ? person.name : date) + '</h3>';
+        const heading = key === last ? '' : '<h3 class="availability-agenda-group">' + esc(group === 'faculty' ? person.choice : date) + '</h3>';
         last = key;
-        return heading + renderEvent(event, group === 'faculty' ? '' : person.name);
+        return heading + renderEvent(event, group === 'faculty' ? '' : person.choice);
       }).join('') || '<p class="empty">' + (result.complete && result.summaries.every(row => row.status !== 'unknown') ?
         'No PAWS commitments found for this activity filter.' : 'No matching records in the loaded results.') + '</p>';
       $('pages').innerHTML = items.length ? button('data-av-page="prev"' + (agendaPage ? '' : ' disabled'), 'Previous') +
@@ -513,7 +542,7 @@
             return (event?.type || 'Activity') + ' · ' + segmentTime({ ...part, actualStart: part.start, actualEnd: part.end });
           });
           const descriptions = [...conflicts, coverage(person), row.clockUnconfirmed ? 'Calgary clock change' : ''].filter(Boolean);
-          return '<tr><th scope="row">' + esc(person.name) + '</th><td>' + badge(row.status) + '</td><td>' +
+          return '<tr><th scope="row">' + esc(person.choice) + '</th><td>' + badge(row.status) + '</td><td>' +
             (descriptions.length ? descriptions.map(esc).join('<br>') : '—') + '</td></tr>';
         }).join('');
         $('detail-body').innerHTML = scroll(table(['Faculty', 'Status', 'Conflicts and coverage'], rows));
@@ -522,7 +551,15 @@
       }
     }
     listen('search-form', 'submit', search);
-    listen('faculty', 'input', renderPicker);
+    listen('faculty', 'input', () => {
+      renderPicker();
+      if (!rosterPaged) return;
+      cancelRoster();
+      rosterTimer = root.setTimeout(() => {
+        rosterTimer = null;
+        loadRoster(true, $('faculty').value.trim().slice(0, 128));
+      }, 250);
+    });
     listen('faculty-options', 'change', event => {
       const index = event.target.dataset.avPick;
       if (index === undefined) return;
@@ -536,15 +573,33 @@
       if ($('clear').disabled) $('picker').querySelector('summary')?.focus();
       else $('clear').focus();
     });
-    listen('all', 'click', () => {
-      if (!canSelectAll) return;
+    listen('all', 'click', async () => {
+      if (!canSelectAll || activeTotal < 1 || activeTotal > 500) return;
+      if (roster.filter(person => person.active).length !== activeTotal) {
+        const identity = rosterGeneration, selectionVersion = generation;
+        try {
+          const data = await api.facultyAvailabilityRoster(false);
+          if (identity !== rosterGeneration || selectionVersion !== generation) return;
+          if (data.nextCursor) { set('roster-status', 'More than 500 active Faculty. Search by name to narrow the selection.'); return; }
+          activeTotal = data.activeTotal;
+          roster = withLabels([...roster.filter(person => !person.active), ...data.faculty]);
+        } catch (error) {
+          if (identity === rosterGeneration) failed(error, $('roster-status'));
+          return;
+        }
+      }
       allActive = true;
       selected = new Set(roster.filter(person => person.active).map(person => person.facultyId));
       clearResult();
       renderSelection();
     });
     listen('clear', 'click', () => { allActive = false; selected.clear(); clearResult(); renderSelection(); });
-    listen('inactive', 'change', () => { clearResult(); return loadRoster(true); });
+    listen('inactive', 'change', () => {
+      if (!$('inactive').checked) selected = new Set(roster.filter(person => person.active && selected.has(person.facultyId)).map(person => person.facultyId));
+      clearResult();
+      renderSelection();
+      return loadRoster(true);
+    });
     listen('retry-roster', 'click', () => loadRoster(true));
     for (const id of ['mode', 'start', 'end', 'time-mode', 'from-time', 'to-time']) {
       listen(id, 'input', () => { updateDateFields(); clearResult(); });
@@ -584,14 +639,16 @@
       }
       if (data.avEvent !== undefined) {
         const item = result.items[Number(data.avEvent)];
-        showDetail(lookup.people.get(item.facultyId).name, renderEvent(item), event.target.closest('button'));
+        showDetail(lookup.people.get(item.facultyId).choice, renderEvent(item), event.target.closest('button'));
       }
       if (data.avSlot !== undefined) openSlot(Number(data.avSlot), event.target.closest('button'));
     });
     function clear() {
-      rosterGeneration++;
+      cancelRoster();
       roster = [];
       rosterLoaded = false;
+      rosterPaged = false;
+      activeTotal = 0;
       selected.clear();
       allActive = false;
       canSelectAll = false;

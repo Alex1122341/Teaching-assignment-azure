@@ -16,7 +16,7 @@ The Faculty Dashboard already contains Availability and serves the single-facult
 
 The existing tab owns the Faculty selection, date modes and daily Calgary hours. Summary, Timeline and Agenda use one result. Summary reports the most restrictive evidenced status in the window and allows users to expand records. Conflicts, unknown statuses and no-conflict results can be filtered separately. Timeline expands dates in a day matrix and places timed records at their actual position inside the window. Agenda filters and groups the loaded data and pages 40 records at a time.
 
-Find Common Time uses a bounded day or range. The required people and the minimum attendance must be clear for the entire returned interval. The same group is counted throughout the interval. The result shows the longest interval for that group at an eligible start, sorted by attendance, date and time. Repeated windows contained in an earlier window for the same group are omitted. Daily hours are Calgary wall time. Ambiguous and skipped times around a Calgary clock change are treated as unknown. Start-time steps are measured from the chosen daily start.
+Find Common Time uses a bounded day or range. The required people and the minimum attendance must be clear for the entire returned interval. The same group is counted throughout the interval. Results preserve a shorter window with higher attendance and a longer window for a qualifying group. Repeated windows contained in an earlier window for the same group are omitted. Daily hours and clock changes come from the same Calgary rules in SQL. Ambiguous and skipped clock times are marked unknown in the timeline. Start-time steps are measured from the chosen daily start.
 
 ## API and SQL
 
@@ -24,7 +24,7 @@ Bulk endpoints live under `/api/v1/faculty/availability/`.
 
 | Endpoint | Method | Result |
 | --- | --- | --- |
-| `roster` | GET | Permitted IDs, canonical names and active state |
+| `roster` | GET | Searchable and paginated permitted IDs, canonical names and active state |
 | `query` | POST | Date and daily time selection, summary, coverage, and first event page |
 | `page` | GET | Next 800 events from the same result |
 | `common-time` | POST | Ranked common intervals from the query result |
@@ -38,7 +38,7 @@ Migration 072 installs `paws_api.ListFacultyAvailabilityBulk`. It collects sourc
 - The same ADFA/Developer base roles may read several permitted Faculty and choose whether to include inactive records. Faculty, HICC and VISC are scoped to their own linked Faculty. ADC and LAB access stays excluded.
 - Teaching topic, course and authenticated scheduling evidence are kept within that scope. AFC reasons, medical information, original private notes, DOE, UCID and contact details do not leave the projection.
 - Bounded calendar comparisons cover up to 31 inclusive days. Open-ended queries preserve the existing ongoing/upcoming behavior for Summary and Agenda. Use a bounded query for Timeline and common time.
-- Each query supports up to 500 Faculty, 15,000 records and a bounded result size. The API returns a partial state or asks the user to narrow the scope when it cannot return complete results. Partial pages cannot certify no conflicts or generate a complete export.
+- Each query supports up to 500 Faculty, 15,000 records and 20,000 daily timing records. Individual searches can narrow a larger directory before querying availability. The API returns a partial state or asks the user to narrow the scope when it cannot return complete results. Partial pages cannot certify no conflicts or generate a complete export.
 - Snapshots expire after 10 minutes and may be evicted sooner by a new query for the same account, use by several concurrent accounts or an API restart. A new query reads SQL again. Other calendar systems are outside PAWS coverage.
 - Common time shows up to 200 ranked matches. The count includes other qualifying windows. General roster and date selection does not apply an activity-type filter to conflict detection. The activity-type filter applies to Agenda.
 

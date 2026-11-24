@@ -228,8 +228,10 @@
         if(cursor)query.set('cursor',String(cursor));
         return request('/api/v1/faculty/'+encodeURIComponent(facultyId||'')+'/availability?'+query.toString());
       },
-      facultyAvailabilityRoster(includeInactive=false){
-        return request('/api/v1/faculty/availability/roster?includeInactive='+(includeInactive?'1':'0'));
+      facultyAvailabilityRoster(includeInactive=false,query='',cursor='0'){
+        return request('/api/v1/faculty/availability/roster?'+new URLSearchParams({
+          includeInactive:includeInactive?'1':'0',query,cursor
+        }));
       },
       facultyAvailabilityQuery(definition){
         return request('/api/v1/faculty/availability/query',{method:'POST',body:definition});

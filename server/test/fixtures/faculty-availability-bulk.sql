@@ -17,6 +17,9 @@ DECLARE @People TABLE(Id uniqueidentifier PRIMARY KEY,N int);
 INSERT @People SELECT TOP(150) NEWID(),ROW_NUMBER() OVER(ORDER BY object_id) FROM sys.all_objects ORDER BY object_id;
 INSERT paws.Faculty(FacultyId,RecordType,DisplayName,PreferredFirstName,PreferredLastName,Active,SourceImportBatchId)
  SELECT Id,N'faculty',CONCAT(N'Synthetic Coordinator ',N),N'Synthetic',CONCAT(N'Coordination ',N),1,@Batch FROM @People;
+INSERT paws.Faculty(FacultyId,RecordType,DisplayName,Active,SourceImportBatchId)
+ SELECT TOP(360) NEWID(),N'faculty',CONCAT(N'Synthetic Inactive ',ROW_NUMBER() OVER(ORDER BY object_id)),0,@Batch
+ FROM sys.all_objects ORDER BY object_id;
 DECLARE @Days TABLE(N int PRIMARY KEY);
 INSERT @Days SELECT TOP(31) ROW_NUMBER() OVER(ORDER BY object_id)-1 FROM sys.all_objects ORDER BY object_id;
 DECLARE @Sessions TABLE(Id uniqueidentifier PRIMARY KEY,PersonId uniqueidentifier,Day date,FromTime time(0),ToTime time(0),RowNo int);
@@ -32,11 +35,17 @@ INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,FacultyRes
 
 DECLARE @Subject uniqueidentifier='11111111-1111-4111-8111-111111111111', @Ccc uniqueidentifier=NEWID(),@Rotation uniqueidentifier=NEWID();
 INSERT paws.CalendarActivity(ActivityId,FacultyId,Category,OriginalLabel,StartDate,EndDate,ImportBatchId,ImportRowId,SourceSha256,SourceSheet,SourceRow,CreatedByUid)
- VALUES(@Ccc,@Subject,N'ccc',N'PRIVATE SOURCE NOTE','2027-01-05','2027-01-06',@Batch,@Row,REPLICATE('C',64),N'SyntheticBulk',2,N'availability-admin'),
-       (@Rotation,@Subject,N'rotation_participant',N'PRIVATE ROTATION SOURCE NOTE','2027-01-07','2027-01-07',@Batch,@Row,REPLICATE('C',64),N'SyntheticBulk',3,N'availability-admin');
+ VALUES(@Ccc,@Subject,N'ccc',N'CCC afternoon shift','2027-01-05','2027-01-06',@Batch,@Row,REPLICATE('C',64),N'SyntheticBulk',2,N'availability-admin'),
+       (@Rotation,@Subject,N'rotation_participant',N'Synthetic clinical rotation','2027-01-07','2027-01-07',@Batch,@Row,REPLICATE('C',64),N'SyntheticBulk',3,N'availability-admin');
 INSERT paws.CalendarActivityDayTime(ActivityId,ActivityDate,StartTime,EndTime,EvidenceRef,EvidenceNote,ActorUid)
  VALUES(@Ccc,'2027-01-05','08:30','09:00',N'synthetic',N'PRIVATE EVIDENCE',N'availability-admin'),
        (@Rotation,'2027-01-07','09:30','11:00',N'synthetic',N'PRIVATE EVIDENCE',N'availability-admin');
+
+DECLARE @Malformed uniqueidentifier=NEWID();
+INSERT paws.RoleAssignment(RoleAssignmentId,FacultyId,FacultyResolutionStatus,AcademicYear,RoleType,EffectiveDate,SourceImportBatchId,SourceRow)
+ VALUES(@Malformed,@Subject,N'resolved',N'2026-27',N'HICC','2027-01-01',@Batch,2);
+INSERT paws.RoleAppointmentSchedule(RoleAssignmentId,PeriodsJson,UpdatedAtUtc,UpdatedByFirebaseUid)
+ VALUES(@Malformed,N'[{"startDate":"2027-01-01","endDate":{"invalid":true}}]',SYSUTCDATETIME(),N'availability-admin');
 
 DECLARE @Available uniqueidentifier=NEWID(), @Unavailable uniqueidentifier=NEWID(), @Request uniqueidentifier=NEWID(), @Version varchar(16);
 BEGIN TRANSACTION;

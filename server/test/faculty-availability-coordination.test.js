@@ -68,6 +68,11 @@ test('start-time steps, required people and Calgary clock-change hours produce c
     { date: spring, start: 10800, end: 14400, count: 3 }
   ]);
   assert.equal(commonTimes(schedule, { duration: 90, minCount: 3, requiredIds: [], step: 0 }).total, 0);
+  const skipped = buildSchedule({ faculty: roster, rows: [event(ids[0], 'skipped', { startDate: spring, endDate: spring,
+    startTime: '02:15', endTime: '02:45' })], window: dayOfChange, today: spring, complete: true,
+    clockChanges: [{ date: spring, start: 7200, end: 10800 }] });
+  assert.equal(skipped.events[0].availability, 'unknown');
+  assert.ok(skipped.events[0].segments.every(part => part.timing === 'unconfirmed'));
 });
 
 test('common time counts the same people across the whole interval', () => {
@@ -79,6 +84,30 @@ test('common time counts the same people across the whole interval', () => {
   const short = commonTimes(schedule, { duration: 30, minCount: 2, requiredIds: [ids[1]], step: 15 });
   assert.ok(short.matches.length > 0);
   assert.ok(short.matches.every(match => match.end <= 43200));
+});
+
+test('finds both a higher-attendance slot and a longer qualifying window at the same start', () => {
+  const schedule = buildSchedule({ faculty: roster, rows: [event(ids[0], 'busy late', { startTime: '10:00', endTime: '12:00' })],
+    window: { ...day, endTime: '12:00' }, today: date, complete: true });
+  const { matches } = commonTimes(schedule, { duration: 60, minCount: 2, requiredIds: [ids[1]], step: 0 });
+  assert.deepEqual(matches.slice(0, 2), [
+    { date, start: 28800, end: 36000, count: 3 }, { date, start: 28800, end: 43200, count: 2 }
+  ]);
+});
+
+test('open-ended Agenda places missing days in order and preserves informational time evidence', () => {
+  const nextDate = '2027-01-12';
+  const timeEvidence = [{ date: nextDate, startTime: '09:30', endTime: '11:00' }];
+  const schedule = buildSchedule({ faculty: roster, rows: [
+    event(ids[0], 'ccc', { kind: 'work', type: 'ccc', label: 'Staffed CCC shift', endDate: nextDate, timeEvidence }),
+    event(ids[1], 'informational', { kind: 'work', type: 'remote_work', endDate: nextDate, timeEvidence })
+  ], window: { ...day, mode: 'from', endDate: null }, today: date, complete: true });
+  const ccc = schedule.events.find(row => row.eventKey === 'ccc');
+  assert.equal(ccc.agendaDate, date);
+  assert.equal(ccc.label, 'Staffed CCC shift');
+  assert.deepEqual(ccc.segments.map(part => part.status), ['unknown', 'busy']);
+  assert.equal(schedule.events.find(row => row.eventKey === 'informational').segments[0].timing, 'verified');
+  assert.equal(schedule.summaries[1].status, 'clear');
 });
 
 function fixture() {
@@ -96,6 +125,7 @@ function fixture() {
       async bulk(input) {
         calls.push(input);
         if (input.action === 'check') return { authorized: true };
+        if (input.action === 'roster') return { faculty: roster, total: roster.length, activeTotal: roster.length, nextCursor: null };
         return { faculty: roster.map(r => ({ ...r, displayName: r.name, email: 'PRIVATE EMAIL' })), events: records, today: date,
           localTime: '08:00:00', complete: true, clockChanges: [] };
       }

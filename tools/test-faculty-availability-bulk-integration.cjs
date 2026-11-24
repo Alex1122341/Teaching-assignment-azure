@@ -30,7 +30,13 @@ async function run() {
         ';REVERT;END TRY BEGIN CATCH REVERT;THROW;END CATCH', args);
     const repository = createSqlFacultyAvailabilityRepository({ query: runtime });
     const request = { actorFirebaseUid: 'availability-admin', action: 'query', selection: 'allActive', ...range };
-    const adminRoster = await repository.bulk({ actorFirebaseUid: request.actorFirebaseUid, action: 'roster', includeInactive: true });
+    const rosterInput = { actorFirebaseUid: request.actorFirebaseUid, action: 'roster', includeInactive: true };
+    const firstPage = await repository.bulk(rosterInput);
+    assert.ok(firstPage.total > 500);
+    assert.equal(firstPage.faculty.length, 500);
+    const secondPage = await repository.bulk({ ...rosterInput, rosterOffset: Number(firstPage.nextCursor) });
+    assert.equal(new Set([...firstPage.faculty, ...secondPage.faculty].map(row => row.facultyId)).size, firstPage.total);
+    const adminRoster = await repository.bulk({ ...rosterInput, rosterSearch: 'Alex Different' });
     assert.equal(adminRoster.faculty.find(row => row.facultyId.toLowerCase() === inactiveId).active, false);
     const selfRoster = await repository.bulk({ actorFirebaseUid: 'availability-hicc', action: 'roster' });
     assert.deepEqual(selfRoster.faculty.map(row => row.facultyId.toLowerCase()), [facultyId]);
@@ -86,10 +92,12 @@ async function run() {
     assert.equal(body.faculty.filter(row => row.name.startsWith('Coordination ')).length, 150);
     assert.doesNotMatch(JSON.stringify(events), /PRIVATE|email|medical|ReasonCode|DeductionJson/i);
     const ccc = events.find(row => row.type === 'CCC' && row.startDate === '2027-01-05');
+    assert.equal(ccc.label, 'CCC afternoon shift');
     assert.deepEqual(ccc.segments.map(row => row.status), ['busy', 'unknown']);
     assert.equal(events.find(row => row.type === 'Rotation').segments[0].status, 'busy');
     assert.ok(!events.some(row => row.kind === 'afc' && row.startDate === '2027-01-08'), 'Available Special Leave must not block');
     assert.ok(events.some(row => row.kind === 'afc' && row.startDate === '2027-01-09'), 'Unavailable Special Leave still blocks');
+    assert.equal(body.faculty.find(row => row.facultyId === facultyId).undatedRoles, 2);
     const old = await repository.list({ actorFirebaseUid: 'availability-admin', facultyId, ...range, kind: 'afc', cursor: 0, limit: 100 });
     assert.deepEqual(events.filter(row => row.facultyId === facultyId && row.kind === 'afc').map(row => row.eventKey).sort(),
       old.items.map(row => row.eventKey).sort());

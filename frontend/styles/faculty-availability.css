@@ -100,6 +100,14 @@ html.dark #availability-view [data-state="unknown"] { --av-state-text: #e5cef8; 
   background: var(--surface-2, #f3f6fa);
   border-radius: 3px;
 }
+.availability-clock-band {
+  position: absolute;
+  inset-block: 0;
+  left: var(--position);
+  width: var(--span);
+  background: repeating-linear-gradient(135deg, transparent 0 5px, currentColor 5px 6px);
+  opacity: .35;
+}
 .availability-block {
   position: absolute;
   left: var(--position);

@@ -2,7 +2,7 @@
 const {uniqueJson}=require('./swa-report-functions');
 const PREFIX='/api/v1/faculty/availability/';
 const routes=Object.freeze({
- roster:['GET','roster',['includeInactive']],
+ roster:['GET','roster',['includeInactive','query','cursor']],
  query:['POST','query',[]],
  page:['GET','page',['snapshot','offset']],
  export:['GET','export',['snapshot','format','filter','sort']],

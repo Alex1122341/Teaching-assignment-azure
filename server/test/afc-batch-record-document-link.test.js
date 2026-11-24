@@ -88,3 +88,37 @@ test('association exposes scoped SQL outcomes without disclosing SQL or archive 
     assert.equal((await call()).status, 503);
   }
 });
+
+test('administrator AFC list enables late attachment only for eligible rows with both permissions', async () => {
+  const { createSqlDashboardRepository } = require('../src/data/sql-dashboard-repository');
+  const rows = [
+    { afcRecordId: record, sourceKind: 'manual', active: 1, canAttachBatchOriginal: 1 },
+    { afcRecordId: document, sourceKind: 'manual', active: 1, documentId: document, canAttachBatchOriginal: 0 },
+    { afcRecordId: faculty, sourceKind: 'import', active: 1, canAttachBatchOriginal: 0 }
+  ];
+  for (const [role, gates, expected] of [
+    ['owner', enabled, [true, false, false]],
+    ['administrator', { afcBatch: true }, [false, false, false]],
+    ['administrator', { afcFormUpload: true }, [false, false, false]],
+    ['faculty', enabled, null]
+  ]) {
+    const queries = [];
+    const api = createDashboardApi({
+      verifyToken: async () => ({ uid: 'verified' }),
+      findUser: async () => ({ active: true, facultyId: faculty, baseRole: role }),
+      writeGates: gates,
+      repository: createSqlDashboardRepository({ query: async sql => { queries.push(sql); return rows; } })
+    });
+    const res = await api.afcRecords('token');
+    if (expected) {
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body.afcRecords.map(row => row.canAttachBatchOriginal), expected);
+      assert.match(queries[0], /LEFT JOIN paws\.vAfcBatchOriginalEligible eligible ON u\.SourceKind=N'manual' AND eligible\.AfcRecordId=u\.AfcRecordId AND eligible\.FacultyId=u\.FacultyId/);
+      assert.match(queries[0], /eligible\.AfcRecordId IS NOT NULL AND original\.DocumentId IS NULL/);
+      assert.doesNotMatch(JSON.stringify(res.body), /batchRequestId/i);
+    } else {
+      assert.equal(res.status, 403);
+      assert.equal(queries.length, 0);
+    }
+  }
+});

@@ -709,10 +709,15 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
     // GET /api/v1/dashboard/afc-records — administrators only. Imported and
     // manual rows are returned one-for-one from the unified SQL view.
     async afcRecords(token, { search, reason, active, limit } = {}) {
-      return guarded(token, scope => {
+      return guarded(token, async scope => {
         if (!scope.administrator) return error(403, 'ROLE_DENIED', 'This role cannot read administrator AFC records.');
-        return repository.listAfcRecords({ search, reason, active, limit })
-          .then(records => result(200, { afcRecords: records.map(normalizeAfcRecord), count: records.length }));
+        const canLinkDocuments = writeGates.afcBatch === true && writeGates.afcFormUpload === true;
+        const records = await repository.listAfcRecords({ search, reason, active, limit });
+        const afcRecords = records.map(row => ({
+          ...normalizeAfcRecord(row),
+          canAttachBatchOriginal: canLinkDocuments && row.canAttachBatchOriginal === true
+        }));
+        return result(200, { afcRecords, count: afcRecords.length });
       });
     },
     async afcSpecialLeaveSource(token, facultyId, year) {

@@ -517,11 +517,14 @@ function createSqlDashboardRepository(db) {
              u.RecordKey AS recordKey,
               u.VersionToken AS versionToken,
               original.DocumentId AS documentId,
+              CAST(CASE WHEN eligible.AfcRecordId IS NOT NULL AND original.DocumentId IS NULL
+                        THEN 1 ELSE 0 END AS bit) AS canAttachBatchOriginal,
               sl.ApprovedAt AS approvedAt,sl.ReviewedStartDate AS reviewedStartDate,
               sl.ReviewedEndDate AS reviewedEndDate,sl.DeductionJson AS deductionJson
          FROM paws.vAfcRecordUnified u
          INNER JOIN paws.Faculty f ON f.FacultyId = u.FacultyId
          LEFT JOIN paws.vAfcRecordOriginal original ON u.SourceKind=N'manual' AND original.AfcRecordId=u.AfcRecordId AND original.FacultyId=u.FacultyId
+         LEFT JOIN paws.vAfcBatchOriginalEligible eligible ON u.SourceKind=N'manual' AND eligible.AfcRecordId=u.AfcRecordId AND eligible.FacultyId=u.FacultyId
          LEFT JOIN paws.vAfcSpecialLeaveAdmin sl ON u.SourceKind=N'manual' AND sl.AfcRecordId=u.AfcRecordId
          ${whereClause}
          ORDER BY u.StartDate DESC, f.DisplayName, u.AfcRecordId`,
@@ -543,7 +546,8 @@ function createSqlDashboardRepository(db) {
         createdAtUtc: row.createdAtUtc || null,
         createdByName: toText(row.createdByName),
         recordKey: toText(row.recordKey),
-        versionToken: toText(row.versionToken),documentId:row.documentId||null
+        versionToken: toText(row.versionToken),documentId:row.documentId||null,
+        canAttachBatchOriginal: toBool(row.canAttachBatchOriginal)
       }));
     },
 

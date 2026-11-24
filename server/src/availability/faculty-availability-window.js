@@ -50,7 +50,7 @@ function cleanEvent(row, facultyId) {
     detail: row.detail ?? null, availability: 'ongoing' };
   if (kind === 'work') {
     const type = Object.hasOwn(types, row.type) ? types[row.type] : 'Work beyond teaching';
-    return { ...projected, type, label: row.label || type, courseCode: row.courseCode ?? null,
+    return { ...projected, type, label: type, courseCode: row.courseCode ?? null,
       availability: row.type === 'remote_work' ? 'informational' : 'busy' };
   }
   const type = row.type || 'Teaching';
@@ -136,15 +136,35 @@ function compareEvents(left, right) {
   return byDate || (a?.start ?? 0) - (b?.start ?? 0) || left.kind.localeCompare(right.kind) || left.eventKey.localeCompare(right.eventKey);
 }
 
-function buildSchedule({ faculty, rows, window, today, localTime, complete, clockChanges = [] }) {
+function unresolvedCoverage(rows, window) {
+  const byDay = new Map();
+  let undated = false;
+  for (const row of rows) {
+    if (row.date === null) { undated = true; continue; }
+    if (!validDate(row.date)) throw Error('Invalid unresolved teaching date');
+    if (row.date < window.startDate || (window.endDate && row.date > window.endDate)) continue;
+    const from = clockSeconds(row.startTime), to = clockSeconds(row.endTime);
+    const timed = from !== null && to !== null && from < to;
+    const start = Math.max(timed ? from : 0, window.start, row.date === window.today ? window.now : 0);
+    const end = Math.min(timed ? to : DAY, window.end);
+    if (start >= end) continue;
+    if (!byDay.has(row.date)) byDay.set(row.date, []);
+    byDay.get(row.date).push({ start, end });
+  }
+  return { byDay, undated };
+}
+
+function buildSchedule({ faculty, rows, window, today, localTime, complete, clockChanges = [], unlinkedTeaching = [] }) {
   const startDate = window.mode === 'upcoming' ? today : window.startDate;
   const endDate = window.mode === 'day' ? startDate : window.endDate;
   const dates = endDate ? Array.from({ length: daysBetween(startDate, endDate) + 1 }, (_, index) => offsetDate(startDate, index)) : [];
   const interval = { startDate, endDate, start: clockSeconds(window.startTime) ?? 0, end: clockSeconds(window.endTime) ?? DAY,
     today: window.mode === 'upcoming' ? today : null, now: clockSeconds(localTime) ?? 0 };
+  const unresolved = unresolvedCoverage(unlinkedTeaching, interval);
   const transitions = new Map();
   for (const { date, start, end } of clockChanges) {
-    if (!dates.includes(date) || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > DAY || start >= end || transitions.has(date)) {
+    if (!validDate(date) || date < startDate || (endDate && date > endDate) || !Number.isInteger(start) ||
+        !Number.isInteger(end) || start < 0 || end > DAY || start >= end || transitions.has(date)) {
       throw Error('Invalid Calgary clock-change coverage');
     }
     if (overlaps(start, end, interval.start, interval.end)) {
@@ -159,7 +179,8 @@ function buildSchedule({ faculty, rows, window, today, localTime, complete, cloc
     const event = cleanEvent(row, id);
     if (event.startDate > (endDate ?? '9999-12-31') || (event.endDate && event.endDate < startDate)) continue;
     const segments = timeSegments(event, row, dates, interval, transitions);
-    if (!segments.length && !['ongoing', 'informational'].includes(event.availability)) continue;
+    if (!segments.length && event.availability !== 'ongoing' &&
+        (event.availability !== 'informational' || row.timeEvidence.length > 0)) continue;
     const key = id + ':' + event.eventKey, evidence = JSON.stringify([event, segments]);
     if (seen.has(key)) {
       if (seen.get(key) !== evidence) throw Error('Conflicting evidence for one availability event');
@@ -177,23 +198,25 @@ function buildSchedule({ faculty, rows, window, today, localTime, complete, cloc
   const summaries = faculty.map(person => {
     const owned = facultyEvents.get(person.facultyId).sort(compareEvents);
     const conflicts = owned.filter(event => event.segments.length && event.availability !== 'informational');
-    const incomplete = !complete || person.undatedSessions > 0 || person.undatedRoles > 0;
+    const incomplete = !complete || person.undatedSessions > 0 || person.undatedRoles > 0 || unresolved.undated;
     const byDay = new Map(dates.map(date => [date, []]));
     for (const event of conflicts) for (const segment of event.segments) {
       byDay.get(segment.date)?.push({ ...segment, eventKey: event.eventKey });
     }
     byFaculty.set(person.facultyId, { incomplete, byDay });
-    const days = dates.map(date => statusOf(byDay.get(date).map(segment => segment.status), incomplete || transitions.has(date)));
-    const status = statusOf([...conflicts.map(item => item.availability), ...days], incomplete);
+    const days = dates.map(date => statusOf(byDay.get(date).map(segment => segment.status),
+      incomplete || transitions.has(date) || unresolved.byDay.has(date)));
+    const status = statusOf([...conflicts.map(item => item.availability), ...days], incomplete || unresolved.byDay.size > 0);
     const first = conflicts.find(event => event.availability === status);
     const segment = first?.segments.find(part => part.status === status);
     const time = !segment || segment.timing === 'unconfirmed' ? '—' : segment.timing === 'all_day' ? 'All Day' :
       segment.date + ' ' + formatClock(segment.actualStart) + '–' + formatClock(segment.actualEnd);
-    const conflict = first?.type || (incomplete ? 'Coverage needs review' : status === 'unknown' ? 'Time unconfirmed' : null);
+    const conflict = first?.type || (unresolved.undated || unresolved.byDay.size ? 'Unresolved teaching assignment' :
+      incomplete ? 'Coverage needs review' : status === 'unknown' ? 'Time unconfirmed' : null);
     return { facultyId: person.facultyId, status, days, conflictCount: conflicts.length, conflict, time };
   });
   return { faculty, events, summaries, dates, window: { ...window, startDate, endDate, start: interval.start, end: interval.end },
-    today, complete, byFaculty, transitions };
+    today, complete, byFaculty, transitions, unresolved };
 }
 
 function filterSummaries(schedule, filter = 'all', sort = 'name') {
@@ -207,7 +230,7 @@ function filterSummaries(schedule, filter = 'all', sort = 'name') {
 function freeIntervals(schedule, person, date) {
   const { start, end } = schedule.window;
   if (person.incomplete) return [];
-  const blocks = [...person.byDay.get(date)];
+  const blocks = [...person.byDay.get(date), ...(schedule.unresolved.byDay.get(date) || [])];
   if (schedule.transitions.has(date)) blocks.push(schedule.transitions.get(date));
   const free = [];
   let cursor = start;
@@ -266,11 +289,14 @@ function commonTimes(schedule, { duration, minCount, requiredIds, step }) {
 
 function describeTime(schedule, date, start, end) {
   const change = schedule.transitions.get(date);
+  const unresolvedTeaching = schedule.unresolved.undated ||
+    (schedule.unresolved.byDay.get(date) || []).some(part => overlaps(start, end, part.start, part.end));
   return schedule.faculty.map(({ facultyId }) => {
     const { incomplete, byDay } = schedule.byFaculty.get(facultyId);
     const segments = byDay.get(date).filter(part => overlaps(start, end, part.start, part.end));
     const clockUnconfirmed = Boolean(change && overlaps(start, end, change.start, change.end));
-    return { facultyId, status: statusOf(segments.map(part => part.status), incomplete || clockUnconfirmed), clockUnconfirmed,
+    return { facultyId, status: statusOf(segments.map(part => part.status), incomplete || clockUnconfirmed || unresolvedTeaching),
+      clockUnconfirmed, unresolvedTeaching,
       events: segments.map(part => ({ key: part.eventKey, start: part.actualStart, end: part.actualEnd, status: part.status, timing: part.timing })) };
   });
 }

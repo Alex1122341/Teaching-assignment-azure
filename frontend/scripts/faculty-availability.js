@@ -52,6 +52,7 @@
     '<button type="submit" class="btn btn-primary" id="availability-search" disabled>Search availability</button></div></form>',
     '<div id="availability-status" class="aux-note" role="status" aria-live="polite">Select Faculty and search.</div>',
     '<div id="availability-result" hidden><p id="availability-window" class="availability-window"></p>',
+    '<p id="availability-coverage" class="availability-warning" hidden></p>',
     '<div class="availability-actions" role="group" aria-label="Availability view">',
     button('data-av-view="summary" aria-pressed="true"', 'Summary'),
     button('data-av-view="timeline" aria-pressed="false"', 'Timeline'),
@@ -147,6 +148,7 @@
     function closeDetail() {
       detailGeneration++;
       if ($('detail').open) $('detail').close();
+      set('detail-title', 'Availability details');
       $('detail-body').innerHTML = '';
     }
     function clearCommon() {
@@ -167,7 +169,7 @@
       agendaPage = 0;
       timelineDay = '';
       $('result').hidden = true;
-      for (const id of ['summary', 'summary-table', 'matrix', 'day', 'events', 'pages', 'required', 'action-status', 'window']) $(id).innerHTML = '';
+      for (const id of ['summary', 'summary-table', 'matrix', 'day', 'events', 'pages', 'required', 'action-status', 'window', 'coverage']) $(id).innerHTML = '';
       $('agenda-faculty').innerHTML = option('', 'All selected Faculty');
       $('search').disabled = !selected.size;
       set('status', message || (selected.size ? 'Filters changed. Search availability.' : 'Select Faculty and search.'));
@@ -200,7 +202,8 @@
       return people.slice().sort((a, b) => sortNames(a.name, b.name) || a.facultyId.localeCompare(b.facultyId)).map(person => {
         const key = person.name.toLowerCase(), index = (seen.get(key) || 0) + 1;
         seen.set(key, index);
-        return { ...person, choice: counts.get(key) > 1 ? person.name + ' · Faculty ' + index : person.name };
+        const distinction = person.reference ? 'Ref ' + person.reference : 'Faculty ' + index;
+        return { ...person, choice: counts.get(key) > 1 ? person.name + ' · ' + distinction : person.name };
       });
     }
     const sessionError = error => [401, 403].includes(error?.status) ||
@@ -331,7 +334,12 @@
     }
     function showResult(first, items, complete) {
       const labels = new Map(withLabels(first.faculty).map(person => [person.facultyId, person.choice]));
-      result = { ...first, items, complete, faculty: first.faculty.map(person => ({ ...person, choice: labels.get(person.facultyId) })) };
+      const previous = new Map(roster.map(person => [person.facultyId, person]));
+      result = { ...first, items, complete, faculty: first.faculty.map(person => {
+        const known = previous.get(person.facultyId), label = labels.get(person.facultyId);
+        const choice = label === person.name && known?.name === person.name ? known.choice : label;
+        return { ...person, choice };
+      }) };
       lookup = indexResults(result);
       if (allActive && complete) {
         const active = new Set(result.faculty.map(person => person.facultyId));
@@ -344,6 +352,10 @@
       const { startDate, endDate, startTime, endTime } = result.window;
       const dates = endDate ? startDate + (startDate === endDate ? '' : ' – ' + endDate) : 'From ' + startDate;
       set('window', dates + ' · ' + (startTime ? startTime + '–' + endTime : 'All Day') + ' Calgary time · ' + result.faculty.length + ' Faculty');
+      const unresolved = result.unresolvedTeaching;
+      $('coverage').hidden = !(unresolved?.undated || unresolved?.days.length);
+      set('coverage', unresolved?.undated ? 'An unresolved teaching assignment has no confirmed date. The query cannot certify clear time.' :
+        'Unresolved teaching assignments affect ' + (unresolved?.days.length ?? 0) + ' day(s). The affected intervals are treated as unknown.');
       set('status', complete ? items.length + ' PAWS commitment' + (items.length === 1 ? '' : 's') + ' loaded.' :
         'Partial results. Some records could not be checked. Narrow the dates or Faculty selection and search again.');
       $('result').hidden = false;
@@ -416,6 +428,7 @@
       ticks.push(end);
       const axis = ticks.map(tick => '<span style="--position:' + percent(tick - start) + '">' + clock(tick) + '</span>').join('');
       const transition = (result.clockChanges || []).find(change => change.date === date);
+      const unresolved = result.unresolvedTeaching?.days.find(day => day.date === date);
       const clockBand = transition ? '<span aria-hidden="true" class="availability-clock-band" style="--position:' +
         percent(transition.start - start) + ';--span:' + percent(transition.end - transition.start) + '"></span>' : '';
       const tracks = result.summaries.map(row => {
@@ -441,6 +454,8 @@
       }).join('');
       $('day').innerHTML = '<h3 tabindex="-1" id="availability-day-heading">' + esc(dayLabel(date) + ' · ' + date) + '</h3>' +
         (transition ? '<p class="availability-warning">Calgary clock change · ' + clock(transition.start) + '–' + clock(transition.end) + ' · Unknown</p>' : '') +
+        (unresolved ? '<p class="availability-warning">Unresolved teaching assignment time · ' +
+          unresolved.intervals.map(part => clock(part.start) + '–' + clock(part.end)).join(', ') + ' · Unknown</p>' : '') +
         '<div class="availability-scroll availability-sticky availability-timeline-scroll" tabindex="0" aria-label="Daily Faculty timeline">' +
         table(['Faculty', '<div class="availability-axis">' + axis + '</div><span class="availability-axis-caption">Calgary time</span>'],
           tracks, 'data-availability-timeline') + '</div>';
@@ -541,7 +556,8 @@
             const event = lookup.byKey.get(row.facultyId + ':' + part.key);
             return (event?.type || 'Activity') + ' · ' + segmentTime({ ...part, actualStart: part.start, actualEnd: part.end });
           });
-          const descriptions = [...conflicts, coverage(person), row.clockUnconfirmed ? 'Calgary clock change' : ''].filter(Boolean);
+          const descriptions = [...conflicts, coverage(person), row.clockUnconfirmed ? 'Calgary clock change' : '',
+            row.unresolvedTeaching ? 'Unresolved teaching assignment' : ''].filter(Boolean);
           return '<tr><th scope="row">' + esc(person.choice) + '</th><td>' + badge(row.status) + '</td><td>' +
             (descriptions.length ? descriptions.map(esc).join('<br>') : '—') + '</td></tr>';
         }).join('');

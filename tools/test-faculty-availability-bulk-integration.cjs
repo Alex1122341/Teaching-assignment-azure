@@ -51,6 +51,9 @@ async function run() {
     const clockChange = await repository.bulk({ ...request, startDate: '2026-03-08', endDate: '2026-03-08',
       selection: 'selected', facultyIds: [facultyId] });
     assert.deepEqual(clockChange.clockChanges, [{ date: '2026-03-08', start: 7200, end: 10800 }]);
+    const openClock = await repository.bulk({ ...request, mode: 'from', startDate: '2026-03-08', endDate: null,
+      selection: 'selected', facultyIds: [facultyId] });
+    assert.ok(openClock.clockChanges.some(row => row.date === '2026-03-08' && row.start === 7200 && row.end === 10800));
 
     const sqlTimings = [];
     let loaded;
@@ -64,6 +67,7 @@ async function run() {
     assert.equal(scale.length, 150 * 31);
     assert.ok(loaded.complete);
     assert.doesNotMatch(JSON.stringify(loaded), /PRIVATE|email|ucid|medical|ReasonCode|DeductionJson/i);
+    assert.deepEqual(loaded.unlinkedTeaching, [{ date: '2027-01-04', startTime: '12:00:00', endTime: '13:00:00' }]);
     assert.equal(new Set(loaded.events.map(row => row.facultyId + ':' + row.eventKey)).size, loaded.events.length);
 
     let sqlReads = 0;
@@ -92,7 +96,7 @@ async function run() {
     assert.equal(body.faculty.filter(row => row.name.startsWith('Coordination ')).length, 150);
     assert.doesNotMatch(JSON.stringify(events), /PRIVATE|email|medical|ReasonCode|DeductionJson/i);
     const ccc = events.find(row => row.type === 'CCC' && row.startDate === '2027-01-05');
-    assert.equal(ccc.label, 'CCC afternoon shift');
+    assert.equal(ccc.label, 'CCC');
     assert.deepEqual(ccc.segments.map(row => row.status), ['busy', 'unknown']);
     assert.equal(events.find(row => row.type === 'Rotation').segments[0].status, 'busy');
     assert.ok(!events.some(row => row.kind === 'afc' && row.startDate === '2027-01-08'), 'Available Special Leave must not block');
@@ -122,15 +126,15 @@ async function run() {
       sqlReadSamplesMs: sqlTimings, firstPageWithModelMs: queryMs, remainingPagesMs: pagesMs,
       commonSearchMs: commonMs, sqlFullQueries: sqlReads }));
 
-    const [definition] = await query("SELECT CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(N'paws_api.ListFacultyAvailabilityBulk'))),2) AS hash");
+    const [definition] = await query("SELECT CONVERT(varchar(64),HASHBYTES('SHA2_256',OBJECT_DEFINITION(OBJECT_ID(N'paws_api.ListFacultyAvailabilityBulk'))),2) AS DefinitionHash");
     const rollback = fs.readFileSync(require.resolve('../database/azure-sql/rollback_072_faculty_availability_bulk_read.sql'), 'utf8')
       .replace(/^:ON ERROR EXIT\r?\n/m, '');
     await assert.rejects(query(rollback.replace('$(PAWS_AVAILABILITY_BULK_SHA256)', '0'.repeat(64))), error => error.number === 57208);
-    await query(rollback.replace('$(PAWS_AVAILABILITY_BULK_SHA256)', definition.hash));
-    const [after] = await query("SELECT OBJECT_ID(N'paws_api.ListFacultyAvailability') legacy,OBJECT_ID(N'paws_api.ListFacultyAvailabilityBulk') bulk,(SELECT COUNT(*) FROM paws.Session WHERE CourseCode=N'AVSCALE') AS sessions");
-    assert.ok(after.legacy);
-    assert.equal(after.bulk, null);
-    assert.equal(after.sessions, 4650);
+    await query(rollback.replace('$(PAWS_AVAILABILITY_BULK_SHA256)', definition.DefinitionHash));
+    const [after] = await query("SELECT OBJECT_ID(N'paws_api.ListFacultyAvailability') AS LegacyObjectId,OBJECT_ID(N'paws_api.ListFacultyAvailabilityBulk') AS BulkObjectId,(SELECT COUNT(*) FROM paws.Session WHERE CourseCode=N'AVSCALE') AS SessionCount");
+    assert.ok(after.LegacyObjectId);
+    assert.equal(after.BulkObjectId, null);
+    assert.equal(after.SessionCount, 4650);
     console.log('AVAILABILITY_BULK_ROLLBACK_PRESERVED_DATA');
   } finally { await pool.close(); }
 }

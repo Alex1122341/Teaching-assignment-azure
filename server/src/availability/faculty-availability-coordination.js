@@ -1,6 +1,6 @@
 'use strict';
 
-const { randomUUID } = require('node:crypto');
+const { createHash, randomUUID } = require('node:crypto');
 const { format } = require('../domain/person-name');
 const { spreadsheetBytes, safeText } = require('../reports/report-export');
 const { UUID, validDate, daysBetween, clockSeconds, formatClock, statusLabels, buildSchedule, commonTimes,
@@ -50,7 +50,8 @@ function projectFaculty(value, auth, { includeInactive, ids, coverage = false } 
     if (!facultyId || seen.has(facultyId) || typeof record.active !== 'boolean' || (!includeInactive && !record.active) ||
         (!auth.admin && facultyId !== auth.facultyId) || (ids && !ids.has(facultyId))) throw Error('Invalid availability faculty scope');
     seen.add(facultyId);
-    const row = { facultyId, name: format(record, 'Name unavailable'), active: record.active };
+    const reference = createHash('sha256').update('availability:' + facultyId).digest('hex').slice(0, 10).toUpperCase();
+    const row = { facultyId, name: format(record, 'Name unavailable'), active: record.active, reference };
     if (!coverage) return row;
     const { undatedSessions, undatedRoles } = record;
     if (![undatedSessions, undatedRoles].every(n => Number.isInteger(n) && n >= 0)) throw Error('Incomplete availability source coverage');
@@ -78,8 +79,14 @@ function exportTable(schedule, filter, sort) {
   const hours = schedule.window.startTime ? `${schedule.window.startTime}–${schedule.window.endTime}` : 'All Day';
   const headers = ['Faculty', 'Status', 'Conflict', 'Time', 'Overlapping records', 'Undated sessions', 'Undated appointments',
     'Date window', 'Daily Calgary hours', 'Scope'];
+  const names = new Map();
+  for (const person of schedule.faculty) {
+    const key = person.name.toLowerCase();
+    names.set(key, (names.get(key) ?? 0) + 1);
+  }
   const values = filterSummaries(schedule, filter, sort).map(row => [
-    row.name, statusLabels[row.status], row.conflict ?? '—', row.time, row.conflictCount, row.undatedSessions, row.undatedRoles,
+    names.get(row.name.toLowerCase()) > 1 ? row.name + ' · Ref ' + row.reference : row.name,
+    statusLabels[row.status], row.conflict ?? '—', row.time, row.conflictCount, row.undatedSessions, row.undatedRoles,
     dateWindow, hours, 'PAWS only. External calendar meetings are excluded.'
   ].map(value => typeof value === 'number' ? value : safeText(value)));
   return { label: 'Availability Summary', headers, values,
@@ -161,12 +168,14 @@ function createAvailabilityCoordination({ authorize, repository, clock = Date.no
         const loaded = await repository.bulk({ action: 'query', actorFirebaseUid: auth.uid, facultyIds, includeInactive, selection,
           mode: mode === 'day' ? 'range' : mode, startDate, endDate: mode === 'day' ? startDate : endDate });
         if (!validDate(loaded.today) || clockSeconds(loaded.localTime) === null || typeof loaded.complete !== 'boolean' || !Array.isArray(loaded.clockChanges) ||
+            !Array.isArray(loaded.unlinkedTeaching) || loaded.unlinkedTeaching.length > 500 ||
             !Array.isArray(loaded.events) || loaded.events.length > MAX_EVENTS) throw Error('Invalid availability source');
         const ids = selection === 'selected' ? new Set(facultyIds) : null;
         const faculty = projectFaculty(loaded.faculty, auth, { includeInactive, ids, coverage: true });
         if (ids && faculty.length !== ids.size) throw Error('Incomplete faculty selection');
         const schedule = buildSchedule({ faculty, rows: loaded.events, window: definition,
-          today: loaded.today, localTime: loaded.localTime, complete: loaded.complete, clockChanges: loaded.clockChanges });
+          today: loaded.today, localTime: loaded.localTime, complete: loaded.complete, clockChanges: loaded.clockChanges,
+          unlinkedTeaching: loaded.unlinkedTeaching });
         const current = await authorize(token);
         if (current.response) return current.response;
         if (binding(auth) !== binding(current)) return denied();
@@ -176,6 +185,7 @@ function createAvailabilityCoordination({ authorize, repository, clock = Date.no
         return success({ ...pageOf(snapshot, item, 0), faculty: schedule.faculty, summaries: schedule.summaries,
           dates: schedule.dates, window: schedule.window, complete: schedule.complete,
           clockChanges: [...schedule.transitions].map(([date, time]) => ({ date, ...time })),
+          unresolvedTeaching: { undated: schedule.unresolved.undated, days: [...schedule.unresolved.byDay].map(([date, intervals]) => ({ date, intervals })) },
           expiresAt: new Date(item.expires).toISOString() });
       } catch (error) { return sqlError(error); }
       finally { querying.delete(auth.uid); }

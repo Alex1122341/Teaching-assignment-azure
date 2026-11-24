@@ -104,10 +104,31 @@ test('open-ended Agenda places missing days in order and preserves informational
   ], window: { ...day, mode: 'from', endDate: null }, today: date, complete: true });
   const ccc = schedule.events.find(row => row.eventKey === 'ccc');
   assert.equal(ccc.agendaDate, date);
-  assert.equal(ccc.label, 'Staffed CCC shift');
+  assert.equal(ccc.label, 'CCC');
   assert.deepEqual(ccc.segments.map(part => part.status), ['unknown', 'busy']);
   assert.equal(schedule.events.find(row => row.eventKey === 'informational').segments[0].timing, 'verified');
   assert.equal(schedule.summaries[1].status, 'clear');
+});
+
+test('anonymous unresolved teaching coverage excludes only the affected periods from common time', () => {
+  const schedule = buildSchedule({ faculty: roster, rows: [], window: day, today: date, complete: true,
+    unlinkedTeaching: [{ date, startTime: '10:00', endTime: '11:00' }] });
+  assert.ok(schedule.summaries.every(person => person.status === 'unknown'));
+  assert.ok(schedule.summaries.every(person => person.conflict === 'Unresolved teaching assignment'));
+  const result = commonTimes(schedule, { duration: 60, minCount: 3, requiredIds: [], step: 0 });
+  assert.deepEqual(result.matches.map(slot => [slot.start, slot.end]), [[28800, 36000], [39600, 57600]]);
+});
+
+test('the open-ended Agenda respects clock changes and excludes timed informational records outside the hours', () => {
+  const spring = '2026-03-08';
+  const schedule = buildSchedule({ faculty: roster, rows: [
+    event(ids[0], 'skipped', { startDate: spring, endDate: spring, startTime: '02:15', endTime: '02:45' }),
+    event(ids[1], 'remote', { kind: 'work', type: 'remote_work', startDate: spring, endDate: spring,
+      timeEvidence: [{ date: spring, startTime: '17:00', endTime: '18:00' }] })
+  ], window: { ...day, mode: 'from', startDate: spring, endDate: null, startTime: '01:00', endTime: '04:00' },
+  today: spring, complete: true, clockChanges: [{ date: spring, start: 7200, end: 10800 }] });
+  assert.equal(schedule.events.length, 1);
+  assert.equal(schedule.events[0].availability, 'unknown');
 });
 
 function fixture() {
@@ -127,7 +148,7 @@ function fixture() {
         if (input.action === 'check') return { authorized: true };
         if (input.action === 'roster') return { faculty: roster, total: roster.length, activeTotal: roster.length, nextCursor: null };
         return { faculty: roster.map(r => ({ ...r, displayName: r.name, email: 'PRIVATE EMAIL' })), events: records, today: date,
-          localTime: '08:00:00', complete: true, clockChanges: [] };
+          localTime: '08:00:00', complete: true, clockChanges: [], unlinkedTeaching: [] };
       }
     },
     clock: () => current

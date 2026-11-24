@@ -35,8 +35,8 @@ INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,FacultyRes
 
 DECLARE @Subject uniqueidentifier='11111111-1111-4111-8111-111111111111', @Ccc uniqueidentifier=NEWID(),@Rotation uniqueidentifier=NEWID();
 INSERT paws.CalendarActivity(ActivityId,FacultyId,Category,OriginalLabel,StartDate,EndDate,ImportBatchId,ImportRowId,SourceSha256,SourceSheet,SourceRow,CreatedByUid)
- VALUES(@Ccc,@Subject,N'ccc',N'CCC afternoon shift','2027-01-05','2027-01-06',@Batch,@Row,REPLICATE('C',64),N'SyntheticBulk',2,N'availability-admin'),
-       (@Rotation,@Subject,N'rotation_participant',N'Synthetic clinical rotation','2027-01-07','2027-01-07',@Batch,@Row,REPLICATE('C',64),N'SyntheticBulk',3,N'availability-admin');
+ VALUES(@Ccc,@Subject,N'ccc',N'PRIVATE ORIGINAL WORK LABEL','2027-01-05','2027-01-06',@Batch,@Row,REPLICATE('C',64),N'SyntheticBulk',2,N'availability-admin'),
+       (@Rotation,@Subject,N'rotation_participant',N'PRIVATE ORIGINAL ROTATION LABEL','2027-01-07','2027-01-07',@Batch,@Row,REPLICATE('C',64),N'SyntheticBulk',3,N'availability-admin');
 INSERT paws.CalendarActivityDayTime(ActivityId,ActivityDate,StartTime,EndTime,EvidenceRef,EvidenceNote,ActorUid)
  VALUES(@Ccc,'2027-01-05','08:30','09:00',N'synthetic',N'PRIVATE EVIDENCE',N'availability-admin'),
        (@Rotation,'2027-01-07','09:30','11:00',N'synthetic',N'PRIVATE EVIDENCE',N'availability-admin');
@@ -46,6 +46,13 @@ INSERT paws.RoleAssignment(RoleAssignmentId,FacultyId,FacultyResolutionStatus,Ac
  VALUES(@Malformed,@Subject,N'resolved',N'2026-27',N'HICC','2027-01-01',@Batch,2);
 INSERT paws.RoleAppointmentSchedule(RoleAssignmentId,PeriodsJson,UpdatedAtUtc,UpdatedByFirebaseUid)
  VALUES(@Malformed,N'[{"startDate":"2027-01-01","endDate":{"invalid":true}}]',SYSUTCDATETIME(),N'availability-admin');
+
+DECLARE @Unlinked uniqueidentifier=NEWID(),@ClockGap uniqueidentifier=NEWID();
+INSERT paws.Session(SessionId,AcademicYear,CourseCode,SessionType,SessionDate,StartTime,EndTime,Topic,SourceImportBatchId)
+ VALUES(@Unlinked,N'2026-27',N'AVAILGAP',N'LEC','2027-01-04','12:00','13:00',N'PRIVATE UNRESOLVED SOURCE',@Batch),
+       (@ClockGap,N'2025-26',N'AVAILDST',N'LEC','2026-03-08','02:15','02:45',N'Synthetic clock gap',@Batch);
+INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,FacultyResolutionStatus,SourceImportBatchId,SourceRow)
+ VALUES(NEWID(),@Unlinked,NULL,N'unresolved',@Batch,9998),(NEWID(),@ClockGap,@Subject,N'resolved',@Batch,9999);
 
 DECLARE @Available uniqueidentifier=NEWID(), @Unavailable uniqueidentifier=NEWID(), @Request uniqueidentifier=NEWID(), @Version varchar(16);
 BEGIN TRANSACTION;

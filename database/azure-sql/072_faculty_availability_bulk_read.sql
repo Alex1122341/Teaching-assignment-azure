@@ -163,8 +163,7 @@ BEGIN
    AND (@Mode<>N'upcoming' OR s.SessionDate>@Today OR s.StartTime IS NULL OR s.EndTime IS NULL
         OR s.StartTime>=s.EndTime OR s.EndTime>@Clock)
   UNION ALL
-  SELECT a.FacultyId,N'work',CONCAT(N'work:',CONVERT(nvarchar(36),a.ActivityId)),a.Category COLLATE DATABASE_DEFAULT,
-    LEFT(NULLIF(LTRIM(RTRIM(a.OriginalLabel)),N''),520) COLLATE DATABASE_DEFAULT,NULL,
+  SELECT a.FacultyId,N'work',CONCAT(N'work:',CONVERT(nvarchar(36),a.ActivityId)),a.Category COLLATE DATABASE_DEFAULT,NULL,NULL,
     a.StartDate,a.EndDate,NULL,NULL,c.CourseCode COLLATE DATABASE_DEFAULT,NULL,a.ActivityId
   FROM paws.CalendarActivity a
   JOIN #Faculty f ON f.FacultyId=a.FacultyId
@@ -208,41 +207,73 @@ BEGIN
  ORDER BY StartDate,StartTime,FacultyId,Kind,EventKey;
 
  DECLARE @Complete bit=CASE WHEN @@ROWCOUNT>15000 THEN 0 ELSE 1 END;
- DECLARE @EvidenceCount int;
- SELECT @EvidenceCount=COUNT(*) FROM (
-  SELECT TOP (20001) t.ActivityId FROM #Events e
-  JOIN paws.CalendarActivityDayTime t ON t.ActivityId=e.ActivityId
-  WHERE t.ActivityDate BETWEEN @Floor AND @Ceiling AND t.ActivityDate BETWEEN e.StartDate AND e.EndDate
- ) bounded;
- IF @EvidenceCount>20000 THROW 57205,'Daily availability evidence exceeds the query limit.',1;
+ SELECT TOP (20001) t.ActivityId,t.ActivityDate,t.StartTime,t.EndTime
+ INTO #DayTimes
+ FROM #Events e JOIN paws.CalendarActivityDayTime t ON t.ActivityId=e.ActivityId
+ WHERE t.ActivityDate BETWEEN @Floor AND @Ceiling AND t.ActivityDate BETWEEN e.StartDate AND e.EndDate;
+ IF @@ROWCOUNT>20000 THROW 57205,'Daily availability evidence exceeds the query limit.',1;
+ CREATE CLUSTERED INDEX IX_AvailabilityDayTimes ON #DayTimes(ActivityId,ActivityDate);
+
+ -- An unresolved instructor link can affect anyone. Keep only anonymous
+ -- time bounds so an affected interval cannot be certified as clear.
+ SELECT TOP (501) s.SessionDate,s.StartTime,s.EndTime,s.SessionId
+ INTO #UnlinkedSessions
+ FROM paws.vCalendarSession s
+ WHERE (s.SessionDate IS NULL OR s.SessionDate BETWEEN @Floor AND @Ceiling)
+   AND EXISTS(SELECT 1 FROM paws.SessionAssignment a WHERE a.SessionId=s.SessionId AND a.FacultyId IS NULL
+      AND a.FacultyResolutionStatus IN(N'unresolved',N'ambiguous'))
+   AND (@Mode<>N'upcoming' OR s.SessionDate IS NULL OR s.SessionDate>@Today OR s.EndTime>@Clock
+     OR s.StartTime IS NULL OR s.EndTime IS NULL OR s.StartTime>=s.EndTime)
+ ORDER BY s.SessionDate,s.StartTime,s.SessionId;
+ IF @@ROWCOUNT>500 SET @Complete=0;
+ DECLARE @ClockDates TABLE(ClockDate date PRIMARY KEY);
  DECLARE @ClockChanges nvarchar(max)=N'[]';
  IF @Mode=N'range'
  BEGIN
-  -- Read clock changes using the same Windows Calgary zone as @Today.
-  -- Its Mountain Standard Time transitions occur on a whole UTC hour.
-  ;WITH hours AS (
-   SELECT 0 AS N UNION ALL SELECT N+1 FROM hours WHERE N<24*DATEDIFF(day,@Floor,@Ceiling)+36
-  ), utcOffsets AS (
-   SELECT tick.UtcTime,
-    DATEPART(TZOFFSET,tick.UtcTime AT TIME ZONE 'UTC' AT TIME ZONE 'Mountain Standard Time') AS OffsetMinutes
-   FROM hours CROSS APPLY(SELECT DATEADD(hour,N,CONVERT(datetime2(0),@Floor)) AS UtcTime) tick
-  ), edges AS (
-   SELECT UtcTime,OffsetMinutes,LAG(OffsetMinutes) OVER(ORDER BY UtcTime) AS PriorOffset FROM utcOffsets
-  )
-  SELECT @ClockChanges=COALESCE((
-   SELECT CONVERT(char(10),wall.Starts,23) AS [date],
-    DATEDIFF(second,CONVERT(date,wall.Starts),wall.Starts) AS [start],
-    DATEDIFF(second,CONVERT(date,wall.Starts),wall.Ends) AS [end]
-   FROM edges
-   CROSS APPLY(SELECT DATEADD(minute,CASE WHEN PriorOffset<OffsetMinutes THEN PriorOffset ELSE OffsetMinutes END,UtcTime) AS Starts,
-     DATEADD(minute,CASE WHEN PriorOffset>OffsetMinutes THEN PriorOffset ELSE OffsetMinutes END,UtcTime) AS Ends) wall
-   WHERE PriorOffset<>OffsetMinutes AND CONVERT(date,wall.Starts) BETWEEN @Floor AND @Ceiling
-   ORDER BY UtcTime FOR JSON PATH
-  ),N'[]') OPTION (MAXRECURSION 800);
- END;
+  ;WITH days AS (SELECT @Floor AS ClockDate UNION ALL SELECT DATEADD(day,1,ClockDate) FROM days WHERE ClockDate<@Ceiling)
+  INSERT @ClockDates SELECT ClockDate FROM days OPTION (MAXRECURSION 32);
+ END
+ ELSE
+  INSERT @ClockDates
+   SELECT StartDate FROM #Events WHERE Kind=N'teaching' AND StartTime IS NOT NULL AND EndTime IS NOT NULL
+     AND StartDate BETWEEN '0001-01-02' AND '9999-12-30'
+   UNION SELECT ActivityDate FROM #DayTimes WHERE ActivityDate BETWEEN '0001-01-02' AND '9999-12-30';
+
+ -- Use the same Windows Calgary zone as @Today. Check only transition dates
+ -- at hourly resolution, including timed evidence in the open-ended Agenda.
+ ;WITH hours AS (
+  SELECT 0 AS N UNION ALL SELECT N+1 FROM hours WHERE N<36
+ ), possible AS (
+  SELECT ClockDate,CONVERT(datetime2(0),ClockDate) AS Midnight FROM @ClockDates
+  WHERE DATEPART(TZOFFSET,CONVERT(datetime2(0),ClockDate) AT TIME ZONE 'Mountain Standard Time')
+    <>DATEPART(TZOFFSET,DATEADD(hour,23,CONVERT(datetime2(0),ClockDate)) AT TIME ZONE 'Mountain Standard Time')
+ ), utcOffsets AS (
+  SELECT p.ClockDate,tick.UtcTime,
+   DATEPART(TZOFFSET,tick.UtcTime AT TIME ZONE 'UTC' AT TIME ZONE 'Mountain Standard Time') AS OffsetMinutes
+  FROM possible p CROSS JOIN hours
+  CROSS APPLY(SELECT DATEADD(hour,hours.N,p.Midnight) AS UtcTime) tick
+ ), edges AS (
+  SELECT ClockDate,UtcTime,OffsetMinutes,LAG(OffsetMinutes) OVER(PARTITION BY ClockDate ORDER BY UtcTime) AS PriorOffset
+  FROM utcOffsets
+ )
+ SELECT @ClockChanges=COALESCE((
+  SELECT CONVERT(char(10),ClockDate,23) AS [date],
+   DATEDIFF(second,ClockDate,wall.Starts) AS [start],
+   DATEDIFF(second,ClockDate,wall.Ends) AS [end]
+  FROM edges
+  CROSS APPLY(SELECT DATEADD(minute,CASE WHEN PriorOffset<OffsetMinutes THEN PriorOffset ELSE OffsetMinutes END,UtcTime) AS Starts,
+    DATEADD(minute,CASE WHEN PriorOffset>OffsetMinutes THEN PriorOffset ELSE OffsetMinutes END,UtcTime) AS Ends) wall
+  WHERE PriorOffset<>OffsetMinutes AND CONVERT(date,wall.Starts)=ClockDate
+  ORDER BY ClockDate FOR JSON PATH
+ ),N'[]') OPTION (MAXRECURSION 40);
  SELECT (
   SELECT CONVERT(char(10),@Today,23) AS today,CONVERT(char(8),@Clock,108) AS localTime,@Complete AS complete,
    JSON_QUERY(@ClockChanges) AS clockChanges,
+   JSON_QUERY(COALESCE((
+    SELECT TOP (500) CONVERT(char(10),SessionDate,23) AS [date],
+      CONVERT(char(8),StartTime,108) AS startTime,CONVERT(char(8),EndTime,108) AS endTime
+    FROM #UnlinkedSessions ORDER BY SessionDate,StartTime,SessionId FOR JSON PATH,INCLUDE_NULL_VALUES
+   ),N'[]')) AS unlinkedTeaching,
    JSON_QUERY(COALESCE((SELECT f.FacultyId AS facultyId,f.PreferredFirstName AS preferredFirstName,
      f.PreferredLastName AS preferredLastName,f.DisplayName AS displayName,f.Active AS active,
      undated.Sessions AS undatedSessions,roles.Appointments AS undatedRoles
@@ -260,9 +291,7 @@ BEGIN
         e.CourseCode AS courseCode,e.SessionId AS sessionId,
         JSON_QUERY(COALESCE((SELECT CONVERT(char(10),t.ActivityDate,23) AS date,
            CONVERT(char(8),t.StartTime,108) AS startTime,CONVERT(char(8),t.EndTime,108) AS endTime
-         FROM paws.CalendarActivityDayTime t
-         WHERE t.ActivityId=e.ActivityId AND t.ActivityDate BETWEEN @Floor AND @Ceiling
-           AND t.ActivityDate BETWEEN e.StartDate AND e.EndDate
+         FROM #DayTimes t WHERE t.ActivityId=e.ActivityId
          ORDER BY t.ActivityDate FOR JSON PATH),N'[]')) AS timeEvidence
     FROM #Events e ORDER BY e.StartDate,e.StartTime,e.FacultyId,e.Kind,e.EventKey
     FOR JSON PATH,INCLUDE_NULL_VALUES),N'[]')) AS events

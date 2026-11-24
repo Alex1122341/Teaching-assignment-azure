@@ -48,7 +48,9 @@ const input = { facultyId, startDate:'2098-06-01', endDate:'2098-06-30', reasonC
   const result = await api.createAfcRecord('test',input);
   assert.equal(result.status,201,JSON.stringify(result.body));
   const id = result.body.afcRecord.afcRecordId;
-  const [saved] = (await api.afcRecords('test')).body.afcRecords.filter(row=>row.afcRecordId===id);
+  const listing = await api.afcRecords('test');
+  assert.equal(listing.status,200,'AFC list must be readable by the restricted runtime');
+  const [saved] = listing.body.afcRecords.filter(row=>row.afcRecordId===id);
   assert.equal(saved.specialLeave.confirmedYears['2098-99'],false);
   assert.equal((await api.afcSpecialLeaveOnDate('test',facultyId,'2098-06-15')).body.evaluation.effectiveFte,1);
   await connection.query(`

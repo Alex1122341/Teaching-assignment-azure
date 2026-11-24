@@ -54,7 +54,7 @@ jobs:
         shell: pwsh
         run: |
           . ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-afc-068 -Through '041' -SkipAcceptance
-          foreach($file in @('042_adfa_swap_preview','043_scheduling_tasks','047_change_history','048_afc_form_upload','050_afc_record_documents','056_faculty_availability_read','064_afc_date_edit','068_afc_special_leave')){
+          foreach($file in @('042_adfa_swap_preview','043_scheduling_tasks','047_change_history','048_afc_form_upload','050_afc_record_documents','056_faculty_availability_read','064_afc_date_edit','068_afc_special_leave','071_afc_batch_record_document')){
             Invoke-TestSql (Get-Content -LiteralPath "database/azure-sql/$file.sql" -Raw) 'VetMed-Ops'
           }
           $output=@(Invoke-TestSql (Get-Content -LiteralPath 'database/azure-sql/068_afc_special_leave_acceptance.sql' -Raw) 'VetMed-Ops')

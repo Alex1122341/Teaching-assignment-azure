@@ -37,6 +37,21 @@
  }
  const validId=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
  function documentAction(record){return validId(record?.documentId)?`<button class="btn btn-small" type="button" data-afc-document="${esc(record.documentId)}">Download PDF</button>`:'<span class="muted" title="No PDF original was archived for this record">N/A</span>';}
+ function validOriginal(file){
+  return !!file && typeof file.name==='string' && file.name.length<=180 &&
+   /^(?!\s)[^\\/:*?"<>|\x00-\x1f]+\.pdf$/i.test(file.name) &&
+   (!file.type || file.type==='application/pdf') && file.size>0 && file.size<=2097152;
+ }
+ async function archiveOriginal(api,file,facultyId,requestId,checkContext){
+  const bytes=await file.arrayBuffer();
+  checkContext();
+  if(bytes.byteLength!==file.size||bytes.byteLength>2097152)throw Object.assign(Error('The PDF changed. Select it again.'),{status:400});
+  const {document}=await api.uploadAfcForm({requestId,facultyId,fileName:file.name,contentType:'application/pdf',fileBase64:base64(bytes)});
+  checkContext();
+  if(!validId(document?.documentId)||document.facultyId?.toLowerCase()!==facultyId.toLowerCase()||
+     document.fileName!==file.name||document.byteLength!==file.size)throw Error('Archive confirmation is incomplete. Retry the same original.');
+  return document;
+ }
  function createRecordAttachment({api,host,getUser,getFacultyId,randomUUID=()=>root.crypto.randomUUID()}){
   let generation=0,openedUid='',enabled=false,busy=false,selected=null,key='',boundFaculty='',confirmed=null,message='',invalid=false;
   const uid=()=>String(getUser()?.uid||''),current=(g,u,f)=>generation===g&&uid()===u&&String(getFacultyId()||'')===f;
@@ -44,7 +59,7 @@
   function render(){host.innerHTML=`<section class="afc-record-pdf"><label class="field"><span class="field-label">Archive original AFC PDF (optional)</span><input class="input" type="file" accept="application/pdf,.pdf" data-afc-record-pdf ${busy||!enabled||!getFacultyId()?'disabled':''}><span class="aux-note">PDF · up to 2MiB / 100 pages. Archived with the manual record; this is not an approval. Records without an original show N/A.</span></label>${selected?`<p>${esc(selected.name)} · ${Number(selected.size).toLocaleString()} bytes</p>`:''}${confirmed?`<p>Original archived: ${esc(confirmed.fileName)}. ${documentAction(confirmed)}<br><small>The AFC record is confirmed only after Create AFC Record succeeds.</small></p>`:''}<p role="status" aria-live="polite">${esc(message||(!enabled?'PDF upload access is unavailable. You may create an AFC record without a PDF.':''))}</p></section>`;const input=host.querySelector('[data-afc-record-pdf]');if(input)input.onchange=e=>selectFile(e.target.files?.[0]);}
   async function open(){const u=uid();if(openedUid!==u)clear();if(busy)return;openedUid=u;const g=++generation;try{const caps=await api.afcFormCapabilities();if(g===generation&&uid()===u){enabled=caps.upload===true;render();}}catch(_){if(g===generation&&uid()===u){enabled=false;render();}}}
   function facultyChanged(){generation++;busy=false;selected=null;key='';boundFaculty='';confirmed=null;message='';invalid=false;render();}
-  function selectFile(file){if(busy)return;generation++;selected=null;confirmed=null;key='';message='';invalid=false;boundFaculty=String(getFacultyId()||'');if(file){if(!enabled||!validId(boundFaculty)){invalid=true;message='Select the AFC faculty and verify PDF upload permission first.';}else if(typeof file.name!=='string'||file.name.length>180||!/^(?!\s)[^\\/:*?"<>|\x00-\x1f]+\.pdf$/i.test(file.name)||(file.type&&file.type!=='application/pdf')||file.size<1||file.size>2097152){invalid=true;message='Choose a PDF up to 2MiB.';}else{selected=file;key=randomUUID();}}render();}
+  function selectFile(file){if(busy)return;generation++;selected=null;confirmed=null;key='';message='';invalid=false;boundFaculty=String(getFacultyId()||'');if(file){if(!enabled||!validId(boundFaculty)){invalid=true;message='Select the AFC faculty and verify PDF upload permission first.';}else if(!validOriginal(file)){invalid=true;message='Choose a PDF up to 2MiB.';}else{selected=file;key=randomUUID();}}render();}
   async function prepare(facultyId){
    if(invalid)throw Object.assign(Error(message),{status:400,code:'INVALID_DOCUMENT'});
    if(!selected&&!confirmed)return null;
@@ -52,15 +67,102 @@
    if(confirmed)return confirmed.documentId;
    if(!enabled)throw Object.assign(Error('PDF upload access is unavailable.'),{status:503,code:'WRITE_DISABLED'});
    const g=generation,u=uid(),file=selected;busy=true;message='Archiving original PDF before creating the AFC record…';render();
-   try{const bytes=await file.arrayBuffer();if(!current(g,u,facultyId))throw cancelled();if(bytes.byteLength!==file.size||bytes.byteLength>2097152)throw Object.assign(Error('The PDF changed. Select it again.'),{status:400});
-    const r=await api.uploadAfcForm({requestId:key,facultyId,fileName:file.name,contentType:'application/pdf',fileBase64:base64(bytes)});if(!current(g,u,facultyId))throw cancelled();
-    if(!validId(r.document?.documentId)||r.document.facultyId?.toLowerCase()!==facultyId.toLowerCase()||r.document.fileName!==file.name||r.document.byteLength!==file.size)throw Error('Archive confirmation is incomplete. Retry the same original.');
-    confirmed=r.document;selected=null;message='PDF archived. Creating its AFC record…';return confirmed.documentId;
+   try{const checkContext=()=>{if(!current(g,u,facultyId))throw cancelled();};
+    const document=await archiveOriginal(api,file,facultyId,key,checkContext);
+    checkContext();confirmed=document;selected=null;message='PDF archived. Creating its AFC record…';return confirmed.documentId;
    }catch(e){if(current(g,u,facultyId))message=(!Number(e.status)||e.status>=500)?'PDF archive status is unconfirmed. Retry with the same file/key; do not create a second upload.':e.message;throw e;}
    finally{if(current(g,u,facultyId)){busy=false;render();}}
   }
   function clear(){generation++;openedUid='';enabled=false;busy=false;selected=null;key='';boundFaculty='';confirmed=null;message='';invalid=false;host.innerHTML='';}
   return {open,selectFile,prepare,facultyChanged,clear};
+ }
+ function createBatchPdfController({api,host,getUser,refreshRecords,randomUUID=()=>root.crypto.randomUUID()}){
+  const receipts=new Map();
+  const uid=()=>String(getUser()?.uid||'');
+  let owner='',generation=0,enabled=false;
+  const current=row=>!!owner && uid()===owner && receipts.get(row.id)===row;
+  function clear(){
+   generation++;owner='';enabled=false;receipts.clear();host.replaceChildren();
+  }
+  function createTable(){
+   host.innerHTML='<section class="afc-forms-card"><h3>Saved AFC records</h3><p>Attach an optional PDF to each saved record. PDF only, up to 2 MiB and 100 pages.</p><div class="table-wrap"><table class="data-table"><thead><tr><th>Faculty</th><th>Dates</th><th>Purpose</th><th>Original PDF</th></tr></thead><tbody></tbody></table></div></section>';
+  }
+  function render(row){
+   if(!current(row))return;
+   const cell=row.cell;
+   if(row.linked){cell.innerHTML='<span>Attached · '+esc(row.archived.fileName)+'</span> '+documentAction(row.archived);return;}
+   const label=esc(row.facultyName+' · '+row.startDate+' to '+row.endDate);
+   const locked=row.busy||!enabled||!!row.archived||row.uploadUncertain;
+   cell.innerHTML='<label><span class="field-label">PDF</span> <input type="file" accept="application/pdf,.pdf" aria-label="Choose PDF for '+label+'"'+(locked?' disabled':'')+'></label> '+
+    (row.file||row.archived?'<span>'+esc(row.archived?.fileName||row.file.name)+'</span> ':'')+
+    '<button type="button" class="btn btn-small" aria-label="Attach PDF for '+label+'"'+(row.busy||!enabled||!(row.file||row.archived)?' disabled':'')+'>'+
+    (row.busy?'Saving…':row.archived||row.uploadUncertain?'Retry attachment':'Attach PDF')+'</button> '+
+    '<span role="status" aria-live="polite">'+esc(row.message||(!enabled?'Checking upload access…':''))+'</span>';
+   cell.querySelector('input').onchange=event=>select(row.id,event.target.files?.[0]);
+   cell.querySelector('button').onclick=()=>attach(row.id);
+  }
+  function select(id,file){
+   const row=receipts.get(id);
+   if(!row||!current(row)||row.busy||!enabled||row.archived||row.uploadUncertain)return;
+   row.file=validOriginal(file)?file:null;
+   row.message=file&&!row.file?'Choose a PDF up to 2 MiB.':'';
+   row.key=row.file?randomUUID():'';
+   render(row);
+  }
+  async function attach(id){
+   const row=receipts.get(id);
+   if(!row||!current(row)||row.busy||row.linked||!enabled||!(row.file||row.archived))return;
+   const checkContext=()=>{if(!current(row))throw Error('Account changed.');};
+   row.busy=true;row.message='Saving PDF…';render(row);
+   try{
+    if(!row.archived){
+     const document=await archiveOriginal(api,row.file,row.facultyId,row.key,checkContext);
+     checkContext();row.archived=document;row.file=null;row.uploadUncertain=false;
+    }
+    const reply=await api.linkAfcBatchPdf({afcRecordId:row.id,facultyId:row.facultyId,documentId:row.archived.documentId,requestId:row.key});
+    checkContext();
+    const same=(a,b)=>typeof a==='string'&&a.toLowerCase()===b.toLowerCase();
+    if(!same(reply?.afcRecordId,row.id)||!same(reply?.facultyId,row.facultyId)||!same(reply?.documentId,row.archived.documentId))throw Error('The attachment could not be confirmed.');
+    row.linked=true;render(row);
+    try{await refreshRecords?.();}catch(_){/* The link was confirmed independently of the list refresh. */}
+   }catch(error){
+    if(current(row)){
+     const uncertain=!Number(error?.status)||error.status>=500;
+     row.uploadUncertain=!row.archived&&uncertain;
+     row.message=row.archived?'PDF archived. '+(error?.message||'Link not confirmed.')+' Retry attachment to this record.':
+      uncertain?'Upload unconfirmed. Retry this attachment to verify the same PDF.':error?.message||'Could not upload the file.';
+    }
+   }finally{if(current(row)){row.busy=false;render(row);}}
+  }
+  async function show(rows){
+   const actor=uid();
+   if(actor!==owner)clear();
+   if(!actor||!Array.isArray(rows))return;
+   owner=actor;
+   if(!host.querySelector('tbody'))createTable();
+   const body=host.querySelector('tbody');
+   for(const item of rows){
+    if(!validId(item.afcRecordId)||!validId(item.facultyId)||receipts.has(item.afcRecordId))continue;
+    const tr=body.insertRow();
+    const dates=item.startDate===item.endDate?item.startDate:item.startDate+' – '+item.endDate;
+    for(const value of [item.facultyName,dates,item.purpose])tr.insertCell().textContent=value||'—';
+    const row={...item,id:item.afcRecordId,cell:tr.insertCell(),message:'',busy:false};
+    receipts.set(row.id,row);render(row);
+   }
+   const epoch=++generation;
+   let canUpload=false;
+   try{canUpload=(await api.afcFormCapabilities()).upload===true;}catch(_){/* Keep the saved receipt available. */}
+   if(epoch!==generation||actor!==uid())return;
+   enabled=canUpload;
+   for(const row of receipts.values()){
+    if(!row.busy&&!row.linked){
+     if(!enabled)row.message='PDF upload is unavailable for this account.';
+     else if(row.message==='PDF upload is unavailable for this account.')row.message='';
+     render(row);
+    }
+   }
+  }
+  return Object.freeze({show,clear,select,attach});
  }
  function createDocumentDownloader({api,getUser,notify=()=>{},download=savePdf}){
   const busy=new Set();return async id=>{if(!validId(id)||busy.has(id))return;const owner=String(getUser()?.uid||'');if(!owner)return;busy.add(id);try{const file=await api.getAfcFormDocument(id);if(String(getUser()?.uid||'')!==owner)return;download(file,id);notify('AFC PDF downloaded.');}catch(_){if(String(getUser()?.uid||'')===owner)notify('AFC PDF download is unavailable. Verify your current access.',true);}finally{busy.delete(id);}};
@@ -84,5 +186,5 @@
   function clear(){generation++;documents=[];cursor=null;busy=false;host.innerHTML='';}
   return {load,clear};
  }
- return {createController,createRecordAttachment,documentAction,createDocumentDownloader,createArchiveController};
+ return {createController,createRecordAttachment,createBatchPdfController,documentAction,createDocumentDownloader,createArchiveController};
 });

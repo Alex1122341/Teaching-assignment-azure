@@ -74,7 +74,12 @@
     $, on, esc, getUser: () => currentUser, resolveFaculty: resolveAfcFaculty, facultyName,
     canWrite: () => !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcBatchWriteEnabled?.() === true,
     saveBatch: payload => UCVM_PAWS_DATA.createDashboardAfcManualBatch(payload),
-    showSaved: rows => batchPdfs?.show(rows),
+    validPdf: window.PAWS_AFC_FORMS?.validOriginal,
+    showSaved: rows => {
+      const shown = batchPdfs?.show(rows);
+      $('afc-batch-documents')?.querySelector?.('[data-afc-pdf-heading]')?.focus();
+      return shown;
+    },
     refresh: async () => { invalidateFacultyDetails(); await loadAdminDashboard(); await loadAfcRecords(true); }
   });
   let detailLoadToken = 0;

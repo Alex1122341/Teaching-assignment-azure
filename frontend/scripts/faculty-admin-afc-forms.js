@@ -87,7 +87,7 @@
    generation++;owner='';enabled=false;accessMessage='';receipts.clear();host.replaceChildren();
   }
   function createTable(){
-   host.innerHTML='<section class="afc-forms-card"><h3>Saved AFC records</h3><p>Attach an optional PDF to each saved record. PDF only, up to 2 MiB and 100 pages.</p><button type="button" class="btn btn-small" data-retry-upload-access hidden>Retry upload access</button><div class="table-wrap"><table class="data-table"><thead><tr><th>Faculty</th><th>Dates</th><th>Purpose</th><th>Original PDF</th></tr></thead><tbody></tbody></table></div></section>';
+   host.innerHTML='<section class="afc-forms-card"><h3 tabindex="-1" data-afc-pdf-heading>Upload PDFs for saved records</h3><p>Choose or review the PDF for each record, then select Upload PDF. PDF only, up to 2 MiB and 100 pages.</p><button type="button" class="btn btn-small" data-retry-upload-access hidden>Retry upload access</button><div class="table-wrap"><table class="data-table"><thead><tr><th>Faculty</th><th>Dates</th><th>Purpose</th><th>Original PDF</th></tr></thead><tbody></tbody></table></div></section>';
   }
   function render(row){
    if(!current(row))return;
@@ -97,8 +97,8 @@
    const locked=row.busy||!enabled||!!row.archived||row.uploadUncertain;
    cell.innerHTML='<label><span class="field-label">PDF</span> <input type="file" accept="application/pdf,.pdf" aria-label="Choose PDF for '+label+'"'+(locked?' disabled':'')+'></label> '+
     (row.file||row.archived?'<span>'+esc(row.archived?.fileName||row.file.name)+'</span> ':'')+
-    '<button type="button" class="btn btn-small" aria-label="Attach PDF for '+label+'"'+(row.busy||!enabled||!(row.file||row.archived)?' disabled':'')+'>'+
-    (row.busy?'Saving…':row.archived||row.uploadUncertain?'Retry attachment':'Attach PDF')+'</button> '+
+    '<button type="button" class="btn btn-primary btn-small" aria-label="Upload PDF for '+label+'"'+(row.busy||!enabled||!(row.file||row.archived)?' disabled':'')+'>'+
+    (row.busy?'Saving…':row.archived||row.uploadUncertain?'Retry attachment':'Upload PDF')+'</button> '+
     '<span role="status" aria-live="polite">'+esc(accessMessage||row.message||(!enabled?'Checking upload access…':''))+'</span>';
    cell.querySelector('input').onchange=event=>select(row.id,event.target.files?.[0]);
    cell.querySelector('button').onclick=()=>attach(row.id);
@@ -150,6 +150,8 @@
     const dates=item.startDate===item.endDate?item.startDate:item.startDate+' – '+item.endDate;
     for(const value of [item.facultyName,dates,item.purpose])tr.insertCell().textContent=value||'—';
     const row={...item,id:item.afcRecordId,cell:tr.insertCell(),message:'',busy:false};
+    row.file=validOriginal(item.file)?item.file:null;
+    row.key=row.file?randomUUID():'';
     receipts.set(row.id,row);render(row);
    }
    await checkAccess(actor);
@@ -193,5 +195,5 @@
   function clear(){generation++;documents=[];cursor=null;busy=false;host.innerHTML='';}
   return {load,clear};
  }
- return {createController,createRecordAttachment,createBatchPdfController,documentAction,createDocumentDownloader,createArchiveController};
+ return {createController,createRecordAttachment,createBatchPdfController,documentAction,createDocumentDownloader,createArchiveController,validOriginal};
 });

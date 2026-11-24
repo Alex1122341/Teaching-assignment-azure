@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "dae5f169fcc5c2753fd71299049838339fe8a795",
+  "sourceCommit": "1f42625895eddbaa5b997348bb2c311d1caed304",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "faculty-reports.js": "ad4f070c3aa319ec20dd9139cec4d6fcfcf23f4350b73a84d0c8b8648aa238c9",
@@ -88,7 +88,7 @@
     "change-history.js": "018209ad8b33c83d5d156bd99a3ca43edd4864be501a970e6db9fa224cc86323",
     "calendar-activities.css": "6d94af7bffd6cf781f465a56140338674a8780fcd39287cd1eb2c56ee3b58365",
     "faculty-admin-activity-import.js": "1dbbc3a9ce1de00d954440417bf4adc73c1366b1c7c7f59e5061a7bf386b7df0",
-    "faculty-availability.js": "45d8fcd0d0a057a12fb309eca3dc5e4dcb757b5cff2d4c71bd2199113915545b",
+    "faculty-availability.js": "88dc837e7079835329a299b4ceab1ab16a09ac5f40f371dad1fd810cdc0fefb1",
     "faculty-availability.css": "6c746ae7a4fc4cfd7e6417dac4e7ee08c86769412347f083751fc857e72bb1cb",
     "ccc-schedule.js": "5f7ece2ca5ba80281803daa0b4a6ad4dc705b328f6390d40f2ae8676193b3f00",
     "ccc-schedule.css": "364bde1bb8efb0ec641b08b1ad2fd15d29b7be674bb632ee86c4f992182db84c",

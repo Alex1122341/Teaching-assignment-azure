@@ -154,7 +154,7 @@
     }
     return {submit,isUnconfirmed:()=>unconfirmed};
   }
-  function renderRows(rows,{facultyName,canCancel:allowed=false,canEdit:editAllowed=false,canApply:applyAllowed=false,editingKey='',busy=()=>false,renderPdf=()=>'<span class="muted">N/A</span>'}={}) {
+  function renderRows(rows,{facultyName,canCancel:allowed=false,canEdit:editAllowed=false,canApply:applyAllowed=false,editingKey='',busy=()=>false,canAttachOriginal=()=>false,renderPdf=()=>'<span class="muted">N/A</span>'}={}) {
     return rows.map(row => {
       const key = `${row.sourceKind}:${row.afcRecordId}`;
       const editable = row.active !== false && /^[0-9a-f]{16}$/i.test(row.versionToken || '');
@@ -176,10 +176,13 @@
         ${yearsForLeave(row.startDate,row.endDate).map(year => allocationInput(year,leave.allocationsByYear?.[year])).join('')}
         <button class="btn btn-primary" type="button" data-afc-leave-apply="${esc(key)}" ${busy(key) ? 'disabled' : ''}>Validate and Apply</button>
         <button class="btn" type="button" data-afc-edit-cancel="1">Cancel</button></div></td></tr>` : '';
+      const pdf = canAttachOriginal(row)
+        ? `<button class="btn btn-small" type="button" data-afc-attach-original="${esc(row.afcRecordId)}" aria-label="Attach PDF for ${esc(facultyName(row, 'this faculty member'))}, ${esc(row.startDate)} to ${esc(row.endDate)}">Attach PDF</button>`
+        : renderPdf(row);
       const availability = row.active === false ? 'Withdrawn' : row.reasonCode !== 'special' ? 'Active'
         : row.availability !== 'available' ? 'Unavailable'
           : 'Available' + (Object.values(leave?.confirmedYears || {}).includes(false) ? ' · Pending deduction' : leave?.suspendedIntervals?.length ? ' · Partial adjustment required' : '');
-      return `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(facultyName(row, 'Name unavailable'))}</button></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${esc(availability)}</td><td>${renderPdf(row)}</td><td>${action}</td></tr>${editor}${leaveEditor}`;
+      return `<tr><td><button type="button" class="btn-link" data-afc-person="${esc(row.facultyId)}">${esc(facultyName(row, 'Name unavailable'))}</button></td><td>${esc(row.startDate || '—')}</td><td>${esc(row.endDate || '—')}</td><td>${esc(row.reason || row.legacyPurpose || row.reasonCode || '—')}</td><td>${esc(row.notes || row.legacyPurpose || '—')}</td><td>${esc(norm(row.sourceKind) === 'manual' ? 'Manual' : 'Imported')}</td><td>${esc(availability)}</td><td>${pdf}</td><td>${action}</td></tr>${editor}${leaveEditor}`;
     }).join('') || '<tr><td colspan="9" class="empty">No AFC records match the current filters.</td></tr>';
   }
   async function showEffectiveLeave(api, date) {

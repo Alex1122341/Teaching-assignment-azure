@@ -8,7 +8,7 @@ const nameContext = { window: {} };
 vm.runInNewContext(fs.readFileSync(repositoryPath(process.cwd(), 'faculty-name.js'),'utf8'),nameContext);
 const name = nameContext.window.PAWS_FACULTY_NAME;
 const ID = '11111111-1111-4111-8111-111111111111';
-async function dashboard({ enabled = true, confirm = true, apiOverrides = {} } = {}) {
+async function dashboard({ enabled = true, confirm = true, apiOverrides = {}, batchPdfs = null } = {}) {
   const elements = new Map(), caps = {}, cancellations = [];
   const records = [{ afcRecordId: ID, facultyId: ID, facultyName: 'Ada One', startDate: '2026-11-05', endDate: '2026-11-06', active: true, sourceKind: 'manual', versionToken: '00000000000000AB' }];
   const element = id => {
@@ -35,7 +35,7 @@ async function dashboard({ enabled = true, confirm = true, apiOverrides = {} } =
     document: { getElementById: element, querySelectorAll:selector=>selector==='.tab'?[element('afc-records-tab')]:[], querySelector:()=>null, activeElement:null, body:{classList:{add(){},remove(){}}} },
     firebase: { apps:[{}], auth:authFn }, UCVM_PAWS_DATA:api, console, setTimeout, clearTimeout, performance,
     location:{href:'https://local/faculty-admin.html'}, history:{length:1},
-    window: { UCVM_AFC_RECORDS:require('../frontend/scripts/faculty-admin-afc-records.js'), confirm:()=>confirm, setTimeout:()=>0, PAWS_FACULTY_NAME:name, UCVM_AFC_BATCH:require('../frontend/scripts/faculty-admin-afc-batch.js'),
+    window: { PAWS_DASHBOARD_VIEW_MODEL:require('../frontend/scripts/dashboard-view-model.js'), ...(batchPdfs ? { PAWS_AFC_FORMS:{ createRecordAttachment:()=>null, createDocumentDownloader:()=>null, createBatchPdfController:()=>batchPdfs } } : {}), UCVM_AFC_RECORDS:require('../frontend/scripts/faculty-admin-afc-records.js'), confirm:()=>confirm, setTimeout:()=>0, PAWS_FACULTY_NAME:name, UCVM_AFC_BATCH:require('../frontend/scripts/faculty-admin-afc-batch.js'),
       UCVM_FACULTY_DOE_RENDERER:{create:()=>({})}, UCVM_FACULTY_DOE_WORKSHEET:{create:()=>({bindList(){}})},
       UCVM_FACULTY_ADMIN_MANAGEMENT:{create:()=>({bind(){},editAction:()=>''})},
       PAWS_ROLE_PERIODS:{today:()=> '2026-10-13',create:()=>({})} }
@@ -145,4 +145,31 @@ test('Rejecting the row deletion confirmation preserves the AFC record', async()
   assert.match(element('afc-records-body').innerHTML,/data-afc-cancel/);
   await element('afc-records-body').listeners.click({target:{closest:selector=>selector==='[data-afc-cancel]'?{dataset:{afcCancel:`manual:${ID}`}}:null}});
   assert.equal(cancellations.length,0);
+});
+
+test('an administrator can reopen an eligible saved row after reload, preserve a typed draft and focus the exact receipt', async () => {
+  const shown = [], records = [{afcRecordId:ID, facultyId:ID, facultyName:'Ada One', startDate:'2027-01-05',
+    endDate:'2027-01-07', purpose:'Meeting at partner campus', sourceKind:'manual', active:true, canAttachBatchOriginal:true}];
+  const {element} = await dashboard({apiOverrides:{dashboardAfcRecords:async()=>records}, batchPdfs:{
+    show(rows){shown.push(...rows);}, clear(){}
+  }});
+  element('afc-records-tab').listeners.click(); await new Promise(resolve=>setImmediate(resolve));
+  assert.match(element('afc-records-body').innerHTML,/data-afc-attach-original=/);
+  element('afc-batch-mode').listeners.click();
+  const draft = {value:'Unrelated draft',dataset:{afcBatchField:'purpose',rowIndex:'0'},closest:()=>null};
+  element('afc-batch-rows').listeners.input({target:{closest:()=>draft}});
+  let focused = false, scrolled = false;
+  const receipt = {dataset:{afcSavedRecord:ID},focus:()=>{focused=true;},scrollIntoView:()=>{scrolled=true;}};
+  element('afc-batch-documents').querySelectorAll=()=>[receipt];
+  element('afc-single-mode').listeners.click();
+  const attach = {target:{closest:s=>s==='[data-afc-attach-original]'?{dataset:{afcAttachOriginal:ID}}:null}};
+  await element('afc-records-body').listeners.click(attach);
+  assert.deepEqual(JSON.parse(JSON.stringify(shown)),[{afcRecordId:ID,facultyId:ID,facultyName:'One, Ada',
+    startDate:'2027-01-05',endDate:'2027-01-07',purpose:'Meeting at partner campus'}]);
+  assert.match(element('afc-batch-rows').innerHTML,/Unrelated draft/);
+  assert.equal(focused&&scrolled,true);
+  records[0].canAttachBatchOriginal=false;
+  await element('afc-records-body').listeners.click(attach);
+  element('afc-active-filter').listeners.change();
+  assert.equal(shown.length,1);assert.doesNotMatch(element('afc-records-body').innerHTML,/data-afc-attach-original=/);
 });

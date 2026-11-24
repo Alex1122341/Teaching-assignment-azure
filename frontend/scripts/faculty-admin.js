@@ -228,6 +228,8 @@
     for(const id of ['afc-form-documents','afc-batch-documents'])on($(id),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)getAfcOriginal?.(button.dataset.afcDocument);});
     on($('afc-records-body'), 'click', event => {
       const pdf=event.target?.closest?.('[data-afc-document]');if(pdf)return getAfcOriginal?.(pdf.dataset.afcDocument);
+      const attachment = event.target?.closest?.('[data-afc-attach-original]');
+      if (attachment) return openSavedAfcOriginal(attachment.dataset.afcAttachOriginal);
       const button = event.target?.closest?.('[data-afc-cancel]');
       if (button) return cancelAfcRecord(button.dataset.afcCancel);
       afcActions.handleEditClick(event);
@@ -337,6 +339,29 @@
     if (Object.prototype.hasOwnProperty.call(AFC_REASON_LABELS, old)) element.value = old;
   }
 
+  function canAttachSavedAfc(row) {
+    return !!batchPdfs && !selfMode && dashboardAdmin(currentUser) && row?.canAttachBatchOriginal === true &&
+      row.active !== false && !row.documentId && UCVM_PAWS_DATA.afcBatchWriteEnabled?.() === true;
+  }
+
+  function openSavedAfcOriginal(recordId) {
+    const row = afcRecords.find(record => record.afcRecordId === recordId && canAttachSavedAfc(record));
+    if (!row) return;
+    setAfcMode(true);
+    batchEditor?.render();
+    const opened = batchPdfs.show([{ afcRecordId: row.afcRecordId, facultyId: row.facultyId,
+      facultyName: facultyName(row, 'Name unavailable'), startDate: row.startDate, endDate: row.endDate,
+      purpose: row.purpose || row.legacyPurpose || row.notes || row.reason || '' }]);
+    const receipt = Array.from($('afc-batch-documents').querySelectorAll('[data-afc-saved-record]'))
+      .find(element => element.dataset.afcSavedRecord === recordId.toLowerCase());
+    if (receipt) {
+      receipt.tabIndex = -1;
+      receipt.focus({ preventScroll: true });
+      receipt.scrollIntoView({ block: 'nearest' });
+    }
+    return opened;
+  }
+
   function renderAfcRecords() {
     fillAfcReasonFilter();
     const body = $('afc-records-body'); if (!body) return;
@@ -348,7 +373,7 @@
       const haystack = norm([row.facultyName, row.facultyId, row.notes, row.legacyPurpose, row.reason, row.reasonCode].filter(present).join(' '));
       return (!query || haystack.includes(query)) && (!reason || row.reasonCode === reason || (!row.reasonCode && norm(row.reason) === norm(AFC_REASON_LABELS[reason]))) && (!active || String(row.active !== false) === active) && (!source || norm(row.sourceKind || 'manual') === source);
     });
-    body.innerHTML = window.UCVM_AFC_RECORDS.renderRows(rows, { facultyName, canCancel: !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true, canEdit: afcActions.canEdit(), canApply: afcActions.canApply(), editingKey: afcActions.editingKey(), busy: afcActions.isBusy,renderPdf:window.PAWS_AFC_FORMS?.documentAction });
+    body.innerHTML = window.UCVM_AFC_RECORDS.renderRows(rows, { facultyName, canCancel: !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true, canEdit: afcActions.canEdit(), canApply: afcActions.canApply(), editingKey: afcActions.editingKey(), busy: afcActions.isBusy, canAttachOriginal: canAttachSavedAfc, renderPdf:window.PAWS_AFC_FORMS?.documentAction });
     document.querySelectorAll('[data-afc-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.afcPerson)));
   }
 

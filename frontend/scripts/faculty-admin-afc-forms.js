@@ -43,7 +43,9 @@
    (!file.type || file.type==='application/pdf') && file.size>0 && file.size<=2097152;
  }
  async function archiveOriginal(api,file,facultyId,requestId,checkContext){
-  const bytes=await file.arrayBuffer();
+  let bytes;
+  try { bytes=await file.arrayBuffer(); }
+  catch (_) { throw Object.assign(Error('Could not read this file. Select the PDF again.'),{status:400}); }
   checkContext();
   if(bytes.byteLength!==file.size||bytes.byteLength>2097152)throw Object.assign(Error('The PDF changed. Select it again.'),{status:400});
   const {document}=await api.uploadAfcForm({requestId,facultyId,fileName:file.name,contentType:'application/pdf',fileBase64:base64(bytes)});
@@ -79,13 +81,13 @@
  function createBatchPdfController({api,host,getUser,refreshRecords,randomUUID=()=>root.crypto.randomUUID()}){
   const receipts=new Map();
   const uid=()=>String(getUser()?.uid||'');
-  let owner='',generation=0,enabled=false;
+  let owner='',generation=0,enabled=false,accessMessage='';
   const current=row=>!!owner && uid()===owner && receipts.get(row.id)===row;
   function clear(){
-   generation++;owner='';enabled=false;receipts.clear();host.replaceChildren();
+   generation++;owner='';enabled=false;accessMessage='';receipts.clear();host.replaceChildren();
   }
   function createTable(){
-   host.innerHTML='<section class="afc-forms-card"><h3>Saved AFC records</h3><p>Attach an optional PDF to each saved record. PDF only, up to 2 MiB and 100 pages.</p><div class="table-wrap"><table class="data-table"><thead><tr><th>Faculty</th><th>Dates</th><th>Purpose</th><th>Original PDF</th></tr></thead><tbody></tbody></table></div></section>';
+   host.innerHTML='<section class="afc-forms-card"><h3>Saved AFC records</h3><p>Attach an optional PDF to each saved record. PDF only, up to 2 MiB and 100 pages.</p><button type="button" class="btn btn-small" data-retry-upload-access hidden>Retry upload access</button><div class="table-wrap"><table class="data-table"><thead><tr><th>Faculty</th><th>Dates</th><th>Purpose</th><th>Original PDF</th></tr></thead><tbody></tbody></table></div></section>';
   }
   function render(row){
    if(!current(row))return;
@@ -97,7 +99,7 @@
     (row.file||row.archived?'<span>'+esc(row.archived?.fileName||row.file.name)+'</span> ':'')+
     '<button type="button" class="btn btn-small" aria-label="Attach PDF for '+label+'"'+(row.busy||!enabled||!(row.file||row.archived)?' disabled':'')+'>'+
     (row.busy?'Saving…':row.archived||row.uploadUncertain?'Retry attachment':'Attach PDF')+'</button> '+
-    '<span role="status" aria-live="polite">'+esc(row.message||(!enabled?'Checking upload access…':''))+'</span>';
+    '<span role="status" aria-live="polite">'+esc(accessMessage||row.message||(!enabled?'Checking upload access…':''))+'</span>';
    cell.querySelector('input').onchange=event=>select(row.id,event.target.files?.[0]);
    cell.querySelector('button').onclick=()=>attach(row.id);
   }
@@ -144,23 +146,28 @@
    for(const item of rows){
     if(!validId(item.afcRecordId)||!validId(item.facultyId)||receipts.has(item.afcRecordId))continue;
     const tr=body.insertRow();
+    tr.dataset.afcSavedRecord=item.afcRecordId.toLowerCase();
     const dates=item.startDate===item.endDate?item.startDate:item.startDate+' – '+item.endDate;
     for(const value of [item.facultyName,dates,item.purpose])tr.insertCell().textContent=value||'—';
     const row={...item,id:item.afcRecordId,cell:tr.insertCell(),message:'',busy:false};
     receipts.set(row.id,row);render(row);
    }
+   await checkAccess(actor);
+  }
+  async function checkAccess(actor){
+   if(actor!==owner||actor!==uid())return;
    const epoch=++generation;
-   let canUpload=false;
-   try{canUpload=(await api.afcFormCapabilities()).upload===true;}catch(_){/* Keep the saved receipt available. */}
+   const retry=host.querySelector('[data-retry-upload-access]');
+   retry.hidden=true;
+   let failure=false,canUpload=false;
+   try{canUpload=(await api.afcFormCapabilities()).upload===true;}
+   catch(_){failure=true;}
    if(epoch!==generation||actor!==uid())return;
    enabled=canUpload;
-   for(const row of receipts.values()){
-    if(!row.busy&&!row.linked){
-     if(!enabled)row.message='PDF upload is unavailable for this account.';
-     else if(row.message==='PDF upload is unavailable for this account.')row.message='';
-     render(row);
-    }
-   }
+   accessMessage=canUpload?'':failure?'Upload access could not be checked.':'PDF upload is unavailable for this account.';
+   retry.hidden=!failure;
+   retry.onclick=()=>checkAccess(actor);
+   for(const row of receipts.values())if(!row.busy&&!row.linked)render(row);
   }
   return Object.freeze({show,clear,select,attach});
  }

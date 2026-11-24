@@ -14,7 +14,7 @@ function fixture(overrides={}) {
   const tbody = {insertRow() {
     const cells = [];
     rows.push(cells);
-    return {insertCell() {
+    return {dataset:{},insertCell() {
       const inputs = new Map();
       const cell = {querySelector(selector) {
         if (!inputs.has(selector)) inputs.set(selector, {});
@@ -24,7 +24,11 @@ function fixture(overrides={}) {
       return cell;
     }};
   }};
-  const host = {innerHTML:'', replaceChildren(){this.innerHTML='';rows.length=0;}, querySelector(){return this.innerHTML?tbody:null;}};
+  const retry = {};
+  const host = {innerHTML:'', replaceChildren(){this.innerHTML='';rows.length=0;}, querySelector(selector){
+    if (!this.innerHTML) return null;
+    return selector === '[data-retry-upload-access]' ? retry : tbody;
+  }};
   const api = {
     afcFormCapabilities: async()=>({upload:true}),
     uploadAfcForm: async input=>{
@@ -36,7 +40,7 @@ function fixture(overrides={}) {
   };
   const controller = createBatchPdfController({host,api,getUser:()=>({uid:active}),randomUUID:()=>recordB});
   const show = () => controller.show([recordA,recordB].map(afcRecordId=>({afcRecordId,facultyId,facultyName:'Sample, Faculty',startDate:'2027-03-01',endDate:'2027-03-02',purpose:'Vacation'})));
-  return {controller,show,uploads,links,rows,api,switchAccount:()=>{active='user-b';}};
+  return {controller,show,uploads,links,rows,api,retry,switchAccount:()=>{active='user-b';}};
 }
 
 test('the selected saved row gets its own PDF, even when another row has the same faculty and dates',async()=>{
@@ -91,4 +95,35 @@ test('read-only access, a changed identity, and a mismatched link receipt cannot
   await mismatch.show();mismatch.controller.select(recordA,makeFile());await mismatch.controller.attach(recordA);
   assert.doesNotMatch(mismatch.rows[0][3].innerHTML,/Download PDF/);
   assert.match(mismatch.rows[0][3].innerHTML,/not be confirmed/);
+});
+
+test('an unreadable local PDF can be reselected without a server request or a batch replay',async()=>{
+  const f = fixture();
+  await f.show();
+  f.controller.select(recordA, {...makeFile('moved.pdf'), arrayBuffer: async()=>{throw Error('Not readable');}});
+  await f.controller.attach(recordA);
+  assert.equal(f.uploads.length,0);
+  assert.match(f.rows[0][3].innerHTML,/select the PDF again/i);
+  f.controller.select(recordA,makeFile('replacement.pdf'));
+  await f.controller.attach(recordA);
+  assert.equal(f.uploads[0].fileName,'replacement.pdf');
+  assert.equal(f.links[0].afcRecordId,recordA);
+});
+
+test('a transient capability error can be retried on the existing receipt',async()=>{
+  let attempts = 0;
+  const f = fixture({afcFormCapabilities:async()=>{
+    if(++attempts===1) throw Error('Offline');
+    return {upload:true};
+  }});
+  await f.show();
+  assert.equal(f.retry.hidden,false);
+  assert.match(f.rows[0][3].innerHTML,/could not be checked/i);
+  await f.retry.onclick();
+  assert.equal(f.retry.hidden,true);
+  assert.equal(f.rows.length,2);
+  f.controller.select(recordA,makeFile());
+  await f.controller.attach(recordA);
+  assert.equal(f.uploads.length,1);
+  assert.equal(f.links[0].afcRecordId,recordA);
 });

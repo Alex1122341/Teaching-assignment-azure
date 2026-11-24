@@ -636,6 +636,11 @@
         }});
         return body.afcRecord&&typeof body.afcRecord==='object'?body.afcRecord:{};
       },
+      linkAfcBatchPdf({afcRecordId, facultyId, documentId, requestId = documentId} = {}) {
+        return request('/api/v1/dashboard/afc-records/'+encodeURIComponent(afcRecordId)+'/document', {
+          method: 'POST', body: {facultyId, documentId, requestId}
+        });
+      },
       async createDashboardAfcManualBatch(payload={}){
         const input=payload&&typeof payload==='object'?payload:{};
         const rows=Array.isArray(input.rows)?input.rows.map(row=>({

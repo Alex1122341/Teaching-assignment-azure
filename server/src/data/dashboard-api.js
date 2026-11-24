@@ -779,6 +779,36 @@ function createDashboardApi({ verifyToken, findUser, repository, writeRepository
         return mapAfcWriteError(caught);
       }
     },
+    async linkAfcBatchPdf(token, afcRecordId, payload) {
+      const auth = await authorize(token);
+      if (auth.status) return auth;
+      if (!auth.scope.administrator) return error(403, 'ROLE_DENIED', 'Administrator permission is required.');
+      if (writeGates.afcBatch !== true || writeGates.afcFormUpload !== true) return writeDisabled();
+
+      const { facultyId, documentId, requestId } = payload || {};
+      if (![afcRecordId, facultyId, documentId, requestId].every(validUuid)) {
+        return error(400, 'INVALID_AFC_ATTACHMENT', 'Choose a saved AFC batch record and an archived PDF.');
+      }
+      const expected = { afcRecordId: afcRecordId.trim(), facultyId: facultyId.trim(), documentId: documentId.trim() };
+      const unconfirmed = () => error(503, 'AFC_ATTACHMENT_UNCONFIRMED', 'The PDF link could not be confirmed. Retry this attachment.');
+      try {
+        const row = await writeRepository.linkAfcBatchPdf({ ...expected, actorFirebaseUid: auth.decoded.uid, requestId: requestId.trim() });
+        if (!row || !Object.entries(expected).every(([key, id]) => text(row[key]).toLowerCase() === id.toLowerCase())) {
+          return unconfirmed();
+        }
+        return result(200, { ...expected, idempotentReplay: row.idempotentReplay === true || row.idempotentReplay === 1 });
+      } catch (caught) {
+        const known = {
+          57101: [403, 'ROLE_DENIED', 'Current administrator permission is required.'],
+          57102: [404, 'AFC_RECORD_NOT_FOUND', 'The active AFC batch record was not found.'],
+          57103: [404, 'AFC_DOCUMENT_NOT_FOUND', 'An eligible archived PDF was not found for this record.'],
+          57104: [409, 'DOCUMENT_BINDING_CONFLICT', 'This record or PDF already has a different attachment.'],
+          57105: [400, 'INVALID_AFC_ATTACHMENT', 'Choose a saved AFC batch record and an archived PDF.']
+        }[Number(caught?.number)];
+        return known ? error(...known) : unconfirmed();
+      }
+    },
+
     // POST /api/v1/dashboard/afc-records/batch. Validate and authorize before
     // the single stored-procedure call; identity always comes from SQL profile.
     async createAfcManualBatch(token, payload) {

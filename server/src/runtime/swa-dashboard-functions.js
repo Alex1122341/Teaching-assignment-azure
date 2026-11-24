@@ -58,6 +58,23 @@ function createDashboardFunctions({ api,traineeApi }) {
             : await api.afcSpecialLeaveOnDate(token, id, url.searchParams.get('date'));
         return { status:response.status, headers, jsonBody:response.body };
       }
+      const batchDocument = /^\/api\/v1\/dashboard\/afc-records\/([^/]+)\/document$/.exec(pathname);
+      if (batchDocument) {
+        const headers = { 'Cache-Control': 'private, no-store' };
+        if (request.method !== 'POST') {
+          return { status: 405, headers: { ...headers, Allow: 'POST' }, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'POST required.' } } };
+        }
+        let id, payload;
+        try {
+          id = decodeURIComponent(batchDocument[1]);
+          payload = typeof request.json === 'function' ? await request.json() : request.body;
+        } catch {
+          return { status: 400, headers, jsonBody: { error: { code: 'INVALID_JSON', message: 'Invalid record or request.' } } };
+        }
+        const response = await api.linkAfcBatchPdf(bearer(request), id, payload);
+        return { status: response.status, headers, jsonBody: response.body };
+      }
+
       const afcCancel = /^\/api\/v1\/dashboard\/afc-records\/([^/]+)\/cancel$/.exec(pathname);
       if (afcCancel) {
         if (request.method !== 'POST') return { status: 405, headers: { Allow: 'POST' }, jsonBody: { error: { code: 'METHOD_NOT_ALLOWED', message: 'POST required.' } } };

@@ -4,6 +4,9 @@ on:
     paths:
       - 'database/azure-sql/068_*'
       - 'database/azure-sql/069_*'
+      - 'database/azure-sql/071_*'
+      - 'database/azure-sql/rollback_071_*'
+      - 'tools/test-afc-batch-document-race.cjs'
       - 'server/src/data/sql-afc-special-leave-repository.js'
       - 'tools/test-afc-special-leave-integration.cjs'
       - '.github/workflows/afc-special-leave-sql.yml'
@@ -12,6 +15,9 @@ on:
     paths:
       - 'database/azure-sql/068_*'
       - 'database/azure-sql/069_*'
+      - 'database/azure-sql/071_*'
+      - 'database/azure-sql/rollback_071_*'
+      - 'tools/test-afc-batch-document-race.cjs'
       - 'server/src/data/sql-afc-special-leave-repository.js'
       - 'tools/test-afc-special-leave-integration.cjs'
       - '.github/workflows/afc-special-leave-sql.yml'
@@ -48,7 +54,7 @@ jobs:
         shell: pwsh
         run: |
           . ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-afc-068 -Through '041' -SkipAcceptance
-          foreach($file in @('042_adfa_swap_preview','043_scheduling_tasks','047_change_history','048_afc_form_upload','050_afc_record_documents','056_faculty_availability_read','064_afc_date_edit','068_afc_special_leave')){
+          foreach($file in @('042_adfa_swap_preview','043_scheduling_tasks','047_change_history','048_afc_form_upload','050_afc_record_documents','056_faculty_availability_read','064_afc_date_edit','068_afc_special_leave','071_afc_batch_record_document')){
             Invoke-TestSql (Get-Content -LiteralPath "database/azure-sql/$file.sql" -Raw) 'VetMed-Ops'
           }
           $output=@(Invoke-TestSql (Get-Content -LiteralPath 'database/azure-sql/068_afc_special_leave_acceptance.sql' -Raw) 'VetMed-Ops')
@@ -62,6 +68,17 @@ jobs:
           $contract=@(Invoke-TestSql (Get-Content -LiteralPath 'database/azure-sql/069_faculty_contract_allocations_acceptance.sql' -Raw) 'VetMed-Ops')
           $contract
           if(($contract -join "`n") -notmatch 'FACULTY_CONTRACT_069_ACCEPTANCE_OK'){throw 'Missing contract DOE acceptance marker.'}
+      - name: Verify per-record multi-input PDF attachment and rollback
+        shell: pwsh
+        run: |
+          . ./tools/test-calendar-activity-sql.ps1 -ContainerName paws-calendar-afc-068 -Through '041' -SkipAcceptance
+          foreach($file in @('047_change_history','048_afc_form_upload','050_afc_record_documents','071_afc_batch_record_document','071_afc_batch_record_document_acceptance')){
+            Invoke-TestSql (Get-Content -LiteralPath "database/azure-sql/$file.sql" -Raw) 'VetMed-Ops'
+          }
+          node tools/test-afc-batch-document-race.cjs
+          if($LASTEXITCODE -ne 0){throw 'Concurrent record attachment acceptance failed.'}
+          Invoke-TestSql (Get-Content -LiteralPath 'database/azure-sql/rollback_071_afc_batch_record_document.sql' -Raw) 'VetMed-Ops'
+          Invoke-TestSql "IF OBJECT_ID(N'paws_api.LinkAfcBatchRecordDocument') IS NOT NULL OR (SELECT COUNT(*) FROM paws.AfcRecordDocument)<>2 THROW 57190,'Rollback did not preserve saved attachments.',1;" 'VetMed-Ops'
       - name: Stop labeled disposable SQL
         if: always()
         shell: pwsh

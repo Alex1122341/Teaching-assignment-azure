@@ -55,8 +55,9 @@ test('account access has one dedicated unbound role and one atomic command with 
  assert.doesNotMatch(sql,/ALTER\s+ROLE[^;]+ADD\s+MEMBER|GRANT\s+(?:UPDATE|INSERT|DELETE)\s+ON|GRANT\s+EXECUTE\s+ON\s+SCHEMA/i);
 });
 
-test('record originals grant metadata view reads and one atomic command without raw PDF table access or runtime memberships',()=>{
-  const sql=fs.readFileSync(path.join(root,'database/azure-sql/050_afc_record_documents.sql'),'utf8');
+test('record originals grant metadata view reads and scoped atomic commands without raw PDF table access or runtime memberships',()=>{
+  const sql = ['050_afc_record_documents.sql', '071_afc_batch_record_document.sql']
+    .map(file => fs.readFileSync(path.join(root,'database/azure-sql',file),'utf8')).join('\n');
   assert.deepEqual([...sql.matchAll(/GRANT EXECUTE ON OBJECT::(\w+\.\w+) TO paws_runtime_afc_record_document/g)].map(m=>m[1]),contract.afcRecordDocumentProcedures);
   assert.deepEqual([...sql.matchAll(/GRANT SELECT ON OBJECT::(\w+\.\w+) TO paws_runtime_read/g)].map(m=>m[1]),contract.afcRecordDocumentReadObjects);
   assert.doesNotMatch(sql,/GRANT\s+SELECT[^;]*AfcFormDocument|ALTER\s+ROLE[^;]*ADD\s+MEMBER|GRANT\s+EXECUTE\s+ON\s+SCHEMA/i);

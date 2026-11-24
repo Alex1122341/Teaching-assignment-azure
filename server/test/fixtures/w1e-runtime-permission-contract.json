@@ -187,7 +187,8 @@
     "paws_api.GetAfcForm"
   ],
   "afcRecordDocumentReadObjects": [
-    "paws.vAfcRecordOriginal"
+    "paws.vAfcRecordOriginal",
+    "paws.vAfcBatchOriginalEligible"
   ],
   "afcSpecialLeaveReadObjects": [
     "paws.vAfcSpecialLeaveAdmin"
@@ -196,7 +197,8 @@
     "paws_api.SaveAfcSpecialLeave"
   ],
   "afcRecordDocumentProcedures": [
-    "paws_api.CreateAfcRecordWithDocument"
+    "paws_api.CreateAfcRecordWithDocument",
+    "paws_api.LinkAfcBatchRecordDocument"
   ],
   "cccReplacementProcedures": [
     "paws_api.StageCccReplacement",

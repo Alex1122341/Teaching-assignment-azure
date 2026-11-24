@@ -65,6 +65,16 @@ function createSqlAfcWriteRepository(db) {
       return rows[0] || null;
     },
 
+    async linkAfcBatchPdf({ afcRecordId, facultyId, documentId, actorFirebaseUid, requestId }) {
+      const rows = await db.query(
+        `EXEC paws_api.LinkAfcBatchRecordDocument
+          @AfcRecordId = @afcRecordId, @FacultyId = @facultyId, @DocumentId = @documentId,
+          @ActorFirebaseUid = @actorFirebaseUid, @RequestId = @requestId`,
+        { afcRecordId, facultyId, documentId, actorFirebaseUid, requestId }
+      );
+      return rows[0] || null;
+    },
+
     async createAfcManualBatch({ requestId, rows: inputRows, actorFirebaseUid, actorName = null } = {}) {
       const rowsJson = JSON.stringify((inputRows || []).map(row => ({
         rowIndex: row.rowIndex,

@@ -67,9 +67,16 @@
     refresh: async () => { invalidateFacultyDetails(); await loadAdminDashboard(); await loadAfcRecords(true); },
     refreshRecords: () => loadAfcRecords(true), notify: showToast, confirm: message => window.confirm(message)
   });
-  let afcBatchRows = [{ facultyId: '', facultyEntry: '', startDate: '', endDate: '', purpose: '', dateErrors: {}, errors: [], status: 'EDIT' }];
-  let afcBatchRequestId = '';
-  let afcBatchReviewed = false;
+  const batchPdfs = window.PAWS_AFC_FORMS?.createBatchPdfController?.({
+    api: UCVM_PAWS_DATA, host: $('afc-batch-documents'), getUser: () => currentUser, refreshRecords: () => loadAfcRecords(true)
+  });
+  const batchEditor = window.UCVM_AFC_BATCH?.createEditor?.({
+    $, on, esc, getUser: () => currentUser, resolveFaculty: resolveAfcFaculty, facultyName,
+    canWrite: () => !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcBatchWriteEnabled?.() === true,
+    saveBatch: payload => UCVM_PAWS_DATA.createDashboardAfcManualBatch(payload),
+    showSaved: rows => batchPdfs?.show(rows),
+    refresh: async () => { invalidateFacultyDetails(); await loadAdminDashboard(); await loadAfcRecords(true); }
+  });
   let detailLoadToken = 0;
   let detailGeneration = 0;
   const detailCache = new Map();
@@ -191,6 +198,7 @@
   }
 
   function resetAuthData() {
+    batchEditor?.clear(); batchPdfs?.clear();
     reportsEntry?.clear();$('reports-tab')?.classList.add('hidden');
     otherWorkTab?.clear();
     faculty=[]; activeFaculty=[]; afcRecords=[]; afcLoaded=false; selectedId=null; dashboardSummary=null; facultyAdminWriteEnabled=false;
@@ -217,27 +225,22 @@
     on($('afc-record-form'), 'submit', submitAfcRecord);
     on($('afc-faculty'),'change',()=>afcForms?.facultyChanged());
     on($('profile-pane'),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)getAfcOriginal?.(button.dataset.afcDocument);});
-    on($('afc-form-documents'),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)getAfcOriginal?.(button.dataset.afcDocument);});
+    for(const id of ['afc-form-documents','afc-batch-documents'])on($(id),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)getAfcOriginal?.(button.dataset.afcDocument);});
     on($('afc-records-body'), 'click', event => {
       const pdf=event.target?.closest?.('[data-afc-document]');if(pdf)return getAfcOriginal?.(pdf.dataset.afcDocument);
+      const attachment = event.target?.closest?.('[data-afc-attach-original]');
+      if (attachment) return openSavedAfcOriginal(attachment.dataset.afcAttachOriginal);
       const button = event.target?.closest?.('[data-afc-cancel]');
       if (button) return cancelAfcRecord(button.dataset.afcCancel);
       afcActions.handleEditClick(event);
     });
     on($('afc-single-mode'), 'click', () => setAfcMode(false));
-    on($('afc-batch-mode'), 'click', () => { setAfcMode(true); renderAfcBatchRows(); });
-    on($('afc-batch-add-row'), 'click', () => { if (afcBatchRows.length >= 20) return setAfcBatchStatus('A batch can contain at most 20 rows.', true); afcBatchRows.push({ facultyId: '', facultyEntry: '', startDate: '', endDate: '', purpose: '', dateErrors: {}, errors: [], status: 'EDIT' }); invalidateAfcBatch(); renderAfcBatchRows(); });
-    on($('afc-batch-rows'), 'input', updateAfcBatchField);
-    on($('afc-batch-rows'), 'change', updateAfcBatchField);
-    on($('afc-batch-rows'), 'click', event => { const button = event.target?.closest?.('[data-afc-batch-remove]'); if (!button) return; afcBatchRows.splice(Number(button.dataset.afcBatchRemove), 1); invalidateAfcBatch(); renderAfcBatchRows(); });
-    on($('afc-batch-import-paste'), 'click', loadAfcBatchPaste);
-    on($('afc-batch-clear'), 'click', () => { afcBatchRows = [{ facultyId: '', facultyEntry: '', startDate: '', endDate: '', purpose: '', dateErrors: {}, errors: [], status: 'EDIT' }]; $('afc-batch-paste').value = ''; invalidateAfcBatch(); renderAfcBatchRows(); setAfcBatchStatus('Batch cleared.'); });
-    on($('afc-batch-validate'), 'click', () => { reviewAfcBatch(); renderAfcBatchRows(); });
-    on($('afc-batch-submit'), 'click', submitAfcBatch);
+    on($('afc-batch-mode'), 'click', () => { setAfcMode(true); batchEditor?.render(); });
+    batchEditor?.bind();
     updateAfcWriteControls();
   }
 
-  function updateAfcWriteControls() { window.UCVM_AFC_RECORDS.updateWriteControls(UCVM_PAWS_DATA, $, afcSubmitInFlight, afcSingleActions.isUnconfirmed()); }
+  function updateAfcWriteControls() { window.UCVM_AFC_RECORDS.updateWriteControls(UCVM_PAWS_DATA, $, afcSubmitInFlight, afcSingleActions.isUnconfirmed()); batchEditor?.controls(); }
 
   function selectTab(tabName) {
     if(tabName==='reports'&&!dashboardAdmin(currentUser))return;
@@ -336,6 +339,29 @@
     if (Object.prototype.hasOwnProperty.call(AFC_REASON_LABELS, old)) element.value = old;
   }
 
+  function canAttachSavedAfc(row) {
+    return !!batchPdfs && !selfMode && dashboardAdmin(currentUser) && row?.canAttachBatchOriginal === true &&
+      row.active !== false && !row.documentId && UCVM_PAWS_DATA.afcBatchWriteEnabled?.() === true;
+  }
+
+  function openSavedAfcOriginal(recordId) {
+    const row = afcRecords.find(record => record.afcRecordId === recordId && canAttachSavedAfc(record));
+    if (!row) return;
+    setAfcMode(true);
+    batchEditor?.render();
+    const opened = batchPdfs.show([{ afcRecordId: row.afcRecordId, facultyId: row.facultyId,
+      facultyName: facultyName(row, 'Name unavailable'), startDate: row.startDate, endDate: row.endDate,
+      purpose: row.purpose || row.legacyPurpose || row.notes || row.reason || '' }]);
+    const receipt = Array.from($('afc-batch-documents').querySelectorAll('[data-afc-saved-record]'))
+      .find(element => element.dataset.afcSavedRecord === recordId.toLowerCase());
+    if (receipt) {
+      receipt.tabIndex = -1;
+      receipt.focus({ preventScroll: true });
+      receipt.scrollIntoView({ block: 'nearest' });
+    }
+    return opened;
+  }
+
   function renderAfcRecords() {
     fillAfcReasonFilter();
     const body = $('afc-records-body'); if (!body) return;
@@ -347,7 +373,7 @@
       const haystack = norm([row.facultyName, row.facultyId, row.notes, row.legacyPurpose, row.reason, row.reasonCode].filter(present).join(' '));
       return (!query || haystack.includes(query)) && (!reason || row.reasonCode === reason || (!row.reasonCode && norm(row.reason) === norm(AFC_REASON_LABELS[reason]))) && (!active || String(row.active !== false) === active) && (!source || norm(row.sourceKind || 'manual') === source);
     });
-    body.innerHTML = window.UCVM_AFC_RECORDS.renderRows(rows, { facultyName, canCancel: !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true, canEdit: afcActions.canEdit(), canApply: afcActions.canApply(), editingKey: afcActions.editingKey(), busy: afcActions.isBusy,renderPdf:window.PAWS_AFC_FORMS?.documentAction });
+    body.innerHTML = window.UCVM_AFC_RECORDS.renderRows(rows, { facultyName, canCancel: !selfMode && dashboardAdmin(currentUser) && UCVM_PAWS_DATA.afcCancelWriteEnabled?.() === true, canEdit: afcActions.canEdit(), canApply: afcActions.canApply(), editingKey: afcActions.editingKey(), busy: afcActions.isBusy, canAttachOriginal: canAttachSavedAfc, renderPdf:window.PAWS_AFC_FORMS?.documentAction });
     document.querySelectorAll('[data-afc-person]').forEach(node => on(node, 'click', () => openFacultyFromAggregate(node.dataset.afcPerson)));
   }
 
@@ -475,73 +501,6 @@
     $('afc-batch-form')?.classList.toggle('hidden', !multi);
     $('afc-single-mode')?.setAttribute('aria-pressed', String(!multi));
     $('afc-batch-mode')?.setAttribute('aria-pressed', String(multi));
-  }
-  function invalidateAfcBatch() { afcBatchReviewed = false; afcBatchRequestId = ''; const button = $('afc-batch-submit'); if (button) button.disabled = true; }
-  function setAfcBatchStatus(message, isError = false) { const status = $('afc-batch-status'); if (status) { status.textContent = message; status.classList.toggle('error', isError); } }
-  function updateAfcBatchField(event) {
-    const input = event.target?.closest?.('[data-afc-batch-field]'); if (!input) return;
-    const index = Number(input.dataset.rowIndex), field = input.dataset.afcBatchField, row = afcBatchRows[index]; if (!row) return;
-    row.importError = '';
-    if (field === 'facultyEntry') { row.facultyEntry = input.value; const match = resolveAfcFaculty(input.value); row.facultyId = match ? match.facultyId : ''; }
-    else row[field] = input.value;
-    if (field === 'startDate' || field === 'endDate') {
-      row.dateErrors = { ...(row.dateErrors || {}), [field]: '' };
-      row.errors = Object.values(row.dateErrors).filter(Boolean);
-      row.status = row.errors.length ? 'INVALID' : 'EDIT';
-    }
-    invalidateAfcBatch();
-    document.querySelectorAll('#afc-batch-rows tr').forEach(tr => { if (tr.children[4]) tr.children[4].textContent = 'Not reviewed'; });
-    setAfcBatchStatus('Changes made. Validate and review all rows before submitting.');
-    if (afcBatchReviewed) { reviewAfcBatch(); renderAfcBatchRows(); }
-  }
-  function validateAfcBatchRows() {
-    return UCVM_AFC_BATCH.validateRows(afcBatchRows, resolveAfcFaculty);
-  }
-  function reviewAfcBatch() {
-    const rows = validateAfcBatchRows(); afcBatchReviewed = true;
-    const invalid = rows.filter(row => row.errors.length).length, valid = UCVM_AFC_BATCH.canSubmitRows(rows, afcSubmitInFlight);
-    const button = $('afc-batch-submit'); if (button) button.disabled = !valid || afcSubmitInFlight;
-    setAfcBatchStatus(invalid ? invalid + ' row(s) need review; nothing was submitted.' : rows.length + ' row(s) ready. Review all values before submitting.');
-    return valid;
-  }
-  function renderAfcBatchRows() {
-    const body = $('afc-batch-rows'); if (!body) return;
-    body.innerHTML = afcBatchRows.map((row, index) => '<tr><td><input class="input" list="afc-faculty-options" data-afc-batch-field="facultyEntry" data-row-index="' + index + '" value="' + esc(row.facultyEntry || '') + '" aria-label="Faculty member row ' + (index + 1) + '" placeholder="Search active Faculty…"></td><td><input class="input" type="date" data-afc-batch-field="startDate" data-row-index="' + index + '" value="' + esc(row.startDate) + '" aria-label="Start date row ' + (index + 1) + '"></td><td><input class="input" type="date" data-afc-batch-field="endDate" data-row-index="' + index + '" value="' + esc(row.endDate) + '" aria-label="End date row ' + (index + 1) + '"></td><td><input class="input" maxlength="1000" data-afc-batch-field="purpose" data-row-index="' + index + '" value="' + esc(row.purpose) + '" aria-label="Purpose row ' + (index + 1) + '"></td><td>' + (row.errors?.length ? esc(row.status + ': ' + row.errors.join(' ')) : afcBatchReviewed ? esc(row.status) : 'Not reviewed') + '</td><td><button class="btn" type="button" data-afc-batch-remove="' + index + '" aria-label="Remove row ' + (index + 1) + '">Remove</button></td></tr>').join('') || '<tr><td colspan="6" class="empty">Add or paste rows to begin.</td></tr>';
-  }
-  function loadAfcBatchPaste() {
-    const parsed = UCVM_AFC_BATCH.parsePaste($('afc-batch-paste')?.value || '', resolveAfcFaculty);
-    if (parsed.error) return setAfcBatchStatus(parsed.error, true);
-    afcBatchRows = parsed.rows;
-    invalidateAfcBatch(); renderAfcBatchRows();
-    setAfcBatchStatus(parsed.rows.length + ' pasted row(s) loaded. Validate and review before submit.');
-  }
-  async function submitAfcBatch() {
-    if (afcSubmitInFlight || !reviewAfcBatch()) return;
-    if (!afcBatchRequestId) afcBatchRequestId = crypto.randomUUID();
-    const submit = $('afc-batch-submit'); afcSubmitInFlight = true; if (submit) submit.disabled = true;
-    setAfcBatchStatus('Submitting the complete batch…');
-    try {
-      const outcome = await UCVM_PAWS_DATA.createDashboardAfcManualBatch({ requestId: afcBatchRequestId, rows: UCVM_AFC_BATCH.toApiRows(afcBatchRows) });
-      afcBatchRows = []; afcBatchRequestId = ''; afcBatchReviewed = false;
-      setAfcBatchStatus(UCVM_AFC_BATCH.successMessage(outcome));
-      await loadAdminDashboard(); await loadAfcRecords(true); renderAfcBatchRows();
-    } catch (error) {
-      if (Array.isArray(error?.rows)) {
-        for (const outcome of error.rows) {
-          const row = afcBatchRows[Number(outcome.rowIndex)]; if (!row) continue;
-          row.status = outcome.status || outcome.rowStatus || 'CONFLICT';
-          row.errors = [row.status === 'ALREADY_EXISTS' ? 'Matching AFC record already exists.' : 'This row was not created. Review the batch conflict.'];
-        }
-        afcBatchReviewed = true; renderAfcBatchRows();
-      }
-      setAfcBatchStatus((error?.message || 'Batch could not be submitted.') + ' Resolve row conflicts and validate before retrying.', true);
-    }
-    finally {
-      afcSubmitInFlight = false;
-      if (afcBatchRows.length) reviewAfcBatch();
-      else { const button = $('afc-batch-submit'); if (button) button.disabled = true; }
-      renderAfcBatchRows();
-    }
   }
 
   const DOE_PROFILE_RENDERER = window.UCVM_FACULTY_DOE_RENDERER.create({ esc, number, formatDoe, display, effectiveRoleDoe, groupTeachingAssignments });

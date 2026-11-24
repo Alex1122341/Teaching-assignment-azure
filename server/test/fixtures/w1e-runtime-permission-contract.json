@@ -221,6 +221,7 @@
     "paws_api.ListTraineeSource"
   ],
   "availabilityReadProcedures": [
-    "paws_api.ListFacultyAvailability"
+    "paws_api.ListFacultyAvailability",
+    "paws_api.ListFacultyAvailabilityBulk"
   ]
 }

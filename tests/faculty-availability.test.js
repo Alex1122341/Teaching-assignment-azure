@@ -14,11 +14,12 @@ test('Dashboard has dedicated availability tab, view, module and stylesheet',()=
 });
 test('Calendar availability is SQL-backed and never uses browser Firestore',()=>{
  const js=read('faculty-availability.js');
- assert.match(js,/facultyAvailability\(/);
+ assert.match(js,/facultyAvailabilityQuery\(/);
  assert.doesNotMatch(js,/\.collection\(|firestore|db\.doc/);
  assert.match(js,/value="upcoming"/);
  assert.match(js,/value="from"/);
  assert.match(js,/value="range"/);
+ assert.match(js,/value="day"/);
  assert.match(js,/No PAWS commitments found/);
  assert.match(js,/does not include external calendar meetings/);
 });
@@ -29,7 +30,7 @@ test('Unified list distinguishes workloads, AFC, tentative and ongoing',()=>{
 });
 
 test('date controls honor hidden mode wrappers even with display flex styling',()=>{
- assert.match(read('faculty-availability.css'),/\.availability-controls\s+\[hidden\]\s*\{\s*display\s*:\s*none/);
+ assert.match(read('faculty-availability.css'),/#availability-view\s+\[hidden\]\s*\{\s*display\s*:\s*none/);
 });
 
 test('availability rollback requires exact installed definition and refuses unrelated grants',()=>{

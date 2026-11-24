@@ -228,6 +228,24 @@
         if(cursor)query.set('cursor',String(cursor));
         return request('/api/v1/faculty/'+encodeURIComponent(facultyId||'')+'/availability?'+query.toString());
       },
+      facultyAvailabilityRoster(includeInactive=false){
+        return request('/api/v1/faculty/availability/roster?includeInactive='+(includeInactive?'1':'0'));
+      },
+      facultyAvailabilityQuery(definition){
+        return request('/api/v1/faculty/availability/query',{method:'POST',body:definition});
+      },
+      facultyAvailabilityPage(snapshot,offset){
+        return request('/api/v1/faculty/availability/page?'+new URLSearchParams({snapshot,offset}));
+      },
+      facultyAvailabilityExport(snapshot,format,filter,sort){
+        return request('/api/v1/faculty/availability/export?'+new URLSearchParams({snapshot,format,filter,sort}));
+      },
+      facultyAvailabilityCommon(definition){
+        return request('/api/v1/faculty/availability/common-time',{method:'POST',body:definition});
+      },
+      facultyAvailabilityCommonDetail(snapshot,date,start,end){
+        return request('/api/v1/faculty/availability/common-time/details?'+new URLSearchParams({snapshot,date,start,end}));
+      },
       dashboardTrainees(filters={}){
         const query=new URLSearchParams();for(const key of ['academicYear','query','category','cursor','limit'])if(filters[key]!==undefined&&filters[key]!==null&&filters[key]!=='')query.set(key,String(filters[key]));
         return request('/api/v1/dashboard/trainees?'+query.toString());

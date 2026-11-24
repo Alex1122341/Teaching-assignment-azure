@@ -187,9 +187,10 @@ test('MASTER source writes stay in the empty trusted operator role and trainee r
  assert.doesNotMatch(ccc,/GRANT EXECUTE[^;]*StageMasterCccReplacement[^;]*TO paws_runtime/i);
 });
 
-test('Availability adds only one scoped read procedure and no table grants or memberships',()=>{
- const availability=fs.readFileSync(path.join(root,'database/azure-sql/056_faculty_availability_read.sql'),'utf8');
- assert.deepEqual(contract.availabilityReadProcedures,['paws_api.ListFacultyAvailability']);
+test('Availability uses two scoped read procedures with no table grants or memberships',()=>{
+ const availability=['056_faculty_availability_read.sql','072_faculty_availability_bulk_read.sql']
+  .map(name=>fs.readFileSync(path.join(root,'database/azure-sql',name),'utf8')).join('\n');
+ assert.deepEqual(contract.availabilityReadProcedures,['paws_api.ListFacultyAvailability','paws_api.ListFacultyAvailabilityBulk']);
  assert.deepEqual([...availability.matchAll(/GRANT EXECUTE ON OBJECT::([\w.]+) TO paws_runtime_read/g)].map(m=>m[1]),contract.availabilityReadProcedures);
  assert.doesNotMatch(availability,/ALTER ROLE|CREATE USER|GRANT SELECT|GRANT[^;]*ON SCHEMA|\b(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+)?(?:paws|staging)\./i);
 });

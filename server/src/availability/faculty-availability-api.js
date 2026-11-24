@@ -1,20 +1,29 @@
 'use strict';
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DATE=/^\d{4}-\d{2}-\d{2}$/;
-const validDate=v=>DATE.test(v)&&v>='0001-01-01'&&v<='9999-12-31'&&!Number.isNaN(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
+const {isAdministratorRole,isSelfServiceRole,normalizeBaseRole}=require('../auth/role-policy');
+const {UUID,validDate}=require('./faculty-availability-window');
+const {createAvailabilityCoordination}=require('./faculty-availability-coordination');
 const fail=(status,code,message)=>({status,body:{error:{code,message}}});
-function createFacultyAvailabilityApi({verifyToken,findUser,repository}={}){
+function createFacultyAvailabilityApi({verifyToken,findUser,repository,clock,randomId}={}){
  if(!verifyToken||!findUser||!repository)throw Error('Availability dependencies required.');
+ async function authorize(token){
+  const unauthenticated=()=>({response:fail(401,'UNAUTHENTICATED','Sign in to check availability.')});
+  if(!token)return unauthenticated();
+  let decoded;try{decoded=await verifyToken(token);}catch(_){return unauthenticated();}
+  if(typeof decoded?.uid!=='string'||!decoded.uid||decoded.uid.length>128)return unauthenticated();
+  let profile;try{profile=await findUser(decoded.uid);}catch(_){return {response:fail(503,'SERVICE_UNAVAILABLE','Profile verification unavailable.')};}
+  const role=normalizeBaseRole(profile?.baseRole||profile?.role),admin=isAdministratorRole(role);
+  if(!profile?.active||profile?.mustChangePassword||(!admin&&!isSelfServiceRole(role))){
+   return {response:fail(403,'ROLE_DENIED','Availability is not authorized.')};
+  }
+  return {uid:decoded.uid,role,admin,facultyId:String(profile.facultyId||'').toLowerCase()};
+ }
  return Object.freeze({
+  ...createAvailabilityCoordination({authorize,repository,clock,randomId}),
   async list(token,facultyId,query={}){
-   if(!token)return fail(401,'UNAUTHENTICATED','Sign in to check availability.');
-   let decoded;try{decoded=await verifyToken(token);}catch(_){return fail(401,'UNAUTHENTICATED','Sign in to check availability.');}
-   if(!decoded?.uid)return fail(401,'UNAUTHENTICATED','Sign in to check availability.');
-   let profile;try{profile=await findUser(decoded.uid);}catch(_){return fail(503,'SERVICE_UNAVAILABLE','Profile verification unavailable.');}
-   const role=String(profile?.baseRole||profile?.role||'').toLowerCase(),admin=['developer','owner','administrator','admin','adfa_general','adfa_regular'].includes(role);
-   if(!profile?.active||profile?.mustChangePassword||(!admin&&!['faculty','hicc','visc'].includes(role)))return fail(403,'ROLE_DENIED','Availability is not authorized.');
+   const auth=await authorize(token);
+   if(auth.response)return auth.response;
    if(!UUID.test(facultyId))return fail(400,'INVALID_FACULTY','Select a valid faculty.');
-   if(!admin&&String(profile.facultyId||'').toLowerCase()!==facultyId.toLowerCase())return fail(403,'ROLE_DENIED','Only your own availability can be viewed.');
+   if(!auth.admin&&auth.facultyId!==facultyId.toLowerCase())return fail(403,'ROLE_DENIED','Only your own availability can be viewed.');
    const keys=['mode','startDate','endDate','kind','cursor','limit'];
    if(!query||typeof query!=='object'||Array.isArray(query)||Object.keys(query).some(k=>!keys.includes(k)))return fail(400,'INVALID_QUERY','Invalid availability filters.');
    const mode=query.mode||'upcoming',start=query.startDate||null,end=query.endDate||null,kind=query.kind||'all';
@@ -25,7 +34,7 @@ function createFacultyAvailabilityApi({verifyToken,findUser,repository}={}){
       ||!Number.isSafeInteger(cursor)||cursor<0||cursor>100000||!Number.isSafeInteger(limit)||limit<1||limit>100)
      return fail(400,'INVALID_QUERY','Choose a valid date range.');
    try{
-    const value=await repository.list({actorFirebaseUid:decoded.uid,facultyId,mode,startDate:start,endDate:end,kind,cursor,limit});
+    const value=await repository.list({actorFirebaseUid:auth.uid,facultyId,mode,startDate:start,endDate:end,kind,cursor,limit});
     if(!value||!Array.isArray(value.items)||!Number.isInteger(value.total)||value.total<value.items.length||value.items.length>limit)
       throw Error('Invalid availability response.');
     if(!value.coverage||!['undatedSessions','undatedRoles'].every(k=>Number.isInteger(value.coverage[k])&&value.coverage[k]>=0)

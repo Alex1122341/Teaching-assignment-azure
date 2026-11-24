@@ -88,7 +88,163 @@
     return 'Created ' + created + ' AFC record(s).';
   }
 
-  const helpers = Object.freeze({ normalizePastedDate, parsePaste, validateRows, toApiRows, canSubmitRows, successMessage });
+
+  const blankRow = () => ({ facultyId: '', facultyEntry: '', startDate: '', endDate: '', purpose: '', errors: [], dateErrors: {} });
+  const rowUsed = row => ['facultyEntry', 'facultyId', 'startDate', 'endDate', 'purpose', 'importError'].some(key => String(row[key] || '').trim()) ||
+    Object.values(row.dateErrors || {}).some(Boolean);
+
+  function receiptsFor(outcome, draft, requestId) {
+    const incomplete = () => { throw new Error('The saved rows could not be confirmed.'); };
+    if (outcome?.requestId !== requestId || !Array.isArray(outcome.rows) || outcome.rows.length !== draft.length) incomplete();
+    const expected = outcome.idempotentReplay ? 'ALREADY_APPLIED' : 'NEW';
+    const result = new Map(), ids = new Set();
+    for (const receipt of outcome.rows) {
+      const index = receipt?.rowIndex, row = draft[index];
+      if (!Number.isInteger(index) || !row || result.has(index) || receipt.status !== expected ||
+           !/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(receipt.afcRecordId) ||
+          ids.has(receipt.afcRecordId.toLowerCase()) || String(receipt.facultyId).toLowerCase() !== row.facultyId.toLowerCase() ||
+          receipt.startDate !== row.startDate || receipt.endDate !== row.endDate || receipt.purpose !== row.purpose) incomplete();
+      ids.add(receipt.afcRecordId.toLowerCase());
+      result.set(index, { afcRecordId: receipt.afcRecordId, facultyId: row.facultyId, facultyName: row.facultyName,
+        startDate: row.startDate, endDate: row.endDate, purpose: row.purpose });
+    }
+    return draft.map((_, index) => result.get(index));
+  }
+
+  function createEditor({ $, on, esc, getUser, canWrite, resolveFaculty, facultyName, saveBatch, showSaved, refresh,
+    newId = () => crypto.randomUUID() }) {
+    let rows = [blankRow()], attempt = null, busy = false, generation = 0;
+    const node = suffix => $('afc-batch-' + suffix);
+    const locked = () => busy || attempt !== null;
+    function status(message, error = false) {
+      const output = node('status');
+      if (!output) return;
+      output.textContent = message;
+      output.classList.toggle('error', error);
+    }
+    function controls() {
+      const save = node('submit');
+      if (!save) return;
+      save.disabled = busy || !canWrite() || !rows.some(rowUsed);
+      save.textContent = busy ? 'Saving…' : attempt ? 'Retry save' : 'Save records';
+      for (const id of ['add-row', 'clear', 'paste', 'import-paste']) {
+        const control = node(id);
+        if (control) control.disabled = locked() || (id === 'add-row' && rows.length >= 20);
+      }
+    }
+    function render() {
+      const body = node('rows');
+      if (!body) return;
+      body.innerHTML = rows.map((row, index) => {
+        const field = (label, key, attrs = '') => '<td><input class="input" data-afc-batch-field="' + key + '" data-row-index="' + index +
+          '" aria-label="' + label + ' row ' + (index + 1) + '" value="' + esc(row[key]) + '" ' + attrs + (locked() ? ' disabled' : '') + '></td>';
+        return '<tr>' + field('Faculty member', 'facultyEntry', 'list="afc-faculty-options" placeholder="Search active faculty…"') +
+          field('Start date', 'startDate', 'type="date"') + field('End date', 'endDate', 'type="date"') +
+          field('Purpose', 'purpose', 'maxlength="1000"') + '<td data-afc-row-status aria-live="polite">' + esc(row.errors.join(' ')) +
+          '</td><td><button class="btn" type="button" data-afc-batch-remove="' + index + '" aria-label="Remove row ' + (index + 1) +
+          '"' + (locked() ? ' disabled' : '') + '>Remove</button></td></tr>';
+      }).join('');
+      controls();
+    }
+    function change(event) {
+      if (locked()) return;
+      const input = event.target?.closest?.('[data-afc-batch-field]');
+      if (!input) return;
+      const row = rows[Number(input.dataset.rowIndex)], key = input.dataset.afcBatchField;
+      if (!row || !['facultyEntry', 'startDate', 'endDate', 'purpose'].includes(key)) return;
+      row[key] = input.value;
+      if (key === 'facultyEntry') row.facultyId = resolveFaculty(input.value)?.facultyId || '';
+      if (key === 'startDate' || key === 'endDate') row.dateErrors[key] = '';
+      row.importError = ''; row.errors = [];
+      const cell = input.closest('tr')?.querySelector?.('[data-afc-row-status]');
+      if (cell) cell.textContent = '';
+      status(''); controls();
+    }
+    function append() {
+      if (locked()) return;
+      const parsed = parsePaste(node('paste').value, resolveFaculty);
+      if (parsed.error) { status(parsed.error, true); return; }
+      const draft = rows.filter(rowUsed);
+      if (draft.length + parsed.rows.length > 20) { status('A batch can contain at most 20 rows.', true); return; }
+      rows = draft.concat(parsed.rows); node('paste').value = '';
+      render(); status('Added ' + parsed.rows.length + ' pasted row(s).');
+    }
+    function newAttempt() {
+      const entered = rows.filter(rowUsed);
+      if (!entered.length) { status('Enter at least one record.', true); return null; }
+      validateRows(entered, resolveFaculty);
+      if (!canSubmitRows(entered)) {
+        render(); status('Review the messages beside the incomplete rows.', true);
+        return null;
+      }
+      return { requestId: newId(), draft: entered.map(row => ({
+        facultyId: row.facultyId, startDate: row.startDate, endDate: row.endDate, purpose: row.purpose,
+        facultyName: facultyName(resolveFaculty(row.facultyId))
+      })) };
+    }
+    async function save() {
+      const owner = getUser()?.uid, current = generation;
+      if (!owner || busy || !canWrite()) return;
+      attempt = attempt || newAttempt();
+      if (!attempt) return;
+      const submitted = attempt;
+      const same = () => generation === current && getUser()?.uid === owner;
+      busy = true; render(); status('Saving records…');
+      let receipts;
+      try {
+        const response = await saveBatch({ requestId: submitted.requestId, rows: toApiRows(submitted.draft) });
+        if (!same()) return;
+        receipts = receiptsFor(response, submitted.draft, submitted.requestId);
+      } catch (error) {
+        if (!same()) return;
+        if (error?.status >= 400 && error.status < 500 && error.status !== 408) {
+          const entered = rows.filter(rowUsed);
+          for (const item of Array.isArray(error.rows) ? error.rows : []) {
+            const row = entered[item.rowIndex];
+            if (row) row.errors = [item.status === 'ALREADY_EXISTS' ? 'Matching record already exists.' : 'This row was not saved.'];
+          }
+          attempt = null;
+          status(error.message || 'Review these rows before saving again.', true);
+        } else {
+          status('Save unconfirmed. Retry save to confirm the same batch.', true);
+        }
+        return;
+      } finally {
+        if (same()) { busy = false; render(); }
+      }
+      attempt = null;
+      rows = [blankRow()];
+      render(); status('Saved ' + receipts.length + ' record(s). Add a PDF to each saved record below.');
+      showSaved(receipts);
+      try { await refresh(); } catch (_) { if (same()) status('Records saved. Refresh the AFC list to see the latest changes.'); }
+    }
+    function clear() {
+      ++generation; busy = false; attempt = null; rows = [blankRow()];
+      if (node('paste')) node('paste').value = '';
+      render(); status('');
+    }
+    function bind() {
+      on(node('add-row'), 'click', () => {
+        if (locked() || rows.length >= 20) return;
+        rows.push(blankRow()); render();
+        node('rows')?.querySelector?.('[data-afc-batch-field="facultyEntry"][data-row-index="' + (rows.length - 1) + '"]')?.focus();
+      });
+      on(node('rows'), 'input', change); on(node('rows'), 'change', change);
+      on(node('rows'), 'click', event => {
+        const remove = event.target?.closest?.('[data-afc-batch-remove]');
+        if (!remove || locked()) return;
+        rows.splice(Number(remove.dataset.afcBatchRemove), 1);
+        if (!rows.length) rows.push(blankRow());
+        render(); status('');
+      });
+      on(node('clear'), 'click', () => { if (!locked()) clear(); });
+      on(node('import-paste'), 'click', append);
+      on(node('submit'), 'click', save);
+    }
+    return { bind, render, controls, clear };
+  }
+
+  const helpers = Object.freeze({ createEditor, receiptsFor, normalizePastedDate, parsePaste, validateRows, toApiRows, canSubmitRows, successMessage });
   if (typeof module !== 'undefined' && module.exports) module.exports = helpers;
   if (root) root.UCVM_AFC_BATCH = helpers;
 })(typeof window === 'undefined' ? null : window);

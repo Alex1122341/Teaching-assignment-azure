@@ -39,25 +39,92 @@ test('B1 AFC UI uses explicit Azure client methods and protects submit state', (
   assert.ok(helperAt>=0&&controllerAt>=0&&helperAt<controllerAt);
 });
 
-test('AFC multi-input UI supports Excel paste, canonical searchable Faculty, row review, and batch submit', () => {
-  assert.match(html, /id="afc-batch-paste"/);
+test('AFC multi-input puts direct entry first and Excel paste in an optional disclosure', () => {
+  assert.ok(html.indexOf('id="afc-batch-rows"') < html.indexOf('id="afc-batch-paste"'));
+  assert.match(html, /<details[^>]*><summary>Paste from Excel \(optional\)<\/summary>/);
+  assert.match(html, /id="afc-batch-submit"[^>]*>Save records/);
+  assert.match(html, /id="afc-batch-documents"/);
   assert.match(html, /id="afc-faculty-options"/);
-  assert.match(html, /id="afc-batch-rows"/);
-  assert.match(html, /id="afc-batch-validate"/);
-  assert.match(html, /id="afc-batch-clear"/);
-  assert.match(html, /Faculty Member.*Start.*End.*Purpose/);
-  assert.match(html, /YYYY-MM-DD or YYYY\/M\/D/);
-  assert.ok(html.indexOf('faculty-admin-afc-batch.js') < html.indexOf('faculty-admin.js'), 'batch helper loads before the dashboard controller');
-  assert.match(js, /UCVM_PAWS_DATA\.createDashboardAfcManualBatch\(/);
-  assert.match(js, /A batch can contain at most 20 rows/);
-  assert.match(js, /function reviewAfcBatch/);
-  assert.match(js, /UCVM_AFC_BATCH\.canSubmitRows\(rows, afcSubmitInFlight\)/);
-  assert.match(js, /row\.errors\?\.length \? esc\(row\.status \+ ': ' \+ row\.errors\.join\(' '\)\)/);
-  assert.match(js, /type="date"[^]*?value="' \+ esc\(row\.startDate\)/);
-  assert.match(js, /UCVM_AFC_BATCH\.toApiRows\(afcBatchRows\)/);
-  assert.match(js, /UCVM_AFC_BATCH\.parsePaste\(/);
-  assert.match(js, /crypto\.randomUUID\(\)/);
-  assert.doesNotMatch(js, /db\.collection\(/);
+  assert.match(js, /saveBatch: payload => UCVM_PAWS_DATA\.createDashboardAfcManualBatch\(payload\)/);
+  assert.match(js, /batchPdfs\?\.show\(rows\)/);
+});
+
+const FACULTY = '11111111-1111-4111-8111-111111111111';
+const RECORD = '22222222-2222-4222-8222-222222222222';
+const REQUEST = '33333333-3333-4333-8333-333333333333';
+function batchHarness(saveBatch) {
+  const nodes = new Map(), saves = [], shown = [];
+  let user = {uid: 'officer'};
+  const $ = id => {
+    if (!nodes.has(id)) nodes.set(id, {value: '', textContent: '', innerHTML: '', handlers: {}, classList:{toggle(){}}});
+    return nodes.get(id);
+  };
+  const node = suffix => $('afc-batch-' + suffix);
+  const editor = afcBatch.createEditor({
+    $, on: (el, evt, cb) => { el.handlers[evt] = cb; }, esc: String, getUser: () => user, canWrite: () => !!user,
+    resolveFaculty: name => [FACULTY, 'One, Ada'].includes(name) ? {facultyId: FACULTY} : null,
+    facultyName: () => 'One, Ada', newId: () => REQUEST, saveBatch: async input => { saves.push(input); return saveBatch(input); },
+    showSaved: saved => shown.push(saved), refresh: async () => {}
+  });
+  editor.bind(); editor.render();
+  const fill = (key, value, rowIndex = 0) => {
+    const input = {value, dataset:{afcBatchField: key, rowIndex}, closest: () => null};
+    node('rows').handlers.input({target:{closest: () => input}});
+  };
+  const complete = () => {
+    fill('facultyEntry', 'One, Ada'); fill('startDate', '2027-02-03');
+    fill('endDate', '2027-02-05'); fill('purpose', 'Field visit');
+  };
+  return {editor, node, complete, fill, saves, shown, logout(){ user = null; editor.clear(); }};
+}
+function receipt(input, index, id, status = 'NEW') {
+  return { ...input.rows[index], rowIndex:index, afcRecordId:id, status };
+}
+test('typed AFC can be saved directly, with optional Excel entries appended and blank rows ignored', async () => {
+  const other = '44444444-4444-4444-8444-444444444444';
+  const h = batchHarness(input => ({requestId: input.requestId, rows:[receipt(input, 1, other), receipt(input, 0, RECORD)]}));
+  h.complete();
+  h.node('add-row').handlers.click();
+  h.node('paste').value = 'One, Ada\t2027/2/6\t2027/2/6\tConference';
+  h.node('import-paste').handlers.click();
+  h.node('add-row').handlers.click();
+  await h.node('submit').handlers.click();
+  assert.deepEqual(h.saves[0].rows.map(r => r.purpose), ['Field visit', 'Conference']);
+  assert.deepEqual(h.shown[0].map(r => [r.afcRecordId,r.facultyName,r.purpose]), [[RECORD,'One, Ada','Field visit'],[other,'One, Ada','Conference']]);
+});
+test('partial manual AFC rows retain field errors and never submit', async () => {
+  const h = batchHarness(() => {throw Error('unexpected');});
+  h.fill('purpose', 'No dates');
+  await h.node('submit').handlers.click();
+  assert.equal(h.saves.length, 0);
+  assert.match(h.node('rows').innerHTML, /Choose an active Faculty member/);
+});
+test('unconfirmed save locks edits and reuses the original batch for a confirmed replay', async () => {
+  let count = 0;
+  const h = batchHarness(input => {
+    if (++count === 1) return {requestId: input.requestId, rows:[]};
+    return {requestId: input.requestId, idempotentReplay:true, rows:[receipt(input, 0, RECORD, 'ALREADY_APPLIED')]};
+  });
+  h.complete(); await h.node('submit').handlers.click();
+  assert.equal(h.node('submit').textContent, 'Retry save');
+  h.fill('purpose', 'Changed while uncertain');
+  await h.node('submit').handlers.click();
+  assert.deepEqual(h.saves[0], h.saves[1]); assert.equal(h.shown.length, 1);
+  assert.equal(h.shown[0][0].purpose, 'Field visit');
+});
+test('batch rejects a receipt for a different person, dates or row even when server reports success', () => {
+  const row = {facultyId:FACULTY,facultyName:'One, Ada',startDate:'2027-02-03',endDate:'2027-02-05',purpose:'Field visit'};
+  const receipt = {...row,rowIndex:0,afcRecordId:RECORD,status:'NEW'};
+  for (const change of [{facultyId:RECORD},{startDate:'2027-02-06'},{rowIndex:1},{status:'ALREADY_EXISTS'}]) {
+    assert.throws(() => afcBatch.receiptsFor({requestId:REQUEST,rows:[{...receipt,...change}]},[row],REQUEST));
+  }
+});
+test('sign out during batch save clears the private draft and suppresses receipts', async () => {
+  let complete;
+  const h = batchHarness(input => new Promise(resolve => {complete = () => resolve({requestId:REQUEST,rows:[receipt(input,0,RECORD)]});}));
+  h.complete(); const pending = h.node('submit').handlers.click();
+  h.logout(); complete(); await pending;
+  assert.equal(h.shown.length,0); assert.doesNotMatch(h.node('rows').innerHTML,/Field visit/);
 });
 
 test('AFC batch success summary distinguishes created rows from an idempotent replay', () => {

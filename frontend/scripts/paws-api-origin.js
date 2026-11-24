@@ -8,7 +8,7 @@
 
   return Object.freeze({
     // TEMPORARY BETA INGRESS. Replace this single origin when institutional ingress is approved.
-    apiOrigin: 'https://barrel-jean-arabia-sought.trycloudflare.com',
+    apiOrigin: 'https://type-administrators-gray-brochures.trycloudflare.com',
     releaseLabel: 'TEMPORARY BETA INGRESS'
   });
 });

@@ -225,7 +225,7 @@
     on($('afc-record-form'), 'submit', submitAfcRecord);
     on($('afc-faculty'),'change',()=>afcForms?.facultyChanged());
     on($('profile-pane'),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)getAfcOriginal?.(button.dataset.afcDocument);});
-    on($('afc-form-documents'),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)getAfcOriginal?.(button.dataset.afcDocument);});
+    for(const id of ['afc-form-documents','afc-batch-documents'])on($(id),'click',event=>{const button=event.target?.closest?.('[data-afc-document]');if(button)getAfcOriginal?.(button.dataset.afcDocument);});
     on($('afc-records-body'), 'click', event => {
       const pdf=event.target?.closest?.('[data-afc-document]');if(pdf)return getAfcOriginal?.(pdf.dataset.afcDocument);
       const button = event.target?.closest?.('[data-afc-cancel]');

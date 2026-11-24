@@ -342,6 +342,14 @@ test('batch PDF linking sends a stable document request key and returns the exac
   }
 });
 
+test('a missing server-confirmed batch ID remains missing for receipt verification', async () => {
+  const client = createPawsDataClient({ tokenProvider: async () => 't', fetchImpl: async () => ({
+    ok: true, json: async () => ({ rows: [] })
+  }) });
+  const result = await client.createDashboardAfcManualBatch({ requestId: 'sent-only', rows: [] });
+  assert.equal(result.requestId, null);
+});
+
 test('AFC multi-input client sends exact purposes only to the authenticated SQL batch route', async () => {
   const calls = [];
   const client = createPawsDataClient({

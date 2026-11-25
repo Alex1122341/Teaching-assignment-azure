@@ -20,6 +20,12 @@ async function renderReportExport(tables,{format,academicYear}={}){
   return {source:table.source,label:table.label,columns:table.columns,headers,values};
  });
  if(count>REPORT_LIMITS.totalRows||cells>REPORT_LIMITS.cells)throw limit();
+ const {bytes,contentType}=await spreadsheetBytes(prepared,format);
+ if(bytes.length>REPORT_LIMITS.bytes)throw limit();
+ return {bytes,contentType,fileName:'paws-reports-'+year+(format==='csv'?'-'+prepared[0].source:'')+'.'+format};
+}
+
+async function spreadsheetBytes(prepared,format){
  let bytes,contentType;
  if(format==='csv'){
   const quote=value=>'"'+String(value).replaceAll('"','""')+'"',table=prepared[0];
@@ -35,7 +41,6 @@ async function renderReportExport(tables,{format,academicYear}={}){
   }
   bytes=Buffer.from(await book.xlsx.writeBuffer());contentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
  }
- if(bytes.length>REPORT_LIMITS.bytes)throw limit();
- return {bytes,contentType,fileName:'paws-reports-'+year+(format==='csv'?'-'+prepared[0].source:'')+'.'+format};
+ return {bytes,contentType};
 }
-module.exports={renderReportExport};
+module.exports={renderReportExport,safeText,spreadsheetBytes};

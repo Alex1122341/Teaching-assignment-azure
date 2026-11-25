@@ -1,5 +1,9 @@
 # PAWS Beta — Verified Source Checkpoint
 
+## 2026-11-24 Faculty Availability coordination candidate
+
+[Coordination scope and release notes](../docs/faculty-availability-coordination.md) cover multi-Faculty queries, Agenda, Summary, Timeline, common time, and the additive read-only migration 072. This work is for Owner review. Check CI and independent review on the exact candidate head before considering any merge or release.
+
 ## 2026-11-24 AFC multi-input
 
 [PR #168 handoff](updates/2026-11-24-afc-multi-input.md) covers direct entry and linking PDFs to saved records. The initial release merged as `20a5e893a6d446def353991d251c91307ab9a8a5` and published Firebase Hosting version `3409e8bb928b17c5` after SQL migration 071 and API cutover were verified.

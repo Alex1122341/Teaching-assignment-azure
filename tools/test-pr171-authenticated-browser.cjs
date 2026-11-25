@@ -30,6 +30,11 @@ assert.deepEqual(container.NetworkSettings.Ports['1433/tcp'],[{HostIp:'127.0.0.1
 const sql=require('../server/node_modules/mssql');
 const admin=require('../server/node_modules/firebase-admin');
 const {createSqlConnection}=require('../server/src/data/sql-connection');
+const {createSqlUserRepository}=require('../server/src/data/sql-user-repository');
+const {createSqlAccountAccessRepository}=require('../server/src/data/sql-account-access-repository');
+const {createSqlTeachingAccessRepository}=require('../server/src/data/sql-teaching-access-repository');
+const {createEffectiveTeachingIdentity}=require('../server/src/access/effective-teaching-identity');
+const {calgaryDate}=require('../server/src/roles/role-effective-status');
 const {createSwaSqlRuntime}=require('../server/src/runtime/swa-sql-runtime');
 const {createUniversityHttpServer}=require('../server/src/runtime/university-http-server');
 const {chromium}=require(path.join(tooling,'playwright'));
@@ -158,6 +163,137 @@ async function main(){
   PAWS_SQL_CONNECTION_STRING:'Server=127.0.0.1,14339;Database=VetMed-Ops;User Id=paws_browser_qa;Password='+runtimePassword+';Encrypt=true;TrustServerCertificate=true',
   PAWS_RELEASE_SHA:receipt.qa,PAWS_RUNTIME_TRUST_ANCHOR:sha,PAWS_API_HOST:'127.0.0.1',
   PAWS_SESSION_EDIT_WRITE_ENABLED:'true',PAWS_SESSION_BATCH_EDIT_ENABLED:'true'};
+ // Diagnostic only: identical driver, connection string and least-privilege
+ // login to the actual API. No SQL grants, migration changes, admin fallback,
+ // account changes, or substitution of the production identity reader.
+ stage='sql-access-preflight';
+ const accessDiagnostics={probes:[]};receipt.sqlAccessDiagnostics=accessDiagnostics;
+ const diagnosticDb=createSqlConnection({sql,driver:env.PAWS_SQL_DRIVER,connectionString:env.PAWS_SQL_CONNECTION_STRING});
+ const record=entry=>{
+  accessDiagnostics.probes.push(entry);
+  console.log('BROWSER_QA_SQL_ACCESS '+JSON.stringify(entry));
+ };
+ const sqlError=error=>{
+  // Error numbers plus an allowlisted column classification. Do not emit
+  // the message, SQL statement, row values, login/password or connection URI.
+  const numbers=[error?.number,error?.originalError?.info?.number,...(error?.precedingErrors||[]).map(e=>e?.number??e?.originalError?.info?.number)].filter(Number.isInteger);
+  const messages=[error?.message,...(error?.precedingErrors||[]).map(e=>e?.message)].filter(x=>typeof x==='string');
+  const columnLabels=['Email','FirebaseUid','BaseRole','DisplayName','FacultyId','Active','MustChangePassword','AccessVersion','ActivationDate','PreferredFirstName','PreferredLastName'];
+  return {name:safeName(error?.name),code:safeCode(error?.code),numbers:[...new Set(numbers)],columns:columnLabels.filter(column=>messages.some(message=>message.includes("'"+column+"'")||message.includes('"'+column+'"')))};
+ };
+ async function probe(phase,run,shape=value=>value){
+  try{
+   const value=await run();
+   const facts=shape(value);
+   record({phase,status:'passed',facts});
+   return value;
+  }catch(error){
+   const failure={phase,status:'failed',...sqlError(error)};
+   record(failure);receipt.failures.push({stage:'sql-access-preflight:'+phase,name:failure.name,code:failure.code,numbers:failure.numbers});
+   return null;
+  }
+ }
+ try{
+  const uid=identities[0].uid,facultyUid=identities.find(u=>u.role==='faculty').uid;
+  const asOfDate=calgaryDate(new Date()),year=Number(asOfDate.slice(0,4))-(asOfDate.slice(5,10)<'05-01'?1:0);
+  const context={academicYear:String(year)+'-'+String((year+1)%100).padStart(2,'0'),asOfDate};
+  const loginFacts=await probe('runtime-identity',async()=>{
+   const [row]=await diagnosticDb.query(`
+    SELECT CASE WHEN ORIGINAL_LOGIN()=N'paws_browser_qa' AND USER_NAME()=N'paws_browser_qa' THEN 1 ELSE 0 END AS expectedIdentity,
+      CASE WHEN DB_NAME()=N'VetMed-Ops' THEN 1 ELSE 0 END AS expectedDatabase,
+      IS_ROLEMEMBER(N'db_owner') AS dbOwner,IS_SRVROLEMEMBER(N'sysadmin') AS sysAdmin,
+      IS_ROLEMEMBER(N'paws_runtime_read') AS baseRead,IS_ROLEMEMBER(N'paws_runtime_account_access') AS accountAccess,
+      HAS_PERMS_BY_NAME(N'paws.UserProfile',N'OBJECT',N'UPDATE') AS directUpdate
+   `);
+   assert.equal(row.expectedIdentity,1);assert.equal(row.expectedDatabase,1);assert.equal(row.dbOwner,0);assert.equal(row.sysAdmin,0);
+   assert.equal(row.baseRead,1);assert.equal(row.accountAccess,1);assert.equal(row.directUpdate,0);
+   return row;
+  });
+  // A failed identity guard must never be followed by any access probe.
+  if(!loginFacts)throw Object.assign(Error('QA runtime identity was not verified'),{code:'QA_RUNTIME_IDENTITY_UNVERIFIED'});
+  await probe('schema-060-061-065',async()=>{
+   // This metadata-only query uses the already marker-verified fixture
+   // administrator; all actual business reads below use diagnosticDb.
+   const [row]=await db.query(`
+    SELECT CASE WHEN COL_LENGTH(N'paws.UserProfile',N'AccessVersion') IS NOT NULL THEN 1 ELSE 0 END AS accessVersionPresent,
+     CASE WHEN COL_LENGTH(N'paws.Faculty',N'ActivationDate') IS NOT NULL THEN 1 ELSE 0 END AS activationDatePresent,
+     CASE WHEN OBJECT_ID(N'paws_api.TeachingAuthorityState') IS NOT NULL THEN 1 ELSE 0 END AS authorityFunctionPresent,
+     CASE WHEN OBJECT_ID(N'paws_api.EffectiveTeachingAssignments') IS NOT NULL THEN 1 ELSE 0 END AS assignmentsFunctionPresent,
+     (SELECT COUNT(*) FROM paws.LeadershipAccessState WHERE SingletonId=1) AS authoritySingletonCount
+   `);
+   assert.deepEqual(row,{accessVersionPresent:1,activationDatePresent:1,authorityFunctionPresent:1,assignmentsFunctionPresent:1,authoritySingletonCount:1});
+   return row;
+  });
+  await probe('reviewed-column-permissions',async()=>{
+   // Only these enumerated contract fields and the two TVFs are inspected.
+   // A 0 or NULL is evidence, not authorization to issue a GRANT.
+   const [row]=await diagnosticDb.query(`
+    SELECT HAS_PERMS_BY_NAME(N'paws.UserProfile',N'OBJECT',N'SELECT',N'FirebaseUid',N'COLUMN') AS firebaseUid,
+     HAS_PERMS_BY_NAME(N'paws.UserProfile',N'OBJECT',N'SELECT',N'Email',N'COLUMN') AS profileEmail,
+     HAS_PERMS_BY_NAME(N'paws.UserProfile',N'OBJECT',N'SELECT',N'AccessVersion',N'COLUMN') AS accessVersion,
+     HAS_PERMS_BY_NAME(N'paws.Faculty',N'OBJECT',N'SELECT',N'PreferredFirstName',N'COLUMN') AS preferredFirstName,
+     HAS_PERMS_BY_NAME(N'paws.Faculty',N'OBJECT',N'SELECT',N'PreferredLastName',N'COLUMN') AS preferredLastName,
+     HAS_PERMS_BY_NAME(N'paws.Faculty',N'OBJECT',N'SELECT',N'ActivationDate',N'COLUMN') AS activationDate,
+     HAS_PERMS_BY_NAME(N'paws_api.TeachingAuthorityState',N'OBJECT',N'SELECT') AS authorityFunction,
+     HAS_PERMS_BY_NAME(N'paws_api.EffectiveTeachingAssignments',N'OBJECT',N'SELECT') AS assignmentsFunction
+   `);
+   assert.ok(row);return row;
+  });
+  await probe('profile-seed-exists',async()=>{
+   const rows=await diagnosticDb.query('SELECT FirebaseUid AS uid,BaseRole AS role,Active AS active,MustChangePassword AS mustChangePassword FROM paws.UserProfile WHERE FirebaseUid=@uid',{uid});
+   assert.equal(rows.length,1);assert.equal(rows[0].uid,uid);assert.equal(rows[0].role,'developer');assert.equal(rows[0].active,true);assert.equal(rows[0].mustChangePassword,false);
+   return {rowCount:rows.length,expectedRole:true,active:true,passwordChangeRequired:false};
+  });
+  await probe('profile-email-column',async()=>{
+   const rows=await diagnosticDb.query('SELECT Email FROM paws.UserProfile WHERE FirebaseUid=@uid',{uid});
+   assert.equal(rows.length,1);assert.equal(typeof rows[0].Email,'string');
+   return {rowCount:rows.length};
+  });
+  await probe('calgary-timezone',async()=>{
+   const rows=await diagnosticDb.query("SELECT CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time') AS localDate");
+   assert.equal(rows.length,1);assert.ok(rows[0].localDate);
+   return {rowCount:rows.length};
+  });
+  const users=createSqlUserRepository(diagnosticDb);
+  const accounts=createSqlAccountAccessRepository(diagnosticDb);
+  const teaching=createSqlTeachingAccessRepository(diagnosticDb);
+  const effective=createEffectiveTeachingIdentity({readProfile:accounts.read,repository:teaching});
+  const profileShape=profile=>({present:!!profile,role:profile?.baseRole||null,active:profile?.active===true,versionPresent:/^[0-9a-f]{16}$/i.test(profile?.version||'')});
+  const checkProfile=(profile,userId,role,versionRequired)=>{
+   assert.ok(profile);assert.equal(profile.firebaseUid,userId);assert.equal(profile.baseRole,role);assert.equal(profile.active,true);
+   if(versionRequired)assert.match(profile.version,/^[0-9a-f]{16}$/i);
+   return profile;
+  };
+  await probe('sql-user-repository-developer',async()=>checkProfile(await users.findByUid(uid),uid,'developer',false),profileShape);
+  await probe('sql-account-repository-developer',async()=>checkProfile(await accounts.read(uid),uid,'developer',true),profileShape);
+  await probe('sql-account-repository-faculty',async()=>checkProfile(await accounts.read(facultyUid),facultyUid,'faculty',true),profileShape);
+  await probe('teaching-authority-state',async()=>{
+   const rows=await diagnosticDb.query('SELECT authorityVersion FROM paws_api.TeachingAuthorityState()');
+   assert.equal(rows.length,1);assert.match(rows[0].authorityVersion,/^[0-9a-f]{16}$/i);
+   return {rowCount:rows.length,versionValid:true};
+  });
+  await probe('teaching-assignments-faculty',async()=>{
+   const rows=await teaching.listAssignments(facultyUid,context);
+   assert.equal(rows.length,0);return {rowCount:rows.length};
+  });
+  await probe('teaching-snapshot-faculty',async()=>{
+   const snapshot=await teaching.snapshot(facultyUid,context);
+   assert.match(snapshot.authorityVersion,/^[0-9a-f]{16}$/i);assert.equal(snapshot.assignments.length,0);
+   return {versionValid:true,assignmentCount:snapshot.assignments.length};
+  });
+  for(const [userId,role] of [[uid,'developer'],[facultyUid,'faculty']]){
+   await probe('effective-identity-'+role,async()=>{
+    const profile=checkProfile(await effective(userId),userId,role,true);
+    assert.ok(profile.teachingAccess.effectiveRoles.includes(role));
+    return {role,active:profile.active,effectiveRolePresent:true,scopeVersionPresent:!!profile.teachingAccess.scopeVersion};
+   });
+  }
+ }finally{await diagnosticDb.close();}
+ accessDiagnostics.failedCount=accessDiagnostics.probes.filter(p=>p.status==='failed').length;
+ console.log('BROWSER_QA_SQL_ACCESS_SUMMARY '+JSON.stringify({probes:accessDiagnostics.probes.length,failed:accessDiagnostics.failedCount}));
+ // Still run the original first browser gate even if a read probe failed,
+ // so the actual API/transport error is independently correlated. A failed
+ // SQL diagnostic or browser gate cannot unlock full-matrix acceptance.
  const staticRoot=path.join(root,'.deploy-static');
  const manifest=JSON.parse(fs.readFileSync(path.join(root,'tools/static-assets.json'),'utf8'));
  assert.equal(manifest.length,97);const allowed=new Set(manifest);
@@ -294,6 +430,10 @@ async function main(){
     stage='browser-firebase-session:'+user.uid+':'+viewport.width;
     await page.waitForFunction(uid=>window.firebase?.apps?.length&&firebase.auth().currentUser?.uid===uid,user.uid,{timeout:20000});
     traceEvent(trace,'phase-complete',{phase:'firebase-session',...await browserState(page)});
+    stage='browser-effective-access:'+user.uid+':'+viewport.width;
+    const access=await waitTrace(()=>trace.find(e=>e.event==='api-finished'&&e.endpoint==='access-self'&&e.method==='GET'&&e.status===200),25000);
+    traceEvent(trace,'phase-complete',{phase:'sql-access-self-response',status:access.status});
+    assert.equal(access.status,200);
     stage='browser-sql-profile:'+user.uid+':'+viewport.width;
     const me=await waitTrace(()=>trace.find(e=>e.event==='api-finished'&&e.endpoint==='me'&&e.method==='GET'&&e.status===200),25000);
     traceEvent(trace,'phase-complete',{phase:'sql-me-response',status:me.status,corsMatches:me.corsMatches});
@@ -363,7 +503,7 @@ async function main(){
    // the original login, role, viewport and sign-out assertions before the
    // other 17 cases run. A failed gate is a failed run, never full acceptance.
    if(receipt.roles.length===1){
-    if(result.status!=='passed'){
+    if(result.status!=='passed'||accessDiagnostics.failedCount!==0){
      receipt.diagnosticGate={status:'failed',completedCases:1,remainingCases:17};
      console.error('BROWSER_QA_DIAGNOSTIC_GATE_FAILED');
      throw Object.assign(Error('First browser diagnostic failed'),{code:'QA_FIRST_CASE_FAILED'});

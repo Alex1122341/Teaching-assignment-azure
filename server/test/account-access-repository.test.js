@@ -29,6 +29,7 @@ test('SQL account reads are bounded, parameterized and exclude confidential facu
  const repo=createSqlAccountAccessRepository({query:async(sql,params)=>{calls.push({sql,params});return [profile];}});
  assert.deepEqual(await repo.read("a'; DELETE secret--"),profile);assert.deepEqual(calls[0].params,{uid:"a'; DELETE secret--"});assert.doesNotMatch(calls[0].sql,/DELETE secret/);
  assert.deepEqual(await repo.list(),[profile]);assert.match(calls[1].sql,/TOP\s*\(1001\)/i);
+ assert.doesNotMatch(calls[0].sql,/\bEmail\b/i);assert.match(calls[1].sql,/u\.Email AS email/);
  assert.match(calls[0].sql,/AccessVersion/);assert.doesNotMatch(calls.map(x=>x.sql).join(' '),/SELECT\s+\*|\bUcid\b|\bFte\b|\bRank\b|\bDoe\b/i);
 });
 

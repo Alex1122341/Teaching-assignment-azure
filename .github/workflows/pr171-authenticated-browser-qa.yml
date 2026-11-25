@@ -18,7 +18,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
-      PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
+      ORIGINAL_PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
+      PRODUCT_SHA: b318b33627c42cef342e130046edd88e73365c07
       GOVERNANCE_SHA: 5d90e1ffffafa4ba3b482abd010355d6abfa6e4e
     steps:
       - uses: actions/checkout@v4
@@ -33,16 +34,30 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Check immutable product and approved governance
+      - name: Check exact review candidate and unchanged approved governance
         shell: bash
         run: |
           git rev-parse HEAD
+          git merge-base --is-ancestor "$ORIGINAL_PRODUCT_SHA" "$PRODUCT_SHA"
           git merge-base --is-ancestor "$PRODUCT_SHA" HEAD
+          # New product is an unapproved-for-release review candidate. Its
+          # only protected delta from the accepted anchor must be these files.
+          actual="$(git diff --name-only "$ORIGINAL_PRODUCT_SHA" "$PRODUCT_SHA" -- frontend server/src swa-api database/azure-sql tools/static-assets.json deploy/aca/Dockerfile server/package.json server/package-lock.json package.json package-lock.json firestore.rules firestore.indexes.json)"
+          expected="$(printf '%s\n' server/src/data/sql-account-access-repository.js server/src/data/sql-user-repository.js)"
+          test "$actual" = "$expected"
           git merge-base --is-ancestor "$GOVERNANCE_SHA" HEAD
           git diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql tools/static-assets.json deploy/aca/Dockerfile server/package.json server/package-lock.json package.json package-lock.json firestore.rules firestore.indexes.json
           git diff --exit-code "$GOVERNANCE_SHA" HEAD -- tools/beta-freeze.js tools/beta-api-freeze.js tools/beta-baseline.json
+      - name: Materialize immutable original product for same-identity comparison
+        shell: bash
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/paws-pr171-original" "$ORIGINAL_PRODUCT_SHA"
+          test "$(git -C "$RUNNER_TEMP/paws-pr171-original" rev-parse HEAD)" = "$ORIGINAL_PRODUCT_SHA"
+          echo "PAWS_BASELINE_ROOT=$RUNNER_TEMP/paws-pr171-original" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm ci --prefix server
+      - name: Focused identity and authorization regression
+        run: node --test server/test/repositories.test.js server/test/account-access-repository.test.js server/test/account-access-api.test.js server/test/account-access-runtime.test.js server/test/effective-teaching-identity.test.js server/test/runtime.test.js server/test/me-server-timing.test.js
       - name: Build exact static assets
         run: npm run build
       - name: Install browser-only tooling outside repository

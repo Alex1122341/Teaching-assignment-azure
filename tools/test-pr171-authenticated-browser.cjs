@@ -9,7 +9,9 @@ const {once}=require('node:events');
 const {execFileSync}=require('node:child_process');
 const {randomUUID,randomBytes}=require('node:crypto');
 const root=path.resolve(__dirname,'..');
-const sha='343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8';
+const originalSha='343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8';
+const sha='b318b33627c42cef342e130046edd88e73365c07';
+const baselineRoot=process.env.PAWS_BASELINE_ROOT;
 const project='demo-paws-pr171';
 const marker=process.env.PAWS_BROWSER_TEST_MARKER;
 const sa=process.env.PAWS_SQL_TEST_PASSWORD;
@@ -22,6 +24,9 @@ assert.equal(process.env.GCLOUD_PROJECT,project);
 assert.match(marker||'',/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i);
 assert.ok(sa&&out&&tooling);
 assert.equal(process.env.PRODUCT_SHA,sha);
+assert.equal(process.env.ORIGINAL_PRODUCT_SHA,originalSha);
+assert.ok(baselineRoot&&path.isAbsolute(baselineRoot)&&baselineRoot!==root);
+assert.equal(execFileSync('git',['rev-parse','HEAD'],{cwd:baselineRoot,encoding:'utf8'}).trim(),originalSha);
 assert.equal(execFileSync('git',['merge-base','--is-ancestor',sha,'HEAD'],{cwd:root}).length,0);
 const container=JSON.parse(execFileSync('docker',['inspect','paws-calendar-pr171-browser'],{encoding:'utf8'}))[0];
 assert.equal(container.Config.Labels['paws.calendar-test'],'1');
@@ -47,7 +52,7 @@ const identities=roles.map((role,i)=>({role,uid:'pr171-qa-'+i,email:'paws-pr171-
 const password=randomBytes(24).toString('hex')+'!Aa1';
 const runtimePassword=randomBytes(24).toString('hex')+'!Aa1';
 const servers=[];
-const receipt={product:sha,qa:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),project,environment:'ephemeral runner; synthetic data and emulator auth',roles:[],failures:[],limits:['No University Staging or live identity','SDK configuration and API origin adapted in QA response only','HICC/VISC base-role checks do not establish appointment/package scope','Mobile is a Chromium viewport, not a physical device','Four generic annual rule previews only; complete annual reconciliation is not covered']};
+const receipt={product:sha,originalProduct:originalSha,frozenAnchor:originalSha,qa:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),project,environment:'ephemeral runner; synthetic data and emulator auth',roles:[],failures:[],limits:['No University Staging or live identity','SDK configuration and API origin adapted in QA response only','HICC/VISC base-role checks do not establish appointment/package scope','Mobile is a Chromium viewport, not a physical device','Four generic annual rule previews only; complete annual reconciliation is not covered']};
 let stage='marker',browser,runtime;
 // Only fixed endpoint labels, request methods, status codes and sanitized
 // error identifiers leave the test. No bodies, URLs/queries, raw exceptions,
@@ -161,7 +166,7 @@ async function main(){
  const env={FIREBASE_PROJECT_ID:project,
   PAWS_SQL_DRIVER:'tedious',
   PAWS_SQL_CONNECTION_STRING:'Server=127.0.0.1,14339;Database=VetMed-Ops;User Id=paws_browser_qa;Password='+runtimePassword+';Encrypt=true;TrustServerCertificate=true',
-  PAWS_RELEASE_SHA:receipt.qa,PAWS_RUNTIME_TRUST_ANCHOR:sha,PAWS_API_HOST:'127.0.0.1',
+  PAWS_RELEASE_SHA:receipt.qa,PAWS_RUNTIME_TRUST_ANCHOR:originalSha,PAWS_API_HOST:'127.0.0.1',
   PAWS_SESSION_EDIT_WRITE_ENABLED:'true',PAWS_SESSION_BATCH_EDIT_ENABLED:'true'};
  // Diagnostic only: identical driver, connection string and least-privilege
  // login to the actual API. No SQL grants, migration changes, admin fallback,
@@ -192,6 +197,15 @@ async function main(){
    record(failure);receipt.failures.push({stage:'sql-access-preflight:'+phase,name:failure.name,code:failure.code,numbers:failure.numbers});
    return null;
   }
+ }
+ async function expectEmailDenied(phase,run){
+  return probe(phase,async()=>{
+   let denied;
+   try{await run();}catch(error){denied=sqlError(error);}
+   assert.ok(denied,'Email must remain unreadable to the same QA identity');
+   assert.ok(denied.numbers.includes(230));assert.ok(denied.columns.includes('Email'));
+   return {expectedDenial:true,...denied};
+  });
  }
  try{
   const uid=identities[0].uid,facultyUid=identities.find(u=>u.role==='faculty').uid;
@@ -237,18 +251,28 @@ async function main(){
      HAS_PERMS_BY_NAME(N'paws_api.TeachingAuthorityState',N'OBJECT',N'SELECT') AS authorityFunction,
      HAS_PERMS_BY_NAME(N'paws_api.EffectiveTeachingAssignments',N'OBJECT',N'SELECT') AS assignmentsFunction
    `);
-   assert.ok(row);return row;
+   assert.ok(row);
+   assert.deepEqual(row,{firebaseUid:1,profileEmail:0,accessVersion:1,preferredFirstName:1,preferredLastName:1,activationDate:1,authorityFunction:1,assignmentsFunction:1});
+   return row;
   });
   await probe('profile-seed-exists',async()=>{
    const rows=await diagnosticDb.query('SELECT FirebaseUid AS uid,BaseRole AS role,Active AS active,MustChangePassword AS mustChangePassword FROM paws.UserProfile WHERE FirebaseUid=@uid',{uid});
    assert.equal(rows.length,1);assert.equal(rows[0].uid,uid);assert.equal(rows[0].role,'developer');assert.equal(rows[0].active,true);assert.equal(rows[0].mustChangePassword,false);
    return {rowCount:rows.length,expectedRole:true,active:true,passwordChangeRequired:false};
   });
-  await probe('profile-email-column',async()=>{
-   const rows=await diagnosticDb.query('SELECT Email FROM paws.UserProfile WHERE FirebaseUid=@uid',{uid});
-   assert.equal(rows.length,1);assert.equal(typeof rows[0].Email,'string');
-   return {rowCount:rows.length};
-  });
+  // The original diagnostic sought a readable Email column and reproduced
+  // SQL 230. It is now a mandatory negative security assertion, not a grant.
+  await expectEmailDenied('profile-email-column-stays-denied',()=>diagnosticDb.query('SELECT Email FROM paws.UserProfile WHERE FirebaseUid=@uid',{uid}));
+  const original=file=>require(path.join(baselineRoot,'server','src',file));
+  const oldUsers=original('data/sql-user-repository').createSqlUserRepository(diagnosticDb);
+  const oldAccounts=original('data/sql-account-access-repository').createSqlAccountAccessRepository(diagnosticDb);
+  const oldTeaching=original('data/sql-teaching-access-repository').createSqlTeachingAccessRepository(diagnosticDb);
+  const oldEffective=original('access/effective-teaching-identity').createEffectiveTeachingIdentity({readProfile:oldAccounts.read,repository:oldTeaching});
+  await expectEmailDenied('original-user-repository-developer',()=>oldUsers.findByUid(uid));
+  await expectEmailDenied('original-account-repository-developer',()=>oldAccounts.read(uid));
+  await expectEmailDenied('original-account-repository-faculty',()=>oldAccounts.read(facultyUid));
+  await expectEmailDenied('original-effective-identity-developer',()=>oldEffective(uid));
+  await expectEmailDenied('original-effective-identity-faculty',()=>oldEffective(facultyUid));
   await probe('calgary-timezone',async()=>{
    const rows=await diagnosticDb.query("SELECT CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'Mountain Standard Time') AS localDate");
    assert.equal(rows.length,1);assert.ok(rows[0].localDate);
@@ -258,10 +282,11 @@ async function main(){
   const accounts=createSqlAccountAccessRepository(diagnosticDb);
   const teaching=createSqlTeachingAccessRepository(diagnosticDb);
   const effective=createEffectiveTeachingIdentity({readProfile:accounts.read,repository:teaching});
-  const profileShape=profile=>({present:!!profile,role:profile?.baseRole||null,active:profile?.active===true,versionPresent:/^[0-9a-f]{16}$/i.test(profile?.version||'')});
+  const profileShape=profile=>({present:!!profile,role:profile?.baseRole||null,active:profile?.active===true,versionPresent:/^[0-9a-f]{16}$/i.test(profile?.version||''),emailPresent:Object.hasOwn(profile||{},'email')});
   const checkProfile=(profile,userId,role,versionRequired)=>{
    assert.ok(profile);assert.equal(profile.firebaseUid,userId);assert.equal(profile.baseRole,role);assert.equal(profile.active,true);
    if(versionRequired)assert.match(profile.version,/^[0-9a-f]{16}$/i);
+   assert.equal(Object.hasOwn(profile,'email'),false);
    return profile;
   };
   await probe('sql-user-repository-developer',async()=>checkProfile(await users.findByUid(uid),uid,'developer',false),profileShape);
@@ -281,6 +306,7 @@ async function main(){
    assert.match(snapshot.authorityVersion,/^[0-9a-f]{16}$/i);assert.equal(snapshot.assignments.length,0);
    return {versionValid:true,assignmentCount:snapshot.assignments.length};
   });
+  await expectEmailDenied('owner-directory-existing-contact-read-stays-denied',()=>accounts.list());
   for(const [userId,role] of [[uid,'developer'],[facultyUid,'faculty']]){
    await probe('effective-identity-'+role,async()=>{
     const profile=checkProfile(await effective(userId),userId,role,true);
@@ -290,6 +316,10 @@ async function main(){
   }
  }finally{await diagnosticDb.close();}
  accessDiagnostics.failedCount=accessDiagnostics.probes.filter(p=>p.status==='failed').length;
+ const denialCount=accessDiagnostics.probes.filter(p=>p.status==='passed'&&p.facts?.expectedDenial===true).length;
+ accessDiagnostics.expectedEmailDenials=denialCount;
+ assert.equal(denialCount,7);
+ receipt.releaseBlockers=['Owner directory still requires a separately reviewed controlled Email read; no release or freeze approval for this product'];
  console.log('BROWSER_QA_SQL_ACCESS_SUMMARY '+JSON.stringify({probes:accessDiagnostics.probes.length,failed:accessDiagnostics.failedCount}));
  // Still run the original first browser gate even if a read probe failed,
  // so the actual API/transport error is independently correlated. A failed
@@ -337,6 +367,69 @@ async function main(){
  });
  const api=await listen(apiServer);
  const noAuth=await fetch(api+'/api/v1/me');assert.equal(noAuth.status,401);
+ const invalid=await fetch(api+'/api/v1/access/self',{headers:{authorization:'Bearer invalid-synthetic-token'}});
+ assert.equal(invalid.status,401);assert.equal((await invalid.json()).error.code,'UNAUTHENTICATED');
+ // Direct HTTP role/security checks use actual emulator-issued Firebase tokens,
+ // the product verifier and the same SQL runtime. No injected profile/token.
+ stage='http-authorization-matrix';
+ const httpChecks=[];
+ receipt.httpAuthorization=httpChecks;
+ async function emulatorToken(user){
+  const response=await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-api-key',{
+   method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:user.email,password,returnSecureToken:true})
+  });
+  assert.equal(response.status,200);
+  const token=(await response.json()).idToken;assert.equal(typeof token,'string');return token;
+ }
+ async function call(token,route,method='GET',body){
+  const response=await fetch(api+route,{method,headers:{authorization:'Bearer '+token,'content-type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+  return {status:response.status,body:await response.json()};
+ }
+ const allIds=identities.filter(x=>x.sessionId).map(x=>x.sessionId.toLowerCase()).sort();
+ for(const user of identities){
+  stage='http-authorization:'+user.uid;
+  const token=await emulatorToken(user);
+  const self=await call(token,'/api/v1/access/self'),me=await call(token,'/api/v1/me');
+  console.log('BROWSER_QA_HTTP_PHASE '+JSON.stringify({role:user.role,phase:'identity',accessSelf:self.status,me:me.status,accessCode:safeCode(self.body.error?.code),meCode:safeCode(me.body.error?.code)}));
+  assert.equal(self.status,200);assert.equal(self.body.access.allowed,true);assert.equal(self.body.access.role,user.role);
+  assert.equal(Object.hasOwn(self.body.access,'email'),false);
+  assert.equal(me.status,200);assert.equal(me.body.profile.role,user.role);assert.equal(me.body.profile.email,null);
+  const sessions=await call(token,'/api/v1/sessions');
+  console.log('BROWSER_QA_HTTP_PHASE '+JSON.stringify({role:user.role,phase:'sessions',status:sessions.status,code:safeCode(sessions.body.error?.code)}));
+  const ids=sessions.body.sessions?.map(row=>String(row.id).toLowerCase()).sort();
+  assert.equal(sessions.status,200);
+  assert.deepEqual(ids,scoped.has(user.role)?[user.sessionId.toLowerCase()]:allIds);
+  assert.equal(sessions.body.sessions.filter(row=>row.batchEditToken).length,admins.has(user.role)?allIds.length:0);
+  const directory=await call(token,'/api/v1/access/accounts');
+  console.log('BROWSER_QA_HTTP_PHASE '+JSON.stringify({role:user.role,phase:'owner-directory',status:directory.status,code:safeCode(directory.body.error?.code)}));
+  // Preserve and expose the known owner-only directory blocker. It is NOT a
+  // passed directory feature. No contact permission is changed.
+  assert.equal(directory.status,user.role==='adfa_general'?503:403);
+  assert.equal(directory.body.error.code,user.role==='adfa_general'?'ACCESS_UNAVAILABLE':'OWNER_REQUIRED');
+  assert.equal(Object.hasOwn(directory.body,'accounts'),false);
+  if(!admins.has(user.role)){
+   const denied=await call(token,'/api/v1/sessions/batch-edit','POST',{edits:[]});
+   assert.equal(denied.status,403);assert.equal(denied.body.error.code,'ROLE_DENIED');
+  }
+  const checked={role:user.role,account:user.uid,accessSelf:self.status,me:me.status,sessions:sessions.status,scopeVerified:true,batchTokensVerified:true,ownerDirectory:user.role==='adfa_general'?'BLOCKED_EXISTING_EMAIL_CONTRACT':'DENIED',nonAdminWrite:admins.has(user.role)?'not-requested':'DENIED'};
+  httpChecks.push(checked);console.log('BROWSER_QA_HTTP_AUTHORIZATION '+JSON.stringify(checked));
+ }
+ // Additional ephemeral negative identity fixtures, outside the 9 x 2
+ // browser matrix. No active identities are modified and no permissions added.
+ for(const kind of ['missing-profile','inactive-profile','password-required','unlinked-faculty']){
+  stage='http-authorization-negative:'+kind;
+  const user={uid:'pr171-negative-'+kind,email:'paws-pr171-negative-'+kind+'@ucalgary.ca'};
+  await auth.createUser({uid:user.uid,email:user.email,password,emailVerified:true});
+  if(kind!=='missing-profile')await db.query('INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,Active,MustChangePassword) VALUES(@uid,@email,N\'Synthetic negative account\',@role,@active,@mustChangePassword)',{
+   uid:user.uid,email:user.email,role:kind==='unlinked-faculty'?'faculty':'adfa_regular',active:kind!=='inactive-profile',mustChangePassword:kind==='password-required'
+  });
+  const token=await emulatorToken(user),self=await call(token,'/api/v1/access/self'),me=await call(token,'/api/v1/me'),sessions=await call(token,'/api/v1/sessions');
+  assert.equal(self.status,200);assert.equal(self.body.access.allowed,false);
+  assert.equal(me.status,403);assert.equal(sessions.status,403);assert.equal(Object.hasOwn(sessions.body,'sessions'),false);
+  const checked={negative:kind,accessAllowed:false,me:me.status,sessions:sessions.status,code:me.body.error.code};
+  httpChecks.push(checked);console.log('BROWSER_QA_HTTP_AUTHORIZATION '+JSON.stringify(checked));
+ }
+ console.log('BROWSER_QA_HTTP_AUTHORIZATION_OK '+JSON.stringify({positive:9,negative:4,anonymous:401,invalid:401,ownerDirectory:'separate blocker'}));
  const health=await fetch(api+'/api/health/sql');assert.equal(health.status,200);
  receipt.isolation={browser:site,api,sql:'127.0.0.1:14339 / disposable container',auth:'127.0.0.1:9099',firestore:'127.0.0.1:8080',markerVerified:true,anonymousDenied:true,sqlHealthy:true};
  console.log('BROWSER_QA_ISOLATION '+JSON.stringify(receipt.isolation));
@@ -516,6 +609,7 @@ async function main(){
  assert.equal(receipt.roles.length,18);
  assert.equal(receipt.failures.length,0,'One or more browser role/viewport checks failed.');
  console.log('PR171_ISOLATED_AUTHENTICATED_BROWSER_OK');
+ console.log('PR171_OWNER_DIRECTORY_BLOCKED: original contact-read permission gap; no release approval');
 }
 main().catch(error=>{
  receipt.failure=fail(error);console.error('BROWSER_QA_FAILED '+JSON.stringify(receipt.failure));process.exitCode=1;

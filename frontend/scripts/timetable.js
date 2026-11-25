@@ -382,6 +382,7 @@
       unresolvedAssignmentCount:Number(row?.unresolvedAssignmentCount)||0,
       assignmentManagementAvailable:canonicalAssignments.every(item=>item.active===true)&&Number(row?.unresolvedAssignmentCount||0)===0,
       batchEditToken:/^[a-f0-9]{64}$/i.test(String(row?.batchEditToken||''))?String(row.batchEditToken):'',
+      batchAssignmentReadOnly:row?.batchAssignmentReadOnly!==false,
       sourceSystem:'VetMed-Ops'
     };
   }
@@ -1627,7 +1628,10 @@
   }
 
   function canReplaceSelectionAssignments(session){
-    return session.assignmentManagementAvailable===true&&facultyDirectory.length>0&&(session.assignments||[]).every(a=>a.facultyId&&facultyDirectory.some(f=>String(f.__id)===String(a.facultyId)));
+    const assignments=session.assignments||[];
+    const ids=assignments.map(a=>String(a.facultyId||'').toLowerCase());
+    return session.batchAssignmentReadOnly===false&&session.assignmentManagementAvailable===true&&facultyDirectory.length>0&&
+      new Set(ids).size===ids.length&&assignments.every(a=>a.facultyId&&facultyDirectory.some(f=>String(f.__id)===String(a.facultyId)));
   }
   function selectionFacultyOptions(session,doeState){
     const selected=new Set([...(session.facultyIds||[]),...(session.assignments||[]).map(a=>a.ucid||a.facultyId)].filter(Boolean).map(String));
@@ -1716,7 +1720,7 @@
       if(currentUser!==actor)return false;
       if(committed){toast('Changes saved, but refresh failed. Reload the timetable.',true);return true;}
       const serverRow=Number(failure?.details?.[0]?.row),displayRow=rowNumbers[serverRow-1];
-      const messages={SESSION_BATCH_STALE:'A session changed after selection. Cancel and reload before retrying.',INVALID_SESSION_EDIT_BATCH:'Review the edited rows and try again.',SESSION_NOT_FOUND:'A selected session no longer exists. Reload the timetable.',SESSION_ASSIGNMENTS_READ_ONLY:'The selected session has unresolved faculty assignments.'};
+      const messages={SESSION_BATCH_STALE:'A session changed after selection. Cancel and reload before retrying.',INVALID_SESSION_EDIT_BATCH:'Review the edited rows and try again.',SESSION_NOT_FOUND:'A selected session no longer exists. Reload the timetable.',SESSION_ASSIGNMENTS_READ_ONLY:'This session has protected or complex assignments. Edit its ordinary session fields only.'};
       error.textContent=(displayRow?'Row '+displayRow+': ':'')+(failure?.code&&failure.code!=='SQL_UNAVAILABLE'?(messages[failure.code]||sessionEditErrorMessage(failure)):'Save could not be confirmed. Reload the timetable before retrying.');
       error.classList.remove('hidden');
       return false;

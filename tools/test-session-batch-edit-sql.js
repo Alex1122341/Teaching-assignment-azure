@@ -95,6 +95,22 @@ async function main(){
  assert.ok(failure.batchCode==='SESSION_BATCH_STALE'||sqlNumber(failure)===1205,'Concurrent rejection must be a stale snapshot or SQL deadlock victim.');
  const final=await read(ids[0]);assert.ok(['Race A','Race B'].includes(final.room));assert.equal(await audit(),4);
  console.log('BATCH171_REAL_SQL_CONCURRENT_WRITE_OK');
+ stage='protected-sessional';
+ // A linked Sessional record can cascade-delete with its assignment. Reject
+ // the lossy replacement while retaining the ordinary session-edit path.
+ await admin.query("INSERT paws.SessionalAssignment(SessionId,SessionAssignmentId,ContributorName,ContributorLabel,SourceSha256,SourceSheet,SourceRow) SELECT SessionId,SessionAssignmentId,N'Synthetic contributor',N'Sessional',REPLICATE('E',64),N'Synthetic',1 FROM paws.SessionAssignment WHERE SessionId=@id AND FacultyId=@facultyId",{id:ids[1],facultyId:people[0]});
+ const protectedRow=await read(ids[1]);
+ assert.equal(protectedRow.batchAssignmentReadOnly,true);
+ assert.notEqual(protectedRow.batchEditToken,committed[1].batchEditToken);
+ await assert.rejects(write([edit(committed[1],{room:'Stale contributor'})]),e=>e.batchCode==='SESSION_BATCH_STALE');
+ await assert.rejects(write([edit(final,{room:'Must not save'}),{sessionId:ids[1],expectedToken:protectedRow.batchEditToken,assignments:[]}]),e=>e.batchCode==='SESSION_ASSIGNMENTS_READ_ONLY');
+ assert.equal((await read(ids[0])).room,final.room);assert.equal(await audit(),4);
+ await write([edit(protectedRow,{room:'Protected assignment retained'})]);
+ assert.equal((await read(ids[1])).room,'Protected assignment retained');
+ assert.equal((await read(ids[1])).batchAssignmentReadOnly,true);
+ const retained=await admin.query("SELECT COUNT(*) AS total FROM paws.SessionalAssignment WHERE SessionId=@id AND SessionAssignmentId IS NOT NULL",{id:ids[1]});
+ assert.equal(Number(retained[0].total),1);assert.equal(await audit(),5);
+ console.log('BATCH171_REAL_SQL_PROTECTED_SESSIONAL_OK');
  console.log('BATCH171_REAL_SQL_ACCEPTANCE_OK (scoped synthetic schema; University Staging and Firebase not covered)');
 }
 main().catch(error=>{

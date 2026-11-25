@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 const sourceFunction=require('../test-support/source-function');
 const {createPawsDataClient}=require('../frontend/scripts/paws-data-client');
 const id='session-1',f1='faculty-1',f2='faculty-2';
-const base={id,date:'2026-11-25',course:'315',type:'LEC',start:'09:00',end:'10:00',topic:'Old',room:'Room',batchEditToken:'A'.repeat(64),assignmentManagementAvailable:true,assignments:[{facultyId:f1,role:'Lead'}]};
+const base={id,date:'2026-11-25',course:'315',type:'LEC',start:'09:00',end:'10:00',topic:'Old',room:'Room',batchEditToken:'A'.repeat(64),assignmentManagementAvailable:true,batchAssignmentReadOnly:false,assignments:[{facultyId:f1,role:'Lead'}]};
 function read(original=base,changes={},ids=null){
  const values={...original,...changes};
  const tr={dataset:{sessionEditId:id},querySelector:selector=>selector==='.selection-faculty-picker'?(ids===null?null:{querySelectorAll:()=>ids.map(value=>({value}))}):{value:values[selector.match(/"([^"]+)"/)[1]]}};
@@ -21,6 +21,13 @@ test('batch assignment change retains existing teaching role and sends only cano
  assert.equal(read({...base,assignmentManagementAvailable:false},{},[f2]).errors.length,1);
  assert.equal(read({...base,batchEditToken:''},{topic:'New'}).errors.length,1);
  assert.equal(read(base,{start:'11:00'}).errors.length,1);
+});
+test('protected or multi-role assignments are read-only while ordinary fields remain editable',()=>{
+ const protectedRow={...base,batchAssignmentReadOnly:true};
+ assert.equal(read(protectedRow,{},[f2]).errors.length,1);
+ assert.deepEqual(read(protectedRow,{topic:'New'}).edits,[{sessionId:id,expectedToken:base.batchEditToken,patch:{topic:'New'}}]);
+ assert.equal(read({...base,batchAssignmentReadOnly:undefined},{},[f2]).errors.length,1);
+ assert.equal(read({...base,assignments:[{facultyId:f1,role:'Lead'},{facultyId:f1,role:'Lecture'}]},{},[f2]).errors.length,1);
 });
 test('batch client capability requires both exact true flags and posts one API request',async()=>{
  let caps={sessionEdit:true,sessionBatchEdit:'true'},calls=[];

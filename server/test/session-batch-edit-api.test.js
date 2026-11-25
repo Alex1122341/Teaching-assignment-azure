@@ -70,3 +70,28 @@ test('snapshot token uses canonical facts, assignment ids and roles rather than 
  assert.notEqual(sessionEditToken(a),sessionEditToken({...a,topic:'Concurrent'}));
  assert.notEqual(sessionEditToken(a),sessionEditToken({...a,unresolvedAssignmentCount:1}));
 });
+
+
+test('linked sessional evidence participates in the reviewed snapshot and prohibits assignment replacement',async()=>{
+ const m=mockDb(),repo=createSqlSessionRepository(m.db);
+ const original=m.state.get(id2);
+ const protectedRow={...original,sessionalContributorsJson:JSON.stringify([{name:'Synthetic contributor',label:'Sessional',assignmentId:'linked-assignment'}])};
+ assert.notEqual(sessionEditToken(original),sessionEditToken(protectedRow));
+ m.state.set(id2,protectedRow);
+ const first={sessionId:id,expectedToken:sessionEditToken(row(id)),patch:{topic:'Must not save'}};
+ const stale={sessionId:id2,expectedToken:sessionEditToken(original),patch:{topic:'Stale'}};
+ await assert.rejects(repo.updateBatch({edits:[first,stale],actorFirebaseUid:'verified'}),e=>e.batchCode==='SESSION_BATCH_STALE');
+ const change={sessionId:id2,expectedToken:sessionEditToken(protectedRow),assignments:[]};
+ await assert.rejects(repo.updateBatch({edits:[first,change],actorFirebaseUid:'verified'}),e=>e.batchCode==='SESSION_ASSIGNMENTS_READ_ONLY');
+ assert.equal(m.calls.some(c=>c.startsWith('write:')||c.startsWith('assign:')),false);
+ assert.equal(m.state.get(id).topic,'Original');
+ await repo.updateBatch({edits:[{sessionId:id2,expectedToken:sessionEditToken(protectedRow),patch:{topic:'Scalar change'}}],actorFirebaseUid:'verified'});
+ assert.equal(m.state.get(id2).topic,'Scalar change');
+});
+test('multiple roles for the same canonical Faculty cannot be collapsed by the batch picker',async()=>{
+ const m=mockDb(),repo=createSqlSessionRepository(m.db);
+ const complex={...row(id),assignmentsJson:JSON.stringify([{facultyId:fid,teachingRole:'Lecture',active:1},{facultyId:fid.toUpperCase(),teachingRole:'Lead',active:1}])};
+ m.state.set(id,complex);
+ await assert.rejects(repo.updateBatch({edits:[{sessionId:id,expectedToken:sessionEditToken(complex),assignments:[{facultyId:fid,teachingRole:'Lecture'}]}],actorFirebaseUid:'verified'}),e=>e.batchCode==='SESSION_ASSIGNMENTS_READ_ONLY');
+ assert.equal(m.calls.some(c=>c.startsWith('assign:')),false);
+});

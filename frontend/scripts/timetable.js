@@ -1496,17 +1496,18 @@
     $('list-session-mode').value=listSessionMode;
     const yearSessions=calendarSourceSessions().filter(session=>String(session.academicYear||'')===listAcademicYear&&(session.isUniversityClosure||(window.PAWS_ACTIVITY_PLACEMENT?.matchesYear(session,selectedYear)??true)));
     const classified=filteredSessions(yearSessions,{ignorePeriod:true}).map(session=>({session,check:calendarTimingDisposition(session)}));
-    const checkRows=classified.filter(row=>row.check.disposition!=='grid');
-    const gridRows=classified.filter(row=>row.check.disposition==='grid');
-    const selected=listSessionMode==='CHECK NEEDED'?checkRows:listSessionMode==='GRID-READY'?gridRows:classified;
+    const closureRows=classified.filter(row=>row.session.isUniversityClosure);
+    const checkRows=classified.filter(row=>!row.session.isUniversityClosure&&row.check.disposition!=='grid');
+    const gridRows=classified.filter(row=>!row.session.isUniversityClosure&&row.check.disposition==='grid');
+    const selected=listSessionMode==='CHECK NEEDED'?checkRows:listSessionMode==='GRID-READY'?[...gridRows,...closureRows]:classified;
     const data=selected.map(row=>row.session).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.start||'').localeCompare(String(b.start||''))||String(a.course||'').localeCompare(String(b.course||''))||String(a.id||'').localeCompare(String(b.id||'')));
     const reasonCounts=new Map();
     for(const {session,check} of checkRows){const reason=unpositionedReason(session,check.disposition);reasonCounts.set(reason,(reasonCounts.get(reason)||0)+1)}
     const reasonSummary=[...reasonCounts].sort((a,b)=>a[0].localeCompare(b[0])).map(([reason,count])=>`${reason}: ${count}`).join(' · ');
-    $('cal-label').textContent=`${listAcademicYear||'No academic year'} · ${selected.length} sessions`;
+    $('cal-label').textContent=`${listAcademicYear||'No academic year'} · ${selected.filter(row=>!row.session.isUniversityClosure).length} sessions${selected.some(row=>row.session.isUniversityClosure)?' + '+selected.filter(row=>row.session.isUniversityClosure).length+' closures':''}`;
     renderedSessions=data;
-    const rows=data.map(s=>{const disposition=calendarTimingDisposition(s),reason=disposition.disposition==='grid'?'Grid ready':unpositionedReason(s,disposition.disposition);return `<tr data-session-id="${escapeHtml(s.id)}"><td>${escapeHtml(s.date||'Date unknown')}</td><td>${escapeHtml(s.timeUnknown?'Time TBD':`${s.start||''}-${s.end||''}`)}</td><td>${escapeHtml(reason)}</td><td><strong>${escapeHtml(s.course)}</strong></td><td>${escapeHtml(s.type)}</td><td>${escapeHtml(s.topic)}</td><td>${(s.isUniversityClosure?'':escapeHtml(displayFacultyList(s.instructor||'TBD')))}</td><td>${escapeHtml(s.room||'')}</td></tr>`}).join('');
-    const partition=`<p class="list-partition-summary">${gridRows.length} grid ready · ${checkRows.length} check needed${reasonSummary?` · ${escapeHtml(reasonSummary)}`:''}</p>`;
+    const rows=data.map(s=>{const disposition=calendarTimingDisposition(s),reason=s.isUniversityClosure?'University closure':disposition.disposition==='grid'?'Grid ready':unpositionedReason(s,disposition.disposition);return `<tr data-session-id="${escapeHtml(s.id)}"><td>${escapeHtml(s.date||'Date unknown')}</td><td>${escapeHtml(s.timeUnknown?'Time TBD':`${s.start||''}-${s.end||''}`)}</td><td>${escapeHtml(reason)}</td><td><strong>${escapeHtml(s.course)}</strong></td><td>${escapeHtml(s.type)}</td><td>${escapeHtml(s.topic)}</td><td>${(s.isUniversityClosure?'':escapeHtml(displayFacultyList(s.instructor||'TBD')))}</td><td>${escapeHtml(s.room||'')}</td></tr>`}).join('');
+    const partition=`<p class="list-partition-summary">${gridRows.length} grid ready · ${checkRows.length} check needed${closureRows.length?' | '+closureRows.length+' university closures':''}${reasonSummary?` · ${escapeHtml(reasonSummary)}`:''}</p>`;
     $('calendar-body').innerHTML=`${partition}<div class="schedule-list-wrap"><table class="schedule-list"><thead><tr><th>Date</th><th>Time</th><th>Grid status</th><th>Course</th><th>Type</th><th>Topic</th><th>Faculty</th><th>Room</th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="empty-cell">No sessions match this academic year and filter.</td></tr>'}</tbody></table></div>`;
     bindSessionBlocks();
   }
@@ -2244,7 +2245,7 @@
           toast(`Signed in as ${name} (${profile.role}).`);
           scheduleAllSessionsPrefetch(user,initialSessionLoad);
           scheduleOptionalFacultyEnrichment(user, profile);
-          void window.PAWS_TESTED_CALENDAR?.showNotifications(currentUser,{getUser:()=>currentUser,api:window.UCVM_PAWS_DATA,isAdmin:canEdit()});
+          void window.PAWS_TESTED_CALENDAR?.showNotifications(currentUser,{getUser:()=>auth?.currentUser?.uid===currentUser?.uid?currentUser:null,api:window.UCVM_PAWS_DATA,isAdmin:canEdit()});
         } catch (err) {
           console.error('[SQL access profile]', err);
           const preliminaryOutcome=window.UCVM_AUTH_CONTINUITY.classifyAuthError(err);
@@ -2279,11 +2280,11 @@
       }
 
       auth.onAuthStateChanged(async user => {
+        window.PAWS_TESTED_CALENDAR?.clearNotifications();
         if (!user) {
           text.textContent = 'Firebase Auth + SQL Access Ready';
           currentUser = null;
           resetSessionSelection();
-          window.PAWS_TESTED_CALENDAR?.clearNotifications();
           if($('show-university-closures'))$('show-university-closures').checked=false;
           window.PAWS_CCC_SCHEDULE?.close();
           window.PAWS_LEADERSHIP_DIRECTORY?.close();

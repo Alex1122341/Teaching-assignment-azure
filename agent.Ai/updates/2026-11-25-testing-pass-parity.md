@@ -57,3 +57,10 @@ Candidate code and focused tests in this branch. Current production is unchanged
 
 ## 12. Next safe action
 Review diff and full test reports; complete staging and governance review; authorize release separately. On deployment update runtime/recovery gate configuration consistently, with explicit PAWS_SESSION_BATCH_EDIT_ENABLED=true and PAWS_SCHEDULING_TASK_REVIEW_ENABLED=true only after applicable validation. Verify exact-main CI, live runtime identity/gates, protected static deployment, role access and rollback plan. Keep AFC CSV import deferred.
+
+
+## 13. QA ownership and remaining implementation handoff (2026-11-25)
+
+The user assigned coding to the coding agent and independent testing to Dot. Candidate follow-up clears login notifications across authentication changes, resets cached write capabilities before refreshing, and keeps closure records outside teaching-session counts. The runtime runbook describes the independent batch gate and rollback. No additional tests were run in this follow-up.
+
+Dot should obtain the current PR head from PR #171, run full suites and report exact command, head, pass/fail/skip counts and reproduction steps. Validate browser views and role scope for closures/notifications, batch edits in isolated staging with synthetic records including concurrency and rollback, and existing Task Review permissions/audit. Return defects to the coding agent; do not change production data, enable live gates, promote frozen anchors, merge, or deploy without explicit approval.

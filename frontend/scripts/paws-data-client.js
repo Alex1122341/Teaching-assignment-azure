@@ -321,6 +321,8 @@
         return facultyAdminWriteCapability===true;
       },
       async refreshWriteCapabilities(){
+        // Fail closed while reloading capabilities, including when the account or API changes.
+        writeCapabilities=Object.freeze({...writeCapabilities,sessionEdit:false,sessionBatchEdit:false,sessionCreate:false,afcSingle:false,afcBatch:false,requestLifecycle:false,decisions:false,approvedArtifactCreation:false,dateChange:false});
         const body=await request('/api/v1/afc-requests/write-capabilities');
         const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
         writeCapabilities=Object.freeze({...writeCapabilities,

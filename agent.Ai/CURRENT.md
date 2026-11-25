@@ -1,5 +1,9 @@
 # PAWS Beta — Verified Source Checkpoint
 
+## 2026-11-25 Testing parity candidate (not live)
+
+[Draft PR #171](https://github.com/Alex1122341/Teaching-assignment-azure/pull/171) contains candidate University Closures, Workflow Notifications, and independently gated Select Sessions batch editing. See [handoff](updates/2026-11-25-testing-pass-parity.md). Per user direction, the coding agent owns implementation and fixes; Dot owns independent QA, regression, and staging acceptance evidence. Re-fetch the PR head before testing. Production gate activation, immutable freeze promotion, merge and deployment are separate reviewed operations.
+
 ## 2026-11-24 AFC multi-input
 
 [PR #168 handoff](updates/2026-11-24-afc-multi-input.md) covers direct entry and linking PDFs to saved records. The initial release merged as `20a5e893a6d446def353991d251c91307ab9a8a5` and published Firebase Hosting version `3409e8bb928b17c5` after SQL migration 071 and API cutover were verified.

@@ -63,11 +63,44 @@ const fail=error=>({stage,name:safeName(error?.name),code:safeCode(error?.code),
 const apiLabels=new Map([
  ['/api/v1/me','me'],['/api/v1/access/self','access-self'],
  ['/api/v1/afc-requests/write-capabilities','write-capabilities'],
- ['/api/v1/sessions','sessions'],['/api/v1/sessions/batch-edit','batch-edit']
+ ['/api/v1/sessions','sessions'],['/api/v1/sessions/batch-edit','batch-edit'],
+ ...[
+  'access/accounts','access/announcements','access/catalog','access/commit','access/groups',
+  'access/history','access/leadership/catalog','access/leadership/commit','access/leadership/history',
+  'access/leadership/preview','access/legacy-audit','access/preview','afc-forms','afc-forms/capabilities',
+  'afc-requests','calendar-activities','calendar-activities/capabilities','calendar-activity-imports',
+  'ccc-replacements','ccc-replacements/capabilities','ccc-replacements/template','ccc-schedule',
+  'change-history','change-history/export','change-history/page','dashboard/afc-records',
+  'dashboard/afc-records/batch','dashboard/afc-records/write-capabilities','dashboard/doe-overview',
+  'dashboard/faculty','dashboard/faculty-admin/write-capabilities','dashboard/leadership-directory',
+  'dashboard/roles','dashboard/summary','dashboard/teaching-summary','dashboard/trainees',
+  'dashboard/trainees/export','doe/assignments','doe/history','doe/manual-assignments',
+  'doe/manual-scope-suggestions','doe/policies','doe/policies/copy','doe/policies/draft',
+  'doe/policy','doe/policy-version','doe/preview','doe/recalculate','doe/targets',
+  'doe/workflow-preview','doe/worksheet','doe/worksheets','doe/write-capabilities',
+  'faculty/availability/common-time','faculty/availability/common-time/details','faculty/availability/export',
+  'faculty/availability/page','faculty/availability/query','faculty/availability/roster',
+  'reports/catalog','reports/export','reports/page','reports/query','scheduling-tasks','sessions/batch',
+  'support','swaps','swaps/capabilities','swaps/context','swaps/faculty-preview','swaps/queue',
+  'teaching-assignments/contribution-targets','teaching-assignments/packages',
+  'teaching-assignments/publications','teaching-assignments/publications/history',
+  'teaching-assignments/published','teaching-assignments/work-queue','teaching-assignments/write-capabilities'
+ ].map(name=>['/api/v1/'+name,name]),
+ ['/api/health/sql','health-sql'],['/api/health/runtime','health-runtime']
 ]);
+const dynamicApiLabels=[
+ [/^\/api\/v1\/dashboard\/faculty\/[^/]+\/special-leave\/(?:source|evaluation)$/,'dashboard/faculty/special-leave'],
+ [/^\/api\/v1\/dashboard\/faculty\/[^/]+$/,'dashboard/faculty/detail'],
+ [/^\/api\/v1\/faculty\/[^/]+\/availability$/,'faculty/availability/detail'],
+ [/^\/api\/v1\/sessions\/[^/]+(?:\/assignments)?$/,'sessions/detail'],
+ [/^\/api\/v1\/afc-requests\/[^/]+(?:\/[^/]+)?$/,'afc-requests/detail'],
+ [/^\/api\/v1\/dashboard\/afc-records\/[^/]+(?:\/[^/]+)?$/,'dashboard/afc-records/detail'],
+ [/^\/api\/v1\/access\/groups\/[^/]+(?:\/members)?$/,'access/groups/detail'],
+ [/^\/api\/v1\/swaps\/[^/]+(?:\/[^/]+)?$/,'swaps/detail']
+];
 function endpointLabel(url){
  const u=new URL(url);
- if(u.pathname.startsWith('/api/'))return apiLabels.get(u.pathname)||'other-api';
+ if(u.pathname.startsWith('/api/'))return apiLabels.get(u.pathname)||dynamicApiLabels.find(([pattern])=>pattern.test(u.pathname))?.[1]||'unclassified-api';
  if(u.origin==='http://127.0.0.1:9099'){
   if(u.pathname.endsWith('/accounts:signInWithPassword'))return 'firebase-password';
   if(u.pathname.endsWith('/accounts:lookup'))return 'firebase-lookup';
@@ -77,10 +110,40 @@ function endpointLabel(url){
  return null;
 }
 function traceEvent(trace,event,details={}){
- if(!trace||trace.length>=240)return;
- const entry={event,ms:Date.now()-trace.startedAt,...details};
+ if(!trace)return;
+ if(trace.length>=2000){
+  if(!trace.overflow){trace.overflow=true;console.error('BROWSER_QA_TRACE_LIMIT_EXCEEDED');}
+  return;
+ }
+ const entry={event,sequence:trace.length+1,ms:Date.now()-trace.startedAt,stage,...details};
  trace.push(entry);
  console.log('BROWSER_QA_LOGIN_TRACE '+JSON.stringify(entry));
+}
+// The exact frozen frontend is unchanged. Map known source lines to fixed
+// branch labels; stack strings, paths, query values and error text never leave
+// the local diagnostic parser.
+const invalidationBranches=new Map([
+ [22,'auth-state-identity-changed'],[35,'access-not-ready'],[36,'access-version-invalid'],
+ [37,'scope-version-invalid'],[39,'access-profile-binding-changed'],
+ [40,'access-signature-changed'],[45,'access-check-rejected'],
+ [49,'profile-inactive-or-password-required'],[51,'profile-access-binding-changed'],
+ [52,'profile-signature-changed'],[55,'api-revocation-error']
+]);
+function safeFrames(stack,allowed){
+ if(typeof stack!=='string')return [];
+ return [...stack.matchAll(/\/([A-Za-z0-9_-]+\.js):(\d+):(\d+)/g)]
+  .filter(match=>allowed.has(match[1]))
+  .slice(0,8).map(match=>({script:match[1],line:Number(match[2]),column:Number(match[3])}));
+}
+function errorCategory(error){
+ const message=typeof error?.message==='string'?error.message:'';
+ if(/Cannot read propert(?:y|ies) of null/i.test(message))return 'null-property-read';
+ if(/Cannot set propert(?:y|ies) of null/i.test(message))return 'null-property-write';
+ if(/Cannot read propert(?:y|ies) of undefined/i.test(message))return 'undefined-property-read';
+ if(/Cannot set propert(?:y|ies) of undefined/i.test(message))return 'undefined-property-write';
+ if(/is not a function/i.test(message))return 'not-a-function';
+ if(/failed to fetch|networkerror|network request failed/i.test(message))return 'network';
+ return 'other';
 }
 async function responseCode(response){
  if(response.status()<400)return null;
@@ -335,6 +398,7 @@ async function main(){
  firebase.initializeApp({apiKey:'demo-api-key',projectId:'demo-paws-pr171',authDomain:'localhost',appId:'1:123456789:web:synthetic'});
  firebase.auth().useEmulator('http://127.0.0.1:9099');
  firebase.firestore().useEmulator('127.0.0.1',8080);
+ window.__pawsQaObserveAuth?.(firebase.auth());
  })();
  `;
  const mime={'.js':'application/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.pdf':'application/pdf'};
@@ -446,29 +510,85 @@ async function main(){
    const blocked=new Set();
    const trace=[];trace.startedAt=Date.now();result.loginTrace=trace;activeTrace=trace;
    const browserResponses=[];
-   await page.addInitScript(()=>{
+   const requestIds=new WeakMap();let nextRequestId=0;
+   const requestId=request=>{if(!requestIds.has(request))requestIds.set(request,++nextRequestId);return requestIds.get(request);};
+   const scriptNames=new Set(manifest.filter(file=>/^[A-Za-z0-9_-]+\.js$/.test(file)));
+   const browserEvents=new Set(['firebase-auth-state','profile-event','access-invalidated','access-invalidated-after','window-error','unhandled-rejection']);
+   const booleanKeys=['sessionEstablished','sameExpectedIdentity','gateLocked','accountControlPresent','gateSignInPresent','sessionGuardBlocked','guardCurrent'];
+   const stateKeys=value=>{
+    if(!value||typeof value!=='object')return null;
+    return {...Object.fromEntries(booleanKeys.map(key=>[key,typeof value[key]==='boolean'?value[key]:null])),
+     guardGeneration:Number.isInteger(value.guardGeneration)?value.guardGeneration:null};
+   };
+   await page.exposeBinding('__pawsQaEmit',(_source,value)=>{
+    if(!value||!browserEvents.has(value.event))return;
+    const frames=Array.isArray(value.frames)?value.frames.filter(f=>scriptNames.has(f?.script)&&Number.isInteger(f.line)&&Number.isInteger(f.column)).slice(0,8).map(f=>({script:f.script,line:f.line,column:f.column})):[];
+    const branch=value.event==='access-invalidated'?frames.filter(f=>f.script==='effective-access-guard.js').map(f=>invalidationBranches.get(f.line)).find(Boolean)||'unresolved':null;
+    const reason=['changed','unverified','password_required'].includes(value.reason)?value.reason:null;
+    const category=['null-property-read','null-property-write','undefined-property-read','undefined-property-write','not-a-function','network','other'].includes(value.category)?value.category:null;
+    traceEvent(trace,value.event,{observedMs:Number.isFinite(value.at)?value.at-trace.startedAt:null,pageSequence:Number.isInteger(value.seq)?value.seq:null,reason,branch,
+     errorName:value.name?safeName(value.name):null,errorCode:safeCode(value.code),category,frames,
+     before:stateKeys(value.before),state:stateKeys(value.state)});
+   });
+   await page.addInitScript(({expectedUid,scripts})=>{
     const t={formSubmits:0,profileEvents:0,invalidated:null};window.__pawsQaLoginTrace=t;
+    const allowed=new Set(scripts);
+    const frames=stack=>typeof stack==='string'?[...stack.matchAll(/\/([A-Za-z0-9_-]+\.js):(\d+):(\d+)/g)].filter(m=>allowed.has(m[1])).slice(0,8).map(m=>({script:m[1],line:Number(m[2]),column:Number(m[3])})):[];
+    const snapshot=()=>{
+     const user=window.firebase?.apps?.length?firebase.auth().currentUser:null,guard=window.UCVM_EFFECTIVE_ACCESS?.guard;
+     const generation=guard?.capture?.();
+     return {sessionEstablished:!!user,sameExpectedIdentity:!!user&&user.uid===expectedUid,
+      gateLocked:document.body?.classList.contains('auth-locked')===true,accountControlPresent:!!document.getElementById('account-toggle'),
+      gateSignInPresent:!!document.getElementById('gate-sign-in'),sessionGuardBlocked:window.__ucvmSessionGuard?.blocked===true,
+      guardGeneration:Number.isInteger(generation)?generation:null,guardCurrent:generation!==undefined?guard?.current?.(generation)===true:null};
+    };
+    let seq=0,previous=snapshot(),attached=false;
+    const emit=(event,details={})=>{
+     try{const state=snapshot(),before=previous;previous=state;
+      // Observational binding only: do not await, change auth, or cancel events.
+      void window.__pawsQaEmit({event,at:Date.now(),seq:++seq,before,state,...details}).catch(()=>{});
+     }catch(_){}
+    };
+    const errorFacts=error=>{
+     const message=typeof error?.message==='string'?error.message:'';
+     const category=/Cannot read propert(?:y|ies) of null/i.test(message)?'null-property-read':/Cannot set propert(?:y|ies) of null/i.test(message)?'null-property-write':/Cannot read propert(?:y|ies) of undefined/i.test(message)?'undefined-property-read':/Cannot set propert(?:y|ies) of undefined/i.test(message)?'undefined-property-write':/is not a function/i.test(message)?'not-a-function':/failed to fetch|networkerror|network request failed/i.test(message)?'network':'other';
+     const name=['Error','TypeError','ReferenceError','FirebaseError'].includes(error?.name)?error.name:'Error';
+     const code=typeof error?.code==='string'&&/^(?:auth\/[a-z][a-z0-9-]{1,70}|[A-Z][A-Z0-9_]{1,70})$/.test(error.code)?error.code:null;
+     return {name,code,category,frames:frames(error?.stack)};
+    };
+    window.__pawsQaObserveAuth=auth=>{
+     if(attached)return;attached=true;
+     // Same actual SDK instance; observe state changes without replacing any
+     // method, intercepting a credential, or altering auth/guard decisions.
+     auth.onAuthStateChanged(()=>emit('firebase-auth-state'),()=>emit('firebase-auth-state'));
+    };
     document.addEventListener('submit',event=>{if(event.target?.id==='email-login-form')t.formSubmits++;},true);
-    window.addEventListener('paws-profile',()=>{t.profileEvents++;});
+    window.addEventListener('paws-profile',()=>{t.profileEvents++;emit('profile-event');});
     window.addEventListener('paws-access-invalidated',event=>{
      const reason=event.detail?.reason;
      t.invalidated=['unverified','changed','password_required'].includes(reason)?reason:'other';
+     // Synchronous stack identifies the guard caller at the original branch.
+     emit('access-invalidated',{reason:t.invalidated,frames:frames(new Error().stack)});
+     queueMicrotask(()=>emit('access-invalidated-after',{reason:t.invalidated}));
     });
-   });
+    window.addEventListener('error',event=>emit('window-error',errorFacts(event.error)),true);
+    window.addEventListener('unhandledrejection',event=>emit('unhandled-rejection',errorFacts(event.reason)));
+   },{expectedUid:user.uid,scripts:[...scriptNames]});
    page.on('request',request=>{
     const label=endpointLabel(request.url());
-    if(label)traceEvent(trace,'browser-request',{endpoint:label,method:request.method()});
+    if(label)traceEvent(trace,'browser-request',{requestId:requestId(request),endpoint:label,method:request.method()});
    });
    page.on('response',async response=>{
     const label=endpointLabel(response.url());if(!label)return;
-    const entry={endpoint:label,method:response.request().method(),status:response.status()};
+    const entry={requestId:requestId(response.request()),endpoint:label,method:response.request().method(),status:response.status()};
+    traceEvent(trace,'browser-response-received',entry);
     const code=await responseCode(response);
     browserResponses.push({...entry,code});traceEvent(trace,'browser-response',{...entry,code});
    });
    page.on('requestfailed',request=>{
-    const label=endpointLabel(request.url());if(label)traceEvent(trace,'browser-request-failed',{endpoint:label,method:request.method(),code:safeCode(request.failure()?.errorText)});
+    const label=endpointLabel(request.url());if(label)traceEvent(trace,'browser-request-failed',{requestId:requestId(request),endpoint:label,method:request.method(),code:safeCode(request.failure()?.errorText)});
    });
-   page.on('pageerror',error=>traceEvent(trace,'page-error',{name:safeName(error?.name),code:safeCode(error?.code)}));
+   page.on('pageerror',error=>traceEvent(trace,'page-error',{name:safeName(error?.name),code:safeCode(error?.code),category:errorCategory(error),frames:safeFrames(error?.stack,scriptNames)}));
    page.on('console',message=>{
     if(!['error','warning'].includes(message.type()))return;
     const text=message.text();
@@ -476,22 +596,47 @@ async function main(){
     const match=text.match(/\bauth\/[a-z][a-z0-9-]{1,70}\b|\bnet::ERR_[A-Z0-9_]+\b|\b(?:SQL_UNAVAILABLE|SERVICE_UNAVAILABLE|PROFILE_REQUIRED|ROLE_DENIED|FACULTY_LINK_REQUIRED|ACCESS_CHANGED|SESSION_REAUTH_REQUIRED|TOKEN_REFRESH_FAILED|UNAUTHENTICATED|PASSWORD_CHANGE_REQUIRED|CORS_ORIGIN_DENIED|CORS_PREFLIGHT_DENIED)\b/);
     traceEvent(trace,'browser-console',{level:message.type(),category,code:safeCode(match?.[0])});
    });
+   let priorAccess=null;
+   // Read only equality/validity facts from the real response in memory.
+   // Never emit the profile, role binding, actual identifiers or versions.
+   function bindingObservation(label,body){
+    if(label==='access-self'){
+     const access=body?.access;if(!access||typeof access!=='object')return {present:false};
+     const keys=['role','facultyId','version','scopeVersion','academicYear'];
+     const next=Object.fromEntries(keys.map(key=>[key,access[key]||null]));
+     const changed=priorAccess?keys.filter(key=>priorAccess[key]!==next[key]):[];
+     const observation={present:true,allowed:access.allowed===true,ready:access.status==='ready',
+      versionValid:typeof access.version==='string'&&/^[a-f0-9]{16}$/i.test(access.version),
+      scopeVersionValid:access.scopeVersion==null||typeof access.scopeVersion==='string'&&/^[a-f0-9]{64}$/i.test(access.scopeVersion),
+      comparable:priorAccess!==null,changed};
+     priorAccess=next;return observation;
+    }
+    const profile=body?.profile;if(!profile||typeof profile!=='object')return {present:false};
+    return {present:true,active:profile.active===true,passwordRequired:profile.mustChangePassword===true,comparable:priorAccess!==null,
+     roleMatches:priorAccess?priorAccess.role===(profile.role||profile.baseRole||null):null,
+     facultyMatches:priorAccess?priorAccess.facultyId===(profile.facultyId||null):null};
+   }
    try{
     await context.route('**/*',async route=>{
      const u=new URL(route.request().url());
      if(u.origin===site||u.origin==='http://127.0.0.1:9099'||u.origin==='http://127.0.0.1:8080'){await route.continue();return;}
      if(u.origin===origin&&u.pathname.startsWith('/api/')){
-      const label=endpointLabel(u.href)||'other-api';
-      traceEvent(trace,'proxy-forward',{endpoint:label,method:route.request().method(),target:'isolated-api'});
+      const label=endpointLabel(u.href)||'unclassified-api',id=requestId(route.request());
+      traceEvent(trace,'proxy-forward',{requestId:id,endpoint:label,method:route.request().method(),target:'isolated-api'});
       try{
        // Keep the existing proxy behavior while diagnosing, including the
        // original request/response headers. Observe rather than repair blindly.
        const response=await route.fetch({url:api+u.pathname+u.search,maxRedirects:0});
        const headers=response.headers();
-       traceEvent(trace,'proxy-response',{endpoint:label,method:route.request().method(),status:response.status(),corsMatches:headers['access-control-allow-origin']===site,corsPresent:!!headers['access-control-allow-origin'],code:await responseCode(response)});
+       traceEvent(trace,'proxy-response-received',{requestId:id,endpoint:label,method:route.request().method(),status:response.status()});
+       if(response.status()===200&&['access-self','me'].includes(label)){
+        try{traceEvent(trace,'access-binding-observation',{requestId:id,endpoint:label,...bindingObservation(label,await response.json())});}
+        catch(_){traceEvent(trace,'access-binding-observation',{requestId:id,endpoint:label,present:false});}
+       }
+       traceEvent(trace,'proxy-response',{requestId:id,endpoint:label,method:route.request().method(),status:response.status(),corsMatches:headers['access-control-allow-origin']===site,corsPresent:!!headers['access-control-allow-origin'],code:await responseCode(response)});
        await route.fulfill({response});return;
       }catch(error){
-       traceEvent(trace,'proxy-failed',{endpoint:label,method:route.request().method(),name:safeName(error?.name),code:safeCode(error?.code)});
+       traceEvent(trace,'proxy-failed',{requestId:id,endpoint:label,method:route.request().method(),name:safeName(error?.name),code:safeCode(error?.code)});
        await route.abort('failed').catch(()=>{});return;
       }
      }
@@ -545,15 +690,40 @@ async function main(){
     await page.waitForFunction(()=>!document.body.classList.contains('auth-locked'),null,{timeout:30000});
     traceEvent(trace,'phase-complete',{phase:'ui-unlock',...await browserState(page)});
     result.checks.actualSdkLogin=true;
-    stage='role-read:'+user.uid+':'+viewport.width;
-    const view=await page.evaluate(async()=>{
-     const profile=await window.UCVM_PAWS_DATA.currentUser();
-     const rows=await window.UCVM_PAWS_DATA.listSessions();
-     const sessions=Array.isArray(rows)?rows:rows.sessions;
-     return {role:profile.role,facultyId:profile.facultyId||null,ids:sessions.map(r=>String(r.id).toLowerCase()).sort(),
-      tokens:sessions.filter(r=>r.batchEditToken).length,selection:!document.getElementById('selection-controls')?.classList.contains('hidden'),
-      firebaseProject:firebase.app().options.projectId,viewportWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth};
+    stage='browser-current-user:'+user.uid+':'+viewport.width;
+    traceEvent(trace,'phase-start',{phase:'currentUser',...await browserState(page)});
+    const identityView=await page.evaluate(async()=>{
+     try{
+      const profile=await window.UCVM_PAWS_DATA.currentUser();
+      return {ok:true,role:profile.role,facultyId:profile.facultyId||null};
+     }catch(error){return {ok:false,errorName:error?.name,errorCode:error?.code,status:Number.isInteger(error?.status)?error.status:null};}
     });
+    if(!identityView.ok){
+     traceEvent(trace,'read-rejected',{operation:'currentUser',name:safeName(identityView.errorName),code:safeCode(identityView.errorCode),status:identityView.status,...await browserState(page)});
+     throw Object.assign(Error('currentUser rejected'),{code:safeCode(identityView.errorCode)||'QA_CURRENT_USER_REJECTED'});
+    }
+    assert.equal(identityView.role,user.role);
+    assert.equal(String(identityView.facultyId||'').toLowerCase(),String(user.facultyId||'').toLowerCase());
+    traceEvent(trace,'phase-complete',{phase:'currentUser',roleMatches:true,facultyMatches:true,...await browserState(page)});
+    stage='browser-list-sessions:'+user.uid+':'+viewport.width;
+    traceEvent(trace,'phase-start',{phase:'listSessions',...await browserState(page)});
+    const sessionView=await page.evaluate(async()=>{
+     try{
+      const rows=await window.UCVM_PAWS_DATA.listSessions(),sessions=Array.isArray(rows)?rows:rows.sessions;
+      return {ok:true,ids:sessions.map(r=>String(r.id).toLowerCase()).sort(),tokens:sessions.filter(r=>r.batchEditToken).length};
+     }catch(error){return {ok:false,errorName:error?.name,errorCode:error?.code,status:Number.isInteger(error?.status)?error.status:null};}
+    });
+    if(!sessionView.ok){
+     traceEvent(trace,'read-rejected',{operation:'listSessions',name:safeName(sessionView.errorName),code:safeCode(sessionView.errorCode),status:sessionView.status,...await browserState(page)});
+     throw Object.assign(Error('listSessions rejected'),{code:safeCode(sessionView.errorCode)||'QA_LIST_SESSIONS_REJECTED'});
+    }
+    traceEvent(trace,'phase-complete',{phase:'listSessions',rowCount:sessionView.ids.length,batchTokenCount:sessionView.tokens,...await browserState(page)});
+    stage='browser-role-and-viewport:'+user.uid+':'+viewport.width;
+    const surface=await page.evaluate(()=>({
+     selection:!document.getElementById('selection-controls')?.classList.contains('hidden'),
+     firebaseProject:firebase.app().options.projectId,viewportWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth
+    }));
+    const view={...identityView,...sessionView,...surface};
     assert.equal(view.firebaseProject,project);assert.equal(view.role,user.role);
     assert.equal(String(view.facultyId||'').toLowerCase(),String(user.facultyId||'').toLowerCase());
     assert.deepEqual(view.ids,scoped.has(user.role)?[user.sessionId.toLowerCase()]:expectedAll);
@@ -563,9 +733,11 @@ async function main(){
     result.viewportWidth=view.viewportWidth;result.scrollWidth=view.scrollWidth;
     result.checks.viewportNoPageOverflow=view.scrollWidth<=view.viewportWidth+1;
     assert.equal(result.checks.viewportNoPageOverflow,true);
+    traceEvent(trace,'phase-complete',{phase:'role-and-viewport',...await browserState(page)});
     // Anonymous and role-denied writes are verified against the actual API,
     // using the browser-issued emulator token. No synthetic write occurs here.
     if(!admins.has(user.role)){
+     stage='browser-forbidden-write:'+user.uid+':'+viewport.width;
      const denied=await page.evaluate(async()=>{
       const token=await firebase.auth().currentUser.getIdToken();
       const response=await fetch('https://paws-pr171-qa.invalid/api/v1/sessions/batch-edit',{method:'POST',headers:{Authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({edits:[]})});
@@ -573,11 +745,25 @@ async function main(){
      });
      assert.deepEqual(denied,{status:403,code:'ROLE_DENIED'});result.checks.forbiddenWrite=true;
     }
-    // Sign out through the real SDK and verify product auth-state cleanup.
+    // The old stage label covered all these operations. Explicitly distinguish
+    // the test's intended sign-out from any earlier spontaneous session loss.
+    stage='browser-screenshot:'+user.uid+':'+viewport.width;
+    traceEvent(trace,'phase-start',{phase:'screenshot',...await browserState(page)});
     await page.screenshot({path:path.join(out,user.uid+'-'+viewport.width+'.png')});
+    traceEvent(trace,'phase-complete',{phase:'screenshot',...await browserState(page)});
+    stage='browser-intended-signout:'+user.uid+':'+viewport.width;
+    const beforeSignout=await browserState(page);
+    traceEvent(trace,'qa-signout-requested',{...beforeSignout});
+    // Do not claim an already-lost session was signed out successfully.
+    assert.equal(beforeSignout.sessionEstablished,true);
     await page.evaluate(()=>firebase.auth().signOut());
+    traceEvent(trace,'qa-signout-returned',{...await browserState(page)});
+    stage='browser-signed-out-gate:'+user.uid+':'+viewport.width;
     await page.locator('#gate-sign-in').waitFor({state:'visible'});
+    traceEvent(trace,'phase-complete',{phase:'signed-out-gate',...await browserState(page)});
+    stage='browser-signout-cleanup:'+user.uid+':'+viewport.width;
     assert.equal(await page.evaluate(()=>firebase.auth().currentUser),null);
+    assert.notEqual(trace.overflow,true,'Diagnostic trace must be complete.');
     result.checks.signOutCleanup=true;
     result.status='passed';
    }catch(error){
@@ -588,7 +774,7 @@ async function main(){
     console.error('BROWSER_QA_ROLE_FAILED '+JSON.stringify({role:user.role,account:user.uid,viewport:viewport.width,...result.failure}));
    }finally{
     // Only known categories are reported, not arbitrary URL components.
-    result.blockedOrigins=[...blocked].sort();await context.close();activeTrace=null;
+    result.blockedOrigins=[...blocked].sort();result.traceOverflow=trace.overflow===true;await context.close();activeTrace=null;
     const {loginTrace,...summary}=result;
     console.log('BROWSER_QA_ROLE '+JSON.stringify(summary));
    }

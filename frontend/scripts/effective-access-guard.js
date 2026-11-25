@@ -8,17 +8,32 @@
   const guard=api.createEffectiveAccessGuard({load:()=>root.UCVM_PAWS_DATA.effectiveAccess(),onChange:reason=>{
    root.dispatchEvent(new root.CustomEvent('paws-access-invalidated',{detail:{reason}}));
    const panel=root.document.createElement('main');panel.className='user-shell';panel.setAttribute('role','alert');
-   const title=root.document.createElement('h1');title.textContent=reason==='unverified'?'Access could not be checked':'Your access has changed';
-   const message=root.document.createElement('p');message.textContent='Reload to verify your current access before continuing.';
-   const reload=root.document.createElement('button');reload.type='button';reload.className='primary';reload.textContent='Reload';reload.onclick=()=>root.location.reload();
+   const signedOut=reason==='signed_out';
+   const title=root.document.createElement('h1');title.textContent=signedOut?'Signed out':reason==='unverified'?'Access could not be checked':'Your access has changed';
+   const message=root.document.createElement('p');message.textContent=signedOut?'Sign in again to continue.':'Reload to verify your current access before continuing.';
+   const reload=root.document.createElement('button');reload.type='button';reload.className='primary';reload.textContent=signedOut?'Sign in':'Reload';reload.onclick=()=>signedOut?root.location.replace('index.html'):root.location.reload();
+   // Keep a safe, data-free sign-in affordance if navigation is delayed.
+   // Never reset a blocked guard or re-use a previously authorized document.
+   if(signedOut){panel.append(title,message,reload);root.document.body.replaceChildren(panel);reload.focus();return;}
    const signout=root.document.createElement('button');signout.type='button';signout.textContent='Sign out';signout.onclick=()=>Promise.resolve(auth.signOut()).finally(()=>root.location.replace('index.html'));
    panel.append(title,message,reload,signout);root.document.body.replaceChildren(panel);reload.focus();
    if(reason==='password_required')root.location.replace('password.html');
   }});
   root.UCVM_EFFECTIVE_ACCESS.guard=guard;
   const stop=guard.start(root,()=>Boolean(auth.currentUser)&&!root.PAWS_SUPPORT?.contextId?.());
-  let initialUid=null;
+  let initialUid=null,returningToSignIn=false;
   const unsubscribe=auth.onAuthStateChanged(user=>{
+   if(initialUid&&!user){
+    if(returningToSignIn)return;
+    returningToSignIn=true;
+    // An absent Firebase identity is signed out, not a new effective identity.
+    // Invalidate in-flight results and clear private surfaces before navigation.
+    // Even an already-blocked page must permit sign-out to a fresh document.
+    try{root.sessionStorage?.removeItem('paws-support-context-v1');}catch(_){}
+    guard.invalidate('signed_out');
+    root.location.replace('index.html');
+    return;
+   }
    if(initialUid&&initialUid!==user?.uid){guard.invalidate('changed');return;}
    if(user){initialUid=user.uid;if(!root.PAWS_SUPPORT?.contextId?.())void guard.check().catch(()=>{});}
   });

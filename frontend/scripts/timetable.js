@@ -399,7 +399,9 @@
     const covered=sessionCacheRanges.some(item=>item.start<=range.start&&item.end>=range.end);
     if(covered)return pageSessions().filter(row=>row.date>=range.start&&row.date<=range.end);
     const key=`${range.start}:${range.end}`;
+    const actor=currentUser;
     if(!sessionRangeLoads.has(key))sessionRangeLoads.set(key,fetchPawsSessions({start:range.start,end:ymd(addDays(parseYmd(range.end),1))}).then(rows=>{
+      if(!actor||currentUser!==actor)return[];
       cacheSessionRange(range,rows);publishPageData();return rows.slice();
     }).finally(()=>sessionRangeLoads.delete(key)));
     return sessionRangeLoads.get(key);
@@ -2189,7 +2191,13 @@
 
       // BETA-R4D-12B2A1 — the access bootstrap is a separate unit so the same routine
       // can be rerun by the "Retry access" recovery action without re-authenticating.
+      function effectiveAccessBlocked(){
+        const guard=window.UCVM_EFFECTIVE_ACCESS?.guard;
+        return Boolean(guard&&!guard.current(guard.capture()));
+      }
+      const bootstrapStillCurrent=user=>!effectiveAccessBlocked()&&auth?.currentUser?.uid===user.uid;
       async function bootstrapForUser(user, parts, recoveryAttempt = 0) {
+        if(!bootstrapStillCurrent(user))return;
         const email = String(parts?.email || user.email || '').trim().toLowerCase();
         const phone = String(parts?.phone || user.phoneNumber || '').trim();
         const provider = parts?.provider || 'firebase';
@@ -2200,9 +2208,11 @@
           setLoginProgress('Verifying PAWS access...', true, 'access');
           markLoginStage('T3');
           const profile = await getRoleProfile(user);
+          if(!bootstrapStillCurrent(user))return;
           markLoginStage('T4');
           const sqlFacultyId=profile.facultyId||null;
           const accessReady=await UCVM.ready(user, profile);
+          if(!bootstrapStillCurrent(user))return;
           markLoginStage('T5');
           if (!accessReady) {
             const accessFailureKind=profile.mustChangePassword===true?'password-change-required':(window.__ucvmSessionGuard?.blocked?'session-guard':'access-routing');
@@ -2238,6 +2248,7 @@
           canonicalWriteFaculty=[];
           try { await window.UCVM_PAWS_DATA.refreshWriteCapabilities(); }
           catch (capabilityError) { console.warn('[write capabilities]', capabilityError); }
+          if(!bootstrapStillCurrent(user))return;
           publishPageData();
           viewMode = roleIsFaculty(currentUser) ? 'day' : 'week';
           setViewButtons();
@@ -2260,6 +2271,7 @@
           scheduleOptionalFacultyEnrichment(user, profile);
           void window.PAWS_TESTED_CALENDAR?.showNotifications(currentUser,{getUser:()=>auth?.currentUser?.uid===currentUser?.uid?currentUser:null,api:window.UCVM_PAWS_DATA,isAdmin:canEdit()});
         } catch (err) {
+          if(!bootstrapStillCurrent(user))return;
           console.error('[SQL access profile]', err);
           const preliminaryOutcome=window.UCVM_AUTH_CONTINUITY.classifyAuthError(err);
           const sameUser=Boolean(auth?.currentUser && auth.currentUser.uid===user.uid);
@@ -2285,6 +2297,7 @@
               return bootstrapForUser(user, { email, phone, provider, identity });
             }
           });
+          if(!bootstrapStillCurrent(user))return;
           failLoginPerformance(outcome.kind);
           setLoginProgress(outcome.message, false);
           settleInteractiveLogin(false);
@@ -2292,7 +2305,25 @@
         }
       }
 
+      // The shared guard dispatches this event synchronously before replacing
+      // the private page. Clear memory and cancel work without touching DOM
+      // controls that the guard owns. This applies to every terminal reason.
+      window.addEventListener('paws-access-invalidated',()=>{
+        currentUser=null;sessions=[];renderedSessions=[];bulkRows=[];canonicalWriteFaculty=[];
+        selectionMode=false;reviewingSelection=false;sessionSelection.clear();selectedSessionOriginals.clear();selectionDoeState.clear();
+        sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();invalidateAllSessions();
+        unsubscribeFacultyDirectory();currentFacultyRecord=null;currentFacultyLoading=null;currentFacultyLoadingKey='';
+        workingCalendarRows=[];workingCalendarScope='';++workingActivityRenderToken;workingActivityCache?.invalidate();
+        selectedCourses.clear();courseFilterActive=false;myTimetableOnly=false;scheduleSource='signed-out';
+        window.PAWS_TESTED_CALENDAR?.clearNotifications();
+        window.PAWS_CALENDAR_ACTIVITIES?.clear();
+        publishPageData();
+      });
       auth.onAuthStateChanged(async user => {
+        // The guard is registered first by UCVM.init(). Once it invalidates,
+        // the document is terminal. Never bootstrap or run DOM-dependent
+        // signed-out cleanup against the guard's replacement panel.
+        if(effectiveAccessBlocked())return;
         window.PAWS_TESTED_CALENDAR?.clearNotifications();
         if (!user) {
           text.textContent = 'Firebase Auth + SQL Access Ready';

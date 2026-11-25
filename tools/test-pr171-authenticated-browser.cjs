@@ -10,7 +10,7 @@ const {execFileSync}=require('node:child_process');
 const {randomUUID,randomBytes}=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const originalSha='343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8';
-const sha='ea00eacc27ec067919741fa4fdbbf59a693a4148';
+const sha='6410015768aea742dfd992a1be8428f4d06dfc54';
 const baselineRoot=process.env.PAWS_BASELINE_ROOT;
 const project='demo-paws-pr171';
 const marker=process.env.PAWS_BROWSER_TEST_MARKER;
@@ -930,6 +930,32 @@ async function main(){
      });
      assert.deepEqual(denied,{status:403,code:'ROLE_DENIED'});result.checks.forbiddenWrite=true;
     }
+    // Verify the actual startup network traffic, not just that a mock source
+    // selector returned false. All allowed sources must still answer 200;
+    // no office account may issue an AFC-list GET during normal Calendar use.
+    stage='browser-notification-sources:'+user.uid+':'+viewport.width;
+    const matchesRead=(event,endpoint)=>event.endpoint===endpoint&&event.method==='GET';
+    async function verifyNotificationSources(from=0){
+     const events=()=>trace.slice(from);
+     await waitTrace(()=>events().find(event=>event.event==='browser-response'&&matchesRead(event,'swaps/queue')&&event.status===200),15000);
+     if(!officeOnly.has(user.role)){
+      await waitTrace(()=>events().find(event=>event.event==='browser-response'&&matchesRead(event,'afc-requests')&&event.status===200),15000);
+     }
+     const afcGets=events().filter(event=>event.event==='browser-request'&&matchesRead(event,'afc-requests')).length;
+     const swapReads=events().filter(event=>event.event==='browser-response'&&matchesRead(event,'swaps/queue')&&event.status===200).length;
+     if(officeOnly.has(user.role))assert.equal(afcGets,0,'Office notification startup must never request AFC list');
+     else assert.ok(afcGets>0,'Eligible AFC notification read must remain present');
+     const state=await page.evaluate(()=>{
+      const guard=window.UCVM_EFFECTIVE_ACCESS.guard;
+      return {guardCurrent:guard.current(guard.capture()),authenticated:!!firebase.auth().currentUser,unlocked:!document.body.classList.contains('auth-locked')};
+     });
+     assert.deepEqual(state,{guardCurrent:true,authenticated:true,unlocked:true});
+     return {afcGets,swapReads,afcExpected:!officeOnly.has(user.role),...state};
+    }
+    const notificationReads=await verifyNotificationSources();
+    result.notificationSources=notificationReads;
+    result.checks.notificationSources=true;
+    traceEvent(trace,'notification-sources-accepted',notificationReads);
     // The old stage label covered all these operations. Explicitly distinguish
     // the test's intended sign-out from any earlier spontaneous session loss.
     stage='browser-screenshot:'+user.uid+':'+viewport.width;
@@ -994,6 +1020,12 @@ async function main(){
     }
     await productSignoutAndVerify('initial');
     result.checks.signOutCleanup=true;result.checks.anonymousApiDenied=true;result.checks.privateDataCleared=true;
+    // Check the entire normal visit, including asynchronous work through
+    // logout, before the separately labeled deliberate rejection probe.
+    if(officeOnly.has(user.role)){
+     assert.equal(trace.filter(event=>event.event==='browser-request'&&matchesRead(event,'afc-requests')).length,0);
+     result.checks.noForbiddenAfcRead=true;
+    }
     if(receipt.roles.length===1){
      stage='browser-relogin:'+user.uid+':'+viewport.width;
      await page.locator('#gate-sign-in').click();
@@ -1012,6 +1044,52 @@ async function main(){
      traceEvent(trace,'product-relogin-accepted',{sameRole:true,sessionCount:again.ids.length,batchTokenCount:again.tokens});
      result.checks.relogin=true;
      await productSignoutAndVerify('after-relogin');
+    }
+    if(user.role==='adc'&&viewport.width===1440){
+     // Extra denial regression AFTER the normal ADC desktop logout has
+     // passed. This is not part of notification startup or a new capability.
+     // Use the real login UI and actual product data client (not raw fetch
+     // or a mocked denial) to prove a genuine 403 still blocks old access.
+     stage='browser-real-denial-relogin:'+user.uid+':'+viewport.width;
+     const visitStart=trace.length;
+     await page.locator('#gate-sign-in').click();
+     await page.locator('#choose-email').click();
+     await page.locator('#login-email').fill(user.email);
+     await page.locator('#login-password').fill(password);
+     await page.locator('#email-login-submit').click();
+     await page.waitForFunction(uid=>window.firebase?.apps?.length&&firebase.auth().currentUser?.uid===uid,user.uid,{timeout:20000});
+     await page.waitForFunction(role=>document.getElementById('account-toggle')?.textContent.trim().endsWith(' - '+role),user.role,{timeout:30000});
+     await page.waitForFunction(()=>!document.body.classList.contains('auth-locked'),null,{timeout:30000});
+     await verifyNotificationSources(visitStart);
+     const before=await page.evaluate(async()=>{
+      const data=window.UCVM_PAGE_DATA,guard=window.UCVM_EFFECTIVE_ACCESS.guard;
+      await data.allSessions();
+      return {privateProfilePresent:!!data.profile(),cachedSessions:data.sessions().length,guardCurrent:guard.current(guard.capture())};
+     });
+     assert.deepEqual(before,{privateProfilePresent:true,cachedSessions:expectedAll.length,guardCurrent:true});
+     assert.equal(trace.slice(visitStart).filter(event=>event.event==='browser-request'&&matchesRead(event,'afc-requests')).length,0);
+     stage='browser-real-role-denial:'+user.uid+':'+viewport.width;
+     const denialStart=trace.length;
+     const denied=await page.evaluate(async()=>{
+      try{await window.UCVM_PAWS_DATA.listAfcRequests();return {unexpectedSuccess:true};}
+      catch(error){return {status:error?.status,code:error?.code};}
+     });
+     assert.deepEqual(denied,{status:403,code:'ROLE_DENIED'});
+     await page.getByRole('alert').getByRole('heading',{name:'Your access has changed',exact:true}).waitFor({state:'visible'});
+     const rejection=await waitTrace(()=>trace.slice(denialStart).find(event=>event.event==='browser-response'&&matchesRead(event,'afc-requests')&&event.status===403&&event.code==='ROLE_DENIED'),15000);
+     await waitTrace(()=>trace.slice(denialStart).find(event=>event.event==='access-invalidated'&&event.reason==='changed'&&event.branch==='api-revocation-error'),15000);
+     const cleared=await page.evaluate(async()=>{
+      const data=window.UCVM_PAGE_DATA,guard=window.UCVM_EFFECTIVE_ACCESS.guard;
+      let subsequent;
+      try{await window.UCVM_PAWS_DATA.currentUser();subsequent='unexpected-success';}catch(error){subsequent=error?.code;}
+      return {guardCurrent:guard.current(guard.capture()),privateProfilePresent:!!data.profile(),cachedSessions:data.sessions().length,cachedFaculty:data.facultyDirectory().length,subsequent};
+     });
+     assert.deepEqual(cleared,{guardCurrent:false,privateProfilePresent:false,cachedSessions:0,cachedFaculty:0,subsequent:'ACCESS_CHANGED'});
+     result.checks.realRoleDenialBlocks=true;
+     receipt.realRoleDenial={status:'passed',role:'adc',viewport:1440,normalVisitCompleted:true,httpStatus:rejection.status,errorCode:rejection.code,oldGuardBlocked:true,privateDataCleared:true,subsequentReadDenied:true};
+     console.log('BROWSER_QA_REAL_ROLE_DENIAL '+JSON.stringify(receipt.realRoleDenial));
+     // Synthetic browser context is discarded in finally; its ordinary
+     // product-button signout was already independently accepted above.
     }
     assert.notEqual(trace.overflow,true,'Diagnostic trace must be complete.');
     result.status='passed';
@@ -1049,6 +1127,10 @@ async function main(){
  console.log('PR171_TASKS_DIAGNOSTIC_SUMMARY '+JSON.stringify({sql:receipt.schedulingTaskDiagnostics.sql.map(({phase,status})=>({phase,status})),http:receipt.schedulingTaskDiagnostics.http,populated:receipt.schedulingTaskDiagnostics.populated.status,reviewGateUnchanged:true,passed:tasksPassed}));
  assert.equal(receipt.officeCapabilityChecks.length,2);
  assert.equal(receipt.roles.filter(row=>officeOnly.has(row.role)&&row.checks.officeCapabilitiesReadOnly===true).length,4);
+ assert.equal(receipt.roles.filter(row=>row.checks.notificationSources===true).length,18);
+ assert.equal(receipt.roles.filter(row=>officeOnly.has(row.role)&&row.checks.noForbiddenAfcRead===true).length,4);
+ assert.equal(receipt.realRoleDenial?.status,'passed');
+ console.log('BROWSER_QA_NOTIFICATION_MATRIX_OK '+JSON.stringify({allCases:18,officeNoAfcReads:4,otherEligibleAfcReads:14,swapAllCases:18,realDenialBlocked:true}));
  assert.equal(tasksPassed,true,'Independent Tasks read-contract acceptance must pass; no false conflict-free success.');
 }
 main().catch(error=>{

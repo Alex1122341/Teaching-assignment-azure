@@ -263,3 +263,28 @@ test('the AFC request list retains a saved rejection reason within the scoped re
   assert.equal(status, 200);
   assert.deepEqual(body.afcRequests.map(row => row.rejectionReason), ['Overlap with scheduled teaching', null]);
 });
+
+test('Calendar-only ADC and LAB discover explicit false capabilities without AFC authorization',async()=>{
+ const gates={sessionEdit:true,sessionBatchEdit:true,sessionCreate:true,afcSingle:true,afcBatch:true,afcRequest:true,afcDecision:true,afcArtifact:true,afcEdit:true};
+ const closed={sessionEdit:false,sessionBatchEdit:false,sessionCreate:false,afcSingle:false,afcBatch:false,requestLifecycle:false,decisions:false,approvedArtifactCreation:false,dateChange:false};
+ const repository=new Proxy({}, {get(){throw Error('Calendar-only capability discovery and denied AFC actions must not reach repository');}});
+ for(const baseRole of ['adc','lab']){
+  const api=createAfcRequestApi({verifyToken:async()=>({uid:'synthetic-office'}),findUser:async()=>({active:true,baseRole,facultyId:null}),repository,writeGates:gates});
+  assert.deepEqual(await api.writeCapabilities('valid'),{status:200,body:{writeCapabilities:closed}});
+  for(const [method,args] of [['list',[]],['submit',[{}]],['changeDates',['synthetic',{}]],['officeChangeDates',['synthetic',{}]],['withdraw',['synthetic']]]){
+   const denied=await api[method]('valid',...args);
+   assert.equal(denied.status,403);assert.equal(denied.body.error.code,'ROLE_DENIED');
+  }
+ }
+});
+
+test('Calendar capability discovery still rejects missing, inactive, password-required and unsupported SQL identities',async()=>{
+ for(const [profile,code] of [[null,'PROFILE_REQUIRED'],[{active:false,baseRole:'adc'},'PROFILE_REQUIRED'],[{active:true,baseRole:'lab',mustChangePassword:true},'PASSWORD_CHANGE_REQUIRED'],[{active:true,baseRole:'unknown'},'ROLE_DENIED'],[{active:true,baseRole:'faculty'},'FACULTY_LINK_REQUIRED']]){
+  const api=createAfcRequestApi({verifyToken:async()=>({uid:'synthetic'}),findUser:async()=>profile,repository:{}});
+  const denied=await api.writeCapabilities('valid');assert.equal(denied.status,403);assert.equal(denied.body.error.code,code);
+ }
+ const invalid=createAfcRequestApi({verifyToken:async()=>{throw Error('invalid token');},findUser:async()=>{throw Error('SQL must not run');},repository:{}});
+ assert.equal((await invalid.writeCapabilities('invalid')).status,401);
+ const unavailable=createAfcRequestApi({verifyToken:async()=>({uid:'synthetic'}),findUser:async()=>{throw Error('SQL unavailable');},repository:{}});
+ assert.equal((await unavailable.writeCapabilities('valid')).status,503);
+});

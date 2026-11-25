@@ -37,6 +37,12 @@ function connection(user,password){
 }
 const admin=connection('sa',saPassword);
 let runtime,stage='marker';
+// Synthetic fixture diagnostics only; never emit SQL text, connection
+// configuration, raw SQL messages, tokens, or production identities.
+const emit=(event,details)=>console.log('PR171_DOE_DIAGNOSTIC '+JSON.stringify({stage,event,...details}));
+const errorFacts=error=>({code:error?.code||null,number:error?.number??error?.originalError?.info?.number??null,precedingNumbers:(error?.precedingErrors||[]).map(e=>e?.number??e?.originalError?.info?.number??null),name:error?.name||null});
+const factSummary=facts=>({sessionId:facts.sessionId,assignmentId:facts.assignmentId,facultyId:facts.facultyId,academicYear:facts.academicYear,courseCode:facts.courseCode,activityType:facts.activityType,role:facts.role,hours:facts.hours??null});
+
 async function main(){
  const mark=await admin.query('SELECT CONVERT(varchar(36),Marker) AS marker FROM dbo.Batch171DisposableMarker WHERE Marker=@marker',{marker});
  assert.equal(mark.length,1);assert.equal(mark[0].marker.toLowerCase(),marker.toLowerCase());
@@ -69,8 +75,29 @@ async function main(){
  const repo=createSqlSessionRepository(runtime);
  const engine=createSqlDoeEngineRepository(runtime);
  const assignments=createSqlDoeAssignmentRepository(runtime);
- const service=createDoeSessionService({repository:{...engine,...assignments},calculationService:createDoeCalculationService({repository:engine})});
- const api=createDataApi({verifyToken:async()=>({uid:actor}),findUser:async()=>({active:true,baseRole:'adfa_regular',displayName:'Synthetic ADFAD'}),listSessions:repo.list,updateSessionBatch:repo.updateBatch,recalculateSessionDoe:service.recalculate,writeGates:{sessionEdit:true,sessionBatchEdit:true}});
+ const calculator=createDoeCalculationService({repository:engine});
+ const tracedRepository={...engine,...assignments,
+  async loadSessionDoeFacts(id){
+   try{
+    const loaded=await assignments.loadSessionDoeFacts(id);
+    emit('facts',{sessionId:id,academicYear:loaded?.academicYear,courseCode:loaded?.courseCode,sessionType:loaded?.sessionType,startTime:loaded?.startTime,endTime:loaded?.endTime,assignments:(loaded?.assignments||[]).map(a=>({assignmentId:a.sessionAssignmentId,facultyId:a.facultyId,role:a.teachingRole,creditedHours:a.creditedHours,revision:a.doeRevision}))});
+    return loaded;
+   }catch(error){emit('load-failed',{sessionId:id,...errorFacts(error)});throw error;}
+  },
+  async saveSessionDoeCalculations(input){
+   const sessionIds=[...new Set(input.rows.map(row=>row.sessionId))];
+   emit('persist-start',{sessionIds,rows:input.rows.map(row=>({facts:factSummary(row.factsSnapshot),status:row.calculationStatus,resultDoe:row.resultDoe,ruleKey:row.ruleKey}))});
+   try{const saved=await assignments.saveSessionDoeCalculations(input);emit('persist-complete',{sessionIds,count:saved.length});return saved;}
+   catch(error){emit('persist-failed',{sessionIds,...errorFacts(error)});throw error;}
+  }
+ };
+ const tracedCalculator={async preview(input){
+  const facts=factSummary(input.facts);
+  try{const outcome=await calculator.preview(input);emit('rule-preview',{facts,status:outcome.status,ruleKey:outcome.ruleKey,resultDoe:outcome.resultDoe});return outcome;}
+  catch(error){emit('rule-preview-failed',{facts,...errorFacts(error)});throw error;}
+ }};
+ const service=createDoeSessionService({repository:tracedRepository,calculationService:tracedCalculator});
+ const api=createDataApi({verifyToken:async()=>({uid:actor}),findUser:async()=>({active:true,baseRole:'adfa_regular',displayName:'Synthetic ADFAD'}),listSessions:repo.list,updateSessionBatch:repo.updateBatch,recalculateSessionDoe:async input=>{try{const result=await service.recalculate(input);emit('service-outcome',{sessionId:input.sessionId,...result});return result;}catch(error){emit('service-failed',{sessionId:input.sessionId,...errorFacts(error)});throw error;}},writeGates:{sessionEdit:true,sessionBatchEdit:true}});
  const get=async id=>{
   const result=await repo.list({sessionId:id,includeAssignmentTargets:true,includeBatchEditToken:true});
   assert.equal(result.length,1);return result[0];
@@ -108,6 +135,7 @@ async function main(){
   await edit(ids[1],{startTime:'10:00',endTime:'12:00',topic:'DOE calculated B'})
  ]);
  assert.equal(committed.status,200);
+ emit('batch-outcomes',{rows:committed.body.sessions.map((row,index)=>({sessionId:row.id,doe:committed.body.doe[index]}))});
  assert.deepEqual(committed.body.doe.map(d=>d.status),['calculated','calculated']);
  const rows=await admin.query(`
  SELECT CONVERT(varchar(36),f.SessionId) AS id,f.Revision AS revision,c.ResultDoe AS result,

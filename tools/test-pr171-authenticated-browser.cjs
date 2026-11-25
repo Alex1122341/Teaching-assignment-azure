@@ -10,7 +10,7 @@ const {execFileSync}=require('node:child_process');
 const {randomUUID,randomBytes}=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const originalSha='343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8';
-const sha='b318b33627c42cef342e130046edd88e73365c07';
+const sha='f698597bf37829082fc8a8341157c12bfb3f53e7';
 const baselineRoot=process.env.PAWS_BASELINE_ROOT;
 const project='demo-paws-pr171';
 const marker=process.env.PAWS_BROWSER_TEST_MARKER;
@@ -38,6 +38,7 @@ const {createSqlConnection}=require('../server/src/data/sql-connection');
 const {createSqlUserRepository}=require('../server/src/data/sql-user-repository');
 const {createSqlAccountAccessRepository}=require('../server/src/data/sql-account-access-repository');
 const {createSqlTeachingAccessRepository}=require('../server/src/data/sql-teaching-access-repository');
+const {createSqlSchedulingTaskRepository}=require('../server/src/data/sql-scheduling-task-repository');
 const {createEffectiveTeachingIdentity}=require('../server/src/access/effective-teaching-identity');
 const {calgaryDate}=require('../server/src/roles/role-effective-status');
 const {createSwaSqlRuntime}=require('../server/src/runtime/swa-sql-runtime');
@@ -123,11 +124,11 @@ function traceEvent(trace,event,details={}){
 // branch labels; stack strings, paths, query values and error text never leave
 // the local diagnostic parser.
 const invalidationBranches=new Map([
- [22,'auth-state-identity-changed'],[35,'access-not-ready'],[36,'access-version-invalid'],
- [37,'scope-version-invalid'],[39,'access-profile-binding-changed'],
- [40,'access-signature-changed'],[45,'access-check-rejected'],
- [49,'profile-inactive-or-password-required'],[51,'profile-access-binding-changed'],
- [52,'profile-signature-changed'],[55,'api-revocation-error']
+ [33,'firebase-signed-out'],[37,'auth-state-identity-changed'],[50,'access-not-ready'],[51,'access-version-invalid'],
+ [52,'scope-version-invalid'],[54,'access-profile-binding-changed'],
+ [55,'access-signature-changed'],[60,'access-check-rejected'],
+ [64,'profile-inactive-or-password-required'],[66,'profile-access-binding-changed'],
+ [67,'profile-signature-changed'],[70,'api-revocation-error']
 ]);
 function safeFrames(stack,allowed){
  if(typeof stack!=='string')return [];
@@ -370,6 +371,43 @@ async function main(){
    return {versionValid:true,assignmentCount:snapshot.assignments.length};
   });
   await expectEmailDenied('owner-directory-existing-contact-read-stays-denied',()=>accounts.list());
+  // Independent read-only diagnosis of the previously observed Tasks 503.
+  // Keep it out of the identity acceptance counts: no grant or write-gate
+  // change is made to mask this separate release blocker.
+  const taskDiagnostics=[];
+  receipt.schedulingTaskDiagnostics={sql:taskDiagnostics,http:[]};
+  async function taskProbe(phase,run){
+   try{
+    const facts=await run(),record={phase,status:'passed',facts};
+    taskDiagnostics.push(record);console.log('BROWSER_QA_TASKS_DIAGNOSTIC '+JSON.stringify(record));
+   }catch(error){
+    const record={phase,status:'blocked',...sqlError(error)};
+    taskDiagnostics.push(record);console.log('BROWSER_QA_TASKS_DIAGNOSTIC '+JSON.stringify(record));
+   }
+  }
+  await taskProbe('reviewed-list-execute-permission',async()=>{
+   const [row]=await diagnosticDb.query("SELECT HAS_PERMS_BY_NAME(N'paws_api.ListSchedulingTasks',N'OBJECT',N'EXECUTE') AS listExecute,HAS_PERMS_BY_NAME(N'paws_api.ReviewSchedulingTask',N'OBJECT',N'EXECUTE') AS reviewExecute");
+   assert.equal(row.listExecute,1);assert.equal(row.reviewExecute,0);
+   return {listExecute:row.listExecute,reviewExecute:row.reviewExecute};
+  });
+  for(const [actor,role] of [[uid,'developer'],[facultyUid,'faculty']]){
+   const query={academicYear:'2026-27',limit:50};
+   await taskProbe('raw-list-procedure-'+role,async()=>{
+    const rows=await diagnosticDb.query('EXEC paws_api.ListSchedulingTasks @ActorFirebaseUid=@actor,@QueryJson=@query',{actor,query:JSON.stringify(query)});
+    const raw=rows[0]?.responseJson;
+    const facts={rows:rows.length,jsonPresent:typeof raw==='string',validJson:false,taskArrayPresent:false,totalValid:false,snapshotValid:false};
+    try{const body=JSON.parse(raw);facts.validJson=true;facts.taskArrayPresent=Array.isArray(body.tasks);facts.totalValid=Number.isInteger(body.total);facts.snapshotValid=typeof body.snapshotVersion==='string'&&/^[a-f0-9]{64}$/i.test(body.snapshotVersion);}catch(_){}
+    // Only shape flags, never SQL/response contents or identity values.
+    console.log('BROWSER_QA_TASKS_RAW_SHAPE '+JSON.stringify({role,...facts}));
+    assert.equal(rows.length,1);assert.equal(facts.validJson,true);assert.equal(facts.taskArrayPresent,true);assert.equal(facts.totalValid,true);assert.equal(facts.snapshotValid,true);
+    return facts;
+   });
+   await taskProbe('product-task-repository-'+role,async()=>{
+    const queue=await createSqlSchedulingTaskRepository(diagnosticDb).list({actorFirebaseUid:actor,query});
+    assert.ok(Array.isArray(queue.tasks));assert.ok(Number.isInteger(queue.total));
+    return {taskCount:queue.tasks.length,totalValid:true};
+   });
+  }
   for(const [userId,role] of [[uid,'developer'],[facultyUid,'faculty']]){
    await probe('effective-identity-'+role,async()=>{
     const profile=checkProfile(await effective(userId),userId,role,true);
@@ -383,6 +421,7 @@ async function main(){
  accessDiagnostics.expectedEmailDenials=denialCount;
  assert.equal(denialCount,7);
  receipt.releaseBlockers=['Owner directory still requires a separately reviewed controlled Email read; no release or freeze approval for this product'];
+ if(receipt.schedulingTaskDiagnostics.sql.some(row=>row.status==='blocked'))receipt.releaseBlockers.push('Scheduling Tasks read: independent SQL diagnostic blocked');
  console.log('BROWSER_QA_SQL_ACCESS_SUMMARY '+JSON.stringify({probes:accessDiagnostics.probes.length,failed:accessDiagnostics.failedCount}));
  // Still run the original first browser gate even if a read probe failed,
  // so the actual API/transport error is independently correlated. A failed
@@ -471,6 +510,20 @@ async function main(){
   assert.equal(directory.status,user.role==='adfa_general'?503:403);
   assert.equal(directory.body.error.code,user.role==='adfa_general'?'ACCESS_UNAVAILABLE':'OWNER_REQUIRED');
   assert.equal(Object.hasOwn(directory.body,'accounts'),false);
+  if(user.uid===identities[0].uid||user.uid===identities.find(item=>item.role==='faculty').uid){
+   const tasks=await call(token,'/api/v1/scheduling-tasks?academicYear=2026-27&limit=50');
+   const facts={role:user.role,status:tasks.status,code:safeCode(tasks.body.error?.code),readPassed:tasks.status===200,reviewEnabled:tasks.body.capabilities?.canReview===true};
+   receipt.schedulingTaskDiagnostics.http.push(facts);
+   console.log('BROWSER_QA_TASKS_HTTP '+JSON.stringify(facts));
+   if(tasks.status===200){assert.ok(Array.isArray(tasks.body.tasks));assert.equal(facts.reviewEnabled,false);}
+   else{assert.equal(tasks.status,503);assert.equal(facts.code,'SERVICE_UNAVAILABLE');receipt.releaseBlockers.push('Scheduling Tasks GET blocked for '+user.role);}
+   // Review remains closed. The deliberately invalid command cannot mutate
+   // any record; the existing role/write-gate rejection must occur first.
+   const review=await call(token,'/api/v1/scheduling-tasks/'+'0'.repeat(64)+'/review','POST',{});
+   assert.equal(review.status,admins.has(user.role)?503:403);
+   assert.equal(review.body.error.code,admins.has(user.role)?'WRITE_DISABLED':'ROLE_DENIED');
+   console.log('BROWSER_QA_TASKS_REVIEW_GATE '+JSON.stringify({role:user.role,status:review.status,code:safeCode(review.body.error.code)}));
+  }
   if(!admins.has(user.role)){
    const denied=await call(token,'/api/v1/sessions/batch-edit','POST',{edits:[]});
    assert.equal(denied.status,403);assert.equal(denied.body.error.code,'ROLE_DENIED');
@@ -514,17 +567,17 @@ async function main(){
    const requestId=request=>{if(!requestIds.has(request))requestIds.set(request,++nextRequestId);return requestIds.get(request);};
    const scriptNames=new Set(manifest.filter(file=>/^[A-Za-z0-9_-]+\.js$/.test(file)));
    const browserEvents=new Set(['firebase-auth-state','profile-event','access-invalidated','access-invalidated-after','window-error','unhandled-rejection']);
-   const booleanKeys=['sessionEstablished','sameExpectedIdentity','gateLocked','accountControlPresent','gateSignInPresent','sessionGuardBlocked','guardCurrent'];
+   const booleanKeys=['sessionEstablished','sameExpectedIdentity','gateLocked','accountControlPresent','gateSignInPresent','sessionGuardBlocked','guardCurrent','privateProfilePresent','privateFacultyPresent'];
    const stateKeys=value=>{
     if(!value||typeof value!=='object')return null;
     return {...Object.fromEntries(booleanKeys.map(key=>[key,typeof value[key]==='boolean'?value[key]:null])),
-     guardGeneration:Number.isInteger(value.guardGeneration)?value.guardGeneration:null};
+     guardGeneration:Number.isInteger(value.guardGeneration)?value.guardGeneration:null,cachedSessions:Number.isInteger(value.cachedSessions)?value.cachedSessions:null,cachedFaculty:Number.isInteger(value.cachedFaculty)?value.cachedFaculty:null};
    };
    await page.exposeBinding('__pawsQaEmit',(_source,value)=>{
     if(!value||!browserEvents.has(value.event))return;
     const frames=Array.isArray(value.frames)?value.frames.filter(f=>scriptNames.has(f?.script)&&Number.isInteger(f.line)&&Number.isInteger(f.column)).slice(0,8).map(f=>({script:f.script,line:f.line,column:f.column})):[];
     const branch=value.event==='access-invalidated'?frames.filter(f=>f.script==='effective-access-guard.js').map(f=>invalidationBranches.get(f.line)).find(Boolean)||'unresolved':null;
-    const reason=['changed','unverified','password_required'].includes(value.reason)?value.reason:null;
+    const reason=['changed','unverified','password_required','signed_out'].includes(value.reason)?value.reason:null;
     const category=['null-property-read','null-property-write','undefined-property-read','undefined-property-write','not-a-function','network','other'].includes(value.category)?value.category:null;
     traceEvent(trace,value.event,{observedMs:Number.isFinite(value.at)?value.at-trace.startedAt:null,pageSequence:Number.isInteger(value.seq)?value.seq:null,reason,branch,
      errorName:value.name?safeName(value.name):null,errorCode:safeCode(value.code),category,frames,
@@ -536,8 +589,9 @@ async function main(){
     const frames=stack=>typeof stack==='string'?[...stack.matchAll(/\/([A-Za-z0-9_-]+\.js):(\d+):(\d+)/g)].filter(m=>allowed.has(m[1])).slice(0,8).map(m=>({script:m[1],line:Number(m[2]),column:Number(m[3])})):[];
     const snapshot=()=>{
      const user=window.firebase?.apps?.length?firebase.auth().currentUser:null,guard=window.UCVM_EFFECTIVE_ACCESS?.guard;
-     const generation=guard?.capture?.();
-     return {sessionEstablished:!!user,sameExpectedIdentity:!!user&&user.uid===expectedUid,
+     const generation=guard?.capture?.(),data=window.UCVM_PAGE_DATA;
+     return {privateProfilePresent:!!data?.profile?.(),privateFacultyPresent:!!data?.faculty?.(),cachedSessions:data?.sessions?.().length??null,cachedFaculty:data?.facultyDirectory?.().length??null,
+      sessionEstablished:!!user,sameExpectedIdentity:!!user&&user.uid===expectedUid,
       gateLocked:document.body?.classList.contains('auth-locked')===true,accountControlPresent:!!document.getElementById('account-toggle'),
       gateSignInPresent:!!document.getElementById('gate-sign-in'),sessionGuardBlocked:window.__ucvmSessionGuard?.blocked===true,
       guardGeneration:Number.isInteger(generation)?generation:null,guardCurrent:generation!==undefined?guard?.current?.(generation)===true:null};
@@ -566,7 +620,7 @@ async function main(){
     window.addEventListener('paws-profile',()=>{t.profileEvents++;emit('profile-event');});
     window.addEventListener('paws-access-invalidated',event=>{
      const reason=event.detail?.reason;
-     t.invalidated=['unverified','changed','password_required'].includes(reason)?reason:'other';
+     t.invalidated=['unverified','changed','password_required','signed_out'].includes(reason)?reason:'other';
      // Synchronous stack identifies the guard caller at the original branch.
      emit('access-invalidated',{reason:t.invalidated,frames:frames(new Error().stack)});
      queueMicrotask(()=>emit('access-invalidated-after',{reason:t.invalidated}));
@@ -751,20 +805,84 @@ async function main(){
     traceEvent(trace,'phase-start',{phase:'screenshot',...await browserState(page)});
     await page.screenshot({path:path.join(out,user.uid+'-'+viewport.width+'.png')});
     traceEvent(trace,'phase-complete',{phase:'screenshot',...await browserState(page)});
-    stage='browser-intended-signout:'+user.uid+':'+viewport.width;
-    const beforeSignout=await browserState(page);
-    traceEvent(trace,'qa-signout-requested',{...beforeSignout});
-    // Do not claim an already-lost session was signed out successfully.
-    assert.equal(beforeSignout.sessionEstablished,true);
-    await page.evaluate(()=>firebase.auth().signOut());
-    traceEvent(trace,'qa-signout-returned',{...await browserState(page)});
-    stage='browser-signed-out-gate:'+user.uid+':'+viewport.width;
-    await page.locator('#gate-sign-in').waitFor({state:'visible'});
-    traceEvent(trace,'phase-complete',{phase:'signed-out-gate',...await browserState(page)});
-    stage='browser-signout-cleanup:'+user.uid+':'+viewport.width;
-    assert.equal(await page.evaluate(()=>firebase.auth().currentUser),null);
+    async function productSignoutAndVerify(label){
+     stage='browser-logout-cache-before:'+user.uid+':'+viewport.width+':'+label;
+     // Establish that the actual page has private data to clear, not just
+     // that a fresh unauthenticated page starts empty.
+     const before=await page.evaluate(async()=>{
+      const data=window.UCVM_PAGE_DATA,rows=await data.allSessions();
+      return {documentEpoch:performance.timeOrigin,sessionEstablished:!!firebase.auth().currentUser,
+       privateProfilePresent:!!data.profile(),cachedSessions:data.sessions().length,loadedSessions:rows.length};
+     });
+     assert.equal(before.sessionEstablished,true);assert.equal(before.privateProfilePresent,true);
+     assert.equal(before.loadedSessions,scoped.has(user.role)?1:expectedAll.length);
+     assert.equal(before.cachedSessions,before.loadedSessions);
+     traceEvent(trace,'logout-private-cache-before',{label,sessionEstablished:true,privateProfilePresent:true,cachedSessions:before.cachedSessions});
+     stage='browser-product-signout:'+user.uid+':'+viewport.width+':'+label;
+     await page.locator('#account-toggle').click();
+     await page.locator('#logout-btn').waitFor({state:'visible'});
+     const traceStart=trace.length;
+     traceEvent(trace,'qa-signout-requested',{label,via:'product-logout-button',...await browserState(page)});
+     // A real click, no SDK signOut call or forced navigation from QA.
+     await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded',timeout:30000}),page.locator('#logout-btn').click()]);
+     stage='browser-signed-out-gate:'+user.uid+':'+viewport.width+':'+label;
+     await page.locator('#gate-sign-in').waitFor({state:'visible'});
+     await page.waitForFunction(()=>window.firebase?.apps?.length&&firebase.auth().currentUser===null&&document.body.classList.contains('auth-locked')&&!!window.UCVM_PAGE_DATA);
+     const clean=await page.evaluate(async()=>{
+      const data=window.UCVM_PAGE_DATA,guard=window.UCVM_EFFECTIVE_ACCESS?.guard,body=document.body;
+      return {documentEpoch:performance.timeOrigin,sessionEstablished:!!firebase.auth().currentUser,
+       privateProfilePresent:!!data.profile(),privateFacultyPresent:!!data.faculty(),
+       cachedSessions:data.sessions().length,cachedFaculty:data.facultyDirectory().length,allSessions:(await data.allSessions()).length,
+       gateLocked:body.classList.contains('auth-locked'),privateFixtureTextPresent:/Synthetic (?:QA|Faculty|session|Browser QA)/i.test(body.innerText),
+       selectionHidden:document.getElementById('selection-controls')?.classList.contains('hidden')===true,
+       accountSignedOut:document.getElementById('account-toggle')?.textContent.trim()==='Sign in',
+       guardCurrent:!!guard&&guard.current(guard.capture()),supportContextAbsent:sessionStorage.getItem('paws-support-context-v1')===null};
+     });
+     assert.notEqual(clean.documentEpoch,before.documentEpoch);
+     assert.deepEqual({...clean,documentEpoch:0},{documentEpoch:0,sessionEstablished:false,privateProfilePresent:false,privateFacultyPresent:false,cachedSessions:0,cachedFaculty:0,allSessions:0,gateLocked:true,privateFixtureTextPresent:false,selectionHidden:true,accountSignedOut:true,guardCurrent:true,supportContextAbsent:true});
+     const oldClear=trace.slice(traceStart).find(event=>event.event==='access-invalidated-after'&&event.reason==='signed_out');
+     // The navigation may retire the old document before its asynchronous
+     // observer binding is delivered. VM regression proves terminal ordering;
+     // the fresh document and all data checks above remain mandatory.
+     if(oldClear){assert.equal(oldClear.state?.guardCurrent,false);assert.equal(oldClear.state?.privateProfilePresent,false);assert.equal(oldClear.state?.cachedSessions,0);}
+     traceEvent(trace,'logout-private-cache-cleared',{label,freshDocument:true,oldDocumentObservation:!!oldClear,sessionEstablished:false,cachedSessions:0,cachedFaculty:0,privateProfilePresent:false,privateFixtureTextPresent:false});
+     stage='browser-anonymous-api:'+user.uid+':'+viewport.width+':'+label;
+     const denied=await page.evaluate(async()=>{
+      const out=[];
+      for(const route of ['access/self','me','sessions']){
+       const response=await fetch('https://paws-pr171-qa.invalid/api/v1/'+route,{credentials:'omit'});
+       const body=await response.json();
+       out.push({status:response.status,code:body.error?.code,hasPrivate:Object.hasOwn(body,'profile')||Object.hasOwn(body,'access')||Object.hasOwn(body,'sessions')});
+      }
+      return out;
+     });
+     assert.deepEqual(denied,Array.from({length:3},()=>({status:401,code:'UNAUTHENTICATED',hasPrivate:false})));
+     assert.equal(trace.slice(traceStart).some(event=>['page-error','window-error','unhandled-rejection'].includes(event.event)&&(event.name==='TypeError'||event.errorName==='TypeError')),false,'No TypeError during logout/return to login');
+     assert.equal(await page.evaluate(()=>firebase.auth().currentUser),null);
+     traceEvent(trace,'product-signout-accepted',{label,freshDocument:true,privateDataCleared:true,anonymousDenied:true,typeError:false});
+    }
+    await productSignoutAndVerify('initial');
+    result.checks.signOutCleanup=true;result.checks.anonymousApiDenied=true;result.checks.privateDataCleared=true;
+    if(receipt.roles.length===1){
+     stage='browser-relogin:'+user.uid+':'+viewport.width;
+     await page.locator('#gate-sign-in').click();
+     await page.locator('#choose-email').click();
+     await page.locator('#login-email').fill(user.email);
+     await page.locator('#login-password').fill(password);
+     await page.locator('#email-login-submit').click();
+     await page.waitForFunction(uid=>window.firebase?.apps?.length&&firebase.auth().currentUser?.uid===uid,user.uid,{timeout:20000});
+     await page.waitForFunction(role=>document.getElementById('account-toggle')?.textContent.trim().endsWith(' - '+role),user.role,{timeout:30000});
+     await page.waitForFunction(()=>!document.body.classList.contains('auth-locked'),null,{timeout:30000});
+     const again=await page.evaluate(async()=>{
+      const p=await window.UCVM_PAWS_DATA.currentUser(),rows=await window.UCVM_PAWS_DATA.listSessions(),sessions=Array.isArray(rows)?rows:rows.sessions;
+      return {role:p.role,ids:sessions.map(row=>String(row.id).toLowerCase()).sort(),tokens:sessions.filter(row=>row.batchEditToken).length};
+     });
+     assert.equal(again.role,user.role);assert.deepEqual(again.ids,expectedAll);assert.equal(again.tokens,expectedAll.length);
+     traceEvent(trace,'product-relogin-accepted',{sameRole:true,sessionCount:again.ids.length,batchTokenCount:again.tokens});
+     result.checks.relogin=true;
+     await productSignoutAndVerify('after-relogin');
+    }
     assert.notEqual(trace.overflow,true,'Diagnostic trace must be complete.');
-    result.checks.signOutCleanup=true;
     result.status='passed';
    }catch(error){
     result.status='failed';result.failure=fail(error);receipt.failures.push(result.failure);
@@ -796,6 +914,7 @@ async function main(){
  assert.equal(receipt.failures.length,0,'One or more browser role/viewport checks failed.');
  console.log('PR171_ISOLATED_AUTHENTICATED_BROWSER_OK');
  console.log('PR171_OWNER_DIRECTORY_BLOCKED: original contact-read permission gap; no release approval');
+ console.log('PR171_TASKS_DIAGNOSTIC_SUMMARY '+JSON.stringify({sql:receipt.schedulingTaskDiagnostics.sql.map(({phase,status})=>({phase,status})),http:receipt.schedulingTaskDiagnostics.http,reviewGateUnchanged:true}));
 }
 main().catch(error=>{
  receipt.failure=fail(error);console.error('BROWSER_QA_FAILED '+JSON.stringify(receipt.failure));process.exitCode=1;

@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 35
     env:
       ORIGINAL_PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
-      PRODUCT_SHA: b318b33627c42cef342e130046edd88e73365c07
+      PRODUCT_SHA: f698597bf37829082fc8a8341157c12bfb3f53e7
       GOVERNANCE_SHA: 5d90e1ffffafa4ba3b482abd010355d6abfa6e4e
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
           # New product is an unapproved-for-release review candidate. Its
           # only protected delta from the accepted anchor must be these files.
           actual="$(git diff --name-only "$ORIGINAL_PRODUCT_SHA" "$PRODUCT_SHA" -- frontend server/src swa-api database/azure-sql tools/static-assets.json deploy/aca/Dockerfile server/package.json server/package-lock.json package.json package-lock.json firestore.rules firestore.indexes.json)"
-          expected="$(printf '%s\n' server/src/data/sql-account-access-repository.js server/src/data/sql-user-repository.js)"
+          expected="$(printf '%s\n' frontend/scripts/effective-access-guard.js frontend/scripts/timetable.js server/src/data/sql-account-access-repository.js server/src/data/sql-user-repository.js)"
           test "$actual" = "$expected"
           git merge-base --is-ancestor "$GOVERNANCE_SHA" HEAD
           git diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql tools/static-assets.json deploy/aca/Dockerfile server/package.json server/package-lock.json package.json package-lock.json firestore.rules firestore.indexes.json
@@ -58,6 +58,8 @@ jobs:
       - run: npm ci --prefix server
       - name: Focused identity and authorization regression
         run: node --test server/test/repositories.test.js server/test/account-access-repository.test.js server/test/account-access-api.test.js server/test/account-access-runtime.test.js server/test/effective-teaching-identity.test.js server/test/runtime.test.js server/test/me-server-timing.test.js
+      - name: Focused frontend logout and unchanged access guard regression
+        run: node --test tests/effective-access-guard.test.js tests/account-access-client.test.js tests/session-guard.test.js tests/b2a1-auth-continuity.test.js tests/timetable-azure-sql-read.test.js
       - name: Build exact static assets
         run: npm run build
       - name: Install browser-only tooling outside repository

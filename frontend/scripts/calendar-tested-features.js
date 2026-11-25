@@ -29,6 +29,18 @@
   add('swap-pending',count(swaps,r=>r.status==='pending'&&r.canDecide===true),'SWAP requests awaiting your decision','swap-inbox-btn');
   return rows;
  }
+ // Use the verified SQL profile already held by Calendar, not UI write
+ // capability flags. AFC reads require an administrator or linked faculty
+ // self-service role. SWAP queue has its own active/profile contract and
+ // SQL scope checks, so ADC/LAB remain eligible for SWAP.
+ const afcAdminRoles=new Set(['developer','adfa_general','adfa_regular','owner','administrator','admin']);
+ const afcSelfRoles=new Set(['faculty','hicc','visc']);
+ function notificationSources(user){
+  const profile=user?.profile;
+  const ready=Boolean(user?.uid)&&profile?.active===true&&profile.mustChangePassword!==true;
+  const role=String(profile?.role||'').trim().toLowerCase();
+  return {afc:ready&&(afcAdminRoles.has(role)||(afcSelfRoles.has(role)&&Boolean(String(profile.facultyId||'').trim()))),swap:ready};
+ }
  let generation=0,shownUid='',panel=null;
  function clearNotifications(){generation++;shownUid='';if(panel)panel.remove();panel=null;}
  async function showNotifications(user,{getUser,api,isAdmin=false}={}){
@@ -37,8 +49,19 @@
   clearNotifications();shownUid=uid;
   const token=generation,key='paws-workflow-notice-dismissed:'+uid;
   try{if(root.sessionStorage.getItem(key)==='1')return;}catch(_){}
-  const results=await Promise.allSettled([Promise.resolve().then(()=>api.listAfcRequests()),Promise.resolve().then(()=>api.swapQueue())]);
-  if(generation!==token||getUser()?.uid!==uid)return;
+  const sources=notificationSources(user);
+  const current=()=>generation===token&&getUser()?.uid===uid;
+  // Select the permitted sources BEFORE sending a request. An expected
+  // ROLE_DENIED must never be triggered merely by optional notifications.
+  // A real authorization failure from an eligible source still goes through
+  // the unchanged data-client/guard. Keep the generation and UID checks
+  // before dispatch and after all responses, including account switches.
+  const load=(source,read,empty)=>sources[source]?Promise.resolve().then(()=>{
+   const live=getUser();
+   return generation===token&&live?.uid===uid&&notificationSources(live)[source]?read():empty;
+  }):Promise.resolve(empty);
+  const results=await Promise.allSettled([load('afc',()=>api.listAfcRequests(),[]),load('swap',()=>api.swapQueue(),{requests:[]})]);
+  if(!current())return;
   const rows=notices(user,results[0].status==='fulfilled'?results[0].value:[],results[1].status==='fulfilled'?results[1].value?.requests:[],isAdmin);
   if(!rows.length)return;
   const doc=root.document;

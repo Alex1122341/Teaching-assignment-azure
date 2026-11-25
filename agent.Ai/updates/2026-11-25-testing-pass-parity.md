@@ -81,3 +81,10 @@ Environment read-only checks:
 - Planned independent test roles: developer, adfa_general, adfa_regular, faculty, hicc, visc, adc, lab. No usable isolated login accounts confirmed. Do not substitute production accounts or the separate Testing repository.
 
 Dot may rerun automated checks on the new exact PR head. Manual authenticated/browser and real SQL acceptance remain BLOCKED until independent preview, dedicated test identities, and verified synthetic database/API are provisioned. No test executed by coding agent in this follow-up. Keep Draft; no merge, deployment, live gate activation, or freeze promotion.
+
+
+## 15. Dot round-two QA follow-up (2026-11-25)
+
+Dot reported candidate 54b884be3a832588fdf8f82b8ca8fc693b36cdd2: Calendar 50/50, frontend 110/111 (one stale 96-asset assertion in runtime-assets.test.js), API 22/22 using simulated SQL. Full exact-head CI, real authenticated browser QA and real SQL acceptance are outstanding. The coding follow-up corrects the current manifest count in runtime-assets.test.js and office-workspace-wiring.test.js, explicitly checks the new asset, and checks script load order. Historical freeze receipts, immutable anchors and actual byte comparisons remain unchanged. No tests executed by the coding agent.
+
+Remote inspection before the fix: refs/heads/feat/testing-pass-parity-20261125 pointed to 54b884b; refs/pull/171/head and GitHub PR metadata still pointed to adcc656. Do not use stale PR CI as evidence for the new commit. Confirm exact head/merge ref and CI identity independently.

@@ -1,6 +1,6 @@
 'use strict';
 // Identity and authorization reads deliberately exclude login contacts.
-// The separately Owner-authorized directory retains its explicit email projection.
+// The separately Owner-authorized directory uses the bounded SQL 073 procedure.
 const PROFILE=`u.FirebaseUid AS firebaseUid,u.DisplayName AS displayName,u.BaseRole AS baseRole,
  f.PreferredFirstName AS preferredFirstName,f.PreferredLastName AS preferredLastName,
  u.FacultyId AS facultyId,
@@ -23,7 +23,7 @@ function receipt(row){
 function createSqlAccountAccessRepository(db){
  return Object.freeze({
   async read(uid){return (await db.query(`SELECT ${PROFILE} FROM paws.UserProfile u LEFT JOIN paws.Faculty f ON f.FacultyId=u.FacultyId WHERE u.FirebaseUid=@uid`,{uid}))[0]||null;},
-  list:()=>db.query(`SELECT TOP(1001) u.Email AS email,${PROFILE} FROM paws.UserProfile u LEFT JOIN paws.Faculty f ON f.FacultyId=u.FacultyId ORDER BY u.DisplayName,u.FirebaseUid`),
+  list:({actorUid,actorVersion})=>db.query(`EXEC paws_api.ListOwnerAccountDirectory @ActorUid=@actorUid,@ActorVersion=@actorVersion`,{actorUid,actorVersion}),
   eligibleFaculty:()=>db.query(`SELECT TOP(5001) FacultyId AS facultyId,DisplayName AS displayName,PreferredFirstName AS preferredFirstName,PreferredLastName AS preferredLastName,Active AS active FROM paws.Faculty WHERE Active=1 ORDER BY DisplayName,FacultyId`),
   collaborators:()=>db.query(`SELECT TOP(1001) u.FirebaseUid AS firebaseUid,u.FacultyId AS facultyId,
    f.DisplayName AS displayName,f.PreferredFirstName AS preferredFirstName,f.PreferredLastName AS preferredLastName,

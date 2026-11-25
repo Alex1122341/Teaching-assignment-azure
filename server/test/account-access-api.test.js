@@ -146,3 +146,26 @@ test('Owner catalog exposes only supported grant roles and canonical faculty cho
  assert.equal((await h.api.catalog('faculty')).status,403);const disabled=fixture({writeEnabled:false});assert.equal((await disabled.api.catalog('owner')).body.writeEnabled,false);
  h.repository.eligibleFaculty=async()=>Array(5001).fill({facultyId:FID,active:true});assert.equal((await h.api.catalog('owner')).status,413);
 });
+
+test('directory sends only verified Owner binding, never a caller supplied identity',async()=>{
+ const h=fixture(),calls=[];
+ h.repository.list=async args=>{calls.push(args);return [...h.state.profiles.values()];};
+ const result=await h.api.list('owner',{search:'owner@example',offset:0});
+ assert.equal(result.status,200);assert.equal(result.body.total,1);assert.equal(result.body.accounts[0].email,'owner@example.test');
+ assert.deepEqual(calls,[{actorUid:'owner',actorVersion:'0000000000000001'}]);
+ assert.equal((await h.api.list('owner',{actorUid:'developer'})).status,400);
+ h.state.profiles.get('owner').version=null;
+ assert.equal((await h.api.list('owner',{})).status,503);assert.equal(calls.length,1);
+});
+
+test('SQL directory refuses stale Owner binding and API does not disclose rows after in-flight revocation',async()=>{
+ const h=fixture();
+ h.repository.list=async()=>{throw Object.assign(Error('synthetic authority changed'),{number:57302});};
+ const denied=await h.api.list('owner',{});assert.equal(denied.status,403);assert.equal(denied.body.error.code,'ACCESS_CHANGED');assert.equal(denied.body.accounts,undefined);
+ for(const change of [{active:false},{baseRole:'adfa_regular'},{mustChangePassword:true},{version:'0000000000000002'}]){
+  const r=fixture();
+  r.repository.list=async()=>{const rows=[...r.state.profiles.values()].map(row=>({...row}));Object.assign(r.state.profiles.get('owner'),change);return rows;};
+  const result=await r.api.list('owner',{});
+  assert.equal(result.status,403);assert.equal(result.body.accounts,undefined);
+ }
+});

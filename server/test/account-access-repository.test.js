@@ -28,8 +28,15 @@ test('SQL account reads are bounded, parameterized and exclude confidential facu
  const calls=[],profile={firebaseUid:'account',displayName:'Taylor Example',baseRole:'faculty',active:true,version:'0000000000000001'};
  const repo=createSqlAccountAccessRepository({query:async(sql,params)=>{calls.push({sql,params});return [profile];}});
  assert.deepEqual(await repo.read("a'; DELETE secret--"),profile);assert.deepEqual(calls[0].params,{uid:"a'; DELETE secret--"});assert.doesNotMatch(calls[0].sql,/DELETE secret/);
- assert.deepEqual(await repo.list(),[profile]);assert.match(calls[1].sql,/TOP\s*\(1001\)/i);
- assert.doesNotMatch(calls[0].sql,/\bEmail\b/i);assert.match(calls[1].sql,/u\.Email AS email/);
+ assert.deepEqual(await repo.list({actorUid:'OwnerMixedCase',actorVersion:'0000000000000001'}),[profile]);
+ assert.match(calls[1].sql,/EXEC paws_api\.ListOwnerAccountDirectory @ActorUid=@actorUid,@ActorVersion=@actorVersion/);
+ assert.deepEqual(calls[1].params,{actorUid:'OwnerMixedCase',actorVersion:'0000000000000001'});
+ const ddl=require('node:fs').readFileSync(require('node:path').join(__dirname,'../../database/azure-sql/073_owner_account_directory_read.sql'),'utf8');
+ assert.match(ddl,/SELECT TOP\(1001\)/i);assert.match(ddl,/u\.Email AS email/);
+ assert.match(ddl,/Active=1 AND MustChangePassword=0/);assert.match(ddl,/AccessVersion=CONVERT\(binary\(8\),@ActorVersion,2\)/);
+ assert.match(ddl,/GRANT EXECUTE ON OBJECT::paws_api\.ListOwnerAccountDirectory TO paws_runtime_account_access;/);
+ assert.doesNotMatch(ddl,/GRANT\s+SELECT|ALTER\s+ROLE|EXECUTE\s+AS\s+(?:OWNER|USER|CALLER)|SELECT\s+\*|\bUcid\b|\bFte\b|\bRank\b|\bDoe\b/i);
+ assert.doesNotMatch(calls[0].sql,/\bEmail\b/i);assert.doesNotMatch(calls[1].sql,/\bEmail\b/i);
  assert.match(calls[0].sql,/AccessVersion/);assert.doesNotMatch(calls.map(x=>x.sql).join(' '),/SELECT\s+\*|\bUcid\b|\bFte\b|\bRank\b|\bDoe\b/i);
 });
 

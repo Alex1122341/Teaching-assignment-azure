@@ -381,6 +381,7 @@
       assignments:canonicalAssignments.length?canonicalAssignments:(instructor ? splitInstructorNames(instructor).map(name=>({name})) : []),
       unresolvedAssignmentCount:Number(row?.unresolvedAssignmentCount)||0,
       assignmentManagementAvailable:canonicalAssignments.every(item=>item.active===true)&&Number(row?.unresolvedAssignmentCount||0)===0,
+      batchEditToken:/^[a-f0-9]{64}$/i.test(String(row?.batchEditToken||''))?String(row.batchEditToken):'',
       sourceSystem:'VetMed-Ops'
     };
   }
@@ -471,7 +472,7 @@
   let myTimetableOnly = false;
   const MAX_BULK_SESSION_ROWS = 200;
   let bulkRows = [];
-  const sessionSelection = window.UCVM_TIMETABLE_SELECTION.create(200);
+  const sessionSelection = window.UCVM_TIMETABLE_SELECTION.create(20);
   const selectionViewFlow = window.UCVM_TIMETABLE_SELECTION.createViewFlow();
   const selectedSessionOriginals = new Map();
   let selectionMode = false;
@@ -547,6 +548,7 @@
 
   function sessionTypeClass(type) {
     const normalized = String(type || '').trim().toLowerCase();
+    if (normalized === 'closure') return 'tg-type-closure';
     if (normalized === 'rotation') return 'tg-type-rotation';
     if (normalized === 'ccc') return 'tg-type-ccc';
     if (normalized === 'lec') return 'tg-type-lec';
@@ -1030,6 +1032,7 @@
       refreshContentFilterScope();
     });
     $('reset-filters').addEventListener('click', resetFilters);
+    $('show-university-closures')?.addEventListener('change', render);
     $('cal-prev').addEventListener('click', () => moveCalendar(-1));
     $('cal-next').addEventListener('click', () => moveCalendar(1));
     $('cal-today').addEventListener('click', () => { setInitialAcademicPeriod(); $('filter-month').value='all'; renderWeekControls(); syncWeekUI(); refreshSessionScope(); toast('Moved to the current academic week.'); });
@@ -1131,6 +1134,7 @@
   }
 
   function resetFilters() {
+    if($('show-university-closures'))$('show-university-closures').checked=false;
     selectedYear = 'all'; selectedSemester = 'fall';
     document.querySelectorAll('[data-year]').forEach(x => x.classList.toggle('active', x.dataset.year === 'all'));
     document.querySelectorAll('[data-semester]').forEach(x => x.classList.toggle('active', x.dataset.semester === 'fall'));
@@ -1168,6 +1172,7 @@
     const searchWords=q.split(/[\s,]+/).filter(Boolean);
     const month = $('filter-month').value;
     return source.filter(s => {
+      if(s.isUniversityClosure)return true;
       if(s.isWorkingActivity?!activityTypeFilter.matchesActivity(s.sourceActivity):!activityTypeFilter.matchesSession(s))return false;
       if ((!options.ignorePeriod||selectedYear==='rotation') && !(window.PAWS_ACTIVITY_PLACEMENT?.matchesYear(s,selectedYear)??(selectedYear==='all'||String(s.year)===selectedYear))) return false;
       if (!options.ignorePeriod && s.semester !== selectedSemester) return false;
@@ -1229,8 +1234,9 @@
   }
 
   function calendarSourceSessions() {
-    const scope=workingActivityScope(workingActivityRange());
-    return currentUser&&workingCalendarScope===JSON.stringify(scope)?[...sessions,...workingCalendarRows]:sessions;
+    const range=workingActivityRange(),scope=workingActivityScope(range);
+    const rows=currentUser&&workingCalendarScope===JSON.stringify(scope)?[...sessions,...workingCalendarRows]:sessions;
+    return window.PAWS_TESTED_CALENDAR?.withClosures(rows,range,Boolean(currentUser&&$('show-university-closures')?.checked))||rows;
   }
 
   function setCalendarActivityRows(rows,{range,scope}) {
@@ -1399,7 +1405,7 @@
     layoutDaySessions(calendarDisplaySessions(data,{gridOnly:true})).forEach(item=>{
       const s=item.session,startM=Math.max(DAY_START,item.startM),endM=Math.min(DAY_END,item.endM);if(endM<=startM)return;
       const top=((startM-DAY_START)/SPAN)*100,height=Math.max(3.5,((endM-startM)/SPAN)*100),laneWidth=100/item.laneCount,left=item.lane*laneWidth;
-      html+=`<div class="tg-block ${colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${(Array.isArray(s.labDisplayIds)?s.labDisplayIds:[s.id]).some(id=>window.PAWS_SWAP?.isPending(id))?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':(s.room?` | ${escapeHtml(s.room)}`:'')+'<br>'+escapeHtml(displayFacultyList(s.instructor||'TBD'))}</div></div>`;
+      html+=`<div class="tg-block ${s.isUniversityClosure?'tg-type-closure':colorsOn?sessionTypeClass(s.type):'colors-off'}" data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)"><div class="tg-block-l1">${s.isUniversityClosure?'University Closed':escapeHtml(s.course)+' - '+escapeHtml(s.type)}${(Array.isArray(s.labDisplayIds)?s.labDisplayIds:[s.id]).some(id=>window.PAWS_SWAP?.isPending(id))?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div><div class="tg-block-l2">${escapeHtml(s.topic)}</div><div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':(s.room?` | ${escapeHtml(s.room)}`:'')+'<br>'+(s.isUniversityClosure?'':escapeHtml(displayFacultyList(s.instructor||'TBD')))}</div></div>`;
     });
     html+='</div></div>'+(window.PAWS_TASKS?'':unpositionedSessionsHtml(data));$('calendar-body').innerHTML=html;bindSessionBlocks();
   }
@@ -1434,10 +1440,10 @@
         const top = ((startM - DAY_START) / SPAN) * 100;
         const height = Math.max(3.5, ((endM - startM) / SPAN) * 100);
         const laneWidth=100/item.laneCount, left=item.lane*laneWidth;
-        html += `<div class="tg-block ${colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)">
-          <div class="tg-block-l1">${escapeHtml(s.course)} - ${escapeHtml(s.type)}${(Array.isArray(s.labDisplayIds)?s.labDisplayIds:[s.id]).some(id=>window.PAWS_SWAP?.isPending(id))?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div>
+        html += `<div class="tg-block ${s.isUniversityClosure?'tg-type-closure':colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}" style="top:${top}%;height:${height}%;left:calc(${left}% + 2px);right:auto;width:calc(${laneWidth}% - 4px)">
+          <div class="tg-block-l1">${s.isUniversityClosure?'University Closed':escapeHtml(s.course)+' - '+escapeHtml(s.type)}${(Array.isArray(s.labDisplayIds)?s.labDisplayIds:[s.id]).some(id=>window.PAWS_SWAP?.isPending(id))?'<span class="sql-swap-pending">SWAP PENDING</span>':''}</div>
           <div class="tg-block-l2">${escapeHtml(s.topic)}</div>
-          <div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':(s.room ? ` | ${escapeHtml(s.room)}` : '')+'<br>'+escapeHtml(displayFacultyList(s.instructor || 'TBD'))}</div>
+          <div class="tg-block-l3">${escapeHtml(s.start)}-${escapeHtml(s.end)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':(s.room ? ` | ${escapeHtml(s.room)}` : '')+'<br>'+(s.isUniversityClosure?'Institutional closure':escapeHtml(displayFacultyList(s.instructor || 'TBD')))}</div>
         </div>`;
       });
       html += '</div>';
@@ -1467,7 +1473,7 @@
         const cell = addDays(cursor, i); const dateStr = ymd(cell);
         const events = calendarDisplaySessions(data.filter(s => s.date === dateStr));
         html += `<div class="cal-cell"><div class="cal-date-num">${cell.getDate()}</div><div class="cal-events">`;
-        const eventHtml=s=>`<div class="cal-event ${colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}"><div class="cal-event-l1">${escapeHtml(s.course)} ${escapeHtml(s.type)}</div><div class="cal-event-l2">${s.timeUnknown?'Time not specified':escapeHtml(s.start)+(s.labDisplayCount>1?'–'+escapeHtml(s.end):'')} ${escapeHtml(s.topic)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':''}</div></div>`;
+        const eventHtml=s=>`<div class="cal-event ${s.isUniversityClosure?'tg-type-closure':colorsOn ? sessionTypeClass(s.type) : 'colors-off'} " data-session-id="${escapeHtml(s.id)}"><div class="cal-event-l1">${escapeHtml(s.course)} ${escapeHtml(s.type)}</div><div class="cal-event-l2">${s.timeUnknown?'Time not specified':escapeHtml(s.start)+(s.labDisplayCount>1?'–'+escapeHtml(s.end):'')} ${escapeHtml(s.topic)}${s.labDisplayCount>1?' · '+s.labDisplayCount+' LAB sessions':''}</div></div>`;
         html+=events.slice(0,4).map(eventHtml).join('');
         if(events.length>4)html+=`<details class="cal-more"><summary>${events.length-4} more activities</summary>${events.slice(4).map(eventHtml).join('')}</details>`;
         html += '</div></div>';
@@ -1488,7 +1494,7 @@
     const yearSelect=$('list-academic-year');
     if(yearSelect){const options=years.map(year=>`<option value="${escapeHtml(year)}" ${year===listAcademicYear?'selected':''}>${escapeHtml(year)}</option>`).join('');if(yearSelect.innerHTML!==options)yearSelect.innerHTML=options;yearSelect.value=listAcademicYear}
     $('list-session-mode').value=listSessionMode;
-    const yearSessions=calendarSourceSessions().filter(session=>String(session.academicYear||'')===listAcademicYear&&(window.PAWS_ACTIVITY_PLACEMENT?.matchesYear(session,selectedYear)??true));
+    const yearSessions=calendarSourceSessions().filter(session=>String(session.academicYear||'')===listAcademicYear&&(session.isUniversityClosure||(window.PAWS_ACTIVITY_PLACEMENT?.matchesYear(session,selectedYear)??true)));
     const classified=filteredSessions(yearSessions,{ignorePeriod:true}).map(session=>({session,check:calendarTimingDisposition(session)}));
     const checkRows=classified.filter(row=>row.check.disposition!=='grid');
     const gridRows=classified.filter(row=>row.check.disposition==='grid');
@@ -1499,7 +1505,7 @@
     const reasonSummary=[...reasonCounts].sort((a,b)=>a[0].localeCompare(b[0])).map(([reason,count])=>`${reason}: ${count}`).join(' · ');
     $('cal-label').textContent=`${listAcademicYear||'No academic year'} · ${selected.length} sessions`;
     renderedSessions=data;
-    const rows=data.map(s=>{const disposition=calendarTimingDisposition(s),reason=disposition.disposition==='grid'?'Grid ready':unpositionedReason(s,disposition.disposition);return `<tr data-session-id="${escapeHtml(s.id)}"><td>${escapeHtml(s.date||'Date unknown')}</td><td>${escapeHtml(s.timeUnknown?'Time TBD':`${s.start||''}-${s.end||''}`)}</td><td>${escapeHtml(reason)}</td><td><strong>${escapeHtml(s.course)}</strong></td><td>${escapeHtml(s.type)}</td><td>${escapeHtml(s.topic)}</td><td>${escapeHtml(displayFacultyList(s.instructor||'TBD'))}</td><td>${escapeHtml(s.room||'')}</td></tr>`}).join('');
+    const rows=data.map(s=>{const disposition=calendarTimingDisposition(s),reason=disposition.disposition==='grid'?'Grid ready':unpositionedReason(s,disposition.disposition);return `<tr data-session-id="${escapeHtml(s.id)}"><td>${escapeHtml(s.date||'Date unknown')}</td><td>${escapeHtml(s.timeUnknown?'Time TBD':`${s.start||''}-${s.end||''}`)}</td><td>${escapeHtml(reason)}</td><td><strong>${escapeHtml(s.course)}</strong></td><td>${escapeHtml(s.type)}</td><td>${escapeHtml(s.topic)}</td><td>${(s.isUniversityClosure?'':escapeHtml(displayFacultyList(s.instructor||'TBD')))}</td><td>${escapeHtml(s.room||'')}</td></tr>`}).join('');
     const partition=`<p class="list-partition-summary">${gridRows.length} grid ready · ${checkRows.length} check needed${reasonSummary?` · ${escapeHtml(reasonSummary)}`:''}</p>`;
     $('calendar-body').innerHTML=`${partition}<div class="schedule-list-wrap"><table class="schedule-list"><thead><tr><th>Date</th><th>Time</th><th>Grid status</th><th>Course</th><th>Type</th><th>Topic</th><th>Faculty</th><th>Room</th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="empty-cell">No sessions match this academic year and filter.</td></tr>'}</tbody></table></div>`;
     bindSessionBlocks();
@@ -1557,6 +1563,7 @@
       isSelected:id=>sessionSelection.has(id),
       onOpen:id=>openSessionDetail(id),
       onToggle:(id,row)=>{
+        if(!sessionSelection.has(id)&&(!row?.batchEditToken||row.isCcc||row.readOnlyActivity||row.isUniversityClosure)){toast('This session is read-only or needs a fresh API snapshot. Reload the timetable.',true);return;}
         const selected=sessionSelection.toggle(id);
         if(selected&&row)selectedSessionOriginals.set(String(row.id),JSON.parse(JSON.stringify(row)));
         if(!selected)selectedSessionOriginals.delete(String(id));
@@ -1580,14 +1587,19 @@
   }
 
   async function startSessionSelection(){
-    if(!requireSessionWrites())return;
-    if(!canEdit())return;
+    if(!window.UCVM_PAWS_DATA?.sessionBatchEditEnabled?.()){toast('Multi-session edits are unavailable until the PAWS University API supports this operation.',true);return false;}
+    if(!canEditExistingSqlSession())return false;
+    const actor=currentUser;
     await ensureFacultyDirectory();
+    if(currentUser!==actor)return false;
     selectionViewFlow.begin(viewMode);
     selectionMode=true;reviewingSelection=false;document.body.classList.add('session-selection-mode');updateSelectionControls();render();
   }
+  function resetSessionSelection(){
+    selectionMode=false;reviewingSelection=false;sessionSelection.clear();selectedSessionOriginals.clear();document.body.classList.remove('session-selection-mode');updateSelectionControls();
+  }
   function cancelSessionSelection(){
-    viewMode=selectionViewFlow.finish();selectionMode=false;reviewingSelection=false;sessionSelection.clear();selectedSessionOriginals.clear();document.body.classList.remove('session-selection-mode');updateSelectionControls();setViewButtons();refreshSessionScope();
+    viewMode=selectionViewFlow.finish();selectionMode=false;reviewingSelection=false;sessionSelection.clear();selectedSessionOriginals.clear();document.body.classList.remove('session-selection-mode');updateSelectionControls();setViewButtons();return refreshSessionScope();
   }
   function updateSelectionControls(){
     const active=$('selection-active-actions');
@@ -1597,19 +1609,24 @@
     $('review-selected-btn').disabled=sessionSelection.size===0;
   }
   async function reviewSelectedSessions(){
-    if(!selectionMode||!sessionSelection.size)return;
+    if(!selectionMode||!sessionSelection.size||!canEditExistingSqlSession()||!window.UCVM_PAWS_DATA?.sessionBatchEditEnabled?.())return;
+    const actor=currentUser;
     await ensureFacultyDirectory();
+    if(currentUser!==actor||!selectionMode)return;
     reviewingSelection=true;viewMode=selectionViewFlow.review();setViewButtons();render();
   }
 
+  function canReplaceSelectionAssignments(session){
+    return session.assignmentManagementAvailable===true&&facultyDirectory.length>0&&(session.assignments||[]).every(a=>a.facultyId&&facultyDirectory.some(f=>String(f.__id)===String(a.facultyId)));
+  }
   function selectionFacultyOptions(session,doeState){
     const selected=new Set([...(session.facultyIds||[]),...(session.assignments||[]).map(a=>a.ucid||a.facultyId)].filter(Boolean).map(String));
     return facultyDirectory.map(f=>{const state=doeState.get(String(f.__id))||{},current=state.current===null||state.current===undefined?'Unavailable':swapPct(state.current),target=state.target||window.UCVM_FACULTY_DOE.effectiveTarget(f),targetLabel=window.UCVM_FACULTY_DOE.targetLabel(f);return `<label class="selection-faculty-option"><input type="checkbox" data-selection-faculty-option value="${escapeHtml(f.__id)}" ${selected.has(String(f.__id))?'checked':''}><span><strong>${escapeHtml(displayFaculty(swapFacultyName(f)))}</strong><small>Assigned DOE ${current} · ${escapeHtml(targetLabel)}${target.source==='override'?'<span class="doe-override-pill">Override</span>':''}</small></span></label>`}).join('');
   }
   function updateSelectionFacultyPicker(picker){
-    const checked=[...picker.querySelectorAll('[data-selection-faculty-option]:checked')],summary=picker.querySelector('summary'),chips=picker.querySelector('.selection-faculty-chips');
+    const checked=[...picker.querySelectorAll('[data-selection-faculty-option]:checked')],summary=picker.querySelector('summary'),chips=picker.parentElement?.querySelector('.selection-faculty-chips');
     summary.textContent=checked.length?`${checked.length} faculty selected`:'Choose faculty';
-    chips.innerHTML=checked.map(input=>{const f=facultyDirectory.find(row=>String(row.__id)===String(input.value)),state=selectionDoeState.get(String(input.value))||{},current=state.current===null||state.current===undefined?'DOE unavailable':`Assigned ${swapPct(state.current)}`;return `<span>${escapeHtml(displayFaculty(swapFacultyName(f)))}<small>${current}</small></span>`}).join('');
+    if(chips)chips.innerHTML=checked.map(input=>{const f=facultyDirectory.find(row=>String(row.__id)===String(input.value)),state=selectionDoeState.get(String(input.value))||{},current=state.current===null||state.current===undefined?'DOE unavailable':`Assigned ${swapPct(state.current)}`;return `<span>${escapeHtml(displayFaculty(swapFacultyName(f)))}<small>${current}</small></span>`}).join('');
   }
   function renderSelectionEditor(){
     if($('calendar-body').querySelector('[data-selection-row]'))return;
@@ -1619,38 +1636,91 @@
     const doeState=buildSwapDoeState();selectionDoeState=doeState;
     const rows=data.map(s=>`<tr data-selection-row data-session-edit-id="${escapeHtml(s.id)}">
       <td><input type="date" data-selection-field="date" value="${escapeHtml(s.date)}"></td>
-      <td><select data-selection-field="year">${[1,2,3,4].map(year=>`<option ${Number(s.year)===year?'selected':''}>${year}</option>`).join('')}</select></td>
+      <td>${escapeHtml(s.year)}</td>
       <td><input data-selection-field="course" value="${escapeHtml(s.course)}"></td>
       <td><input data-selection-field="type" value="${escapeHtml(s.type)}"></td>
       <td><input type="time" data-selection-field="start" value="${escapeHtml(s.start)}"></td>
       <td><input type="time" data-selection-field="end" value="${escapeHtml(s.end)}"></td>
       <td><input data-selection-field="topic" value="${escapeHtml(s.topic)}"></td>
       <td><input data-selection-field="room" value="${escapeHtml(s.room)}"></td>
-      <td><details class="selection-faculty-picker" data-selection-field="faculty"><summary>Choose faculty</summary><div class="selection-faculty-menu"><div class="selection-faculty-options">${selectionFacultyOptions(s,doeState)}</div></div></details><div class="selection-faculty-chips"></div></td>
+      <td>${canReplaceSelectionAssignments(s)?`<details class="selection-faculty-picker" data-selection-field="faculty"><summary>Choose faculty</summary><div class="selection-faculty-menu"><div class="selection-faculty-options">${selectionFacultyOptions(s,doeState)}</div></div></details><div class="selection-faculty-chips"></div>`:`<span>${escapeHtml(displayFacultyList(s.instructor||'Not provided'))}</span><small> Read-only assignment</small>`}</td>
     </tr>`).join('');
-    $('calendar-body').innerHTML=`<div class="selection-errors hidden" id="selection-errors" role="alert"></div><div class="selection-sheet-wrap"><table class="selection-sheet"><thead><tr><th>Date</th><th>Year</th><th>Course</th><th>Type</th><th>Start</th><th>End</th><th>Topic</th><th>Room</th><th>Faculty</th></tr></thead><tbody>${rows}</tbody></table></div><div class="selection-save-bar"><span>Open Faculty to choose one or more people and review their DOE.</span><button class="btn btn-secondary" id="selection-back-btn">Back to selection</button><button class="btn btn-primary" id="selection-save-btn">Save selected changes</button></div>`;
+    $('calendar-body').innerHTML=`<div class="selection-errors hidden" id="selection-errors" role="alert"></div><div class="selection-sheet-wrap"><table class="selection-sheet"><thead><tr><th>Date</th><th>Year</th><th>Course</th><th>Type</th><th>Start</th><th>End</th><th>Topic</th><th>Room</th><th>Faculty</th></tr></thead><tbody>${rows}</tbody></table></div><div class="selection-save-bar"><span>Up to 20 sessions. Year is read-only. Changes save together; DOE recalculates on the server.</span><button class="btn btn-secondary" id="selection-back-btn">Back to selection</button><button class="btn btn-primary" id="selection-save-btn">Save selected changes</button></div>`;
     document.querySelectorAll('.selection-faculty-picker').forEach(picker=>{picker.querySelectorAll('[data-selection-faculty-option]').forEach(input=>input.onchange=()=>updateSelectionFacultyPicker(picker));updateSelectionFacultyPicker(picker)});
     $('selection-back-btn').onclick=()=>{reviewingSelection=false;viewMode=selectionViewFlow.finish();setViewButtons();render();refreshSessionScope()};
     $('selection-save-btn').onclick=saveSelectedChanges;
   }
   function readSelectionRows(){
-    const originals=new Map([...selectedSessionOriginals].map(([id,row])=>[String(id),row]));
-    return [...document.querySelectorAll('[data-selection-row]')].map(tr=>{
-      const id=String(tr.dataset.sessionEditId),original=originals.get(id),value=field=>tr.querySelector(`[data-selection-field="${field}"]`).value;
-      const ids=[...tr.querySelectorAll('[data-selection-faculty-option]:checked')].map(option=>String(option.value));
-      const type=value('type'),start=value('start'),end=value('end'),topic=value('topic'),date=value('date'),position=academicPositionForDate(parseYmd(date)),originalIds=[...(original.facultyIds||[]),...(original.assignments||[]).map(a=>a.ucid||a.facultyId)].filter(Boolean).map(String),assignmentChanged=ids.join('|')!==[...new Set(originalIds)].join('|')||type!==String(original.type||'')||start!==String(original.start||'')||end!==String(original.end||'')||topic!==String(original.topic||'');
-      const assignments=assignmentChanged?ids.map(facultyId=>{const faculty=facultyDirectory.find(f=>String(f.__id)===facultyId),previous=(original.assignments||[]).find(a=>String(a.ucid||a.facultyId||'')===facultyId)||{},role=previous.role||defaultTeachingRole(type),hours=swapNumeric(previous.creditedHours)??blockHours(start,end,{timeUnknown:original.timeUnknown===true&&start===String(original.start||'')&&end===String(original.end||'')}),rate=doeRateForRole(role);return{...previous,ucid:facultyId,facultyId,name:swapFacultyName(faculty),role,topic,creditedHours:hours,doeRate:rate,doeCredit:swapNumeric(previous.doeCredit)??(rate===null||hours===null?null:Number((hours*rate).toFixed(6))),source:'Multi-session timetable edit'}}):original.assignments;
-      const course=value('course');
-      return{...original,id,date,week:position.week,semester:position.semester,year:Number(value('year')),course,courseName:course===String(original.course||'')?original.courseName:(COURSES.find(c=>String(c.code)===course)?.name||''),type,start,end,topic,room:value('room'),timeUnknown:start===String(original.start||'')&&end===String(original.end||'')?Boolean(original.timeUnknown):false,assignments,facultyIds:ids,labDetails:assignmentChanged?labDetailsFromAssignments(type,assignments,topic):original.labDetails};
+    const edits=[],errors=[],rowNumbers=[];
+    [...document.querySelectorAll('[data-selection-row]')].forEach((tr,index)=>{
+      const row=index+1,id=String(tr.dataset.sessionEditId||''),original=selectedSessionOriginals.get(id);
+      const fail=message=>errors.push('Row '+row+': '+message);
+      if(!original||!original.batchEditToken||original.readOnlyActivity||original.isCcc||original.isUniversityClosure){fail('Reload this session before editing.');return;}
+      const value=field=>tr.querySelector('[data-selection-field="'+field+'"]')?.value??'';
+      const values=Object.fromEntries(['date','course','type','start','end','topic','room'].map(field=>[field,value(field)]));
+      const patch=buildSqlSessionEditPatch(original,values);
+      if('date' in patch&&!/^\d{4}-\d{2}-\d{2}$/.test(patch.date)){fail('Enter a valid date.');return;}
+      if('courseCode' in patch&&!patch.courseCode){fail('Enter a course code.');return;}
+      if('startTime' in patch||'endTime' in patch){
+        patch.startTime=values.start||null;patch.endTime=values.end||null;
+        if((patch.startTime===null)!==(patch.endTime===null)||(patch.startTime&&patch.endTime&&patch.startTime>=patch.endTime)){fail('Enter a valid start and end time, or clear both.');return;}
+      }
+      const edit={sessionId:id,expectedToken:original.batchEditToken};
+      if(Object.keys(patch).length)edit.patch=patch;
+      const picker=tr.querySelector('.selection-faculty-picker');
+      if(picker){
+        if(!canReplaceSelectionAssignments(original)){fail('Faculty assignments are not available for editing.');return;}
+        const ids=[...picker.querySelectorAll('[data-selection-faculty-option]:checked')].map(option=>String(option.value));
+        const existing=original.assignments||[],before=existing.map(a=>String(a.facultyId)).sort().join('|');
+        if([...ids].sort().join('|')!==before){
+          if(ids.length>30||new Set(ids).size!==ids.length||ids.some(facultyId=>!facultyDirectory.some(f=>String(f.__id)===facultyId))){fail('Choose valid faculty assignments (maximum 30).');return;}
+          edit.assignments=ids.map(facultyId=>({facultyId,teachingRole:String(existing.find(a=>String(a.facultyId)===facultyId)?.role??defaultTeachingRole(values.type))}));
+        }
+      }
+      if(edit.patch||edit.assignments){edits.push(edit);rowNumbers.push(row);}
     });
+    return {edits,errors,rowNumbers};
   }
   async function saveSelectedChanges(){
-    toast('Multi-session edits are unavailable until the PAWS University API supports this operation.',true);
-    return false;
+    if(!window.UCVM_PAWS_DATA?.sessionBatchEditEnabled?.()){toast('Multi-session edits are unavailable until the PAWS University API supports this operation.',true);return false;}
+    if(!canEditExistingSqlSession()||!selectionMode||!reviewingSelection)return false;
+    const actor=currentUser,button=$('selection-save-btn'),error=$('selection-errors');
+    if(!button||button.disabled)return false;
+    const {edits,errors,rowNumbers}=readSelectionRows();
+    if(errors.length||!edits.length){error.textContent=errors.join('\n')||'No changes to save.';error.classList.remove('hidden');return false;}
+    const controls=[...$('calendar-body').querySelectorAll('input,select,button')].filter(node=>!node.disabled);
+    controls.forEach(node=>node.disabled=true);
+    button.textContent='Saving...';error.classList.add('hidden');
+    let committed=false;
+    try{
+      const result=await window.UCVM_PAWS_DATA.patchSessionBatch(edits);
+      if(currentUser!==actor)return false;
+      if(!Array.isArray(result?.sessions)||result.sessions.length!==edits.length)throw new Error('Unconfirmed batch response');
+      committed=true;
+      invalidateAllSessions();
+      const refreshed=await cancelSessionSelection();
+      const doeWarning=Array.isArray(result.doe)&&result.doe.some(item=>item?.status==='needs_review'||item?.status==='failed');
+      toast('Saved '+edits.length+' session(s) together.'+(refreshed===false?' Reload to refresh the timetable.':'')+(doeWarning?' Some DOE results need review.':''),refreshed===false||doeWarning);
+      return true;
+    }catch(failure){
+      if(currentUser!==actor)return false;
+      if(committed){toast('Changes saved, but refresh failed. Reload the timetable.',true);return true;}
+      const serverRow=Number(failure?.details?.[0]?.row),displayRow=rowNumbers[serverRow-1];
+      const messages={SESSION_BATCH_STALE:'A session changed after selection. Cancel and reload before retrying.',INVALID_SESSION_EDIT_BATCH:'Review the edited rows and try again.',SESSION_NOT_FOUND:'A selected session no longer exists. Reload the timetable.',SESSION_ASSIGNMENTS_READ_ONLY:'The selected session has unresolved faculty assignments.'};
+      error.textContent=(displayRow?'Row '+displayRow+': ':'')+(failure?.code&&failure.code!=='SQL_UNAVAILABLE'?(messages[failure.code]||sessionEditErrorMessage(failure)):'Save could not be confirmed. Reload the timetable before retrying.');
+      error.classList.remove('hidden');
+      return false;
+    }finally{
+      if(currentUser===actor){controls.forEach(node=>node.disabled=false);button.textContent='Save selected changes';}
+    }
   }
 
   function openSessionDetail(id, currentSession = null) {
     const s = currentSession || renderedSessions.find(x => x.id === id) || sessions.find(x => x.id === id) || sessionCache.get(id); if (!s) return;
+    if(s.isUniversityClosure){
+      showModal('<div class="modal-header"><div class="modal-title">University Closure</div></div><div class="modal-body"><p>'+escapeHtml(s.topic)+'</p><p>'+escapeHtml(s.date)+' | 07:30-17:00</p><p>Read-only institutional calendar record. No teaching, DOE or faculty assignment is changed.</p></div><div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button></div>');
+      $('detail-close').onclick=closeModal;return;
+    }
     if(s.readOnlyActivity){
       const source=s.sourceActivity||{};
       showModal(`<div class="modal-header"><div class="modal-title">${escapeHtml(s.course)} · ${escapeHtml(s.topic)}</div><div class="modal-subtitle">${escapeHtml(s.date)}</div></div><div class="modal-body"><div class="form-grid">${detailField('Time',`${s.start}–${s.end}${s.timeDefaulted?' · Default time':' · Source time'}`)}${detailFieldMultiline('Faculty',displayFacultyList(s.instructor||'Not provided'))}${detailField('Source range',`${source.startDate||'Not provided'} to ${source.endDate||'Not provided'}`)}</div><p class="form-hint">Read-only working activity. ${s.timeDefaulted?'08:30–16:30 is the display default; source time remains unconfirmed and Needs Review for SWAP.':'The recorded time evidence is preserved.'} DOE and teaching assignments are unchanged.</p></div><div class="modal-footer"><button class="btn btn-secondary" id="detail-close">Close</button></div>`);
@@ -2137,6 +2207,7 @@
           resetWorkingCalendar();
           sessionCache.clear();sessionRangeLoads.clear();sessionDateLoads.clear();
           resetCalendarActivityFilterForUser();
+          resetSessionSelection();
           currentUser = {
             id: user.uid,
             uid: user.uid,
@@ -2173,6 +2244,7 @@
           toast(`Signed in as ${name} (${profile.role}).`);
           scheduleAllSessionsPrefetch(user,initialSessionLoad);
           scheduleOptionalFacultyEnrichment(user, profile);
+          void window.PAWS_TESTED_CALENDAR?.showNotifications(currentUser,{getUser:()=>currentUser,api:window.UCVM_PAWS_DATA,isAdmin:canEdit()});
         } catch (err) {
           console.error('[SQL access profile]', err);
           const preliminaryOutcome=window.UCVM_AUTH_CONTINUITY.classifyAuthError(err);
@@ -2210,6 +2282,9 @@
         if (!user) {
           text.textContent = 'Firebase Auth + SQL Access Ready';
           currentUser = null;
+          resetSessionSelection();
+          window.PAWS_TESTED_CALENDAR?.clearNotifications();
+          if($('show-university-closures'))$('show-university-closures').checked=false;
           window.PAWS_CCC_SCHEDULE?.close();
           window.PAWS_LEADERSHIP_DIRECTORY?.close();
           resetCalendarActivityFilterForUser();
@@ -2535,7 +2610,7 @@
     b.classList.toggle('is-admin', canEdit());
     const sessionCreateEnabled=Boolean(window.UCVM_PAWS_DATA?.sessionCreateEnabled?.());
     $('add-session-btn').classList.toggle('hidden', !canEditExistingSqlSession() || !sessionCreateEnabled);
-    $('selection-controls').classList.add('hidden');
+    $('selection-controls').classList.toggle('hidden',!canEditExistingSqlSession()||!window.UCVM_PAWS_DATA?.sessionBatchEditEnabled?.());
     $('bulk-add-session-btn').classList.toggle('hidden', !canEditExistingSqlSession() || !sessionCreateEnabled);
     $('outlook-invite-btn').classList.toggle('hidden', !UCVM.admin(currentUser));
     $('manage-users-btn').classList.toggle('hidden', !(UCVM.general(currentUser) || currentUser?.role === 'hicc'));

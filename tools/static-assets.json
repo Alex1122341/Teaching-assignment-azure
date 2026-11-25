@@ -62,6 +62,7 @@
   "scheduling-core.js",
   "timetable.css",
   "timetable-selection.js",
+  "calendar-tested-features.js",
   "timetable.js",
   "user-management.html",
   "user-management.css",

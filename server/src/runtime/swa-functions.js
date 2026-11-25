@@ -27,7 +27,14 @@ function createSwaFunctions({ api, createTiming = createRequestTiming }) {
       const url = new URL(request.url);
       const token = bearer(request);
       let r;
-      if (url.pathname === '/api/v1/sessions/batch') {
+      if (url.pathname === '/api/v1/sessions/batch-edit') {
+        if(request.method!=='POST')r={status:405,body:{error:{code:'METHOD_NOT_ALLOWED',message:'POST required.'}},headers:{Allow:'POST'}};
+        else {
+          let payload;
+          try{payload=typeof request.json==='function'?await request.json():request.body;}catch(_){return response(400,{error:{code:'INVALID_JSON',message:'Request JSON is invalid.'}},timing);}
+          r=await api.updateExistingSessionBatch(token,payload);
+        }
+      } else if (url.pathname === '/api/v1/sessions/batch') {
         if (request.method !== 'POST') {
           r = { status: 405, body: { error: { code: 'METHOD_NOT_ALLOWED', message: 'POST required.' } }, headers: { Allow: 'POST' } };
         } else {

@@ -265,3 +265,14 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
  .export-selection-toolbar strong{flex-basis:100%}
  .selected-export-modal .modal-footer .btn{flex:1 1 auto}
 }
+
+
+/* Read-only institutional overlay and scoped workflow notices. */
+.paws-closure-toggle {display:inline-flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.tg-type-closure {background:#fff2c5!important;color:#664600!important;border:1px dashed #aa7d20!important}
+.dark .tg-type-closure {background:#4b3815!important;color:#ffe3a3!important;border-color:#d5a74a!important}
+.paws-workflow-notice {position:fixed;right:16px;bottom:16px;z-index:1200;width:min(360px,calc(100vw - 32px));padding:16px;border:1px solid var(--border,#b7b7b7);border-radius:10px;background:var(--surface,#fff);color:var(--text,#222);box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.dark .paws-workflow-notice {background:#202124;color:#f4f4f4}
+.paws-workflow-notice h2 {font-size:16px;margin:0 0 8px}
+.paws-workflow-notice ul {list-style:none;margin:0 0 12px;padding:0}
+.paws-workflow-notice li {display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 0;font-size:13px}

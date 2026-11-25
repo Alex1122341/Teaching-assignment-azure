@@ -199,6 +199,7 @@ function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = ra
       return result(200, {
         writeCapabilities: {
           sessionEdit: writeGates.sessionEdit === true,
+          sessionBatchEdit: writeGates.sessionEdit === true && writeGates.sessionBatchEdit === true,
           sessionCreate: writeGates.sessionCreate === true,
           afcSingle: writeGates.afcSingle === true,
           afcBatch: writeGates.afcBatch === true,

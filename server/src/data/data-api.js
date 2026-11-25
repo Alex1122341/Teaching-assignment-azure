@@ -190,6 +190,7 @@ function createDataApi({
   findUser,
   listSessions,
   updateSession = async () => null,
+  updateSessionBatch = null,
   createSession: insertSession = async () => null,
   createSessionBatch: insertSessionBatch = async () => [],
   replaceSessionAssignments: saveSessionAssignments = async () => null,
@@ -284,7 +285,8 @@ function createDataApi({
           start: normalized.start,
           end: normalized.end,
           facultyId: auth.facultyId,
-          includeAssignmentTargets: SESSION_EDIT_ROLES.has(auth.role)
+          includeAssignmentTargets: SESSION_EDIT_ROLES.has(auth.role),
+          ...(SESSION_EDIT_ROLES.has(auth.role)&&writeGates.sessionEdit===true&&writeGates.sessionBatchEdit===true?{includeBatchEditToken:true}:{})
         });
         return result(200, { sessions });
       } catch (_) {
@@ -313,6 +315,36 @@ function createDataApi({
         const known = SESSION_EDIT_SQL_ERRORS.get(sqlNumber);
         if (known) return result(known.status, { error: { code: known.code, message: known.message } });
         return result(503, { error: { code: 'SQL_UNAVAILABLE', message: 'The SQL write service is temporarily unavailable.' } });
+      }
+    },
+
+    async updateExistingSessionBatch(token,payload) {
+      const auth=await authorize(token);
+      if(auth.status)return auth;
+      if(!SESSION_EDIT_ROLES.has(auth.role))return result(403,{error:{code:'ROLE_DENIED',message:'This role cannot edit canonical timetable sessions.'}});
+      if(writeGates.sessionEdit!==true||writeGates.sessionBatchEdit!==true||typeof updateSessionBatch!=='function')return writeDisabled();
+      const bad=(code,row,status=400)=>result(status,{error:{code,message:'The batch was not saved. Review all rows.',...(row?{details:[{row,code}]}:{})}});
+      if(!payload||typeof payload!=='object'||Array.isArray(payload)||Object.keys(payload).some(k=>k!=='edits')||!Array.isArray(payload.edits)||!payload.edits.length||payload.edits.length>20)return bad('INVALID_SESSION_EDIT_BATCH');
+      const seen=new Set(),edits=[];
+      for(const [i,edit] of payload.edits.entries()){
+        const n=i+1;
+        if(!edit||typeof edit!=='object'||Array.isArray(edit)||Object.keys(edit).some(k=>!['sessionId','expectedToken','patch','assignments'].includes(k))||typeof edit.sessionId!=='string'||!SESSION_ID.test(edit.sessionId)||typeof edit.expectedToken!=='string'||!/^[A-Fa-f0-9]{64}$/.test(edit.expectedToken)||(edit.patch===undefined&&edit.assignments===undefined))return bad('INVALID_SESSION_EDIT_ROW',n);
+        const sessionId=edit.sessionId.toLowerCase();
+        if(seen.has(sessionId))return bad('DUPLICATE_SESSION_IN_BATCH',n,409);
+        seen.add(sessionId);
+        if(edit.patch!==undefined){const invalid=validateSessionEdit(sessionId,edit.patch);if(invalid)return bad(invalid,n);}
+        if(edit.assignments!==undefined){const invalid=validateSessionAssignmentReplacement(sessionId,{assignments:edit.assignments});if(invalid)return bad(invalid,n);}
+        edits.push({sessionId,expectedToken:edit.expectedToken.toUpperCase(),...(edit.patch!==undefined?{patch:edit.patch}:{}),...(edit.assignments!==undefined?{assignments:edit.assignments.map(a=>({facultyId:text(a.facultyId),teachingRole:a.teachingRole==null?null:a.teachingRole.trim()||null}))}:{})});
+      }
+      try{
+        const saved=await updateSessionBatch({edits,actorFirebaseUid:auth.decoded.uid,actorName:text(auth.profile.displayName)||null});
+        const doe=typeof recalculateSessionDoe==='function'?await Promise.all(saved.map(row=>recalculateDoeAfterSessionWrite(row.id,auth,'session_batch_edit'))):[];
+        return result(200,{sessions:saved,doe});
+      }catch(failure){
+        if(['SESSION_NOT_FOUND','SESSION_BATCH_STALE','SESSION_ASSIGNMENTS_READ_ONLY'].includes(failure?.batchCode))return bad(failure.batchCode,failure.batchRow,failure.batchCode==='SESSION_NOT_FOUND'?404:409);
+        const number=Number(failure?.number??failure?.originalError?.info?.number),known=SESSION_EDIT_SQL_ERRORS.get(number)||SESSION_ASSIGNMENT_SQL_ERRORS.get(number);
+        if(known)return bad(known.code,failure.batchRow,known.status);
+        return result(503,{error:{code:'SQL_UNAVAILABLE',message:'Batch outcome could not be confirmed. Refresh the timetable before retrying.'}});
       }
     },
 

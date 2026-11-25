@@ -9,11 +9,11 @@ const sourceFunction = require('../test-support/source-function');
 
 const source = fs.readFileSync(repositoryPath(__dirname, '..', 'timetable.js'), 'utf8');
 
-test('SQL session create controls use the separate server capability and multi-edit stays closed', () => {
+test('SQL session create controls use the separate server capability and multi-edit has a separate gate', () => {
   assert.match(source, /const sessionCreateEnabled\s*=\s*Boolean\(window\.UCVM_PAWS_DATA\?\.sessionCreateEnabled\?\.\(\)\)/);
   assert.match(source, /\$\('add-session-btn'\)\.classList\.toggle\('hidden',\s*!canEditExistingSqlSession\(\)\s*\|\|\s*!sessionCreateEnabled\)/);
   assert.match(source, /\$\('bulk-add-session-btn'\)\.classList\.toggle\('hidden',\s*!canEditExistingSqlSession\(\)\s*\|\|\s*!sessionCreateEnabled\)/);
-  assert.match(source, /\$\('selection-controls'\)\.classList\.add\('hidden'\)/);
+  assert.match(source, /\$\('selection-controls'\)\.classList\.toggle\('hidden',!canEditExistingSqlSession\(\)\|\|!window\.UCVM_PAWS_DATA\?\.sessionBatchEditEnabled\?\.\(\)\)/);
   assert.match(source, /sessionCreateEnabled\?\.\(\)/);
   assert.match(source, /sessionEditEnabled\?\.\(\)/);
 });

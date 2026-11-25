@@ -3,10 +3,20 @@
 const { facultyDisplayNameSql } = require('./faculty-display-name');
 const { canonicalAcademicYear } = require('./academic-year');
 const names = require('../domain/person-name');
+const { createHash } = require('node:crypto');
+
+function sessionEditToken(row) {
+  let assignments;
+  try { assignments=JSON.parse(row.assignmentsJson||'[]'); } catch (_) { throw Error('Invalid canonical assignment projection'); }
+  if(!Array.isArray(assignments))throw Error('Invalid canonical assignment projection');
+  const facts=['id','academicYear','curriculumYear','courseCode','courseName','topic','sessionType','date','startTime','endTime','room'].map(k=>row[k]==null?null:String(row[k]));
+  const people=assignments.map(a=>[String(a.facultyId||'').toLowerCase(),String(a.teachingRole||''),a.active===true||a.active===1]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return createHash('sha256').update(JSON.stringify([facts,people,Number(row.unresolvedAssignmentCount||0)])).digest('hex').toUpperCase();
+}
 
 function createSqlSessionRepository(db) {
-  return {
-    async list({ start = null, end = null, facultyId = null, academicYear = null, includeAssignmentTargets = false, includeUnresolvedAssignmentLabels = false } = {}) {
+  const repository = {
+    async list({ start = null, end = null, facultyId = null, academicYear = null, includeAssignmentTargets = false, includeUnresolvedAssignmentLabels = false, sessionId = null, includeBatchEditToken = false } = {}) {
       const predicates = [];
       const params = {};
 
@@ -20,6 +30,8 @@ function createSqlSessionRepository(db) {
         params.start = start;
         params.end = end;
       }
+
+      if (sessionId) { params.sessionId=sessionId; predicates.push('c.SessionId = @sessionId'); }
 
       if (facultyId) {
         predicates.push('EXISTS (SELECT 1 FROM paws.SessionAssignment sa WHERE sa.SessionId = c.SessionId AND sa.FacultyId = @facultyId)');
@@ -67,7 +79,7 @@ function createSqlSessionRepository(db) {
           const label = String(contributor.label || 'Sessional').replace(/[;\r\n]+/g, ' · ');
           return `${person} (${label === 'Sessional' ? 'Sessional' : 'Sessional · ' + label})`;
         });
-        return { ...row, instructorNames: [names.formatList(row.instructorNames), ...labels].filter(Boolean).join('; ') };
+        return { ...row, ...(includeAssignmentTargets&&includeBatchEditToken?{batchEditToken:sessionEditToken(row)}:{}), instructorNames: [names.formatList(row.instructorNames), ...labels].filter(Boolean).join('; ') };
       });
     },
 
@@ -81,6 +93,35 @@ function createSqlSessionRepository(db) {
         { sessionId, patchJson: JSON.stringify(patch), actorFirebaseUid, actorName }
       );
       return rows[0] || null;
+    },
+
+    async updateBatch({edits,actorFirebaseUid,actorName=null}={}) {
+      if(typeof db.transaction!=='function')throw Error('Transactional batch editing unavailable');
+      const ordered=[...edits].sort((a,b)=>a.sessionId.localeCompare(b.sessionId));
+      const fail=(code,row)=>Object.assign(Error(code),{batchCode:code,batchRow:row});
+      return db.transaction(async()=>{
+        // Read every reviewed snapshot within the same SERIALIZABLE transaction before any write.
+        for(const edit of ordered){
+          const row=(await repository.list({sessionId:edit.sessionId,includeAssignmentTargets:true,includeBatchEditToken:true}))[0];
+          if(!row)throw fail('SESSION_NOT_FOUND',edits.indexOf(edit)+1);
+          if(row.batchEditToken!==edit.expectedToken)throw fail('SESSION_BATCH_STALE',edits.indexOf(edit)+1);
+          if(edit.assignments!==undefined){
+            const current=JSON.parse(row.assignmentsJson||'[]');
+            if(Number(row.unresolvedAssignmentCount||0)>0||current.some(a=>!a.facultyId||(a.active!==true&&a.active!==1)))throw fail('SESSION_ASSIGNMENTS_READ_ONLY',edits.indexOf(edit)+1);
+          }
+        }
+        const saved=[];
+        for(const edit of ordered){
+          let row;
+          try{
+            if(edit.patch){row=await repository.updateExisting({sessionId:edit.sessionId,patch:edit.patch,actorFirebaseUid,actorName});if(!row)throw fail('SESSION_NOT_FOUND',edits.indexOf(edit)+1);}
+            if(edit.assignments!==undefined)row=await repository.replaceAssignments({sessionId:edit.sessionId,assignments:edit.assignments,actorFirebaseUid,actorName});
+            if(!row)throw fail('SESSION_NOT_FOUND',edits.indexOf(edit)+1);
+            saved.push({id:edit.sessionId});
+          }catch(error){error.batchRow=edits.indexOf(edit)+1;throw error;}
+        }
+        return saved;
+      });
     },
 
     async createNew({ session, actorFirebaseUid, actorName = null } = {}) {
@@ -117,6 +158,7 @@ function createSqlSessionRepository(db) {
       return rows[0] || null;
     }
   };
+  return repository;
 }
 
-module.exports = { createSqlSessionRepository };
+module.exports = { createSqlSessionRepository, sessionEditToken };

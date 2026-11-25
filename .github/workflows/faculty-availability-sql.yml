@@ -1,7 +1,10 @@
 name: Faculty Availability SQL Acceptance
 on:
   pull_request:
-    paths: ['database/azure-sql/**','server/src/availability/**','server/src/data/sql-faculty-availability-repository.js','server/test/fixtures/faculty-availability.sql','tools/test-faculty-availability*','.github/workflows/faculty-availability-sql.yml']
+    paths: ['database/azure-sql/**','server/src/availability/**','server/src/data/sql-faculty-availability-repository.js','server/test/fixtures/faculty-availability*.sql','tools/test-faculty-availability*','.github/workflows/faculty-availability-sql.yml']
+  push:
+    branches: [main]
+    paths: ['database/azure-sql/072_*','database/azure-sql/rollback_072_*','server/src/availability/**','server/src/data/sql-faculty-availability-repository.js','server/test/fixtures/faculty-availability*.sql','tools/test-faculty-availability*','.github/workflows/faculty-availability-sql.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,7 +35,7 @@ jobs:
             Start-Sleep -Seconds 2
           }
           if(-not $ready){throw 'Synthetic SQL readiness failed.'}
-      - name: Actual procedure / Node repository / scope / dates / source parity / rollback
+      - name: Single and bulk procedures, access, source coverage, 150 Faculty × 31 days, rollback
         shell: pwsh
         run: ./tools/test-faculty-availability-sql.ps1 -ContainerName paws-calendar-faculty-availability
       - name: Stop synthetic SQL

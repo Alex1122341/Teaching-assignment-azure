@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "c50fc52ddee859b6f6c68338977b8cd09189de33",
+  "sourceCommit": "54a8e23cc88b628eb5cf3234c29388b7f800dfb9",
   "siteUrl": "https://tester-teaching.web.app",
   "sha256": {
     "faculty-reports.js": "ad4f070c3aa319ec20dd9139cec4d6fcfcf23f4350b73a84d0c8b8648aa238c9",
@@ -58,7 +58,7 @@
     "session-guard.js": "fd8e2415ed80d1eac771246be1e4c78910ce5c1101ac2bd147e56b84e56af78e",
     "paws-api-origin.js": "908ea9ead9c7229783fbfa82c2b497f19a94d8b4759a075023c61664d9ca9d1c",
     "signature-capture.js": "3e3c2334c3c173a1eace4dcba189c216aa4a67bc107198dc9c9548f1888524bf",
-    "paws-data-client.js": "6291d88a6bfd8e9959bef992a60b90a3ecc6cb21fee0112f539c1107fdec2af5",
+    "paws-data-client.js": "1df59f0ef6622a3b46aba480f8809621138504f3b44915f6f63e86730c08e000",
     "effective-access-guard.js": "be0769d96ab7462322ba58ebff7de00c2e6c65d12c6f5ce24fd9e6e4180d686f",
     "paws-auth-continuity.js": "7e82474e110046104c46a31ada66d76fa0589e1816c3a7a7bf31ed8a047aa94c",
     "paws-login-performance.js": "2cf6cee463e8983f52b0e4e7f34f771aa2b51f3a56040dd447cbde15c6163170",
@@ -88,8 +88,8 @@
     "change-history.js": "018209ad8b33c83d5d156bd99a3ca43edd4864be501a970e6db9fa224cc86323",
     "calendar-activities.css": "6d94af7bffd6cf781f465a56140338674a8780fcd39287cd1eb2c56ee3b58365",
     "faculty-admin-activity-import.js": "1dbbc3a9ce1de00d954440417bf4adc73c1366b1c7c7f59e5061a7bf386b7df0",
-    "faculty-availability.js": "3e44cb71afe4ea4c89d27ab01fa30df792105746561baeb5f2c0c81fe4f5bf39",
-    "faculty-availability.css": "e75900906205561f6bbb15905fb704fa6b915f3f85320c8c1a490bd2a6c96219",
+    "faculty-availability.js": "88dc837e7079835329a299b4ceab1ab16a09ac5f40f371dad1fd810cdc0fefb1",
+    "faculty-availability.css": "6c746ae7a4fc4cfd7e6417dac4e7ee08c86769412347f083751fc857e72bb1cb",
     "ccc-schedule.js": "5f7ece2ca5ba80281803daa0b4a6ad4dc705b328f6390d40f2ae8676193b3f00",
     "ccc-schedule.css": "364bde1bb8efb0ec641b08b1ad2fd15d29b7be674bb632ee86c4f992182db84c",
     "leadership-directory.css": "8e90bd635bf53c04e61e456ea6fd24391986ae03885199446475bc4a460fd897",

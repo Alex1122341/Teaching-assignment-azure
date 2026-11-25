@@ -2,7 +2,11 @@
 
 ## 2026-11-25 Testing parity candidate (not live)
 
-[Draft PR #171](https://github.com/Alex1122341/Teaching-assignment-azure/pull/171) contains candidate University Closures, Workflow Notifications, and independently gated Select Sessions batch editing. See [handoff](updates/2026-11-25-testing-pass-parity.md). Per user direction, the coding agent owns implementation and fixes; Dot owns independent QA, regression, and staging acceptance evidence. Re-fetch the PR head before testing. Production gate activation, immutable freeze promotion, merge and deployment are separate reviewed operations.
+[Draft PR #171](https://github.com/Alex1122341/Teaching-assignment-azure/pull/171) contains candidate University Closures, Workflow Notifications, and independently gated Select Sessions batch editing. See [handoff](updates/2026-11-25-testing-pass-parity.md). Per user direction, the coding agent owns implementation and fixes; Dot owns independent QA, regression, and staging acceptance evidence. Integrated the latest main containing PR #170 on the feature branch; previous round-five evidence applies only to 751ffe5ee5f84773060eee3e7f76ecf830efe635. Re-fetch the new PR head before testing. The earlier proposed freeze target is withdrawn. Production gate activation, immutable freeze promotion, merge and deployment are separate reviewed operations.
+
+## 2026-11-25 Faculty Availability coordination merged to main (not live evidence)
+
+[Coordination scope and release notes](../docs/faculty-availability-coordination.md) cover multi-Faculty queries, Agenda, Summary, Timeline, common time, and the additive read-only migration 072. PR #170 merged to main at f10f7eb2bec22447359627bf814b2b551512e108. Its accepted shared freeze anchor is 54a8e23cc88b628eb5cf3234c29388b7f800dfb9. This is repository evidence only, not proof of migration 072, runtime or Hosting deployment. Check exact-main CI and separately authorized deployment evidence.
 
 ## 2026-11-24 AFC multi-input
 

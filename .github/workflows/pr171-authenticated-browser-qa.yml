@@ -15,7 +15,7 @@ concurrency:
 jobs:
   browser:
     if: github.event.pull_request.number == 171
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
       PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
@@ -93,11 +93,27 @@ jobs:
           retention-days: 7
       - name: Remove disposable SQL
         if: always()
-        shell: pwsh
+        shell: bash
         run: |
-          $container=docker inspect paws-calendar-pr171-browser 2>$null
-          if($LASTEXITCODE -eq 0){
-            $details=$container | ConvertFrom-Json
-            if($details[0].Config.Labels.'paws.calendar-test' -ne '1'){throw 'Refusing to remove non-QA container'}
-            docker rm -f paws-calendar-pr171-browser
-          }
+          set -euo pipefail
+          # An empty result is expected if preparation failed before docker run.
+          # Do not mistake a Docker daemon/listing failure for an absent container.
+          container="$(docker container ls --all --quiet --filter 'name=^/paws-calendar-pr171-browser$')"
+          if [[ -z "$container" ]]; then
+            echo 'BROWSER_SQL_CLEANUP_OK: container absent; nothing removed'
+            exit 0
+          fi
+          if [[ ! "$container" =~ ^[a-f0-9]{12,64}$ ]]; then
+            echo 'Refusing ambiguous container identity' >&2
+            exit 1
+          fi
+          name="$(docker container inspect --format '{{.Name}}' "$container")"
+          label="$(docker container inspect --format '{{index .Config.Labels "paws.calendar-test"}}' "$container")"
+          if [[ "$name" != '/paws-calendar-pr171-browser' || "$label" != '1' ]]; then
+            echo 'Refusing to remove non-QA container' >&2
+            exit 1
+          fi
+          docker container rm --force "$container" >/dev/null
+          remaining="$(docker container ls --all --quiet --filter 'name=^/paws-calendar-pr171-browser$')"
+          [[ -z "$remaining" ]]
+          echo 'BROWSER_SQL_CLEANUP_OK: labeled disposable container removed'

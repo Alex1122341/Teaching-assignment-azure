@@ -7,6 +7,8 @@ on:
       - 'tools/test-pr171-browser-schema.ps1'
       - 'tools/test-pr171-authenticated-browser.cjs'
       - 'tools/test-pr171-annual-reference.cjs'
+      - 'tools/test-pr171-owner-directory.cjs'
+      - 'tools/test-pr171-login-ux-compare.cjs'
 permissions:
   contents: read
 concurrency:
@@ -19,7 +21,7 @@ jobs:
     timeout-minutes: 35
     env:
       ORIGINAL_PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
-      PRODUCT_SHA: 6410015768aea742dfd992a1be8428f4d06dfc54
+      PRODUCT_SHA: 75191cd454064a70293d34c549338469aa34fbb8
       GOVERNANCE_SHA: 5d90e1ffffafa4ba3b482abd010355d6abfa6e4e
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +45,7 @@ jobs:
           # New product is an unapproved-for-release review candidate. Its
           # only protected delta from the accepted anchor must be these files.
           actual="$(git diff --name-only "$ORIGINAL_PRODUCT_SHA" "$PRODUCT_SHA" -- frontend server/src swa-api database/azure-sql tools/static-assets.json deploy/aca/Dockerfile server/package.json server/package-lock.json package.json package-lock.json firestore.rules firestore.indexes.json)"
-          expected="$(printf '%s\n' frontend/scripts/calendar-tested-features.js frontend/scripts/effective-access-guard.js frontend/scripts/timetable.js server/src/afc/afc-request-api.js server/src/data/sql-account-access-repository.js server/src/data/sql-scheduling-task-repository.js server/src/data/sql-user-repository.js)"
+          expected="$(printf '%s\n' database/azure-sql/073_owner_account_directory_read.sql database/azure-sql/rollback_073_owner_account_directory_read.sql frontend/scripts/calendar-tested-features.js frontend/scripts/effective-access-guard.js frontend/scripts/timetable.js server/src/access/account-access-api.js server/src/afc/afc-request-api.js server/src/data/sql-account-access-repository.js server/src/data/sql-scheduling-task-repository.js server/src/data/sql-user-repository.js)"
           test "$actual" = "$expected"
           git merge-base --is-ancestor "$GOVERNANCE_SHA" HEAD
           git diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql tools/static-assets.json deploy/aca/Dockerfile server/package.json server/package-lock.json package.json package-lock.json firestore.rules firestore.indexes.json
@@ -64,6 +66,10 @@ jobs:
         run: node --test server/test/p3b1-afc-request-domain.test.js server/test/p3b1-afc-request-runtime.test.js server/test/p3b2-afc-approval-domain.test.js server/test/ux07-afc-date-edit.test.js server/test/scheduling-task-repository.test.js server/test/scheduling-task-api.test.js server/test/scheduling-task-runtime.test.js server/test/session-batch-edit-api.test.js
       - name: Focused workflow notification source and identity isolation regression
         run: node --test tests/calendar-tested-features.test.js
+      - name: Complete login function boundary and original-candidate deferred behavior
+        run: |
+          node --test tests/b2b-login-ux-performance.test.js
+          node tools/test-pr171-login-ux-compare.cjs
       - name: Build exact static assets
         run: npm run build
       - name: Install browser-only tooling outside repository

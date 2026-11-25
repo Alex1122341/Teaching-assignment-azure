@@ -10,7 +10,7 @@ const {execFileSync}=require('node:child_process');
 const {randomUUID,randomBytes}=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const originalSha='343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8';
-const sha='6410015768aea742dfd992a1be8428f4d06dfc54';
+const sha='75191cd454064a70293d34c549338469aa34fbb8';
 const baselineRoot=process.env.PAWS_BASELINE_ROOT;
 const project='demo-paws-pr171';
 const marker=process.env.PAWS_BROWSER_TEST_MARKER;
@@ -45,6 +45,7 @@ const {createSwaSqlRuntime}=require('../server/src/runtime/swa-sql-runtime');
 const {createUniversityHttpServer}=require('../server/src/runtime/university-http-server');
 const {chromium}=require(path.join(tooling,'playwright'));
 const {runAnnualReference}=require('./test-pr171-annual-reference.cjs');
+const {runOwnerSql,runOwnerHttp}=require('./test-pr171-owner-directory.cjs');
 const db=createSqlConnection({sql,config:{server:'127.0.0.1',port:14339,database:'VetMed-Ops',user:'sa',password:sa,options:{encrypt:true,trustServerCertificate:true}}});
 const roles=['developer','adfa_general','adfa_regular','faculty','faculty','hicc','visc','adc','lab'];
 const scoped=new Set(['faculty','hicc','visc']);
@@ -372,7 +373,7 @@ async function main(){
    assert.match(snapshot.authorityVersion,/^[0-9a-f]{16}$/i);assert.equal(snapshot.assignments.length,0);
    return {versionValid:true,assignmentCount:snapshot.assignments.length};
   });
-  await expectEmailDenied('owner-directory-existing-contact-read-stays-denied',()=>accounts.list());
+  await expectEmailDenied('original-owner-directory-contact-read-stays-denied',()=>oldAccounts.list());
   // Independent zero-result SQL contract comparison. Keep identity counts
   // separate; use the immutable original adapter and the same actual SQL
   // identity. No grant, procedure, write gate or scope change.
@@ -426,12 +427,14 @@ async function main(){
     return {role,active:profile.active,effectiveRolePresent:true,scopeVersionPresent:!!profile.teachingAccess.scopeVersion};
    });
   }
+  stage='owner-directory-sql-and-rollback';
+  receipt.ownerDirectorySql=await runOwnerSql({db,runtimeDb:diagnosticDb,identities,baselineRoot});
  }finally{await diagnosticDb.close();}
  accessDiagnostics.failedCount=accessDiagnostics.probes.filter(p=>p.status==='failed').length;
  const denialCount=accessDiagnostics.probes.filter(p=>p.status==='passed'&&p.facts?.expectedDenial===true).length;
  accessDiagnostics.expectedEmailDenials=denialCount;
  assert.equal(denialCount,7);
- receipt.releaseBlockers=['Owner directory still requires a separately reviewed controlled Email read; no release or freeze approval for this product'];
+ receipt.releaseBlockers=['New candidate and migration require independent review; old frozen release remains enforced; University UAT not accepted'];
  if(receipt.schedulingTaskDiagnostics.sql.some(row=>row.status==='blocked'))receipt.releaseBlockers.push('Scheduling Tasks read: independent SQL diagnostic blocked');
  console.log('BROWSER_QA_SQL_ACCESS_SUMMARY '+JSON.stringify({probes:accessDiagnostics.probes.length,failed:accessDiagnostics.failedCount}));
  // Still run the original first browser gate even if a read probe failed,
@@ -533,11 +536,17 @@ async function main(){
   }
   const directory=await call(token,'/api/v1/access/accounts');
   console.log('BROWSER_QA_HTTP_PHASE '+JSON.stringify({role:user.role,phase:'owner-directory',status:directory.status,code:safeCode(directory.body.error?.code)}));
-  // Preserve and expose the known owner-only directory blocker. It is NOT a
-  // passed directory feature. No contact permission is changed.
-  assert.equal(directory.status,user.role==='adfa_general'?503:403);
-  assert.equal(directory.body.error.code,user.role==='adfa_general'?'ACCESS_UNAVAILABLE':'OWNER_REQUIRED');
-  assert.equal(Object.hasOwn(directory.body,'accounts'),false);
+  // Actual candidate directory only for the Owner. All prior non-Owner
+  // denial assertions remain; direct Email SELECT still denied.
+  assert.equal(directory.status,user.role==='adfa_general'?200:403);
+  if(user.role==='adfa_general'){
+   const expectedKeys=['active','displayName','editable','email','facultyId','mustChangePassword','role','uid','version'].sort();
+   assert.ok(Array.isArray(directory.body.accounts));assert.equal(directory.body.pageSize,50);
+   for(const row of directory.body.accounts)assert.deepEqual(Object.keys(row).sort(),expectedKeys);
+   const own=directory.body.accounts.find(row=>row.uid===user.uid);assert.equal(own?.email,user.email);
+  }else{
+   assert.equal(directory.body.error.code,'OWNER_REQUIRED');assert.equal(Object.hasOwn(directory.body,'accounts'),false);
+  }
   if(user.uid===identities[0].uid||user.uid===identities.find(item=>item.role==='faculty').uid){
    const tasks=await call(token,'/api/v1/scheduling-tasks?academicYear=2026-27&limit=50');
    const facts={role:user.role,status:tasks.status,code:safeCode(tasks.body.error?.code),readPassed:tasks.status===200,reviewEnabled:tasks.body.capabilities?.canReview===true};
@@ -556,7 +565,7 @@ async function main(){
    const denied=await call(token,'/api/v1/sessions/batch-edit','POST',{edits:[]});
    assert.equal(denied.status,403);assert.equal(denied.body.error.code,'ROLE_DENIED');
   }
-  const checked={role:user.role,account:user.uid,accessSelf:self.status,me:me.status,sessions:sessions.status,scopeVerified:true,batchTokensVerified:true,ownerDirectory:user.role==='adfa_general'?'BLOCKED_EXISTING_EMAIL_CONTRACT':'DENIED',nonAdminWrite:admins.has(user.role)?'not-requested':'DENIED'};
+  const checked={role:user.role,account:user.uid,accessSelf:self.status,me:me.status,sessions:sessions.status,scopeVerified:true,batchTokensVerified:true,ownerDirectory:user.role==='adfa_general'?'READ_OK':'DENIED',nonAdminWrite:admins.has(user.role)?'not-requested':'DENIED'};
   httpChecks.push(checked);console.log('BROWSER_QA_HTTP_AUTHORIZATION '+JSON.stringify(checked));
  }
  // Additional ephemeral negative identity fixtures, outside the 9 x 2
@@ -574,7 +583,12 @@ async function main(){
   const checked={negative:kind,accessAllowed:false,me:me.status,sessions:sessions.status,code:me.body.error.code};
   httpChecks.push(checked);console.log('BROWSER_QA_HTTP_AUTHORIZATION '+JSON.stringify(checked));
  }
- console.log('BROWSER_QA_HTTP_AUTHORIZATION_OK '+JSON.stringify({positive:9,negative:4,anonymous:401,invalid:401,ownerDirectory:'separate blocker'}));
+ console.log('BROWSER_QA_HTTP_AUTHORIZATION_OK '+JSON.stringify({positive:9,negative:4,anonymous:401,invalid:401,ownerDirectory:'Owner only'}));
+ stage='owner-directory-http-and-revocation';
+ const ownerRuntimeDb=createSqlConnection({sql,driver:env.PAWS_SQL_DRIVER,connectionString:env.PAWS_SQL_CONNECTION_STRING});
+ try{
+  receipt.ownerDirectoryHttp=await runOwnerHttp({db,runtimeDb:ownerRuntimeDb,identities,auth,password,emulatorToken,call,api});
+ }finally{await ownerRuntimeDb.close();}
  // Additional actual identity negatives for the newly supported capability
  // discovery path. Only the disposable seed administrator creates users.
  stage='office-capability-negative';
@@ -676,12 +690,46 @@ async function main(){
   for(const user of identities){
    const result={role:user.role,account:user.uid,viewport:viewport.width,checks:{}};
    receipt.roles.push(result);
-   const context=await browser.newContext({viewport,deviceScaleFactor:1,isMobile:viewport.width===390,hasTouch:viewport.width===390,serviceWorkers:'block'});
+   const context=await browser.newContext({viewport,deviceScaleFactor:1,isMobile:viewport.width===390,hasTouch:viewport.width===390,serviceWorkers:'block',reducedMotion:'no-preference'});
    const page=await context.newPage();
    page.setDefaultTimeout(30000);
    const blocked=new Set();
    const trace=[];trace.startedAt=Date.now();result.loginTrace=trace;activeTrace=trace;
    const browserResponses=[];
+   const slowLogin=receipt.roles.length===1;
+   const held=new Map();
+   if(slowLogin)for(const endpoint of ['me','write-capabilities']){
+    let release;const pending=new Promise(resolve=>{release=resolve;});
+    held.set(endpoint,{pending,release,seen:false,released:false});
+   }
+   const releaseHold=endpoint=>{
+    const hold=held.get(endpoint);
+    if(hold&&!hold.released){hold.released=true;hold.release();}
+   };
+   async function verifySlowPhase(endpoint,phase){
+    const hold=held.get(endpoint);
+    assert.ok(hold);
+    await waitTrace(()=>hold.seen,20000);
+    await page.waitForFunction(expected=>{
+     const status=document.getElementById('email-login-status');
+     return status?.dataset.phase===expected&&status.dataset.active==='true'&&document.getElementById('modal')?.classList.contains('open')&&document.body.classList.contains('auth-locked');
+    },phase,{timeout:15000});
+    const before=await page.evaluate(()=>{
+     const node=document.getElementById('email-login-status'),css=getComputedStyle(node,'::after'),performance=window.UCVM_LOGIN_PERFORMANCE.snapshot();
+     return {position:css.backgroundPosition,animation:css.animationName,iteration:css.animationIterationCount,playState:css.animationPlayState,t7:performance.stages.T7!==undefined,phase:node.dataset.phase,modal:document.getElementById('modal').classList.contains('open'),locked:document.body.classList.contains('auth-locked')};
+    });
+    await page.waitForTimeout(420);
+    const after=await page.evaluate(()=>{
+     const node=document.getElementById('email-login-status'),css=getComputedStyle(node,'::after'),performance=window.UCVM_LOGIN_PERFORMANCE.snapshot();
+     return {position:css.backgroundPosition,t7:performance.stages.T7!==undefined,phase:node.dataset.phase,modal:document.getElementById('modal').classList.contains('open'),locked:document.body.classList.contains('auth-locked')};
+    });
+    assert.match(before.animation,/login-ripple/);assert.match(before.iteration,/infinite/);assert.match(before.playState,/running/);
+    assert.notEqual(before.position,after.position,'Real CSS water ripple must move while the response is withheld');
+    assert.equal(before.t7,false);assert.equal(after.t7,false);
+    assert.equal(before.modal,true);assert.equal(after.modal,true);assert.equal(before.locked,true);assert.equal(after.locked,true);assert.equal(after.phase,phase);
+    traceEvent(trace,'slow-login-phase-accepted',{phase,modalOpen:true,locked:true,t7Absent:true,rippleMoved:true,responseHeld:true});
+    releaseHold(endpoint);
+   }
    const requestIds=new WeakMap();let nextRequestId=0;
    const requestId=request=>{if(!requestIds.has(request))requestIds.set(request,++nextRequestId);return requestIds.get(request);};
    const scriptNames=new Set(manifest.filter(file=>/^[A-Za-z0-9_-]+\.js$/.test(file)));
@@ -807,6 +855,12 @@ async function main(){
         catch(_){traceEvent(trace,'access-binding-observation',{requestId:id,endpoint:label,present:false});}
        }
        traceEvent(trace,'proxy-response',{requestId:id,endpoint:label,method:route.request().method(),status:response.status(),corsMatches:headers['access-control-allow-origin']===site,corsPresent:!!headers['access-control-allow-origin'],code:await responseCode(response)});
+       // Delay delivery of the real successful response, never modify its
+       // contents. The first visit alone proves both slow login phases.
+       const hold=held.get(label);
+       if(hold&&!hold.released&&response.status()===200&&route.request().method()==='GET'){
+        hold.seen=true;await hold.pending;
+       }
        await route.fulfill({response});return;
       }catch(error){
        traceEvent(trace,'proxy-failed',{requestId:id,endpoint:label,method:route.request().method(),name:safeName(error?.name),code:safeCode(error?.code)});
@@ -845,6 +899,10 @@ async function main(){
     const access=await waitTrace(()=>trace.find(e=>e.event==='api-finished'&&e.endpoint==='access-self'&&e.method==='GET'&&e.status===200),25000);
     traceEvent(trace,'phase-complete',{phase:'sql-access-self-response',status:access.status});
     assert.equal(access.status,200);
+    if(slowLogin){
+     stage='browser-slow-access-phase';
+     await verifySlowPhase('me','access');
+    }
     stage='browser-sql-profile:'+user.uid+':'+viewport.width;
     const me=await waitTrace(()=>trace.find(e=>e.event==='api-finished'&&e.endpoint==='me'&&e.method==='GET'&&e.status===200),25000);
     traceEvent(trace,'phase-complete',{phase:'sql-me-response',status:me.status,corsMatches:me.corsMatches});
@@ -857,12 +915,26 @@ async function main(){
     // client has accepted the /me response and effective-access guard.
     await page.waitForFunction(()=>window.__pawsQaLoginTrace?.profileEvents>0,null,{timeout:15000});
     traceEvent(trace,'phase-complete',{phase:'client-profile-accepted',...await browserState(page)});
+    if(slowLogin){
+     stage='browser-slow-timetable-phase';
+     await verifySlowPhase('write-capabilities','timetable');
+    }
     stage='browser-account-ui:'+user.uid+':'+viewport.width;
     await page.waitForFunction(role=>document.getElementById('account-toggle')?.textContent.trim().endsWith(' - '+role),user.role,{timeout:30000});
     stage='browser-ui-unlock:'+user.uid+':'+viewport.width;
     await page.waitForFunction(()=>!document.body.classList.contains('auth-locked'),null,{timeout:30000});
     traceEvent(trace,'phase-complete',{phase:'ui-unlock',...await browserState(page)});
     result.checks.actualSdkLogin=true;
+    if(slowLogin){
+     await page.waitForFunction(()=>!document.getElementById('modal').classList.contains('open')&&window.UCVM_LOGIN_PERFORMANCE.snapshot()?.status==='complete',null,{timeout:15000});
+     const done=await page.evaluate(()=>{
+      const perf=window.UCVM_LOGIN_PERFORMANCE.snapshot();
+      return {complete:perf.status==='complete',stages:Object.keys(perf.stages),modalClosed:!document.getElementById('modal').classList.contains('open'),unlocked:!document.body.classList.contains('auth-locked')};
+     });
+     assert.deepEqual(done,{complete:true,stages:['T0','T1','T2','T3','T4','T5','T6','T7'],modalClosed:true,unlocked:true});
+     receipt.slowLogin={status:'passed',accessRippleMoved:true,timetableRippleMoved:true,lockedWhileWaiting:true,modalHeld:true,completedStages:8};
+     console.log('PR171_SLOW_LOGIN_BROWSER_OK '+JSON.stringify(receipt.slowLogin));
+    }
     stage='browser-current-user:'+user.uid+':'+viewport.width;
     traceEvent(trace,'phase-start',{phase:'currentUser',...await browserState(page)});
     const identityView=await page.evaluate(async()=>{
@@ -955,6 +1027,22 @@ async function main(){
     const notificationReads=await verifyNotificationSources();
     result.notificationSources=notificationReads;
     result.checks.notificationSources=true;
+    if(user.role==='adfa_general'){
+     stage='browser-owner-directory:'+user.uid+':'+viewport.width;
+     const directory=await page.evaluate(async()=>{
+      const result=await window.UCVM_PAWS_DATA.accessAccounts();
+      return {total:result.total,pageSize:result.pageSize,accounts:result.accounts.map(row=>({uid:row.uid,email:row.email,role:row.role,keys:Object.keys(row).sort()}))};
+     });
+     assert.equal(directory.pageSize,50);
+     assert.ok(directory.total>=identities.length);
+     const keys=['active','displayName','editable','email','facultyId','mustChangePassword','role','uid','version'].sort();
+     for(const fixture of identities){
+      const row=directory.accounts.find(item=>item.uid===fixture.uid);
+      assert.ok(row);assert.equal(row.email,fixture.email);assert.equal(row.role,fixture.role);assert.deepEqual(row.keys,keys);
+     }
+     result.checks.ownerDirectoryClient=true;
+     traceEvent(trace,'owner-directory-client-accepted',{actualApi:true,fixtureAccountsCorrect:true,projectedFields:keys.length});
+    }
     traceEvent(trace,'notification-sources-accepted',notificationReads);
     // The old stage label covered all these operations. Explicitly distinguish
     // the test's intended sign-out from any earlier spontaneous session loss.
@@ -1100,6 +1188,8 @@ async function main(){
     // Do not capture a failed login page: it may still contain a password.
     console.error('BROWSER_QA_ROLE_FAILED '+JSON.stringify({role:user.role,account:user.uid,viewport:viewport.width,...result.failure}));
    }finally{
+    // Always release local response latches before closing a failed context.
+    for(const endpoint of held.keys())releaseHold(endpoint);
     // Only known categories are reported, not arbitrary URL components.
     result.blockedOrigins=[...blocked].sort();result.traceOverflow=trace.overflow===true;await context.close();activeTrace=null;
     const {loginTrace,...summary}=result;
@@ -1122,7 +1212,11 @@ async function main(){
  assert.equal(receipt.roles.length,18);
  assert.equal(receipt.failures.length,0,'One or more browser role/viewport checks failed.');
  console.log('PR171_ISOLATED_AUTHENTICATED_BROWSER_OK');
- console.log('PR171_OWNER_DIRECTORY_BLOCKED: original contact-read permission gap; no release approval');
+ assert.equal(receipt.ownerDirectorySql?.status,'passed');
+ assert.equal(receipt.ownerDirectoryHttp?.status,'passed');
+ assert.equal(receipt.roles.filter(row=>row.role==='adfa_general'&&row.checks.ownerDirectoryClient===true).length,2);
+ assert.equal(receipt.slowLogin?.status,'passed');
+ console.log('PR171_OWNER_DIRECTORY_ISOLATED_OK: no production migration or release approval');
  const tasksPassed=receipt.schedulingTaskDiagnostics.sql.every(row=>row.status==='passed')&&receipt.schedulingTaskDiagnostics.http.every(row=>row.readPassed)&&receipt.schedulingTaskDiagnostics.populated.status==='passed';
  console.log('PR171_TASKS_DIAGNOSTIC_SUMMARY '+JSON.stringify({sql:receipt.schedulingTaskDiagnostics.sql.map(({phase,status})=>({phase,status})),http:receipt.schedulingTaskDiagnostics.http,populated:receipt.schedulingTaskDiagnostics.populated.status,reviewGateUnchanged:true,passed:tasksPassed}));
  assert.equal(receipt.officeCapabilityChecks.length,2);

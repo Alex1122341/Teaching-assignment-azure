@@ -17,7 +17,7 @@ $files=@(
  '061_effective_teaching_access.sql','062_leadership_access_commands.sql','063_scoped_teaching_workflow.sql',
  '064_afc_date_edit.sql','065_faculty_future_activation.sql','066_sessional_and_doe_summary_source.sql',
  '067_faculty_teaching_doe_inputs.sql','068_afc_special_leave.sql','069_faculty_contract_allocations.sql',
- '070_workflow_regressions.sql','071_afc_batch_record_document.sql','072_faculty_availability_bulk_read.sql'
+ '070_workflow_regressions.sql','071_afc_batch_record_document.sql','072_faculty_availability_bulk_read.sql','073_owner_account_directory_read.sql'
 )
 foreach($file in $files){
  Write-Output "BROWSER_SQL_MIGRATION $file"

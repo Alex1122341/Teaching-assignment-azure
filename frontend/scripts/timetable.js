@@ -1521,10 +1521,15 @@
     const host=options&&options.host,query='[data-session-id]';
     if(!host||typeof host.addEventListener!=='function'||typeof host.querySelectorAll!=='function')return null;
     let index=new Map(),bound=false;
+    function selectionRejection(row,id){
+      if(row?.isCcc||row?.readOnlyActivity||row?.isUniversityClosure)return (row.isCcc?'CCC':row.isUniversityClosure?'University closure':'Working activity')+' records are read-only and cannot be selected.';
+      return options.getSelectionRejection?.(row,String(id))||null;
+    }
     function activate(id){
       const row=index.get(String(id));
       if(!options.getSelectionMode()){options.onOpen(String(id));return;}
-      if(row&&(row.isCcc||row.readOnlyActivity)){options.onRejected((row.isCcc?'CCC':'Working activity')+' records are read-only and cannot be selected.');return;}
+      const rejection=selectionRejection(row,id);
+      if(rejection){options.onRejected(rejection);return;}
       try{options.onToggle(String(id),row);}
       catch(error){options.onRejected(error&&error.message?error.message:String(error));}
     }
@@ -1543,7 +1548,10 @@
         const id=element&&element.dataset?element.dataset.sessionId:null;
         if(id===undefined||id===null||id==='')continue;
         const row=index.get(String(id));
-        element.classList.toggle('selection-candidate',selectionMode&&!row?.isCcc&&!row?.readOnlyActivity);
+        const unavailable=selectionMode&&Boolean(selectionRejection(row,id));
+        element.classList.toggle('selection-candidate',selectionMode&&!unavailable);
+        element.classList.toggle('selection-unavailable',unavailable);
+        if(unavailable)element.setAttribute?.('aria-disabled','true');else element.removeAttribute?.('aria-disabled');
         element.classList.toggle('selection-selected',Boolean(options.isSelected(String(id))));
       }
       if(!bound){bound=true;host.addEventListener('click',handleClick);}
@@ -1562,9 +1570,10 @@
       getRows:()=>renderedSessions,
       getSelectionMode:()=>selectionMode,
       isSelected:id=>sessionSelection.has(id),
+      getSelectionRejection:(row,id)=>sessionSelection.has(id)||/^[a-f0-9]{64}$/i.test(String(row?.batchEditToken||''))?null:'This session needs a fresh API snapshot. Reload the timetable.',
       onOpen:id=>openSessionDetail(id),
       onToggle:(id,row)=>{
-        if(!sessionSelection.has(id)&&(!row?.batchEditToken||row.isCcc||row.readOnlyActivity||row.isUniversityClosure)){toast('This session is read-only or needs a fresh API snapshot. Reload the timetable.',true);return;}
+        if(!sessionSelection.has(id)&&(!/^[a-f0-9]{64}$/i.test(String(row?.batchEditToken||''))||row.isCcc||row.readOnlyActivity||row.isUniversityClosure)){toast('This session is read-only or needs a fresh API snapshot. Reload the timetable.',true);return;}
         const selected=sessionSelection.toggle(id);
         if(selected&&row)selectedSessionOriginals.set(String(row.id),JSON.parse(JSON.stringify(row)));
         if(!selected)selectedSessionOriginals.delete(String(id));

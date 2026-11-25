@@ -138,7 +138,7 @@
  // array for each one, attach one listener per block" binding. The rendered
  // container is stable across renders (only its innerHTML is replaced), so one
  // delegated listener installed on first bind survives every later render.
- function createSessionBlockController({host,getRows,getSelectionMode,isSelected,onOpen,onToggle,onRejected,selector=SESSION_BLOCK_SELECTOR}={}){
+ function createSessionBlockController({host,getRows,getSelectionMode,isSelected,onOpen,onToggle,onRejected,getSelectionRejection,selector=SESSION_BLOCK_SELECTOR}={}){
   if(!host||typeof host.addEventListener!=='function'||typeof host.querySelectorAll!=='function')throw Error('createSessionBlockController requires a host element');
   const query=selector;
   let index=new Map(),bound=false,activeCount=0,bindCount=0;
@@ -149,10 +149,16 @@
    return index;
   }
 
+  function selectionRejection(row,id){
+   if(row?.isCcc||row?.readOnlyActivity||row?.isUniversityClosure)return (row.isCcc?'CCC':row.isUniversityClosure?'University closure':'Working activity')+' records are read-only and cannot be selected.';
+   return getSelectionRejection?.(row,String(id))||null;
+  }
+
   function activate(id){
    const row=index.get(String(id));
    if(!getSelectionMode?.()){onOpen?.(String(id));return 'open';}
-   if(row?.isCcc||row?.readOnlyActivity){onRejected?.((row.isCcc?'CCC':'Working activity')+' records are read-only and cannot be selected.');return 'rejected';}
+   const rejection=selectionRejection(row,id);
+   if(rejection){onRejected?.(rejection);return 'rejected';}
    try{onToggle?.(String(id),row);return 'toggled';}
    catch(error){onRejected?.(error?.message||String(error));return 'rejected';}
   }
@@ -176,7 +182,10 @@
     if(id===undefined||id===null||id==='')continue;
     activeCount+=1;
     const row=index.get(String(id));
-    element.classList?.toggle('selection-candidate',selectionMode&&!row?.isCcc&&!row?.readOnlyActivity);
+    const unavailable=selectionMode&&Boolean(selectionRejection(row,id));
+    element.classList?.toggle('selection-candidate',selectionMode&&!unavailable);
+    element.classList?.toggle('selection-unavailable',unavailable);
+    if(unavailable)element.setAttribute?.('aria-disabled','true');else element.removeAttribute?.('aria-disabled');
     element.classList?.toggle('selection-selected',Boolean(isSelected?.(String(id))));
    }
    if(!bound){bound=true;bindCount+=1;host.addEventListener('click',handleClick);}

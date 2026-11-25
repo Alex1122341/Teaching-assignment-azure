@@ -467,12 +467,14 @@ test('the Calendar workspace product frozen runtime reports zero protected drift
   assert.equal(result.baselineCommit,BASELINE_COMMIT);
   assert.deepEqual(result.drift,[]);
   assert.equal(result.ok,true);
-  assert.equal(result.protected,96);
+  assert.equal(result.protected,97);
 });
 
-test('the current static manifest has exactly 96 protected files',()=>{
-  assert.equal(manifest().length,96);
-  assert.equal(freeze.protectedPaths({root}).length,96);
+test('the current static manifest has exactly 97 protected files, including the candidate calendar feature',()=>{
+  assert.equal(manifest().length,97);
+  assert.equal(freeze.protectedPaths({root}).length,97);
+  assert.ok(manifest().includes('calendar-tested-features.js'));
+  assert.ok(freeze.protectedPaths({root}).includes('calendar-tested-features.js'));
 });
 
 test('freeze protects every shipped file named by the static asset manifest',()=>{
@@ -485,9 +487,9 @@ test('freeze protects every shipped file named by the static asset manifest',()=
   for(const name of ['approval-workflow.js','scheduling-core.js'])assert.ok(protectedFiles.includes(name),`${name} must be protected`);
 });
 
-test('all 96 current protected files are byte-identical to the immutable accepted product blobs',()=>{
+test('all 97 current protected files are byte-identical to the immutable accepted product blobs',()=>{
   const protectedFiles=freeze.protectedPaths({root});
-  assert.equal(protectedFiles.length,96);
+  assert.equal(protectedFiles.length,97);
   for(const name of protectedFiles){
     assert.equal(freeze.bytesMatch(
       freeze.readBaselineFile({root,file:name}),

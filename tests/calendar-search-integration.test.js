@@ -334,7 +334,7 @@ test('the shipped binding attaches one delegated listener and opens a session',(
 });
 
 test('selection mode toggles the clicked row and repaints once',()=>{
- const rows=[{id:'s-a'},{id:'s-b'},{id:'s-c',isCcc:true}];
+ const rows=[{id:'s-a',batchEditToken:'A'.repeat(64)},{id:'s-b',batchEditToken:'B'.repeat(64)},{id:'s-c',isCcc:true}];
  const {context,host}=sessionHarness(rows);
  context.selectionMode=true;
  context.bindSessionBlocks();
@@ -392,7 +392,7 @@ test('without the module the fallback still opens a session, once per click',()=
 });
 
 test('the fallback preserves selection mode, CCC read-only and the limit error',()=>{
- const rows=[{id:'s-a'},{id:'s-ccc',isCcc:true}];
+ const rows=[{id:'s-a',batchEditToken:'A'.repeat(64)},{id:'s-ccc',isCcc:true}];
  const {context,host}=sessionHarness(rows,{factory:null});
  context.bindSessionBlocks();
  context.selectionMode=true;
@@ -409,6 +409,32 @@ test('the fallback preserves selection mode, CCC read-only and the limit error',
  context.sessionSelection.toggle=()=>{throw Error('Select at most 200 sessions.');};
  host.listeners[0]({target:{closest:()=>host.elements[0]}});
  assert.deepEqual(context.toasts.at(-1),'Select at most 200 sessions.');
+});
+
+test('selection eligibility and click guards agree for missing or malformed snapshots in both controllers',()=>{
+ for(const factory of [search,null]){
+  const rows=[{id:'ready',batchEditToken:'A'.repeat(64)},{id:'missing'},{id:'bad',batchEditToken:'bad'},{id:'closure',isUniversityClosure:true,batchEditToken:'B'.repeat(64)},{id:'work',readOnlyActivity:true,batchEditToken:'C'.repeat(64)},{id:'ccc',isCcc:true,batchEditToken:'D'.repeat(64)}];
+  const {context,host}=sessionHarness(rows,{factory});
+  context.selectionMode=true;context.bindSessionBlocks();
+  assert.equal(host.elements[0].classes.has('selection-candidate'),true);
+  for(const element of host.elements.slice(1)){
+   assert.equal(element.classes.has('selection-candidate'),false);
+   assert.equal(element.classes.has('selection-unavailable'),true);
+   host.listeners[0]({target:{closest:()=>element}});
+  }
+  assert.equal(context.sessionSelection.selected.size,0);
+  assert.equal(context.toasts.length,5);
+  host.listeners[0]({target:{closest:()=>host.elements[0]}});
+  assert.deepEqual([...context.sessionSelection.selected],['ready']);
+  // If a selected row loses its snapshot, it remains possible to deselect.
+  context.renderedSessions[0].batchEditToken='';context.bindSessionBlocks();
+  host.listeners[0]({target:{closest:()=>host.elements[0]}});
+  assert.equal(context.sessionSelection.selected.size,0);
+  context.selectionMode=false;context.bindSessionBlocks();
+  assert.equal(host.elements[1].classes.has('selection-unavailable'),false);
+  host.listeners[0]({target:{closest:()=>host.elements[1]}});
+  assert.deepEqual(context.opened,['missing']);
+ }
 });
 
 test('the fallback ignores clicks that are not on a session block',()=>{

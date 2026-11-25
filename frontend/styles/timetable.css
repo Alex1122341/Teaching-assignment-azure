@@ -276,3 +276,6 @@ body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:var(--bg);colo
 .paws-workflow-notice h2 {font-size:16px;margin:0 0 8px}
 .paws-workflow-notice ul {list-style:none;margin:0 0 12px;padding:0}
 .paws-workflow-notice li {display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 0;font-size:13px}
+
+/* Selection eligibility is distinct from the normal read-only detail view. */
+.session-selection-mode .selection-unavailable {cursor:not-allowed;opacity:.72}

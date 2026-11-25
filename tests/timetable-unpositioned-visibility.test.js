@@ -189,9 +189,10 @@ test('post-P3 Check Needed list covers the selected academic year and partitions
   const listEnd=src.indexOf('function bindSessionBlocks()',listStart);
   const list=src.slice(listStart,listEnd);
   assert.match(list,/session\.academicYear/);
-  assert.match(list,/listSessionMode==='CHECK NEEDED'\?checkRows:listSessionMode==='GRID-READY'\?gridRows:classified/);
-  assert.match(list,/checkRows=classified\.filter\(row=>row\.check\.disposition!==['"]grid['"]\)/);
-  assert.match(list,/gridRows=classified\.filter\(row=>row\.check\.disposition===['"]grid['"]\)/);
+  assert.match(list,/listSessionMode==='CHECK NEEDED'\?checkRows:listSessionMode==='GRID-READY'\?\[\.\.\.gridRows,\.\.\.closureRows\]:classified/);
+  assert.match(list,/closureRows=classified\.filter\(row=>row\.session\.isUniversityClosure\)/);
+  assert.match(list,/checkRows=classified\.filter\(row=>!row\.session\.isUniversityClosure&&row\.check\.disposition!==['"]grid['"]\)/);
+  assert.match(list,/gridRows=classified\.filter\(row=>!row\.session\.isUniversityClosure&&row\.check\.disposition===['"]grid['"]\)/);
   assert.doesNotMatch(list,/date>=start|future sessions/);
   assert.match(src,/invalid-date/);
 });

@@ -64,3 +64,20 @@ Review diff and full test reports; complete staging and governance review; autho
 The user assigned coding to the coding agent and independent testing to Dot. Candidate follow-up clears login notifications across authentication changes, resets cached write capabilities before refreshing, and keeps closure records outside teaching-session counts. The runtime runbook describes the independent batch gate and rollback. No additional tests were run in this follow-up.
 
 Dot should obtain the current PR head from PR #171, run full suites and report exact command, head, pass/fail/skip counts and reproduction steps. Validate browser views and role scope for closures/notifications, batch edits in isolated staging with synthetic records including concurrency and rollback, and existing Task Review permissions/audit. Return defects to the coding agent; do not change production data, enable live gates, promote frozen anchors, merge, or deploy without explicit approval.
+
+
+## 14. Dot round-one QA follow-up (2026-11-25)
+
+Dot tested adcc656c0a2c42cea949e1e1cb805f79e0644ec4 against main 35c2c608fb2010d359555ab37350b12325cfa2a9 and reported API 22/22, focused frontend 106/110, Calendar 46/49 vs main 49/49. Full PR merge-ref CI: 1,332 pass, 64 fail, 55 skipped, with later checks blocked (https://github.com/Alex1122341/Teaching-assignment-azure/actions/runs/45642913679/job/139306083107).
+
+Coding response:
+- Apply the same snapshot eligibility guard to both delegated and fallback Calendar selection controllers, including visual unavailable state and aria-disabled; preserve normal detail viewing and allow deselection of an already-selected stale row.
+- Repair the two outdated synthetic fixtures, add explicit positive/negative selection cases for both controller paths, update Check Needed/Grid Ready contract assertions for the separate closure counts.
+- Update current candidate static inventory assertions from 96 to 97, explicitly requiring the added asset. Do not alter immutable accepted anchor, historic receipt counts, or byte verification. Freeze drift remains a release blocker requiring a separate reviewed governance promotion.
+
+Environment read-only checks:
+- Draft isolated origin https://paws-testing-ucvm-20261022.web.app returned HTTP 404; no candidate preview is available there. No listener on isolated draft API port 18788 or prior stage port 18789.
+- Existing preparation receipt PREPARED_NOT_READY; previous database creation receipt SQL_REJECTED. TLS-validated SQL metadata read using configured FQDN found VetMed-Ops-Testing missing or not visible to the current operator. No database provisioned, no seed or credential operations, no production changes.
+- Planned independent test roles: developer, adfa_general, adfa_regular, faculty, hicc, visc, adc, lab. No usable isolated login accounts confirmed. Do not substitute production accounts or the separate Testing repository.
+
+Dot may rerun automated checks on the new exact PR head. Manual authenticated/browser and real SQL acceptance remain BLOCKED until independent preview, dedicated test identities, and verified synthetic database/API are provisioned. No test executed by coding agent in this follow-up. Keep Draft; no merge, deployment, live gate activation, or freeze promotion.

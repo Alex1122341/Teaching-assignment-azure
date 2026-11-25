@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/pr171-review-qa.yml'
       - 'tools/test-pr171-postcommit-doe.cjs'
+      - 'tools/test-pr171-doe-http-load.cjs'
 permissions:
   contents: read
 concurrency:
@@ -115,7 +116,7 @@ jobs:
         working-directory: product
         shell: pwsh
         run: ./tools/test-session-batch-edit-sql.ps1 -ContainerName paws-calendar-batch171
-      - name: Real SQL DOE after batch commit, denied persistence and rollback
+      - name: Real SQL DOE readback, rejected batch, max 20 and concurrent HTTP batches
         shell: bash
         run: PAWS_QA_PRODUCT_ROOT="$GITHUB_WORKSPACE/product" node qa/tools/test-pr171-postcommit-doe.cjs
       - name: Remove disposable Batch and DOE SQL

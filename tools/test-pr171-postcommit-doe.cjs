@@ -6,6 +6,8 @@ const assert=require('node:assert/strict');
 const path=require('node:path');
 const {execFileSync}=require('node:child_process');
 const {randomBytes}=require('node:crypto');
+const {performance}=require('node:perf_hooks');
+const {runDoeHttpLoad}=require('./test-pr171-doe-http-load.cjs');
 const product=process.env.PAWS_QA_PRODUCT_ROOT;
 const sha='343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8';
 const marker=process.env.PAWS_BATCH_TEST_MARKER;
@@ -36,7 +38,7 @@ function connection(user,password){
  }});
 }
 const admin=connection('sa',saPassword);
-let runtime,stage='marker';
+let runtime,peer,stage='marker';
 // Synthetic fixture diagnostics only; never emit SQL text, connection
 // configuration, raw SQL messages, tokens, or production identities.
 const emit=(event,details)=>console.log('PR171_DOE_DIAGNOSTIC '+JSON.stringify({stage,event,...details}));
@@ -46,6 +48,9 @@ const factSummary=facts=>({sessionId:facts.sessionId,assignmentId:facts.assignme
 async function main(){
  const mark=await admin.query('SELECT CONVERT(varchar(36),Marker) AS marker FROM dbo.Batch171DisposableMarker WHERE Marker=@marker',{marker});
  assert.equal(mark.length,1);assert.equal(mark[0].marker.toLowerCase(),marker.toLowerCase());
+ stage='readback-alias-probe';
+ try{await admin.query('SELECT 1 AS trigger');emit('legacy-alias-accepted',{});}
+ catch(error){emit('legacy-alias-rejected',errorFacts(error));}
  stage='fixture';
  const existing=await admin.query("SELECT COUNT(*) AS total FROM paws.Session WHERE SessionId IN (@s1,@s2) AND CourseCode=N'BATCH171'",{s1:ids[0],s2:ids[1]});
  assert.equal(Number(existing[0].total),2);
@@ -72,10 +77,12 @@ async function main(){
  UPDATE paws.SessionAssignment SET CreditedHours=NULL WHERE SessionId IN (@s1,@s2);
  `,{policy,rule,s1:ids[0],s2:ids[1]});
  runtime=connection('batch171_doe_qa',password);
- const repo=createSqlSessionRepository(runtime);
- const engine=createSqlDoeEngineRepository(runtime);
- const assignments=createSqlDoeAssignmentRepository(runtime);
+ function fixtureApi(db,label){
+ const repo=createSqlSessionRepository(db);
+ const engine=createSqlDoeEngineRepository(db);
+ const assignments=createSqlDoeAssignmentRepository(db);
  const calculator=createDoeCalculationService({repository:engine});
+ const phases=[],control={};
  const tracedRepository={...engine,...assignments,
   async loadSessionDoeFacts(id){
    try{
@@ -97,7 +104,27 @@ async function main(){
   catch(error){emit('rule-preview-failed',{facts,...errorFacts(error)});throw error;}
  }};
  const service=createDoeSessionService({repository:tracedRepository,calculationService:tracedCalculator});
- const api=createDataApi({verifyToken:async()=>({uid:actor}),findUser:async()=>({active:true,baseRole:'adfa_regular',displayName:'Synthetic ADFAD'}),listSessions:repo.list,updateSessionBatch:repo.updateBatch,recalculateSessionDoe:async input=>{try{const result=await service.recalculate(input);emit('service-outcome',{sessionId:input.sessionId,...result});return result;}catch(error){emit('service-failed',{sessionId:input.sessionId,...errorFacts(error)});throw error;}},writeGates:{sessionEdit:true,sessionBatchEdit:true}});
+ const api=createDataApi({
+  verifyToken:async token=>{if(token!=='synthetic-token')throw Error('Synthetic token required');return {uid:actor};},
+  findUser:async()=>({active:true,baseRole:'adfa_regular',displayName:'Synthetic ADFAD'}),
+  listSessions:repo.list,
+  updateSessionBatch:async input=>{
+   const started=performance.now();
+   try{const saved=await repo.updateBatch(input);phases.push({phase:'timetable',label,started,ended:performance.now(),status:'committed'});return saved;}
+   catch(error){phases.push({phase:'timetable',label,started,ended:performance.now(),status:'rejected'});emit('timetable-failed',{label,...errorFacts(error)});throw error;}
+  },
+  recalculateSessionDoe:async input=>{
+   if(control.beforeDoe)await control.beforeDoe();
+   const started=performance.now();
+   try{const result=await service.recalculate(input);emit('service-outcome',{label,sessionId:input.sessionId,...result});return result;}
+   catch(error){emit('service-failed',{label,sessionId:input.sessionId,...errorFacts(error)});throw error;}
+   finally{phases.push({phase:'doe',label,sessionId:input.sessionId,started,ended:performance.now()});}
+  },writeGates:{sessionEdit:true,sessionBatchEdit:true}
+ });
+ return {repo,engine,api,phases,label,control};
+ }
+ const primary=fixtureApi(runtime,'primary');
+ const {repo,engine,api}=primary;
  const get=async id=>{
   const result=await repo.list({sessionId:id,includeAssignmentTargets:true,includeBatchEditToken:true});
   assert.equal(result.length,1);return result[0];
@@ -139,10 +166,15 @@ async function main(){
  assert.deepEqual(committed.body.doe.map(d=>d.status),['calculated','calculated']);
  assert.deepEqual(committed.body.doe.map(d=>d.issueCodes),[[],[]]);
  assert.deepEqual(committed.body.doe.map(d=>d.calculatedCount),[2,1]);
+ stage="real-postcommit-readback";
  const rows=await admin.query(`
  SELECT CONVERT(varchar(36),f.SessionId) AS id,f.Revision AS revision,c.ResultDoe AS result,
- c.CalculationStatus AS status,c.CalculationTrigger AS trigger,c.CalculatedBy AS actor,c.FactsSnapshotJson AS facts
+ c.CalculationStatus AS status,c.CalculationTrigger AS [calculationTrigger],c.CalculatedBy AS actor,c.FactsSnapshotJson AS facts,
+ f.SessionAssignmentId AS assignmentId,f.FacultyId AS facultyId,f.CurrentCalculationId AS calculationId,
+ c.SessionId AS calculationSessionId,c.FacultyId AS calculationFacultyId,c.AssignmentId AS calculationAssignmentId,c.SourceEntityId AS calculationSourceId,
+ a.SessionId AS canonicalSessionId,a.FacultyId AS canonicalFacultyId
  FROM paws.DoeAssignmentFact f JOIN paws.DoeCalculationRecord c ON c.CalculationId=f.CurrentCalculationId
+ JOIN paws.SessionAssignment a ON a.SessionAssignmentId=f.SessionAssignmentId
  WHERE f.Active=1 AND f.SessionId IN (@s1,@s2) AND c.PolicyVersionId=@policy
  ORDER BY f.SessionId,f.FacultyId
  `,{s1:ids[0],s2:ids[1],policy});
@@ -150,20 +182,36 @@ async function main(){
  for(const row of rows){
   const first=String(row.id).toLowerCase()===ids[0];
   assert.equal(Number(row.result),first?3:4);
-  assert.equal(row.status,'calculated');assert.equal(row.trigger,'session_batch_edit');assert.equal(row.actor,actor);
+  assert.equal(row.status,'calculated');assert.equal(row.calculationTrigger,'session_batch_edit');assert.equal(row.actor,actor);
   assert.equal(Number(row.revision),1);
   assert.equal(JSON.parse(row.facts).hours,first?1.5:2);
+  const same=(a,b)=>assert.equal(String(a).toLowerCase(),String(b).toLowerCase());
+  assert.ok(row.assignmentId&&row.facultyId&&row.calculationId);
+  same(row.id,row.calculationSessionId);same(row.id,row.canonicalSessionId);
+  same(row.facultyId,row.calculationFacultyId);same(row.facultyId,row.canonicalFacultyId);
+  same(row.assignmentId,row.calculationAssignmentId);same(row.assignmentId,row.calculationSourceId);
+  same(row.id,JSON.parse(row.facts).sessionId);same(row.facultyId,JSON.parse(row.facts).facultyId);same(row.assignmentId,JSON.parse(row.facts).assignmentId);
  }
+ assert.equal(rows.filter(row=>String(row.id).toLowerCase()===ids[0]).length,2);
+ assert.equal(rows.filter(row=>String(row.id).toLowerCase()===ids[1]).length,1);
+ assert.equal(new Set(rows.map(row=>String(row.calculationId).toLowerCase())).size,3);
+ emit('readback-verified',{rows:rows.length,calculationIds:rows.map(row=>row.calculationId),revision:1,calculationTrigger:'session_batch_edit'});
  console.log('PR171_DOE_REAL_CALCULATION_AND_PERSISTENCE_OK');
  stage='rejected-batch';
- const before=await count(),firstTopic=(await get(ids[0])).topic;
+ const before=await count(),firstTopic=(await get(ids[0])).topic,secondTopic=(await get(ids[1])).topic,phaseStart=primary.phases.length;
  const rejected=await submit([await edit(ids[0],{topic:'Must not save'}),await edit(ids[1],{courseCode:'BATCH171_MISSING'})]);
- assert.equal(rejected.status,400);assert.equal((await get(ids[0])).topic,firstTopic);assert.equal(await count(),before);
+ assert.equal(rejected.status,400);assert.equal((await get(ids[0])).topic,firstTopic);assert.equal((await get(ids[1])).topic,secondTopic);assert.equal(await count(),before);
+ assert.equal(primary.phases.slice(phaseStart).filter(x=>x.phase==='doe').length,0);
  console.log('PR171_DOE_REJECTED_BATCH_NO_CALCULATIONS_OK');
  console.log('PR171_DOE_SYNTHETIC_SQL_ACCEPTANCE_OK; production role bindings, annual policy reconciliation and Firebase/browser are not tested');
+ stage='http-load';
+ peer=connection('batch171_doe_qa',password);
+ const secondary=fixtureApi(peer,'secondary');
+ await runDoeHttpLoad({load,admin,primary,secondary,sha,policy,rule,actor,sample:ids[0],count,emit,errorFacts,setStage:value=>{stage=value;}});
+ console.log('PR171_DOE_FULL_REVIEW_QA_OK');
 }
 main().catch(error=>{
- console.error('PR171_DOE_QA_FAILED',stage,error?.code||error?.number||error?.name||'');
+ console.error('PR171_DOE_QA_FAILED '+JSON.stringify({stage,...errorFacts(error)}));
  if(error?.code==='ERR_ASSERTION')console.error(error.message);
  process.exitCode=1;
-}).finally(async()=>{await Promise.allSettled([runtime?.close(),admin.close()]);});
+}).finally(async()=>{await Promise.allSettled([runtime?.close(),peer?.close(),admin.close()]);});

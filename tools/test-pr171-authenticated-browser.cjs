@@ -44,7 +44,58 @@ const runtimePassword=randomBytes(24).toString('hex')+'!Aa1';
 const servers=[];
 const receipt={product:sha,qa:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),project,environment:'ephemeral runner; synthetic data and emulator auth',roles:[],failures:[],limits:['No University Staging or live identity','SDK configuration and API origin adapted in QA response only','HICC/VISC base-role checks do not establish appointment/package scope','Mobile is a Chromium viewport, not a physical device','Four generic annual rule previews only; complete annual reconciliation is not covered']};
 let stage='marker',browser,runtime;
-const fail=error=>({stage,name:error?.name||'Error',code:error?.code||null,number:error?.number??error?.originalError?.info?.number??null});
+// Only fixed endpoint labels, request methods, status codes and sanitized
+// error identifiers leave the test. No bodies, URLs/queries, raw exceptions,
+// authorization header values, email/password fields, tokens or storage dumps.
+const safeCode=value=>typeof value==='string'&&/^(?:auth\/[a-z][a-z0-9-]{1,70}|[A-Z][A-Z0-9_]{1,70}|net::ERR_[A-Z0-9_]{1,50})$/.test(value)?value:null;
+const safeName=value=>['Error','TypeError','ReferenceError','TimeoutError','AssertionError','FirebaseError','RequestError','ConnectionError'].includes(value)?value:'Error';
+const fail=error=>({stage,name:safeName(error?.name),code:safeCode(error?.code),number:Number.isInteger(error?.number??error?.originalError?.info?.number)?(error.number??error.originalError.info.number):null});
+const apiLabels=new Map([
+ ['/api/v1/me','me'],['/api/v1/access/self','access-self'],
+ ['/api/v1/afc-requests/write-capabilities','write-capabilities'],
+ ['/api/v1/sessions','sessions'],['/api/v1/sessions/batch-edit','batch-edit']
+]);
+function endpointLabel(url){
+ const u=new URL(url);
+ if(u.pathname.startsWith('/api/'))return apiLabels.get(u.pathname)||'other-api';
+ if(u.origin==='http://127.0.0.1:9099'){
+  if(u.pathname.endsWith('/accounts:signInWithPassword'))return 'firebase-password';
+  if(u.pathname.endsWith('/accounts:lookup'))return 'firebase-lookup';
+  if(u.pathname.endsWith('/token'))return 'firebase-token';
+  return 'firebase-other';
+ }
+ return null;
+}
+function traceEvent(trace,event,details={}){
+ if(!trace||trace.length>=240)return;
+ const entry={event,ms:Date.now()-trace.startedAt,...details};
+ trace.push(entry);
+ console.log('BROWSER_QA_LOGIN_TRACE '+JSON.stringify(entry));
+}
+async function responseCode(response){
+ if(response.status()<400)return null;
+ try{
+  const body=await response.json();
+  return safeCode(body?.error?.code)||safeCode(body?.error?.message);
+ }catch(_){return null;}
+}
+async function waitTrace(predicate,timeout=20000){
+ const until=Date.now()+timeout;
+ while(Date.now()<until){const value=predicate();if(value)return value;await new Promise(resolve=>setTimeout(resolve,75));}
+ throw Object.assign(Error('Diagnostic event not observed'),{code:'QA_EVENT_TIMEOUT'});
+}
+async function browserState(page){
+ return page.evaluate(()=>{
+  const observed=window.__pawsQaLoginTrace||{};
+  const user=window.firebase?.apps?.length?firebase.auth().currentUser:null;
+  const gate=document.getElementById('gate-status');
+  const status=(gate?.textContent||'').toLowerCase();
+  const category=status.includes('sign in required')?'signed-out':status.includes('checking')?'checking':status.includes('still connecting')?'retrying':status.includes('denied')?'denied':status.includes('password change')?'password-change':status.includes('could not')?'unverified':status.includes('temporarily unavailable')?'unavailable':'other';
+  return {formSubmits:observed.formSubmits||0,sessionEstablished:!!user,profileEvents:observed.profileEvents||0,invalidated:observed.invalidated||null,
+   gateLocked:document.body?.classList.contains('auth-locked')===true,gateCategory:category,accountControlPresent:!!document.getElementById('account-toggle'),
+   sessionGuardBlocked:window.__ucvmSessionGuard?.blocked===true,loginSubmitDisabled:document.getElementById('email-login-submit')?.disabled===true};
+ }).catch(()=>({stateUnavailable:true}));
+}
 async function listen(server){servers.push(server);server.listen(0,'127.0.0.1');await once(server,'listening');assert.equal(server.address().address,'127.0.0.1');return 'http://127.0.0.1:'+server.address().port;}
 const origin='https://paws-pr171-qa.invalid';
 async function main(){
@@ -136,7 +187,19 @@ async function main(){
  const site=await listen(staticServer);
  env.PAWS_API_ALLOWED_ORIGINS=site;
  runtime=createSwaSqlRuntime({env,admin});
- const api=await listen(createUniversityHttpServer({runtime,env,logger:{error:()=>console.log('BROWSER_QA_HTTP_ERROR')}}));
+ const apiServer=createUniversityHttpServer({runtime,env,logger:{error:()=>console.log('BROWSER_QA_HTTP_ERROR')}});
+ let activeTrace=null;
+ apiServer.on('request',(request,response)=>{
+  const trace=activeTrace;if(!trace)return;
+  const label=endpointLabel(new URL(request.url,'http://127.0.0.1').href);
+  if(!label)return;
+  const method=request.method;
+  const originMatches=request.headers.origin===site;
+  const bearerPresent=typeof request.headers.authorization==='string'&&request.headers.authorization.startsWith('Bearer ');
+  traceEvent(trace,'api-arrived',{endpoint:label,method,originMatches,bearerPresent});
+  response.once('finish',()=>traceEvent(trace,'api-finished',{endpoint:label,method,status:response.statusCode,corsMatches:response.getHeader('access-control-allow-origin')===site}));
+ });
+ const api=await listen(apiServer);
  const noAuth=await fetch(api+'/api/v1/me');assert.equal(noAuth.status,401);
  const health=await fetch(api+'/api/health/sql');assert.equal(health.status,200);
  receipt.isolation={browser:site,api,sql:'127.0.0.1:14339 / disposable container',auth:'127.0.0.1:9099',firestore:'127.0.0.1:8080',markerVerified:true,anonymousDenied:true,sqlHealthy:true};
@@ -152,13 +215,56 @@ async function main(){
    const page=await context.newPage();
    page.setDefaultTimeout(30000);
    const blocked=new Set();
+   const trace=[];trace.startedAt=Date.now();result.loginTrace=trace;activeTrace=trace;
+   const browserResponses=[];
+   await page.addInitScript(()=>{
+    const t={formSubmits:0,profileEvents:0,invalidated:null};window.__pawsQaLoginTrace=t;
+    document.addEventListener('submit',event=>{if(event.target?.id==='email-login-form')t.formSubmits++;},true);
+    window.addEventListener('paws-profile',()=>{t.profileEvents++;});
+    window.addEventListener('paws-access-invalidated',event=>{
+     const reason=event.detail?.reason;
+     t.invalidated=['unverified','changed','password_required'].includes(reason)?reason:'other';
+    });
+   });
+   page.on('request',request=>{
+    const label=endpointLabel(request.url());
+    if(label)traceEvent(trace,'browser-request',{endpoint:label,method:request.method()});
+   });
+   page.on('response',async response=>{
+    const label=endpointLabel(response.url());if(!label)return;
+    const entry={endpoint:label,method:response.request().method(),status:response.status()};
+    const code=await responseCode(response);
+    browserResponses.push({...entry,code});traceEvent(trace,'browser-response',{...entry,code});
+   });
+   page.on('requestfailed',request=>{
+    const label=endpointLabel(request.url());if(label)traceEvent(trace,'browser-request-failed',{endpoint:label,method:request.method(),code:safeCode(request.failure()?.errorText)});
+   });
+   page.on('pageerror',error=>traceEvent(trace,'page-error',{name:safeName(error?.name),code:safeCode(error?.code)}));
+   page.on('console',message=>{
+    if(!['error','warning'].includes(message.type()))return;
+    const text=message.text();
+    const category=text.includes('[Email sign-in]')?'email-sign-in':text.includes('[SQL access profile]')?'sql-access-profile':text.includes('[write capabilities]')?'write-capabilities':/CORS|Access-Control-Allow-Origin/i.test(text)?'cors':/failed to fetch|networkerror|network request failed/i.test(text)?'network':/firebase/i.test(text)?'firebase':'other';
+    const match=text.match(/\bauth\/[a-z][a-z0-9-]{1,70}\b|\bnet::ERR_[A-Z0-9_]+\b|\b(?:SQL_UNAVAILABLE|SERVICE_UNAVAILABLE|PROFILE_REQUIRED|ROLE_DENIED|FACULTY_LINK_REQUIRED|ACCESS_CHANGED|SESSION_REAUTH_REQUIRED|TOKEN_REFRESH_FAILED|UNAUTHENTICATED|PASSWORD_CHANGE_REQUIRED|CORS_ORIGIN_DENIED|CORS_PREFLIGHT_DENIED)\b/);
+    traceEvent(trace,'browser-console',{level:message.type(),category,code:safeCode(match?.[0])});
+   });
    try{
     await context.route('**/*',async route=>{
      const u=new URL(route.request().url());
      if(u.origin===site||u.origin==='http://127.0.0.1:9099'||u.origin==='http://127.0.0.1:8080'){await route.continue();return;}
      if(u.origin===origin&&u.pathname.startsWith('/api/')){
-      const response=await route.fetch({url:api+u.pathname+u.search,maxRedirects:0});
-      await route.fulfill({response});return;
+      const label=endpointLabel(u.href)||'other-api';
+      traceEvent(trace,'proxy-forward',{endpoint:label,method:route.request().method(),target:'isolated-api'});
+      try{
+       // Keep the existing proxy behavior while diagnosing, including the
+       // original request/response headers. Observe rather than repair blindly.
+       const response=await route.fetch({url:api+u.pathname+u.search,maxRedirects:0});
+       const headers=response.headers();
+       traceEvent(trace,'proxy-response',{endpoint:label,method:route.request().method(),status:response.status(),corsMatches:headers['access-control-allow-origin']===site,corsPresent:!!headers['access-control-allow-origin'],code:await responseCode(response)});
+       await route.fulfill({response});return;
+      }catch(error){
+       traceEvent(trace,'proxy-failed',{endpoint:label,method:route.request().method(),name:safeName(error?.name),code:safeCode(error?.code)});
+       await route.abort('failed').catch(()=>{});return;
+      }
      }
      if(u.origin==='https://www.gstatic.com'&&u.pathname.startsWith('/firebasejs/9.23.0/')){
       const name=path.basename(u.pathname);
@@ -168,18 +274,43 @@ async function main(){
        await route.fulfill({status:200,contentType:mime['.js'],body});return;
       }
      }
-     blocked.add(u.origin);await route.abort('blockedbyclient');
+     blocked.add(u.origin==='https://www.gstatic.com'?'unapproved-sdk-asset':u.origin===origin?'unapproved-api-path':'non-isolated-origin');await route.abort('blockedbyclient');
     });
-    stage='browser-login:'+user.uid+':'+viewport.width;
+    stage='browser-login-page:'+user.uid+':'+viewport.width;
     await page.goto(site+'/',{waitUntil:'domcontentloaded'});
     await page.locator('#gate-sign-in').waitFor({state:'visible'});
     await page.locator('#gate-sign-in').click();
     await page.locator('#choose-email').click();
     await page.locator('#login-email').fill(user.email);
     await page.locator('#login-password').fill(password);
+    stage='browser-form-submit:'+user.uid+':'+viewport.width;
     await page.locator('#email-login-submit').click();
-    await page.waitForFunction(role=>document.getElementById('account-toggle')?.textContent.trim().endsWith(' - '+role),user.role,{timeout:60000});
-    await page.waitForFunction(()=>!document.body.classList.contains('auth-locked'),null,{timeout:60000});
+    await page.waitForFunction(()=>window.__pawsQaLoginTrace?.formSubmits===1,null,{timeout:10000});
+    traceEvent(trace,'phase-complete',{phase:'form-submit',...await browserState(page)});
+    stage='browser-firebase-response:'+user.uid+':'+viewport.width;
+    const firebaseResponse=await waitTrace(()=>browserResponses.find(r=>r.endpoint==='firebase-password'&&r.method==='POST'));
+    traceEvent(trace,'phase-complete',{phase:'firebase-password-response',status:firebaseResponse.status,code:firebaseResponse.code});
+    assert.equal(firebaseResponse.status,200);
+    stage='browser-firebase-session:'+user.uid+':'+viewport.width;
+    await page.waitForFunction(uid=>window.firebase?.apps?.length&&firebase.auth().currentUser?.uid===uid,user.uid,{timeout:20000});
+    traceEvent(trace,'phase-complete',{phase:'firebase-session',...await browserState(page)});
+    stage='browser-sql-profile:'+user.uid+':'+viewport.width;
+    const me=await waitTrace(()=>trace.find(e=>e.event==='api-finished'&&e.endpoint==='me'&&e.method==='GET'&&e.status===200),25000);
+    traceEvent(trace,'phase-complete',{phase:'sql-me-response',status:me.status,corsMatches:me.corsMatches});
+    assert.equal(me.status,200);
+    stage='browser-me-delivered:'+user.uid+':'+viewport.width;
+    const received=await waitTrace(()=>browserResponses.find(r=>r.endpoint==='me'&&r.method==='GET'&&r.status===200),15000);
+    traceEvent(trace,'phase-complete',{phase:'browser-me-response',status:received.status});
+    stage='browser-profile-accepted:'+user.uid+':'+viewport.width;
+    // Product dispatches paws-profile only after its real authenticated
+    // client has accepted the /me response and effective-access guard.
+    await page.waitForFunction(()=>window.__pawsQaLoginTrace?.profileEvents>0,null,{timeout:15000});
+    traceEvent(trace,'phase-complete',{phase:'client-profile-accepted',...await browserState(page)});
+    stage='browser-account-ui:'+user.uid+':'+viewport.width;
+    await page.waitForFunction(role=>document.getElementById('account-toggle')?.textContent.trim().endsWith(' - '+role),user.role,{timeout:30000});
+    stage='browser-ui-unlock:'+user.uid+':'+viewport.width;
+    await page.waitForFunction(()=>!document.body.classList.contains('auth-locked'),null,{timeout:30000});
+    traceEvent(trace,'phase-complete',{phase:'ui-unlock',...await browserState(page)});
     result.checks.actualSdkLogin=true;
     stage='role-read:'+user.uid+':'+viewport.width;
     const view=await page.evaluate(async()=>{
@@ -218,11 +349,27 @@ async function main(){
     result.status='passed';
    }catch(error){
     result.status='failed';result.failure=fail(error);receipt.failures.push(result.failure);
+    result.lastBrowserState=await browserState(page);
+    traceEvent(trace,'phase-failed',{failure:result.failure,state:result.lastBrowserState});
     // Do not capture a failed login page: it may still contain a password.
     console.error('BROWSER_QA_ROLE_FAILED '+JSON.stringify({role:user.role,account:user.uid,viewport:viewport.width,...result.failure}));
    }finally{
-    result.blockedOrigins=[...blocked].sort();await context.close();
-    console.log('BROWSER_QA_ROLE '+JSON.stringify(result));
+    // Only known categories are reported, not arbitrary URL components.
+    result.blockedOrigins=[...blocked].sort();await context.close();activeTrace=null;
+    const {loginTrace,...summary}=result;
+    console.log('BROWSER_QA_ROLE '+JSON.stringify(summary));
+   }
+   // The first desktop Developer case is the diagnostic gate. It must pass
+   // the original login, role, viewport and sign-out assertions before the
+   // other 17 cases run. A failed gate is a failed run, never full acceptance.
+   if(receipt.roles.length===1){
+    if(result.status!=='passed'){
+     receipt.diagnosticGate={status:'failed',completedCases:1,remainingCases:17};
+     console.error('BROWSER_QA_DIAGNOSTIC_GATE_FAILED');
+     throw Object.assign(Error('First browser diagnostic failed'),{code:'QA_FIRST_CASE_FAILED'});
+    }
+    receipt.diagnosticGate={status:'passed',completedCases:1,remainingCases:17};
+    console.log('BROWSER_QA_DIAGNOSTIC_GATE_OK');
    }
   }
  }

@@ -1,0 +1,130 @@
+# Review-only acceptance of the exact integrated product. This workflow does
+# not promote the frozen anchor, build a release, or deploy anything.
+name: PR 171 - Exact Product Review QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pr171-review-qa.yml'
+      - 'tools/test-pr171-postcommit-doe.cjs'
+permissions:
+  contents: read
+concurrency:
+  group: pr171-review-qa-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  PRODUCT_SHA: 48c9e0656d9147e6c741a84044e79b5c9715b890
+jobs:
+  availability_072:
+    if: github.event.pull_request.number == 171
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm exact product
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SHA"
+          git rev-parse HEAD
+      - run: npm ci --prefix server
+      - name: Start disposable Availability SQL
+        id: sql
+        shell: pwsh
+        run: |
+          $testPassword='Synthetic-'+[guid]::NewGuid().ToString()+'!Aa1'
+          Write-Output "::add-mask::$testPassword"
+          "PAWS_SQL_TEST_PASSWORD=$testPassword" >> $env:GITHUB_ENV
+          docker run --name paws-calendar-faculty-availability --label paws.calendar-test=1 -p 127.0.0.1:14331:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -d mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
+          if($LASTEXITCODE -ne 0){throw 'Synthetic SQL start failed.'}
+          $ready=$false
+          for($attempt=0;$attempt -lt 60;$attempt++){
+            docker exec -e "SQLCMDPASSWORD=$testPassword" paws-calendar-faculty-availability /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' 2>$null | Out-Null
+            if($LASTEXITCODE -eq 0){$ready=$true;break}
+            Start-Sleep -Seconds 2
+          }
+          if(-not $ready){throw 'Synthetic SQL readiness failed.'}
+      - name: Availability 056 and 072, scope, coverage, bulk performance and rollback
+        shell: pwsh
+        run: ./tools/test-faculty-availability-sql.ps1 -ContainerName paws-calendar-faculty-availability
+      - name: Remove disposable Availability SQL
+        if: always()
+        shell: pwsh
+        run: |
+          $container=docker inspect paws-calendar-faculty-availability 2>$null
+          if($LASTEXITCODE -eq 0){
+            $details=$container | ConvertFrom-Json
+            if($details[0].Config.Labels.'paws.calendar-test' -ne '1'){throw 'Refusing to remove non-QA container.'}
+            docker rm -f paws-calendar-faculty-availability
+          }
+  postcommit_doe:
+    if: github.event.pull_request.number == 171
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          path: product
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: qa
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify product identity and unchanged protected inputs
+        shell: bash
+        run: |
+          test "$(git -C product rev-parse HEAD)" = "$PRODUCT_SHA"
+          git -C qa merge-base --is-ancestor "$PRODUCT_SHA" HEAD
+          git -C qa diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql deploy/aca/Dockerfile server/package.json server/package-lock.json tools/static-assets.json tools/beta-freeze.js tools/beta-api-freeze.js tools/beta-baseline.json
+          echo "Product $(git -C product rev-parse HEAD)"
+          echo "QA harness $(git -C qa rev-parse HEAD)"
+      - run: npm ci --prefix product/server
+      - name: Existing DOE service and API contracts
+        working-directory: product
+        run: node --test server/test/p4-session-doe-integration.test.js server/test/doe-session-service.test.js server/test/doe-calculation-service.test.js server/test/sql-doe-assignment-repository.test.js server/test/session-batch-edit-api.test.js
+      - name: Start disposable Batch and DOE SQL
+        id: sql
+        shell: pwsh
+        run: |
+          $testPassword='Synthetic-'+[guid]::NewGuid().ToString()+'!Aa1'
+          $marker=[guid]::NewGuid().ToString()
+          Write-Output "::add-mask::$testPassword"
+          "PAWS_SQL_TEST_PASSWORD=$testPassword" >> $env:GITHUB_ENV
+          "PAWS_BATCH_TEST_MARKER=$marker" >> $env:GITHUB_ENV
+          docker run --name paws-calendar-batch171 --label paws.calendar-test=1 -p 127.0.0.1:14337:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -d mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
+          if($LASTEXITCODE -ne 0){throw 'Synthetic SQL start failed.'}
+          $ready=$false
+          for($attempt=0;$attempt -lt 60;$attempt++){
+            docker exec -e "SQLCMDPASSWORD=$testPassword" paws-calendar-batch171 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' 2>$null | Out-Null
+            if($LASTEXITCODE -eq 0){$ready=$true;break}
+            Start-Sleep -Seconds 2
+          }
+          if(-not $ready){throw 'Synthetic SQL readiness failed.'}
+      - name: Seed and verify the exact product batch fixture
+        working-directory: product
+        shell: pwsh
+        run: ./tools/test-session-batch-edit-sql.ps1 -ContainerName paws-calendar-batch171
+      - name: Real SQL DOE after batch commit, denied persistence and rollback
+        shell: bash
+        run: PAWS_QA_PRODUCT_ROOT="$GITHUB_WORKSPACE/product" node qa/tools/test-pr171-postcommit-doe.cjs
+      - name: Remove disposable Batch and DOE SQL
+        if: always()
+        shell: pwsh
+        run: |
+          $container=docker inspect paws-calendar-batch171 2>$null
+          if($LASTEXITCODE -eq 0){
+            $details=$container | ConvertFrom-Json
+            if($details[0].Config.Labels.'paws.calendar-test' -ne '1'){throw 'Refusing to remove non-QA container.'}
+            docker rm -f paws-calendar-batch171
+          }

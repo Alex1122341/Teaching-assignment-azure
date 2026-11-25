@@ -1,0 +1,139 @@
+'use strict';
+// Review-only integration harness, outside the frozen runtime. It must run
+// after the existing batch171 runner seeded the labeled disposable container.
+// No configurable external endpoint, production identity, or real data.
+const assert=require('node:assert/strict');
+const path=require('node:path');
+const {execFileSync}=require('node:child_process');
+const {randomBytes}=require('node:crypto');
+const product=process.env.PAWS_QA_PRODUCT_ROOT;
+const sha='48c9e0656d9147e6c741a84044e79b5c9715b890';
+const marker=process.env.PAWS_BATCH_TEST_MARKER;
+const saPassword=process.env.PAWS_SQL_TEST_PASSWORD;
+if(process.env.GITHUB_ACTIONS!=='true'||!product||!saPassword||!(/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(marker||'')))throw Error('Disposable GitHub QA environment required.');
+assert.equal(execFileSync('git',['-C',product,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),sha);
+const docker=JSON.parse(execFileSync('docker',['inspect','paws-calendar-batch171'],{encoding:'utf8'}))[0];
+assert.equal(docker.Config.Labels['paws.calendar-test'],'1');
+assert.equal(docker.State.Running,true);
+assert.deepEqual(docker.NetworkSettings.Ports['1433/tcp'],[{HostIp:'127.0.0.1',HostPort:'14337'}]);
+const load=file=>require(path.join(product,'server',file));
+const sql=load('node_modules/mssql');
+const {createSqlConnection}=load('src/data/sql-connection');
+const {createSqlSessionRepository}=load('src/data/sql-session-repository');
+const {createDataApi}=load('src/data/data-api');
+const {createSqlDoeEngineRepository}=load('src/data/sql-doe-engine-repository');
+const {createSqlDoeAssignmentRepository}=load('src/data/sql-doe-assignment-repository');
+const {createDoeCalculationService}=load('src/doe/doe-calculation-service');
+const {createDoeSessionService}=load('src/doe/doe-session-service');
+const ids=['11111111-2222-4333-8444-555555555555','22222222-3333-4444-8555-666666666666'];
+const actor='batch171-synthetic-actor';
+const policy='77777777-7777-4777-8777-777777777777';
+const rule='88888888-8888-4888-8888-888888888888';
+function connection(user,password){
+ return createSqlConnection({sql,requestTimeoutMs:45000,config:{
+  server:'127.0.0.1',port:14337,database:'VetMed-Ops',user,password,
+  options:{encrypt:true,trustServerCertificate:true},pool:{min:0,max:4}
+ }});
+}
+const admin=connection('sa',saPassword);
+let runtime,stage='marker';
+async function main(){
+ const mark=await admin.query('SELECT CONVERT(varchar(36),Marker) AS marker FROM dbo.Batch171DisposableMarker WHERE Marker=@marker',{marker});
+ assert.equal(mark.length,1);assert.equal(mark[0].marker.toLowerCase(),marker.toLowerCase());
+ stage='fixture';
+ const existing=await admin.query("SELECT COUNT(*) AS total FROM paws.Session WHERE SessionId IN (@s1,@s2) AND CourseCode=N'BATCH171'",{s1:ids[0],s2:ids[1]});
+ assert.equal(Number(existing[0].total),2);
+ // A deliberately artificial rule (2 credits/hour) exercises the real engine.
+ // This is not the University annual rulebook or a reconciliation fixture.
+ const password=randomBytes(24).toString('hex')+'!Aa1';
+ await admin.query("CREATE LOGIN batch171_doe_qa WITH PASSWORD='"+password+"';");
+ await admin.query(`
+ CREATE USER batch171_doe_qa FOR LOGIN batch171_doe_qa;
+ ALTER ROLE paws_runtime_read ADD MEMBER batch171_doe_qa;
+ ALTER ROLE paws_runtime_session_edit_write ADD MEMBER batch171_doe_qa;
+ GRANT SELECT ON OBJECT::paws.SessionAssignment(SourceFacultyName) TO batch171_doe_qa;
+ GRANT SELECT ON OBJECT::paws.Session(SessionId,AcademicYear,CurriculumYear,CourseCode,SessionType,Topic,SessionDate,StartTime,EndTime) TO batch171_doe_qa;
+ GRANT SELECT ON OBJECT::paws.DoePolicyVersion(PolicyVersionId,AcademicYear,VersionLabel,SourceReference,Status,Revision,UpdatedBy,ValidatedRevision,ValidatedChecksum,ImpactRevision,ImpactChecksum,CreatedAtUtc,UpdatedAtUtc) TO batch171_doe_qa;
+ UPDATE paws.DoePolicyVersion SET Active=0,Status=N'archived' WHERE AcademicYear=N'2026-27' AND Status=N'active';
+ INSERT paws.DoePolicyVersion(PolicyVersionId,AcademicYear,VersionLabel,SourceReference,Active,Status,Revision)
+ VALUES(@policy,N'2026-27',N'Synthetic batch QA only',N'PR171 synthetic fixture',1,N'active',1);
+ INSERT paws.DoePolicyRule(RuleId,PolicyVersionId,AcademicYear,RuleKey,Category,ActivityType,RuleLabel,CalculationMode,ReviewStatus)
+ VALUES(@rule,@policy,N'2026-27',N'synthetic_lecture',N'teaching',N'LEC',N'Synthetic lecture',N'per_hour',N'approved');
+ INSERT paws.DoeRuleParameter(ParameterId,RuleId,Name,ValueNumber) VALUES(NEWID(),@rule,N'rate',2);
+ INSERT paws.DoeRuleSelector(SelectorId,RuleId,FieldName,Operator,ValueType,ValueText)
+ VALUES(NEWID(),@rule,N'activityType',N'equals',N'text',N'LEC');
+ INSERT paws.DoeRuleInput(RuleInputId,RuleId,InputName,Required) VALUES(NEWID(),@rule,N'hours',1);
+ UPDATE paws.SessionAssignment SET CreditedHours=NULL WHERE SessionId IN (@s1,@s2);
+ `,{policy,rule,s1:ids[0],s2:ids[1]});
+ runtime=connection('batch171_doe_qa',password);
+ const repo=createSqlSessionRepository(runtime);
+ const engine=createSqlDoeEngineRepository(runtime);
+ const assignments=createSqlDoeAssignmentRepository(runtime);
+ const service=createDoeSessionService({repository:{...engine,...assignments},calculationService:createDoeCalculationService({repository:engine})});
+ const api=createDataApi({verifyToken:async()=>({uid:actor}),findUser:async()=>({active:true,baseRole:'adfa_regular',displayName:'Synthetic ADFAD'}),listSessions:repo.list,updateSessionBatch:repo.updateBatch,recalculateSessionDoe:service.recalculate,writeGates:{sessionEdit:true,sessionBatchEdit:true}});
+ const get=async id=>{
+  const result=await repo.list({sessionId:id,includeAssignmentTargets:true,includeBatchEditToken:true});
+  assert.equal(result.length,1);return result[0];
+ };
+ const edit=async(id,patch)=>({sessionId:id,expectedToken:(await get(id)).batchEditToken,patch});
+ const submit=edits=>api.updateExistingSessionBatch('synthetic-token', {edits});
+ const count=async()=>Number((await admin.query('SELECT COUNT(*) AS total FROM paws.DoeCalculationRecord WHERE PolicyVersionId=@policy',{policy}))[0].total);
+ stage='deny-doe-write';
+ const bundle=await engine.loadActivePolicy('2026-27');
+ assert.equal(String(bundle.version.policyVersionId).toLowerCase(),policy);
+ const permission=(await runtime.query("SELECT IS_ROLEMEMBER('db_owner') AS owner,HAS_PERMS_BY_NAME('paws.DoeCalculationRecord','OBJECT','INSERT') AS doeInsert,HAS_PERMS_BY_NAME('paws.Session','OBJECT','UPDATE') AS sessionUpdate"))[0];
+ assert.equal(permission.owner,0);assert.equal(permission.doeInsert,0);assert.equal(permission.sessionUpdate,0);
+ assert.equal(await count(),0);
+ // The existing API contract confirms a committed timetable even if the
+ // post-commit DOE write is denied. A failed calculation must not fake credit.
+ const denied=await submit([await edit(ids[0],{topic:'DOE denied A'}),await edit(ids[1],{topic:'DOE denied B'})]);
+ assert.equal(denied.status,200);assert.equal(denied.body.sessions.length,2);
+ assert.equal(denied.body.doe.length,2);
+ assert.ok(denied.body.doe.every(d=>d.status==='needs_review'&&d.issueCodes.includes('DOE_RECALCULATION_FAILED')));
+ assert.equal((await get(ids[0])).topic,'DOE denied A');assert.equal((await get(ids[1])).topic,'DOE denied B');
+ assert.equal(await count(),0);
+ console.log('PR171_DOE_DENIED_PERSISTENCE_AFTER_COMMIT_OK');
+ stage='allow-fixture-only-doe-write';
+ // Grant only the needed synthetic calculation operations. These do not
+ // assert or alter the actual University service identity's permissions.
+ await admin.query(`
+ GRANT INSERT ON OBJECT::paws.DoeAssignmentFact TO batch171_doe_qa;
+ GRANT UPDATE (Category,RoleType,ActivityType,ScopeText,CourseCode,SessionId,CurrentCalculationId,Revision,Active,UpdatedBy,UpdatedAtUtc) ON OBJECT::paws.DoeAssignmentFact TO batch171_doe_qa;
+ GRANT INSERT ON OBJECT::paws.DoeCalculationRecord TO batch171_doe_qa;
+ GRANT INSERT ON OBJECT::paws.DoeAuditEvent TO batch171_doe_qa;
+ `);
+ stage='real-postcommit';
+ const committed=await submit([
+  await edit(ids[0],{startTime:'08:00',endTime:'09:30',topic:'DOE calculated A'}),
+  await edit(ids[1],{startTime:'10:00',endTime:'12:00',topic:'DOE calculated B'})
+ ]);
+ assert.equal(committed.status,200);
+ assert.deepEqual(committed.body.doe.map(d=>d.status),['calculated','calculated']);
+ const rows=await admin.query(`
+ SELECT CONVERT(varchar(36),f.SessionId) AS id,f.Revision AS revision,c.ResultDoe AS result,
+ c.CalculationStatus AS status,c.CalculationTrigger AS trigger,c.CalculatedBy AS actor,c.FactsSnapshotJson AS facts
+ FROM paws.DoeAssignmentFact f JOIN paws.DoeCalculationRecord c ON c.CalculationId=f.CurrentCalculationId
+ WHERE f.Active=1 AND f.SessionId IN (@s1,@s2) AND c.PolicyVersionId=@policy
+ ORDER BY f.SessionId,f.FacultyId
+ `,{s1:ids[0],s2:ids[1],policy});
+ assert.equal(rows.length,3);assert.equal(await count(),3);
+ for(const row of rows){
+  const first=String(row.id).toLowerCase()===ids[0];
+  assert.equal(Number(row.result),first?3:4);
+  assert.equal(row.status,'calculated');assert.equal(row.trigger,'session_batch_edit');assert.equal(row.actor,actor);
+  assert.equal(Number(row.revision),1);
+  assert.equal(JSON.parse(row.facts).hours,first?1.5:2);
+ }
+ console.log('PR171_DOE_REAL_CALCULATION_AND_PERSISTENCE_OK');
+ stage='rejected-batch';
+ const before=await count(),firstTopic=(await get(ids[0])).topic;
+ const rejected=await submit([await edit(ids[0],{topic:'Must not save'}),await edit(ids[1],{courseCode:'BATCH171_MISSING'})]);
+ assert.equal(rejected.status,400);assert.equal((await get(ids[0])).topic,firstTopic);assert.equal(await count(),before);
+ console.log('PR171_DOE_REJECTED_BATCH_NO_CALCULATIONS_OK');
+ console.log('PR171_DOE_SYNTHETIC_SQL_ACCEPTANCE_OK; production role bindings, annual policy reconciliation and Firebase/browser are not tested');
+}
+main().catch(error=>{
+ console.error('PR171_DOE_QA_FAILED',stage,error?.code||error?.number||error?.name||'');
+ if(error?.code==='ERR_ASSERTION')console.error(error.message);
+ process.exitCode=1;
+}).finally(async()=>{await Promise.allSettled([runtime?.close(),admin.close()]);});

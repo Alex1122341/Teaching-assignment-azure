@@ -138,3 +138,9 @@ test('timetable stops its auth callback before touching replaced controls and cl
  assert.match(bootstrap,/await getRoleProfile\(user\);\s*if\(!bootstrapStillCurrent\(user\)\)return;/);
  assert.match(bootstrap,/await window\.UCVM_PAWS_DATA\.refreshWriteCapabilities\(\);[\s\S]*?if\(!bootstrapStillCurrent\(user\)\)return;/);
 });
+
+test('actual cross-role API denial remains a terminal access change',()=>{
+ const h=fixture();h.guard.observe(access({role:'adc',facultyId:null}));const token=h.guard.capture();
+ h.guard.reject({status:403,code:'ROLE_DENIED'});
+ assert.deepEqual(h.changes,['changed']);assert.equal(h.guard.current(token),false);
+});

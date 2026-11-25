@@ -10,7 +10,7 @@ const {execFileSync}=require('node:child_process');
 const {randomUUID,randomBytes}=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const originalSha='343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8';
-const sha='f698597bf37829082fc8a8341157c12bfb3f53e7';
+const sha='ea00eacc27ec067919741fa4fdbbf59a693a4148';
 const baselineRoot=process.env.PAWS_BASELINE_ROOT;
 const project='demo-paws-pr171';
 const marker=process.env.PAWS_BROWSER_TEST_MARKER;
@@ -49,6 +49,8 @@ const db=createSqlConnection({sql,config:{server:'127.0.0.1',port:14339,database
 const roles=['developer','adfa_general','adfa_regular','faculty','faculty','hicc','visc','adc','lab'];
 const scoped=new Set(['faculty','hicc','visc']);
 const admins=new Set(['developer','adfa_general','adfa_regular']);
+const officeOnly=new Set(['adc','lab']);
+const officeCapabilities=Object.freeze({sessionEdit:false,sessionBatchEdit:false,sessionCreate:false,afcSingle:false,afcBatch:false,requestLifecycle:false,decisions:false,approvedArtifactCreation:false,dateChange:false});
 const identities=roles.map((role,i)=>({role,uid:'pr171-qa-'+i,email:'paws-pr171-synthetic-'+i+'@ucalgary.ca',facultyId:scoped.has(role)?randomUUID():null,sessionId:scoped.has(role)?randomUUID():null}));
 const password=randomBytes(24).toString('hex')+'!Aa1';
 const runtimePassword=randomBytes(24).toString('hex')+'!Aa1';
@@ -371,9 +373,9 @@ async function main(){
    return {versionValid:true,assignmentCount:snapshot.assignments.length};
   });
   await expectEmailDenied('owner-directory-existing-contact-read-stays-denied',()=>accounts.list());
-  // Independent read-only diagnosis of the previously observed Tasks 503.
-  // Keep it out of the identity acceptance counts: no grant or write-gate
-  // change is made to mask this separate release blocker.
+  // Independent zero-result SQL contract comparison. Keep identity counts
+  // separate; use the immutable original adapter and the same actual SQL
+  // identity. No grant, procedure, write gate or scope change.
   const taskDiagnostics=[];
   receipt.schedulingTaskDiagnostics={sql:taskDiagnostics,http:[]};
   async function taskProbe(phase,run){
@@ -395,17 +397,26 @@ async function main(){
    await taskProbe('raw-list-procedure-'+role,async()=>{
     const rows=await diagnosticDb.query('EXEC paws_api.ListSchedulingTasks @ActorFirebaseUid=@actor,@QueryJson=@query',{actor,query:JSON.stringify(query)});
     const raw=rows[0]?.responseJson;
-    const facts={rows:rows.length,jsonPresent:typeof raw==='string',validJson:false,taskArrayPresent:false,totalValid:false,snapshotValid:false};
-    try{const body=JSON.parse(raw);facts.validJson=true;facts.taskArrayPresent=Array.isArray(body.tasks);facts.totalValid=Number.isInteger(body.total);facts.snapshotValid=typeof body.snapshotVersion==='string'&&/^[a-f0-9]{64}$/i.test(body.snapshotVersion);}catch(_){}
-    // Only shape flags, never SQL/response contents or identity values.
+    const facts={rows:rows.length,jsonPresent:typeof raw==='string',validJson:false,taskFieldPresent:false,taskArrayPresent:false,taskFieldKind:'unknown',total:null,snapshotValid:false};
+    try{
+     const body=JSON.parse(raw);facts.validJson=true;facts.taskFieldPresent=Object.hasOwn(body,'tasks');facts.taskArrayPresent=Array.isArray(body.tasks);
+     facts.taskFieldKind=!facts.taskFieldPresent?'omitted':body.tasks===null?'null':facts.taskArrayPresent?'array':typeof body.tasks;
+     facts.total=Number.isInteger(body.total)?body.total:null;facts.snapshotValid=typeof body.snapshotVersion==='string'&&/^[a-f0-9]{64}$/i.test(body.snapshotVersion);
+    }catch(_){}
+    // Explicitly prove the precise zero-row shape before accepting it.
     console.log('BROWSER_QA_TASKS_RAW_SHAPE '+JSON.stringify({role,...facts}));
-    assert.equal(rows.length,1);assert.equal(facts.validJson,true);assert.equal(facts.taskArrayPresent,true);assert.equal(facts.totalValid,true);assert.equal(facts.snapshotValid,true);
+    assert.equal(rows.length,1);assert.equal(facts.validJson,true);assert.equal(facts.taskFieldKind,'omitted');assert.equal(facts.total,0);assert.equal(facts.snapshotValid,true);
     return facts;
+   });
+   await taskProbe('original-task-repository-empty-'+role,async()=>{
+    const oldRepository=original('data/sql-scheduling-task-repository').createSqlSchedulingTaskRepository(diagnosticDb);
+    await assert.rejects(oldRepository.list({actorFirebaseUid:actor,query}),{code:'INVALID_SCHEDULING_RESPONSE'});
+    return {originalRejected:true};
    });
    await taskProbe('product-task-repository-'+role,async()=>{
     const queue=await createSqlSchedulingTaskRepository(diagnosticDb).list({actorFirebaseUid:actor,query});
-    assert.ok(Array.isArray(queue.tasks));assert.ok(Number.isInteger(queue.total));
-    return {taskCount:queue.tasks.length,totalValid:true};
+    assert.deepEqual(queue.tasks,[]);assert.equal(queue.total,0);assert.equal(queue.nextCursor,null);assert.match(queue.snapshotVersion,/^[a-f0-9]{64}$/i);
+    return {taskCount:queue.tasks.length,total:queue.total};
    });
   }
   for(const [userId,role] of [[uid,'developer'],[facultyUid,'faculty']]){
@@ -477,6 +488,7 @@ async function main(){
  stage='http-authorization-matrix';
  const httpChecks=[];
  receipt.httpAuthorization=httpChecks;
+ receipt.officeCapabilityChecks=[];
  async function emulatorToken(user){
   const response=await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-api-key',{
    method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:user.email,password,returnSecureToken:true})
@@ -503,6 +515,22 @@ async function main(){
   assert.equal(sessions.status,200);
   assert.deepEqual(ids,scoped.has(user.role)?[user.sessionId.toLowerCase()]:allIds);
   assert.equal(sessions.body.sessions.filter(row=>row.batchEditToken).length,admins.has(user.role)?allIds.length:0);
+  if(officeOnly.has(user.role)){
+   const caps=await call(token,'/api/v1/afc-requests/write-capabilities');
+   assert.equal(caps.status,200);assert.deepEqual(caps.body,{writeCapabilities:officeCapabilities});
+   const target=allIds[0],afc='/api/v1/afc-requests',session='/api/v1/sessions';
+   const deniedRoutes=[
+    ['GET',afc],['POST',afc,{}],...['withdraw','dates','date-change','recommend','reject','approve'].map(action=>['POST',afc+'/'+target+'/'+action,{}]),
+    ['POST',session,{}],['POST',session+'/batch',{}],['POST',session+'/batch-edit',{edits:[]}],
+    ['PATCH',session+'/'+target,{}],['PATCH',session+'/'+target+'/assignments',{}]
+   ];
+   for(const [method,route,body] of deniedRoutes){
+    const response=await call(token,route,method,body);
+    assert.equal(response.status,403);assert.equal(response.body.error.code,'ROLE_DENIED');
+   }
+   const record={role:user.role,capabilityStatus:200,allNineFalse:true,deniedRouteCount:deniedRoutes.length,calendarRows:sessions.body.sessions.length};
+   receipt.officeCapabilityChecks.push(record);console.log('BROWSER_QA_OFFICE_CAPABILITIES '+JSON.stringify(record));
+  }
   const directory=await call(token,'/api/v1/access/accounts');
   console.log('BROWSER_QA_HTTP_PHASE '+JSON.stringify({role:user.role,phase:'owner-directory',status:directory.status,code:safeCode(directory.body.error?.code)}));
   // Preserve and expose the known owner-only directory blocker. It is NOT a
@@ -515,7 +543,7 @@ async function main(){
    const facts={role:user.role,status:tasks.status,code:safeCode(tasks.body.error?.code),readPassed:tasks.status===200,reviewEnabled:tasks.body.capabilities?.canReview===true};
    receipt.schedulingTaskDiagnostics.http.push(facts);
    console.log('BROWSER_QA_TASKS_HTTP '+JSON.stringify(facts));
-   if(tasks.status===200){assert.ok(Array.isArray(tasks.body.tasks));assert.equal(facts.reviewEnabled,false);}
+   if(tasks.status===200){assert.deepEqual(tasks.body.tasks,[]);assert.equal(tasks.body.total,0);assert.equal(facts.reviewEnabled,false);}
    else{assert.equal(tasks.status,503);assert.equal(facts.code,'SERVICE_UNAVAILABLE');receipt.releaseBlockers.push('Scheduling Tasks GET blocked for '+user.role);}
    // Review remains closed. The deliberately invalid command cannot mutate
    // any record; the existing role/write-gate rejection must occur first.
@@ -547,6 +575,97 @@ async function main(){
   httpChecks.push(checked);console.log('BROWSER_QA_HTTP_AUTHORIZATION '+JSON.stringify(checked));
  }
  console.log('BROWSER_QA_HTTP_AUTHORIZATION_OK '+JSON.stringify({positive:9,negative:4,anonymous:401,invalid:401,ownerDirectory:'separate blocker'}));
+ // Additional actual identity negatives for the newly supported capability
+ // discovery path. Only the disposable seed administrator creates users.
+ stage='office-capability-negative';
+ for(const kind of ['inactive-adc','password-lab']){
+  const user={uid:'pr171-negative-'+kind,email:'paws-pr171-negative-'+kind+'@ucalgary.ca'};
+  await auth.createUser({uid:user.uid,email:user.email,password,emailVerified:true});
+  await db.query("INSERT paws.UserProfile(FirebaseUid,Email,DisplayName,BaseRole,Active,MustChangePassword) VALUES(@uid,@email,N'Synthetic office negative',@role,@active,@passwordRequired)",{
+   uid:user.uid,email:user.email,role:kind==='inactive-adc'?'adc':'lab',active:kind!=='inactive-adc',passwordRequired:kind==='password-lab'
+  });
+  const token=await emulatorToken(user),denied=await call(token,'/api/v1/afc-requests/write-capabilities');
+  assert.equal(denied.status,403);assert.equal(denied.body.error.code,kind==='inactive-adc'?'PROFILE_REQUIRED':'PASSWORD_CHANGE_REQUIRED');
+  assert.equal(Object.hasOwn(denied.body,'writeCapabilities'),false);
+  console.log('BROWSER_QA_OFFICE_NEGATIVE '+JSON.stringify({kind,status:denied.status,code:denied.body.error.code}));
+ }
+ for(const token of ['', 'invalid-synthetic-token']){
+  const denied=await call(token,'/api/v1/afc-requests/write-capabilities');assert.equal(denied.status,401);
+ }
+ // Independent populated Tasks regression. Temporary additional rows are
+ // inserted only in the marker-verified disposable database and removed
+ // before the existing unchanged 9 x 2 Calendar expectations run.
+ stage='tasks-populated-fixture';
+ const facultyPair=identities.filter(user=>user.role==='faculty');
+ assert.equal(facultyPair.length,2);
+ const conflicts=facultyPair.map(user=>({user,extraId:randomUUID()}));
+ const taskConnection=createSqlConnection({sql,driver:env.PAWS_SQL_DRIVER,connectionString:env.PAWS_SQL_CONNECTION_STRING});
+ receipt.schedulingTaskDiagnostics.populated={status:'pending'};
+ try{
+  const [permission]=await taskConnection.query("SELECT IS_ROLEMEMBER(N'db_owner') AS owner,HAS_PERMS_BY_NAME(N'paws_api.ListSchedulingTasks',N'OBJECT',N'EXECUTE') AS listExecute,HAS_PERMS_BY_NAME(N'paws_api.ReviewSchedulingTask',N'OBJECT',N'EXECUTE') AS reviewExecute");
+  assert.deepEqual(permission,{owner:0,listExecute:1,reviewExecute:0});
+  const tasksRepo=createSqlSchedulingTaskRepository(taskConnection),year='2026-27';
+  const oldRepo=require(path.join(baselineRoot,'server','src','data','sql-scheduling-task-repository')).createSqlSchedulingTaskRepository(taskConnection);
+  for(const [index,entry] of conflicts.entries()){
+   await db.query(`
+    INSERT paws.Session(SessionId,AcademicYear,CurriculumYear,CourseId,CourseCode,CourseName,Topic,SessionType,SessionDate,StartTime,EndTime,Room,SourceImportBatchId)
+    VALUES(@sessionId,N'2026-27',N'2',@course,N'BROWSER171',N'Synthetic Browser QA',@topic,N'LEC','2026-11-25','09:30','10:30',N'QA room',@batch);
+    INSERT paws.SessionAssignment(SessionAssignmentId,SessionId,FacultyId,FacultyResolutionStatus,TeachingRole,SourceImportBatchId,SourceRow)
+    VALUES(NEWID(),@sessionId,@facultyId,N'resolved',N'Lecture',@batch,@sourceRow);
+   `,{sessionId:entry.extraId,course,batch,topic:'Synthetic task conflict '+index,facultyId:entry.user.facultyId,sourceRow:100+index});
+  }
+  const pairKey=task=>[task.sessionId,...task.relatedSessions.map(row=>row.id)].map(id=>String(id).toLowerCase()).sort().join(':');
+  const expectedPairs=conflicts.map(entry=>[entry.user.sessionId,entry.extraId].map(id=>id.toLowerCase()).sort().join(':')).sort();
+  function checkQueue(queue,expected,review){
+   assert.equal(queue.total,expected.length);assert.equal(queue.tasks.length,expected.length);
+   assert.deepEqual(queue.tasks.map(pairKey).sort(),expected);
+   assert.ok(queue.tasks.every(task=>task.type==='instructor_overlap'&&task.severity==='Conflict'&&task.canReview===review&&task.reviewStatus==='Unreviewed'));
+   assert.match(queue.snapshotVersion,/^[a-f0-9]{64}$/i);assert.equal(queue.capabilities.canReview,review);
+   assert.equal(queue.nextCursor,null);
+   // The public API projection still strips unrelated sensitive fields.
+   assert.doesNotMatch(JSON.stringify(queue),/"(?:email|ucid|afcPurpose|FirebaseUid)"\s*:/i);
+  }
+  const tested=[];
+  for(const user of [identities[0],...facultyPair,identities.find(item=>item.role==='adc'),identities.find(item=>item.role==='lab')]){
+   const query={academicYear:year,limit:50},expected=user.role==='faculty'?conflicts.filter(entry=>entry.user.uid===user.uid).map(entry=>[entry.user.sessionId,entry.extraId].map(id=>id.toLowerCase()).sort().join(':')):expectedPairs;
+   const rawRows=await taskConnection.query('EXEC paws_api.ListSchedulingTasks @ActorFirebaseUid=@actor,@QueryJson=@query',{actor:user.uid,query:JSON.stringify(query)});
+   const raw=JSON.parse(rawRows[0].responseJson);
+   assert.equal(rawRows.length,1);assert.equal(raw.total,expected.length);assert.ok(Array.isArray(raw.tasks));assert.equal(raw.tasks.length,expected.length);
+   const candidate=await tasksRepo.list({actorFirebaseUid:user.uid,query}),original=await oldRepo.list({actorFirebaseUid:user.uid,query});
+   checkQueue(candidate,expected,user.role==='developer');
+   assert.deepEqual(candidate,original,'Nonzero SQL queue must be byte-equivalent to the original public contract');
+   const token=await emulatorToken(user),http=await call(token,'/api/v1/scheduling-tasks?academicYear=2026-27&limit=50');
+   assert.equal(http.status,200);checkQueue(http.body,expected,false);
+   const record={role:user.role,rawRows:raw.tasks.length,sqlTotal:candidate.total,httpStatus:http.status,scopeVerified:true,originalEquivalent:true,reviewDisabled:true};
+   tested.push(record);console.log('BROWSER_QA_TASKS_POPULATED '+JSON.stringify(record));
+  }
+  const developerToken=await emulatorToken(identities[0]),first=await call(developerToken,'/api/v1/scheduling-tasks?academicYear=2026-27&limit=1');
+  assert.equal(first.status,200);assert.equal(first.body.total,2);assert.equal(first.body.tasks.length,1);assert.match(first.body.nextCursor,/^[a-f0-9]{64}:1$/i);
+  const second=await call(developerToken,'/api/v1/scheduling-tasks?academicYear=2026-27&limit=1&cursor='+encodeURIComponent(first.body.nextCursor));
+  assert.equal(second.status,200);assert.equal(second.body.total,2);assert.equal(second.body.tasks.length,1);assert.equal(second.body.nextCursor,null);
+  assert.equal(second.body.snapshotVersion,first.body.snapshotVersion);assert.deepEqual([...first.body.tasks,...second.body.tasks].map(pairKey).sort(),expectedPairs);
+  const emptyQuery={academicYear:year,courseCode:'QA-NO-SUCH-COURSE',limit:50};
+  const filtered=await tasksRepo.list({actorFirebaseUid:identities[0].uid,query:emptyQuery});
+  assert.equal(filtered.total,0);assert.deepEqual(filtered.tasks,[]);
+  const emptyHttp=await call(developerToken,'/api/v1/scheduling-tasks?academicYear=2026-27&courseCode=QA-NO-SUCH-COURSE&limit=50');
+  assert.equal(emptyHttp.status,200);assert.deepEqual(emptyHttp.body.tasks,[]);assert.equal(emptyHttp.body.total,0);
+  receipt.schedulingTaskDiagnostics.populated={status:'passed',cases:tested,paginationVerified:true,filteredEmptyVerified:true};
+  console.log('BROWSER_QA_TASKS_POPULATED_OK '+JSON.stringify({roles:tested.length,paginationVerified:true,filteredEmptyVerified:true}));
+ }catch(error){
+  const facts={status:'blocked',...fail(error)};
+  receipt.schedulingTaskDiagnostics.populated=facts;
+  receipt.releaseBlockers.push('Scheduling Tasks populated/filtered scope regression blocked');
+  console.error('BROWSER_QA_TASKS_POPULATED_FAILED '+JSON.stringify(facts));
+ }finally{
+  await taskConnection.close();
+  stage='tasks-populated-cleanup';
+  for(const entry of conflicts){
+   await db.query('DELETE FROM paws.SessionAssignment WHERE SessionId=@id; DELETE FROM paws.Session WHERE SessionId=@id;',{id:entry.extraId});
+  }
+  const originalCount=await call(await emulatorToken(identities[0]),'/api/v1/sessions');
+  assert.equal(originalCount.status,200);assert.deepEqual(originalCount.body.sessions.map(row=>String(row.id).toLowerCase()).sort(),allIds);
+  console.log('BROWSER_QA_TASKS_FIXTURE_CLEANUP_OK');
+ }
  const health=await fetch(api+'/api/health/sql');assert.equal(health.status,200);
  receipt.isolation={browser:site,api,sql:'127.0.0.1:14339 / disposable container',auth:'127.0.0.1:9099',firestore:'127.0.0.1:8080',markerVerified:true,anonymousDenied:true,sqlHealthy:true};
  console.log('BROWSER_QA_ISOLATION '+JSON.stringify(receipt.isolation));
@@ -783,6 +902,18 @@ async function main(){
     assert.deepEqual(view.ids,scoped.has(user.role)?[user.sessionId.toLowerCase()]:expectedAll);
     assert.equal(view.tokens,admins.has(user.role)?expectedAll.length:0);
     assert.equal(view.selection,admins.has(user.role));
+    if(officeOnly.has(user.role)){
+     stage='browser-office-capabilities:'+user.uid+':'+viewport.width;
+     const capabilities=await page.evaluate(async()=>{
+      const data=window.UCVM_PAWS_DATA,guard=window.UCVM_EFFECTIVE_ACCESS.guard;
+      const response=await data.refreshWriteCapabilities();
+      return {flags:Object.fromEntries(['sessionEdit','sessionBatchEdit','sessionCreate','afcSingle','afcBatch','requestLifecycle','decisions','approvedArtifactCreation','dateChange'].map(key=>[key,response[key]])),
+       guardCurrent:guard.current(guard.capture()),authenticated:!!firebase.auth().currentUser,unlocked:!document.body.classList.contains('auth-locked')};
+     });
+     assert.deepEqual(capabilities,{flags:officeCapabilities,guardCurrent:true,authenticated:true,unlocked:true});
+     result.checks.officeCapabilitiesReadOnly=true;
+     traceEvent(trace,'office-capabilities-accepted',{allNineFalse:true,guardCurrent:true,authenticated:true,unlocked:true});
+    }
     result.checks.roleAndSessionScope=true;result.checks.batchTokenAndControls=true;
     result.viewportWidth=view.viewportWidth;result.scrollWidth=view.scrollWidth;
     result.checks.viewportNoPageOverflow=view.scrollWidth<=view.viewportWidth+1;
@@ -914,7 +1045,11 @@ async function main(){
  assert.equal(receipt.failures.length,0,'One or more browser role/viewport checks failed.');
  console.log('PR171_ISOLATED_AUTHENTICATED_BROWSER_OK');
  console.log('PR171_OWNER_DIRECTORY_BLOCKED: original contact-read permission gap; no release approval');
- console.log('PR171_TASKS_DIAGNOSTIC_SUMMARY '+JSON.stringify({sql:receipt.schedulingTaskDiagnostics.sql.map(({phase,status})=>({phase,status})),http:receipt.schedulingTaskDiagnostics.http,reviewGateUnchanged:true}));
+ const tasksPassed=receipt.schedulingTaskDiagnostics.sql.every(row=>row.status==='passed')&&receipt.schedulingTaskDiagnostics.http.every(row=>row.readPassed)&&receipt.schedulingTaskDiagnostics.populated.status==='passed';
+ console.log('PR171_TASKS_DIAGNOSTIC_SUMMARY '+JSON.stringify({sql:receipt.schedulingTaskDiagnostics.sql.map(({phase,status})=>({phase,status})),http:receipt.schedulingTaskDiagnostics.http,populated:receipt.schedulingTaskDiagnostics.populated.status,reviewGateUnchanged:true,passed:tasksPassed}));
+ assert.equal(receipt.officeCapabilityChecks.length,2);
+ assert.equal(receipt.roles.filter(row=>officeOnly.has(row.role)&&row.checks.officeCapabilitiesReadOnly===true).length,4);
+ assert.equal(tasksPassed,true,'Independent Tasks read-contract acceptance must pass; no false conflict-free success.');
 }
 main().catch(error=>{
  receipt.failure=fail(error);console.error('BROWSER_QA_FAILED '+JSON.stringify(receipt.failure));process.exitCode=1;

@@ -26,7 +26,7 @@ test('effective access promotion covers all96 static files and preserves the his
  assert.deepEqual(after.filter(file=>!before.includes(file)),['effective-access-guard.js']);
  assert.deepEqual(before.filter(file=>!after.includes(file)),[]);
  assert.deepEqual(changed(after),['availability-lookup.js','effective-access-guard.js','faculty-access.js','faculty-admin.html','faculty-admin.js','index.html','information-center.js','paws-data-client.js','teaching-assignments.html','teaching-assignments.js','timetable.js','user-management.css','user-management.html','user-management.js']);
- assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,96);
+ assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,97);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
 });
 test('effective access promotion covers127 API runtime files plus the unchanged three package/build inputs',()=>{

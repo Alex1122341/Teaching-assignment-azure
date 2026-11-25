@@ -16,7 +16,7 @@ test('multiple teaching roles promote independently reviewed product blobs and r
  assert.equal(historicalReport.sourceCommit,product);
  const before=freeze.readBaselineManifest({root,baselineCommit:previous}),after=freeze.readBaselineManifest({root,baselineCommit:product});
  assert.deepEqual(after,before);assert.equal(after.length,96);
- assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,96);
+ assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,97);
  assert.deepEqual(Object.keys(historicalReport.sha256).sort(),after.slice().sort());
  for(const file of after)assert.equal(historicalReport.sha256[file],freeze.sha256Canonical(freeze.readBaselineFile({root,baselineCommit:product,file})),file);
  assert.equal(freeze.verifyFreeze({root}).ok,true);

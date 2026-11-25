@@ -7,7 +7,7 @@ const path=require('node:path');
 const {execFileSync}=require('node:child_process');
 const {randomBytes}=require('node:crypto');
 const product=process.env.PAWS_QA_PRODUCT_ROOT;
-const sha='48c9e0656d9147e6c741a84044e79b5c9715b890';
+const sha='343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8';
 const marker=process.env.PAWS_BATCH_TEST_MARKER;
 const saPassword=process.env.PAWS_SQL_TEST_PASSWORD;
 if(process.env.GITHUB_ACTIONS!=='true'||!product||!saPassword||!(/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(marker||'')))throw Error('Disposable GitHub QA environment required.');
@@ -137,6 +137,8 @@ async function main(){
  assert.equal(committed.status,200);
  emit('batch-outcomes',{rows:committed.body.sessions.map((row,index)=>({sessionId:row.id,doe:committed.body.doe[index]}))});
  assert.deepEqual(committed.body.doe.map(d=>d.status),['calculated','calculated']);
+ assert.deepEqual(committed.body.doe.map(d=>d.issueCodes),[[],[]]);
+ assert.deepEqual(committed.body.doe.map(d=>d.calculatedCount),[2,1]);
  const rows=await admin.query(`
  SELECT CONVERT(varchar(36),f.SessionId) AS id,f.Revision AS revision,c.ResultDoe AS result,
  c.CalculationStatus AS status,c.CalculationTrigger AS trigger,c.CalculatedBy AS actor,c.FactsSnapshotJson AS facts

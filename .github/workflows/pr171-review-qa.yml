@@ -13,7 +13,7 @@ concurrency:
   group: pr171-review-qa-${{ github.ref }}
   cancel-in-progress: true
 env:
-  PRODUCT_SHA: 48c9e0656d9147e6c741a84044e79b5c9715b890
+  PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
 jobs:
   availability_072:
     if: github.event.pull_request.number == 171

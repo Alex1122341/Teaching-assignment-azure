@@ -7,8 +7,8 @@ const {createWriteGates}=require('../src/data/write-gates');
 const id='11111111-2222-4333-8444-555555555555',id2='22222222-3333-4444-8555-666666666666',fid='33333333-4444-4555-8666-777777777777';
 const token='A'.repeat(64);
 const payload={edits:[{sessionId:id,expectedToken:token,patch:{topic:'Edited'}}]};
-function harness({role='owner',gates={sessionEdit:true,sessionBatchEdit:true},write,profile}={}){
- const calls=[],api=createDataApi({verifyToken:async()=>({uid:'verified-actor'}),findUser:async()=>profile||{active:true,baseRole:role,facultyId:fid,displayName:'Admin'},listSessions:async input=>{calls.push({read:input});return[]},updateSessionBatch:write|| (async input=>{calls.push(input);return input.edits.map(e=>({id:e.sessionId}))}),recalculateSessionDoe:async({sessionId})=>({sessionId,status:'calculated'}),writeGates:gates});
+function harness({role='owner',gates={sessionEdit:true,sessionBatchEdit:true},write,profile,recalculate=async({sessionId})=>({sessionId,status:'calculated'})}={}){
+ const calls=[],api=createDataApi({verifyToken:async()=>({uid:'verified-actor'}),findUser:async()=>profile||{active:true,baseRole:role,facultyId:fid,displayName:'Admin'},listSessions:async input=>{calls.push({read:input});return[]},updateSessionBatch:write|| (async input=>{calls.push(input);return input.edits.map(e=>({id:e.sessionId}))}),recalculateSessionDoe:recalculate,writeGates:gates});
  return {api,calls};
 }
 test('batch edit requires explicit independent gate and verified administrator',async()=>{
@@ -94,4 +94,44 @@ test('multiple roles for the same canonical Faculty cannot be collapsed by the b
  m.state.set(id,complex);
  await assert.rejects(repo.updateBatch({edits:[{sessionId:id,expectedToken:sessionEditToken(complex),assignments:[{facultyId:fid,teachingRole:'Lecture'}]}],actorFirebaseUid:'verified'}),e=>e.batchCode==='SESSION_ASSIGNMENTS_READ_ONLY');
  assert.equal(m.calls.some(c=>c.startsWith('assign:')),false);
+});
+
+
+test('batch DOE persistence starts only after commit and serializes same-batch recalculations',async()=>{
+ const events=[];let active=0,peak=0,committed=false;
+ const edits=[id,id2].map(sessionId=>({sessionId,expectedToken:token,patch:{topic:'Edited'}}));
+ const h=harness({
+  write:async input=>{events.push('write');await new Promise(resolve=>setImmediate(resolve));committed=true;events.push('commit');return input.edits.map(e=>({id:e.sessionId}));},
+  recalculate:async({sessionId,actor,trigger})=>{
+   assert.equal(committed,true);assert.equal(actor.uid,'verified-actor');assert.equal(trigger,'session_batch_edit');
+   active++;peak=Math.max(peak,active);events.push('start:'+sessionId);
+   await new Promise(resolve=>setImmediate(resolve));
+   active--;events.push('end:'+sessionId);
+   return {sessionId,status:'calculated'};
+  }
+ });
+ const response=await h.api.updateExistingSessionBatch('valid',{edits});
+ assert.equal(response.status,200);assert.equal(peak,1);
+ assert.deepEqual(events,['write','commit','start:'+id,'end:'+id,'start:'+id2,'end:'+id2]);
+ assert.deepEqual(response.body.doe.map(r=>r.sessionId),response.body.sessions.map(r=>r.id));
+ assert.deepEqual(response.body.doe.map(r=>r.status),['calculated','calculated']);
+});
+
+test('a committed batch keeps each DOE outcome and continues after a calculation write fails',async()=>{
+ const calls=[];
+ const edits=[id,id2].map(sessionId=>({sessionId,expectedToken:token,patch:{topic:'Edited'}}));
+ const h=harness({recalculate:async({sessionId})=>{calls.push(sessionId);if(sessionId===id)throw Object.assign(Error('private SQL failure'),{number:1205});return {sessionId,status:'calculated'};}});
+ const response=await h.api.updateExistingSessionBatch('valid',{edits});
+ assert.equal(response.status,200);
+ assert.deepEqual(calls,[id,id2]);
+ assert.deepEqual(response.body.sessions.map(r=>r.id),[id,id2]);
+ assert.deepEqual(response.body.doe,[{status:'needs_review',issueCodes:['DOE_RECALCULATION_FAILED']},{sessionId:id2,status:'calculated'}]);
+ assert.equal(JSON.stringify(response).includes('private SQL failure'),false);
+});
+
+test('a rejected timetable batch never invokes post-commit DOE',async()=>{
+ const calls=[];
+ const h=harness({write:async()=>{throw Object.assign(Error('SQL rejected'),{number:51243});},recalculate:async input=>{calls.push(input);return {status:'calculated'};}});
+ const response=await h.api.updateExistingSessionBatch('valid',payload);
+ assert.equal(response.status,400);assert.deepEqual(calls,[]);
 });

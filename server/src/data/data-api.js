@@ -338,7 +338,15 @@ function createDataApi({
       }
       try{
         const saved=await updateSessionBatch({edits,actorFirebaseUid:auth.decoded.uid,actorName:text(auth.profile.displayName)||null});
-        const doe=typeof recalculateSessionDoe==='function'?await Promise.all(saved.map(row=>recalculateDoeAfterSessionWrite(row.id,auth,'session_batch_edit'))):[];
+        // The timetable transaction is committed here. DOE writes acquire
+        // policy and assignment locks; do not run sibling recalculations
+        // concurrently. Preserve individual review outcomes and response order.
+        const doe=[];
+        if(typeof recalculateSessionDoe==='function'){
+          for(const row of saved){
+            doe.push(await recalculateDoeAfterSessionWrite(row.id,auth,'session_batch_edit'));
+          }
+        }
         return result(200,{sessions:saved,doe});
       }catch(failure){
         if(['SESSION_NOT_FOUND','SESSION_BATCH_STALE','SESSION_ASSIGNMENTS_READ_ONLY'].includes(failure?.batchCode))return bad(failure.batchCode,failure.batchRow,failure.batchCode==='SESSION_NOT_FOUND'?404:409);

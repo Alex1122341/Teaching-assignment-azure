@@ -16,6 +16,9 @@ env:
   LEGACY_PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
   QA_SHA: bf53af54ff6f91223819d56a4d66aa460d0589df
   PREVIOUS_QA_HEAD: d884dd522ed522892d3018cdca89dbbb4653ac57
+  EVIDENCE_HEAD: 3a59106188b88dac1a746c626e86de72254a8d5f
+  APPROVED_TEST_HEAD: f3a16a7309c95a824c5a348c0ee703f0c72d4071
+  WORKFLOW_SHA256: b8493acf5089c73d6ac38de84af48830056e1611b8f8eab706eeb077e359fcd8
   GOVERNANCE_SHA: 5d90e1ffffafa4ba3b482abd010355d6abfa6e4e
   BASE_SHA: f10f7eb2bec22447359627bf814b2b551512e108
   QA_WORKFLOW: .github/workflows/pr171-candidate-doe-qa.yml
@@ -49,9 +52,25 @@ jobs:
           test "$EVENT_BASE" = "$BASE_SHA"
           test "$(git -C product rev-parse HEAD)" = "$PRODUCT_SHA"
           test "$(git -C qa rev-parse HEAD)" = "$EVENT_HEAD"
-          test "$(git -C qa rev-parse HEAD^)" = "$PREVIOUS_QA_HEAD"
-          test "$(git -C qa diff --name-status "$PREVIOUS_QA_HEAD" HEAD)" = "$(printf 'M\t%s' "$QA_WORKFLOW")"
-          test "$(git -C qa diff --name-status "$QA_SHA" HEAD)" = "$(printf 'A\t%s' "$QA_WORKFLOW")"
+          # The repair must be one direct child of the approved two-file test commit.
+          test "$(git -C qa show -s --format=%P HEAD)" = "$APPROVED_TEST_HEAD"
+          test "$(git -C qa diff --name-status --no-renames "$APPROVED_TEST_HEAD" HEAD)" = "$(printf 'M\t%s' "$QA_WORKFLOW")"
+          test "$(git -C qa ls-tree --format='%(objectmode) %(objecttype)' HEAD -- "$QA_WORKFLOW")" = '100644 blob'
+          # Normalize only the digest line to compare the committed workflow bytes.
+          workflow_digest="$(git -C qa cat-file blob "$EVENT_HEAD:$QA_WORKFLOW" |
+            sed -E 's/^  WORKFLOW_SHA256: [0-9a-f]{64}$/  WORKFLOW_SHA256: normalized/' | sha256sum | cut -d ' ' -f1)"
+          test "$workflow_digest" = "$WORKFLOW_SHA256"
+          test "$(git -C qa show -s --format=%P "$APPROVED_TEST_HEAD")" = "$EVIDENCE_HEAD"
+          approved_delta="$(git -C qa diff --raw --no-abbrev --no-renames "$EVIDENCE_HEAD" "$APPROVED_TEST_HEAD")"
+          expected_delta="$(printf '%s\t%s\n' \
+            ':100644 100644 dad2b5c02f8dcea15c0a9a212d73d1a29019c7ba fb54c8782518c95ff4c75e89a539b7a7def12a74 M' server/test/fixtures/w1e-runtime-permission-contract.json \
+            ':100644 100644 f27d3d1bf33cdda01079996350867c74e756ee41 b2fa7e1fa7c85820ef8db565f0c8e5ef984a3f1a M' server/test/w1e-permission-contract.test.js)"
+          test "$approved_delta" = "$expected_delta"
+          # Keep the original rollback evidence tied to its immutable commit.
+          test "$(git -C qa show -s --format=%P "$EVIDENCE_HEAD")" = "$PREVIOUS_QA_HEAD"
+          test "$(git -C qa diff --name-status "$PREVIOUS_QA_HEAD" "$EVIDENCE_HEAD")" = "$(printf 'M\t%s' "$QA_WORKFLOW")"
+          test "$(git -C qa diff --name-status "$QA_SHA" "$EVIDENCE_HEAD")" = "$(printf 'A\t%s' "$QA_WORKFLOW")"
+          echo "Verified QA test commit $APPROVED_TEST_HEAD and historical evidence $EVIDENCE_HEAD."
           git -C qa merge-base --is-ancestor "$PRODUCT_SHA" "$QA_SHA"
           git -C qa merge-base --is-ancestor "$GOVERNANCE_SHA" "$QA_SHA"
           git -C qa diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql deploy/aca/Dockerfile server/package.json server/package-lock.json tools/static-assets.json tools/beta-api-freeze.js

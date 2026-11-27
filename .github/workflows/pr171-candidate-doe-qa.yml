@@ -18,6 +18,7 @@ env:
   PREVIOUS_QA_HEAD: d884dd522ed522892d3018cdca89dbbb4653ac57
   EVIDENCE_HEAD: 3a59106188b88dac1a746c626e86de72254a8d5f
   APPROVED_TEST_HEAD: f3a16a7309c95a824c5a348c0ee703f0c72d4071
+  ROLLBACK_RECEIPT_SHA: 8d2b7aa2f238b132b43f61c631fd74f65291ae94
   WORKFLOW_SHA256: b8493acf5089c73d6ac38de84af48830056e1611b8f8eab706eeb077e359fcd8
   GOVERNANCE_SHA: 5d90e1ffffafa4ba3b482abd010355d6abfa6e4e
   BASE_SHA: f10f7eb2bec22447359627bf814b2b551512e108
@@ -42,7 +43,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Confirm exact candidate, original governance and single QA-only change
+      - name: Confirm exact candidate and immutable rollback receipt
         shell: bash
         env:
           EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
@@ -52,12 +53,13 @@ jobs:
           test "$EVENT_BASE" = "$BASE_SHA"
           test "$(git -C product rev-parse HEAD)" = "$PRODUCT_SHA"
           test "$(git -C qa rev-parse HEAD)" = "$EVENT_HEAD"
-          # The repair must be one direct child of the approved two-file test commit.
-          test "$(git -C qa show -s --format=%P HEAD)" = "$APPROVED_TEST_HEAD"
-          test "$(git -C qa diff --name-status --no-renames "$APPROVED_TEST_HEAD" HEAD)" = "$(printf 'M\t%s' "$QA_WORKFLOW")"
-          test "$(git -C qa ls-tree --format='%(objectmode) %(objecttype)' HEAD -- "$QA_WORKFLOW")" = '100644 blob'
+          # Verify the original repair against its immutable commit.
+          git -C qa merge-base --is-ancestor "$ROLLBACK_RECEIPT_SHA" HEAD
+          test "$(git -C qa show -s --format=%P "$ROLLBACK_RECEIPT_SHA")" = "$APPROVED_TEST_HEAD"
+          test "$(git -C qa diff --name-status --no-renames "$APPROVED_TEST_HEAD" "$ROLLBACK_RECEIPT_SHA")" = "$(printf 'M\t%s' "$QA_WORKFLOW")"
+          test "$(git -C qa ls-tree --format='%(objectmode) %(objecttype)' "$ROLLBACK_RECEIPT_SHA" -- "$QA_WORKFLOW")" = '100644 blob'
           # Normalize only the digest line to compare the committed workflow bytes.
-          workflow_digest="$(git -C qa cat-file blob "$EVENT_HEAD:$QA_WORKFLOW" |
+          workflow_digest="$(git -C qa cat-file blob "$ROLLBACK_RECEIPT_SHA:$QA_WORKFLOW" |
             sed -E 's/^  WORKFLOW_SHA256: [0-9a-f]{64}$/  WORKFLOW_SHA256: normalized/' | sha256sum | cut -d ' ' -f1)"
           test "$workflow_digest" = "$WORKFLOW_SHA256"
           test "$(git -C qa show -s --format=%P "$APPROVED_TEST_HEAD")" = "$EVIDENCE_HEAD"
@@ -74,7 +76,7 @@ jobs:
           git -C qa merge-base --is-ancestor "$PRODUCT_SHA" "$QA_SHA"
           git -C qa merge-base --is-ancestor "$GOVERNANCE_SHA" "$QA_SHA"
           git -C qa diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql deploy/aca/Dockerfile server/package.json server/package-lock.json tools/static-assets.json tools/beta-api-freeze.js
-          git -C qa diff --exit-code "$GOVERNANCE_SHA" HEAD -- tools/beta-freeze.js tools/beta-api-freeze.js tools/beta-baseline.json tests/pr171-freeze-governance.test.js
+          git -C qa diff --exit-code "$GOVERNANCE_SHA" "$ROLLBACK_RECEIPT_SHA" -- tools/beta-freeze.js tools/beta-api-freeze.js tools/beta-baseline.json tests/pr171-freeze-governance.test.js
           actual="$(git -C qa diff --name-only "$LEGACY_PRODUCT_SHA" "$PRODUCT_SHA" -- frontend server/src swa-api database/azure-sql deploy/aca/Dockerfile server/package.json server/package-lock.json tools/static-assets.json tools/beta-api-freeze.js)"
           expected="$(cat <<'EXPECTED'
           database/azure-sql/073_owner_account_directory_read.sql

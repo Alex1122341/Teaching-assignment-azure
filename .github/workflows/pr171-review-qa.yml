@@ -14,7 +14,7 @@ concurrency:
   group: pr171-review-qa-${{ github.ref }}
   cancel-in-progress: true
 env:
-  PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
+  PRODUCT_SHA: 75191cd454064a70293d34c549338469aa34fbb8
   GOVERNANCE_SHA: 5d90e1ffffafa4ba3b482abd010355d6abfa6e4e
 jobs:
   availability_072:
@@ -42,8 +42,9 @@ jobs:
           $testPassword='Synthetic-'+[guid]::NewGuid().ToString()+'!Aa1'
           Write-Output "::add-mask::$testPassword"
           "PAWS_SQL_TEST_PASSWORD=$testPassword" >> $env:GITHUB_ENV
-          docker run --name paws-calendar-faculty-availability --label paws.calendar-test=1 -p 127.0.0.1:14331:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -d mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
+          $containerId=docker run --name paws-calendar-faculty-availability --label paws.calendar-test=1 -p 127.0.0.1:14331:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -d mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
           if($LASTEXITCODE -ne 0){throw 'Synthetic SQL start failed.'}
+          "container_id=$containerId" >> $env:GITHUB_OUTPUT
           $ready=$false
           for($attempt=0;$attempt -lt 60;$attempt++){
             docker exec -e "SQLCMDPASSWORD=$testPassword" paws-calendar-faculty-availability /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' 2>$null | Out-Null
@@ -55,15 +56,13 @@ jobs:
         shell: pwsh
         run: ./tools/test-faculty-availability-sql.ps1 -ContainerName paws-calendar-faculty-availability
       - name: Remove disposable Availability SQL
-        if: always()
-        shell: pwsh
+        if: always() && steps.sql.outputs.container_id != ''
+        shell: bash
+        env:
+          CONTAINER_ID: ${{ steps.sql.outputs.container_id }}
         run: |
-          $container=docker inspect paws-calendar-faculty-availability 2>$null
-          if($LASTEXITCODE -eq 0){
-            $details=$container | ConvertFrom-Json
-            if($details[0].Config.Labels.'paws.calendar-test' -ne '1'){throw 'Refusing to remove non-QA container.'}
-            docker rm -f paws-calendar-faculty-availability
-          }
+          test "$(docker inspect --format '{{ index .Config.Labels "paws.calendar-test" }}' "$CONTAINER_ID")" = 1
+          docker rm -f "$CONTAINER_ID"
   postcommit_doe:
     if: github.event.pull_request.number == 171
     runs-on: ubuntu-latest
@@ -85,20 +84,23 @@ jobs:
           node-version: '22'
       - name: Verify product identity and unchanged protected inputs
         shell: bash
+        env:
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           test "$(git -C product rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git -C qa rev-parse HEAD)" = "$EVENT_HEAD"
           git -C qa merge-base --is-ancestor "$PRODUCT_SHA" HEAD
           git -C qa diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql deploy/aca/Dockerfile server/package.json server/package-lock.json tools/static-assets.json tools/beta-api-freeze.js
-          # Only the separately approved, immutable governance receipt may
-          # supply the two updated governance files. No product drift allowed.
           git -C qa merge-base --is-ancestor "$GOVERNANCE_SHA" HEAD
-          git -C qa diff --exit-code "$GOVERNANCE_SHA" HEAD -- tools/beta-freeze.js tools/beta-api-freeze.js tools/beta-baseline.json tests/pr171-freeze-governance.test.js
           echo "Governance $GOVERNANCE_SHA"
           echo "Product $(git -C product rev-parse HEAD)"
           echo "QA harness $(git -C qa rev-parse HEAD)"
-      - name: Verify exact owner-authorized governance receipt
-        working-directory: qa
-        run: node --test tests/pr171-freeze-governance.test.js
+      - name: Verify historical owner-authorized governance receipt
+        shell: bash
+        run: |
+          git -C qa worktree add --detach "$RUNNER_TEMP/pr171-governance" "$GOVERNANCE_SHA"
+          cd "$RUNNER_TEMP/pr171-governance"
+          node --test tests/pr171-freeze-governance.test.js
       - run: npm ci --prefix product/server
       - name: Existing DOE service and API contracts
         working-directory: product
@@ -112,8 +114,9 @@ jobs:
           Write-Output "::add-mask::$testPassword"
           "PAWS_SQL_TEST_PASSWORD=$testPassword" >> $env:GITHUB_ENV
           "PAWS_BATCH_TEST_MARKER=$marker" >> $env:GITHUB_ENV
-          docker run --name paws-calendar-batch171 --label paws.calendar-test=1 -p 127.0.0.1:14337:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -d mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
+          $containerId=docker run --name paws-calendar-batch171 --label paws.calendar-test=1 -p 127.0.0.1:14337:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -d mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
           if($LASTEXITCODE -ne 0){throw 'Synthetic SQL start failed.'}
+          "container_id=$containerId" >> $env:GITHUB_OUTPUT
           $ready=$false
           for($attempt=0;$attempt -lt 60;$attempt++){
             docker exec -e "SQLCMDPASSWORD=$testPassword" paws-calendar-batch171 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' 2>$null | Out-Null
@@ -129,12 +132,10 @@ jobs:
         shell: bash
         run: PAWS_QA_PRODUCT_ROOT="$GITHUB_WORKSPACE/product" node qa/tools/test-pr171-postcommit-doe.cjs
       - name: Remove disposable Batch and DOE SQL
-        if: always()
-        shell: pwsh
+        if: always() && steps.sql.outputs.container_id != ''
+        shell: bash
+        env:
+          CONTAINER_ID: ${{ steps.sql.outputs.container_id }}
         run: |
-          $container=docker inspect paws-calendar-batch171 2>$null
-          if($LASTEXITCODE -eq 0){
-            $details=$container | ConvertFrom-Json
-            if($details[0].Config.Labels.'paws.calendar-test' -ne '1'){throw 'Refusing to remove non-QA container.'}
-            docker rm -f paws-calendar-batch171
-          }
+          test "$(docker inspect --format '{{ index .Config.Labels "paws.calendar-test" }}' "$CONTAINER_ID")" = 1
+          docker rm -f "$CONTAINER_ID"

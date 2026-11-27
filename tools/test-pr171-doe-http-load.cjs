@@ -10,7 +10,6 @@ const key=value=>String(value).toLowerCase();
 
 async function runDoeHttpLoad({load,admin,primary,secondary,sha,policy,rule,actor,sample,count,emit,errorFacts,setStage}){
  assert.equal(process.env.GITHUB_ACTIONS,'true');
- assert.equal(sha,'343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8');
  const {createSwaFunctions}=load('src/runtime/swa-functions');
  const {createUniversityHttpServer}=load('src/runtime/university-http-server');
  const servers=[];

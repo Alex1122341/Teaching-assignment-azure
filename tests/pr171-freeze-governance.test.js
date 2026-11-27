@@ -6,6 +6,8 @@ const freeze=require('../tools/beta-freeze'),api=require('../tools/beta-api-free
 const previous='54a8e23cc88b628eb5cf3234c29388b7f800dfb9';
 const previousReceipt='a0d21690f443a5b4520a2b9c989c932fb7f1fbde';
 const product='343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8';
+const productReceipt='5d90e1ffffafa4ba3b482abd010355d6abfa6e4e';
+const candidate='75191cd454064a70293d34c549338469aa34fbb8';
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
 const blob=(ref,file)=>execFileSync('git',['cat-file','blob',ref+':'+file],{cwd:root,maxBuffer:256*1024*1024});
 const manifest=ref=>freeze.readBaselineManifest({root,baselineCommit:ref}).slice().sort();
@@ -51,17 +53,39 @@ test('PR171 approved immutable product changes exactly six static and seven API 
  assert.equal(git('diff','--name-only',previous,product,'--','database','package.json','package-lock.json','server/package.json','server/package-lock.json','deploy/aca/Dockerfile','firestore.rules','firestore.indexes.json'),'');
 });
 
-test('PR171 governance pins the exact approved product and leaves immutable byte verification intact',()=>{
- const report=JSON.parse(fs.readFileSync(path.join(root,'tools/beta-baseline.json'),'utf8'));
- assert.equal(freeze.BASELINE_COMMIT,product);assert.equal(api.BASELINE_COMMIT,product);
- assert.equal(report.sourceCommit,product);assert.equal(report.siteUrl,'https://tester-teaching.web.app');
- assert.deepEqual(report.sha256,hashes(product));
- const original=blob(product,'tools/beta-freeze.js').toString('utf8');
- const oldAnchor="const BASELINE_COMMIT='"+previous+"';",newAnchor="const BASELINE_COMMIT='"+product+"';";
+test('PR171 governance pins the reviewed follow-up and preserves both immutable product receipts',()=>{
+ const originalReport=JSON.parse(blob(productReceipt,'tools/beta-baseline.json').toString('utf8'));
+ const original=blob(productReceipt,'tools/beta-freeze.js').toString('utf8');
+ const oldAnchor="const BASELINE_COMMIT='"+product+"';",newAnchor="const BASELINE_COMMIT='"+candidate+"';";
+ assert.equal(originalReport.sourceCommit,product);
  assert.equal(original.split(oldAnchor).length,2);
+ git('merge-base','--is-ancestor',product,productReceipt);
+ git('merge-base','--is-ancestor',productReceipt,candidate);
+ git('merge-base','--is-ancestor',candidate,'HEAD');
+
+ const report=JSON.parse(fs.readFileSync(path.join(root,'tools/beta-baseline.json'),'utf8'));
+ assert.equal(freeze.BASELINE_COMMIT,candidate);assert.equal(api.BASELINE_COMMIT,candidate);
+ assert.equal(report.sourceCommit,candidate);assert.equal(report.siteUrl,'https://tester-teaching.web.app');
+ const candidateHashes=hashes(candidate);
+ assert.deepEqual(report.sha256,candidateHashes);
+ const priorAssets=manifest(product),current=manifest(candidate);
+ assert.deepEqual(current,priorAssets);
+ assert.deepEqual(current.filter(file=>candidateHashes[file]!==originalReport.sha256[file]),[
+  'calendar-tested-features.js','effective-access-guard.js','timetable.js'
+ ]);
+ const runtimeFiles=api.baselineRuntimeFiles({root,baselineCommit:candidate});
+ assert.deepEqual(runtimeFiles,api.baselineRuntimeFiles({root,baselineCommit:product}));
+ assert.deepEqual(git('diff','--name-only',product,candidate,'--','server/src','swa-api','database','package.json','package-lock.json','server/package.json','server/package-lock.json','deploy/aca/Dockerfile','firestore.rules','firestore.indexes.json').split('\n'),[
+  'database/azure-sql/073_owner_account_directory_read.sql',
+  'database/azure-sql/rollback_073_owner_account_directory_read.sql',
+  'server/src/access/account-access-api.js',
+  'server/src/afc/afc-request-api.js',
+  'server/src/data/sql-account-access-repository.js',
+  'server/src/data/sql-scheduling-task-repository.js',
+  'server/src/data/sql-user-repository.js'
+ ]);
  assert.ok(freeze.bytesMatch(Buffer.from(original.replace(oldAnchor,newAnchor)),fs.readFileSync(path.join(root,'tools/beta-freeze.js'))),'Only the reviewed anchor may change.');
- assert.ok(api.bytesMatch(blob(product,'tools/beta-api-freeze.js'),fs.readFileSync(path.join(root,'tools/beta-api-freeze.js'))),'API verifier must not change.');
- const current=manifest(product);
+ assert.ok(api.bytesMatch(blob(productReceipt,'tools/beta-api-freeze.js'),fs.readFileSync(path.join(root,'tools/beta-api-freeze.js'))),'API verifier must not change.');
  assert.deepEqual(freeze.protectedPaths({root}),current);
  assert.deepEqual(freeze.protectedPaths({root,readManifest:()=>['index.html']}),current);
  const stat=freeze.verifyFreeze({root}),runtime=api.verifyFreeze({root});

@@ -49,7 +49,7 @@ jobs:
           test "$actual" = "$expected"
           git merge-base --is-ancestor "$GOVERNANCE_SHA" HEAD
           git diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql tools/static-assets.json deploy/aca/Dockerfile server/package.json server/package-lock.json package.json package-lock.json firestore.rules firestore.indexes.json
-          git diff --exit-code "$GOVERNANCE_SHA" HEAD -- tools/beta-freeze.js tools/beta-api-freeze.js tools/beta-baseline.json
+          git diff --exit-code "$GOVERNANCE_SHA" "$PRODUCT_SHA" -- tools/beta-freeze.js tools/beta-api-freeze.js tools/beta-baseline.json
       - name: Materialize immutable original product for same-identity comparison
         shell: bash
         run: |

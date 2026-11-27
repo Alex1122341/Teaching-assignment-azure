@@ -19,8 +19,9 @@ test('historical MASTER contract reserve promotion pins only the reviewed five r
  assert.deepEqual(freeze.readBaselineManifest({root,baselineCommit:product}),freeze.readBaselineManifest({root,baselineCommit:previous}));
  assert.deepEqual(api.baselineRuntimeFiles({root,baselineCommit:product}),api.baselineRuntimeFiles({root,baselineCommit:previous}));
  assert.equal(git('diff','--name-only',previous,product,'--','tools/static-assets.json','package.json','package-lock.json','server/package.json','server/package-lock.json','deploy/aca/Dockerfile','database','firestore.rules','firestore.indexes.json'),'');
- const historicalStatic={root,baselineCommit:product,readWorking:({file})=>freeze.readBaselineFile({root,baselineCommit:product,file})};
+ const historicalStatic={root,baselineCommit:product,readManifest:()=>freeze.readBaselineManifest({root,baselineCommit:product}),readWorking:({file})=>freeze.readBaselineFile({root,baselineCommit:product,file})};
  const historicalApi={root,baselineCommit:product,files:api.baselineRuntimeFiles({root,baselineCommit:product}),readWorking:({file})=>api.readBaselineFile({root,baselineCommit:product,file})};
  assert.equal(freeze.protectedPaths(historicalStatic).length,96);assert.equal(freeze.verifyFreeze(historicalStatic).ok,true);
+ assert.equal(freeze.verifyFreeze({root}).ok,true);
  assert.equal(api.baselineRuntimeFiles({root,baselineCommit:product}).length,133);assert.equal(api.verifyFreeze(historicalApi).protected,136);assert.equal(api.verifyFreeze(historicalApi).ok,true);
 });

@@ -22,6 +22,6 @@ test('GUID receipt promotion pins reviewed retry corrections and retains the ear
  assert.deepEqual(git('diff','--name-only',previous,product,'--','server/src','swa-api').split('\n'),[
   'server/src/access/account-access-api.js','server/src/access/leadership-access-api.js',
   'server/src/data/sql-account-access-repository.js','server/src/data/sql-leadership-access-repository.js']);
- assert.equal(freeze.protectedPaths({root}).length,96);assert.equal(freeze.verifyFreeze({root}).ok,true);
+ assert.equal(freeze.protectedPaths({root}).length,97);assert.equal(freeze.verifyFreeze({root}).ok,true);
  assert.equal(api.verifyFreeze({root}).protected,140);assert.equal(api.verifyFreeze({root}).ok,true);
 });

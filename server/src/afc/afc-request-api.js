@@ -26,10 +26,15 @@ function roleOf(profile) {
   return normalizeBaseRole(profile && profile.baseRole) || '';
 }
 
-function authorizeProfile(profile) {
+function authorizeProfile(profile, { calendarCapabilities = false } = {}) {
   if (!profile || profile.active !== true) return error(403, 'PROFILE_REQUIRED', 'An active SQL user profile is required.');
   if (profile.mustChangePassword === true) return error(403, 'PASSWORD_CHANGE_REQUIRED', 'Password change is required before AFC access.');
   const role = roleOf(profile);
+  // The shared Calendar capability discovery is a read-only operation.
+  // ADC/LAB have Calendar read access, not AFC request or session write access.
+  if (calendarCapabilities && (role === 'adc' || role === 'lab')) {
+    return { role, administrator: false, selfService: false, calendarOnly: true };
+  }
   if (!ALLOWED_ROLES.has(role)) return error(403, 'ROLE_DENIED', 'This role cannot access AFC requests.');
   const administrator = ADMIN_ROLES.has(role);
   if (!administrator && !text(profile.facultyId)) return error(403, 'FACULTY_LINK_REQUIRED', 'A linked faculty profile is required.');
@@ -166,7 +171,7 @@ function normalizeRequest(row = {}) {
 }
 
 function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = randomUUID, writeGates = {} }) {
-  async function authorize(token) {
+  async function authorize(token, options) {
     let decoded;
     try {
       decoded = await verifyToken(token);
@@ -187,25 +192,30 @@ function createAfcRequestApi({ verifyToken, findUser, repository, idFactory = ra
       return error(503, 'SERVICE_UNAVAILABLE', 'The SQL profile service is temporarily unavailable.');
     }
 
-    const scope = authorizeProfile(profile);
+    const scope = authorizeProfile(profile, options);
     if (scope.status) return scope;
     return { decoded, profile, scope };
   }
 
   return {
     async writeCapabilities(token) {
-      const auth = await authorize(token);
+      const auth = await authorize(token, { calendarCapabilities: true });
       if (auth.status) return auth;
+      // Return every existing capability explicitly false for Calendar-only
+      // roles, even if release gates are enabled. All other endpoints retain
+      // the original authorize(token) path and independent write checks.
+      const gates = auth.scope.calendarOnly ? {} : writeGates;
       return result(200, {
         writeCapabilities: {
-          sessionEdit: writeGates.sessionEdit === true,
-          sessionCreate: writeGates.sessionCreate === true,
-          afcSingle: writeGates.afcSingle === true,
-          afcBatch: writeGates.afcBatch === true,
-          requestLifecycle: writeGates.afcRequest === true,
-          decisions: writeGates.afcDecision === true,
-          approvedArtifactCreation: writeGates.afcArtifact === true,
-          dateChange: writeGates.afcEdit === true
+          sessionEdit: gates.sessionEdit === true,
+          sessionBatchEdit: gates.sessionEdit === true && gates.sessionBatchEdit === true,
+          sessionCreate: gates.sessionCreate === true,
+          afcSingle: gates.afcSingle === true,
+          afcBatch: gates.afcBatch === true,
+          requestLifecycle: gates.afcRequest === true,
+          decisions: gates.afcDecision === true,
+          approvedArtifactCreation: gates.afcArtifact === true,
+          dateChange: gates.afcEdit === true
         }
       });
     },

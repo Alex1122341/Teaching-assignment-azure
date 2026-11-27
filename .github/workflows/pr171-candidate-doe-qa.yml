@@ -1,0 +1,211 @@
+# Candidate evidence only. The approved product and all release gates remain unchanged.
+name: PR 171 - Isolated Candidate DOE Rollback QA
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - '.github/workflows/pr171-candidate-doe-qa.yml'
+permissions:
+  contents: read
+concurrency:
+  group: pr171-candidate-doe-qa
+  cancel-in-progress: false
+env:
+  PRODUCT_SHA: 75191cd454064a70293d34c549338469aa34fbb8
+  LEGACY_PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
+  QA_SHA: bf53af54ff6f91223819d56a4d66aa460d0589df
+  PREVIOUS_QA_HEAD: d884dd522ed522892d3018cdca89dbbb4653ac57
+  EVIDENCE_HEAD: 3a59106188b88dac1a746c626e86de72254a8d5f
+  APPROVED_TEST_HEAD: f3a16a7309c95a824c5a348c0ee703f0c72d4071
+  ROLLBACK_RECEIPT_SHA: 8d2b7aa2f238b132b43f61c631fd74f65291ae94
+  WORKFLOW_SHA256: b8493acf5089c73d6ac38de84af48830056e1611b8f8eab706eeb077e359fcd8
+  GOVERNANCE_SHA: 5d90e1ffffafa4ba3b482abd010355d6abfa6e4e
+  BASE_SHA: f10f7eb2bec22447359627bf814b2b551512e108
+  QA_WORKFLOW: .github/workflows/pr171-candidate-doe-qa.yml
+jobs:
+  candidate_synthetic_doe:
+    if: github.event.pull_request.number == 171 && github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feat/testing-pass-parity-20261125'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SHA }}
+          path: product
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: qa
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm exact candidate and immutable rollback receipt
+        shell: bash
+        env:
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+          EVENT_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          test "$EVENT_BASE" = "$BASE_SHA"
+          test "$(git -C product rev-parse HEAD)" = "$PRODUCT_SHA"
+          test "$(git -C qa rev-parse HEAD)" = "$EVENT_HEAD"
+          # Verify the original repair against its immutable commit.
+          git -C qa merge-base --is-ancestor "$ROLLBACK_RECEIPT_SHA" HEAD
+          test "$(git -C qa show -s --format=%P "$ROLLBACK_RECEIPT_SHA")" = "$APPROVED_TEST_HEAD"
+          test "$(git -C qa diff --name-status --no-renames "$APPROVED_TEST_HEAD" "$ROLLBACK_RECEIPT_SHA")" = "$(printf 'M\t%s' "$QA_WORKFLOW")"
+          test "$(git -C qa ls-tree --format='%(objectmode) %(objecttype)' "$ROLLBACK_RECEIPT_SHA" -- "$QA_WORKFLOW")" = '100644 blob'
+          # Normalize only the digest line to compare the committed workflow bytes.
+          workflow_digest="$(git -C qa cat-file blob "$ROLLBACK_RECEIPT_SHA:$QA_WORKFLOW" |
+            sed -E 's/^  WORKFLOW_SHA256: [0-9a-f]{64}$/  WORKFLOW_SHA256: normalized/' | sha256sum | cut -d ' ' -f1)"
+          test "$workflow_digest" = "$WORKFLOW_SHA256"
+          test "$(git -C qa show -s --format=%P "$APPROVED_TEST_HEAD")" = "$EVIDENCE_HEAD"
+          approved_delta="$(git -C qa diff --raw --no-abbrev --no-renames "$EVIDENCE_HEAD" "$APPROVED_TEST_HEAD")"
+          expected_delta="$(printf '%s\t%s\n' \
+            ':100644 100644 dad2b5c02f8dcea15c0a9a212d73d1a29019c7ba fb54c8782518c95ff4c75e89a539b7a7def12a74 M' server/test/fixtures/w1e-runtime-permission-contract.json \
+            ':100644 100644 f27d3d1bf33cdda01079996350867c74e756ee41 b2fa7e1fa7c85820ef8db565f0c8e5ef984a3f1a M' server/test/w1e-permission-contract.test.js)"
+          test "$approved_delta" = "$expected_delta"
+          # Keep the original rollback evidence tied to its immutable commit.
+          test "$(git -C qa show -s --format=%P "$EVIDENCE_HEAD")" = "$PREVIOUS_QA_HEAD"
+          test "$(git -C qa diff --name-status "$PREVIOUS_QA_HEAD" "$EVIDENCE_HEAD")" = "$(printf 'M\t%s' "$QA_WORKFLOW")"
+          test "$(git -C qa diff --name-status "$QA_SHA" "$EVIDENCE_HEAD")" = "$(printf 'A\t%s' "$QA_WORKFLOW")"
+          echo "Verified QA test commit $APPROVED_TEST_HEAD and historical evidence $EVIDENCE_HEAD."
+          git -C qa merge-base --is-ancestor "$PRODUCT_SHA" "$QA_SHA"
+          git -C qa merge-base --is-ancestor "$GOVERNANCE_SHA" "$QA_SHA"
+          git -C qa diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql deploy/aca/Dockerfile server/package.json server/package-lock.json tools/static-assets.json tools/beta-api-freeze.js
+          git -C qa diff --exit-code "$GOVERNANCE_SHA" "$ROLLBACK_RECEIPT_SHA" -- tools/beta-freeze.js tools/beta-api-freeze.js tools/beta-baseline.json tests/pr171-freeze-governance.test.js
+          actual="$(git -C qa diff --name-only "$LEGACY_PRODUCT_SHA" "$PRODUCT_SHA" -- frontend server/src swa-api database/azure-sql deploy/aca/Dockerfile server/package.json server/package-lock.json tools/static-assets.json tools/beta-api-freeze.js)"
+          expected="$(cat <<'EXPECTED'
+          database/azure-sql/073_owner_account_directory_read.sql
+          database/azure-sql/rollback_073_owner_account_directory_read.sql
+          frontend/scripts/calendar-tested-features.js
+          frontend/scripts/effective-access-guard.js
+          frontend/scripts/timetable.js
+          server/src/access/account-access-api.js
+          server/src/afc/afc-request-api.js
+          server/src/data/sql-account-access-repository.js
+          server/src/data/sql-scheduling-task-repository.js
+          server/src/data/sql-user-repository.js
+          EXPECTED
+          )"
+          test "$actual" = "$expected"
+          echo "Exact candidate: $PRODUCT_SHA; original QA: $QA_SHA; unchanged governance: $GOVERNANCE_SHA."
+          git -C qa checkout --detach "$QA_SHA"
+      - name: Prepare temporary QA script copies for the candidate
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const cp = require('node:child_process');
+          const assert = require('node:assert/strict');
+          const out = path.join(process.env.RUNNER_TEMP, 'pr171-candidate-doe');
+          fs.mkdirSync(out);
+          const oldPin = Buffer.from(process.env.LEGACY_PRODUCT_SHA, 'ascii');
+          const newPin = Buffer.from(process.env.PRODUCT_SHA, 'ascii');
+          assert.equal(oldPin.length, 40);
+          assert.equal(newPin.length, 40);
+          assert.notDeepEqual(oldPin, newPin);
+          for (const [file, objectId] of [
+            ['test-pr171-postcommit-doe.cjs', '108cdf74c538dc927550e0435d11d086bfaa683e'],
+            ['test-pr171-doe-http-load.cjs', '1b2bbefa10ee2d395bb592a282630bab6cbda0df'],
+          ]) {
+            const rel = 'tools/' + file;
+            assert.equal(cp.execFileSync('git', ['-C', 'qa', 'rev-parse', 'HEAD:' + rel], {encoding:'utf8'}).trim(), objectId);
+            const source = cp.execFileSync('git', ['-C', 'qa', 'cat-file', 'blob', objectId]);
+            const i = source.indexOf(oldPin);
+            assert.ok(i >= 0 && source.lastIndexOf(oldPin) === i);
+            assert.equal(source.indexOf(newPin), -1);
+            const candidate = Buffer.from(source);
+            newPin.copy(candidate, i);
+            const reversed = Buffer.from(candidate);
+            oldPin.copy(reversed, i);
+            assert.deepEqual(reversed, source);
+            fs.writeFileSync(path.join(out, file), candidate, {flag:'wx'});
+            console.log(file + ': verified immutable source ' + objectId + '; only the candidate SHA changed.');
+          }
+          NODE
+      - run: npm ci --prefix product/server
+      - name: Start disposable Batch and DOE SQL
+        id: sql
+        shell: pwsh
+        run: |
+          $testPassword='Synthetic-'+[guid]::NewGuid().ToString()+'!Aa1'
+          $marker=[guid]::NewGuid().ToString()
+          Write-Output "::add-mask::$testPassword"
+          "PAWS_SQL_TEST_PASSWORD=$testPassword" >> $env:GITHUB_ENV
+          "PAWS_BATCH_TEST_MARKER=$marker" >> $env:GITHUB_ENV
+          $runLabel="$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $containerId=docker run --name paws-calendar-batch171 --label paws.calendar-test=1 --label "paws.qa-run=$runLabel" -p 127.0.0.1:14337:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -d mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
+          if($LASTEXITCODE -ne 0){throw 'Synthetic SQL start failed.'}
+          if($containerId -notmatch '^[a-f0-9]{64}$'){throw 'Missing disposable container ID.'}
+          "container_id=$containerId" >> $env:GITHUB_OUTPUT
+          $ready=$false
+          for($attempt=0;$attempt -lt 60;$attempt++){
+            docker exec -e "SQLCMDPASSWORD=$testPassword" paws-calendar-batch171 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' 2>$null | Out-Null
+            if($LASTEXITCODE -eq 0){$ready=$true;break}
+            Start-Sleep -Seconds 2
+          }
+          if(-not $ready){throw 'Synthetic SQL readiness failed.'}
+      - name: Seed and verify the exact product batch fixture
+        working-directory: product
+        shell: pwsh
+        run: ./tools/test-session-batch-edit-sql.ps1 -ContainerName paws-calendar-batch171
+      - name: Run scoped fault injection in the temporary DOE test harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe="$RUNNER_TEMP/pr171-candidate-doe/test-pr171-postcommit-doe.cjs"
+          node - "$probe" <<'NODE'
+          const fs=require('node:fs');
+          const p=process.argv[2];
+          const source=fs.readFileSync(p,'utf8');
+          const marker=" stage='rejected-batch';";
+          if(source.split(marker).length!==2)throw Error('Unexpected immutable DOE insertion point.');
+          const extra=" stage='injected-mid-doe-rollback';\n const rollbackTarget=ids[0];\n const rolloutState=async()=>({\n  calculations:await admin.query('SELECT * FROM paws.DoeCalculationRecord WHERE PolicyVersionId=@policy ORDER BY CalculationId',{policy}),\n  facts:await admin.query('SELECT * FROM paws.DoeAssignmentFact WHERE SessionId=@target ORDER BY AssignmentFactId',{target:rollbackTarget}),\n  audit:await admin.query('SELECT * FROM paws.DoeAuditEvent WHERE PolicyVersionId=@policy ORDER BY AuditEventId',{policy}),\n });\n const snapshot=await rolloutState();\n assert.equal(snapshot.calculations.length,3);\n assert.equal(snapshot.facts.length,2);\n assert.ok(snapshot.facts.every(row=>Number(row.Revision)===1));\n assert.equal(snapshot.audit.length,3);\n // This trigger exists only after the harness's container, loopback port,\n // marker and fixture checks. It affects this one test session and actor only.\n // Send static fixture DDL in its own batch; the product connection prepends session context.\n await admin.query('EXEC sys.sp_executesql @fixtureDdl',{fixtureDdl:`\n CREATE TRIGGER paws.QaDoeLateRollback171 ON paws.DoeAuditEvent WITH EXECUTE AS OWNER AFTER INSERT AS\n BEGIN\n   SET NOCOUNT ON;\n   DECLARE @qaSession uniqueidentifier='11111111-2222-4333-8444-555555555555';\n   DECLARE @qaPolicy uniqueidentifier='77777777-7777-4777-8777-777777777777';\n   IF NOT EXISTS(SELECT 1 FROM inserted WHERE PolicyVersionId=@qaPolicy AND ActorUid=N'batch171-synthetic-actor'\n     AND TRY_CONVERT(uniqueidentifier,JSON_VALUE(AfterJson,'$.sessionId'))=@qaSession) RETURN;\n   IF (SELECT COUNT(*) FROM inserted a JOIN paws.DoeCalculationRecord c\n     ON c.CalculationId=TRY_CONVERT(uniqueidentifier,JSON_VALUE(a.AfterJson,'$.calculationId'))\n     JOIN paws.DoeAssignmentFact f ON f.CurrentCalculationId=c.CalculationId\n     JOIN paws.DoeAuditEvent e ON e.AuditEventId=a.AuditEventId\n     WHERE c.SessionId=@qaSession AND c.PolicyVersionId=@qaPolicy\n     AND a.ActorUid=N'batch171-synthetic-actor' AND f.SessionId=@qaSession AND f.Revision=2 AND c.ResultDoe=3.5)<>2\n     THROW 52621,'QA rollback precondition not met',1;\n   THROW 52622,'QA marker after two calculation, fact and audit writes',1;\n END;`});\n try{\n  const failed=await submit([await edit(rollbackTarget,{startTime:'08:00',endTime:'09:45',topic:'QA late DOE interruption'})]);\n  emit('rollback-api-result',{status:failed.status,errorCode:failed.body?.error?.code??null});\n  assert.equal(failed.status,200);\n  assert.equal(failed.body.sessions.length,1);\n  assert.equal(failed.body.doe.length,1);\n  assert.equal(failed.body.doe[0].status,'needs_review');\n  assert.ok(failed.body.doe[0].issueCodes.includes('DOE_RECALCULATION_FAILED'));\n  const post=await get(rollbackTarget);\n  assert.equal(post.topic,'QA late DOE interruption');\n  assert.equal(post.endTime,'09:45:00');\n  assert.deepEqual(await rolloutState(),snapshot);\n  emit('rollback-state-restored',{calculations:snapshot.calculations.length,facts:snapshot.facts.length,audits:snapshot.audit.length,sessionCommitStillPresent:true,persistedTimetableEnd:post.endTime});\n }finally{\n  await admin.query('DROP TRIGGER paws.QaDoeLateRollback171');\n  const trigger=(await admin.query(\"SELECT OBJECT_ID(N'paws.QaDoeLateRollback171',N'TR') AS id\"))[0];\n  assert.equal(trigger.id,null);\n }\n stage='mid-doe-rollback-recovery';\n const restored=await submit([await edit(rollbackTarget,{topic:'QA late DOE recovered'})]);\n assert.equal(restored.status,200);\n assert.equal(restored.body.sessions.length,1);\n assert.equal(restored.body.doe.length,1);\n assert.equal(restored.body.doe[0].status,'calculated');\n assert.deepEqual(restored.body.doe[0].issueCodes,[]);\n assert.equal(restored.body.doe[0].calculatedCount,2);\n assert.equal((await get(rollbackTarget)).topic,'QA late DOE recovered');\n const replay=await rolloutState();\n assert.equal(replay.calculations.length,snapshot.calculations.length+2);\n assert.equal(replay.facts.length,snapshot.facts.length);\n assert.equal(replay.audit.length,snapshot.audit.length+2);\n const beforeIds=new Set(snapshot.calculations.map(x=>String(x.CalculationId).toLowerCase()));\n const newRows=replay.calculations.filter(x=>!beforeIds.has(String(x.CalculationId).toLowerCase()));\n assert.equal(newRows.length,2);\n assert.equal(new Set(newRows.map(x=>String(x.CalculationId).toLowerCase())).size,2);\n assert.ok(newRows.every(x=>String(x.SessionId).toLowerCase()===rollbackTarget&&Number(x.ResultDoe)===3.5&&x.CalculationStatus==='calculated'));\n const newIds=new Set(newRows.map(x=>String(x.CalculationId).toLowerCase()));\n assert.ok(replay.facts.every(x=>Number(x.Revision)===2&&newIds.has(String(x.CurrentCalculationId).toLowerCase())));\n const oldAudit=new Set(snapshot.audit.map(x=>String(x.AuditEventId).toLowerCase()));\n const newAudit=replay.audit.filter(x=>!oldAudit.has(String(x.AuditEventId).toLowerCase()));\n assert.equal(newAudit.length,2);\n assert.deepEqual(new Set(newAudit.map(x=>String(JSON.parse(x.AfterJson).calculationId).toLowerCase())),newIds);\n console.log('PR171_DOE_MID_TRANSACTION_ROLLBACK_AND_RECOVERY_OK');\n return;\n";
+          if(source.includes(extra))throw Error('Fault probe already installed.');
+          const newSource=source.replace(marker,()=>extra+marker);
+          if(newSource.replace(extra,'')!==source)throw Error('Original assertions were modified.');
+          fs.writeFileSync(p,newSource);
+          NODE
+          node --check "$probe"
+          PAWS_QA_PRODUCT_ROOT="$GITHUB_WORKSPACE/product" node "$probe" | tee "$RUNNER_TEMP/pr171-doe-rollback.log"
+          node - "$RUNNER_TEMP/pr171-doe-rollback.log" <<'NODE'
+          const fs=require('node:fs');
+          const assert=require('node:assert/strict');
+          const text=fs.readFileSync(process.argv[2],'utf8');
+          const signals=text.split('\n').filter(x=>x.startsWith('PR171_DOE_DIAGNOSTIC ')).map(x=>JSON.parse(x.slice('PR171_DOE_DIAGNOSTIC '.length)));
+          const failure=signals.filter(x=>x.stage==='injected-mid-doe-rollback'&&x.event==='persist-failed');
+          assert.equal(failure.length,1);
+          assert.ok(failure[0].number===52622||failure[0].precedingNumbers?.includes(52622),'Missing proof that both writes and the audit insert happened before the injected error.');
+          assert.ok(!signals.some(x=>x.number===52621||x.precedingNumbers?.includes(52621)));
+          assert.equal(text.split('\n').filter(x=>x==='PR171_DOE_MID_TRANSACTION_ROLLBACK_AND_RECOVERY_OK').length,1);
+          console.log('PR171_DOE_LATE_FAULT_OBSERVED_AND_ROLLBACK_VERIFIED');
+          NODE
+      - name: Remove and verify the exact disposable SQL container
+        if: always()
+        shell: pwsh
+        env:
+          QA_CONTAINER_ID: ${{ steps.sql.outputs.container_id }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $expected=$env:QA_CONTAINER_ID
+          $runLabel="$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $ids=@(docker ps -aq --no-trunc --filter "label=paws.qa-run=$runLabel")
+          if($LASTEXITCODE -ne 0){throw 'Cannot list disposable SQL containers.'}
+          if($ids.Count -eq 0){
+            if($expected){throw 'Recorded QA container unexpectedly absent before cleanup.'}
+            Write-Output 'QA_SQL_NOT_STARTED'
+            exit 0
+          }
+          if($ids.Count -ne 1 -or $ids[0] -notmatch '^[a-f0-9]{64}$' -or ($expected -and $ids[0] -ne $expected)){throw 'Disposable SQL container identity mismatch.'}
+          $details=(docker inspect $ids[0] | ConvertFrom-Json)[0]
+          if($LASTEXITCODE -ne 0 -or $details.Id -ne $ids[0] -or $details.Name -ne '/paws-calendar-batch171' -or $details.Config.Labels.'paws.calendar-test' -ne '1' -or $details.Config.Labels.'paws.qa-run' -ne $runLabel){throw 'Refusing to remove an unverified container.'}
+          docker rm -f $ids[0]
+          if($LASTEXITCODE -ne 0){throw 'Disposable SQL removal failed.'}
+          $remaining=@(docker ps -aq --no-trunc --filter "id=$($ids[0])")
+          if($LASTEXITCODE -ne 0 -or $remaining.Count -ne 0){throw 'Disposable SQL absence not verified.'}
+          Write-Output "QA_SQL_CLEANUP_VERIFIED $($ids[0])"

@@ -11,7 +11,7 @@ function publicTask(row,canReview=true){
  return result;
 }
 function publicQueue(value,canReview=true){
- if(!value||!Array.isArray(value.tasks)||value.tasks.length>100||!Number.isInteger(value.total)||value.total<value.tasks.length||!hex(value.snapshotVersion,64))invalid();
+ if(!value||!Array.isArray(value.tasks)||value.tasks.length>100||!Number.isInteger(value.total)||value.total<value.tasks.length||(value.total>0&&value.tasks.length===0)||!hex(value.snapshotVersion,64))invalid();
  return {
   tasks:value.tasks.map(task=>publicTask(task,canReview)),total:value.total,snapshotVersion:value.snapshotVersion,nextCursor:scalar(value.nextCursor),
   academicYears:(Array.isArray(value.academicYears)?value.academicYears:[]).map(row=>({academicYear:scalar(row?.academicYear)})),
@@ -25,7 +25,17 @@ function createSqlSchedulingTaskRepository(db){
   try{return JSON.parse(rows[0]?.responseJson);}catch(_){invalid();}
  }
  return Object.freeze({
-  async list({actorFirebaseUid,query}){return publicQueue(await exec('ListSchedulingTasks',{ActorFirebaseUid:actorFirebaseUid,QueryJson:JSON.stringify(query)}));},
+  async list({actorFirebaseUid,query}){
+   const value=await exec('ListSchedulingTasks',{ActorFirebaseUid:actorFirebaseUid,QueryJson:JSON.stringify(query)});
+   // SQL Server FOR JSON PATH / JSON_QUERY can omit the nested tasks key
+   // when no rows exist. Normalize only the reviewed zero-result envelope
+   // at the SQL adapter boundary; malformed or nonempty queues still fail.
+   const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+   const omittedEmpty=object(value)&&!Object.hasOwn(value,'tasks')&&value.total===0&&hex(value.snapshotVersion,64)
+    &&value.nextCursor==null&&object(value.capabilities)&&typeof value.capabilities.canReview==='boolean'
+    &&(value.filters===undefined||object(value.filters))&&(value.academicYears===undefined||Array.isArray(value.academicYears));
+   return publicQueue(omittedEmpty?{...value,tasks:[]}:value);
+  },
   async review({actorFirebaseUid,issueKey,academicYear,expectedEvidenceVersion,expectedReviewVersion,reviewStatus}){
    return publicTask(await exec('ReviewSchedulingTask',{ActorFirebaseUid:actorFirebaseUid,IssueKey:issueKey,AcademicYear:academicYear,ExpectedEvidenceVersion:expectedEvidenceVersion,ExpectedReviewVersion:expectedReviewVersion,ReviewStatus:reviewStatus}));
   }

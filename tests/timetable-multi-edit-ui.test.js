@@ -6,13 +6,13 @@ const fs=require('node:fs');
 const root=repositoryPath(__dirname,'..');
 const read=name=>fs.readFileSync(repositoryPath(root,name),'utf8');
 
-test('timetable loads the legacy multi-edit controller but keeps its write controls closed',()=>{
+test('timetable loads the legacy multi-edit controller with separately authorized write controls',()=>{
  const html=read('index.html'),js=read('timetable.js');
  assert.ok(html.indexOf('timetable-selection.js')<html.indexOf('timetable.js'));
  assert.ok(html.indexOf('faculty-doe.js')<html.indexOf('timetable.js'));
  for(const id of ['select-sessions-btn','selection-cancel-btn','review-selected-btn','selection-count'])assert.match(html,new RegExp(`id=["']${id}["']`));
- assert.match(js,/\$\('selection-controls'\)\.classList\.add\('hidden'\)/);
- assert.match(js,/async function startSessionSelection\(\)\{\s*if\(!requireSessionWrites\(\)\)return/);
+ assert.match(js,/\$\('selection-controls'\)\.classList\.toggle\('hidden',!canEditExistingSqlSession\(\)\|\|!window\.UCVM_PAWS_DATA\?\.sessionBatchEditEnabled\?\.\(\)\)/);
+ assert.match(js,/async function startSessionSelection\(\)\{\s*if\(!window\.UCVM_PAWS_DATA\?\.sessionBatchEditEnabled/);
 });
 
 test('faculty choices use effective DOE and visibly label overrides',()=>{
@@ -25,18 +25,18 @@ test('faculty choices use effective DOE and visibly label overrides',()=>{
 test('selection mode is hidden until an authorized session API capability exists',()=>{
  const js=read('timetable.js');
  const client=read('paws-data-client.js');
- assert.match(js,/\$\('selection-controls'\)\.classList\.add\('hidden'\)/);
+ assert.match(js,/\$\('selection-controls'\)\.classList\.toggle\('hidden',!canEditExistingSqlSession\(\)\|\|!window\.UCVM_PAWS_DATA\?\.sessionBatchEditEnabled\?\.\(\)\)/);
  assert.match(client,/sessionWritesEnabled:\(\)=> false/);
  assert.match(client,/sessionEditEnabled:\(\)=> writeCapabilities\.sessionEdit===true/);
  assert.match(js,/async function saveSelectedChanges\(\)[\s\S]*?PAWS University API supports this operation[\s\S]*?return false/);
 });
 
-test('legacy spreadsheet mutation flow is dormant pending the trusted API',()=>{
+test('batch save uses the authorized University API rather than legacy stores',()=>{
  const js=read('timetable.js');
  const writer=js.match(/async function saveSelectedChanges\(\)\{([\s\S]*?)\n  \}/);
  assert.ok(writer);
  assert.match(writer[1],/PAWS University API supports this operation/);
- assert.doesNotMatch(writer[1],/batch|\.set\(|\.update\(|\.delete\(/);
+ assert.match(writer[1],/UCVM_PAWS_DATA\.patchSessionBatch\(edits\)/); assert.doesNotMatch(writer[1],/\.set\(|\.update\(|\.delete\(|firestore/i);
 });
 
 test('back to selection rerenders immediately instead of relying on a subscription change',()=>{

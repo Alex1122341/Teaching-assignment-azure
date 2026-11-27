@@ -1,11 +1,12 @@
 'use strict';
 
+// Authentication is keyed by verified Firebase UID and SQL role/status.
+// Do not read the login contact column: it is outside the reviewed base grant.
 function createSqlUserRepository(db) {
   return {
     async findByUid(uid, timing) {
       const rows = await db.query(
         `SELECT u.FirebaseUid AS firebaseUid,
-                u.Email AS email,
                 u.DisplayName AS displayName,
                 u.BaseRole AS baseRole,
                 u.FacultyId AS facultyId,

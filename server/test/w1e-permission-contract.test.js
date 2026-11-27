@@ -29,7 +29,7 @@ test('W1E permission contract covers every SQL repository object and stored proc
   procedures.push(...[...sources.matchAll(/\brun\(\s*'(SetRoleAppointmentPeriods|SetFacultyTeachingDoeInputs|SetFacultyContractAllocations|CheckFacultyContractDoeCap)'/g)]
     .map(match => `paws_api.${match[1]}`));
   const expectedObjects = [
-    ...contract.leadershipAccessProcedures, ...contract.teachingAccessReadFunctions, ...contract.accessWriteProcedures, ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
+    ...contract.leadershipAccessProcedures, ...contract.teachingAccessReadFunctions, ...contract.accessWriteProcedures, ...contract.ownerDirectoryReadProcedures, ...contract.readObjects, ...contract.p2ReadObjects, ...contract.p4ReadObjects, ...contract.manualReadObjects, ...contract.rolePeriodReadObjects, ...contract.rolePeriodWriteProcedures,
     ...contract.readProcedures, ...contract.p2ReadProcedures,
     ...contract.facultyDoeWriteProcedures, ...contract.facultyContractWriteProcedures, ...contract.afcSpecialLeaveWriteProcedures,
     ...Object.values(contract.writeSets).flat(), ...Object.values(contract.p2WriteSets).flat(),
@@ -53,6 +53,15 @@ test('account access has one dedicated unbound role and one atomic command with 
  assert.deepEqual([...sql.matchAll(/GRANT SELECT ON OBJECT::([\w.]+) TO paws_runtime_account_access/g)].map(m=>m[1]),contract.accessReadObjects);
  assert.match(sql,/GRANT SELECT ON OBJECT::paws\.UserProfile\s*\(AccessVersion\) TO paws_runtime_account_access/,'the new version column needs its own column-scoped read grant');
  assert.doesNotMatch(sql,/ALTER\s+ROLE[^;]+ADD\s+MEMBER|GRANT\s+(?:UPDATE|INSERT|DELETE)\s+ON|GRANT\s+EXECUTE\s+ON\s+SCHEMA/i);
+});
+
+test('Owner directory migration grants only object-scoped EXECUTE to the existing account-access role', () => {
+  const sql = fs.readFileSync(path.join(root, 'database/azure-sql/073_owner_account_directory_read.sql'), 'utf8');
+  const grants = [...sql.matchAll(/\bGRANT\s+([^;]+);/gi)].map(match => match[1].replace(/\s+/g, ' ').trim());
+  assert.deepEqual(grants, contract.ownerDirectoryReadProcedures.map(
+    procedure => `EXECUTE ON OBJECT::${procedure} TO paws_runtime_account_access`
+  ));
+  assert.doesNotMatch(sql, /\bALTER\s+ROLE\b|\bCREATE\s+(?:USER|ROLE)\b|\bWITH\s+EXECUTE\s+AS\b/i);
 });
 
 test('record originals grant metadata view reads and scoped atomic commands without raw PDF table access or runtime memberships',()=>{

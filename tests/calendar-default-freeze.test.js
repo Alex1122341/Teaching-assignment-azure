@@ -27,7 +27,7 @@ test('Calendar default promotion retains the effective-access receipt and change
  assert.deepEqual(after,before);
  assert.equal(after.length,96);
  assert.deepEqual(changed(after),['calendar-activities.js','timetable.js']);
- assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,96);
+ assert.equal(freeze.protectedPaths({root,readManifest:()=>['index.html']}).length,97);
  assert.equal(freeze.verifyFreeze({root}).ok,true);
 });
 test('Calendar default promotion preserves all127 API files and three package/build inputs byte-for-byte',()=>{

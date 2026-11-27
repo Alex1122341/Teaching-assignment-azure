@@ -137,6 +137,7 @@ function createSwaSqlRuntime({ env = process.env, admin = require('firebase-admi
     findUser: users.findByUid,
     listSessions: sessions.list,
     updateSession: sessions.updateExisting,
+    updateSessionBatch: sessions.updateBatch,
     createSession: sessions.createNew,
     createSessionBatch: sessions.createBatch,
     replaceSessionAssignments: sessions.replaceAssignments,

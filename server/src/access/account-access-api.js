@@ -58,12 +58,13 @@ function createAccountAccessApi({verifyToken,findUser,repository,writeEnabled=fa
    const auth=await authorize(token);if(auth.response)return auth.response;
    if(!closed(input,['search','offset'])||input.search!==undefined&&(typeof input.search!=='string'||input.search.length>120)||input.offset!==undefined&&(!Number.isSafeInteger(input.offset)||input.offset<0||input.offset%50))return fail(400,'INVALID_ACCESS_QUERY','Provide a search and a valid page offset.');
    try{
-    const profiles=await repository.list();if(!Array.isArray(profiles))throw Error('Invalid account source');
+    if(!VERSION.test(auth.profile.version||''))throw Error('Access version unavailable');
+    const profiles=await repository.list({actorUid:auth.uid,actorVersion:auth.profile.version});if(!Array.isArray(profiles))throw Error('Invalid account source');
     if(profiles.length>1000)return fail(413,'ACCESS_LIMIT','The account directory exceeds its bounded limit.');
     const query=(input.search||'').trim().toLowerCase(),rows=profiles.map(account).filter(row=>!query||[row.displayName,row.email,row.role].some(value=>String(value||'').toLowerCase().includes(query))).sort((a,b)=>a.displayName.localeCompare(b.displayName,'en')||a.uid.localeCompare(b.uid));
     const changed=await recheck(token,auth);if(changed)return changed;const offset=input.offset||0;
     return ok({authority:'University SQL',total:rows.length,offset,pageSize:50,accounts:rows.slice(offset,offset+50)});
-   }catch(_){return fail(503,'ACCESS_UNAVAILABLE','Accounts could not be loaded. No permissions were changed.');}
+   }catch(error){if(Number(error?.number)===57302)return fail(403,'ACCESS_CHANGED','Your effective access changed. Refresh before continuing.');return fail(503,'ACCESS_UNAVAILABLE','Accounts could not be loaded. No permissions were changed.');}
   },
   async preview(token,input){
    const auth=await authorize(token);if(auth.response)return auth.response;

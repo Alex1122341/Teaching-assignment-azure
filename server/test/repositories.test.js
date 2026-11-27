@@ -10,7 +10,8 @@ test('user lookup is exact UID, read-only and includes password-change gate', as
   assert.equal(await repository.findByUid('u'), null);
   assert.match(sql, /FROM paws\.UserProfile/);
   assert.match(sql, /MustChangePassword/);
-  assert.match(sql, /Email AS email/);
+  // A login identity must work with the reviewed column-scoped read grant.
+  assert.doesNotMatch(sql, /\bEmail\b/i);
   assert.match(sql, /FirebaseUid = @uid/);
   assert.doesNotMatch(sql, /INSERT|UPDATE|DELETE|staging\./i);
 });
@@ -32,4 +33,18 @@ test('unbounded session repository query targets the full canonical view', async
   assert.match(seen.query, /FROM paws\.vCalendarSession c/);
   assert.doesNotMatch(seen.query, /SessionDate >=/);
   assert.deepEqual(seen.params, {});
+});
+
+
+test('SQL identity omits unnecessary login contacts while /me retains its nullable response field',async()=>{
+  const {createDataApi}=require('../src/data/data-api');
+  const repository=createSqlUserRepository({query:async (query,params)=>{
+    assert.doesNotMatch(query,/\bEmail\b/i);assert.deepEqual(params,{uid:'synthetic'});
+    return [{firebaseUid:'synthetic',baseRole:'adfa_regular',active:true,mustChangePassword:false,displayName:'Synthetic Account',facultyId:null}];
+  }});
+  const api=createDataApi({verifyToken:async()=>({uid:'synthetic',email:'unrelated-contact@example.test'}),findUser:repository.findByUid,listSessions:async()=>[]});
+  const result=await api.currentUser('verified-test-token');
+  assert.equal(result.status,200);assert.equal(result.body.profile.email,null);
+  assert.equal(result.body.profile.role,'adfa_regular');
+  assert.doesNotMatch(JSON.stringify(result.body),/unrelated-contact@example\.test/);
 });

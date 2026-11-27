@@ -1,0 +1,146 @@
+name: PR 171 - Isolated Authenticated Browser QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pr171-authenticated-browser-qa.yml'
+      - 'tools/test-pr171-browser-schema.ps1'
+      - 'tools/test-pr171-authenticated-browser.cjs'
+      - 'tools/test-pr171-annual-reference.cjs'
+      - 'tools/test-pr171-owner-directory.cjs'
+      - 'tools/test-pr171-login-ux-compare.cjs'
+permissions:
+  contents: read
+concurrency:
+  group: pr171-browser-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    if: github.event.pull_request.number == 171
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      ORIGINAL_PRODUCT_SHA: 343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8
+      PRODUCT_SHA: 75191cd454064a70293d34c549338469aa34fbb8
+      GOVERNANCE_SHA: 5d90e1ffffafa4ba3b482abd010355d6abfa6e4e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Check exact review candidate and unchanged approved governance
+        shell: bash
+        run: |
+          git rev-parse HEAD
+          git merge-base --is-ancestor "$ORIGINAL_PRODUCT_SHA" "$PRODUCT_SHA"
+          git merge-base --is-ancestor "$PRODUCT_SHA" HEAD
+          # New product is an unapproved-for-release review candidate. Its
+          # only protected delta from the accepted anchor must be these files.
+          actual="$(git diff --name-only "$ORIGINAL_PRODUCT_SHA" "$PRODUCT_SHA" -- frontend server/src swa-api database/azure-sql tools/static-assets.json deploy/aca/Dockerfile server/package.json server/package-lock.json package.json package-lock.json firestore.rules firestore.indexes.json)"
+          expected="$(printf '%s\n' database/azure-sql/073_owner_account_directory_read.sql database/azure-sql/rollback_073_owner_account_directory_read.sql frontend/scripts/calendar-tested-features.js frontend/scripts/effective-access-guard.js frontend/scripts/timetable.js server/src/access/account-access-api.js server/src/afc/afc-request-api.js server/src/data/sql-account-access-repository.js server/src/data/sql-scheduling-task-repository.js server/src/data/sql-user-repository.js)"
+          test "$actual" = "$expected"
+          git merge-base --is-ancestor "$GOVERNANCE_SHA" HEAD
+          git diff --exit-code "$PRODUCT_SHA" HEAD -- frontend server/src swa-api database/azure-sql tools/static-assets.json deploy/aca/Dockerfile server/package.json server/package-lock.json package.json package-lock.json firestore.rules firestore.indexes.json
+          git diff --exit-code "$GOVERNANCE_SHA" HEAD -- tools/beta-freeze.js tools/beta-api-freeze.js tools/beta-baseline.json
+      - name: Materialize immutable original product for same-identity comparison
+        shell: bash
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/paws-pr171-original" "$ORIGINAL_PRODUCT_SHA"
+          test "$(git -C "$RUNNER_TEMP/paws-pr171-original" rev-parse HEAD)" = "$ORIGINAL_PRODUCT_SHA"
+          echo "PAWS_BASELINE_ROOT=$RUNNER_TEMP/paws-pr171-original" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm ci --prefix server
+      - name: Focused identity and authorization regression
+        run: node --test server/test/repositories.test.js server/test/account-access-repository.test.js server/test/account-access-api.test.js server/test/account-access-runtime.test.js server/test/effective-teaching-identity.test.js server/test/runtime.test.js server/test/me-server-timing.test.js
+      - name: Focused frontend logout and unchanged access guard regression
+        run: node --test tests/effective-access-guard.test.js tests/account-access-client.test.js tests/session-guard.test.js tests/b2a1-auth-continuity.test.js tests/timetable-azure-sql-read.test.js
+      - name: Focused Calendar office capability and task read contract regression
+        run: node --test server/test/p3b1-afc-request-domain.test.js server/test/p3b1-afc-request-runtime.test.js server/test/p3b2-afc-approval-domain.test.js server/test/ux07-afc-date-edit.test.js server/test/scheduling-task-repository.test.js server/test/scheduling-task-api.test.js server/test/scheduling-task-runtime.test.js server/test/session-batch-edit-api.test.js
+      - name: Focused workflow notification source and identity isolation regression
+        run: node --test tests/calendar-tested-features.test.js
+      - name: Complete login function boundary and original-candidate deferred behavior
+        run: |
+          node --test tests/b2b-login-ux-performance.test.js
+          node tools/test-pr171-login-ux-compare.cjs
+      - name: Build exact static assets
+        run: npm run build
+      - name: Install browser-only tooling outside repository
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/paws-browser-tools" --no-save --package-lock=false playwright@1.56.1 firebase@9.23.0
+          "$RUNNER_TEMP/paws-browser-tools/node_modules/.bin/playwright" install --with-deps chromium
+          echo "PAWS_BROWSER_TOOLS=$RUNNER_TEMP/paws-browser-tools/node_modules" >> "$GITHUB_ENV"
+      - name: Start disposable SQL (no University network)
+        id: sql
+        shell: pwsh
+        run: |
+          $testPassword='Synthetic-'+[guid]::NewGuid().ToString()+'!Aa1'
+          $marker=[guid]::NewGuid().ToString()
+          Write-Output "::add-mask::$testPassword"
+          "PAWS_SQL_TEST_PASSWORD=$testPassword" >> $env:GITHUB_ENV
+          "PAWS_BROWSER_TEST_MARKER=$marker" >> $env:GITHUB_ENV
+          docker run --name paws-calendar-pr171-browser --label paws.calendar-test=1 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$testPassword" -p 127.0.0.1:14339:1433 -d mcr.microsoft.com/mssql/server:2022-latest@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
+          if($LASTEXITCODE -ne 0){throw 'Disposable SQL start failed'}
+          $ready=$false
+          for($attempt=0;$attempt -lt 60;$attempt++){
+            docker exec -e "SQLCMDPASSWORD=$testPassword" paws-calendar-pr171-browser /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1' 2>$null | Out-Null
+            if($LASTEXITCODE -eq 0){$ready=$true;break}
+            Start-Sleep -Seconds 2
+          }
+          if(-not $ready){throw 'Disposable SQL did not become ready'}
+      - name: Apply isolated reviewed schema through 072
+        shell: pwsh
+        run: ./tools/test-pr171-browser-schema.ps1
+      - name: Auth emulator, real SQL API, desktop and mobile browser roles
+        shell: bash
+        env:
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+          GCLOUD_PROJECT: demo-paws-pr171
+          GOOGLE_CLOUD_PROJECT: demo-paws-pr171
+        run: |
+          mkdir -p "$RUNNER_TEMP/paws-browser-evidence"
+          export PAWS_BROWSER_EVIDENCE="$RUNNER_TEMP/paws-browser-evidence"
+          ./node_modules/.bin/firebase emulators:exec --only auth,firestore --project demo-paws-pr171 "node tools/test-pr171-authenticated-browser.cjs"
+      - name: Upload synthetic screenshots and receipt (no passwords or tokens)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr171-isolated-browser-evidence
+          path: ${{ runner.temp }}/paws-browser-evidence
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Remove disposable SQL
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          # An empty result is expected if preparation failed before docker run.
+          # Do not mistake a Docker daemon/listing failure for an absent container.
+          container="$(docker container ls --all --quiet --filter 'name=^/paws-calendar-pr171-browser$')"
+          if [[ -z "$container" ]]; then
+            echo 'BROWSER_SQL_CLEANUP_OK: container absent; nothing removed'
+            exit 0
+          fi
+          if [[ ! "$container" =~ ^[a-f0-9]{12,64}$ ]]; then
+            echo 'Refusing ambiguous container identity' >&2
+            exit 1
+          fi
+          name="$(docker container inspect --format '{{.Name}}' "$container")"
+          label="$(docker container inspect --format '{{index .Config.Labels "paws.calendar-test"}}' "$container")"
+          if [[ "$name" != '/paws-calendar-pr171-browser' || "$label" != '1' ]]; then
+            echo 'Refusing to remove non-QA container' >&2
+            exit 1
+          fi
+          docker container rm --force "$container" >/dev/null
+          remaining="$(docker container ls --all --quiet --filter 'name=^/paws-calendar-pr171-browser$')"
+          [[ -z "$remaining" ]]
+          echo 'BROWSER_SQL_CLEANUP_OK: labeled disposable container removed'

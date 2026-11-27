@@ -221,12 +221,13 @@ test('9. successful interactive login settles the in-flight state after T7',()=>
   assert.match(s,/settleInteractiveLogin\(true\)/);
 });
 test('10. login modal stays open until protected UI reaches T7',()=>{
-  const s=timetable();
-  const start=s.indexOf('async function bootstrapForUser');
-  const body=s.slice(start,start+3300);
+  // Inspect the complete production function, not a fixed character budget.
+  const body=sourceFunction('timetable.js','bootstrapForUser');
   const unlock=body.indexOf('setAppLocked(false)');
+  const t7=body.indexOf("markLoginStage('T7')");
   const close=body.indexOf('closeModal()');
   assert.ok(unlock>=0&&close>unlock,'modal closes only after unlock');
+  assert.ok(t7>unlock&&close>t7,'modal closes only after T7');
 });
 test('11. restored session shows saved-login checking rather than Signing in',()=>{
   const s=timetable();
@@ -397,9 +398,7 @@ test('26. ready validates account policy without awaiting optional Firestore enr
   assert.doesNotMatch(body,/await\s+linkFacultyIdentity|await\s+enrichFacultyIdentity/);
 });
 test('27. optional faculty enrichment is deferred until after T7',()=>{
-  const s=timetable();
-  const start=s.indexOf('async function bootstrapForUser');
-  const body=s.slice(start,start+3800);
+  const body=sourceFunction('timetable.js','bootstrapForUser');
   const t7=body.indexOf("markLoginStage('T7')");
   const defer=body.indexOf('scheduleOptionalFacultyEnrichment');
   assert.ok(t7>=0&&defer>t7,'optional enrichment starts after T7');

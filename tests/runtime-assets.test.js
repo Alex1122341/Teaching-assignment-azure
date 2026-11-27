@@ -20,7 +20,9 @@ test('retired faculty assets are absent from disk, manifest and all runtime link
 
 test('production manifest contains the complete static dependency graph and no stale visible names',()=>{
  const manifest=JSON.parse(read('tools/static-assets.json'));
-  assert.equal(manifest.length,96);
+  assert.equal(manifest.length,97);
+ assert.equal(new Set(manifest).size,manifest.length,'static asset entries must be unique');
+ assert.ok(manifest.includes('calendar-tested-features.js'),'accepted candidate asset must be packaged');
  for(const name of ['schedule-filter-view.js','workspace-navigation.js','office-workspace.js','faculty-route-access.js'])assert.ok(manifest.includes(name),name);
  for(const name of ['faculty-availability.js','faculty-availability.css','faculty-admin-trainees.js','faculty-admin-trainees.css','ccc-schedule.js','ccc-schedule.css','leadership-directory.js','leadership-directory.css'])assert.ok(manifest.includes(name),name);
  for(const name of ['change-history.js','change-history.css','approval-scheduling.js','afc-form-values.js','afc-form-state.js','afc-timetable-panel.js','audit-details.js','derived-index-health.js','faculty-account-planner.js','faculty-doe.js','faculty-swap-handoff.js','faculty-swap-safe.js','index-maintenance.js','paws-auth-continuity.js','paws-login-performance.js','scheduling-core.js','timetable-selection.js','user-management.css'])assert.ok(manifest.includes(name),name);
@@ -35,6 +37,8 @@ test('production manifest contains the complete static dependency graph and no s
  // fall back to one render per keystroke without failing anything else.
  const calendarPage=read('index.html'),calendarModule=calendarPage.indexOf('calendar-search.js');
  assert.ok(manifest.includes('calendar-search.js'));
+ const featureModule=calendarPage.indexOf('src="calendar-tested-features.js"');
+ assert.ok(featureModule>=0&&featureModule<calendarPage.indexOf('src="timetable.js"'),'calendar-tested-features.js loads before timetable.js');
  assert.ok(calendarModule>=0&&calendarModule<calendarPage.indexOf('src="timetable.js"'),'calendar-search.js loads before timetable.js');
  assert.match(read('timetable.js'),/^\s*bindCalendarSearchInput\(\);$/m);
 });

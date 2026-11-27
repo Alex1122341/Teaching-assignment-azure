@@ -17,3 +17,28 @@ test('invalid database payload never becomes a successful conflict-free queue',a
   await assert.rejects(repository.list({actorFirebaseUid:'verified',query:{academicYear:'2026-27'}}),{code:'INVALID_SCHEDULING_RESPONSE'});
  }
 });
+
+test('SQL list adapter accepts only an authoritative zero-row envelope with omitted tasks',async()=>{
+ const envelope={total:0,snapshotVersion:KEY,academicYears:[{academicYear:'2026-27'}],filters:{},capabilities:{canReview:true}};
+ const list=async value=>createSqlSchedulingTaskRepository({query:async()=>[{responseJson:JSON.stringify(value)}]}).list({actorFirebaseUid:'verified',query:{academicYear:'2026-27'}});
+ const result=await list(envelope);
+ assert.deepEqual(result.tasks,[]);assert.equal(result.total,0);assert.equal(result.snapshotVersion,KEY);
+ assert.deepEqual(result.filters,{faculty:[],courses:[]});assert.equal(result.capabilities.canReview,true);
+ assert.deepEqual(await list({...envelope,tasks:[]}),result);
+ for(const bad of [
+  {...envelope,total:1},{...envelope,total:1,tasks:[]},{...envelope,tasks:null},
+  {...envelope,tasks:'[]'},{...envelope,tasks:{}},{...envelope,snapshotVersion:'bad'},
+  {...envelope,nextCursor:KEY+':1'},{...envelope,capabilities:undefined},
+  {...envelope,capabilities:{canReview:'true'}},{...envelope,filters:[]},
+  {...envelope,academicYears:{}}
+ ])await assert.rejects(list(bad),{code:'INVALID_SCHEDULING_RESPONSE'});
+ // The SQL-specific compatibility rule must not loosen publicQueue for
+ // arbitrary upstream callers or bypass per-task public field validation.
+ const {publicQueue}=require('../src/data/sql-scheduling-task-repository');
+ assert.throws(()=>publicQueue(envelope),{code:'INVALID_SCHEDULING_RESPONSE'});
+ const task={issueKey:KEY,evidenceVersion:EVIDENCE,reviewVersion:'0000000000000000',type:'instructor_overlap',severity:'Conflict',reviewStatus:'Unreviewed',canReview:true,sessionId:'synthetic',relatedSessions:[],email:'PRIVATE'};
+ const populated=await list({...envelope,tasks:[task],total:1});
+ assert.equal(populated.tasks.length,1);assert.equal(populated.tasks[0].sessionId,'synthetic');
+ assert.doesNotMatch(JSON.stringify(populated),/PRIVATE|email/);
+ await assert.rejects(list({...envelope,tasks:[{...task,issueKey:'bad'}],total:1}),{code:'INVALID_SCHEDULING_RESPONSE'});
+});

@@ -1,8 +1,12 @@
 # PAWS Beta — Verified Source Checkpoint
 
-## 2026-11-24 Faculty Availability coordination candidate
+## 2026-11-25 Testing parity candidate (not live)
 
-[Coordination scope and release notes](../docs/faculty-availability-coordination.md) cover multi-Faculty queries, Agenda, Summary, Timeline, common time, and the additive read-only migration 072. This work is for Owner review. Check CI and independent review on the exact candidate head before considering any merge or release.
+[Draft PR #171](https://github.com/Alex1122341/Teaching-assignment-azure/pull/171) contains University Closures, Workflow Notifications, gated Select Sessions batch editing and the Owner directory candidate with SQL 073. The exact candidate product is `75191cd454064a70293d34c549338469aa34fbb8`. At `8d2b7aa2f238b132b43f61c631fd74f65291ae94`, isolated browser and DOE rollback CI passed. The Beta build stopped on 58 active freeze assertions, and Exact Product Review stopped before DOE SQL because its checkout still pinned an earlier product. Exact Product Review now binds to the candidate and reads the earlier Owner-approved governance receipt `5d90e1ffffafa4ba3b482abd010355d6abfa6e4e` at its own commit. The active PR freeze still pins `343f04b06f7360d0b5ee3b1ab0c9d8bda4a6ded8`. Re-fetch the PR head and CI before signoff. Dot owns independent acceptance. University Staging, real Firebase and mobile acceptance, annual DOE reconciliation, SQL 073 authorization and candidate freeze approval remain open. See the [handoff](updates/2026-11-25-testing-pass-parity.md) and [University UAT gates](../docs/testing/pr171-university-uat-gates.md).
+
+## 2026-11-25 Faculty Availability coordination merged to main (not live evidence)
+
+[Coordination scope and release notes](../docs/faculty-availability-coordination.md) cover multi-Faculty queries, Agenda, Summary, Timeline, common time, and the additive read-only migration 072. PR #170 merged to main at f10f7eb2bec22447359627bf814b2b551512e108. Its accepted shared freeze anchor is 54a8e23cc88b628eb5cf3234c29388b7f800dfb9. This is repository evidence only, not proof of migration 072, runtime or Hosting deployment. Check exact-main CI and separately authorized deployment evidence.
 
 ## 2026-11-24 AFC multi-input
 

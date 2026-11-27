@@ -285,6 +285,7 @@
       // their own explicit capabilities below.
       sessionWritesEnabled:()=> false,
       sessionEditEnabled:()=> writeCapabilities.sessionEdit===true,
+      sessionBatchEditEnabled:()=> writeCapabilities.sessionEdit===true&&writeCapabilities.sessionBatchEdit===true,
       sessionCreateEnabled:()=> writeCapabilities.sessionCreate===true,
       afcSingleWriteEnabled:()=> writeCapabilities.afcSingle===true,
       afcBatchWriteEnabled:()=> writeCapabilities.afcBatch===true,
@@ -340,10 +341,13 @@
         return facultyAdminWriteCapability===true;
       },
       async refreshWriteCapabilities(){
+        // Fail closed while reloading capabilities, including when the account or API changes.
+        writeCapabilities=Object.freeze({...writeCapabilities,sessionEdit:false,sessionBatchEdit:false,sessionCreate:false,afcSingle:false,afcBatch:false,requestLifecycle:false,decisions:false,approvedArtifactCreation:false,dateChange:false});
         const body=await request('/api/v1/afc-requests/write-capabilities');
         const value=body&&typeof body.writeCapabilities==='object'?body.writeCapabilities:{};
         writeCapabilities=Object.freeze({...writeCapabilities,
           sessionEdit:value.sessionEdit===true,
+          sessionBatchEdit:value.sessionBatchEdit===true,
           sessionCreate:value.sessionCreate===true,
           afcSingle:value.afcSingle===true,
           afcBatch:value.afcBatch===true,
@@ -436,6 +440,9 @@
         const suffix=query.toString()?'?'+query.toString():'';
         const body=await request('/api/v1/sessions'+suffix);
         return Array.isArray(body.sessions)?body.sessions:[];
+      },
+      async patchSessionBatch(edits){
+        return request('/api/v1/sessions/batch-edit',{method:'POST',body:{edits}});
       },
       async patchSession(sessionId, patch){
         const id=String(sessionId??'').trim();
